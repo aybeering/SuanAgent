@@ -16,6 +16,7 @@
   },
   "strategy_path": "strategies/current_strategy.py",
   "strategy_modifier": "fixed_patch_stub",
+  "stop_on_repeated_proposal": true,
   "codex_cli": {
     "executable": "codex",
     "model": "default",

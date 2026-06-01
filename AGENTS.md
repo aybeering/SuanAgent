@@ -26,10 +26,13 @@ V0.5 builds on that by adding a minimal self-iteration skeleton:
 7. Compare old and new validation metrics with the policy gate.
 8. Accept and commit the patch only if policy passes.
 9. Reject and roll back the patch if policy fails.
-10. Repeat until accepted or the max-round limit is reached.
+10. Repeat until accepted, a failed patch repeats, or the max-round limit is reached.
 
 V0.5 is not the full multi-agent system. It is the smallest deterministic loop
 that proves the self-iteration control flow works.
+
+The loop should stop early when a rejected patch is repeated, unless repeated
+proposals are explicitly allowed for max-round smoke testing.
 
 ## Core principle
 
@@ -60,8 +63,10 @@ Allowed components:
 13. Git apply, accept commit, and reject rollback helpers.
 14. Round-based experiment outputs.
 15. Config-driven dataset, policy, and modifier settings.
-16. Clear tests and smoke checks.
-17. GitHub Actions CI for deterministic smoke validation.
+16. Proposal quality metadata and repeated-patch detection.
+17. Repeated-proposal stop control.
+18. Clear tests and smoke checks.
+19. GitHub Actions CI for deterministic smoke validation.
 
 Still out of scope:
 
@@ -333,12 +338,13 @@ Add smoke tests that verify:
 7. The strategy modifier stub generates a fixed patch.
 8. Reject rolls back the strategy file.
 9. Accept can stop the loop under relaxed test rules.
-10. The max-round guard stops repeated rejections.
-11. Config loading exposes train, validation, and holdout splits.
-12. Invalid strategy orders are rejected before simulation.
-13. The dry-run Codex adapter records a non-applicable proposal without changing files.
-14. Patch parsing rejects changes outside `strategies/current_strategy.py`.
-15. Isolated workspaces copy the minimal project without `.git`.
+10. The repeated-proposal guard stops duplicate failed patches.
+11. The max-round guard still works when repeated proposals are explicitly allowed.
+12. Config loading exposes train, validation, and holdout splits.
+13. Invalid strategy orders are rejected before simulation.
+14. The dry-run Codex adapter records a non-applicable proposal without changing files.
+15. Patch parsing rejects changes outside `strategies/current_strategy.py`.
+16. Isolated workspaces copy the minimal project without `.git`.
 
 The project is complete only when these checks pass:
 
@@ -370,8 +376,10 @@ When the V0.5 loop runs, it should:
 11. Save `decision.json`.
 12. Accept and commit if policy passes.
 13. Reject and roll back if policy fails.
-14. Save `manifest.json`.
-15. Print a short final summary.
+14. Stop with `stopped_repeated_proposal` if the rejected patch repeats a prior round.
+15. Stop with `stopped_max_rounds` if max rounds is reached.
+16. Save `manifest.json`.
+17. Print a short final summary.
 
 The configured modifier may also be `codex_dry_run`, `codex_cli_dry_run`, or
 `codex_cli`. The `codex_cli` adapter must default to `execute=false`; only an

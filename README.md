@@ -14,7 +14,8 @@ rolls back the change through Git based on the same deterministic policy gate.
 
 Default run settings live in `config/default.json`. The iteration loop uses
 train data for the agent report, validation data for the policy gate, and
-holdout data for observation-only reports.
+holdout data for observation-only reports. By default, the iteration loop stops
+early when an agent repeats a previously rejected patch.
 
 The strategy interface contract is documented in
 `docs/strategy_interface.md`. The current modifier backend is selected with
@@ -49,6 +50,7 @@ Useful mode switches:
 ```bash
 python -m orchestrator.iteration_loop --config config/codex_dry_run.json --run-id dry-run-demo
 python -m orchestrator.iteration_loop --config config/codex_cli_guarded.json --run-id guarded-demo --max-rounds 1
+python -m orchestrator.iteration_loop --allow-repeated-proposals --run-id max-round-demo
 python -m orchestrator.run_loop --config config/default.json --run-id single-run-demo
 python -m orchestrator.preflight --config config/codex_cli_guarded.json
 python -m orchestrator.experiments show dry-run-demo
@@ -72,6 +74,8 @@ The multi-round loop also writes per-round train and holdout artifacts, a
 human-readable `summary.md`, and an append-only `experiments/index.jsonl`.
 Iteration summaries include proposal hypotheses, expected metric changes, risk
 notes, patch fingerprints, and repeat-patch detection.
+Iteration status is one of `accepted`, `stopped_repeated_proposal`,
+`stopped_max_rounds`, or `failed`.
 
 Use `python -m orchestrator.experiments list` and
 `python -m orchestrator.experiments show <run_id>` to inspect local experiment

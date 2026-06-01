@@ -72,6 +72,7 @@ def write_iteration_summary(
         f"- Status: `{display_value(manifest.get('status'))}`",
         f"- Completed rounds: `{display_value(manifest.get('completed_rounds'))}`",
         f"- Accepted round: `{display_value(manifest.get('accepted_round'))}`",
+        f"- Stop reason: `{display_value(manifest.get('stop_reason'))}`",
         f"- Final strategy commit: `{display_value(manifest.get('final_strategy_commit'))}`",
     ]
 

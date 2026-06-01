@@ -73,6 +73,7 @@ def test_default_config_loads_dataset_splits() -> None:
     assert config.datasets["validation"] == "data/validation/sample_markets.csv"
     assert config.datasets["holdout"] == "data/holdout/sample_markets.csv"
     assert config.policy["min_ev_improvement"] == 0.01
+    assert config.stop_on_repeated_proposal is True
 
 
 def test_example_configs_load_modifier_modes() -> None:
@@ -244,7 +245,12 @@ def test_iteration_loop_accepts_and_stops_with_relaxed_rules(tmp_path: Path) -> 
 def test_iteration_loop_runs_at_most_five_rounds(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
 
-    manifest = run_iteration_loop(run_id="max-rounds", max_rounds=5, repo_root=repo)
+    manifest = run_iteration_loop(
+        run_id="max-rounds",
+        max_rounds=5,
+        repo_root=repo,
+        stop_on_repeated_proposal=False,
+    )
 
     assert manifest["status"] == "stopped_max_rounds"
     assert manifest["completed_rounds"] == 5
@@ -267,6 +273,32 @@ def test_iteration_loop_runs_at_most_five_rounds(tmp_path: Path) -> None:
     assert round_001["quality_checks"]["has_hypotheses"] is True
     assert round_002["is_repeat_patch"] is True
     assert round_002["repeat_of_round"] == "round_001"
+
+
+def test_iteration_loop_stops_on_repeated_proposal_by_default(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+
+    manifest = run_iteration_loop(run_id="repeat-stop", max_rounds=5, repo_root=repo)
+
+    assert manifest["status"] == "stopped_repeated_proposal"
+    assert manifest["completed_rounds"] == 2
+    assert manifest["stop_reason"] == "round_002 repeated patch from round_001"
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+    run_dir = repo / "experiments/repeat-stop"
+    saved_manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    proposal = json.loads(
+        (run_dir / "round_002/proposal.json").read_text(encoding="utf-8")
+    )
+    summary_text = (run_dir / "summary.md").read_text(encoding="utf-8")
+
+    assert saved_manifest["status"] == "stopped_repeated_proposal"
+    assert saved_manifest["stop_reason"] == "round_002 repeated patch from round_001"
+    assert proposal["is_repeat_patch"] is True
+    assert "yes (round_001)" in summary_text
+    assert "- Stop reason: `round_002 repeated patch from round_001`" in summary_text
 
 
 def test_iteration_loop_initializes_git_when_missing(tmp_path: Path) -> None:
@@ -329,6 +361,7 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
         },
         stub_old_threshold=default.stub_old_threshold,
         stub_new_threshold=default.stub_new_threshold,
+        stop_on_repeated_proposal=default.stop_on_repeated_proposal,
     )
 
     manifest = run_iteration_loop(
@@ -390,6 +423,7 @@ def test_codex_cli_adapter_disabled_does_not_execute(tmp_path: Path) -> None:
         },
         stub_old_threshold=default.stub_old_threshold,
         stub_new_threshold=default.stub_new_threshold,
+        stop_on_repeated_proposal=default.stop_on_repeated_proposal,
     )
 
     run_iteration_loop(run_id="codex-disabled", max_rounds=1, repo_root=repo, config=config)

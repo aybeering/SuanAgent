@@ -25,6 +25,7 @@ class ProjectConfig:
     modifier_settings: dict[str, object]
     stub_old_threshold: str
     stub_new_threshold: str
+    stop_on_repeated_proposal: bool
 
     def resolve_path(self, repo_root: Path, path_text: str) -> Path:
         """Resolve config paths relative to the repository root."""
@@ -67,4 +68,5 @@ def load_project_config(
         },
         stub_old_threshold=str(stub["old_threshold"]),
         stub_new_threshold=str(stub["new_threshold"]),
+        stop_on_repeated_proposal=bool(raw.get("stop_on_repeated_proposal", True)),
     )

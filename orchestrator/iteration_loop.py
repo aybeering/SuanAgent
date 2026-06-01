@@ -44,6 +44,7 @@ def run_iteration_loop(
     policy_rules: dict[str, float | int] | None = None,
     config_path: Path | None = None,
     config: ProjectConfig | None = None,
+    stop_on_repeated_proposal: bool | None = None,
 ) -> dict[str, object]:
     """Run the V0.5 self-iteration skeleton until accepted or max rounds."""
     repo_root = repo_root.resolve()
@@ -64,6 +65,11 @@ def run_iteration_loop(
     )
     holdout_data_path = active_config.dataset_path(repo_root, "holdout")
     active_policy_rules = policy_rules or active_config.policy
+    active_stop_on_repeated_proposal = (
+        active_config.stop_on_repeated_proposal
+        if stop_on_repeated_proposal is None
+        else stop_on_repeated_proposal
+    )
     modifier = get_strategy_modifier(
         active_config.strategy_modifier,
         active_config.modifier_settings,
@@ -86,6 +92,8 @@ def run_iteration_loop(
         "completed_rounds": 0,
         "accepted_round": None,
         "final_strategy_commit": None,
+        "stop_on_repeated_proposal": active_stop_on_repeated_proposal,
+        "stop_reason": None,
         "rounds": [],
     }
 
@@ -139,7 +147,26 @@ def run_iteration_loop(
                 rollback_strategy(repo_root, strategy_path)
                 clear_strategy_import(repo_root, strategy_module)
 
+                if (
+                    active_stop_on_repeated_proposal
+                    and round_summary["proposal_is_repeat"]
+                ):
+                    manifest["status"] = "stopped_repeated_proposal"
+                    manifest["stop_reason"] = (
+                        f"{round_id} repeated patch from "
+                        f"{round_summary['proposal_repeat_of_round']}"
+                    )
+                    manifest["final_strategy_commit"] = current_commit(repo_root)
+                    write_json(run_dir / "manifest.json", manifest)
+                    write_iteration_summary(run_dir=run_dir, manifest=manifest)
+                    append_experiment_index(
+                        experiments_dir=active_experiments_dir,
+                        record=index_record(manifest),
+                    )
+                    return manifest
+
         manifest["status"] = "stopped_max_rounds"
+        manifest["stop_reason"] = "max_rounds reached"
         manifest["final_strategy_commit"] = current_commit(repo_root)
         write_json(run_dir / "manifest.json", manifest)
         write_iteration_summary(run_dir=run_dir, manifest=manifest)
@@ -264,6 +291,9 @@ def run_round(
         "accepted": decision["accepted"],
         "reasons": decision["reasons"],
         "proposal_applicable": proposal.applicable,
+        "proposal_patch_sha256": proposal.patch_sha256,
+        "proposal_is_repeat": proposal.is_repeat_patch,
+        "proposal_repeat_of_round": proposal.repeat_of_round,
         "before_trade_count": len(trades_before),
         "after_trade_count": len(trades_after),
         "train_before_trade_count": len(train_trades_before),
@@ -288,6 +318,7 @@ def index_record(manifest: dict[str, object]) -> dict[str, object]:
         "completed_rounds": manifest["completed_rounds"],
         "accepted_round": manifest["accepted_round"],
         "final_strategy_commit": manifest["final_strategy_commit"],
+        "stop_reason": manifest.get("stop_reason"),
     }
 
 
@@ -338,11 +369,13 @@ def main() -> None:
         experiments_dir=args.experiments_dir,
         data_path=args.validation_data,
         config_path=args.config,
+        stop_on_repeated_proposal=False if args.allow_repeated_proposals else None,
     )
     print(f"Run id: {manifest['run_id']}")
     print(f"Status: {manifest['status']}")
     print(f"Completed rounds: {manifest['completed_rounds']}")
     print(f"Accepted round: {manifest['accepted_round']}")
+    print(f"Stop reason: {manifest['stop_reason']}")
     print(f"Final strategy commit: {manifest['final_strategy_commit']}")
 
 
@@ -368,6 +401,11 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="Override configured validation data path.",
+    )
+    parser.add_argument(
+        "--allow-repeated-proposals",
+        action="store_true",
+        help="Continue until max rounds even if an agent repeats a failed patch.",
     )
     return parser.parse_args()
 

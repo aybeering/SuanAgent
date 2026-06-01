@@ -127,6 +127,36 @@ def run_iteration_loop(
         get_strategy_modifier(fallback_name, active_config.modifier_settings)
         for fallback_name in active_config.memory_fallback_modifiers
     )
+    configured_agent_profiles = active_config.agent_profiles or legacy_agent_profiles(
+        active_config
+    )
+    agent_profiles = tuple(
+        profile
+        for profile in configured_agent_profiles
+        if bool(profile.get("enabled", True))
+    )
+    if agent_profiles:
+        primary_profile = next(
+            profile
+            for profile in agent_profiles
+            if str(profile.get("role", "")) == "primary"
+        )
+        fallback_profiles = tuple(
+            profile
+            for profile in agent_profiles
+            if str(profile.get("role", "")) == "fallback"
+        )
+        modifier = get_strategy_modifier(
+            str(primary_profile["adapter"]),
+            profile_settings(primary_profile),
+        )
+        fallback_modifiers = tuple(
+            get_strategy_modifier(str(profile["adapter"]), profile_settings(profile))
+            for profile in fallback_profiles
+        )
+    else:
+        primary_profile = {}
+        fallback_profiles = ()
     strategy_path = Path(active_config.strategy_path)
     strategy_file_path = active_config.resolve_path(repo_root, active_config.strategy_path)
     strategy_module = active_config.current_strategy_module
@@ -147,6 +177,7 @@ def run_iteration_loop(
         "final_strategy_commit": None,
         "stop_on_repeated_proposal": active_stop_on_repeated_proposal,
         "memory_fallback_modifiers": list(active_config.memory_fallback_modifiers),
+        "agent_profiles": list(configured_agent_profiles),
         "memory_filter_policy": {
             "failed_patch_threshold": active_config.memory_failed_patch_threshold,
             "failed_direction_threshold": active_config.memory_failed_direction_threshold,
@@ -213,6 +244,8 @@ def run_iteration_loop(
                     strategy_file_path=strategy_file_path,
                     modifier=modifier,
                     fallback_modifiers=fallback_modifiers,
+                    primary_profile=primary_profile,
+                    fallback_profiles=fallback_profiles,
                     memory_failed_patch_threshold=active_config.memory_failed_patch_threshold,
                     memory_failed_direction_threshold=(
                         active_config.memory_failed_direction_threshold
@@ -416,6 +449,8 @@ def run_round(
     strategy_file_path: Path,
     modifier: StrategyModifier,
     fallback_modifiers: tuple[StrategyModifier, ...],
+    primary_profile: dict[str, object],
+    fallback_profiles: tuple[dict[str, object], ...],
     memory_failed_patch_threshold: int,
     memory_failed_direction_threshold: int,
     explore_after_no_improvement_rounds: int,
@@ -508,6 +543,8 @@ def run_round(
     ) = select_proposal_candidate(
         modifier=modifier,
         fallback_modifiers=fallback_modifiers,
+        primary_profile=primary_profile,
+        fallback_profiles=fallback_profiles,
         report_path=round_dir / "train_report_before.md",
         target_file=strategy_file_path,
         round_index=round_index,
@@ -931,11 +968,48 @@ def json_load_list(path: Path) -> list[object]:
     return payload if isinstance(payload, list) else []
 
 
+def profile_settings(profile: dict[str, object]) -> dict[str, object]:
+    """Return modifier settings from one normalized agent profile."""
+    settings = profile.get("settings", {})
+    if not isinstance(settings, dict):
+        return {}
+    return {str(key): value for key, value in settings.items()}
+
+
+def legacy_agent_profiles(config: ProjectConfig) -> tuple[dict[str, object], ...]:
+    """Return audit profiles derived from legacy modifier config."""
+    profiles: list[dict[str, object]] = [
+        {
+            "name": "primary",
+            "adapter": config.strategy_modifier,
+            "role": "primary",
+            "enabled": True,
+            "settings": config.modifier_settings,
+        }
+    ]
+    profiles.extend(
+        {
+            "name": f"fallback_{index:02d}",
+            "adapter": fallback_modifier,
+            "role": "fallback",
+            "enabled": True,
+            "settings": config.modifier_settings,
+        }
+        for index, fallback_modifier in enumerate(
+            config.memory_fallback_modifiers,
+            start=1,
+        )
+    )
+    return tuple(profiles)
+
+
 def proposal_attempt_record(
     *,
     attempt_id: str,
     role: str,
     modifier_name: str,
+    profile_name: str,
+    adapter_name: str,
     proposal: StrategyProposal,
     memory_filter_reason: str,
     patch_memory_filter_reason: str,
@@ -972,6 +1046,8 @@ def proposal_attempt_record(
         "attempt_id": attempt_id,
         "role": role,
         "modifier_name": modifier_name,
+        "profile_name": profile_name,
+        "adapter_name": adapter_name,
         "agent_name": payload.get("agent_name", ""),
         "direction_tag": payload.get("direction_tag", ""),
         "summary": payload.get("summary", ""),
@@ -1016,6 +1092,8 @@ def select_proposal_candidate(
     *,
     modifier: StrategyModifier,
     fallback_modifiers: tuple[StrategyModifier, ...],
+    primary_profile: dict[str, object],
+    fallback_profiles: tuple[dict[str, object], ...],
     report_path: Path,
     target_file: Path,
     round_index: int,
@@ -1046,6 +1124,8 @@ def select_proposal_candidate(
         primary_modifier=modifier,
         fallback_modifiers=fallback_modifiers,
         executor_config=executor_config,
+        primary_profile=primary_profile,
+        fallback_profiles=fallback_profiles,
     )
     agent_results = execute_agent_queue(
         queue=agent_queue,
@@ -1067,6 +1147,8 @@ def select_proposal_candidate(
         role = agent_result.role
         attempt_id = agent_result.attempt_id
         candidate_modifier_name = agent_result.modifier_name
+        profile_name_value = agent_result.profile_name
+        adapter_name_value = agent_result.adapter_name
         proposal = agent_result.proposal
         proposal = enforce_proposal_contract(
             proposal=proposal,
@@ -1173,6 +1255,8 @@ def select_proposal_candidate(
                 attempt_id=attempt_id,
                 role=role,
                 modifier_name=candidate_modifier_name,
+                profile_name=profile_name_value,
+                adapter_name=adapter_name_value,
                 proposal=proposal,
                 memory_filter_reason=memory_reason,
                 patch_memory_filter_reason=patch_memory_reason,

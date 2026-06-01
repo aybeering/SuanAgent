@@ -47,6 +47,12 @@ Candidate modifiers are scheduled through a small deterministic executor queue:
 the primary modifier receives `attempt_001_primary`, configured fallbacks receive
 stable `attempt_00N_fallback_NN` ids, and each proposal is handed back to the
 same contract validation, scoring, backtest, and policy-gate path.
+Configs may also define an optional `agents` list with explicit profile names,
+adapters, roles, enabled flags, and adapter-specific settings. When omitted, the
+loop derives audit profiles from the legacy `strategy_modifier` and
+`memory_filter.fallback_modifiers` fields. Profiles name the future isolated
+agent slots while adapters still select the deterministic stub, guarded Codex,
+or file-protocol backend.
 The `executor` config block currently supports the guarded `sequential` mode,
 `max_candidates` queue caps, `per_agent_timeout_seconds` audit metadata, and an
 `allow_disabled_adapters` guard flag for future CLI/SDK adapters.

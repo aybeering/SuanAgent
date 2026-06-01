@@ -119,6 +119,8 @@
         "type": "object",
         "required": [
           "role",
+          "profile_name",
+          "adapter_name",
           "agent_name",
           "direction_tag",
           "status",
@@ -133,6 +135,12 @@
         ],
         "properties": {
           "role": {
+            "type": "string"
+          },
+          "profile_name": {
+            "type": "string"
+          },
+          "adapter_name": {
             "type": "string"
           },
           "agent_name": {

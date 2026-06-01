@@ -232,6 +232,8 @@ def compact_attempts(attempts: list[dict[str, object]]) -> list[dict[str, object
         rows.append(
             {
                 "role": attempt.get("role", ""),
+                "profile_name": attempt.get("profile_name", ""),
+                "adapter_name": attempt.get("adapter_name", ""),
                 "agent_name": attempt.get("agent_name", ""),
                 "direction_tag": attempt.get("direction_tag", ""),
                 "status": attempt.get("status", ""),

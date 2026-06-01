@@ -78,6 +78,8 @@
           "attempt_id",
           "attempt_index",
           "role",
+          "profile_name",
+          "adapter_name",
           "modifier_name",
           "agent_name",
           "direction_tag",
@@ -98,6 +100,12 @@
             "type": "integer"
           },
           "role": {
+            "type": "string"
+          },
+          "profile_name": {
+            "type": "string"
+          },
+          "adapter_name": {
             "type": "string"
           },
           "modifier_name": {

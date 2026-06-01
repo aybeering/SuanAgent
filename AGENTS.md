@@ -76,16 +76,18 @@ Allowed components:
 25. Saved attempt replay for contract and probe checks without a full loop rerun.
 26. Stable failure taxonomy fields for decisions, attempts, validation, and replay.
 27. A deterministic agent executor queue that assigns stable attempt ids before candidate selection.
+28. Optional config-level agent profiles that name future isolated agent slots while still using deterministic adapters.
 
 Still out of scope:
 
 1. Real Codex CLI integration.
 2. Full multi-agent architecture.
-3. Visual agents.
-4. HTML chart rendering agents.
-5. Overfitting agents.
-6. Live trading.
-7. Real exchange, Polymarket, Binance, wallet, or network APIs.
+3. Concurrent or distributed agent execution.
+4. Visual agents.
+5. HTML chart rendering agents.
+6. Overfitting agents.
+7. Live trading.
+8. Real exchange, Polymarket, Binance, wallet, or network APIs.
 
 ## Domain context
 
@@ -365,6 +367,12 @@ before adapter execution. Record each primary/fallback attempt in
 `proposal_attempts.json` and select only a candidate that is applicable, not
 rejected by outcome memory, and highest scored among candidates by cheap
 pre-backtest metadata.
+Configs may alternatively define an explicit `agents` list. Each enabled profile
+should have a unique `name`, an adapter name, a `primary` or `fallback` role, and
+optional adapter settings. Exactly one enabled profile must be primary. Disabled
+profiles should remain visible in run manifests but must not enter the execution
+queue. If no explicit `agents` list is present, derive audit profiles from
+`strategy_modifier` and `memory_filter.fallback_modifiers`.
 The `executor` config block should remain deterministic. In V0.5, `mode` must
 be `sequential`; `max_candidates` may cap the queue; `per_agent_timeout_seconds`
 is audit metadata for future adapters; and `allow_disabled_adapters` records

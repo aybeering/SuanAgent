@@ -91,6 +91,7 @@ def validate_config(
         errors.append("exploration.explore_bonus must be non-negative")
     validate_candidate_selection(config, errors)
     validate_executor(config, errors)
+    validate_agent_profiles(config, errors)
     for fallback_modifier in config.memory_fallback_modifiers:
         if fallback_modifier not in SUPPORTED_MODIFIERS:
             errors.append(
@@ -169,6 +170,30 @@ def validate_executor(config: ProjectConfig, errors: list[str]) -> None:
         errors.append("executor.per_agent_timeout_seconds must be positive")
     if not isinstance(config.executor.get("allow_disabled_adapters", True), bool):
         errors.append("executor.allow_disabled_adapters must be boolean")
+
+
+def validate_agent_profiles(config: ProjectConfig, errors: list[str]) -> None:
+    """Validate configured agent profiles."""
+    enabled_primary_count = 0
+    seen_names: set[str] = set()
+    for index, profile in enumerate(config.agent_profiles, start=1):
+        name = str(profile.get("name", ""))
+        adapter = str(profile.get("adapter", ""))
+        role = str(profile.get("role", ""))
+        enabled = bool(profile.get("enabled", True))
+        if not name:
+            errors.append(f"agents[{index}].name must be non-empty")
+        if name in seen_names:
+            errors.append(f"agents[{index}].name must be unique: {name}")
+        seen_names.add(name)
+        if adapter not in SUPPORTED_MODIFIERS:
+            errors.append(f"agents[{index}].adapter is unsupported: {adapter}")
+        if role not in {"primary", "fallback"}:
+            errors.append(f"agents[{index}].role must be primary or fallback")
+        if enabled and role == "primary":
+            enabled_primary_count += 1
+    if config.agent_profiles and enabled_primary_count != 1:
+        errors.append("agents must contain exactly one enabled primary profile")
 
 
 def validate_importable_module(module_name: str, errors: list[str]) -> None:

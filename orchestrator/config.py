@@ -63,6 +63,7 @@ class ProjectConfig:
     explore_bonus: int = 0
     candidate_selection: dict[str, float | int] = field(default_factory=dict)
     executor: dict[str, object] = field(default_factory=dict)
+    agent_profiles: tuple[dict[str, object], ...] = ()
 
     def resolve_path(self, repo_root: Path, path_text: str) -> Path:
         """Resolve config paths relative to the repository root."""
@@ -99,6 +100,7 @@ def load_project_config(
     )
     executor = DEFAULT_EXECUTOR | raw.get("executor", {})
     fallback_names = fallback_modifier_names(memory_filter)
+    agent_profiles = normalize_agent_profiles(raw=raw)
     return ProjectConfig(
         baseline_strategy_module=str(raw["baseline_strategy_module"]),
         current_strategy_module=str(raw["current_strategy_module"]),
@@ -143,6 +145,7 @@ def load_project_config(
             str(key): value for key, value in candidate_selection.items()
         },
         executor={str(key): value for key, value in executor.items()},
+        agent_profiles=agent_profiles,
     )
 
 
@@ -177,3 +180,33 @@ def modifier_settings_for(raw: dict[str, object], modifier_name: str) -> dict[st
     else:
         settings = {}
     return settings if isinstance(settings, dict) else {}
+
+
+def normalize_agent_profiles(
+    *,
+    raw: dict[str, object],
+) -> tuple[dict[str, object], ...]:
+    """Return explicit agent profiles from config."""
+    raw_profiles = raw.get("agents", [])
+    if isinstance(raw_profiles, list) and raw_profiles:
+        return tuple(
+            normalize_agent_profile(raw_profile, index)
+            for index, raw_profile in enumerate(raw_profiles, start=1)
+            if isinstance(raw_profile, dict)
+        )
+    return ()
+
+
+def normalize_agent_profile(
+    raw_profile: dict[str, object],
+    index: int,
+) -> dict[str, object]:
+    """Return a normalized explicit agent profile."""
+    settings = raw_profile.get("settings", {})
+    return {
+        "name": str(raw_profile.get("name", f"agent_{index:02d}")),
+        "adapter": str(raw_profile.get("adapter", "")),
+        "role": str(raw_profile.get("role", "fallback")),
+        "enabled": bool(raw_profile.get("enabled", True)),
+        "settings": settings if isinstance(settings, dict) else {},
+    }

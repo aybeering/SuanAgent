@@ -23,6 +23,8 @@ class AgentCandidate:
     attempt_index: int
     attempt_id: str
     modifier_name: str
+    profile_name: str
+    adapter_name: str
     modifier: StrategyModifier
 
 
@@ -34,6 +36,8 @@ class AgentCandidateResult:
     attempt_index: int
     attempt_id: str
     modifier_name: str
+    profile_name: str
+    adapter_name: str
     proposal: StrategyProposal
 
 
@@ -42,11 +46,17 @@ def build_agent_queue(
     primary_modifier: StrategyModifier,
     fallback_modifiers: tuple[StrategyModifier, ...],
     executor_config: dict[str, object] | None = None,
+    primary_profile: dict[str, object] | None = None,
+    fallback_profiles: tuple[dict[str, object], ...] = (),
 ) -> tuple[AgentCandidate, ...]:
     """Return a stable primary-plus-fallback execution queue."""
-    modifiers = [("primary", primary_modifier)]
+    modifiers = [("primary", primary_modifier, primary_profile or {})]
     modifiers.extend(
-        (f"fallback_{index:02d}", fallback_modifier)
+        (
+            f"fallback_{index:02d}",
+            fallback_modifier,
+            fallback_profiles[index - 1] if index <= len(fallback_profiles) else {},
+        )
         for index, fallback_modifier in enumerate(fallback_modifiers, start=1)
     )
     queue = tuple(
@@ -55,9 +65,11 @@ def build_agent_queue(
             attempt_index=index,
             attempt_id=attempt_trace_id(index=index, role=role),
             modifier_name=modifier_name(modifier),
+            profile_name=profile_name(profile, role),
+            adapter_name=profile_adapter_name(profile, modifier),
             modifier=modifier,
         )
-        for index, (role, modifier) in enumerate(modifiers, start=1)
+        for index, (role, modifier, profile) in enumerate(modifiers, start=1)
     )
     max_candidates = int((executor_config or {}).get("max_candidates", 0))
     return queue[:max_candidates] if max_candidates > 0 else queue
@@ -93,6 +105,8 @@ def execute_agent_queue(
                 attempt_index=candidate.attempt_index,
                 attempt_id=candidate.attempt_id,
                 modifier_name=candidate.modifier_name,
+                profile_name=candidate.profile_name,
+                adapter_name=candidate.adapter_name,
                 proposal=proposal,
             )
         )
@@ -193,6 +207,8 @@ def executor_attempt_row(
         "modifier_name": str(
             attempt.get("modifier_name", attempt.get("agent_name", ""))
         ),
+        "profile_name": str(attempt.get("profile_name", "")),
+        "adapter_name": str(attempt.get("adapter_name", "")),
         "agent_name": str(attempt.get("agent_name", "")),
         "direction_tag": str(attempt.get("direction_tag", "")),
         "status": str(attempt.get("status", "")),
@@ -254,3 +270,13 @@ def relative_path(path: Path, root: Path) -> str:
 def modifier_name(modifier: StrategyModifier) -> str:
     """Return stable modifier name metadata for agent I/O fixtures."""
     return str(getattr(modifier, "agent_name", modifier.__class__.__name__))
+
+
+def profile_name(profile: dict[str, object], role: str) -> str:
+    """Return configured profile name, falling back to the queue role."""
+    return str(profile.get("name", role))
+
+
+def profile_adapter_name(profile: dict[str, object], modifier: StrategyModifier) -> str:
+    """Return configured adapter name, falling back to modifier metadata."""
+    return str(profile.get("adapter", modifier_name(modifier)))

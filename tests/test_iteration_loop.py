@@ -143,6 +143,7 @@ def test_default_config_loads_dataset_splits() -> None:
     assert config.executor["max_candidates"] == 0
     assert config.executor["per_agent_timeout_seconds"] == 120
     assert config.executor["allow_disabled_adapters"] is True
+    assert config.agent_profiles == ()
     assert config.stop_on_repeated_proposal is True
 
 
@@ -198,12 +199,53 @@ def test_agent_executor_builds_stable_attempt_queue(tmp_path: Path) -> None:
         "attempt_001_primary",
         "attempt_002_fallback_01",
     ]
+    assert [candidate.profile_name for candidate in queue] == [
+        "primary",
+        "fallback_01",
+    ]
+    assert [candidate.adapter_name for candidate in queue] == [
+        "primary_agent",
+        "fallback_agent",
+    ]
     assert [result.proposal.agent_name for result in results] == [
         "primary_agent",
         "fallback_agent",
     ]
     assert primary.calls == ["attempt_001_primary"]
     assert fallback.calls == ["attempt_002_fallback_01"]
+
+    profiled_queue = build_agent_queue(
+        primary_modifier=primary,
+        fallback_modifiers=(fallback,),
+        primary_profile={
+            "name": "strategy_bot",
+            "adapter": "fixed_patch_stub",
+            "role": "primary",
+            "enabled": True,
+            "settings": {},
+        },
+        fallback_profiles=(
+            {
+                "name": "risk_bot",
+                "adapter": "adaptive_stub",
+                "role": "fallback",
+                "enabled": True,
+                "settings": {},
+            },
+        ),
+    )
+    assert [candidate.modifier_name for candidate in profiled_queue] == [
+        "primary_agent",
+        "fallback_agent",
+    ]
+    assert [candidate.profile_name for candidate in profiled_queue] == [
+        "strategy_bot",
+        "risk_bot",
+    ]
+    assert [candidate.adapter_name for candidate in profiled_queue] == [
+        "fixed_patch_stub",
+        "adaptive_stub",
+    ]
 
     capped_queue = build_agent_queue(
         primary_modifier=primary,
@@ -416,6 +458,86 @@ def test_preflight_rejects_invalid_executor_config(tmp_path: Path) -> None:
     assert any("executor.allow_disabled_adapters" in error for error in result.errors)
 
 
+def test_explicit_agent_profiles_load_and_preflight(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_path = repo / "config/agent_profiles.json"
+    config = json.loads((repo / "config/default.json").read_text())
+    config["agents"] = [
+        {
+            "name": "strategy_bot",
+            "adapter": "fixed_patch_stub",
+            "role": "primary",
+            "enabled": True,
+            "settings": {},
+        },
+        {
+            "name": "disabled_agent",
+            "adapter": "conservative_stub",
+            "role": "fallback",
+            "enabled": False,
+            "settings": {},
+        },
+        {
+            "name": "risk_agent",
+            "adapter": "adaptive_stub",
+            "role": "fallback",
+            "enabled": True,
+            "settings": {},
+        },
+    ]
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    loaded = load_project_config(repo, config_path)
+    result = run_preflight(repo_root=repo, config_path=config_path)
+
+    assert result.ok is True
+    assert [profile["name"] for profile in loaded.agent_profiles] == [
+        "strategy_bot",
+        "disabled_agent",
+        "risk_agent",
+    ]
+    assert loaded.agent_profiles[0]["adapter"] == "fixed_patch_stub"
+    assert loaded.agent_profiles[1]["enabled"] is False
+    assert loaded.agent_profiles[2]["role"] == "fallback"
+
+
+def test_preflight_rejects_invalid_agent_profiles(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_path = repo / "config/bad_agent_profiles.json"
+    config = json.loads((repo / "config/default.json").read_text())
+    config["agents"] = [
+        {
+            "name": "dup",
+            "adapter": "fixed_patch_stub",
+            "role": "primary",
+            "enabled": True,
+            "settings": {},
+        },
+        {
+            "name": "dup",
+            "adapter": "missing_modifier",
+            "role": "fallback",
+            "enabled": True,
+            "settings": {},
+        },
+        {
+            "name": "review_agent",
+            "adapter": "adaptive_stub",
+            "role": "reviewer",
+            "enabled": True,
+            "settings": {},
+        },
+    ]
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    result = run_preflight(repo_root=repo, config_path=config_path)
+
+    assert result.ok is False
+    assert any("name must be unique" in error for error in result.errors)
+    assert any("adapter is unsupported" in error for error in result.errors)
+    assert any("role must be primary or fallback" in error for error in result.errors)
+
+
 def test_preflight_rejects_unknown_memory_fallback_modifier(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     config_path = repo / "config/bad_memory_fallback.json"
@@ -574,6 +696,10 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         (run_dir / "agent_result_stats.json").read_text(encoding="utf-8")
     )
     selected_attempt = next(attempt for attempt in attempts if attempt["selected"])
+    assert manifest["agent_profiles"][0]["name"] == "primary"
+    assert manifest["agent_profiles"][0]["adapter"] == "fixed_patch_stub"
+    assert selected_attempt["profile_name"] == "primary"
+    assert selected_attempt["adapter_name"] == "fixed_patch_stub"
     assert decision["accepted"] is False
     assert decision["failure_stage"] == "policy_gate"
     assert decision["failure_code"] == "policy_ev_improvement_low"
@@ -617,12 +743,16 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_attempts["attempt_count"] == len(attempts)
     assert agent_attempts["selected_attempt_id"] == "attempt_001_primary"
     assert agent_attempts["attempts"][0]["selected"] is True
+    assert agent_attempts["attempts"][0]["profile_name"] == "primary"
+    assert agent_attempts["attempts"][0]["adapter_name"] == "fixed_patch_stub"
     assert agent_attempts["attempts"][0]["failure_code"] == "policy_ev_improvement_low"
     assert agent_attempts["attempts"][0]["files"]
     assert_matches_schema(round_dir / "agent_selection_report.json", "agent_selection")
     assert agent_selection["schema_version"] == "agent_selection_v1"
     assert agent_selection["selected_attempt_id"] == "attempt_001_primary"
     assert agent_selection["attempts"][0]["selected"] is True
+    assert agent_selection["attempts"][0]["profile_name"] == "primary"
+    assert agent_selection["attempts"][0]["adapter_name"] == "fixed_patch_stub"
     assert agent_selection["attempts"][0]["eligible"] is True
     assert agent_selection["attempts"][0]["rank"] == 1
     assert agent_selection["attempts"][0]["failure_stage"] == "policy_gate"
@@ -642,6 +772,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_output["selected_role"] == selected_attempt["role"]
     assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
     assert agent_output["attempt_count"] == len(attempts)
+    assert agent_output["attempts"][0]["profile_name"] == "primary"
+    assert agent_output["attempts"][0]["adapter_name"] == "fixed_patch_stub"
     assert "routing_prior" in agent_output["attempts"][0]
     assert agent_output["artifacts"]["agent_input"].endswith("agent_input.json")
     assert agent_output["artifacts"]["agent_bundle_manifest"].endswith(
@@ -668,6 +800,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_executor["execution_policy"]["per_agent_timeout_seconds"] == 120
     assert agent_executor["execution_policy"]["allow_disabled_adapters"] is True
     assert agent_executor["attempts"][0]["modifier_name"] == "strategy_modifier_stub"
+    assert agent_executor["attempts"][0]["profile_name"] == "primary"
+    assert agent_executor["attempts"][0]["adapter_name"] == "fixed_patch_stub"
     assert agent_executor["attempts"][0]["proposal"]["applicable"] is True
     assert agent_executor["attempts"][0]["artifacts"]["attempt_dir"].endswith(
         "agent_attempts/attempt_001_primary"
@@ -695,6 +829,77 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         encoding="utf-8"
     )
     assert (repo / "experiments/index.jsonl").exists()
+
+
+def test_iteration_loop_uses_explicit_agent_profiles(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_path = repo / "config/agent_profiles.json"
+    config = json.loads((repo / "config/default.json").read_text())
+    config["agents"] = [
+        {
+            "name": "strategy_bot",
+            "adapter": "fixed_patch_stub",
+            "role": "primary",
+            "enabled": True,
+            "settings": {},
+        },
+        {
+            "name": "disabled_agent",
+            "adapter": "conservative_stub",
+            "role": "fallback",
+            "enabled": False,
+            "settings": {},
+        },
+        {
+            "name": "risk_agent",
+            "adapter": "adaptive_stub",
+            "role": "fallback",
+            "enabled": True,
+            "settings": {},
+        },
+    ]
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    manifest = run_iteration_loop(
+        run_id="agent-profiles",
+        max_rounds=1,
+        repo_root=repo,
+        config_path=config_path,
+    )
+
+    round_dir = repo / "experiments/agent-profiles/round_001"
+    attempts = json.loads(
+        (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
+    )
+    agent_executor = json.loads(
+        (round_dir / "agent_executor_report.json").read_text(encoding="utf-8")
+    )
+    agent_output = json.loads(
+        (round_dir / "agent_output.json").read_text(encoding="utf-8")
+    )
+
+    assert [profile["name"] for profile in manifest["agent_profiles"]] == [
+        "strategy_bot",
+        "disabled_agent",
+        "risk_agent",
+    ]
+    assert [attempt["role"] for attempt in attempts] == ["primary", "fallback_01"]
+    assert [attempt["profile_name"] for attempt in attempts] == [
+        "strategy_bot",
+        "risk_agent",
+    ]
+    assert [attempt["adapter_name"] for attempt in attempts] == [
+        "fixed_patch_stub",
+        "adaptive_stub",
+    ]
+    assert [attempt["profile_name"] for attempt in agent_executor["attempts"]] == [
+        "strategy_bot",
+        "risk_agent",
+    ]
+    assert [attempt["profile_name"] for attempt in agent_output["attempts"]] == [
+        "strategy_bot",
+        "risk_agent",
+    ]
 
 
 def test_iteration_loop_writes_research_brief(tmp_path: Path) -> None:

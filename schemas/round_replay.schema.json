@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Round Replay Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "ok",
+    "reason_codes",
+    "failure_stage",
+    "failure_code",
+    "failure_message",
+    "round_dir",
+    "run_id",
+    "round_id",
+    "strategy_module",
+    "run_probe",
+    "plan_path",
+    "attempts_manifest_path",
+    "planned_attempt_count",
+    "manifest_attempt_count",
+    "replayed_attempt_count",
+    "selected_attempt_id",
+    "attempts",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "round_replay_v1"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "stage",
+          "code",
+          "message"
+        ],
+        "properties": {
+          "stage": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "failure_stage": {
+      "type": "string"
+    },
+    "failure_code": {
+      "type": "string"
+    },
+    "failure_message": {
+      "type": "string"
+    },
+    "round_dir": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "round_id": {
+      "type": "string"
+    },
+    "strategy_module": {
+      "type": "string"
+    },
+    "run_probe": {
+      "type": "boolean"
+    },
+    "plan_path": {
+      "type": "string"
+    },
+    "attempts_manifest_path": {
+      "type": "string"
+    },
+    "planned_attempt_count": {
+      "type": "integer"
+    },
+    "manifest_attempt_count": {
+      "type": "integer"
+    },
+    "replayed_attempt_count": {
+      "type": "integer"
+    },
+    "selected_attempt_id": {
+      "type": "string"
+    },
+    "attempts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "attempt_id",
+          "planned",
+          "manifest_present",
+          "ok",
+          "failure_stage",
+          "failure_code",
+          "failure_message",
+          "replay_path",
+          "profile_name",
+          "adapter_name",
+          "runner_name",
+          "selected",
+          "plan_matches_manifest"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": "string"
+          },
+          "planned": {
+            "type": "boolean"
+          },
+          "manifest_present": {
+            "type": "boolean"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "failure_stage": {
+            "type": "string"
+          },
+          "failure_code": {
+            "type": "string"
+          },
+          "failure_message": {
+            "type": "string"
+          },
+          "replay_path": {
+            "type": "string"
+          },
+          "profile_name": {
+            "type": "string"
+          },
+          "adapter_name": {
+            "type": "string"
+          },
+          "runner_name": {
+            "type": "string"
+          },
+          "selected": {
+            "type": "boolean"
+          },
+          "plan_matches_manifest": {
+            "type": "boolean"
+          },
+          "probe": {
+            "type": "object"
+          },
+          "validation_ok": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "does_not_execute_agents",
+        "does_not_select_candidate",
+        "does_not_apply_final_patch",
+        "reuses_attempt_replay_contract"
+      ],
+      "properties": {
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_select_candidate": {
+          "type": "boolean"
+        },
+        "does_not_apply_final_patch": {
+          "type": "boolean"
+        },
+        "reuses_attempt_replay_contract": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

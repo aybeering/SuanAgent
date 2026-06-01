@@ -111,6 +111,21 @@ jobs:
           assert replay["probe"]["failure_code"] == "none"
           PY
 
+      - name: Replay planned round
+        run: |
+          python -m orchestrator.round_replay experiments/ci-file-protocol-demo/round_001
+          test -f experiments/ci-file-protocol-demo/round_001/round_replay.json
+          test -f experiments/ci-file-protocol-demo/round_001/round_replay.md
+          python -m orchestrator.artifact_validator ci-file-protocol-demo
+          python - <<'PY'
+          import json
+          replay = json.load(open("experiments/ci-file-protocol-demo/round_001/round_replay.json"))
+          assert replay["schema_version"] == "round_replay_v1"
+          assert replay["failure_code"] == "none"
+          assert replay["planned_attempt_count"] == replay["manifest_attempt_count"] == 1
+          assert replay["attempts"][0]["plan_matches_manifest"] is True
+          PY
+
       - name: Inspect research brief artifacts
         run: |
           test -f experiments/ci-adaptive/research_brief.json

@@ -331,6 +331,22 @@ def validate_round_dir(
         repo_root=repo_root,
         report=report,
     )
+    round_replay_path = round_dir / "round_replay.json"
+    if round_replay_path.exists():
+        checked_files(report).append(str(round_replay_path))
+        validate_contract_file(
+            payload_path=round_replay_path,
+            schema_path=repo_root / "schemas/round_replay.schema.json",
+            report=report,
+        )
+        validate_round_replay(
+            path=round_replay_path,
+            repo_root=repo_root,
+            report=report,
+        )
+    round_replay_markdown_path = round_dir / "round_replay.md"
+    if round_replay_markdown_path.exists():
+        checked_files(report).append(str(round_replay_markdown_path))
 
     proposal = load_json_object(round_dir / "proposal.json", report)
     if proposal and proposal.get("agent_name") == "file_protocol_agent":
@@ -1334,6 +1350,62 @@ def validate_agent_attempts_manifest(
             file_path = resolve_path(Path(str(file_row.get("path", ""))), repo_root)
             if not file_path.exists() or not file_path.is_file():
                 add_error(report, f"attempt file does not exist: {file_path}")
+
+
+def validate_round_replay(
+    *,
+    path: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate a round-level replay report points at saved attempt replays."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    attempts = payload.get("attempts", [])
+    if not isinstance(attempts, list) or not attempts:
+        add_error(report, "round_replay.json attempts is empty or invalid")
+        return
+    if payload.get("replayed_attempt_count") != len(attempts):
+        add_error(report, "round_replay.json replayed_attempt_count mismatch")
+    if payload.get("planned_attempt_count") != payload.get("manifest_attempt_count"):
+        add_error(report, "round_replay.json plan and manifest counts differ")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "round_replay.json policy invalid")
+    else:
+        for key in (
+            "does_not_execute_agents",
+            "does_not_select_candidate",
+            "does_not_apply_final_patch",
+            "reuses_attempt_replay_contract",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(report, f"round_replay.json policy false: {key}")
+    for row in attempts:
+        if not isinstance(row, dict):
+            add_error(report, "round_replay.json attempt is non-object")
+            continue
+        if not bool(row.get("manifest_present", False)):
+            add_error(
+                report,
+                f"round_replay.json attempt missing manifest row: {row.get('attempt_id', '')}",
+            )
+        if not bool(row.get("plan_matches_manifest", False)):
+            add_error(
+                report,
+                f"round_replay.json plan mismatch: {row.get('attempt_id', '')}",
+            )
+        replay_path = resolve_path(Path(str(row.get("replay_path", ""))), repo_root)
+        if not replay_path.exists() or not replay_path.is_file():
+            add_error(report, f"round_replay replay_path does not exist: {replay_path}")
+            continue
+        checked_files(report).append(str(replay_path))
+        validate_contract_file(
+            payload_path=replay_path,
+            schema_path=repo_root / "schemas/attempt_replay.schema.json",
+            report=report,
+        )
 
 
 def validate_attempt_output_artifacts(

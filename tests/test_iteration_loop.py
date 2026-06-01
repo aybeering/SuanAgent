@@ -42,6 +42,7 @@ from orchestrator.agent_output_intake import (
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.attempt_replay import replay_attempt
+from orchestrator.round_replay import ROUND_REPLAY_SCHEMA_VERSION, replay_round
 from orchestrator.artifact_validator import validate_run_artifacts
 from orchestrator.config import (
     ProjectConfig,
@@ -3794,6 +3795,92 @@ def test_attempt_replay_validates_and_probes_saved_attempt(tmp_path: Path) -> No
     assert_matches_schema(attempt_dir / "attempt_replay.json", "attempt_replay")
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
+    )
+
+
+def test_round_replay_replays_all_planned_attempts(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="round-replay-source",
+        repo_root=repo,
+    )
+    round_dir = repo / "experiments/round-replay-source/round_001"
+
+    report = replay_round(round_dir=round_dir, repo_root=repo, run_probe=False)
+    command_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.round_replay",
+            str(round_dir),
+            "--repo-root",
+            str(repo),
+            "--skip-probe",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(command_result.stdout)
+    validation_report = validate_run_artifacts(
+        run_id="round-replay-source",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert command_result.returncode == 0
+    assert report["schema_version"] == ROUND_REPLAY_SCHEMA_VERSION
+    assert report["ok"] is True
+    assert report["planned_attempt_count"] == 3
+    assert report["manifest_attempt_count"] == 3
+    assert report["replayed_attempt_count"] == 3
+    assert [row["attempt_id"] for row in report["attempts"]] == [
+        "attempt_001_primary",
+        "attempt_002_fallback_01",
+        "attempt_003_fallback_02",
+    ]
+    assert all(row["plan_matches_manifest"] for row in report["attempts"])
+    assert all(row["ok"] for row in report["attempts"])
+    assert report["policy"]["does_not_execute_agents"] is True
+    assert report["policy"]["does_not_select_candidate"] is True
+    assert cli_payload["ok"] is True
+    assert_matches_schema(round_dir / "round_replay.json", "round_replay")
+    assert (round_dir / "round_replay.md").exists()
+    assert validation_report["ok"] is True
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_artifact_validator_reports_round_replay_plan_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+    run_iteration_loop(
+        run_id="round-replay-mismatch",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    round_dir = repo / "experiments/round-replay-mismatch/round_001"
+    replay_round(round_dir=round_dir, repo_root=repo)
+    path = round_dir / "round_replay.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["attempts"][0]["plan_matches_manifest"] = False
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="round-replay-mismatch",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "round_replay.json plan mismatch" in error
+        for error in report["errors"]  # type: ignore[union-attr]
     )
 
 

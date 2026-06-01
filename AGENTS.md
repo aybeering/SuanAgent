@@ -86,6 +86,7 @@ Allowed components:
 35. A deterministic `agent_role_readiness.json` audit that reports which future agent roles are executable, blocked, or contract-only.
 36. A deterministic `agent_activation_preflight.json` startup gate that verifies role/profile activation before iteration begins.
 37. A deterministic `agent_execution_plan.json` round plan that records the candidate queue before any modifier is invoked.
+38. A deterministic `round_replay.json` audit command that replays every saved planned attempt without rerunning the full loop.
 
 Still out of scope:
 
@@ -135,6 +136,7 @@ Current structure:
 │   ├── agent_execution.schema.json
 │   ├── agent_activation_preflight.schema.json
 │   ├── agent_execution_plan.schema.json
+│   ├── round_replay.schema.json
 │   ├── agent_role_contracts.schema.json
 │   ├── agent_role_readiness.schema.json
 │   ├── analysis_notes.schema.json
@@ -286,6 +288,8 @@ round_001/
   agent_executor_report.json
   agent_attempts_manifest.json
   agent_selection_report.json
+  round_replay.json   # optional replay audit
+  round_replay.md     # optional replay audit
   agent_attempts/
   workspace_manifests/ # attempt-scoped workspace manifests
   agent_executions/    # attempt-scoped file-protocol audits
@@ -468,6 +472,12 @@ explanation, validation status, and optional workspace execution audit. The
 `agent_selection_report.json` should use schema version `agent_selection_v1`
 and explain each attempt's eligibility, rank, score reasons, blocking reasons,
 selection reason, or skip reason.
+`round_replay.json` should use schema version `round_replay_v1` when the
+optional replay command is run. It should compare `agent_execution_plan.json`
+with `agent_attempts_manifest.json`, replay every saved attempt through the
+existing deterministic attempt replay contract, and write a round-level summary
+without executing agents, selecting candidates, or applying a final strategy
+patch.
 The machine-readable contracts for these files live in `schemas/`. Run-level
 metadata should write `run_metadata.json`, include resolved dataset paths and
 dataset SHA-256 fingerprints, use schema version `run_metadata_v1`, and match
@@ -731,6 +741,7 @@ Add smoke tests that verify:
 25. Agent role readiness is written as `agent_role_readiness_v1` JSON and keeps non-strategy roles non-executable in V0.5.
 26. Agent activation preflight is written as `agent_activation_preflight_v1` JSON and blocks invalid enabled role/profile wiring before iteration starts.
 27. Agent execution planning is written as `agent_execution_plan_v1` JSON before candidate modifiers run.
+28. Round replay can replay every saved planned attempt and validate the resulting `round_replay_v1` artifact.
 
 The project is complete only when these checks pass:
 
@@ -753,6 +764,7 @@ python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>
 python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json
 python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json --validate
 python -m orchestrator.attempt_replay experiments/<run_id>/round_001/agent_attempts/attempt_001_primary
+python -m orchestrator.round_replay experiments/<run_id>/round_001
 python -m orchestrator.agent_output_intake experiments/<run_id>/round_001/agent_input.json experiments/<run_id>/round_001/demo_agent_output.json --output experiments/<run_id>/round_001/agent_validation.json
 ```
 
@@ -821,6 +833,11 @@ Attempt replay commands should accept one saved `agent_attempts/attempt_xxx`
 directory, rerun deterministic contract validation, optionally evaluate the
 patch on saved probe data, write `attempt_replay.json`, and leave
 `strategies/current_strategy.py` rolled back to HEAD.
+Round replay commands should accept one saved round directory, compare the
+execution plan with the attempt manifest, replay every saved attempt through
+the attempt replay path, write `round_replay.json` and `round_replay.md`, and
+leave `strategies/current_strategy.py` rolled back to HEAD. They must not call
+agents, rerun candidate selection, or change acceptance decisions.
 Failure classification should remain machine-readable and stable. Preserve the
 human-readable `reasons` text, but add or maintain `reason_codes`,
 `failure_stage`, `failure_code`, and `failure_message` for contract, memory,

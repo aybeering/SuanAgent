@@ -142,6 +142,11 @@ def validate_iteration_run(
         return
 
     validate_json_list(path=run_dir / "candidate_leaderboard.json", report=report)
+    validate_optional_agent_result_stats(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     round_ids = round_ids_from_manifest(manifest)
     if not round_ids:
         add_error(report, "manifest.rounds is empty or invalid")
@@ -486,6 +491,29 @@ def validate_optional_research_brief(
         return
     if payload.get("run_id") != report.get("run_id"):
         add_error(report, f"research_brief.json run_id does not match report: {path}")
+
+
+def validate_optional_agent_result_stats(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate agent_result_stats.json when a run has one."""
+    path = run_dir / "agent_result_stats.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/agent_result_stats.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(report, f"agent_result_stats.json run_id does not match report: {path}")
 
 
 def validate_contract_file(

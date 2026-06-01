@@ -7,6 +7,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+from orchestrator.agent_result_stats import build_agent_result_stats
 from orchestrator.experiment_index import read_experiment_index, recent_experiments
 from orchestrator.outcome_memory import recent_outcomes
 from orchestrator.run_diagnosis import diagnose_run
@@ -117,6 +118,25 @@ def candidate_leaderboard(
         raise ValueError(f"Candidate leaderboard is not a list: {path}")
     rows = [row for row in payload if isinstance(row, dict)]
     return rows[: max(limit, 0)]
+
+
+def agent_result_stats(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+) -> dict[str, object]:
+    """Return agent/direction/patch-family aggregate stats for one run."""
+    run_dir = experiments_dir / run_id
+    path = run_dir / "agent_result_stats.json"
+    if path.exists():
+        payload = load_json(path)
+        payload["from_artifact"] = True
+        return payload
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    payload = build_agent_result_stats(run_dir=run_dir)
+    payload["from_artifact"] = False
+    return payload
 
 
 def compare_experiments(
@@ -594,6 +614,12 @@ def main() -> None:
     candidates_parser.add_argument("run_id")
     candidates_parser.add_argument("--limit", type=int, default=20)
 
+    agents_parser = subparsers.add_parser(
+        "agents",
+        help="Show aggregate agent, direction, and patch-family result stats.",
+    )
+    agents_parser.add_argument("run_id")
+
     subparsers.add_parser("champion", help="Show the current champion registry.")
 
     compare_parser = subparsers.add_parser(
@@ -646,6 +672,11 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
             limit=args.limit,
+        )
+    elif args.command == "agents":
+        payload = agent_result_stats(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
         )
     elif args.command == "champion":
         payload = show_champion(experiments_dir=args.experiments_dir)

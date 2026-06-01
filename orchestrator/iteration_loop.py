@@ -19,6 +19,7 @@ from orchestrator.agent_attempts import (
     write_agent_attempts_manifest,
     write_agent_selection_report,
 )
+from orchestrator.agent_result_stats import write_agent_result_stats
 from orchestrator.agent_bundle import write_agent_bundle_manifest, write_agent_input_bundle
 from orchestrator.agent_context import write_agent_context
 from orchestrator.agent_io import write_agent_input, write_agent_output
@@ -807,6 +808,7 @@ def write_candidate_leaderboard(run_dir: Path) -> list[dict[str, object]]:
     """Write a run-level candidate leaderboard from round attempts."""
     rows = candidate_leaderboard_rows(run_dir)
     write_json(run_dir / "candidate_leaderboard.json", rows)
+    write_agent_result_stats(run_dir)
     return rows
 
 

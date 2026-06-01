@@ -23,7 +23,8 @@ The strategy interface contract is documented in
 `schemas/agent_attempts.schema.json`, `schemas/agent_selection.schema.json`,
 `schemas/agent_output.schema.json`, `schemas/agent_validation.schema.json`, and
 `schemas/agent_execution.schema.json`; saved attempt replay reports use
-`schemas/attempt_replay.schema.json`;
+`schemas/attempt_replay.schema.json`; aggregate agent result reports use
+`schemas/agent_result_stats.schema.json`;
 planner intent, run provenance, and
 run-level research notes are described by `schemas/workspace_manifest.schema.json`,
 `schemas/proposal_intent.schema.json`, `schemas/run_metadata.schema.json`, and
@@ -77,6 +78,7 @@ python -m orchestrator.experiments leaderboard --limit 5
 python -m orchestrator.experiments memory --limit 5
 python -m orchestrator.artifact_validator <run_id>
 python -m orchestrator.experiments diagnose <run_id>
+python -m orchestrator.experiments agents <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
 python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>
@@ -100,6 +102,7 @@ python -m orchestrator.preflight --config config/codex_cli_guarded.json
 python -m orchestrator.experiments show dry-run-demo
 python -m orchestrator.artifact_validator file-protocol-local-demo
 python -m orchestrator.experiments diagnose file-protocol-local-demo
+python -m orchestrator.experiments agents file-protocol-local-demo
 python -m orchestrator.experiments compare dry-run-demo adaptive-demo
 python -m orchestrator.experiments promote dry-run-demo adaptive-demo
 ```
@@ -257,6 +260,11 @@ prior, exploration bonus, probe deltas, validation deltas, and deterministic
 candidate score. When a champion registry exists, candidate scoring also records
 a capped champion-gap feature comparing each candidate's probe EV delta with the
 current champion's validation EV delta.
+Iteration runs also write `agent_result_stats.json`, which aggregates candidate
+outcomes by `agent_name`, `direction_tag`, and patch hash family. It records
+attempt counts, selected counts, accepted counts, top failure codes, average
+scores and deltas, plus conservative routing hints such as `prefer` or
+`downweight` for future multi-agent routing.
 Completed iteration runs also write `research_brief.json` and
 `research_brief.md`, which compact the diagnosis, top candidates, selected
 candidates, champion comparison, deterministic observations, and next research
@@ -275,7 +283,8 @@ them by validation EV improvement. Use `compare <base_run_id>
 <candidate_run_id>` to compare two runs, check dataset fingerprints, and emit a
 deterministic promotion recommendation. Use `memory` to inspect recent proposal
 outcome records. Use `candidates <run_id>` to inspect one iteration run's
-candidate leaderboard. Use `promote <base_run_id> <candidate_run_id>` to write
+candidate leaderboard, and `agents <run_id>` to inspect aggregate agent,
+direction, and patch-family stats. Use `promote <base_run_id> <candidate_run_id>` to write
 `experiments/champion.json` and append `experiments/champion_history.jsonl`
 only when compare recommends `promote_candidate`; use `champion` to inspect the
 current registry. Once a champion exists, completed iteration runs also write

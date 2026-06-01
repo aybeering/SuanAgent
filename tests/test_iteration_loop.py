@@ -46,6 +46,7 @@ from orchestrator.run_diagnosis import diagnose_run
 from orchestrator.preflight import run_preflight
 from orchestrator.schema_validation import validate_json_file, validate_json_payload
 from orchestrator.experiments import (
+    agent_result_stats,
     candidate_leaderboard,
     compare_experiments,
     experiment_leaderboard,
@@ -423,6 +424,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     ):
         assert (round_dir / filename).exists()
     assert (run_dir / "candidate_leaderboard.json").exists()
+    assert (run_dir / "agent_result_stats.json").exists()
     assert (run_dir / "research_brief.json").exists()
     assert (run_dir / "research_brief.md").exists()
 
@@ -451,6 +453,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     leaderboard = json.loads(
         (run_dir / "candidate_leaderboard.json").read_text(encoding="utf-8")
+    )
+    agent_stats = json.loads(
+        (run_dir / "agent_result_stats.json").read_text(encoding="utf-8")
     )
     selected_attempt = next(attempt for attempt in attempts if attempt["selected"])
     assert decision["accepted"] is False
@@ -541,6 +546,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert selected_attempt["validation_status"] == "evaluated"
     assert selected_attempt["failure_code"] == "policy_ev_improvement_low"
     assert leaderboard[0]["failure_code"] == "policy_ev_improvement_low"
+    assert agent_stats["schema_version"] == "agent_result_stats_v1"
+    assert_matches_schema(run_dir / "agent_result_stats.json", "agent_result_stats")
+    assert agent_stats["totals"]["attempt_count"] == len(leaderboard)
+    assert agent_stats["agents"][0]["key"] == "strategy_modifier_stub"
+    assert agent_stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
+    assert agent_stats["directions"][0]["key"] == "lower_min_edge"
     assert isinstance(selected_attempt["validation_ev_delta"], float)
     assert selected_attempt["probe_metrics_before"]
     assert selected_attempt["probe_metrics_after"]
@@ -2432,6 +2443,10 @@ def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
     assert any(
+        path.endswith("agent_result_stats.json")
+        for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
         path.endswith("attempt_replay.json")
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
@@ -3767,7 +3782,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     rows = candidate_leaderboard(
         run_id="cli-candidates",
         experiments_dir=repo / "experiments",
-        limit=2,
+        limit=20,
+    )
+    stats = agent_result_stats(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
     )
     result = subprocess.run(
         [
@@ -3786,15 +3805,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    stats_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "agents",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
     assert rows
     assert rows[0]["run_id"] == "cli-candidates"
     assert rows[0]["selected"] is True
+    assert stats["from_artifact"] is True
+    assert stats["totals"]["attempt_count"] == len(rows)
+    assert stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert len(payload) == 1
     assert payload[0]["run_id"] == "cli-candidates"
     assert "probe_ev_delta" in payload[0]
+    assert stats_result.returncode == 0, stats_result.stderr
+    stats_payload = json.loads(stats_result.stdout)
+    assert stats_payload["schema_version"] == "agent_result_stats_v1"
+    assert stats_payload["agents"][0]["key"] == "strategy_modifier_stub"
 
 
 def test_summary_markdown_is_written_for_single_and_iteration_runs(tmp_path: Path) -> None:

@@ -121,6 +121,7 @@ Current structure:
 │   ├── agent_validation.schema.json
 │   ├── agent_execution.schema.json
 │   ├── attempt_replay.schema.json
+│   ├── agent_result_stats.schema.json
 │   ├── workspace_manifest.schema.json
 │   ├── champion.schema.json
 │   ├── champion_comparison.schema.json
@@ -376,6 +377,10 @@ Iteration runs should also maintain a run-level `candidate_leaderboard.json`
 that aggregates candidate attempts, selected status, direction tags, direction
 priors, exploration bonuses, probe deltas, and final validation deltas for
 later agent context and search analysis.
+Iteration runs should also maintain `agent_result_stats.json`, aggregating the
+candidate leaderboard by agent name, direction tag, and patch hash family. This
+artifact should preserve top failure codes and conservative routing hints for
+future multi-agent downweighting or preference logic.
 `agent_context.md` should include prior rows from `candidate_leaderboard.json`
 so future modifier backends can see selected candidates, scores, direction
 priors, exploration bonuses, probe deltas, and validation deltas before
@@ -559,6 +564,7 @@ python -m orchestrator.experiments leaderboard --limit 5
 python -m orchestrator.experiments memory --limit 5
 python -m orchestrator.artifact_validator <run_id>
 python -m orchestrator.experiments diagnose <run_id>
+python -m orchestrator.experiments agents <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
 python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>

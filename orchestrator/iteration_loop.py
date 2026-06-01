@@ -16,6 +16,11 @@ from typing import Iterator
 
 from agents.modifier_adapter import StrategyModifier
 from agents.registry import get_strategy_modifier
+from orchestrator.agent_activation_preflight import (
+    effective_agent_profiles,
+    effective_agent_roles,
+    write_agent_activation_preflight,
+)
 from orchestrator.agent_attempts import (
     write_agent_attempts_manifest,
     write_agent_selection_report,
@@ -41,7 +46,6 @@ from orchestrator.analysis_stub import write_analysis_notes
 from orchestrator.config import (
     ProjectConfig,
     load_project_config,
-    normalize_runner_capability,
 )
 from orchestrator.experiment_index import append_experiment_index
 from orchestrator.experiments import write_champion_comparison
@@ -140,9 +144,8 @@ def run_iteration_loop(
         get_strategy_modifier(fallback_name, active_config.modifier_settings)
         for fallback_name in active_config.memory_fallback_modifiers
     )
-    configured_agent_profiles = active_config.agent_profiles or legacy_agent_profiles(
-        active_config
-    )
+    runtime_agent_roles = effective_agent_roles(active_config)
+    configured_agent_profiles = effective_agent_profiles(active_config)
     agent_profiles = tuple(
         profile
         for profile in configured_agent_profiles
@@ -190,8 +193,13 @@ def run_iteration_loop(
         "final_strategy_commit": None,
         "stop_on_repeated_proposal": active_stop_on_repeated_proposal,
         "memory_fallback_modifiers": list(active_config.memory_fallback_modifiers),
-        "agent_roles": list(active_config.agent_roles),
+        "agent_roles": list(runtime_agent_roles),
         "agent_profiles": list(configured_agent_profiles),
+        "agent_activation_preflight": {
+            "path": "agent_activation_preflight.json",
+            "ok": False,
+            "blocking_error_count": 0,
+        },
         "memory_filter_policy": {
             "failed_patch_threshold": active_config.memory_failed_patch_threshold,
             "failed_direction_threshold": active_config.memory_failed_direction_threshold,
@@ -218,6 +226,35 @@ def run_iteration_loop(
     try:
         ensure_git_repo(repo_root)
         assert_strategy_clean(repo_root, strategy_path)
+        activation_path = write_agent_activation_preflight(
+            output_path=run_dir / "agent_activation_preflight.json",
+            markdown_path=run_dir / "agent_activation_preflight.md",
+            repo_root=repo_root,
+            run_id=active_run_id,
+            config=active_config,
+            agent_profiles=configured_agent_profiles,
+            agent_roles=runtime_agent_roles,
+            allow_unregistered_adapters=config is not None,
+        )
+        activation_payload = json.loads(activation_path.read_text(encoding="utf-8"))
+        manifest["agent_activation_preflight"] = {
+            "path": "agent_activation_preflight.json",
+            "ok": bool(activation_payload.get("ok", False)),
+            "blocking_error_count": len(
+                activation_payload.get("blocking_errors", [])
+                if isinstance(activation_payload.get("blocking_errors", []), list)
+                else []
+            ),
+        }
+        if not bool(activation_payload.get("ok", False)):
+            raise ValueError(
+                "Agent activation preflight failed: "
+                + "; ".join(
+                    str(error)
+                    for error in activation_payload.get("blocking_errors", [])
+                    if str(error)
+                )
+            )
         write_run_metadata(
             output_path=run_dir / "run_metadata.json",
             run_id=active_run_id,
@@ -261,7 +298,7 @@ def run_iteration_loop(
                     primary_profile=primary_profile,
                     fallback_profiles=fallback_profiles,
                     configured_agent_profiles=configured_agent_profiles,
-                    agent_roles=active_config.agent_roles,
+                    agent_roles=runtime_agent_roles,
                     memory_failed_patch_threshold=active_config.memory_failed_patch_threshold,
                     memory_failed_direction_threshold=(
                         active_config.memory_failed_direction_threshold
@@ -1108,43 +1145,6 @@ def profile_settings(profile: dict[str, object]) -> dict[str, object]:
     if not isinstance(settings, dict):
         return {}
     return {str(key): value for key, value in settings.items()}
-
-
-def legacy_agent_profiles(config: ProjectConfig) -> tuple[dict[str, object], ...]:
-    """Return audit profiles derived from legacy modifier config."""
-    profiles: list[dict[str, object]] = [
-        {
-            "name": "primary",
-            "adapter": config.strategy_modifier,
-            "role": "primary",
-            "agent_role": "strategy_modifier",
-            "enabled": True,
-            "settings": config.modifier_settings,
-            "runner": normalize_runner_capability(
-                adapter_name=config.strategy_modifier,
-                settings=config.modifier_settings,
-            ),
-        }
-    ]
-    profiles.extend(
-        {
-            "name": f"fallback_{index:02d}",
-            "adapter": fallback_modifier,
-            "role": "fallback",
-            "agent_role": "strategy_modifier",
-            "enabled": True,
-            "settings": config.modifier_settings,
-            "runner": normalize_runner_capability(
-                adapter_name=fallback_modifier,
-                settings=config.modifier_settings,
-            ),
-        }
-        for index, fallback_modifier in enumerate(
-            config.memory_fallback_modifiers,
-            start=1,
-        )
-    )
-    return tuple(profiles)
 
 
 def proposal_attempt_record(

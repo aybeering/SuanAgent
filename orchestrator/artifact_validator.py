@@ -27,6 +27,8 @@ ITERATION_RUN_REQUIRED_FILES = (
     "manifest.json",
     "summary.md",
     "candidate_leaderboard.json",
+    "agent_activation_preflight.json",
+    "agent_activation_preflight.md",
 )
 
 ROUND_REQUIRED_FILES = (
@@ -157,6 +159,15 @@ def validate_iteration_run(
         return
 
     validate_json_list(path=run_dir / "candidate_leaderboard.json", report=report)
+    validate_contract_file(
+        payload_path=run_dir / "agent_activation_preflight.json",
+        schema_path=repo_root / "schemas/agent_activation_preflight.schema.json",
+        report=report,
+    )
+    validate_agent_activation_preflight(
+        path=run_dir / "agent_activation_preflight.json",
+        report=report,
+    )
     validate_optional_agent_result_stats(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -417,6 +428,101 @@ def validate_agent_bundle_manifest(
             file_path = resolve_path(Path(str(row.get("path", ""))), repo_root)
             if not file_path.exists() or not file_path.is_file():
                 add_error(report, f"bundle file does not exist: {file_path}")
+
+
+def validate_agent_activation_preflight(
+    *,
+    path: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate run-level agent activation preflight boundaries."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if not bool(payload.get("ok", False)):
+        add_error(report, "agent_activation_preflight.json must be ok")
+    blocking_errors = payload.get("blocking_errors", [])
+    if not isinstance(blocking_errors, list):
+        add_error(report, "agent_activation_preflight.json blocking_errors invalid")
+    elif blocking_errors:
+        add_error(report, "agent_activation_preflight.json has blocking errors")
+    roles = payload.get("roles", [])
+    if not isinstance(roles, list) or not roles:
+        add_error(report, "agent_activation_preflight.json roles is empty or invalid")
+    else:
+        executable_roles = [
+            str(role.get("role_name", ""))
+            for role in roles
+            if isinstance(role, dict)
+            and bool(role.get("can_execute_in_v0_5", False))
+        ]
+        if executable_roles != ["strategy_modifier"]:
+            add_error(
+                report,
+                "agent_activation_preflight.json only strategy_modifier may execute",
+            )
+    profiles = payload.get("profiles", [])
+    if not isinstance(profiles, list) or not profiles:
+        add_error(report, "agent_activation_preflight.json profiles is empty or invalid")
+    else:
+        enabled_primary_count = 0
+        for profile in profiles:
+            if not isinstance(profile, dict):
+                add_error(report, "agent_activation_preflight.json profile non-object")
+                continue
+            enabled = bool(profile.get("enabled", False))
+            if enabled and profile.get("queue_role") == "primary":
+                enabled_primary_count += 1
+            if enabled and profile.get("agent_role") != "strategy_modifier":
+                add_error(
+                    report,
+                    "agent_activation_preflight.json enabled non-strategy profile: "
+                    f"{profile.get('profile_name', '')}",
+                )
+            if enabled and profile.get("activation_status") != "ready":
+                add_error(
+                    report,
+                    "agent_activation_preflight.json enabled profile is not ready: "
+                    f"{profile.get('profile_name', '')}",
+                )
+        if enabled_primary_count != 1:
+            add_error(
+                report,
+                "agent_activation_preflight.json must have one enabled primary",
+            )
+    summary = payload.get("summary", {})
+    if not isinstance(summary, dict):
+        add_error(report, "agent_activation_preflight.json summary is invalid")
+    else:
+        if summary.get("blocked_enabled_profiles") not in ([], None):
+            add_error(
+                report,
+                "agent_activation_preflight.json blocked enabled profiles present",
+            )
+        if summary.get("enabled_primary_count") != 1:
+            add_error(
+                report,
+                "agent_activation_preflight.json enabled primary count mismatch",
+            )
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "agent_activation_preflight.json policy is invalid")
+    else:
+        if not bool(policy.get("only_strategy_modifier_executes_in_v0_5", False)):
+            add_error(
+                report,
+                "agent_activation_preflight.json must preserve strategy-only execution",
+            )
+        if bool(policy.get("activation_preflight_can_change_acceptance", True)):
+            add_error(
+                report,
+                "agent_activation_preflight.json must not change acceptance",
+            )
+        if bool(policy.get("activation_preflight_can_change_routing", True)):
+            add_error(
+                report,
+                "agent_activation_preflight.json must not change routing",
+            )
 
 
 def validate_agent_role_contracts(

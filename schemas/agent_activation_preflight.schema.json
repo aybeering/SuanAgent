@@ -1,0 +1,315 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Agent Activation Preflight",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "repo_root",
+    "ok",
+    "blocking_errors",
+    "warnings",
+    "roles",
+    "profiles",
+    "summary",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "agent_activation_preflight_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repo_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "blocking_errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "role_name",
+          "stage",
+          "enabled",
+          "implemented",
+          "execution_mode",
+          "decision_authority",
+          "allowed_adapters",
+          "can_execute_in_v0_5",
+          "activation_blockers"
+        ],
+        "properties": {
+          "role_name": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "implemented": {
+            "type": "boolean"
+          },
+          "execution_mode": {
+            "type": "string"
+          },
+          "decision_authority": {
+            "type": "string"
+          },
+          "allowed_adapters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "can_execute_in_v0_5": {
+            "type": "boolean"
+          },
+          "activation_blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "profile_index",
+          "profile_name",
+          "enabled",
+          "queue_role",
+          "agent_role",
+          "adapter_name",
+          "activation_status",
+          "activation_blockers",
+          "warnings",
+          "role_contract",
+          "runner",
+          "workspace_contract",
+          "output_contract"
+        ],
+        "properties": {
+          "profile_index": {
+            "type": "integer"
+          },
+          "profile_name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "queue_role": {
+            "type": "string"
+          },
+          "agent_role": {
+            "type": "string"
+          },
+          "adapter_name": {
+            "type": "string"
+          },
+          "activation_status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "blocked",
+              "disabled_visible"
+            ]
+          },
+          "activation_blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "role_contract": {
+            "type": "object",
+            "required": [
+              "known",
+              "active",
+              "allowed_adapters"
+            ],
+            "properties": {
+              "known": {
+                "type": "boolean"
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "allowed_adapters": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "runner": {
+            "type": "object"
+          },
+          "workspace_contract": {
+            "type": "object",
+            "required": [
+              "workspace_required",
+              "isolation",
+              "workspace_root",
+              "path_pattern",
+              "mutation_guard_required"
+            ],
+            "properties": {
+              "workspace_required": {
+                "type": "boolean"
+              },
+              "isolation": {
+                "type": "string"
+              },
+              "workspace_root": {
+                "type": "string"
+              },
+              "path_pattern": {
+                "type": "string"
+              },
+              "mutation_guard_required": {
+                "type": "boolean"
+              }
+            }
+          },
+          "output_contract": {
+            "type": "object",
+            "required": [
+              "output_mode",
+              "allowed_output_files",
+              "file_contract_required",
+              "stdout_patch_allowed"
+            ],
+            "properties": {
+              "output_mode": {
+                "type": "string"
+              },
+              "allowed_output_files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "file_contract_required": {
+                "type": "boolean"
+              },
+              "stdout_patch_allowed": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "role_count",
+        "profile_count",
+        "enabled_profile_count",
+        "enabled_primary_count",
+        "ready_enabled_profiles",
+        "blocked_enabled_profiles",
+        "disabled_visible_profiles"
+      ],
+      "properties": {
+        "role_count": {
+          "type": "integer"
+        },
+        "profile_count": {
+          "type": "integer"
+        },
+        "enabled_profile_count": {
+          "type": "integer"
+        },
+        "enabled_primary_count": {
+          "type": "integer"
+        },
+        "ready_enabled_profiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blocked_enabled_profiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "disabled_visible_profiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "only_strategy_modifier_executes_in_v0_5",
+        "disabled_future_roles_are_manifest_only",
+        "programmatic_unregistered_adapters_allowed",
+        "activation_preflight_can_change_acceptance",
+        "activation_preflight_can_change_routing",
+        "deterministic_gates_keep_acceptance_authority"
+      ],
+      "properties": {
+        "only_strategy_modifier_executes_in_v0_5": {
+          "type": "boolean"
+        },
+        "disabled_future_roles_are_manifest_only": {
+          "type": "boolean"
+        },
+        "programmatic_unregistered_adapters_allowed": {
+          "type": "boolean"
+        },
+        "activation_preflight_can_change_acceptance": {
+          "type": "boolean"
+        },
+        "activation_preflight_can_change_routing": {
+          "type": "boolean"
+        },
+        "deterministic_gates_keep_acceptance_authority": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

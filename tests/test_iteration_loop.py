@@ -22,6 +22,9 @@ from backtester.schema import MarketSnapshot, StrategyOrder
 from backtester.simulate import validate_strategy_orders
 from orchestrator.agent_context import build_agent_context, build_agent_context_payload
 from orchestrator.agent_executor import build_agent_queue, execute_agent_queue
+from orchestrator.agent_activation_preflight import (
+    AGENT_ACTIVATION_PREFLIGHT_SCHEMA_VERSION,
+)
 from orchestrator.agent_io import (
     AGENT_INPUT_SCHEMA_VERSION,
     AGENT_OUTPUT_SCHEMA_VERSION,
@@ -115,6 +118,13 @@ def assert_matches_schema(payload_path: Path, schema_name: str) -> None:
     """Assert a JSON artifact matches one repository contract schema."""
     schema_path = Path.cwd() / "schemas" / f"{schema_name}.schema.json"
     assert validate_json_file(payload_path=payload_path, schema_path=schema_path) == ()
+
+
+def assert_matches_schema_payload(payload: object, schema_name: str) -> None:
+    """Assert a JSON payload matches one repository contract schema."""
+    schema_path = Path.cwd() / "schemas" / f"{schema_name}.schema.json"
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    assert validate_json_payload(payload=payload, schema=schema) == ()
 
 
 def test_agent_contract_runner_writes_disabled_audit(tmp_path: Path) -> None:
@@ -482,6 +492,26 @@ def test_preflight_passes_default_config() -> None:
 
     assert result.ok is True
     assert result.errors == []
+    assert result.agent_activation["schema_version"] == (
+        AGENT_ACTIVATION_PREFLIGHT_SCHEMA_VERSION
+    )
+    assert result.agent_activation["ok"] is True
+    assert result.agent_activation["summary"]["enabled_primary_count"] == 1
+    assert result.agent_activation["summary"]["ready_enabled_profiles"] == [
+        "primary",
+        "fallback_01",
+        "fallback_02",
+    ]
+    assert result.agent_activation["summary"]["blocked_enabled_profiles"] == []
+    assert [
+        role["role_name"]
+        for role in result.agent_activation["roles"]
+        if role["can_execute_in_v0_5"]
+    ] == ["strategy_modifier"]
+    assert_matches_schema_payload(
+        result.agent_activation,
+        "agent_activation_preflight",
+    )
 
 
 def test_preflight_passes_adaptive_stub_config() -> None:
@@ -916,10 +946,15 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         assert (round_dir / filename).exists()
     assert (run_dir / "candidate_leaderboard.json").exists()
     assert (run_dir / "agent_result_stats.json").exists()
+    assert (run_dir / "agent_activation_preflight.json").exists()
+    assert (run_dir / "agent_activation_preflight.md").exists()
     assert (run_dir / "research_brief.json").exists()
     assert (run_dir / "research_brief.md").exists()
 
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
+    agent_activation = json.loads(
+        (run_dir / "agent_activation_preflight.json").read_text(encoding="utf-8")
+    )
     overfit_validation = json.loads(
         (round_dir / "overfit_validation.json").read_text(encoding="utf-8")
     )
@@ -973,6 +1008,39 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         (run_dir / "agent_result_stats.json").read_text(encoding="utf-8")
     )
     selected_attempt = next(attempt for attempt in attempts if attempt["selected"])
+    assert manifest["agent_activation_preflight"]["path"] == (
+        "agent_activation_preflight.json"
+    )
+    assert manifest["agent_activation_preflight"]["ok"] is True
+    assert manifest["agent_activation_preflight"]["blocking_error_count"] == 0
+    assert agent_activation["schema_version"] == (
+        AGENT_ACTIVATION_PREFLIGHT_SCHEMA_VERSION
+    )
+    assert_matches_schema(
+        run_dir / "agent_activation_preflight.json",
+        "agent_activation_preflight",
+    )
+    assert agent_activation["ok"] is True
+    assert agent_activation["summary"]["enabled_primary_count"] == 1
+    assert agent_activation["summary"]["blocked_enabled_profiles"] == []
+    assert agent_activation["summary"]["ready_enabled_profiles"] == [
+        "primary",
+        "fallback_01",
+        "fallback_02",
+    ]
+    assert [
+        role["role_name"]
+        for role in agent_activation["roles"]
+        if role["can_execute_in_v0_5"]
+    ] == ["strategy_modifier"]
+    assert all(
+        profile["agent_role"] == "strategy_modifier"
+        for profile in agent_activation["profiles"]
+        if profile["enabled"]
+    )
+    assert agent_activation["policy"][
+        "activation_preflight_can_change_acceptance"
+    ] is False
     assert manifest["agent_profiles"][0]["name"] == "primary"
     assert manifest["agent_profiles"][0]["adapter"] == "fixed_patch_stub"
     assert manifest["agent_profiles"][0]["runner"]["runner_name"] == "in_process_modifier"
@@ -1492,6 +1560,11 @@ def test_iteration_loop_uses_explicit_agent_profiles(tmp_path: Path) -> None:
     agent_input = json.loads(
         (round_dir / "agent_input.json").read_text(encoding="utf-8")
     )
+    activation = json.loads(
+        (repo / "experiments/agent-profiles/agent_activation_preflight.json").read_text(
+            encoding="utf-8"
+        )
+    )
     role_contracts = json.loads(
         (round_dir / "agent_role_contracts.json").read_text(encoding="utf-8")
     )
@@ -1556,6 +1629,18 @@ def test_iteration_loop_uses_explicit_agent_profiles(tmp_path: Path) -> None:
     assert agent_input["agent_profiles"][1]["runner"]["runner_name"] == (
         "in_process_modifier"
     )
+    assert activation["summary"]["ready_enabled_profiles"] == [
+        "strategy_bot",
+        "risk_agent",
+    ]
+    assert activation["summary"]["disabled_visible_profiles"] == ["disabled_agent"]
+    disabled_profile = next(
+        profile
+        for profile in activation["profiles"]
+        if profile["profile_name"] == "disabled_agent"
+    )
+    assert disabled_profile["activation_status"] == "disabled_visible"
+    assert disabled_profile["agent_role"] == "analysis"
 
 
 def test_iteration_loop_writes_research_brief(tmp_path: Path) -> None:
@@ -3983,6 +4068,76 @@ def test_artifact_validator_reports_role_readiness_authority_violation(
     )
     assert any(
         "agent_role_readiness.json role must not change acceptance" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_activation_preflight_violation(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-activation-violation",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = repo / "experiments/artifact-activation-violation/agent_activation_preflight.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["ok"] = False
+    payload["blocking_errors"] = [
+        "agent_activation: profile visual_agent blocked by agents[2].non_strategy_role_enabled"
+    ]
+    payload["summary"]["blocked_enabled_profiles"] = ["visual_agent"]
+    payload["profiles"].append(
+        {
+            "profile_index": 99,
+            "profile_name": "visual_agent",
+            "enabled": True,
+            "queue_role": "fallback",
+            "agent_role": "visual_review",
+            "adapter_name": "adaptive_stub",
+            "activation_status": "blocked",
+            "activation_blockers": ["agents[99].non_strategy_role_enabled"],
+            "warnings": [],
+            "role_contract": {
+                "known": True,
+                "active": False,
+                "allowed_adapters": [],
+            },
+            "runner": {"runner_name": "in_process_modifier"},
+            "workspace_contract": {
+                "workspace_required": False,
+                "isolation": "none",
+                "workspace_root": "",
+                "path_pattern": "",
+                "mutation_guard_required": False,
+            },
+            "output_contract": {
+                "output_mode": "none",
+                "allowed_output_files": [],
+                "file_contract_required": False,
+                "stdout_patch_allowed": False,
+            },
+        }
+    )
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id="artifact-activation-violation",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "agent_activation_preflight.json must be ok" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+    assert any(
+        "agent_activation_preflight.json enabled non-strategy profile" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 

@@ -37,7 +37,7 @@ CODEX_CLI_GUARDED_RUNNER_NAME = "codex_cli_guarded_adapter"
 IN_PROCESS_RUNNER_NAME = "in_process_modifier"
 WORKSPACE_DRY_RUNNER_NAME = "workspace_dry_run"
 CONTRACT_RUNNER_ADAPTERS = {"file_protocol"}
-WORKSPACE_ADAPTERS = {"file_protocol", "codex_cli", "codex_dry_run"}
+WORKSPACE_ADAPTERS = {"file_protocol", "codex_cli", "codex_dry_run", "codex_cli_dry_run"}
 AGENT_ROLE_STAGES = {
     "proposal_generation",
     "analysis",
@@ -69,6 +69,7 @@ DEFAULT_AGENT_ROLES = (
             "conservative_stub",
             "codex_cli",
             "codex_dry_run",
+            "codex_cli_dry_run",
             "file_protocol",
         ),
         "consumes": (
@@ -441,7 +442,7 @@ def default_runner_name(adapter_name: str) -> str:
         return AGENT_CONTRACT_RUNNER_NAME
     if adapter_name == "codex_cli":
         return CODEX_CLI_GUARDED_RUNNER_NAME
-    if adapter_name == "codex_dry_run":
+    if adapter_name in {"codex_dry_run", "codex_cli_dry_run"}:
         return WORKSPACE_DRY_RUNNER_NAME
     return IN_PROCESS_RUNNER_NAME
 

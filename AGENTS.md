@@ -84,6 +84,7 @@ Allowed components:
 33. Deterministic local `chart.html` and `trade_timeline.html` artifacts for round inspection, generated without visual agents or network calls.
 34. A deterministic `visual_artifacts_manifest.json` that indexes visual inputs, source files, hashes, and visual authority policy.
 35. A deterministic `agent_role_readiness.json` audit that reports which future agent roles are executable, blocked, or contract-only.
+36. A deterministic `agent_activation_preflight.json` startup gate that verifies role/profile activation before iteration begins.
 
 Still out of scope:
 
@@ -131,6 +132,7 @@ Current structure:
 │   ├── agent_output.schema.json
 │   ├── agent_validation.schema.json
 │   ├── agent_execution.schema.json
+│   ├── agent_activation_preflight.schema.json
 │   ├── agent_role_contracts.schema.json
 │   ├── agent_role_readiness.schema.json
 │   ├── analysis_notes.schema.json
@@ -238,6 +240,8 @@ manifest.json
 summary.md
 diagnosis.json
 run_metadata.json
+agent_activation_preflight.json
+agent_activation_preflight.md
 research_brief.json
 research_brief.md
 champion_comparison.json  # when a champion registry exists
@@ -372,6 +376,12 @@ and the artifact must not change routing or final acceptance.
 record the overfit validator stub's consumed proposal, decision, metric deltas,
 prior rejected round count, and advisory risk flags. In V0.5 it must not veto,
 change routing, or change final acceptance.
+`agent_activation_preflight.json` should use schema version
+`agent_activation_preflight_v1` and be written at the iteration run root before
+round execution. It validates effective roles, effective profiles, runner
+capabilities, workspace contracts, and output contracts. In V0.5, startup must
+fail if any enabled profile points at a non-`strategy_modifier` role or if the
+runner/workspace/output contract does not match its adapter.
 `agent_role_readiness.json` should use schema version
 `agent_role_readiness_v1` and record each configured agent role's execution
 mode, executable status, activation blockers, consumed artifacts, produced
@@ -706,6 +716,7 @@ Add smoke tests that verify:
 23. Candidate-selection weights are configurable and recorded with attempts.
 24. Agent I/O fixtures are written as `agent_io_input_v1` and `agent_io_output_v1` JSON.
 25. Agent role readiness is written as `agent_role_readiness_v1` JSON and keeps non-strategy roles non-executable in V0.5.
+26. Agent activation preflight is written as `agent_activation_preflight_v1` JSON and blocks invalid enabled role/profile wiring before iteration starts.
 
 The project is complete only when these checks pass:
 
@@ -737,25 +748,26 @@ When the V0.5 loop runs, it should:
 
 1. Create a new run directory under `experiments/`.
 2. Create per-round directories under that run.
-3. Run the current strategy before modification on all configured data splits.
-4. Save train, validation, and holdout before metrics, trades, and reports.
-5. Call the fixed strategy modifier stub using the train report.
-6. Save `agent_context.md`, `agent_context.json`, `proposal_intent.json`, `proposal_intent.md`, `agent_input.json`, `raw_agent_output.txt`, `agent_output.json`, `agent_validation.json`, `agent_executor_report.json`, `proposal.json`, `agent_response.txt`, and `patch.diff`.
-7. Apply the patch with Git only after deterministic agent-output validation passes.
-8. Run the modified strategy on all configured data splits.
-9. Save train, validation, and holdout after metrics, trades, and reports.
-10. Run the main policy gate on validation metrics.
-11. Run the configured holdout risk gate as a deterministic veto.
-12. Save `decision.json`.
-13. Save `overfit_validation.json`, `overfit_validation.md`, `agent_role_readiness.json`, and `agent_role_readiness.md`.
-14. Append proposal outcome memory to `experiments/memory.jsonl`.
-15. Accept and commit if both gates pass.
-16. Reject and roll back if either gate fails.
-17. Stop with `stopped_repeated_proposal` if the rejected patch repeats a prior round.
-18. Stop with `stopped_max_rounds` if max rounds is reached.
-19. Save `manifest.json`.
-20. Save `summary.md`, `diagnosis.json`, and the research brief artifacts.
-21. Print a short final summary.
+3. Save `agent_activation_preflight.json` and stop before round execution if enabled agent wiring is invalid.
+4. Run the current strategy before modification on all configured data splits.
+5. Save train, validation, and holdout before metrics, trades, and reports.
+6. Call the fixed strategy modifier stub using the train report.
+7. Save `agent_context.md`, `agent_context.json`, `proposal_intent.json`, `proposal_intent.md`, `agent_input.json`, `raw_agent_output.txt`, `agent_output.json`, `agent_validation.json`, `agent_executor_report.json`, `proposal.json`, `agent_response.txt`, and `patch.diff`.
+8. Apply the patch with Git only after deterministic agent-output validation passes.
+9. Run the modified strategy on all configured data splits.
+10. Save train, validation, and holdout after metrics, trades, and reports.
+11. Run the main policy gate on validation metrics.
+12. Run the configured holdout risk gate as a deterministic veto.
+13. Save `decision.json`.
+14. Save `overfit_validation.json`, `overfit_validation.md`, `agent_role_readiness.json`, and `agent_role_readiness.md`.
+15. Append proposal outcome memory to `experiments/memory.jsonl`.
+16. Accept and commit if both gates pass.
+17. Reject and roll back if either gate fails.
+18. Stop with `stopped_repeated_proposal` if the rejected patch repeats a prior round.
+19. Stop with `stopped_max_rounds` if max rounds is reached.
+20. Save `manifest.json`.
+21. Save `summary.md`, `diagnosis.json`, and the research brief artifacts.
+22. Print a short final summary.
 
 The configured modifier may also be `codex_dry_run`, `codex_cli_dry_run`,
 `codex_cli`, or `file_protocol`. The `adaptive_stub` modifier is still

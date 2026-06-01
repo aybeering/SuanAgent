@@ -23,6 +23,7 @@ The strategy interface contract is documented in
 `schemas/agent_attempts.schema.json`, `schemas/agent_selection.schema.json`,
 `schemas/agent_executor.schema.json`, `schemas/agent_output.schema.json`,
 `schemas/agent_validation.schema.json`, `schemas/agent_execution.schema.json`,
+`schemas/agent_activation_preflight.schema.json`,
 `schemas/agent_role_contracts.schema.json`,
 `schemas/agent_role_readiness.schema.json`,
 `schemas/analysis_notes.schema.json`,
@@ -81,6 +82,10 @@ Each round also writes `agent_role_readiness.json` plus
 `agent_role_readiness.md`, a compact audit of which planned roles are
 executable, blocked, or contract-only. This is a readiness checklist for future
 isolated Codex CLI or SDK agents; it has no routing or acceptance authority.
+Each iteration run also writes `agent_activation_preflight.json` plus
+`agent_activation_preflight.md` before round execution. This startup gate checks
+effective roles, profiles, runners, workspaces, and output contracts; enabled
+profiles must still point only at `strategy_modifier` in V0.5.
 Each configured profile can also carry `agent_role`. In V0.5 enabled profiles
 must point at the active `strategy_modifier` role; disabled profiles may point at
 future roles so they remain visible in manifests without entering the execution
@@ -179,9 +184,10 @@ Each run writes artifacts to `experiments/<run_id>/`:
 
 The multi-round loop also writes per-round train and holdout artifacts, a
 human-readable `summary.md`, a machine-readable `diagnosis.json`, and an
-immutable `run_metadata.json` provenance snapshot, plus `research_brief.json`
-and `research_brief.md` for deterministic run-level research notes. It also
-updates append-only `experiments/index.jsonl`.
+immutable `run_metadata.json` provenance snapshot, plus
+`agent_activation_preflight.json`, `agent_activation_preflight.md`,
+`research_brief.json`, and `research_brief.md` for deterministic run-level
+research notes. It also updates append-only `experiments/index.jsonl`.
 When a champion registry exists, completed iteration runs also write
 `champion_comparison.json`.
 Iteration summaries include proposal direction tags, hypotheses, expected
@@ -347,6 +353,7 @@ are validated against
 `schemas/proposal_intent.schema.json`, `schemas/agent_bundle.schema.json`,
 `schemas/agent_attempts.schema.json`, `schemas/agent_selection.schema.json`,
 `schemas/agent_executor.schema.json`, `schemas/agent_routing_policy.schema.json`,
+`schemas/agent_activation_preflight.schema.json`,
 `schemas/agent_role_contracts.schema.json`,
 `schemas/agent_role_readiness.schema.json`,
 `schemas/analysis_notes.schema.json`,

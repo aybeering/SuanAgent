@@ -9,6 +9,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from agents.registry import SUPPORTED_MODIFIERS
+from orchestrator.agent_activation_preflight import (
+    agent_activation_preflight_payload,
+)
 from orchestrator.config import (
     AGENT_CONTRACT_RUNNER_NAME,
     AGENT_ROLE_DECISION_AUTHORITIES,
@@ -45,6 +48,7 @@ class PreflightResult:
     ok: bool
     errors: list[str]
     warnings: list[str]
+    agent_activation: dict[str, object]
 
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-friendly payload."""
@@ -68,10 +72,30 @@ def run_preflight(
             ok=False,
             errors=[f"Could not load config: {exc}"],
             warnings=[],
+            agent_activation={},
         )
 
     validate_config(config, repo_root, errors, warnings)
-    return PreflightResult(ok=not errors, errors=errors, warnings=warnings)
+    agent_activation = agent_activation_preflight_payload(
+        repo_root=repo_root,
+        run_id="preflight",
+        config=config,
+    )
+    append_unique(errors, string_list(agent_activation.get("blocking_errors", [])))
+    append_unique(warnings, string_list(agent_activation.get("warnings", [])))
+    return PreflightResult(
+        ok=not errors,
+        errors=errors,
+        warnings=warnings,
+        agent_activation=agent_activation,
+    )
+
+
+def append_unique(target: list[str], values: list[str]) -> None:
+    """Append strings to a list without duplicating existing entries."""
+    for value in values:
+        if value not in target:
+            target.append(value)
 
 
 def validate_config(
@@ -340,6 +364,15 @@ def validate_file_protocol_settings(
         errors.append(f"file_protocol executable not found on PATH: {executable}")
     if not execute:
         warnings.append("file_protocol execution is disabled")
+
+
+def string_list(value: object) -> list[str]:
+    """Return a deterministic list of strings."""
+    if isinstance(value, str):
+        return [value] if value else []
+    if isinstance(value, list | tuple):
+        return [str(item) for item in value if str(item)]
+    return []
 
 
 def main() -> None:

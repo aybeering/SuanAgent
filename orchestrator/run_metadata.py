@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 from dataclasses import asdict
@@ -68,6 +69,10 @@ def build_run_metadata(
         "config_path_exists": active_config_path.exists(),
         "config_snapshot": config_snapshot,
         "resolved_datasets": resolved_datasets(config=config, repo_root=repo_root),
+        "dataset_fingerprints": dataset_fingerprints(
+            config=config,
+            repo_root=repo_root,
+        ),
         "strategy_path": str(config.resolve_path(repo_root, config.strategy_path)),
         "strategy_modifier": config.strategy_modifier,
         "modifier_settings": normalize_for_json(config.modifier_settings),
@@ -88,6 +93,37 @@ def resolved_datasets(*, config: ProjectConfig, repo_root: Path) -> dict[str, st
     for split in sorted(config.datasets):
         datasets[split] = str(config.dataset_path(repo_root, split))
     return datasets
+
+
+def dataset_fingerprints(
+    *,
+    config: ProjectConfig,
+    repo_root: Path,
+) -> dict[str, dict[str, object]]:
+    """Return content fingerprints for configured dataset files."""
+    fingerprints: dict[str, dict[str, object]] = {}
+    for split in sorted(config.datasets):
+        path = config.dataset_path(repo_root, split)
+        fingerprints[split] = file_fingerprint(path)
+    return fingerprints
+
+
+def file_fingerprint(path: Path) -> dict[str, object]:
+    """Return a stable fingerprint for one file path."""
+    if not path.exists() or not path.is_file():
+        return {
+            "path": str(path),
+            "exists": False,
+            "bytes": 0,
+            "sha256": "",
+        }
+    data = path.read_bytes()
+    return {
+        "path": str(path),
+        "exists": True,
+        "bytes": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+    }
 
 
 def git_metadata(repo_root: Path) -> dict[str, object]:

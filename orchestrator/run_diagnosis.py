@@ -220,9 +220,22 @@ def compact_metadata(metadata: dict[str, Any] | None) -> dict[str, object]:
         "schema_version": metadata.get("schema_version", ""),
         "config_path": metadata.get("config_path", ""),
         "strategy_modifier": metadata.get("strategy_modifier", ""),
+        "dataset_sha256": compact_dataset_hashes(metadata),
         "git_commit": git.get("commit", ""),
         "git_dirty": bool(git.get("dirty", False)),
     }
+
+
+def compact_dataset_hashes(metadata: dict[str, Any]) -> dict[str, str]:
+    """Return dataset SHA-256 fingerprints keyed by split."""
+    fingerprints = metadata.get("dataset_fingerprints", {})
+    if not isinstance(fingerprints, dict):
+        return {}
+    hashes: dict[str, str] = {}
+    for split, payload in sorted(fingerprints.items()):
+        if isinstance(payload, dict):
+            hashes[str(split)] = str(payload.get("sha256", ""))
+    return hashes
 
 
 def best_validation_round(rounds: list[dict[str, object]]) -> dict[str, object] | None:

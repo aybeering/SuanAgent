@@ -137,7 +137,8 @@ Each round also writes `agent_input.json` and `agent_output.json`, a stable
 which proposal candidate was selected.
 Tests validate these artifacts against the JSON schemas under `schemas/`; the
 file-protocol execution audit is validated against
-`schemas/agent_execution.schema.json`.
+`schemas/agent_execution.schema.json`, and run provenance is validated against
+`schemas/run_metadata.schema.json`.
 Use `python -m orchestrator.artifact_validator <run_id>` to check that a run
 directory has required files and that agent contract artifacts match their
 schemas.
@@ -147,8 +148,8 @@ rejection reasons, and file-protocol execution status.
 Each completed run writes the same diagnosis payload to `diagnosis.json` inside
 the run directory.
 Each run also writes `run_metadata.json` with the effective config snapshot,
-resolved dataset paths, strategy modifier settings, and best-effort Git commit
-metadata for reproducibility.
+resolved dataset paths, dataset SHA-256 fingerprints, strategy modifier
+settings, and best-effort Git commit metadata for reproducibility.
 Iteration runs append proposal outcomes to `experiments/memory.jsonl`, which is
 used as cross-run context for later agent calls.
 Before applying a patch, the loop checks outcome memory and rejects patch hashes

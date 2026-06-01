@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Run Metadata",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "kind",
+    "created_at",
+    "repo_root",
+    "experiments_dir",
+    "config_path",
+    "config_path_exists",
+    "config_snapshot",
+    "resolved_datasets",
+    "dataset_fingerprints",
+    "strategy_path",
+    "strategy_modifier",
+    "modifier_settings",
+    "overrides",
+    "git"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "run_metadata_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "single_run",
+        "iteration_loop"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repo_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "experiments_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "config_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "config_path_exists": {
+      "type": "boolean"
+    },
+    "config_snapshot": {
+      "type": "object"
+    },
+    "resolved_datasets": {
+      "type": "object",
+      "required": [
+        "holdout",
+        "train",
+        "validation"
+      ],
+      "properties": {
+        "holdout": {
+          "type": "string",
+          "minLength": 1
+        },
+        "train": {
+          "type": "string",
+          "minLength": 1
+        },
+        "validation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "dataset_fingerprints": {
+      "type": "object",
+      "required": [
+        "holdout",
+        "train",
+        "validation"
+      ],
+      "properties": {
+        "holdout": {
+          "type": "object",
+          "required": [
+            "path",
+            "exists",
+            "bytes",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "exists": {
+              "type": "boolean"
+            },
+            "bytes": {
+              "type": "integer"
+            },
+            "sha256": {
+              "type": "string"
+            }
+          }
+        },
+        "train": {
+          "type": "object",
+          "required": [
+            "path",
+            "exists",
+            "bytes",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "exists": {
+              "type": "boolean"
+            },
+            "bytes": {
+              "type": "integer"
+            },
+            "sha256": {
+              "type": "string"
+            }
+          }
+        },
+        "validation": {
+          "type": "object",
+          "required": [
+            "path",
+            "exists",
+            "bytes",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "exists": {
+              "type": "boolean"
+            },
+            "bytes": {
+              "type": "integer"
+            },
+            "sha256": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "strategy_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "strategy_modifier": {
+      "type": "string",
+      "minLength": 1
+    },
+    "modifier_settings": {
+      "type": "object"
+    },
+    "overrides": {
+      "type": "object"
+    },
+    "git": {
+      "type": "object",
+      "required": [
+        "available",
+        "commit",
+        "branch",
+        "dirty",
+        "status_short"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "commit": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "dirty": {
+          "type": "boolean"
+        },
+        "status_short": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

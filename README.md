@@ -80,6 +80,10 @@ Every candidate proposal must pass the deterministic `proposal_v1` contract
 before patch checks or probe evaluation. Contract failures are recorded as
 non-applicable proposals with `contract_errors`, so malformed agent output is
 auditable but never applied.
+Codex-style adapters can consume either a plain unified diff or a structured
+JSON proposal containing `summary`, `risk_notes`, `direction_tag`,
+`expected_metric_change`, `hypotheses`, and `patch_diff`; both forms flow
+through the same deterministic contract validator.
 Iteration status is one of `accepted`, `stopped_repeated_proposal`,
 `stopped_max_rounds`, or `failed`.
 Each round also writes `agent_context.md` and `agent_context.json`, two renders

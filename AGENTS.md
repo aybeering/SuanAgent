@@ -224,6 +224,10 @@ Every proposal must pass the `proposal_v1` contract before patch checks, probe
 evaluation, or application. Contract-invalid proposals must be marked
 non-applicable, recorded with `contract_errors`, and rejected by deterministic
 code.
+Codex-style adapters may parse either a plain unified diff or a structured JSON
+proposal object. Structured JSON should include `summary`, `risk_notes`,
+`direction_tag`, `expected_metric_change`, `hypotheses`, and `patch_diff`; the
+parsed proposal must still pass the same deterministic contract validator.
 Each round should write both `agent_context.md` and `agent_context.json` from
 the same context payload. The markdown file should summarize prior rounds for
 human inspection. The JSON file should use schema version `agent_context_v1`
@@ -405,6 +409,7 @@ Add smoke tests that verify:
 18. Direction-history priors can influence candidate ranking without deciding acceptance.
 19. Exploration bonuses can push low-sample directions after deterministic stalls.
 20. Agent context is written as both markdown and `agent_context_v1` JSON.
+21. Codex output can be parsed from structured proposal JSON or plain diff text.
 
 The project is complete only when these checks pass:
 

@@ -41,6 +41,7 @@ from orchestrator.experiments import (
 from orchestrator.patch_parser import (
     PatchParseError,
     changed_paths_from_diff,
+    extract_json_object,
     extract_unified_diff,
     validate_patch_targets,
 )
@@ -1185,7 +1186,7 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
         "workspace-write",
     ]
     assert "Only modify: strategies/current_strategy.py" in proposal["prompt"]
-    assert "Return a unified diff patch only." in proposal["prompt"]
+    assert "Return either a unified diff patch or a JSON object" in proposal["prompt"]
     assert "Prior proposal context:" in proposal["prompt"]
     assert "agent_context.json" in proposal["prompt"]
     assert "No prior rounds in this run." in proposal["prompt"]
@@ -1329,6 +1330,7 @@ def test_codex_prompt_and_command_builders_are_deterministic() -> None:
     assert "Round: 3" in prompt
     assert "Only modify: strategies/current_strategy.py" in prompt
     assert "prior failure" in prompt
+    assert "JSON object" in prompt
     assert command == [
         "codex",
         "exec",
@@ -1780,6 +1782,24 @@ Here is the patch:
     validate_patch_targets(patch, Path("strategies/current_strategy.py"))
 
 
+def test_patch_parser_extracts_fenced_json_object() -> None:
+    raw_output = """
+Use this structured proposal:
+
+```json
+{
+  "summary": "Lower threshold.",
+  "direction_tag": "lower_min_edge"
+}
+```
+"""
+
+    payload = extract_json_object(raw_output)
+
+    assert payload["summary"] == "Lower threshold."
+    assert payload["direction_tag"] == "lower_min_edge"
+
+
 def test_patch_parser_rejects_disallowed_paths() -> None:
     patch = """--- a/backtester/simulate.py
 +++ b/backtester/simulate.py
@@ -1824,6 +1844,51 @@ def test_codex_output_is_converted_to_applicable_proposal(tmp_path: Path) -> Non
     assert proposal.agent_name == "codex_cli"
     assert proposal.patch_diff.startswith("--- a/strategies/current_strategy.py")
     assert proposal.workspace_path == str(workspace)
+
+
+def test_codex_structured_json_output_is_converted_to_proposal(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    report_path = repo / "experiments/run-json/round_001/train_report_before.md"
+    report_path.parent.mkdir(parents=True)
+    report_path.write_text("# Report\n", encoding="utf-8")
+    workspace = repo / "workspaces/run-json/round_001/strategy_workspace"
+    raw_output = """```json
+{
+  "summary": "Lower MIN_EDGE to test more trades.",
+  "risk_notes": "May increase trade count and slippage.",
+  "direction_tag": "lower_min_edge",
+  "expected_metric_change": {
+    "trade_count": "increase",
+    "ev": "uncertain"
+  },
+  "hypotheses": [
+    "More candidate trades may improve opportunity capture."
+  ],
+  "patch_diff": "--- a/strategies/current_strategy.py\\n+++ b/strategies/current_strategy.py\\n@@ -9,7 +9,7 @@\\n-MIN_EDGE = 0.05\\n+MIN_EDGE = 0.04\\n"
+}
+```"""
+
+    proposal = proposal_from_codex_output(
+        raw_output=raw_output,
+        report_path=report_path,
+        target_file=repo / "strategies/current_strategy.py",
+        round_index=1,
+        repo_root=repo,
+        prompt="prompt",
+        command=["codex", "exec"],
+        workspace_path=workspace,
+    )
+
+    assert proposal.applicable is True
+    assert proposal.summary == "Lower MIN_EDGE to test more trades."
+    assert proposal.direction_tag == "lower_min_edge"
+    assert proposal.expected_metric_change["trade_count"] == "increase"
+    assert proposal.hypotheses == (
+        "More candidate trades may improve opportunity capture.",
+    )
+    assert "MIN_EDGE = 0.04" in proposal.patch_diff
 
 
 def write_fake_command(tmp_path: Path, filename: str, content: str) -> Path:

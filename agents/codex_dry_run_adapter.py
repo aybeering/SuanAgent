@@ -12,6 +12,7 @@ from pathlib import Path
 
 from orchestrator.patch_parser import (
     PatchParseError,
+    extract_json_object,
     extract_unified_diff,
     validate_patch_targets,
 )
@@ -109,7 +110,9 @@ def build_codex_prompt(
             f"Round: {round_index}",
             f"Only modify: {target_file}",
             "Do not modify data, backtester, reports, orchestrator, or tests.",
-            "Return a unified diff patch only.",
+            "Return either a unified diff patch or a JSON object with fields: "
+            "summary, risk_notes, direction_tag, expected_metric_change, "
+            "hypotheses, patch_diff.",
             "",
             "Prior proposal context:",
             "If a sibling agent_context.json artifact exists, treat it as the "
@@ -155,23 +158,37 @@ def proposal_from_codex_output(
 ) -> StrategyProposal:
     """Convert future Codex CLI output into a StrategyProposal."""
     target_relative = target_file.relative_to(repo_root)
+    metadata = extract_proposal_metadata(raw_output)
     try:
-        patch_diff = extract_unified_diff(raw_output)
+        patch_diff = metadata_patch_diff(metadata) or extract_unified_diff(raw_output)
         validate_patch_targets(patch_diff, target_relative)
     except PatchParseError as exc:
         return StrategyProposal(
             agent_name="codex_cli",
             round_index=round_index,
             target_file=str(target_relative),
-            summary="Codex output did not contain an applicable strategy patch.",
-            risk_notes="Patch parser rejected the output before git apply.",
-            expected_metric_change={},
+            summary=str(
+                metadata.get(
+                    "summary",
+                    "Codex output did not contain an applicable strategy patch.",
+                )
+            ),
+            risk_notes=str(
+                metadata.get(
+                    "risk_notes",
+                    "Patch parser rejected the output before git apply.",
+                )
+            ),
+            expected_metric_change=metadata_expected_metric_change(metadata),
             raw_response=raw_output,
             patch_diff="",
             applicable=False,
-            direction_tag="codex_cli_unknown",
-            hypotheses=(
-                "The Codex response must contain a unified diff for the strategy file.",
+            direction_tag=str(metadata.get("direction_tag", "codex_cli_unknown")),
+            hypotheses=metadata_hypotheses(
+                metadata,
+                (
+                    "The Codex response must contain a unified diff for the strategy file.",
+                ),
             ),
             rejection_reason=str(exc),
             prompt=prompt,
@@ -183,21 +200,65 @@ def proposal_from_codex_output(
         agent_name="codex_cli",
         round_index=round_index,
         target_file=str(target_relative),
-        summary="Codex output produced a strategy patch.",
-        risk_notes="Patch targets were validated before git apply.",
-        expected_metric_change={},
+        summary=str(metadata.get("summary", "Codex output produced a strategy patch.")),
+        risk_notes=str(
+            metadata.get("risk_notes", "Patch targets were validated before git apply.")
+        ),
+        expected_metric_change=metadata_expected_metric_change(metadata),
         raw_response=raw_output,
         patch_diff=patch_diff,
         applicable=True,
-        direction_tag="codex_cli_unknown",
-        hypotheses=(
-            "The parsed patch is intended to improve validation metrics after simulation.",
+        direction_tag=str(metadata.get("direction_tag", "codex_cli_unknown")),
+        hypotheses=metadata_hypotheses(
+            metadata,
+            (
+                "The parsed patch is intended to improve validation metrics after simulation.",
+            ),
         ),
         rejection_reason="",
         prompt=prompt,
         command=tuple(command),
         workspace_path=str(workspace_path),
     )
+
+
+def extract_proposal_metadata(raw_output: str) -> dict[str, object]:
+    """Return optional structured proposal metadata from Codex output."""
+    try:
+        payload = extract_json_object(raw_output)
+    except PatchParseError:
+        return {}
+    proposal_payload = payload.get("proposal", payload)
+    return proposal_payload if isinstance(proposal_payload, dict) else {}
+
+
+def metadata_patch_diff(metadata: dict[str, object]) -> str:
+    """Return patch_diff from metadata with a trailing newline, if present."""
+    patch_diff = str(metadata.get("patch_diff", "")).strip()
+    return patch_diff + "\n" if patch_diff else ""
+
+
+def metadata_expected_metric_change(metadata: dict[str, object]) -> dict[str, str]:
+    """Return expected metric metadata from parsed proposal JSON."""
+    raw_value = metadata.get("expected_metric_change", {})
+    if not isinstance(raw_value, dict):
+        return {}
+    return {str(key): str(value) for key, value in raw_value.items()}
+
+
+def metadata_hypotheses(
+    metadata: dict[str, object],
+    default: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Return hypotheses from parsed proposal JSON."""
+    raw_value = metadata.get("hypotheses", ())
+    if isinstance(raw_value, str) and raw_value.strip():
+        return (raw_value,)
+    if isinstance(raw_value, list | tuple):
+        hypotheses = tuple(str(item) for item in raw_value if str(item).strip())
+        if hypotheses:
+            return hypotheses
+    return default
 
 
 def workspace_ids_from_report(report_path: Path) -> tuple[str, str]:

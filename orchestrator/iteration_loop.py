@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 import importlib
+import json
 import os
 import sys
 from contextlib import contextmanager
@@ -141,6 +142,7 @@ def run_iteration_loop(
                 manifest["completed_rounds"] = round_index
                 manifest["rounds"].append(round_summary)  # type: ignore[union-attr]
                 write_json(run_dir / "manifest.json", manifest)
+                write_candidate_leaderboard(run_dir)
 
                 if round_summary["accepted"]:
                     manifest["status"] = "accepted"
@@ -152,6 +154,7 @@ def run_iteration_loop(
                         strategy_path=strategy_path,
                     )
                     write_json(run_dir / "manifest.json", manifest)
+                    write_candidate_leaderboard(run_dir)
                     write_iteration_summary(run_dir=run_dir, manifest=manifest)
                     append_experiment_index(
                         experiments_dir=active_experiments_dir,
@@ -173,6 +176,7 @@ def run_iteration_loop(
                     )
                     manifest["final_strategy_commit"] = current_commit(repo_root)
                     write_json(run_dir / "manifest.json", manifest)
+                    write_candidate_leaderboard(run_dir)
                     write_iteration_summary(run_dir=run_dir, manifest=manifest)
                     append_experiment_index(
                         experiments_dir=active_experiments_dir,
@@ -184,6 +188,7 @@ def run_iteration_loop(
         manifest["stop_reason"] = "max_rounds reached"
         manifest["final_strategy_commit"] = current_commit(repo_root)
         write_json(run_dir / "manifest.json", manifest)
+        write_candidate_leaderboard(run_dir)
         write_iteration_summary(run_dir=run_dir, manifest=manifest)
         append_experiment_index(
             experiments_dir=active_experiments_dir,
@@ -194,6 +199,7 @@ def run_iteration_loop(
         manifest["status"] = "failed"
         manifest["error"] = str(exc)
         write_json(run_dir / "manifest.json", manifest)
+        write_candidate_leaderboard(run_dir)
         write_iteration_summary(run_dir=run_dir, manifest=manifest)
         append_experiment_index(
             experiments_dir=active_experiments_dir,
@@ -341,6 +347,14 @@ def run_round(
         decision["accepted"] = False
         decision["reasons"] = [apply_error, *decision["reasons"]]  # type: ignore[index]
     write_json(round_dir / "decision.json", decision)
+    proposal_attempts = attach_validation_result_to_attempts(
+        attempts=proposal_attempts,
+        selected_patch_sha256=proposal.patch_sha256,
+        decision=decision,
+        metrics_before=metrics_before,
+        metrics_after=metrics_after,
+    )
+    write_json(round_dir / "proposal_attempts.json", proposal_attempts)
     append_outcome_memory(
         experiments_dir=round_dir.parent.parent,
         record=build_outcome_record(
@@ -391,6 +405,39 @@ def run_round(
     }
 
 
+def attach_validation_result_to_attempts(
+    *,
+    attempts: list[dict[str, object]],
+    selected_patch_sha256: str,
+    decision: dict[str, object],
+    metrics_before: dict[str, float | int],
+    metrics_after: dict[str, float | int],
+) -> list[dict[str, object]]:
+    """Attach final validation outcome to the selected candidate attempt."""
+    for attempt in attempts:
+        is_selected = bool(attempt.get("selected", False))
+        if not is_selected:
+            attempt["validation_status"] = "not_evaluated"
+            continue
+        attempt["validation_status"] = "evaluated"
+        attempt["validation_accepted"] = bool(decision.get("accepted", False))
+        attempt["validation_reasons"] = decision.get("reasons", [])
+        attempt["validation_metrics_before"] = metrics_before
+        attempt["validation_metrics_after"] = metrics_after
+        attempt["validation_ev_delta"] = metric_delta(
+            metrics_before,
+            metrics_after,
+            "ev",
+        )
+        attempt["validation_trade_count_delta"] = metric_delta(
+            metrics_before,
+            metrics_after,
+            "trade_count",
+        )
+        attempt["selected_patch_sha256"] = selected_patch_sha256
+    return attempts
+
+
 def index_record(manifest: dict[str, object]) -> dict[str, object]:
     """Build a compact JSONL index record for an iteration run."""
     return {
@@ -402,6 +449,87 @@ def index_record(manifest: dict[str, object]) -> dict[str, object]:
         "final_strategy_commit": manifest["final_strategy_commit"],
         "stop_reason": manifest.get("stop_reason"),
     }
+
+
+def write_candidate_leaderboard(run_dir: Path) -> list[dict[str, object]]:
+    """Write a run-level candidate leaderboard from round attempts."""
+    rows = candidate_leaderboard_rows(run_dir)
+    write_json(run_dir / "candidate_leaderboard.json", rows)
+    return rows
+
+
+def candidate_leaderboard_rows(run_dir: Path) -> list[dict[str, object]]:
+    """Return candidate attempt rows ranked by selection and observed outcomes."""
+    rows: list[dict[str, object]] = []
+    for round_dir in sorted(run_dir.glob("round_*")):
+        attempts_path = round_dir / "proposal_attempts.json"
+        if not attempts_path.exists():
+            continue
+        attempts_payload = json_load_list(attempts_path)
+        for attempt_index, attempt in enumerate(attempts_payload, start=1):
+            if not isinstance(attempt, dict):
+                continue
+            proposal = attempt.get("proposal", {})
+            proposal_payload = proposal if isinstance(proposal, dict) else {}
+            rows.append(
+                {
+                    "run_id": run_dir.name,
+                    "round_id": round_dir.name,
+                    "attempt_index": attempt_index,
+                    "role": attempt.get("role", ""),
+                    "agent_name": attempt.get("agent_name", ""),
+                    "selected": bool(attempt.get("selected", False)),
+                    "status": attempt.get("status", ""),
+                    "candidate_score": attempt.get("candidate_score", 0),
+                    "probe_ev_delta": attempt.get("probe_ev_delta", 0.0),
+                    "probe_trade_count_delta": attempt.get(
+                        "probe_trade_count_delta",
+                        0.0,
+                    ),
+                    "validation_status": attempt.get("validation_status", ""),
+                    "validation_accepted": attempt.get("validation_accepted", None),
+                    "validation_ev_delta": attempt.get("validation_ev_delta", None),
+                    "validation_trade_count_delta": attempt.get(
+                        "validation_trade_count_delta",
+                        None,
+                    ),
+                    "patch_sha256": attempt.get("patch_sha256", ""),
+                    "summary": attempt.get("summary", ""),
+                    "target_file": proposal_payload.get("target_file", ""),
+                    "selection_reason": attempt.get("selection_reason", ""),
+                    "score_reasons": attempt.get("score_reasons", []),
+                    "memory_filter_reason": attempt.get("memory_filter_reason", ""),
+                    "patch_check_error": attempt.get("patch_check_error", ""),
+                    "probe_error": attempt.get("probe_error", ""),
+                    "probe_artifacts": attempt.get("probe_artifacts", {}),
+                }
+            )
+    rows.sort(key=candidate_leaderboard_sort_key, reverse=True)
+    return rows
+
+
+def candidate_leaderboard_sort_key(row: dict[str, object]) -> tuple[object, ...]:
+    """Sort selected and high-performing candidate rows first."""
+    validation_ev_delta = row.get("validation_ev_delta")
+    validation_value = (
+        float(validation_ev_delta)
+        if isinstance(validation_ev_delta, int | float)
+        else float("-inf")
+    )
+    return (
+        bool(row.get("selected", False)),
+        validation_value,
+        float(row.get("probe_ev_delta", 0.0)),
+        int(row.get("candidate_score", 0)),
+        str(row.get("round_id", "")),
+        -int(row.get("attempt_index", 0)),
+    )
+
+
+def json_load_list(path: Path) -> list[object]:
+    """Load a JSON list from disk."""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, list) else []
 
 
 def proposal_attempt_record(

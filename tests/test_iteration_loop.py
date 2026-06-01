@@ -26,6 +26,7 @@ from orchestrator.outcome_memory import read_outcome_memory
 from orchestrator.run_loop import run_pipeline
 from orchestrator.preflight import run_preflight
 from orchestrator.experiments import (
+    candidate_leaderboard,
     experiment_leaderboard,
     list_experiments,
     show_experiment,
@@ -254,18 +255,27 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "decision.json",
     ):
         assert (round_dir / filename).exists()
+    assert (run_dir / "candidate_leaderboard.json").exists()
 
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
     attempts = json.loads(
         (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
     )
+    leaderboard = json.loads(
+        (run_dir / "candidate_leaderboard.json").read_text(encoding="utf-8")
+    )
     selected_attempt = next(attempt for attempt in attempts if attempt["selected"])
     assert decision["accepted"] is False
     assert selected_attempt["candidate_score"] > 0
+    assert selected_attempt["validation_status"] == "evaluated"
+    assert isinstance(selected_attempt["validation_ev_delta"], float)
     assert selected_attempt["probe_metrics_before"]
     assert selected_attempt["probe_metrics_after"]
     assert selected_attempt["probe_artifacts"]["metrics"]
     assert (round_dir / selected_attempt["probe_artifacts"]["metrics"]).exists()
+    assert leaderboard[0]["selected"] is True
+    assert leaderboard[0]["validation_status"] == "evaluated"
+    assert leaderboard[0]["round_id"] == "round_001"
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
@@ -1136,6 +1146,49 @@ def test_experiments_cli_memory_work(tmp_path: Path) -> None:
     assert payload[0]["kind"] == "proposal_outcome"
 
 
+def test_experiments_candidate_leaderboard_helpers_and_cli_work(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="cli-candidates",
+        max_rounds=1,
+        repo_root=repo,
+    )
+
+    rows = candidate_leaderboard(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+        limit=2,
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "candidates",
+            "cli-candidates",
+            "--limit",
+            "1",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert rows
+    assert rows[0]["run_id"] == "cli-candidates"
+    assert rows[0]["selected"] is True
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert len(payload) == 1
+    assert payload[0]["run_id"] == "cli-candidates"
+    assert "probe_ev_delta" in payload[0]
+
+
 def test_summary_markdown_is_written_for_single_and_iteration_runs(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     run_pipeline(
@@ -1163,6 +1216,7 @@ def test_summary_markdown_is_written_for_single_and_iteration_runs(tmp_path: Pat
     assert "| Round | Accepted | Proposal |" in iteration_summary
     assert "Best Validation Delta" in iteration_summary
     assert "Proposal Quality" in iteration_summary
+    assert "Candidate Leaderboard" in iteration_summary
     assert "Expected Change" in iteration_summary
     assert "Probe EV" in iteration_summary
     assert "strategy_modifier_stub" in iteration_summary

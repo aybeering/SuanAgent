@@ -38,6 +38,7 @@ def show_experiment(
             "run_id": run_id,
             "run_dir": str(run_dir),
             "summary_path": str(run_dir / "summary.md"),
+            "candidate_leaderboard_path": str(run_dir / "candidate_leaderboard.json"),
             "manifest": manifest,
         }
     if decision_path.exists():
@@ -92,6 +93,24 @@ def experiment_leaderboard(
         ),
         reverse=True,
     )
+    return rows[: max(limit, 0)]
+
+
+def candidate_leaderboard(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+    limit: int = 20,
+) -> list[dict[str, object]]:
+    """Return ranked candidate attempts for an iteration run."""
+    run_dir = experiments_dir / run_id
+    path = run_dir / "candidate_leaderboard.json"
+    if not path.exists():
+        raise FileNotFoundError(f"Candidate leaderboard not found for run: {run_id}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, list):
+        raise ValueError(f"Candidate leaderboard is not a list: {path}")
+    rows = [row for row in payload if isinstance(row, dict)]
     return rows[: max(limit, 0)]
 
 
@@ -187,6 +206,13 @@ def main() -> None:
     )
     memory_parser.add_argument("--limit", type=int, default=10)
 
+    candidates_parser = subparsers.add_parser(
+        "candidates",
+        help="Show candidate leaderboard for one iteration run.",
+    )
+    candidates_parser.add_argument("run_id")
+    candidates_parser.add_argument("--limit", type=int, default=20)
+
     subparsers.add_parser("summary", help="Summarize experiment history.")
 
     args = parser.parse_args()
@@ -208,6 +234,12 @@ def main() -> None:
     elif args.command == "memory":
         payload = recent_outcomes(
             experiments_dir=args.experiments_dir,
+            limit=args.limit,
+        )
+    elif args.command == "candidates":
+        payload = candidate_leaderboard(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
             limit=args.limit,
         )
     else:

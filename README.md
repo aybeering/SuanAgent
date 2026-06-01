@@ -96,11 +96,15 @@ proposal.
 The scorer also writes a tiny per-round `probe_data.csv` copied from the train
 split and runs selectable candidates against it before final selection, storing
 `probe_<role>_metrics.json`, trades, and reports under the round directory.
+Iteration runs also write `candidate_leaderboard.json`, a run-level search trace
+that ranks all candidate attempts by selection status, probe deltas, validation
+deltas, and deterministic candidate score.
 
 Use `python -m orchestrator.experiments list` and
 `python -m orchestrator.experiments show <run_id>` to inspect local experiment
 history. Use `summary` and `leaderboard` to aggregate runs by status and rank
 them by validation EV improvement. Use `memory` to inspect recent proposal
-outcome records.
+outcome records. Use `candidates <run_id>` to inspect one iteration run's
+candidate leaderboard.
 
 The V0.5 prototype does not call exchanges, wallets, or external APIs.

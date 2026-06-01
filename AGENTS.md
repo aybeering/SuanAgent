@@ -238,6 +238,9 @@ For selectable candidates, the loop may run a tiny probe evaluation copied from
 the train split. Probe data must be written under the round directory, not under
 `data/`, and each candidate's probe artifacts should be linked from
 `proposal_attempts.json`.
+Iteration runs should also maintain a run-level `candidate_leaderboard.json`
+that aggregates candidate attempts, selected status, probe deltas, and final
+validation deltas for later agent context and search analysis.
 
 ## Strategy policy
 

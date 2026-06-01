@@ -118,6 +118,18 @@ def write_iteration_summary(
         for round_payload in rounds:
             lines.append(proposal_quality_row(run_dir, round_payload))
 
+        candidate_rows = load_optional_json_list(run_dir / "candidate_leaderboard.json")
+        if candidate_rows:
+            lines.extend(["", "## Candidate Leaderboard", ""])
+            lines.extend(
+                [
+                    "| Round | Role | Agent | Selected | Score | Probe EV | Validation EV | Status |",
+                    "| --- | --- | --- | --- | ---: | ---: | ---: | --- |",
+                ]
+            )
+            for row in candidate_rows[:10]:
+                lines.append(candidate_leaderboard_row(row))
+
     return write_summary(run_dir / "summary.md", lines)
 
 
@@ -202,6 +214,22 @@ def proposal_quality_row(run_dir: Path, round_payload: dict[str, object]) -> str
         f"| {escape_cell(list_text(hypotheses))} "
         f"| {escape_cell(mapping_text(expected))} "
         f"| {escape_cell(risk_notes or 'none')} |"
+    )
+
+
+def candidate_leaderboard_row(row: dict[str, Any]) -> str:
+    """Build one markdown row for the candidate leaderboard."""
+    validation_ev = row.get("validation_ev_delta")
+    validation_text = "none" if validation_ev is None else str(validation_ev)
+    return (
+        f"| {escape_cell(str(row.get('round_id', '')))} "
+        f"| {escape_cell(str(row.get('role', '')))} "
+        f"| {escape_cell(str(row.get('agent_name', '')))} "
+        f"| `{str(bool(row.get('selected', False))).lower()}` "
+        f"| {escape_cell(str(row.get('candidate_score', 0)))} "
+        f"| {escape_cell(str(row.get('probe_ev_delta', 0.0)))} "
+        f"| {escape_cell(validation_text)} "
+        f"| {escape_cell(str(row.get('status', '')))} |"
     )
 
 

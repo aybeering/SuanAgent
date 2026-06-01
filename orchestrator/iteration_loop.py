@@ -36,7 +36,11 @@ from orchestrator.outcome_memory import (
 )
 from orchestrator.policy_gate import evaluate_policy
 from orchestrator.preflight import run_preflight
-from orchestrator.proposal import StrategyProposal, annotate_proposal_quality
+from orchestrator.proposal import (
+    StrategyProposal,
+    annotate_proposal_quality,
+    enforce_proposal_contract,
+)
 from orchestrator.run_loop import run_and_write, write_json
 from orchestrator.run_summary import write_iteration_summary
 
@@ -413,6 +417,8 @@ def run_round(
         "accepted": decision["accepted"],
         "reasons": decision["reasons"],
         "proposal_applicable": proposal.applicable,
+        "proposal_contract_valid": not proposal.contract_errors,
+        "proposal_contract_errors": list(proposal.contract_errors),
         "proposal_patch_sha256": proposal.patch_sha256,
         "proposal_direction_tag": proposal.direction_tag,
         "proposal_is_repeat": proposal.is_repeat_patch,
@@ -587,6 +593,7 @@ def candidate_leaderboard_rows(run_dir: Path) -> list[dict[str, object]]:
                     "target_file": proposal_payload.get("target_file", ""),
                     "selection_reason": attempt.get("selection_reason", ""),
                     "score_reasons": attempt.get("score_reasons", []),
+                    "contract_errors": attempt.get("contract_errors", []),
                     "memory_filter_reason": attempt.get("memory_filter_reason", ""),
                     "patch_memory_filter_reason": attempt.get(
                         "patch_memory_filter_reason",
@@ -658,6 +665,7 @@ def proposal_attempt_record(
         "selection_reason": "",
         "candidate_score": candidate_score,
         "score_reasons": score_reasons,
+        "contract_errors": payload.get("contract_errors", ()),
         "probe_metrics_before": probe_metrics_before,
         "probe_metrics_after": probe_metrics_after,
         "probe_ev_delta": metric_delta(probe_metrics_before, probe_metrics_after, "ev"),
@@ -722,6 +730,11 @@ def select_proposal_candidate(
             old_threshold=old_threshold,
             new_threshold=new_threshold,
             context_path=context_path,
+        )
+        proposal = enforce_proposal_contract(
+            proposal=proposal,
+            expected_target_file=target_file.relative_to(repo_root),
+            expected_round_index=round_index,
         )
         proposal = annotate_proposal_quality(
             proposal=proposal,
@@ -850,6 +863,8 @@ def proposal_candidate_status(
     duplicate_patch: bool,
 ) -> str:
     """Return the cheap deterministic prefilter status for a proposal."""
+    if proposal.contract_errors:
+        return "contract_invalid"
     if memory_filter_reason:
         return "memory_rejected"
     if not proposal.applicable:
@@ -1027,6 +1042,9 @@ def skipped_attempt_summaries(
 def attempt_rejection_summary(attempt: dict[str, object]) -> str:
     """Return a compact reason why a candidate was skipped."""
     role = str(attempt.get("role", "candidate"))
+    contract_errors = attempt.get("contract_errors", [])
+    if isinstance(contract_errors, list | tuple) and contract_errors:
+        return f"{role} contract invalid: {contract_errors[0]}"
     reason = str(attempt.get("memory_filter_reason", ""))
     if reason:
         return f"{role} memory rejected: {reason}"

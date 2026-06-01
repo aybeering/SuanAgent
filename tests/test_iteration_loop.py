@@ -42,6 +42,7 @@ from orchestrator.patch_parser import (
     extract_unified_diff,
     validate_patch_targets,
 )
+from orchestrator.proposal import StrategyProposal, validate_proposal_contract
 from orchestrator.workspace_manager import create_isolated_workspace
 
 
@@ -229,6 +230,11 @@ def test_stub_agent_generates_fixed_patch(tmp_path: Path) -> None:
     assert proposal.applicable is True
     assert proposal.agent_name == "strategy_modifier_stub"
     assert proposal.direction_tag == "lower_min_edge"
+    assert validate_proposal_contract(
+        proposal=proposal,
+        expected_target_file=Path("strategies/current_strategy.py"),
+        expected_round_index=1,
+    ) == ()
     assert proposal.hypotheses
     assert proposal.expected_metric_change["trade_count"] == "increase"
     assert proposal.risk_notes
@@ -678,6 +684,103 @@ def test_direction_memory_filter_rejects_failed_direction(tmp_path: Path) -> Non
     )
 
     assert reason.startswith("memory filter rejected direction lower_min_edge")
+
+
+def test_proposal_contract_rejects_invalid_patch_target() -> None:
+    proposal = StrategyProposal(
+        agent_name="bad_agent",
+        round_index=1,
+        target_file="strategies/current_strategy.py",
+        summary="Touches the wrong file.",
+        risk_notes="Invalid proposal for contract test.",
+        expected_metric_change={"ev": "uncertain"},
+        raw_response="bad patch",
+        patch_diff=(
+            "--- a/backtester/simulate.py\n"
+            "+++ b/backtester/simulate.py\n"
+            "@@ -1 +1 @@\n"
+            "-old\n"
+            "+new\n"
+        ),
+        applicable=True,
+        direction_tag="bad_direction",
+        hypotheses=("This should fail contract validation.",),
+    )
+
+    errors = validate_proposal_contract(
+        proposal=proposal,
+        expected_target_file=Path("strategies/current_strategy.py"),
+        expected_round_index=1,
+    )
+
+    assert any("disallowed files" in error for error in errors)
+
+
+def test_iteration_loop_rejects_contract_invalid_proposal(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = replace(
+        load_project_config(repo),
+        strategy_modifier="invalid_contract_test",
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+        stop_after_no_improvement_rounds=0,
+    )
+
+    class BadModifier:
+        def propose_strategy_change(self, **kwargs) -> StrategyProposal:
+            target_file = kwargs["target_file"]
+            repo_root = kwargs["repo_root"]
+            return StrategyProposal(
+                agent_name="bad_contract_agent",
+                round_index=kwargs["round_index"],
+                target_file=str(target_file.relative_to(repo_root)),
+                summary="Return a patch for a disallowed file.",
+                risk_notes="The contract validator should reject this before apply.",
+                expected_metric_change={"ev": "uncertain"},
+                raw_response="bad contract response",
+                patch_diff=(
+                    "--- a/backtester/simulate.py\n"
+                    "+++ b/backtester/simulate.py\n"
+                    "@@ -1 +1 @@\n"
+                    "-old\n"
+                    "+new\n"
+                ),
+                applicable=True,
+                direction_tag="bad_direction",
+                hypotheses=("Only strategy patches are allowed.",),
+            )
+
+    monkeypatch.setattr(
+        "orchestrator.iteration_loop.get_strategy_modifier",
+        lambda _name, _settings: BadModifier(),
+    )
+
+    manifest = run_iteration_loop(
+        run_id="contract-invalid",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/contract-invalid/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    attempts = json.loads(
+        (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
+    )
+    decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
+
+    assert manifest["rounds"][0]["proposal_contract_valid"] is False  # type: ignore[index]
+    assert proposal["applicable"] is False
+    assert proposal["contract_errors"]
+    assert attempts[0]["status"] == "contract_invalid"
+    assert attempts[0]["contract_errors"] == proposal["contract_errors"]
+    assert decision["reasons"][0].startswith("proposal contract invalid")
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_iteration_loop_rejects_failed_direction_from_memory(tmp_path: Path) -> None:

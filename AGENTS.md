@@ -57,7 +57,7 @@ Allowed components:
 7. A multi-round V0.5 iteration loop.
 8. A fixed strategy modifier stub.
 9. A deterministic adaptive stub that changes fixed patch direction from context.
-10. A proposal schema for agent output.
+10. A proposal schema and deterministic contract validator for agent output.
 11. A guarded Codex CLI adapter that only executes when config explicitly enables it.
 12. Isolated workspace creation for future Codex execution.
 13. Unified diff extraction and target-file validation.
@@ -216,9 +216,13 @@ round_001/
 Additional rounds use the same `round_NNN/` structure.
 
 Each `proposal.json` should keep agent output auditable. It records the patch,
-agent summary, direction tag, hypotheses, expected metric changes, risk notes,
-patch hash, quality checks, and whether the patch repeats a prior round in the
-same run.
+agent summary, protocol version, direction tag, hypotheses, expected metric
+changes, risk notes, patch hash, quality checks, contract errors, and whether
+the patch repeats a prior round in the same run.
+Every proposal must pass the `proposal_v1` contract before patch checks, probe
+evaluation, or application. Contract-invalid proposals must be marked
+non-applicable, recorded with `contract_errors`, and rejected by deterministic
+code.
 Each `agent_context.md` should summarize prior rounds for the next modifier
 call, including failed patch hashes, validation/holdout deltas, repeat status,
 and deterministic rejection reasons.
@@ -384,6 +388,7 @@ Add smoke tests that verify:
 14. The dry-run Codex adapter records a non-applicable proposal without changing files.
 15. Patch parsing rejects changes outside `strategies/current_strategy.py`.
 16. Isolated workspaces copy the minimal project without `.git`.
+17. Proposal contract validation rejects malformed or disallowed agent output before apply.
 
 The project is complete only when these checks pass:
 

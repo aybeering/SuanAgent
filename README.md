@@ -76,6 +76,10 @@ The multi-round loop also writes per-round train and holdout artifacts, a
 human-readable `summary.md`, and an append-only `experiments/index.jsonl`.
 Iteration summaries include proposal direction tags, hypotheses, expected
 metric changes, risk notes, patch fingerprints, and repeat-patch detection.
+Every candidate proposal must pass the deterministic `proposal_v1` contract
+before patch checks or probe evaluation. Contract failures are recorded as
+non-applicable proposals with `contract_errors`, so malformed agent output is
+auditable but never applied.
 Iteration status is one of `accepted`, `stopped_repeated_proposal`,
 `stopped_max_rounds`, or `failed`.
 Each round also writes `agent_context.md`, a deterministic summary of prior

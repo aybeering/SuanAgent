@@ -111,8 +111,8 @@ def write_iteration_summary(
         lines.extend(["", "## Proposal Quality", ""])
         lines.extend(
             [
-                "| Round | Direction | Repeat | Memory Filter | Fallback | Score | Probe EV | Patch SHA | Hypotheses | Expected Change | Risk |",
-                "| --- | --- | --- | --- | --- | ---: | ---: | --- | --- | --- | --- |",
+                "| Round | Direction | Contract | Repeat | Memory Filter | Fallback | Score | Probe EV | Patch SHA | Hypotheses | Expected Change | Risk |",
+                "| --- | --- | --- | --- | --- | --- | ---: | ---: | --- | --- | --- | --- |",
             ]
         )
         for round_payload in rounds:
@@ -196,6 +196,7 @@ def proposal_quality_row(run_dir: Path, round_payload: dict[str, object]) -> str
     expected = proposal.get("expected_metric_change", {}) if proposal else {}
     risk_notes = str(proposal.get("risk_notes", "")) if proposal else ""
     direction_tag = str(proposal.get("direction_tag", "")) if proposal else ""
+    contract_errors = proposal.get("contract_errors", []) if proposal else []
     memory_reason = str(round_payload.get("proposal_memory_filter_reason", ""))
     fallback_reason = str(round_payload.get("proposal_fallback_reason", ""))
     fallback_label = "yes" if round_payload.get("proposal_fallback_used") else "no"
@@ -207,6 +208,7 @@ def proposal_quality_row(run_dir: Path, round_payload: dict[str, object]) -> str
     return (
         f"| {escape_cell(round_id)} "
         f"| {escape_cell(direction_tag or 'none')} "
+        f"| {escape_cell(contract_label(contract_errors))} "
         f"| {escape_cell(repeat_label)} "
         f"| {escape_cell(memory_reason or 'none')} "
         f"| {escape_cell(fallback_label)} "
@@ -234,6 +236,13 @@ def candidate_leaderboard_row(row: dict[str, Any]) -> str:
         f"| {escape_cell(validation_text)} "
         f"| {escape_cell(str(row.get('status', '')))} |"
     )
+
+
+def contract_label(contract_errors: object) -> str:
+    """Return compact contract status text."""
+    if isinstance(contract_errors, list | tuple) and contract_errors:
+        return "invalid: " + str(contract_errors[0])
+    return "valid"
 
 
 def best_validation_round(rounds: list[dict[str, object]]) -> dict[str, object] | None:

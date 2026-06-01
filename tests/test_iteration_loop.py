@@ -889,6 +889,9 @@ def test_agent_context_summarizes_prior_failed_rounds(tmp_path: Path) -> None:
     assert "round_001" in context_text
     assert "round_002" in context_text
     assert "Failed Patch Hashes" in context_text
+    assert "Candidate Search Trace" in context_text
+    assert "strategy_modifier_stub" in context_text
+    assert "Probe EV Delta" in context_text
     assert "ev improvement" in context_text
     assert "yes (round_001)" in context_text
 

@@ -241,6 +241,9 @@ the train split. Probe data must be written under the round directory, not under
 Iteration runs should also maintain a run-level `candidate_leaderboard.json`
 that aggregates candidate attempts, selected status, probe deltas, and final
 validation deltas for later agent context and search analysis.
+`agent_context.md` should include prior rows from `candidate_leaderboard.json`
+so future modifier backends can see selected candidates, scores, probe deltas,
+and validation deltas before proposing the next patch.
 
 ## Strategy policy
 

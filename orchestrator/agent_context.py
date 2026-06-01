@@ -40,6 +40,10 @@ def build_agent_context(
         current_round_id=current_round_id,
     )
     memory_records = recent_memory_records(memory_path=memory_path, run_dir=run_dir)
+    candidate_rows = candidate_search_rows(
+        run_dir=run_dir,
+        current_round_id=current_round_id,
+    )
     lines = [
         "# Agent Context",
         "",
@@ -76,6 +80,20 @@ def build_agent_context(
         for patch_hash in sorted(set(failed_hashes)):
             lines.append(f"- `{patch_hash}`")
 
+    lines.extend(["", "## Candidate Search Trace", ""])
+    if not candidate_rows:
+        lines.append("No candidate search trace yet.")
+    else:
+        lines.extend(
+            [
+                "| Round | Role | Agent | Selected | Score | Probe EV Delta | "
+                "Validation EV Delta | Status | Summary |",
+                "| --- | --- | --- | --- | ---: | ---: | ---: | --- | --- |",
+            ]
+        )
+        for payload in candidate_rows:
+            lines.append(candidate_search_row(payload))
+
     lines.extend(["", "## Global Outcome Memory", ""])
     if not memory_records:
         lines.append("No global outcome memory yet.")
@@ -90,6 +108,46 @@ def build_agent_context(
             lines.append(memory_row(payload))
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+def candidate_search_rows(
+    *,
+    run_dir: Path,
+    current_round_id: str,
+    limit: int = 8,
+) -> list[dict[str, object]]:
+    """Return prior candidate leaderboard rows for the active run."""
+    leaderboard_path = run_dir / "candidate_leaderboard.json"
+    if not leaderboard_path.exists():
+        return []
+    payload = json.loads(leaderboard_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, list):
+        return []
+    rows = [
+        row
+        for row in payload
+        if isinstance(row, dict) and str(row.get("round_id", "")) < current_round_id
+    ]
+    return rows[:limit]
+
+
+def candidate_search_row(payload: dict[str, object]) -> str:
+    """Format one candidate search trace row as markdown."""
+    validation_ev = payload.get("validation_ev_delta")
+    validation_text = (
+        "none" if validation_ev is None else format_number(float(validation_ev))
+    )
+    return (
+        f"| {escape_cell(str(payload.get('round_id', '')))} "
+        f"| {escape_cell(str(payload.get('role', '')))} "
+        f"| {escape_cell(str(payload.get('agent_name', '')))} "
+        f"| `{str(bool(payload.get('selected', False))).lower()}` "
+        f"| {int(payload.get('candidate_score', 0))} "
+        f"| {format_number(float(payload.get('probe_ev_delta', 0.0)))} "
+        f"| {validation_text} "
+        f"| {escape_cell(str(payload.get('status', '')))} "
+        f"| {escape_cell(str(payload.get('summary', '')))} |"
+    )
 
 
 def prior_round_summaries(

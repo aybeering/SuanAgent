@@ -99,6 +99,8 @@ split and runs selectable candidates against it before final selection, storing
 Iteration runs also write `candidate_leaderboard.json`, a run-level search trace
 that ranks all candidate attempts by selection status, probe deltas, validation
 deltas, and deterministic candidate score.
+Later rounds include prior rows from that leaderboard in `agent_context.md`, so
+modifier backends can avoid weak search directions and reuse promising ones.
 
 Use `python -m orchestrator.experiments list` and
 `python -m orchestrator.experiments show <run_id>` to inspect local experiment

@@ -9,38 +9,38 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from backtester.schema import Trade
-from backtester.simulate import DEFAULT_DATA_PATH, run_backtest
+from backtester.simulate import run_backtest
+from orchestrator.config import load_project_config
+from orchestrator.experiment_index import append_experiment_index
 from orchestrator.git_utils import strategy_diff
 from orchestrator.policy_gate import evaluate_policy
 from reports.generate_report import generate_report
-
-
-BASELINE_STRATEGY = "strategies.baseline_strategy"
-CURRENT_STRATEGY = "strategies.current_strategy"
 
 
 def run_pipeline(
     *,
     run_id: str | None = None,
     experiments_dir: Path = Path("experiments"),
-    data_path: Path = DEFAULT_DATA_PATH,
+    data_path: Path | None = None,
 ) -> dict[str, object]:
     """Execute the V0 pipeline and write all experiment artifacts."""
+    config = load_project_config()
     active_run_id = run_id or os.environ.get("SUAN_RUN_ID") or make_run_id()
     run_dir = experiments_dir / active_run_id
     run_dir.mkdir(parents=True, exist_ok=False)
+    active_data_path = data_path or Path(config.datasets["validation"])
 
     trades_before, metrics_before = run_and_write(
-        strategy_name=BASELINE_STRATEGY,
-        data_path=data_path,
+        strategy_name=config.baseline_strategy_module,
+        data_path=active_data_path,
         metrics_path=run_dir / "metrics_before.json",
         trades_path=run_dir / "trades_before.csv",
         report_path=run_dir / "report_before.md",
     )
 
     trades_after, metrics_after = run_and_write(
-        strategy_name=CURRENT_STRATEGY,
-        data_path=data_path,
+        strategy_name=config.current_strategy_module,
+        data_path=active_data_path,
         metrics_path=run_dir / "metrics_after.json",
         trades_path=run_dir / "trades_after.csv",
         report_path=run_dir / "report_after.md",
@@ -49,6 +49,19 @@ def run_pipeline(
     decision = evaluate_policy(metrics_before, metrics_after)
     write_json(run_dir / "decision.json", decision)
     (run_dir / "patch.diff").write_text(strategy_diff(), encoding="utf-8")
+    append_experiment_index(
+        experiments_dir=experiments_dir,
+        record={
+            "kind": "single_run",
+            "run_id": active_run_id,
+            "status": "accepted" if decision["accepted"] else "rejected",
+            "accepted": decision["accepted"],
+            "ev_before": metrics_before["ev"],
+            "ev_after": metrics_after["ev"],
+            "trade_count_before": metrics_before["trade_count"],
+            "trade_count_after": metrics_after["trade_count"],
+        },
+    )
 
     return {
         "run_id": active_run_id,

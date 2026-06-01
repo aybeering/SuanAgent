@@ -1,0 +1,22 @@
+{
+  "baseline_strategy_module": "strategies.baseline_strategy",
+  "current_strategy_module": "strategies.current_strategy",
+  "experiments_dir": "experiments",
+  "max_rounds": 5,
+  "datasets": {
+    "train": "data/train/sample_markets.csv",
+    "validation": "data/validation/sample_markets.csv",
+    "holdout": "data/holdout/sample_markets.csv"
+  },
+  "policy": {
+    "min_trade_count": 20,
+    "min_ev_improvement": 0.01,
+    "max_drawdown_worsening": 0.01,
+    "max_slippage_worsening": 0.005
+  },
+  "strategy_path": "strategies/current_strategy.py",
+  "stub": {
+    "old_threshold": "MIN_EDGE = 0.05",
+    "new_threshold": "MIN_EDGE = 0.04"
+  }
+}

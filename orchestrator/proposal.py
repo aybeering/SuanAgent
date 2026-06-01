@@ -13,6 +13,8 @@ class StrategyProposal:
     round_index: int
     target_file: str
     summary: str
+    risk_notes: str
+    expected_metric_change: dict[str, str]
     raw_response: str
     patch_diff: str
     applicable: bool

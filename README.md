@@ -1,4 +1,4 @@
-# Self Iterating Strategy Agent V0
+# Self Iterating Strategy Agent V0.5
 
 A small, deterministic prototype for evaluating and iterating strategy changes.
 
@@ -9,6 +9,10 @@ the candidate with a deterministic policy gate.
 V0.5 adds a minimal self-iteration skeleton: a fixed strategy modifier stub
 proposes a patch, the loop applies it, reruns validation, and then accepts or
 rolls back the change through Git based on the same deterministic policy gate.
+
+Default run settings live in `config/default.json`. The iteration loop uses
+train data for the agent report, validation data for the policy gate, and
+holdout data for observation-only reports.
 
 ## Commands
 
@@ -31,4 +35,7 @@ Each run writes artifacts to `experiments/<run_id>/`:
 - `trades_before.csv`
 - `trades_after.csv`
 
-The V0 prototype does not call exchanges, wallets, or external APIs.
+The multi-round loop also writes per-round train and holdout artifacts plus an
+append-only `experiments/index.jsonl`.
+
+The V0.5 prototype does not call exchanges, wallets, or external APIs.

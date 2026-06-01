@@ -17,13 +17,13 @@ V0 implemented the single-run evaluation loop:
 
 V0.5 builds on that by adding a minimal self-iteration skeleton:
 
-1. Run the current strategy on fixed validation data.
-2. Generate before metrics and report.
+1. Run the current strategy on fixed train, validation, and holdout data.
+2. Generate before metrics and reports.
 3. Call a strategy modifier stub.
 4. Apply the stub proposal as a patch.
-5. Run the modified strategy.
-6. Generate after metrics and report.
-7. Compare old and new metrics with the policy gate.
+5. Run the modified strategy on train, validation, and holdout data.
+6. Generate after metrics and reports.
+7. Compare old and new validation metrics with the policy gate.
 8. Accept and commit the patch only if policy passes.
 9. Reject and roll back the patch if policy fails.
 10. Repeat until accepted or the max-round limit is reached.
@@ -56,7 +56,8 @@ Allowed components:
 9. A proposal schema for agent output.
 10. Git apply, accept commit, and reject rollback helpers.
 11. Round-based experiment outputs.
-12. Clear tests and smoke checks.
+12. Config-driven dataset and policy settings.
+13. Clear tests and smoke checks.
 
 Still out of scope:
 
@@ -92,6 +93,8 @@ Current structure:
 ├── README.md
 ├── TASK.md
 ├── pyproject.toml
+├── config/
+│   └── default.json
 ├── agents/
 │   └── strategy_modifier_stub.py
 ├── data/
@@ -157,16 +160,29 @@ The multi-round V0.5 loop writes:
 
 ```text
 manifest.json
+index.jsonl
 round_001/
+  train_metrics_before.json
+  train_report_before.md
+  train_trades_before.csv
   metrics_before.json
   report_before.md
   trades_before.csv
+  holdout_metrics_before.json
+  holdout_report_before.md
+  holdout_trades_before.csv
   proposal.json
   agent_response.txt
   patch.diff
+  train_metrics_after.json
+  train_report_after.md
+  train_trades_after.csv
   metrics_after.json
   report_after.md
   trades_after.csv
+  holdout_metrics_after.json
+  holdout_report_after.md
+  holdout_trades_after.csv
   decision.json
 ```
 
@@ -186,6 +202,7 @@ Infrastructure tasks may modify:
 ```text
 agents/
 backtester/
+config/
 orchestrator/
 reports/
 tests/
@@ -297,6 +314,8 @@ Add smoke tests that verify:
 8. Reject rolls back the strategy file.
 9. Accept can stop the loop under relaxed test rules.
 10. The max-round guard stops repeated rejections.
+11. Config loading exposes train, validation, and holdout splits.
+12. Invalid strategy orders are rejected before simulation.
 
 The project is complete only when these checks pass:
 
@@ -312,14 +331,14 @@ When the V0.5 loop runs, it should:
 
 1. Create a new run directory under `experiments/`.
 2. Create per-round directories under that run.
-3. Run the current strategy before modification.
-4. Save before metrics, trades, and report.
-5. Call the fixed strategy modifier stub.
+3. Run the current strategy before modification on all configured data splits.
+4. Save train, validation, and holdout before metrics, trades, and reports.
+5. Call the fixed strategy modifier stub using the train report.
 6. Save `proposal.json`, `agent_response.txt`, and `patch.diff`.
 7. Apply the patch with Git.
-8. Run the modified strategy.
-9. Save after metrics, trades, and report.
-10. Run the policy gate.
+8. Run the modified strategy on all configured data splits.
+9. Save train, validation, and holdout after metrics, trades, and reports.
+10. Run the policy gate on validation metrics only.
 11. Save `decision.json`.
 12. Accept and commit if policy passes.
 13. Reject and roll back if policy fails.

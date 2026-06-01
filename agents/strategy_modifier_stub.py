@@ -24,25 +24,29 @@ def propose_strategy_change(
     target_file: Path,
     round_index: int,
     repo_root: Path = Path("."),
+    old_threshold: str = OLD_THRESHOLD,
+    new_threshold: str = NEW_THRESHOLD,
 ) -> StrategyProposal:
     """Return a fixed proposal that lowers the candidate strategy threshold."""
     report_text = report_path.read_text(encoding="utf-8")
     target_text = target_file.read_text(encoding="utf-8")
     target_relative = target_file.relative_to(repo_root)
 
-    if OLD_THRESHOLD not in target_text:
+    if old_threshold not in target_text:
         return StrategyProposal(
             agent_name=AGENT_NAME,
             round_index=round_index,
             target_file=str(target_relative),
             summary="No patch generated because the expected threshold was absent.",
+            risk_notes="No file change was proposed.",
+            expected_metric_change={},
             raw_response=f"Read report with {len(report_text)} characters.",
             patch_diff="",
             applicable=False,
-            rejection_reason=f"Expected `{OLD_THRESHOLD}` in {target_relative}.",
+            rejection_reason=f"Expected `{old_threshold}` in {target_relative}.",
         )
 
-    updated_text = target_text.replace(OLD_THRESHOLD, NEW_THRESHOLD, 1)
+    updated_text = target_text.replace(old_threshold, new_threshold, 1)
     patch_diff = "".join(
         difflib.unified_diff(
             target_text.splitlines(keepends=True),
@@ -56,7 +60,13 @@ def propose_strategy_change(
         agent_name=AGENT_NAME,
         round_index=round_index,
         target_file=str(target_relative),
-        summary="Lower MIN_EDGE from 0.05 to 0.04 for the candidate strategy.",
+        summary=f"Replace `{old_threshold}` with `{new_threshold}`.",
+        risk_notes="May increase trade count while lowering average edge per trade.",
+        expected_metric_change={
+            "trade_count": "increase",
+            "ev": "uncertain",
+            "avg_slippage": "slight_increase",
+        },
         raw_response=f"stub response: read report with {len(report_text)} characters",
         patch_diff=patch_diff,
         applicable=True,

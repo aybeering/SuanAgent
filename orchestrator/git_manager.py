@@ -57,18 +57,21 @@ def ensure_git_identity(repo_root: Path) -> None:
         run_git(repo_root, "config", "user.email", "suanagent-v0@example.local")
 
 
-def assert_strategy_clean(repo_root: Path) -> None:
+def assert_strategy_clean(
+    repo_root: Path,
+    strategy_path: Path = STRATEGY_PATH,
+) -> None:
     """Stop before iteration if the candidate strategy has pending changes."""
     result = run_git(
         repo_root,
         "status",
         "--porcelain",
         "--",
-        str(STRATEGY_PATH),
+        str(strategy_path),
         check=True,
     )
     if result.stdout.strip():
-        raise GitError(f"{STRATEGY_PATH} has uncommitted changes")
+        raise GitError(f"{strategy_path} has uncommitted changes")
 
 
 def apply_patch(repo_root: Path, patch_diff: str) -> None:
@@ -79,15 +82,24 @@ def apply_patch(repo_root: Path, patch_diff: str) -> None:
     run_git(repo_root, "apply", input_text=patch_diff)
 
 
-def rollback_strategy(repo_root: Path) -> None:
+def rollback_strategy(
+    repo_root: Path,
+    strategy_path: Path = STRATEGY_PATH,
+) -> None:
     """Restore the candidate strategy to HEAD."""
-    run_git(repo_root, "checkout", "--", str(STRATEGY_PATH))
+    run_git(repo_root, "checkout", "--", str(strategy_path))
 
 
-def commit_strategy(repo_root: Path, *, run_id: str, round_id: str) -> str:
+def commit_strategy(
+    repo_root: Path,
+    *,
+    run_id: str,
+    round_id: str,
+    strategy_path: Path = STRATEGY_PATH,
+) -> str:
     """Commit the accepted strategy and return the commit hash."""
-    run_git(repo_root, "add", str(STRATEGY_PATH))
-    status = run_git(repo_root, "status", "--porcelain", "--", str(STRATEGY_PATH))
+    run_git(repo_root, "add", str(strategy_path))
+    status = run_git(repo_root, "status", "--porcelain", "--", str(strategy_path))
     if status.stdout.strip():
         commit(repo_root, f"accept strategy update {run_id} {round_id}")
     return current_commit(repo_root)

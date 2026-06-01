@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import importlib
+import math
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -63,7 +64,7 @@ def run_backtest(
     order_count = 0
 
     for snapshot in snapshots:
-        orders = strategy.generate_orders(snapshot)
+        orders = validate_strategy_orders(snapshot, strategy.generate_orders(snapshot))
         order_count += len(orders)
         for order in orders:
             trade = maybe_fill_order(snapshot, order)
@@ -71,6 +72,30 @@ def run_backtest(
                 trades.append(trade)
 
     return trades, calculate_metrics(trades, order_count)
+
+
+def validate_strategy_orders(
+    snapshot: MarketSnapshot,
+    orders: object,
+) -> list[StrategyOrder]:
+    """Validate strategy output before simulation accepts it."""
+    if not isinstance(orders, list):
+        raise TypeError("generate_orders(snapshot) must return a list")
+
+    validated: list[StrategyOrder] = []
+    for order in orders:
+        if not isinstance(order, StrategyOrder):
+            raise TypeError("strategy orders must be StrategyOrder instances")
+        if order.market_id != snapshot.market_id:
+            raise ValueError("strategy order market_id must match the snapshot")
+        if order.side != "YES":
+            raise ValueError("V0.5 only supports YES orders")
+        if not math.isfinite(order.limit_price) or not 0.0 < order.limit_price < 1.0:
+            raise ValueError("strategy order limit_price must be between 0 and 1")
+        if not math.isfinite(order.stake) or order.stake <= 0.0:
+            raise ValueError("strategy order stake must be positive")
+        validated.append(order)
+    return validated
 
 
 def maybe_fill_order(snapshot: MarketSnapshot, order: StrategyOrder) -> Trade | None:

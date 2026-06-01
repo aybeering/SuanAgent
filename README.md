@@ -59,6 +59,10 @@ without running the full multi-agent system. Only `strategy_modifier` is active
 and implemented in V0.5; `analysis`, `visual_review`, and `overfit_validator`
 are saved as disabled stub contracts so future work can attach agents to stable
 roles without changing acceptance authority.
+Each configured profile can also carry `agent_role`. In V0.5 enabled profiles
+must point at the active `strategy_modifier` role; disabled profiles may point at
+future roles so they remain visible in manifests without entering the execution
+queue.
 Workspace-backed adapters receive both `profile_name` and `attempt_id`, and
 their ignored project copies are scoped as
 `workspaces/<run_id>/<round_id>/<profile>/<attempt_id>/strategy_workspace/`.
@@ -253,6 +257,9 @@ deterministic gates keep final acceptance authority.
 `agent_input.json` includes `agent_roles`, `agent_profiles`, an `active_agent`
 task envelope, and output-contract paths so future SDK or CLI-backed agents do
 not need to infer their identity or allowed output location from filenames.
+Attempt-scoped inputs fill `active_agent.agent_role`, so an isolated command can
+distinguish its architectural responsibility from its queue role (`primary` or
+`fallback_01`).
 Each agent profile carries a normalized `runner` capability block. In-process
 stubs are marked as `in_process_modifier`; file-contract subprocesses are marked
 as `agent_contract_runner_v1`; the current guarded Codex CLI adapter is marked
@@ -266,9 +273,11 @@ relevant. The same runner metadata is copied into
 blue-node attempt can be routed or audited without guessing how it was supposed
 to run.
 `agent_routing_policy.json` is the round-level routing decision view: it records
-the selected profile, adapter, runner, deterministic rank policy, score weights,
-candidate scores, score reasons, skip reasons, routing priors, and links to
-attempt-level audit files.
+the selected profile, adapter, agent role, runner, deterministic rank policy,
+score weights, candidate scores, score reasons, skip reasons, routing priors,
+and links to attempt-level audit files. The artifact validator checks that the
+selected top-level `selected_agent_role` matches the selected candidate row and
+that candidate roles exist in `agent_role_contracts.json`.
 Workspace-backed candidates also keep per-attempt copies of
 `agent_input.json`, `attempt_output.json`, `workspace_manifest.json`, and, for
 file-protocol commands, `agent_execution.json` inside

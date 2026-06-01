@@ -8,6 +8,7 @@
     "round_id",
     "round_index",
     "selected_role",
+    "selected_agent_role",
     "selection_reason",
     "selected_proposal",
     "attempt_count",
@@ -33,6 +34,9 @@
       "type": "integer"
     },
     "selected_role": {
+      "type": "string"
+    },
+    "selected_agent_role": {
       "type": "string"
     },
     "selection_reason": {
@@ -119,6 +123,7 @@
         "type": "object",
         "required": [
           "role",
+          "agent_role",
           "profile_name",
           "adapter_name",
           "runner",
@@ -137,6 +142,9 @@
         ],
         "properties": {
           "role": {
+            "type": "string"
+          },
+          "agent_role": {
             "type": "string"
           },
           "profile_name": {

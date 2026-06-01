@@ -1014,6 +1014,7 @@ def legacy_agent_profiles(config: ProjectConfig) -> tuple[dict[str, object], ...
             "name": "primary",
             "adapter": config.strategy_modifier,
             "role": "primary",
+            "agent_role": "strategy_modifier",
             "enabled": True,
             "settings": config.modifier_settings,
             "runner": normalize_runner_capability(
@@ -1027,6 +1028,7 @@ def legacy_agent_profiles(config: ProjectConfig) -> tuple[dict[str, object], ...
             "name": f"fallback_{index:02d}",
             "adapter": fallback_modifier,
             "role": "fallback",
+            "agent_role": "strategy_modifier",
             "enabled": True,
             "settings": config.modifier_settings,
             "runner": normalize_runner_capability(
@@ -1049,6 +1051,7 @@ def proposal_attempt_record(
     modifier_name: str,
     profile_name: str,
     adapter_name: str,
+    agent_role: str,
     runner_capability: dict[str, object],
     proposal: StrategyProposal,
     memory_filter_reason: str,
@@ -1085,6 +1088,7 @@ def proposal_attempt_record(
     return {
         "attempt_id": attempt_id,
         "role": role,
+        "agent_role": agent_role,
         "modifier_name": modifier_name,
         "profile_name": profile_name,
         "adapter_name": adapter_name,
@@ -1191,6 +1195,7 @@ def select_proposal_candidate(
         candidate_modifier_name = agent_result.modifier_name
         profile_name_value = agent_result.profile_name
         adapter_name_value = agent_result.adapter_name
+        agent_role = agent_result.agent_role
         runner_capability = agent_result.runner_capability
         proposal = agent_result.proposal
         proposal = enforce_proposal_contract(
@@ -1300,6 +1305,7 @@ def select_proposal_candidate(
                 modifier_name=candidate_modifier_name,
                 profile_name=profile_name_value,
                 adapter_name=adapter_name_value,
+                agent_role=agent_role,
                 runner_capability=runner_capability,
                 proposal=proposal,
                 memory_filter_reason=memory_reason,

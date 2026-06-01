@@ -429,6 +429,11 @@ Configs may also define `agent_roles`; when omitted, use the default role
 contracts. Roles describe architectural responsibilities, while profiles
 describe concrete execution slots. Do not execute analysis, visual review, or
 overfit validation roles in V0.5.
+Each configured profile may include `agent_role`. Enabled profiles must point at
+the active implemented role, currently `strategy_modifier`; disabled profiles
+may point at future stub roles for manifest visibility. Attempt, executor,
+selection, routing, and output artifacts should preserve both the queue `role`
+(`primary`, `fallback_01`, etc.) and the architectural `agent_role`.
 Executor calls should pass profile metadata to modifiers so workspace-backed
 adapters can isolate future blue agent slots even when they share the same
 underlying adapter.

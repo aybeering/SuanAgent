@@ -25,6 +25,7 @@ class AgentCandidate:
     modifier_name: str
     profile_name: str
     adapter_name: str
+    agent_role: str
     runner_capability: dict[str, object]
     modifier: StrategyModifier
 
@@ -39,6 +40,7 @@ class AgentCandidateResult:
     modifier_name: str
     profile_name: str
     adapter_name: str
+    agent_role: str
     runner_capability: dict[str, object]
     proposal: StrategyProposal
 
@@ -69,6 +71,7 @@ def build_agent_queue(
             modifier_name=modifier_name(modifier),
             profile_name=profile_name(profile, role),
             adapter_name=profile_adapter_name(profile, modifier),
+            agent_role=profile_agent_role(profile),
             runner_capability=profile_runner_capability(profile),
             modifier=modifier,
         )
@@ -103,6 +106,7 @@ def execute_agent_queue(
             attempt_id=candidate.attempt_id,
             profile_name=candidate.profile_name,
             adapter_name=candidate.adapter_name,
+            agent_role=candidate.agent_role,
         )
         results.append(
             AgentCandidateResult(
@@ -112,6 +116,7 @@ def execute_agent_queue(
                 modifier_name=candidate.modifier_name,
                 profile_name=candidate.profile_name,
                 adapter_name=candidate.adapter_name,
+                agent_role=candidate.agent_role,
                 runner_capability=candidate.runner_capability,
                 proposal=proposal,
             )
@@ -210,6 +215,7 @@ def executor_attempt_row(
         "attempt_id": attempt_id,
         "attempt_index": int(attempt.get("attempt_index", attempt_index)),
         "role": str(attempt.get("role", "")),
+        "agent_role": str(attempt.get("agent_role", "")),
         "modifier_name": str(
             attempt.get("modifier_name", attempt.get("agent_name", ""))
         ),
@@ -294,6 +300,11 @@ def profile_name(profile: dict[str, object], role: str) -> str:
 def profile_adapter_name(profile: dict[str, object], modifier: StrategyModifier) -> str:
     """Return configured adapter name, falling back to modifier metadata."""
     return str(profile.get("adapter", modifier_name(modifier)))
+
+
+def profile_agent_role(profile: dict[str, object]) -> str:
+    """Return configured architectural agent role for this profile."""
+    return str(profile.get("agent_role", "strategy_modifier"))
 
 
 def profile_runner_capability(profile: dict[str, object]) -> dict[str, object]:

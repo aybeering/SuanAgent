@@ -184,6 +184,7 @@ def compact_agent_profiles(
             "profile_name": str(profile.get("name", "")),
             "adapter_name": str(profile.get("adapter", "")),
             "role": str(profile.get("role", "")),
+            "agent_role": str(profile.get("agent_role", "strategy_modifier")),
             "enabled": bool(profile.get("enabled", True)),
             "settings": dict_or_empty(profile.get("settings", {})),
             "runner": dict_or_empty(profile.get("runner", {})),
@@ -197,6 +198,7 @@ def active_agent_template() -> dict[str, object]:
     return {
         "attempt_id": "",
         "role": "",
+        "agent_role": "",
         "profile_name": "",
         "adapter_name": "",
         "agent_name": "",
@@ -251,12 +253,14 @@ def build_agent_output_payload(
 ) -> dict[str, object]:
     """Return the deterministic output contract from modifier selection."""
     selected_role = str(selected_attempt.get("role", ""))
+    selected_agent_role = str(selected_attempt.get("agent_role", ""))
     return {
         "schema_version": AGENT_OUTPUT_SCHEMA_VERSION,
         "run_id": run_id,
         "round_id": round_id,
         "round_index": round_index,
         "selected_role": selected_role,
+        "selected_agent_role": selected_agent_role,
         "selection_reason": str(selected_attempt.get("selection_reason", "")),
         "selected_proposal": proposal.to_dict(),
         "attempt_count": len(proposal_attempts),
@@ -289,6 +293,7 @@ def compact_attempts(attempts: list[dict[str, object]]) -> list[dict[str, object
         rows.append(
             {
                 "role": attempt.get("role", ""),
+                "agent_role": attempt.get("agent_role", ""),
                 "profile_name": attempt.get("profile_name", ""),
                 "adapter_name": attempt.get("adapter_name", ""),
                 "runner": dict_or_empty(attempt.get("runner", {})),

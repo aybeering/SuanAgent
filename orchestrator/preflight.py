@@ -187,10 +187,23 @@ def validate_agent_profiles(config: ProjectConfig, errors: list[str]) -> None:
     """Validate configured agent profiles."""
     enabled_primary_count = 0
     seen_names: set[str] = set()
+    known_agent_roles = {
+        str(role.get("role_name", ""))
+        for role in config.agent_roles
+        if str(role.get("role_name", ""))
+    }
+    active_role_names = {
+        str(role.get("role_name", ""))
+        for role in config.agent_roles
+        if bool(role.get("enabled", False))
+        and bool(role.get("implemented", False))
+        and str(role.get("execution_mode", "")) == "active"
+    }
     for index, profile in enumerate(config.agent_profiles, start=1):
         name = str(profile.get("name", ""))
         adapter = str(profile.get("adapter", ""))
         role = str(profile.get("role", ""))
+        agent_role = str(profile.get("agent_role", ""))
         enabled = bool(profile.get("enabled", True))
         if not name:
             errors.append(f"agents[{index}].name must be non-empty")
@@ -201,6 +214,12 @@ def validate_agent_profiles(config: ProjectConfig, errors: list[str]) -> None:
             errors.append(f"agents[{index}].adapter is unsupported: {adapter}")
         if role not in {"primary", "fallback"}:
             errors.append(f"agents[{index}].role must be primary or fallback")
+        if agent_role not in known_agent_roles:
+            errors.append(f"agents[{index}].agent_role is unknown: {agent_role}")
+        if enabled and agent_role not in active_role_names:
+            errors.append(
+                f"agents[{index}].agent_role is not active in V0.5: {agent_role}"
+            )
         validate_agent_profile_runner(
             profile=profile,
             profile_index=index,

@@ -9,6 +9,7 @@
     "selected_attempt_id",
     "selected_profile_name",
     "selected_adapter_name",
+    "selected_agent_role",
     "selected_runner_name",
     "selection_reason",
     "routing_policy",
@@ -34,6 +35,9 @@
       "type": "string"
     },
     "selected_adapter_name": {
+      "type": "string"
+    },
+    "selected_agent_role": {
       "type": "string"
     },
     "selected_runner_name": {
@@ -80,6 +84,7 @@
           "attempt_id",
           "attempt_index",
           "role",
+          "agent_role",
           "profile_name",
           "adapter_name",
           "runner_name",
@@ -114,6 +119,9 @@
             "type": "integer"
           },
           "role": {
+            "type": "string"
+          },
+          "agent_role": {
             "type": "string"
           },
           "profile_name": {

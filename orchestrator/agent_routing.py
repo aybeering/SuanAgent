@@ -60,6 +60,7 @@ def agent_routing_policy_payload(
         "selected_attempt_id": str(selected.get("attempt_id", "")),
         "selected_profile_name": str(selected.get("profile_name", "")),
         "selected_adapter_name": str(selected.get("adapter_name", "")),
+        "selected_agent_role": str(selected.get("agent_role", "")),
         "selected_runner_name": str(selected.get("runner_name", "")),
         "selection_reason": str(selected.get("selection_reason", "")),
         "routing_policy": {
@@ -99,6 +100,7 @@ def routing_candidates(
                 "attempt_id": attempt_id,
                 "attempt_index": int(attempt.get("attempt_index", index)),
                 "role": str(attempt.get("role", "")),
+                "agent_role": str(attempt.get("agent_role", "")),
                 "profile_name": str(attempt.get("profile_name", "")),
                 "adapter_name": str(attempt.get("adapter_name", "")),
                 "runner_name": str(attempt.get("runner_name", "")),

@@ -65,6 +65,7 @@ class FileProtocolModifier:
         attempt_id: str = "",
         profile_name: str = "",
         adapter_name: str = "",
+        agent_role: str = "",
     ) -> StrategyProposal:
         """Invoke the configured file-protocol command when enabled."""
         del old_threshold, new_threshold, context_path
@@ -92,6 +93,7 @@ class FileProtocolModifier:
             attempt_id=attempt_id,
             profile_name=profile_name,
             adapter_name=adapter_name,
+            agent_role=agent_role,
             agent_name=self.agent_name,
             output_filename=self.output_filename,
             workspace_output_path=allowed_output_path,
@@ -325,6 +327,7 @@ def copy_agent_round_inputs(*, source_round_dir: Path, workspace_round_dir: Path
     """Copy stable agent input artifacts into the isolated workspace."""
     workspace_round_dir.mkdir(parents=True, exist_ok=True)
     for filename in (
+        "agent_role_contracts.json",
         "agent_input.json",
         "agent_context.md",
         "agent_context.json",
@@ -352,6 +355,7 @@ def write_active_agent_input(
     attempt_id: str,
     profile_name: str,
     adapter_name: str,
+    agent_role: str,
     agent_name: str,
     output_filename: str,
     workspace_output_path: str,
@@ -365,6 +369,7 @@ def write_active_agent_input(
     payload["active_agent"] = {
         "attempt_id": attempt_id,
         "role": role_from_attempt_id(attempt_id),
+        "agent_role": agent_role,
         "profile_name": profile_name,
         "adapter_name": adapter_name,
         "agent_name": agent_name,

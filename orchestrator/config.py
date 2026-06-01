@@ -327,6 +327,7 @@ def normalize_agent_profile(
         "name": str(raw_profile.get("name", f"agent_{index:02d}")),
         "adapter": adapter,
         "role": str(raw_profile.get("role", "fallback")),
+        "agent_role": str(raw_profile.get("agent_role", "strategy_modifier")),
         "enabled": bool(raw_profile.get("enabled", True)),
         "settings": normalized_settings,
         "runner": normalize_runner_capability(

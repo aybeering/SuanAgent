@@ -217,6 +217,7 @@
           "profile_name",
           "adapter_name",
           "role",
+          "agent_role",
           "enabled",
           "settings",
           "runner"
@@ -229,6 +230,9 @@
             "type": "string"
           },
           "role": {
+            "type": "string"
+          },
+          "agent_role": {
             "type": "string"
           },
           "enabled": {
@@ -248,6 +252,7 @@
       "required": [
         "attempt_id",
         "role",
+        "agent_role",
         "profile_name",
         "adapter_name",
         "agent_name",
@@ -258,6 +263,9 @@
           "type": "string"
         },
         "role": {
+          "type": "string"
+        },
+        "agent_role": {
           "type": "string"
         },
         "profile_name": {

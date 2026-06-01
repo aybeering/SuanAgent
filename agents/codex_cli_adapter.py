@@ -61,8 +61,10 @@ class CodexCliModifier:
         attempt_id: str = "",
         profile_name: str = "",
         adapter_name: str = "",
+        agent_role: str = "",
     ) -> StrategyProposal:
         """Build the Codex request and optionally execute it."""
+        del agent_role
         report_text = report_path.read_text(encoding="utf-8")
         context_text = context_path.read_text(encoding="utf-8") if context_path else ""
         target_relative = target_file.relative_to(repo_root)

@@ -8,6 +8,7 @@
     "attempt_index",
     "round_id",
     "role",
+    "agent_role",
     "profile_name",
     "adapter_name",
     "runner_name",
@@ -47,6 +48,9 @@
       "minLength": 1
     },
     "role": {
+      "type": "string"
+    },
+    "agent_role": {
       "type": "string"
     },
     "profile_name": {

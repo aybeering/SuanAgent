@@ -192,7 +192,7 @@ def validate_round_dir(
         schema_path=repo_root / "schemas/agent_role_contracts.schema.json",
         report=report,
     )
-    validate_agent_role_contracts(
+    role_names = validate_agent_role_contracts(
         path=round_dir / "agent_role_contracts.json",
         report=report,
     )
@@ -224,6 +224,7 @@ def validate_round_dir(
     validate_agent_executor_report(
         path=round_dir / "agent_executor_report.json",
         repo_root=repo_root,
+        role_names=role_names,
         report=report,
     )
     validate_contract_file(
@@ -234,6 +235,7 @@ def validate_round_dir(
     validate_agent_routing_policy(
         path=round_dir / "agent_routing_policy.json",
         repo_root=repo_root,
+        role_names=role_names,
         report=report,
     )
     validate_contract_file(
@@ -278,7 +280,16 @@ def validate_round_dir(
         )
 
     validate_json_object(path=round_dir / "decision.json", report=report)
-    validate_json_list(path=round_dir / "proposal_attempts.json", report=report)
+    proposal_attempts = validate_json_list(
+        path=round_dir / "proposal_attempts.json",
+        report=report,
+    )
+    validate_attempt_agent_roles(
+        payload_name="proposal_attempts.json",
+        attempts=proposal_attempts,
+        role_names=role_names,
+        report=report,
+    )
     validate_optional_workspace_manifest(
         round_dir=round_dir,
         repo_root=repo_root,
@@ -341,15 +352,15 @@ def validate_agent_role_contracts(
     *,
     path: Path,
     report: dict[str, object],
-) -> None:
+) -> set[str]:
     """Validate role uniqueness and active role references."""
     payload = validate_json_object(path=path, report=report)
     if payload is None:
-        return
+        return set()
     roles = payload.get("roles", [])
     if not isinstance(roles, list) or not roles:
         add_error(report, "agent_role_contracts.json roles is empty or invalid")
-        return
+        return set()
     role_names: set[str] = set()
     for role in roles:
         if not isinstance(role, dict):
@@ -370,6 +381,30 @@ def validate_agent_role_contracts(
             add_error(
                 report,
                 f"agent_role_contracts.json active role is missing: {active_role}",
+            )
+    return role_names
+
+
+def validate_attempt_agent_roles(
+    *,
+    payload_name: str,
+    attempts: list[Any] | None,
+    role_names: set[str],
+    report: dict[str, object],
+) -> None:
+    """Validate that attempt rows reference known agent roles."""
+    if attempts is None or not role_names:
+        return
+    for index, attempt in enumerate(attempts, start=1):
+        if not isinstance(attempt, dict):
+            continue
+        agent_role = str(attempt.get("agent_role", ""))
+        if not agent_role:
+            add_error(report, f"{payload_name} attempt {index} missing agent_role")
+        elif agent_role not in role_names:
+            add_error(
+                report,
+                f"{payload_name} attempt {index} unknown agent_role: {agent_role}",
             )
 
 
@@ -487,6 +522,7 @@ def validate_agent_executor_report(
     *,
     path: Path,
     repo_root: Path,
+    role_names: set[str],
     report: dict[str, object],
 ) -> None:
     """Validate executor rows point at existing attempt/runtime artifacts."""
@@ -504,6 +540,14 @@ def validate_agent_executor_report(
             continue
         if bool(row.get("selected", False)):
             selected_rows += 1
+        agent_role = str(row.get("agent_role", ""))
+        if not agent_role:
+            add_error(report, "agent_executor_report.json attempt missing agent_role")
+        elif role_names and agent_role not in role_names:
+            add_error(
+                report,
+                f"agent_executor_report.json unknown agent_role: {agent_role}",
+            )
         artifacts = row.get("artifacts", {})
         if not isinstance(artifacts, dict):
             add_error(report, "agent_executor_report.json artifacts is non-object")
@@ -532,6 +576,7 @@ def validate_agent_routing_policy(
     *,
     path: Path,
     repo_root: Path,
+    role_names: set[str],
     report: dict[str, object],
 ) -> None:
     """Validate routing policy rows and referenced attempt artifacts."""
@@ -543,12 +588,26 @@ def validate_agent_routing_policy(
         add_error(report, "agent_routing_policy.json candidates is empty or invalid")
         return
     selected_rows = 0
+    selected_agent_role = str(payload.get("selected_agent_role", ""))
     for row in rows:
         if not isinstance(row, dict):
             add_error(report, "agent_routing_policy.json candidates contains non-object")
             continue
         if bool(row.get("selected", False)):
             selected_rows += 1
+            if selected_agent_role != str(row.get("agent_role", "")):
+                add_error(
+                    report,
+                    "agent_routing_policy.json selected_agent_role does not match selected row",
+                )
+        agent_role = str(row.get("agent_role", ""))
+        if not agent_role:
+            add_error(report, "agent_routing_policy.json candidate missing agent_role")
+        elif role_names and agent_role not in role_names:
+            add_error(
+                report,
+                f"agent_routing_policy.json unknown agent_role: {agent_role}",
+            )
         artifacts = row.get("artifacts", {})
         if not isinstance(artifacts, dict):
             add_error(report, "agent_routing_policy.json artifacts is non-object")

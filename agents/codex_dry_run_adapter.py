@@ -55,8 +55,10 @@ class CodexDryRunModifier:
         attempt_id: str = "",
         profile_name: str = "",
         adapter_name: str = "",
+        agent_role: str = "",
     ) -> StrategyProposal:
         """Return a no-op proposal with the would-be Codex prompt and command."""
+        del agent_role
         report_text = report_path.read_text(encoding="utf-8")
         context_text = context_path.read_text(encoding="utf-8") if context_path else ""
         intent_text = proposal_intent_text(context_path)

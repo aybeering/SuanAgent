@@ -24,5 +24,6 @@ class StrategyModifier(Protocol):
         attempt_id: str = "",
         profile_name: str = "",
         adapter_name: str = "",
+        agent_role: str = "",
     ) -> StrategyProposal:
         """Return a proposed strategy patch."""

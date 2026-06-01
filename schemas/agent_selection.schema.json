@@ -58,6 +58,7 @@
           "attempt_id",
           "attempt_index",
           "role",
+          "agent_role",
           "profile_name",
           "adapter_name",
           "runner_name",
@@ -90,6 +91,9 @@
             "type": "integer"
           },
           "role": {
+            "type": "string"
+          },
+          "agent_role": {
             "type": "string"
           },
           "profile_name": {

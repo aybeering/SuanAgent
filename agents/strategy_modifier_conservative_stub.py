@@ -31,9 +31,10 @@ class ConservativePatchModifier:
         attempt_id: str = "",
         profile_name: str = "",
         adapter_name: str = "",
+        agent_role: str = "",
     ) -> StrategyProposal:
         """Return the conservative threshold-change proposal."""
-        del attempt_id, profile_name, adapter_name
+        del attempt_id, profile_name, adapter_name, agent_role
         return propose_strategy_change(
             report_path=report_path,
             target_file=target_file,

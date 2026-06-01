@@ -1534,6 +1534,9 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
     assert "Return either a unified diff patch or a JSON object" in proposal["prompt"]
     assert "Prior proposal context:" in proposal["prompt"]
     assert "agent_context.json" in proposal["prompt"]
+    assert "Proposal intent:" in proposal["prompt"]
+    assert '"schema_version": "proposal_intent_v1"' in proposal["prompt"]
+    assert '"recommended_direction": "lower_min_edge"' in proposal["prompt"]
     assert "No prior rounds in this run." in proposal["prompt"]
     assert "workspaces/dry-run/round_001/strategy_workspace" in proposal["workspace_path"]
     assert (
@@ -2000,6 +2003,45 @@ def test_file_protocol_demo_agent_runs_from_config(tmp_path: Path) -> None:
     ]
     assert agent_execution["output_file"]["exists"] is True
     assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_file_protocol_demo_agent_follows_proposal_intent(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    default = load_project_config(repo)
+    source_config = replace(
+        default,
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+    )
+    run_iteration_loop(
+        run_id="file-protocol-intent-source",
+        max_rounds=1,
+        repo_root=repo,
+        config=source_config,
+    )
+    (repo / "experiments/memory.jsonl").unlink()
+    demo_config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+
+    run_iteration_loop(
+        run_id="file-protocol-intent-target",
+        max_rounds=1,
+        repo_root=repo,
+        config=demo_config,
+    )
+
+    round_dir = repo / "experiments/file-protocol-intent-target/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    intent = json.loads((round_dir / "proposal_intent.json").read_text(encoding="utf-8"))
+
+    assert intent["recommended_direction"] == "reduce_stake"
+    assert proposal["direction_tag"] == "file_protocol_demo_reduce_stake"
+    assert proposal["summary"] == (
+        "Demo file-protocol agent follows proposal intent to reduce STAKE."
+    )
+    assert "STAKE = 8.0" in proposal["patch_diff"]
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )

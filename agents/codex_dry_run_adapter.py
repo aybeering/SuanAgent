@@ -8,7 +8,9 @@ control flow safely.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Any
 
 from orchestrator.patch_parser import (
     PatchParseError,
@@ -52,6 +54,7 @@ class CodexDryRunModifier:
         """Return a no-op proposal with the would-be Codex prompt and command."""
         report_text = report_path.read_text(encoding="utf-8")
         context_text = context_path.read_text(encoding="utf-8") if context_path else ""
+        intent_text = proposal_intent_text(context_path)
         target_relative = target_file.relative_to(repo_root)
         run_id, round_id = workspace_ids_from_report(report_path)
         workspace_path = create_isolated_workspace(
@@ -65,6 +68,7 @@ class CodexDryRunModifier:
             target_file=str(target_relative),
             round_index=round_index,
             context_text=context_text,
+            intent_text=intent_text,
         )
         command = build_codex_command(
             executable=self.executable,
@@ -102,6 +106,7 @@ def build_codex_prompt(
     target_file: str,
     round_index: int,
     context_text: str = "",
+    intent_text: str = "",
 ) -> str:
     """Build the prompt that would be sent to an isolated Codex CLI process."""
     return "\n".join(
@@ -119,10 +124,37 @@ def build_codex_prompt(
             "machine-readable version of this context.",
             context_text or "No prior proposal context was provided.",
             "",
+            "Proposal intent:",
+            "If proposal_intent.json exists, treat it as the compact planner "
+            "instruction derived from the context.",
+            intent_text or "No proposal intent was provided.",
+            "",
             "Report:",
             report_text,
         ]
     )
+
+
+def proposal_intent_text(context_path: Path | None) -> str:
+    """Return pretty proposal intent JSON located next to agent context."""
+    if context_path is None:
+        return ""
+    intent_path = context_path.with_name("proposal_intent.json")
+    if not intent_path.exists():
+        return ""
+    payload = load_json(intent_path)
+    if not payload:
+        return intent_path.read_text(encoding="utf-8")
+    return json.dumps(payload, indent=2, sort_keys=True)
+
+
+def load_json(path: Path) -> dict[str, Any]:
+    """Load a JSON object if present."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
 
 
 def build_codex_command(

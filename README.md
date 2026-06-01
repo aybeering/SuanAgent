@@ -33,7 +33,9 @@ explicitly set to `true`. Example configs live in `config/adaptive_stub.json`,
 The `adaptive_stub` remains deterministic but now reads both same-run failures
 and recent `research_brief` rows from `agent_context.json`; if recent research
 shows failed `lower_min_edge` attempts, it shifts to a fixed `reduce_stake`
-proposal.
+proposal. Dry-run Codex prompts and the demo file-protocol agent also consume
+`proposal_intent.json`, so local stand-ins exercise the same planner handoff
+that future SDK or CLI agents will use.
 Enabled `file_protocol` commands run inside an isolated workspace and may only
 bring back the configured proposal output file. Each file-protocol round writes
 `agent_execution.json` with the command, workspace path, return code, output
@@ -134,9 +136,9 @@ Timeouts, non-zero exits, malformed output, disallowed patch targets, and hidden
 workspace mutations are all deterministic rejections; the strategy file remains
 rolled back unless the policy gates accept a valid patch.
 `agents.file_protocol_demo_agent` is the reference local command for this path:
-it reads `agent_input.json`, writes structured proposal JSON, and lets the loop
-perform the same patch parsing, validation, backtest, policy gate, and rollback
-used for future SDK or CLI-backed agents.
+it reads `agent_input.json` plus `proposal_intent.json`, writes structured
+proposal JSON, and lets the loop perform the same patch parsing, validation,
+backtest, policy gate, and rollback used for future SDK or CLI-backed agents.
 Iteration status is one of `accepted`, `stopped_repeated_proposal`,
 `stopped_max_rounds`, or `failed`.
 The validation policy remains the primary acceptance rule, while the optional

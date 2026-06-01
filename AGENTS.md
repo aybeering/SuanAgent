@@ -548,8 +548,10 @@ The configured modifier may also be `codex_dry_run`, `codex_cli_dry_run`,
 `codex_cli`, or `file_protocol`. The `adaptive_stub` modifier is still
 deterministic, but it should read `agent_context.md` / `agent_context.json` and
 choose a different fixed patch after prior failures or recent research briefs
-that flag a weak direction. The `codex_cli` and `file_protocol` adapters
-must default to `execute=false`; only an explicit config change may invoke a
+that flag a weak direction. Dry-run Codex prompts and file-protocol demo agents
+should consume `proposal_intent.json` so future CLI or SDK agents receive one
+compact planner handoff. The `codex_cli` and `file_protocol` adapters must
+default to `execute=false`; only an explicit config change may invoke a
 subprocess. Enabled `file_protocol` commands must run in an isolated workspace
 and only bring back the configured proposal output file. Subprocess fixtures
 should be able to return either plain diffs or structured proposal JSON so the

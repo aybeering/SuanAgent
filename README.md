@@ -133,6 +133,12 @@ Every candidate proposal must pass the deterministic `proposal_v1` contract
 before patch checks or probe evaluation. Contract failures are recorded as
 non-applicable proposals with `contract_errors`, so malformed agent output is
 auditable but never applied.
+Rejections also carry stable machine-readable taxonomy fields alongside the
+human-readable text: `reason_codes`, `failure_stage`, `failure_code`, and
+`failure_message`. These appear in decisions, selected attempt traces, agent
+validation reports, attempt replay reports, and the candidate leaderboard, so
+future multi-agent routing can count contract, memory, patch, probe, policy, and
+holdout failures without parsing prose.
 Codex-style adapters can consume either a plain unified diff or a structured
 JSON proposal containing `summary`, `risk_notes`, `direction_tag`,
 `expected_metric_change`, `hypotheses`, and `patch_diff`; both forms flow

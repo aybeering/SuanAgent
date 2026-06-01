@@ -74,6 +74,7 @@ Allowed components:
 23. File-protocol execution audit logs with command, output hashes, and mutation-guard results.
 24. GitHub Actions CI for deterministic smoke validation.
 25. Saved attempt replay for contract and probe checks without a full loop rerun.
+26. Stable failure taxonomy fields for decisions, attempts, validation, and replay.
 
 Still out of scope:
 
@@ -629,6 +630,10 @@ Attempt replay commands should accept one saved `agent_attempts/attempt_xxx`
 directory, rerun deterministic contract validation, optionally evaluate the
 patch on saved probe data, write `attempt_replay.json`, and leave
 `strategies/current_strategy.py` rolled back to HEAD.
+Failure classification should remain machine-readable and stable. Preserve the
+human-readable `reasons` text, but add or maintain `reason_codes`,
+`failure_stage`, `failure_code`, and `failure_message` for contract, memory,
+patch, probe, policy-gate, holdout-gate, and selection failures.
 Codex CLI output conversion should use the shared intake normalization path for
 both structured proposal JSON and plain unified diff output; do not add a second
 Codex-only parser for patch extraction or proposal metadata.

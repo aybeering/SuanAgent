@@ -10,6 +10,11 @@ from pathlib import Path
 from typing import Any
 
 from orchestrator.agent_output_intake import validate_agent_proposal
+from orchestrator.failure_taxonomy import (
+    attach_failure_metadata,
+    normalize_reason_codes,
+    probe_reason_codes,
+)
 from orchestrator.git_manager import GitError, apply_patch, rollback_strategy
 from orchestrator.proposal import StrategyProposal
 from orchestrator.run_loop import run_and_write
@@ -46,7 +51,14 @@ def replay_attempt(
         strategy_module=strategy_module,
         enabled=run_probe and bool(validation["ok"]),
     )
-    report = {
+    reason_codes = [
+        *validation_reason_codes(validation),
+        *probe_reason_codes(
+            ok=bool(probe.get("ok", True)),
+            error=str(probe.get("error", "")),
+        ),
+    ]
+    report = attach_failure_metadata({
         "schema_version": ATTEMPT_REPLAY_SCHEMA_VERSION,
         "ok": bool(validation["ok"]) and bool(probe.get("ok", True)),
         "attempt_dir": str(attempt_dir),
@@ -54,7 +66,7 @@ def replay_attempt(
         "strategy_module": strategy_module,
         "validation": validation,
         "probe": probe,
-    }
+    }, reason_codes)
     destination = output_path or attempt_dir / "attempt_replay.json"
     write_json(destination, report)
     return report
@@ -72,11 +84,11 @@ def replay_probe(
     """Run one saved attempt against the round probe data when possible."""
     probe_data_path = round_dir / "probe_data.csv"
     if not enabled:
-        return {"ran": False, "ok": True, "reason": "disabled_or_validation_failed"}
+        return skipped_probe("disabled_or_validation_failed")
     if not proposal.applicable:
-        return {"ran": False, "ok": True, "reason": "proposal_not_applicable"}
+        return skipped_probe("proposal_not_applicable")
     if not probe_data_path.exists():
-        return {"ran": False, "ok": True, "reason": "probe_data_missing"}
+        return skipped_probe("probe_data_missing")
 
     metrics_path = attempt_dir / "attempt_replay_probe_metrics.json"
     trades_path = attempt_dir / "attempt_replay_probe_trades.csv"
@@ -92,7 +104,10 @@ def replay_probe(
             report_path=report_path,
         )
     except Exception as exc:
-        return {"ran": True, "ok": False, "error": str(exc)}
+        return attach_failure_metadata(
+            {"ran": True, "ok": False, "error": str(exc)},
+            probe_reason_codes(ok=False, error=str(exc)),
+        )
     finally:
         try:
             rollback_strategy(repo_root)
@@ -100,7 +115,7 @@ def replay_probe(
             pass
         clear_strategy_import(repo_root, strategy_module)
 
-    return {
+    return attach_failure_metadata({
         "ran": True,
         "ok": True,
         "metrics": metrics,
@@ -109,7 +124,20 @@ def replay_probe(
             "trades": str(trades_path),
             "report": str(report_path),
         },
-    }
+    }, [])
+
+
+def skipped_probe(reason: str) -> dict[str, object]:
+    """Return a non-failing skipped probe payload."""
+    return attach_failure_metadata(
+        {"ran": False, "ok": True, "reason": reason},
+        [],
+    )
+
+
+def validation_reason_codes(validation: dict[str, object]) -> list[dict[str, str]]:
+    """Return validation reason-code rows from a saved validation payload."""
+    return normalize_reason_codes(validation.get("reason_codes", []))
 
 
 def infer_round_dir(attempt_dir: Path) -> Path:

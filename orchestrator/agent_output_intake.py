@@ -8,6 +8,10 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+from orchestrator.failure_taxonomy import (
+    agent_validation_reason_codes,
+    attach_failure_metadata,
+)
 from orchestrator.git_manager import GitError, check_patch
 from orchestrator.patch_parser import (
     PatchParseError,
@@ -94,7 +98,7 @@ def validate_agent_proposal(
     if git_apply_error:
         errors.append(f"git apply check failed: {git_apply_error}")
 
-    report: dict[str, object] = {
+    report: dict[str, object] = attach_failure_metadata({
         "schema_version": AGENT_VALIDATION_SCHEMA_VERSION,
         "ok": not errors,
         "errors": errors,
@@ -118,7 +122,10 @@ def validate_agent_proposal(
             ),
         },
         "proposal": normalized_proposal.to_dict(),
-    }
+    }, agent_validation_reason_codes(
+        contract_errors=contract_errors,
+        git_apply_error=git_apply_error,
+    ))
     write_optional_json(output_path, report)
     return report
 

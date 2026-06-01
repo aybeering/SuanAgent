@@ -5,6 +5,10 @@
   "required": [
     "schema_version",
     "ok",
+    "reason_codes",
+    "failure_stage",
+    "failure_code",
+    "failure_message",
     "attempt_dir",
     "round_dir",
     "strategy_module",
@@ -20,6 +24,37 @@
     },
     "ok": {
       "type": "boolean"
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "stage",
+          "code",
+          "message"
+        ],
+        "properties": {
+          "stage": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "failure_stage": {
+      "type": "string"
+    },
+    "failure_code": {
+      "type": "string"
+    },
+    "failure_message": {
+      "type": "string"
     },
     "attempt_dir": {
       "type": "string"
@@ -37,7 +72,11 @@
       "type": "object",
       "required": [
         "ran",
-        "ok"
+        "ok",
+        "reason_codes",
+        "failure_stage",
+        "failure_code",
+        "failure_message"
       ],
       "properties": {
         "ran": {
@@ -45,6 +84,37 @@
         },
         "ok": {
           "type": "boolean"
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "stage",
+              "code",
+              "message"
+            ],
+            "properties": {
+              "stage": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "failure_stage": {
+          "type": "string"
+        },
+        "failure_code": {
+          "type": "string"
+        },
+        "failure_message": {
+          "type": "string"
         },
         "reason": {
           "type": "string"

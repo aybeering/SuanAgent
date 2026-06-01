@@ -165,6 +165,15 @@ def diagnose_round(
         "round_id": round_id,
         "accepted": bool(round_payload.get("accepted", False)),
         "reasons": decision.get("reasons", round_payload.get("reasons", [])),
+        "failure_stage": decision.get(
+            "failure_stage",
+            round_payload.get("failure_stage", "none"),
+        ),
+        "failure_code": decision.get(
+            "failure_code",
+            round_payload.get("failure_code", "none"),
+        ),
+        "reason_codes": decision.get("reason_codes", round_payload.get("reason_codes", [])),
         "agent_name": proposal.get("agent_name", ""),
         "direction_tag": proposal.get("direction_tag", ""),
         "proposal_applicable": bool(proposal.get("applicable", False)),
@@ -197,6 +206,7 @@ def diagnose_round(
         "selected_role": selected_attempt.get("role", ""),
         "candidate_score": selected_attempt.get("candidate_score", 0),
         "candidate_status": selected_attempt.get("status", ""),
+        "candidate_failure_code": selected_attempt.get("failure_code", "none"),
         "selection_reason": selected_attempt.get("selection_reason", ""),
         "probe_ev_delta": selected_attempt.get("probe_ev_delta", 0.0),
         "validation_ev_delta": validation_delta,

@@ -26,6 +26,13 @@ from orchestrator.agent_output_intake import validate_agent_proposal
 from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.experiment_index import append_experiment_index
 from orchestrator.experiments import write_champion_comparison
+from orchestrator.failure_taxonomy import (
+    apply_error_reason_code,
+    attach_failure_metadata,
+    attempt_prefilter_reason_codes,
+    normalize_reason_codes,
+    primary_failure,
+)
 from orchestrator.git_manager import (
     GitError,
     apply_patch,
@@ -43,7 +50,11 @@ from orchestrator.outcome_memory import (
     direction_filter_rejection_reason,
     memory_filter_rejection_reason,
 )
-from orchestrator.policy_gate import apply_holdout_gate, evaluate_policy
+from orchestrator.policy_gate import (
+    apply_holdout_gate,
+    decision_reason_codes,
+    evaluate_policy,
+)
 from orchestrator.preflight import run_preflight
 from orchestrator.proposal_intent import write_proposal_intent
 from orchestrator.proposal import (
@@ -548,19 +559,27 @@ def run_round(
     )
 
     apply_error = ""
+    apply_reason_codes: list[dict[str, str]] = []
     if not agent_validation["ok"]:
         apply_error = "agent output validation failed: " + "; ".join(
             str(error) for error in agent_validation["errors"]  # type: ignore[index]
         )
+        apply_reason_codes = [
+            apply_error_reason_code(apply_error),
+            *normalize_reason_codes(agent_validation.get("reason_codes", [])),
+        ]
     elif memory_filter_reason:
         apply_error = memory_filter_reason
+        apply_reason_codes = [apply_error_reason_code(apply_error)]
     elif proposal.applicable:
         try:
             apply_patch(repo_root, proposal.patch_diff)
         except GitError as exc:
             apply_error = str(exc)
+            apply_reason_codes = [apply_error_reason_code(apply_error)]
     else:
         apply_error = proposal.rejection_reason
+        apply_reason_codes = [apply_error_reason_code(apply_error)]
 
     clear_strategy_import(repo_root, strategy_module)
     train_trades_after, train_metrics_after = run_and_write(
@@ -594,6 +613,11 @@ def run_round(
     if apply_error:
         decision["accepted"] = False
         decision["reasons"] = [apply_error, *decision["reasons"]]  # type: ignore[index]
+        decision["reason_codes"] = [
+            *apply_reason_codes,
+            *decision_reason_codes(decision),
+        ]
+        attach_failure_metadata(decision, decision_reason_codes(decision))
     write_json(round_dir / "decision.json", decision)
     proposal_attempts = attach_validation_result_to_attempts(
         attempts=proposal_attempts,
@@ -643,6 +667,10 @@ def run_round(
         "proposal_contract_errors": list(proposal.contract_errors),
         "agent_validation_ok": agent_validation["ok"],
         "agent_validation_errors": agent_validation["errors"],
+        "failure_stage": decision.get("failure_stage", "none"),
+        "failure_code": decision.get("failure_code", "none"),
+        "failure_message": decision.get("failure_message", ""),
+        "reason_codes": decision.get("reason_codes", []),
         "proposal_patch_sha256": proposal.patch_sha256,
         "proposal_direction_tag": proposal.direction_tag,
         "proposal_is_repeat": proposal.is_repeat_patch,
@@ -697,6 +725,7 @@ def attach_validation_result_to_attempts(
         attempt["validation_status"] = "evaluated"
         attempt["validation_accepted"] = bool(decision.get("accepted", False))
         attempt["validation_reasons"] = decision.get("reasons", [])
+        attempt["validation_reason_codes"] = decision.get("reason_codes", [])
         attempt["validation_metrics_before"] = metrics_before
         attempt["validation_metrics_after"] = metrics_after
         attempt["validation_ev_delta"] = metric_delta(
@@ -710,6 +739,11 @@ def attach_validation_result_to_attempts(
             "trade_count",
         )
         attempt["selected_patch_sha256"] = selected_patch_sha256
+        failure = primary_failure(decision.get("reason_codes", []))
+        attempt["failure_stage"] = failure["stage"]
+        attempt["failure_code"] = failure["code"]
+        attempt["failure_message"] = failure["message"]
+        attempt["reason_codes"] = decision.get("reason_codes", [])
     return attempts
 
 
@@ -807,6 +841,10 @@ def candidate_leaderboard_rows(run_dir: Path) -> list[dict[str, object]]:
                     ),
                     "validation_status": attempt.get("validation_status", ""),
                     "validation_accepted": attempt.get("validation_accepted", None),
+                    "failure_stage": attempt.get("failure_stage", ""),
+                    "failure_code": attempt.get("failure_code", ""),
+                    "failure_message": attempt.get("failure_message", ""),
+                    "reason_codes": attempt.get("reason_codes", []),
                     "validation_ev_delta": attempt.get("validation_ev_delta", None),
                     "validation_trade_count_delta": attempt.get(
                         "validation_trade_count_delta",
@@ -890,6 +928,18 @@ def proposal_attempt_record(
 ) -> dict[str, object]:
     """Build an auditable proposal attempt record."""
     payload = proposal.to_dict()
+    reason_codes = attempt_prefilter_reason_codes(
+        status=status,
+        contract_errors=payload.get("contract_errors", ()),
+        memory_filter_reason=memory_filter_reason,
+        patch_memory_filter_reason=patch_memory_filter_reason,
+        direction_filter_reason=direction_filter_reason,
+        patch_check_error=patch_check_error,
+        probe_error=probe_error,
+        duplicate_patch=status == "duplicate_candidate",
+        applicable=bool(payload.get("applicable", False)),
+    )
+    failure = primary_failure(reason_codes)
     return {
         "role": role,
         "agent_name": payload.get("agent_name", ""),
@@ -899,6 +949,10 @@ def proposal_attempt_record(
         "status": status,
         "selected": False,
         "selection_reason": "",
+        "failure_stage": failure["stage"],
+        "failure_code": failure["code"],
+        "failure_message": failure["message"],
+        "reason_codes": reason_codes,
         "candidate_score": candidate_score,
         "score_reasons": score_reasons,
         "candidate_selection": candidate_selection,

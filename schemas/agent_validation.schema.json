@@ -7,6 +7,10 @@
     "ok",
     "errors",
     "warnings",
+    "reason_codes",
+    "failure_stage",
+    "failure_code",
+    "failure_message",
     "agent_input_path",
     "agent_output_path",
     "expected_target_file",
@@ -40,6 +44,37 @@
       "items": {
         "type": "string"
       }
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "stage",
+          "code",
+          "message"
+        ],
+        "properties": {
+          "stage": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "failure_stage": {
+      "type": "string"
+    },
+    "failure_code": {
+      "type": "string"
+    },
+    "failure_message": {
+      "type": "string"
     },
     "agent_input_path": {
       "type": "string"

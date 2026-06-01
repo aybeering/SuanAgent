@@ -8,6 +8,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from orchestrator.failure_taxonomy import primary_failure, selection_skip_reason_codes
+
 
 AGENT_ATTEMPTS_SCHEMA_VERSION = "agent_attempts_v1"
 AGENT_SELECTION_SCHEMA_VERSION = "agent_selection_v1"
@@ -48,6 +50,10 @@ def write_agent_attempts_manifest(
                 "status": attempt.get("status", ""),
                 "selected": bool(attempt.get("selected", False)),
                 "candidate_score": attempt.get("candidate_score", 0),
+                "failure_stage": attempt.get("failure_stage", "none"),
+                "failure_code": attempt.get("failure_code", "none"),
+                "failure_message": attempt.get("failure_message", ""),
+                "reason_codes": attempt.get("reason_codes", []),
                 "patch_sha256": attempt.get("patch_sha256", ""),
                 "attempt_dir": relative_path(attempt_dir, repo_root),
                 "files": file_records(attempt_dir, repo_root),
@@ -118,6 +124,15 @@ def selection_rows(
         status = str(attempt.get("status", ""))
         eligible = status == "selectable"
         blocking_reasons = attempt_blocking_reasons(attempt)
+        skip_reason_codes = selection_skip_reason_codes(
+            selected=selected,
+            status=status,
+            blocking_reasons=blocking_reasons,
+            selected_index=selected_index,
+        )
+        attempt_reason_codes = attempt.get("reason_codes", [])
+        row_reason_codes = attempt_reason_codes or skip_reason_codes
+        failure = primary_failure(row_reason_codes)
         rows.append(
             {
                 "attempt_id": attempt_id,
@@ -133,6 +148,10 @@ def selection_rows(
                     attempt_index=index - 1,
                 ),
                 "candidate_score": attempt.get("candidate_score", 0),
+                "failure_stage": failure["stage"],
+                "failure_code": failure["code"],
+                "failure_message": failure["message"],
+                "reason_codes": row_reason_codes,
                 "score_reasons": attempt.get("score_reasons", []),
                 "blocking_reasons": blocking_reasons,
                 "selection_reason": attempt.get("selection_reason", ""),

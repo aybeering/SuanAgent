@@ -46,6 +46,15 @@ jobs:
         run: |
           python -m orchestrator.artifact_validator ci-adaptive
           python -m orchestrator.artifact_validator ci-file-protocol-demo
+          python - <<'PY'
+          import json
+          decision = json.load(open("experiments/ci-adaptive/round_001/decision.json"))
+          assert decision["failure_code"] != ""
+          attempts = json.load(open("experiments/ci-adaptive/round_001/proposal_attempts.json"))
+          assert "failure_code" in attempts[0]
+          leaderboard = json.load(open("experiments/ci-adaptive/candidate_leaderboard.json"))
+          assert "failure_stage" in leaderboard[0]
+          PY
 
       - name: Inspect proposal intent artifacts
         run: |
@@ -80,6 +89,12 @@ jobs:
             experiments/ci-file-protocol-demo/round_001/agent_attempts/attempt_001_primary
           test -f experiments/ci-file-protocol-demo/round_001/agent_attempts/attempt_001_primary/attempt_replay.json
           python -m orchestrator.artifact_validator ci-file-protocol-demo
+          python - <<'PY'
+          import json
+          replay = json.load(open("experiments/ci-file-protocol-demo/round_001/agent_attempts/attempt_001_primary/attempt_replay.json"))
+          assert replay["failure_code"] == "none"
+          assert replay["probe"]["failure_code"] == "none"
+          PY
 
       - name: Inspect research brief artifacts
         run: |

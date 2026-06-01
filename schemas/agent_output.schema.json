@@ -124,6 +124,10 @@
           "status",
           "selected",
           "candidate_score",
+          "failure_stage",
+          "failure_code",
+          "failure_message",
+          "reason_codes",
           "patch_sha256",
           "selection_reason"
         ],
@@ -145,6 +149,37 @@
           },
           "candidate_score": {
             "type": "number"
+          },
+          "failure_stage": {
+            "type": "string"
+          },
+          "failure_code": {
+            "type": "string"
+          },
+          "failure_message": {
+            "type": "string"
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "stage",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "stage": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "patch_sha256": {
             "type": "string"

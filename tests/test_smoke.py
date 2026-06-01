@@ -55,6 +55,8 @@ def test_policy_gate_returns_valid_decision() -> None:
 
     assert decision["accepted"] is True
     assert decision["reasons"] == []
+    assert decision["reason_codes"] == []
+    assert decision["failure_code"] == "none"
     assert decision["before"] == before
     assert decision["after"] == after
 
@@ -98,6 +100,9 @@ def test_holdout_gate_can_override_validation_acceptance() -> None:
 
     assert decision["accepted"] is False
     assert decision["reasons"] == ["holdout ev delta -0.020000 < -0.01"]
+    assert decision["failure_stage"] == "holdout_gate"
+    assert decision["failure_code"] == "holdout_ev_delta_low"
+    assert decision["reason_codes"][0]["code"] == "holdout_ev_delta_low"
     assert decision["holdout_policy"]["accepted"] is False  # type: ignore[index]
 
 

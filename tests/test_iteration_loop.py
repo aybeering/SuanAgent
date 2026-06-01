@@ -454,6 +454,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     selected_attempt = next(attempt for attempt in attempts if attempt["selected"])
     assert decision["accepted"] is False
+    assert decision["failure_stage"] == "policy_gate"
+    assert decision["failure_code"] == "policy_ev_improvement_low"
+    assert decision["reason_codes"][0]["code"] == "policy_ev_improvement_low"
     assert brief["schema_version"] == "research_brief_v1"
     assert brief["run_id"] == "reject-smoke"
     assert brief["status"] == "stopped_max_rounds"
@@ -493,6 +496,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_attempts["attempt_count"] == len(attempts)
     assert agent_attempts["selected_attempt_id"] == "attempt_001_primary"
     assert agent_attempts["attempts"][0]["selected"] is True
+    assert agent_attempts["attempts"][0]["failure_code"] == "policy_ev_improvement_low"
     assert agent_attempts["attempts"][0]["files"]
     assert_matches_schema(round_dir / "agent_selection_report.json", "agent_selection")
     assert agent_selection["schema_version"] == "agent_selection_v1"
@@ -500,6 +504,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_selection["attempts"][0]["selected"] is True
     assert agent_selection["attempts"][0]["eligible"] is True
     assert agent_selection["attempts"][0]["rank"] == 1
+    assert agent_selection["attempts"][0]["failure_stage"] == "policy_gate"
+    assert agent_selection["attempts"][0]["failure_code"] == "policy_ev_improvement_low"
     assert agent_selection["attempts"][0]["score_reasons"]
     assert agent_selection["attempts"][0]["skip_reason"] == ""
     assert (
@@ -526,11 +532,15 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_validation["schema_version"] == AGENT_VALIDATION_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_validation.json", "agent_validation")
     assert agent_validation["ok"] is True
+    assert agent_validation["failure_code"] == "none"
+    assert agent_validation["reason_codes"] == []
     assert agent_validation["checks"]["contract_valid"] is True
     assert agent_validation["checks"]["git_apply_check"] == "passed"
     assert agent_validation["proposal_patch_sha256"] == proposal["patch_sha256"]
     assert selected_attempt["direction_tag"] == "lower_min_edge"
     assert selected_attempt["validation_status"] == "evaluated"
+    assert selected_attempt["failure_code"] == "policy_ev_improvement_low"
+    assert leaderboard[0]["failure_code"] == "policy_ev_improvement_low"
     assert isinstance(selected_attempt["validation_ev_delta"], float)
     assert selected_attempt["probe_metrics_before"]
     assert selected_attempt["probe_metrics_after"]
@@ -2293,10 +2303,13 @@ def test_attempt_replay_validates_and_probes_saved_attempt(tmp_path: Path) -> No
     assert command_result.returncode == 0
     assert report["schema_version"] == "attempt_replay_v1"
     assert report["ok"] is True
+    assert report["failure_code"] == "none"
+    assert report["reason_codes"] == []
     assert report["validation"]["ok"] is True  # type: ignore[index]
     assert report["validation"]["checks"]["git_apply_check"] == "passed"  # type: ignore[index]
     assert report["probe"]["ran"] is True  # type: ignore[index]
     assert report["probe"]["ok"] is True  # type: ignore[index]
+    assert report["probe"]["failure_code"] == "none"  # type: ignore[index]
     assert cli_payload["ok"] is True
     assert (attempt_dir / "attempt_replay_probe_metrics.json").exists()
     assert (attempt_dir / "attempt_replay_probe_trades.csv").exists()
@@ -2347,6 +2360,8 @@ def test_agent_output_intake_rejects_disallowed_patch(tmp_path: Path) -> None:
     )
 
     assert report["ok"] is False
+    assert report["failure_code"] == "contract_invalid"
+    assert report["reason_codes"][0]["code"] == "contract_invalid"
     assert report["checks"]["strategy_only_patch"] is False  # type: ignore[index]
     assert any("disallowed files" in error for error in report["errors"])  # type: ignore[union-attr]
     assert_matches_schema(round_dir / "bad_agent_validation.json", "agent_validation")
@@ -2619,6 +2634,8 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     assert diagnosis["completed_rounds"] == 1
     assert diagnosis["best_round"]["round_id"] == "round_001"  # type: ignore[index]
     assert diagnosis["rounds"][0]["direction_tag"] == "lower_min_edge"  # type: ignore[index]
+    assert diagnosis["rounds"][0]["failure_code"] == "policy_ev_improvement_low"  # type: ignore[index]
+    assert diagnosis["rounds"][0]["candidate_failure_code"] == "policy_ev_improvement_low"  # type: ignore[index]
     assert diagnosis["rounds"][0]["agent_validation_ok"] is True  # type: ignore[index]
     assert diagnosis["rounds"][0]["agent_bundle_present"] is True  # type: ignore[index]
     assert diagnosis["rounds"][0]["agent_bundle_input_file_count"] > 0  # type: ignore[index]

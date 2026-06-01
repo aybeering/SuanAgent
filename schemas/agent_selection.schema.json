@@ -65,6 +65,10 @@
           "selected",
           "rank",
           "candidate_score",
+          "failure_stage",
+          "failure_code",
+          "failure_message",
+          "reason_codes",
           "score_reasons",
           "blocking_reasons",
           "selection_reason",
@@ -104,6 +108,37 @@
           },
           "candidate_score": {
             "type": "number"
+          },
+          "failure_stage": {
+            "type": "string"
+          },
+          "failure_code": {
+            "type": "string"
+          },
+          "failure_message": {
+            "type": "string"
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "stage",
+                "code",
+                "message"
+              ],
+              "properties": {
+                "stage": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "score_reasons": {
             "type": "array",

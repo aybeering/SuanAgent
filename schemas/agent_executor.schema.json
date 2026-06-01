@@ -80,6 +80,7 @@
           "role",
           "profile_name",
           "adapter_name",
+          "runner",
           "modifier_name",
           "agent_name",
           "direction_tag",
@@ -107,6 +108,9 @@
           },
           "adapter_name": {
             "type": "string"
+          },
+          "runner": {
+            "type": "object"
           },
           "modifier_name": {
             "type": "string"

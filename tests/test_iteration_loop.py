@@ -37,7 +37,11 @@ from orchestrator.agent_output_intake import (
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.attempt_replay import replay_attempt
 from orchestrator.artifact_validator import validate_run_artifacts
-from orchestrator.config import ProjectConfig, load_project_config
+from orchestrator.config import (
+    ProjectConfig,
+    load_project_config,
+    normalize_runner_capability,
+)
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
 from orchestrator.iteration_loop import run_iteration_loop
 from orchestrator.outcome_memory import (
@@ -420,6 +424,37 @@ def test_example_configs_load_modifier_modes() -> None:
     ]
 
 
+def test_runner_capability_defaults_match_adapter_boundaries() -> None:
+    assert normalize_runner_capability(
+        adapter_name="fixed_patch_stub",
+        settings={},
+    )["runner_name"] == "in_process_modifier"
+    assert normalize_runner_capability(
+        adapter_name="file_protocol",
+        settings={
+            "execute": True,
+            "timeout_seconds": 30,
+            "output_filename": "agent_output.json",
+        },
+    ) == {
+        "runner_name": "agent_contract_runner_v1",
+        "isolation": "workspace",
+        "execution_enabled": True,
+        "timeout_seconds": 30,
+        "workspace_root": "workspaces",
+        "output_mode": "file_contract",
+        "allowed_output_files": ["agent_output.json"],
+    }
+    assert normalize_runner_capability(
+        adapter_name="codex_cli",
+        settings={"execute": False, "timeout_seconds": 120},
+    )["runner_name"] == "codex_cli_guarded_adapter"
+    assert normalize_runner_capability(
+        adapter_name="codex_dry_run",
+        settings={},
+    )["runner_name"] == "workspace_dry_run"
+
+
 def test_preflight_passes_default_config() -> None:
     result = run_preflight(repo_root=Path.cwd(), config_path=Path("config/default.json"))
 
@@ -632,6 +667,8 @@ def test_explicit_agent_profiles_load_and_preflight(tmp_path: Path) -> None:
         "risk_agent",
     ]
     assert loaded.agent_profiles[0]["adapter"] == "fixed_patch_stub"
+    assert loaded.agent_profiles[0]["runner"]["runner_name"] == "in_process_modifier"
+    assert loaded.agent_profiles[0]["runner"]["isolation"] == "none"
     assert loaded.agent_profiles[1]["enabled"] is False
     assert loaded.agent_profiles[2]["role"] == "fallback"
 
@@ -661,6 +698,7 @@ def test_preflight_rejects_invalid_agent_profiles(tmp_path: Path) -> None:
             "role": "reviewer",
             "enabled": True,
             "settings": {},
+            "runner": {"runner_name": "missing_runner"},
         },
     ]
     config_path.write_text(json.dumps(config), encoding="utf-8")
@@ -671,6 +709,7 @@ def test_preflight_rejects_invalid_agent_profiles(tmp_path: Path) -> None:
     assert any("name must be unique" in error for error in result.errors)
     assert any("adapter is unsupported" in error for error in result.errors)
     assert any("role must be primary or fallback" in error for error in result.errors)
+    assert any("runner.runner_name is unsupported" in error for error in result.errors)
 
 
 def test_preflight_rejects_unknown_memory_fallback_modifier(tmp_path: Path) -> None:
@@ -833,8 +872,10 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     selected_attempt = next(attempt for attempt in attempts if attempt["selected"])
     assert manifest["agent_profiles"][0]["name"] == "primary"
     assert manifest["agent_profiles"][0]["adapter"] == "fixed_patch_stub"
+    assert manifest["agent_profiles"][0]["runner"]["runner_name"] == "in_process_modifier"
     assert selected_attempt["profile_name"] == "primary"
     assert selected_attempt["adapter_name"] == "fixed_patch_stub"
+    assert selected_attempt["runner_name"] == "in_process_modifier"
     assert decision["accepted"] is False
     assert decision["failure_stage"] == "policy_gate"
     assert decision["failure_code"] == "policy_ev_improvement_low"
@@ -858,6 +899,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_input["output_bundle_dir"].endswith("agent_output_bundle")
     assert agent_input["agent_profiles"][0]["profile_name"] == "primary"
     assert agent_input["agent_profiles"][0]["adapter_name"] == "fixed_patch_stub"
+    assert agent_input["agent_profiles"][0]["runner"]["runner_name"] == (
+        "in_process_modifier"
+    )
     assert agent_input["agent_profiles"][1]["profile_name"] == "fallback_01"
     assert agent_input["active_agent"]["attempt_id"] == ""
     assert agent_input["active_agent"]["profile_name"] == ""
@@ -887,6 +931,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_attempts["attempts"][0]["selected"] is True
     assert agent_attempts["attempts"][0]["profile_name"] == "primary"
     assert agent_attempts["attempts"][0]["adapter_name"] == "fixed_patch_stub"
+    assert agent_attempts["attempts"][0]["runner_name"] == "in_process_modifier"
     assert agent_attempts["attempts"][0]["failure_code"] == "policy_ev_improvement_low"
     assert agent_attempts["attempts"][0]["files"]
     assert_matches_schema(round_dir / "agent_selection_report.json", "agent_selection")
@@ -895,6 +940,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_selection["attempts"][0]["selected"] is True
     assert agent_selection["attempts"][0]["profile_name"] == "primary"
     assert agent_selection["attempts"][0]["adapter_name"] == "fixed_patch_stub"
+    assert agent_selection["attempts"][0]["runner_name"] == "in_process_modifier"
     assert agent_selection["attempts"][0]["eligible"] is True
     assert agent_selection["attempts"][0]["rank"] == 1
     assert agent_selection["attempts"][0]["failure_stage"] == "policy_gate"
@@ -953,6 +999,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert attempt_output["attempt_id"] == "attempt_001_primary"
     assert attempt_output["profile_name"] == "primary"
     assert attempt_output["adapter_name"] == "fixed_patch_stub"
+    assert attempt_output["runner_name"] == "in_process_modifier"
+    assert attempt_output["runner"]["isolation"] == "none"
     assert attempt_output["selected"] is True
     assert attempt_output["proposal"]["patch_sha256"] == proposal["patch_sha256"]
     assert attempt_output["selection"]["skip_reason"] == ""
@@ -970,6 +1018,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_output["attempt_count"] == len(attempts)
     assert agent_output["attempts"][0]["profile_name"] == "primary"
     assert agent_output["attempts"][0]["adapter_name"] == "fixed_patch_stub"
+    assert agent_output["attempts"][0]["runner_name"] == "in_process_modifier"
     assert "routing_prior" in agent_output["attempts"][0]
     assert agent_output["artifacts"]["agent_input"].endswith("agent_input.json")
     assert agent_output["artifacts"]["agent_bundle_manifest"].endswith(
@@ -1082,6 +1131,11 @@ def test_iteration_loop_uses_explicit_agent_profiles(tmp_path: Path) -> None:
         "disabled_agent",
         "risk_agent",
     ]
+    assert [profile["runner"]["runner_name"] for profile in manifest["agent_profiles"]] == [
+        "in_process_modifier",
+        "in_process_modifier",
+        "in_process_modifier",
+    ]
     assert [attempt["role"] for attempt in attempts] == ["primary", "fallback_01"]
     assert [attempt["profile_name"] for attempt in attempts] == [
         "strategy_bot",
@@ -1095,9 +1149,17 @@ def test_iteration_loop_uses_explicit_agent_profiles(tmp_path: Path) -> None:
         "strategy_bot",
         "risk_agent",
     ]
+    assert [attempt["runner"]["runner_name"] for attempt in agent_executor["attempts"]] == [
+        "in_process_modifier",
+        "in_process_modifier",
+    ]
     assert [attempt["profile_name"] for attempt in agent_output["attempts"]] == [
         "strategy_bot",
         "risk_agent",
+    ]
+    assert [attempt["runner_name"] for attempt in agent_output["attempts"]] == [
+        "in_process_modifier",
+        "in_process_modifier",
     ]
     assert [profile["profile_name"] for profile in agent_input["agent_profiles"]] == [
         "strategy_bot",
@@ -1105,6 +1167,9 @@ def test_iteration_loop_uses_explicit_agent_profiles(tmp_path: Path) -> None:
         "risk_agent",
     ]
     assert agent_input["agent_profiles"][1]["enabled"] is False
+    assert agent_input["agent_profiles"][1]["runner"]["runner_name"] == (
+        "in_process_modifier"
+    )
 
 
 def test_iteration_loop_writes_research_brief(tmp_path: Path) -> None:
@@ -2465,6 +2530,13 @@ output_path.write_text(json.dumps({
     )
 
     assert manifest["completed_rounds"] == 1
+    assert manifest["agent_profiles"][0]["runner"]["runner_name"] == (
+        AGENT_CONTRACT_RUNNER_NAME
+    )
+    assert manifest["agent_profiles"][0]["runner"]["isolation"] == "workspace"
+    assert manifest["agent_profiles"][0]["runner"]["allowed_output_files"] == [
+        "fixture_agent_output.json"
+    ]
     assert proposal["agent_name"] == "file_protocol_agent"
     assert proposal["summary"] == "Lower MIN_EDGE through file protocol."
     assert proposal["applicable"] is True
@@ -2501,6 +2573,11 @@ output_path.write_text(json.dumps({
         "experiments/file-protocol-fixture/round_001/fixture_agent_output.json"
     ]
     assert workspace_manifest["initial_snapshot"]["file_count"] > 0
+    assert agent_input["agent_profiles"][0]["runner"]["runner_name"] == (
+        AGENT_CONTRACT_RUNNER_NAME
+    )
+    assert agent_input["agent_profiles"][0]["runner"]["output_mode"] == "file_contract"
+    assert attempts[0]["runner_name"] == AGENT_CONTRACT_RUNNER_NAME
     workspace_agent_input = json.loads(
         Path(agent_execution["agent_input_path"]).read_text(encoding="utf-8")
     )
@@ -2557,6 +2634,8 @@ output_path.write_text(json.dumps({
     assert attempt_output["profile_name"] == "primary"
     assert attempt_output["adapter_name"] == "file_protocol"
     assert attempt_output["agent_name"] == "file_protocol_agent"
+    assert attempt_output["runner_name"] == AGENT_CONTRACT_RUNNER_NAME
+    assert attempt_output["runner"]["execution_enabled"] is True
     assert attempt_output["artifacts"]["agent_execution"].endswith(
         "agent_attempts/attempt_001_primary/agent_execution.json"
     )

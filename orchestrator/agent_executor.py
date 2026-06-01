@@ -25,6 +25,7 @@ class AgentCandidate:
     modifier_name: str
     profile_name: str
     adapter_name: str
+    runner_capability: dict[str, object]
     modifier: StrategyModifier
 
 
@@ -38,6 +39,7 @@ class AgentCandidateResult:
     modifier_name: str
     profile_name: str
     adapter_name: str
+    runner_capability: dict[str, object]
     proposal: StrategyProposal
 
 
@@ -67,6 +69,7 @@ def build_agent_queue(
             modifier_name=modifier_name(modifier),
             profile_name=profile_name(profile, role),
             adapter_name=profile_adapter_name(profile, modifier),
+            runner_capability=profile_runner_capability(profile),
             modifier=modifier,
         )
         for index, (role, modifier, profile) in enumerate(modifiers, start=1)
@@ -109,6 +112,7 @@ def execute_agent_queue(
                 modifier_name=candidate.modifier_name,
                 profile_name=candidate.profile_name,
                 adapter_name=candidate.adapter_name,
+                runner_capability=candidate.runner_capability,
                 proposal=proposal,
             )
         )
@@ -211,6 +215,7 @@ def executor_attempt_row(
         ),
         "profile_name": str(attempt.get("profile_name", "")),
         "adapter_name": str(attempt.get("adapter_name", "")),
+        "runner": dict_or_empty(attempt.get("runner", {})),
         "agent_name": str(attempt.get("agent_name", "")),
         "direction_tag": str(attempt.get("direction_tag", "")),
         "status": str(attempt.get("status", "")),
@@ -256,6 +261,13 @@ def list_or_empty(value: object) -> list[object]:
     return list(value) if isinstance(value, list | tuple) else []
 
 
+def dict_or_empty(value: object) -> dict[str, object]:
+    """Return JSON-object metadata without leaking non-dict values."""
+    if not isinstance(value, dict):
+        return {}
+    return {str(key): entry for key, entry in value.items()}
+
+
 def optional_relative_path(path: Path, root: Path) -> str:
     """Return a relative path only when an optional artifact exists."""
     return relative_path(path, root) if path.exists() else ""
@@ -282,3 +294,9 @@ def profile_name(profile: dict[str, object], role: str) -> str:
 def profile_adapter_name(profile: dict[str, object], modifier: StrategyModifier) -> str:
     """Return configured adapter name, falling back to modifier metadata."""
     return str(profile.get("adapter", modifier_name(modifier)))
+
+
+def profile_runner_capability(profile: dict[str, object]) -> dict[str, object]:
+    """Return normalized runner metadata carried by an agent profile."""
+    runner = profile.get("runner", {})
+    return dict_or_empty(runner)

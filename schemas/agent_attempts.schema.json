@@ -45,6 +45,8 @@
           "role",
           "profile_name",
           "adapter_name",
+          "runner_name",
+          "runner",
           "agent_name",
           "direction_tag",
           "status",
@@ -75,6 +77,12 @@
           },
           "adapter_name": {
             "type": "string"
+          },
+          "runner_name": {
+            "type": "string"
+          },
+          "runner": {
+            "type": "object"
           },
           "agent_name": {
             "type": "string"

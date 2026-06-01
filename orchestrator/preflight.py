@@ -9,7 +9,14 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from agents.registry import SUPPORTED_MODIFIERS
-from orchestrator.config import ProjectConfig, load_project_config
+from orchestrator.config import (
+    AGENT_CONTRACT_RUNNER_NAME,
+    CODEX_CLI_GUARDED_RUNNER_NAME,
+    IN_PROCESS_RUNNER_NAME,
+    WORKSPACE_DRY_RUNNER_NAME,
+    ProjectConfig,
+    load_project_config,
+)
 
 
 REQUIRED_DATASETS = ("train", "validation", "holdout")
@@ -190,10 +197,45 @@ def validate_agent_profiles(config: ProjectConfig, errors: list[str]) -> None:
             errors.append(f"agents[{index}].adapter is unsupported: {adapter}")
         if role not in {"primary", "fallback"}:
             errors.append(f"agents[{index}].role must be primary or fallback")
+        validate_agent_profile_runner(
+            profile=profile,
+            profile_index=index,
+            errors=errors,
+        )
         if enabled and role == "primary":
             enabled_primary_count += 1
     if config.agent_profiles and enabled_primary_count != 1:
         errors.append("agents must contain exactly one enabled primary profile")
+
+
+def validate_agent_profile_runner(
+    *,
+    profile: dict[str, object],
+    profile_index: int,
+    errors: list[str],
+) -> None:
+    """Validate one agent profile runner capability block."""
+    runner = profile.get("runner", {})
+    if not isinstance(runner, dict):
+        errors.append(f"agents[{profile_index}].runner must be an object")
+        return
+    runner_name = str(runner.get("runner_name", ""))
+    if runner_name not in {
+        AGENT_CONTRACT_RUNNER_NAME,
+        CODEX_CLI_GUARDED_RUNNER_NAME,
+        IN_PROCESS_RUNNER_NAME,
+        WORKSPACE_DRY_RUNNER_NAME,
+    }:
+        errors.append(f"agents[{profile_index}].runner.runner_name is unsupported: {runner_name}")
+    timeout = int(runner.get("timeout_seconds", 0))
+    if timeout < 0:
+        errors.append(f"agents[{profile_index}].runner.timeout_seconds must be non-negative")
+    if runner_name == AGENT_CONTRACT_RUNNER_NAME and timeout <= 0:
+        errors.append(f"agents[{profile_index}].runner.timeout_seconds must be positive")
+    output_mode = str(runner.get("output_mode", ""))
+    allowed_output_files = runner.get("allowed_output_files", [])
+    if output_mode == "file_contract" and not allowed_output_files:
+        errors.append(f"agents[{profile_index}].runner.allowed_output_files must be non-empty")
 
 
 def validate_importable_module(module_name: str, errors: list[str]) -> None:

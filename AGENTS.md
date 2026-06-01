@@ -319,6 +319,17 @@ empty as a template. Workspace-backed adapters should rewrite the workspace
 copy of `agent_input.json` and its bundled copy with the current attempt id,
 role, profile name, adapter name, agent name, expected output filename, and
 workspace output path before invoking any external process.
+Each configured agent profile should include a normalized `runner` capability
+block. In-process deterministic modifiers should use `runner_name` =
+`in_process_modifier`; file-contract subprocesses should use `runner_name` =
+`agent_contract_runner_v1`; the current guarded Codex CLI adapter should use
+`runner_name` = `codex_cli_guarded_adapter`; Codex dry runs should use
+`runner_name` = `workspace_dry_run`. The block should also record isolation
+mode, execution flag, timeout, workspace root, output mode, and allowed output
+filenames where relevant. Runner metadata should be copied into
+`manifest.json`, `agent_input.json`, `agent_executor_report.json`,
+`agent_output.json`, `agent_attempts_manifest.json`,
+`agent_selection_report.json`, and attempt-scoped `attempt_output.json`.
 `agent_input_bundle/` should be created before calling the modifier and contain
 the read-only files an external agent may inspect. `agent_output_bundle/` should
 contain the output artifacts the orchestrator will inspect after the modifier

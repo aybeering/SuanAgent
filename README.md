@@ -243,6 +243,17 @@ application.
 `agent_input.json` includes `agent_profiles`, an `active_agent` task envelope,
 and output-contract paths so future SDK or CLI-backed agents do not need to
 infer their identity or allowed output location from filenames.
+Each agent profile carries a normalized `runner` capability block. In-process
+stubs are marked as `in_process_modifier`; file-contract subprocesses are marked
+as `agent_contract_runner_v1`; the current guarded Codex CLI adapter is marked
+as `codex_cli_guarded_adapter`; and dry-run Codex boundaries are marked as
+`workspace_dry_run`. These blocks record workspace isolation, timeout,
+execution flag, output mode, workspace root, and allowed output filenames where
+relevant. The same runner metadata is copied into
+`manifest.json`, `agent_input.json`, `agent_executor_report.json`,
+`agent_output.json`, `agent_attempts_manifest.json`, `agent_selection_report.json`,
+and each `attempt_output.json`, so a single blue-node attempt can be routed or
+audited without guessing how it was supposed to run.
 Workspace-backed candidates also keep per-attempt copies of
 `agent_input.json`, `attempt_output.json`, `workspace_manifest.json`, and, for
 file-protocol commands, `agent_execution.json` inside

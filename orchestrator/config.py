@@ -32,6 +32,12 @@ DEFAULT_EXECUTOR = {
     "per_agent_timeout_seconds": 120,
     "allow_disabled_adapters": True,
 }
+AGENT_CONTRACT_RUNNER_NAME = "agent_contract_runner_v1"
+CODEX_CLI_GUARDED_RUNNER_NAME = "codex_cli_guarded_adapter"
+IN_PROCESS_RUNNER_NAME = "in_process_modifier"
+WORKSPACE_DRY_RUNNER_NAME = "workspace_dry_run"
+CONTRACT_RUNNER_ADAPTERS = {"file_protocol"}
+WORKSPACE_ADAPTERS = {"file_protocol", "codex_cli", "codex_dry_run"}
 
 
 @dataclass(frozen=True)
@@ -203,10 +209,96 @@ def normalize_agent_profile(
 ) -> dict[str, object]:
     """Return a normalized explicit agent profile."""
     settings = raw_profile.get("settings", {})
+    adapter = str(raw_profile.get("adapter", ""))
+    normalized_settings = settings if isinstance(settings, dict) else {}
     return {
         "name": str(raw_profile.get("name", f"agent_{index:02d}")),
-        "adapter": str(raw_profile.get("adapter", "")),
+        "adapter": adapter,
         "role": str(raw_profile.get("role", "fallback")),
         "enabled": bool(raw_profile.get("enabled", True)),
-        "settings": settings if isinstance(settings, dict) else {},
+        "settings": normalized_settings,
+        "runner": normalize_runner_capability(
+            adapter_name=adapter,
+            settings=normalized_settings,
+            raw_runner=raw_profile.get("runner", {}),
+        ),
     }
+
+
+def normalize_runner_capability(
+    *,
+    adapter_name: str,
+    settings: dict[str, object],
+    raw_runner: object = None,
+) -> dict[str, object]:
+    """Return normalized runner capability metadata for one agent profile."""
+    overrides = raw_runner if isinstance(raw_runner, dict) else {}
+    default_runner = default_runner_name(adapter_name)
+    output_filename = str(
+        settings.get(
+            "output_filename",
+            "agent_command_output.json" if adapter_name == "file_protocol" else "",
+        )
+    )
+    return {
+        "runner_name": str(overrides.get("runner_name", default_runner)),
+        "isolation": str(
+            overrides.get(
+                "isolation",
+                "workspace" if adapter_name in WORKSPACE_ADAPTERS else "none",
+            )
+        ),
+        "execution_enabled": bool(
+            overrides.get(
+                "execution_enabled",
+                settings.get("execute", adapter_name not in WORKSPACE_ADAPTERS),
+            )
+        ),
+        "timeout_seconds": int(
+            overrides.get("timeout_seconds", settings.get("timeout_seconds", 0))
+        ),
+        "workspace_root": str(
+            overrides.get(
+                "workspace_root",
+                settings.get("workspace_root", "workspaces")
+                if adapter_name in WORKSPACE_ADAPTERS
+                else "",
+            )
+        ),
+        "output_mode": str(
+            overrides.get(
+                "output_mode",
+                "file_contract"
+                if adapter_name == "file_protocol"
+                else "stdout_patch"
+                if adapter_name == "codex_cli"
+                else "none",
+            )
+        ),
+        "allowed_output_files": string_list(
+            overrides.get(
+                "allowed_output_files",
+                (output_filename,) if output_filename else (),
+            )
+        ),
+    }
+
+
+def default_runner_name(adapter_name: str) -> str:
+    """Return the default runner label for an adapter."""
+    if adapter_name in CONTRACT_RUNNER_ADAPTERS:
+        return AGENT_CONTRACT_RUNNER_NAME
+    if adapter_name == "codex_cli":
+        return CODEX_CLI_GUARDED_RUNNER_NAME
+    if adapter_name == "codex_dry_run":
+        return WORKSPACE_DRY_RUNNER_NAME
+    return IN_PROCESS_RUNNER_NAME
+
+
+def string_list(value: object) -> list[str]:
+    """Return a deterministic list of strings from config values."""
+    if isinstance(value, str):
+        return [value] if value else []
+    if isinstance(value, list | tuple):
+        return [str(item) for item in value if str(item)]
+    return []

@@ -34,7 +34,11 @@ from orchestrator.agent_bundle import write_agent_bundle_manifest, write_agent_i
 from orchestrator.agent_context import write_agent_context
 from orchestrator.agent_io import write_agent_input, write_agent_output
 from orchestrator.agent_output_intake import validate_agent_proposal
-from orchestrator.config import ProjectConfig, load_project_config
+from orchestrator.config import (
+    ProjectConfig,
+    load_project_config,
+    normalize_runner_capability,
+)
 from orchestrator.experiment_index import append_experiment_index
 from orchestrator.experiments import write_champion_comparison
 from orchestrator.failure_taxonomy import (
@@ -988,6 +992,10 @@ def legacy_agent_profiles(config: ProjectConfig) -> tuple[dict[str, object], ...
             "role": "primary",
             "enabled": True,
             "settings": config.modifier_settings,
+            "runner": normalize_runner_capability(
+                adapter_name=config.strategy_modifier,
+                settings=config.modifier_settings,
+            ),
         }
     ]
     profiles.extend(
@@ -997,6 +1005,10 @@ def legacy_agent_profiles(config: ProjectConfig) -> tuple[dict[str, object], ...
             "role": "fallback",
             "enabled": True,
             "settings": config.modifier_settings,
+            "runner": normalize_runner_capability(
+                adapter_name=fallback_modifier,
+                settings=config.modifier_settings,
+            ),
         }
         for index, fallback_modifier in enumerate(
             config.memory_fallback_modifiers,
@@ -1013,6 +1025,7 @@ def proposal_attempt_record(
     modifier_name: str,
     profile_name: str,
     adapter_name: str,
+    runner_capability: dict[str, object],
     proposal: StrategyProposal,
     memory_filter_reason: str,
     patch_memory_filter_reason: str,
@@ -1051,6 +1064,8 @@ def proposal_attempt_record(
         "modifier_name": modifier_name,
         "profile_name": profile_name,
         "adapter_name": adapter_name,
+        "runner": runner_capability,
+        "runner_name": str(runner_capability.get("runner_name", "")),
         "agent_name": payload.get("agent_name", ""),
         "direction_tag": payload.get("direction_tag", ""),
         "summary": payload.get("summary", ""),
@@ -1152,6 +1167,7 @@ def select_proposal_candidate(
         candidate_modifier_name = agent_result.modifier_name
         profile_name_value = agent_result.profile_name
         adapter_name_value = agent_result.adapter_name
+        runner_capability = agent_result.runner_capability
         proposal = agent_result.proposal
         proposal = enforce_proposal_contract(
             proposal=proposal,
@@ -1260,6 +1276,7 @@ def select_proposal_candidate(
                 modifier_name=candidate_modifier_name,
                 profile_name=profile_name_value,
                 adapter_name=adapter_name_value,
+                runner_capability=runner_capability,
                 proposal=proposal,
                 memory_filter_reason=memory_reason,
                 patch_memory_filter_reason=patch_memory_reason,

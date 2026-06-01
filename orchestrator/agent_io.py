@@ -177,6 +177,7 @@ def compact_agent_profiles(
             "role": str(profile.get("role", "")),
             "enabled": bool(profile.get("enabled", True)),
             "settings": dict_or_empty(profile.get("settings", {})),
+            "runner": dict_or_empty(profile.get("runner", {})),
         }
         for profile in agent_profiles
     ]
@@ -281,6 +282,8 @@ def compact_attempts(attempts: list[dict[str, object]]) -> list[dict[str, object
                 "role": attempt.get("role", ""),
                 "profile_name": attempt.get("profile_name", ""),
                 "adapter_name": attempt.get("adapter_name", ""),
+                "runner": dict_or_empty(attempt.get("runner", {})),
+                "runner_name": attempt.get("runner_name", ""),
                 "agent_name": attempt.get("agent_name", ""),
                 "direction_tag": attempt.get("direction_tag", ""),
                 "status": attempt.get("status", ""),

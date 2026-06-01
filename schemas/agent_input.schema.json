@@ -150,7 +150,8 @@
           "adapter_name",
           "role",
           "enabled",
-          "settings"
+          "settings",
+          "runner"
         ],
         "properties": {
           "profile_name": {
@@ -166,6 +167,9 @@
             "type": "boolean"
           },
           "settings": {
+            "type": "object"
+          },
+          "runner": {
             "type": "object"
           }
         }

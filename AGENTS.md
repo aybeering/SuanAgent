@@ -338,6 +338,8 @@ python -m orchestrator.iteration_loop
 python -m orchestrator.preflight --config config/default.json
 python -m orchestrator.iteration_loop --config config/codex_dry_run.json --run-id smoke-dry --max-rounds 1
 python -m orchestrator.experiments list --limit 5
+python -m orchestrator.experiments summary
+python -m orchestrator.experiments leaderboard --limit 5
 ```
 
 ## Expected behavior
@@ -372,7 +374,8 @@ paths, unsupported modifiers, invalid policy config, or enabled Codex execution
 without an available executable.
 
 Experiment inspection commands should read `experiments/index.jsonl` and local
-run artifacts without mutating strategy code.
+run artifacts without mutating strategy code. Leaderboards should rank by
+validation EV improvement, not natural-language judgment.
 
 Future Codex output must be parsed as a unified diff and rejected before git
 apply if it touches anything except `strategies/current_strategy.py`.

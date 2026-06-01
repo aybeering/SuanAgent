@@ -22,7 +22,12 @@ from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_stra
 from orchestrator.iteration_loop import run_iteration_loop
 from orchestrator.run_loop import run_pipeline
 from orchestrator.preflight import run_preflight
-from orchestrator.experiments import list_experiments, show_experiment
+from orchestrator.experiments import (
+    experiment_leaderboard,
+    list_experiments,
+    show_experiment,
+    summarize_experiments,
+)
 from orchestrator.patch_parser import (
     PatchParseError,
     changed_paths_from_diff,
@@ -551,6 +556,30 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert iteration["manifest"]["completed_rounds"] == 1  # type: ignore[index]
 
 
+def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(
+        run_id="single-rank",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    run_iteration_loop(
+        run_id="iteration-rank",
+        max_rounds=1,
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+    )
+
+    summary = summarize_experiments(experiments_dir=repo / "experiments")
+    leaderboard = experiment_leaderboard(experiments_dir=repo / "experiments", limit=2)
+
+    assert summary["total_runs"] == 2
+    assert summary["by_kind"] == {"single_run": 1, "iteration_loop": 1}
+    assert len(leaderboard) == 2
+    assert all("ev_delta" in row for row in leaderboard)
+
+
 def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     run_pipeline(
@@ -596,6 +625,52 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
     assert show_result.returncode == 0, show_result.stderr
     assert json.loads(list_result.stdout)[0]["run_id"] == "cli-list-show"
     assert json.loads(show_result.stdout)["kind"] == "single_run"
+
+
+def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(
+        run_id="cli-summary",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+
+    summary_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "summary",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    leaderboard_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "leaderboard",
+            "--limit",
+            "1",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert summary_result.returncode == 0, summary_result.stderr
+    assert leaderboard_result.returncode == 0, leaderboard_result.stderr
+    assert json.loads(summary_result.stdout)["total_runs"] == 1
+    assert json.loads(leaderboard_result.stdout)[0]["run_id"] == "cli-summary"
 
 
 def test_preflight_cli_arguments_work(tmp_path: Path) -> None:

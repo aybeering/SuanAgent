@@ -34,6 +34,8 @@ python -m orchestrator.preflight
 python -m orchestrator.run_loop
 python -m orchestrator.iteration_loop
 python -m orchestrator.experiments list --limit 5
+python -m orchestrator.experiments summary
+python -m orchestrator.experiments leaderboard --limit 5
 ```
 
 Useful mode switches:
@@ -64,6 +66,7 @@ append-only `experiments/index.jsonl`.
 
 Use `python -m orchestrator.experiments list` and
 `python -m orchestrator.experiments show <run_id>` to inspect local experiment
-history.
+history. Use `summary` and `leaderboard` to aggregate runs by status and rank
+them by validation EV improvement.
 
 The V0.5 prototype does not call exchanges, wallets, or external APIs.

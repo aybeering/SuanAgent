@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import shutil
-import subprocess
-from dataclasses import dataclass
 from pathlib import Path
 
 from agents.codex_dry_run_adapter import (
@@ -23,26 +20,14 @@ from orchestrator.patch_parser import (
     validate_patch_targets,
 )
 from orchestrator.proposal import StrategyProposal
+from orchestrator.agent_contract_runner import (
+    AGENT_EXECUTION_SCHEMA_VERSION,
+    run_agent_contract,
+)
 from orchestrator.workspace_manager import (
     create_isolated_workspace,
     write_workspace_manifest,
-    workspace_mutation_errors,
-    workspace_snapshot,
 )
-
-
-AGENT_EXECUTION_SCHEMA_VERSION = "agent_execution_v1"
-AUDIT_PREVIEW_CHARS = 500
-
-
-@dataclass(frozen=True)
-class FileProtocolCommandResult:
-    """Captured result from a file-protocol subprocess."""
-
-    returncode: int | None
-    stdout: str
-    stderr: str
-    timed_out: bool = False
 
 
 class FileProtocolModifier:
@@ -134,28 +119,27 @@ class FileProtocolModifier:
             str(output_path),
         ]
 
-        if not self.execute:
-            write_agent_execution(
-                output_path=agent_execution_output_path(
-                    round_dir=round_dir,
-                    attempt_id=attempt_id,
-                ),
-                status="disabled",
-                execution_enabled=False,
-                profile_name=profile_name,
-                adapter_name=adapter_name,
-                command=command,
-                cwd=workspace_path,
-                workspace_path=workspace_path,
-                agent_input_path=agent_input_path,
-                workspace_output_path=output_path,
-                round_output_path=round_dir / self.output_filename,
-                timeout_seconds=self.timeout_seconds,
-                result=None,
-                raw_response="file protocol execution disabled",
-                mutation_errors=(),
-                allowed_mutation_paths=(allowed_output_path,),
-            )
+        contract_result = run_agent_contract(
+            output_path=agent_execution_output_path(
+                round_dir=round_dir,
+                attempt_id=attempt_id,
+            ),
+            agent_name=self.agent_name,
+            profile_name=profile_name,
+            adapter_name=adapter_name,
+            command=command,
+            cwd=workspace_path,
+            workspace_path=workspace_path,
+            agent_input_path=agent_input_path,
+            workspace_output_path=output_path,
+            round_output_path=round_dir / self.output_filename,
+            timeout_seconds=self.timeout_seconds,
+            execute=self.execute,
+            allowed_mutation_paths=(allowed_output_path,),
+            disabled_response="file protocol execution disabled",
+        )
+
+        if contract_result.status == "disabled":
             return StrategyProposal(
                 agent_name=self.agent_name,
                 round_index=round_index,
@@ -163,7 +147,7 @@ class FileProtocolModifier:
                 summary="File-protocol agent execution is disabled by config.",
                 risk_notes="No subprocess was invoked; set execute=true to run it.",
                 expected_metric_change={},
-                raw_response="file protocol execution disabled",
+                raw_response=contract_result.raw_response,
                 patch_diff="",
                 applicable=False,
                 direction_tag="file_protocol_disabled",
@@ -176,45 +160,7 @@ class FileProtocolModifier:
                 workspace_path=str(workspace_path),
             )
 
-        before = workspace_snapshot(workspace_path)
-        result = run_file_protocol_command(
-            command=command,
-            cwd=workspace_path,
-            timeout_seconds=self.timeout_seconds,
-        )
-        raw_response = response_text(result=result, output_path=output_path)
-        copy_agent_output_back(
-            workspace_output_path=output_path,
-            round_output_path=round_dir / self.output_filename,
-        )
-        after = workspace_snapshot(workspace_path)
-        mutation_errors = workspace_mutation_errors(
-            before=before,
-            after=after,
-            allowed_paths={allowed_output_path},
-        )
-        if result.timed_out:
-            write_agent_execution(
-                output_path=agent_execution_output_path(
-                    round_dir=round_dir,
-                    attempt_id=attempt_id,
-                ),
-                status="timeout",
-                execution_enabled=True,
-                profile_name=profile_name,
-                adapter_name=adapter_name,
-                command=command,
-                cwd=workspace_path,
-                workspace_path=workspace_path,
-                agent_input_path=agent_input_path,
-                workspace_output_path=output_path,
-                round_output_path=round_dir / self.output_filename,
-                timeout_seconds=self.timeout_seconds,
-                result=result,
-                raw_response=raw_response,
-                mutation_errors=mutation_errors,
-                allowed_mutation_paths=(allowed_output_path,),
-            )
+        if contract_result.status == "timeout":
             return StrategyProposal(
                 agent_name=self.agent_name,
                 round_index=round_index,
@@ -222,7 +168,7 @@ class FileProtocolModifier:
                 summary="File-protocol agent execution timed out.",
                 risk_notes="No patch was accepted because the subprocess timed out.",
                 expected_metric_change={},
-                raw_response=raw_response,
+                raw_response=contract_result.raw_response,
                 patch_diff="",
                 applicable=False,
                 direction_tag="file_protocol_timeout",
@@ -234,27 +180,11 @@ class FileProtocolModifier:
                 command=tuple(command),
                 workspace_path=str(workspace_path),
             )
-        if result.returncode != 0:
-            write_agent_execution(
-                output_path=agent_execution_output_path(
-                    round_dir=round_dir,
-                    attempt_id=attempt_id,
-                ),
-                status="command_failed",
-                execution_enabled=True,
-                profile_name=profile_name,
-                adapter_name=adapter_name,
-                command=command,
-                cwd=workspace_path,
-                workspace_path=workspace_path,
-                agent_input_path=agent_input_path,
-                workspace_output_path=output_path,
-                round_output_path=round_dir / self.output_filename,
-                timeout_seconds=self.timeout_seconds,
-                result=result,
-                raw_response=raw_response,
-                mutation_errors=mutation_errors,
-                allowed_mutation_paths=(allowed_output_path,),
+        if contract_result.status == "command_failed":
+            returncode = (
+                contract_result.result.returncode
+                if contract_result.result is not None
+                else None
             )
             return StrategyProposal(
                 agent_name=self.agent_name,
@@ -263,39 +193,18 @@ class FileProtocolModifier:
                 summary="File-protocol agent execution failed.",
                 risk_notes="No patch was accepted because the subprocess failed.",
                 expected_metric_change={},
-                raw_response=raw_response,
+                raw_response=contract_result.raw_response,
                 patch_diff="",
                 applicable=False,
                 direction_tag="file_protocol_failed",
                 hypotheses=("The external agent command must exit successfully.",),
-                rejection_reason=f"File-protocol agent exited with {result.returncode}.",
+                rejection_reason=f"File-protocol agent exited with {returncode}.",
                 prompt=str(agent_input_path),
                 command=tuple(command),
                 workspace_path=str(workspace_path),
             )
 
-        if mutation_errors:
-            write_agent_execution(
-                output_path=agent_execution_output_path(
-                    round_dir=round_dir,
-                    attempt_id=attempt_id,
-                ),
-                status="workspace_violation",
-                execution_enabled=True,
-                profile_name=profile_name,
-                adapter_name=adapter_name,
-                command=command,
-                cwd=workspace_path,
-                workspace_path=workspace_path,
-                agent_input_path=agent_input_path,
-                workspace_output_path=output_path,
-                round_output_path=round_dir / self.output_filename,
-                timeout_seconds=self.timeout_seconds,
-                result=result,
-                raw_response=raw_response,
-                mutation_errors=mutation_errors,
-                allowed_mutation_paths=(allowed_output_path,),
-            )
+        if contract_result.status == "workspace_violation":
             return StrategyProposal(
                 agent_name=self.agent_name,
                 round_index=round_index,
@@ -303,7 +212,7 @@ class FileProtocolModifier:
                 summary="File-protocol agent mutated protected source files.",
                 risk_notes="Source mutation guard rejected the subprocess output.",
                 expected_metric_change={},
-                raw_response=raw_response,
+                raw_response=contract_result.raw_response,
                 patch_diff="",
                 applicable=False,
                 direction_tag="file_protocol_source_violation",
@@ -311,37 +220,17 @@ class FileProtocolModifier:
                     "External file-protocol agents must only emit proposal JSON.",
                 ),
                 rejection_reason=(
-                    "proposal contract invalid: " + "; ".join(mutation_errors)
+                    "proposal contract invalid: "
+                    + "; ".join(contract_result.mutation_errors)
                 ),
                 prompt=str(agent_input_path),
                 command=tuple(command),
                 workspace_path=str(workspace_path),
-                contract_errors=mutation_errors,
+                contract_errors=contract_result.mutation_errors,
             )
 
-        write_agent_execution(
-            output_path=agent_execution_output_path(
-                round_dir=round_dir,
-                attempt_id=attempt_id,
-            ),
-            status="completed",
-            execution_enabled=True,
-            profile_name=profile_name,
-            adapter_name=adapter_name,
-            command=command,
-            cwd=workspace_path,
-            workspace_path=workspace_path,
-            agent_input_path=agent_input_path,
-            workspace_output_path=output_path,
-            round_output_path=round_dir / self.output_filename,
-            timeout_seconds=self.timeout_seconds,
-            result=result,
-            raw_response=raw_response,
-            mutation_errors=(),
-            allowed_mutation_paths=(allowed_output_path,),
-        )
         return proposal_from_file_protocol_output(
-            raw_output=raw_response,
+            raw_output=contract_result.raw_response,
             target_file=target_file,
             round_index=round_index,
             repo_root=repo_root,
@@ -356,38 +245,6 @@ def agent_execution_output_path(*, round_dir: Path, attempt_id: str) -> Path:
     if not attempt_id:
         return round_dir / "agent_execution.json"
     return round_dir / "agent_executions" / f"{attempt_id}.json"
-
-
-def run_file_protocol_command(
-    *,
-    command: list[str],
-    cwd: Path,
-    timeout_seconds: int,
-) -> FileProtocolCommandResult:
-    """Run an external file-protocol agent command."""
-    try:
-        result = subprocess.run(
-            command,
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as exc:
-        stderr = text_or_empty(exc.stderr)
-        timeout_message = f"file protocol command timed out after {timeout_seconds} seconds"
-        return FileProtocolCommandResult(
-            returncode=None,
-            stdout=text_or_empty(exc.stdout),
-            stderr="\n".join(part for part in (stderr, timeout_message) if part),
-            timed_out=True,
-        )
-    return FileProtocolCommandResult(
-        returncode=result.returncode,
-        stdout=result.stdout,
-        stderr=result.stderr,
-    )
 
 
 def proposal_from_file_protocol_output(
@@ -532,126 +389,3 @@ def role_from_attempt_id(attempt_id: str) -> str:
         return ""
     parts = attempt_id.split("_", maxsplit=2)
     return parts[2] if len(parts) == 3 else ""
-
-
-def copy_agent_output_back(
-    *,
-    workspace_output_path: Path,
-    round_output_path: Path,
-) -> None:
-    """Copy external agent output from workspace to the real round artifacts."""
-    if workspace_output_path.exists():
-        shutil.copy2(workspace_output_path, round_output_path)
-
-
-def write_agent_execution(
-    *,
-    output_path: Path,
-    status: str,
-    execution_enabled: bool,
-    profile_name: str,
-    adapter_name: str,
-    command: list[str],
-    cwd: Path,
-    workspace_path: Path,
-    agent_input_path: Path,
-    workspace_output_path: Path,
-    round_output_path: Path,
-    timeout_seconds: int,
-    result: FileProtocolCommandResult | None,
-    raw_response: str,
-    mutation_errors: tuple[str, ...],
-    allowed_mutation_paths: tuple[str, ...],
-) -> None:
-    """Write a deterministic audit record for one external agent execution."""
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "schema_version": AGENT_EXECUTION_SCHEMA_VERSION,
-        "agent_name": FileProtocolModifier.agent_name,
-        "profile_name": profile_name,
-        "adapter_name": adapter_name,
-        "status": status,
-        "execution_enabled": execution_enabled,
-        "command": command,
-        "cwd": str(cwd),
-        "workspace_path": str(workspace_path),
-        "agent_input_path": str(agent_input_path),
-        "workspace_output_path": str(workspace_output_path),
-        "round_output_path": str(round_output_path),
-        "timeout_seconds": timeout_seconds,
-        "returncode": result.returncode if result is not None else None,
-        "stdout": stream_summary(result.stdout if result is not None else ""),
-        "stderr": stream_summary(result.stderr if result is not None else ""),
-        "raw_response": stream_summary(raw_response),
-        "output_file": file_summary(workspace_output_path),
-        "round_output_file": file_summary(round_output_path),
-        "allowed_mutation_paths": list(allowed_mutation_paths),
-        "mutation_errors": list(mutation_errors),
-        "mutation_guard": {
-            "allowed_paths": list(allowed_mutation_paths),
-            "mutation_errors": list(mutation_errors),
-            "passed": not mutation_errors,
-        },
-    }
-    output_path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-
-
-def stream_summary(text: str) -> dict[str, object]:
-    """Return a compact deterministic summary for command output text."""
-    return {
-        "chars": len(text),
-        "sha256": sha256_text(text) if text else "",
-        "preview": text[:AUDIT_PREVIEW_CHARS],
-    }
-
-
-def file_summary(path: Path) -> dict[str, object]:
-    """Return deterministic metadata for an optional file."""
-    if not path.exists():
-        return {
-            "exists": False,
-            "path": str(path),
-            "bytes": 0,
-            "sha256": "",
-        }
-    return {
-        "exists": True,
-        "path": str(path),
-        "bytes": path.stat().st_size,
-        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-    }
-
-
-def sha256_text(text: str) -> str:
-    """Return a text SHA-256 digest."""
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def response_text(
-    *,
-    result: FileProtocolCommandResult,
-    output_path: Path,
-) -> str:
-    """Return stdout plus optional file output and stderr."""
-    chunks: list[str] = []
-    if output_path.exists():
-        output_text = output_path.read_text(encoding="utf-8")
-        if output_text.strip():
-            chunks.append(output_text)
-    if result.stdout.strip():
-        chunks.append(result.stdout)
-    if result.stderr.strip():
-        chunks.append("[stderr]\n" + result.stderr)
-    return "\n".join(chunks) or "file protocol command produced no output"
-
-
-def text_or_empty(value: str | bytes | None) -> str:
-    """Return timeout output as text."""
-    if value is None:
-        return ""
-    if isinstance(value, bytes):
-        return value.decode("utf-8", errors="replace")
-    return value

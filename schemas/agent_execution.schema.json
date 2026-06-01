@@ -4,6 +4,7 @@
   "type": "object",
   "required": [
     "schema_version",
+    "runner_name",
     "agent_name",
     "profile_name",
     "adapter_name",
@@ -33,11 +34,14 @@
         "agent_execution_v1"
       ]
     },
-    "agent_name": {
+    "runner_name": {
       "type": "string",
       "enum": [
-        "file_protocol_agent"
+        "agent_contract_runner_v1"
       ]
+    },
+    "agent_name": {
+      "type": "string"
     },
     "profile_name": {
       "type": "string"

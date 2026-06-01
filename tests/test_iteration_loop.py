@@ -26,6 +26,10 @@ from orchestrator.agent_io import (
     AGENT_INPUT_SCHEMA_VERSION,
     AGENT_OUTPUT_SCHEMA_VERSION,
 )
+from orchestrator.agent_contract_runner import (
+    AGENT_CONTRACT_RUNNER_NAME,
+    run_agent_contract,
+)
 from orchestrator.agent_output_intake import (
     AGENT_VALIDATION_SCHEMA_VERSION,
     verify_agent_output,
@@ -105,6 +109,137 @@ def assert_matches_schema(payload_path: Path, schema_name: str) -> None:
     """Assert a JSON artifact matches one repository contract schema."""
     schema_path = Path.cwd() / "schemas" / f"{schema_name}.schema.json"
     assert validate_json_file(payload_path=payload_path, schema_path=schema_path) == ()
+
+
+def test_agent_contract_runner_writes_disabled_audit(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    round_dir = tmp_path / "round"
+    workspace.mkdir()
+    round_dir.mkdir()
+    agent_input = workspace / "agent_input.json"
+    agent_input.write_text("{}", encoding="utf-8")
+    workspace_output = workspace / "agent_output.json"
+    round_output = round_dir / "agent_output.json"
+    audit_path = round_dir / "agent_execution.json"
+
+    result = run_agent_contract(
+        output_path=audit_path,
+        agent_name="demo_agent",
+        profile_name="primary",
+        adapter_name="file_protocol",
+        command=["not-run"],
+        cwd=workspace,
+        workspace_path=workspace,
+        agent_input_path=agent_input,
+        workspace_output_path=workspace_output,
+        round_output_path=round_output,
+        timeout_seconds=5,
+        execute=False,
+        allowed_mutation_paths=("agent_output.json",),
+        disabled_response="disabled by test",
+    )
+
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    assert result.status == "disabled"
+    assert result.raw_response == "disabled by test"
+    assert audit["schema_version"] == AGENT_EXECUTION_SCHEMA_VERSION
+    assert audit["runner_name"] == AGENT_CONTRACT_RUNNER_NAME
+    assert audit["agent_name"] == "demo_agent"
+    assert audit["status"] == "disabled"
+    assert audit["execution_enabled"] is False
+    assert audit["round_output_file"]["exists"] is False
+    assert_matches_schema(audit_path, "agent_execution")
+
+
+def test_agent_contract_runner_copies_allowed_output(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    round_dir = tmp_path / "round"
+    workspace.mkdir()
+    round_dir.mkdir()
+    agent_input = workspace / "agent_input.json"
+    agent_input.write_text("{}", encoding="utf-8")
+    workspace_output = workspace / "agent_output.json"
+    round_output = round_dir / "agent_output.json"
+    audit_path = round_dir / "agent_execution.json"
+    script = (
+        "import pathlib, sys; "
+        "pathlib.Path(sys.argv[1]).write_text('{\"ok\": true}\\n', encoding='utf-8')"
+    )
+
+    result = run_agent_contract(
+        output_path=audit_path,
+        agent_name="demo_agent",
+        profile_name="primary",
+        adapter_name="file_protocol",
+        command=[sys.executable, "-c", script, str(workspace_output)],
+        cwd=workspace,
+        workspace_path=workspace,
+        agent_input_path=agent_input,
+        workspace_output_path=workspace_output,
+        round_output_path=round_output,
+        timeout_seconds=5,
+        execute=True,
+        allowed_mutation_paths=("agent_output.json",),
+    )
+
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    assert result.status == "completed"
+    assert result.mutation_errors == ()
+    assert round_output.read_text(encoding="utf-8") == '{"ok": true}\n'
+    assert audit["runner_name"] == AGENT_CONTRACT_RUNNER_NAME
+    assert audit["status"] == "completed"
+    assert audit["output_file"]["exists"] is True
+    assert audit["round_output_file"]["exists"] is True
+    assert audit["mutation_guard"]["passed"] is True
+    assert_matches_schema(audit_path, "agent_execution")
+
+
+def test_agent_contract_runner_rejects_workspace_side_effect(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    round_dir = tmp_path / "round"
+    workspace.mkdir()
+    round_dir.mkdir()
+    agent_input = workspace / "agent_input.json"
+    agent_input.write_text("{}", encoding="utf-8")
+    workspace_output = workspace / "agent_output.json"
+    round_output = round_dir / "agent_output.json"
+    audit_path = round_dir / "agent_execution.json"
+    protected_file = workspace / "protected.txt"
+    script = (
+        "import pathlib, sys; "
+        "pathlib.Path(sys.argv[1]).write_text('{\"ok\": true}\\n', encoding='utf-8'); "
+        "pathlib.Path(sys.argv[2]).write_text('side effect\\n', encoding='utf-8')"
+    )
+
+    result = run_agent_contract(
+        output_path=audit_path,
+        agent_name="demo_agent",
+        profile_name="primary",
+        adapter_name="file_protocol",
+        command=[
+            sys.executable,
+            "-c",
+            script,
+            str(workspace_output),
+            str(protected_file),
+        ],
+        cwd=workspace,
+        workspace_path=workspace,
+        agent_input_path=agent_input,
+        workspace_output_path=workspace_output,
+        round_output_path=round_output,
+        timeout_seconds=5,
+        execute=True,
+        allowed_mutation_paths=("agent_output.json",),
+    )
+
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    assert result.status == "workspace_violation"
+    assert result.mutation_errors
+    assert audit["status"] == "workspace_violation"
+    assert audit["mutation_guard"]["passed"] is False
+    assert any("protected.txt" in error for error in audit["mutation_errors"])
+    assert_matches_schema(audit_path, "agent_execution")
 
 
 def test_default_config_loads_dataset_splits() -> None:
@@ -2339,6 +2474,7 @@ output_path.write_text(json.dumps({
     assert "MIN_EDGE = 0.04" in proposal["patch_diff"]
     assert (round_dir / "fixture_agent_output.json").exists()
     assert agent_execution["schema_version"] == AGENT_EXECUTION_SCHEMA_VERSION
+    assert agent_execution["runner_name"] == AGENT_CONTRACT_RUNNER_NAME
     assert_matches_schema(round_dir / "agent_execution.json", "agent_execution")
     assert agent_execution["profile_name"] == "primary"
     assert agent_execution["adapter_name"] == "file_protocol"

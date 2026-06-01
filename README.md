@@ -177,6 +177,11 @@ configured proposal output file inside their isolated attempt workspace. Each
 selected run records an `agent_execution.json` audit log, and each candidate
 attempt keeps its own copy under `agent_attempts/attempt_xxx/`, so command
 execution and guard decisions can be inspected without replaying the agent.
+The subprocess execution, output-file copy-back, mutation guard, and execution
+audit are handled by the shared `agent_contract_runner_v1` runner; the
+file-protocol adapter only prepares the isolated workspace and converts the
+runner output into a strategy proposal. Future CLI or SDK-backed adapters should
+reuse this runner instead of implementing their own subprocess/audit path.
 Timeouts, non-zero exits, malformed output, disallowed patch targets, and hidden
 workspace mutations are all deterministic rejections; the strategy file remains
 rolled back unless the policy gates accept a valid patch.
@@ -257,6 +262,8 @@ are validated against
 `schemas/attempt_output.schema.json`, and
 `schemas/attempt_replay.schema.json`; run provenance is validated against
 `schemas/run_metadata.schema.json`.
+`agent_execution.json` records `runner_name=agent_contract_runner_v1`, making it
+clear which shared execution contract handled the external command.
 Use `python -m orchestrator.artifact_validator <run_id>` to check that a run
 directory has required files and that agent contract artifacts match their
 schemas.

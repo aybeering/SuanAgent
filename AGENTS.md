@@ -338,6 +338,11 @@ contract validity, strategy-only patch targeting, and `git apply --check`.
 record the deterministic execution queue, selected attempt id, per-attempt
 modifier names, proposal metadata, runtime artifact paths, and normalized
 executor config.
+External command based adapters should use the shared
+`agent_contract_runner_v1` path for subprocess execution, output copy-back,
+workspace mutation checks, and `agent_execution.json` audit writing. Adapters
+should prepare their workspace/input contract and translate the runner result
+into a proposal, not reimplement command/audit logic independently.
 `agent_attempts/` should contain one subdirectory per candidate attempt, each
 with its own attempt payload, attempt-scoped `agent_input.json`,
 `attempt_output.json`, proposal, raw output, patch, and any attempt-level

@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Run Champion Comparison",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "champion_run_id",
+    "created_at",
+    "comparison"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "champion_comparison_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "champion_run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "comparison": {
+      "type": "object",
+      "required": [
+        "base_run_id",
+        "candidate_run_id",
+        "base",
+        "candidate",
+        "metric_deltas",
+        "dataset_comparison",
+        "winner",
+        "recommendation",
+        "reasons",
+        "summary"
+      ],
+      "properties": {
+        "base_run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "candidate_run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "base": {
+          "type": "object"
+        },
+        "candidate": {
+          "type": "object"
+        },
+        "metric_deltas": {
+          "type": "object"
+        },
+        "dataset_comparison": {
+          "type": "object"
+        },
+        "winner": {
+          "type": "string"
+        },
+        "recommendation": {
+          "type": "string"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

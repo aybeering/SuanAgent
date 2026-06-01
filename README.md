@@ -105,6 +105,8 @@ The multi-round loop also writes per-round train and holdout artifacts, a
 human-readable `summary.md`, a machine-readable `diagnosis.json`, and an
 immutable `run_metadata.json` provenance snapshot, plus an append-only
 `experiments/index.jsonl`.
+When a champion registry exists, completed iteration runs also write
+`champion_comparison.json`.
 Iteration summaries include proposal direction tags, hypotheses, expected
 metric changes, risk notes, patch fingerprints, and repeat-patch detection.
 Every candidate proposal must pass the deterministic `proposal_v1` contract
@@ -205,6 +207,8 @@ outcome records. Use `candidates <run_id>` to inspect one iteration run's
 candidate leaderboard. Use `promote <base_run_id> <candidate_run_id>` to write
 `experiments/champion.json` and append `experiments/champion_history.jsonl`
 only when compare recommends `promote_candidate`; use `champion` to inspect the
-current registry.
+current registry. Once a champion exists, completed iteration runs also write
+`champion_comparison.json` inside their run directory, comparing that run
+against the current champion.
 
 The V0.5 prototype does not call exchanges, wallets, or external APIs.

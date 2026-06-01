@@ -115,6 +115,7 @@ Current structure:
 │   ├── agent_output.schema.json
 │   ├── agent_execution.schema.json
 │   ├── champion.schema.json
+│   ├── champion_comparison.schema.json
 │   └── run_metadata.schema.json
 ├── .github/
 │   └── workflows/
@@ -201,6 +202,7 @@ manifest.json
 summary.md
 diagnosis.json
 run_metadata.json
+champion_comparison.json  # when a champion registry exists
 index.jsonl
 memory.jsonl
 round_001/
@@ -539,6 +541,9 @@ Champion promotion should write `experiments/champion.json` using schema
 version `champion_v1` and append `experiments/champion_history.jsonl`. Promotion
 must only happen when deterministic comparison recommends `promote_candidate`;
 failed or inconclusive comparisons should not mutate the champion registry.
+When a champion registry exists, completed iteration runs should write
+`champion_comparison.json` in the run directory using schema version
+`champion_comparison_v1`.
 
 Future Codex output must be parsed as a unified diff and rejected before git
 apply if it touches anything except `strategies/current_strategy.py`.

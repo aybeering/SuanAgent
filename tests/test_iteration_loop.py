@@ -2803,6 +2803,60 @@ def test_champion_registry_refuses_non_promoted_candidate(tmp_path: Path) -> Non
     assert not (repo / "experiments/champion.json").exists()
 
 
+def test_iteration_loop_writes_champion_comparison_when_champion_exists(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(
+        run_id="auto-champion-base",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    run_pipeline(
+        run_id="auto-champion-current",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    make_run_accepted_with_ev_lift(
+        repo=repo,
+        run_id="auto-champion-current",
+        ev_lift=0.4,
+    )
+    promote_result = promote_champion(
+        base_run_id="auto-champion-base",
+        candidate_run_id="auto-champion-current",
+        experiments_dir=repo / "experiments",
+    )
+
+    run_iteration_loop(
+        run_id="auto-challenger",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    comparison_path = repo / "experiments/auto-challenger/champion_comparison.json"
+    comparison = json.loads(comparison_path.read_text(encoding="utf-8"))
+    report = validate_run_artifacts(
+        run_id="auto-challenger",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert promote_result["promoted"] is True
+    assert comparison["schema_version"] == "champion_comparison_v1"
+    assert comparison["run_id"] == "auto-challenger"
+    assert comparison["champion_run_id"] == "auto-champion-current"
+    assert comparison["comparison"]["base_run_id"] == "auto-champion-current"
+    assert comparison["comparison"]["candidate_run_id"] == "auto-challenger"
+    assert_matches_schema(comparison_path, "champion_comparison")
+    assert report["ok"] is True
+    assert any(
+        path.endswith("champion_comparison.json")
+        for path in report["checked_files"]  # type: ignore[union-attr]
+    )
+
+
 def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     run_pipeline(

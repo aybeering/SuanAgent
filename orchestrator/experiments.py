@@ -247,6 +247,45 @@ def promote_champion(
     }
 
 
+def write_champion_comparison(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+    min_ev_delta: float = 0.0,
+) -> Path | None:
+    """Write a run-local comparison against the current champion when available."""
+    champion = show_champion(experiments_dir=experiments_dir)
+    if not champion.get("exists", False):
+        return None
+    champion_payload_raw = champion.get("champion", {})
+    champion_payload_data = (
+        champion_payload_raw if isinstance(champion_payload_raw, dict) else {}
+    )
+    champion_run_id = str(champion_payload_data.get("champion_run_id", ""))
+    if not champion_run_id or champion_run_id == run_id:
+        return None
+
+    comparison = compare_experiments(
+        base_run_id=champion_run_id,
+        candidate_run_id=run_id,
+        experiments_dir=experiments_dir,
+        min_ev_delta=min_ev_delta,
+    )
+    payload = {
+        "schema_version": "champion_comparison_v1",
+        "run_id": run_id,
+        "champion_run_id": champion_run_id,
+        "created_at": utc_timestamp(),
+        "comparison": comparison,
+    }
+    output_path = experiments_dir / run_id / "champion_comparison.json"
+    output_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return output_path
+
+
 def champion_payload(
     *,
     base_run_id: str,

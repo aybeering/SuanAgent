@@ -104,6 +104,11 @@ def validate_run_artifacts(
 
     validate_optional_diagnosis(run_dir=run_dir, report=report)
     validate_optional_metadata(run_dir=run_dir, repo_root=repo_root, report=report)
+    validate_optional_champion_comparison(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     report["ok"] = not report["errors"]
     return report
 
@@ -236,6 +241,32 @@ def validate_optional_metadata(
         return
     if payload.get("run_id") != report.get("run_id"):
         add_error(report, f"run_metadata.json run_id does not match report: {path}")
+
+
+def validate_optional_champion_comparison(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate champion_comparison.json when a run has one."""
+    path = run_dir / "champion_comparison.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/champion_comparison.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"champion_comparison.json run_id does not match report: {path}",
+        )
 
 
 def validate_contract_file(

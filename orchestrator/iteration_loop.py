@@ -19,6 +19,7 @@ from orchestrator.agent_context import write_agent_context
 from orchestrator.agent_io import write_agent_input, write_agent_output
 from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.experiment_index import append_experiment_index
+from orchestrator.experiments import write_champion_comparison
 from orchestrator.git_manager import (
     GitError,
     apply_patch,
@@ -222,6 +223,15 @@ def run_iteration_loop(
                         experiments_dir=active_experiments_dir,
                         repo_root=repo_root,
                     )
+                    write_champion_comparison(
+                        run_id=active_run_id,
+                        experiments_dir=active_experiments_dir,
+                    )
+                    write_run_diagnosis(
+                        run_id=active_run_id,
+                        experiments_dir=active_experiments_dir,
+                        repo_root=repo_root,
+                    )
                     return manifest
 
                 rollback_strategy(repo_root, strategy_path)
@@ -243,6 +253,15 @@ def run_iteration_loop(
                     append_experiment_index(
                         experiments_dir=active_experiments_dir,
                         record=index_record(manifest),
+                    )
+                    write_run_diagnosis(
+                        run_id=active_run_id,
+                        experiments_dir=active_experiments_dir,
+                        repo_root=repo_root,
+                    )
+                    write_champion_comparison(
+                        run_id=active_run_id,
+                        experiments_dir=active_experiments_dir,
                     )
                     write_run_diagnosis(
                         run_id=active_run_id,
@@ -273,6 +292,15 @@ def run_iteration_loop(
                         experiments_dir=active_experiments_dir,
                         repo_root=repo_root,
                     )
+                    write_champion_comparison(
+                        run_id=active_run_id,
+                        experiments_dir=active_experiments_dir,
+                    )
+                    write_run_diagnosis(
+                        run_id=active_run_id,
+                        experiments_dir=active_experiments_dir,
+                        repo_root=repo_root,
+                    )
                     return manifest
 
         manifest["status"] = "stopped_max_rounds"
@@ -284,6 +312,15 @@ def run_iteration_loop(
         append_experiment_index(
             experiments_dir=active_experiments_dir,
             record=index_record(manifest),
+        )
+        write_run_diagnosis(
+            run_id=active_run_id,
+            experiments_dir=active_experiments_dir,
+            repo_root=repo_root,
+        )
+        write_champion_comparison(
+            run_id=active_run_id,
+            experiments_dir=active_experiments_dir,
         )
         write_run_diagnosis(
             run_id=active_run_id,

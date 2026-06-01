@@ -71,6 +71,7 @@ def test_default_config_loads_dataset_splits() -> None:
 
     assert config.max_rounds == 5
     assert config.strategy_modifier == "fixed_patch_stub"
+    assert config.memory_failed_patch_threshold == 2
     assert config.datasets["train"] == "data/train/sample_markets.csv"
     assert config.datasets["validation"] == "data/validation/sample_markets.csv"
     assert config.datasets["holdout"] == "data/holdout/sample_markets.csv"
@@ -129,6 +130,19 @@ def test_preflight_rejects_enabled_missing_codex(tmp_path: Path) -> None:
 
     assert result.ok is False
     assert any("executable not found" in error for error in result.errors)
+
+
+def test_preflight_rejects_negative_memory_filter_threshold(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_path = repo / "config/negative_memory_filter.json"
+    config = json.loads((repo / "config/default.json").read_text())
+    config["memory_filter"]["failed_patch_threshold"] = -1
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    result = run_preflight(repo_root=repo, config_path=config_path)
+
+    assert result.ok is False
+    assert any("memory_filter.failed_patch_threshold" in error for error in result.errors)
 
 
 def test_strategy_interface_document_covers_agent_boundaries() -> None:
@@ -325,6 +339,38 @@ def test_iteration_loop_stops_on_repeated_proposal_by_default(tmp_path: Path) ->
     assert "- Stop reason: `round_002 repeated patch from round_001`" in summary_text
 
 
+def test_iteration_loop_rejects_known_failed_patch_from_memory(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+
+    run_iteration_loop(run_id="memory-fail-1", max_rounds=1, repo_root=repo)
+    run_iteration_loop(run_id="memory-fail-2", max_rounds=1, repo_root=repo)
+    manifest = run_iteration_loop(run_id="memory-filtered", max_rounds=1, repo_root=repo)
+
+    run_dir = repo / "experiments/memory-filtered"
+    round_dir = run_dir / "round_001"
+    decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
+    metrics_before = json.loads(
+        (round_dir / "metrics_before.json").read_text(encoding="utf-8")
+    )
+    metrics_after = json.loads(
+        (round_dir / "metrics_after.json").read_text(encoding="utf-8")
+    )
+    summary_text = (run_dir / "summary.md").read_text(encoding="utf-8")
+    memory = read_outcome_memory(repo / "experiments")
+
+    assert manifest["status"] == "stopped_max_rounds"
+    assert manifest["rounds"][0]["proposal_memory_rejected"] is True  # type: ignore[index]
+    assert decision["accepted"] is False
+    assert decision["reasons"][0].startswith("memory filter rejected patch")
+    assert metrics_before == metrics_after
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+    assert "memory filter rejected patch" in summary_text
+    assert memory[-1]["run_id"] == "memory-filtered"
+    assert memory[-1]["validation_ev_delta"] == 0.0
+
+
 def test_iteration_loop_initializes_git_when_missing(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     assert not (repo / ".git").exists()
@@ -432,6 +478,7 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
         stub_old_threshold=default.stub_old_threshold,
         stub_new_threshold=default.stub_new_threshold,
         stop_on_repeated_proposal=default.stop_on_repeated_proposal,
+        memory_failed_patch_threshold=default.memory_failed_patch_threshold,
     )
 
     manifest = run_iteration_loop(
@@ -496,6 +543,7 @@ def test_codex_cli_adapter_disabled_does_not_execute(tmp_path: Path) -> None:
         stub_old_threshold=default.stub_old_threshold,
         stub_new_threshold=default.stub_new_threshold,
         stop_on_repeated_proposal=default.stop_on_repeated_proposal,
+        memory_failed_patch_threshold=default.memory_failed_patch_threshold,
     )
 
     run_iteration_loop(run_id="codex-disabled", max_rounds=1, repo_root=repo, config=config)

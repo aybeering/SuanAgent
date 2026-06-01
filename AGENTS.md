@@ -224,6 +224,8 @@ and deterministic rejection reasons.
 Each iteration round should append a compact proposal outcome to
 `experiments/memory.jsonl` so later runs and different modifier backends can
 reuse prior proposal outcomes.
+Before applying a patch, the loop should reject patch hashes that have already
+failed at least `memory_filter.failed_patch_threshold` times in outcome memory.
 
 ## Strategy policy
 

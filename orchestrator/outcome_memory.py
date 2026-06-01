@@ -63,6 +63,48 @@ def recent_outcomes(
     return read_outcome_memory(experiments_dir)[-limit:]
 
 
+def failed_patch_outcomes(
+    *,
+    experiments_dir: Path,
+    patch_sha256: str,
+    exclude_run_id: str = "",
+) -> list[dict[str, object]]:
+    """Return failed memory records for a patch hash."""
+    if not patch_sha256:
+        return []
+    return [
+        record
+        for record in read_outcome_memory(experiments_dir)
+        if record.get("patch_sha256") == patch_sha256
+        and record.get("accepted") is False
+        and str(record.get("run_id", "")) != exclude_run_id
+    ]
+
+
+def memory_filter_rejection_reason(
+    *,
+    experiments_dir: Path,
+    patch_sha256: str,
+    threshold: int,
+    exclude_run_id: str = "",
+) -> str:
+    """Return a rejection reason when a patch has failed too often."""
+    if threshold <= 0 or not patch_sha256:
+        return ""
+    failures = failed_patch_outcomes(
+        experiments_dir=experiments_dir,
+        patch_sha256=patch_sha256,
+        exclude_run_id=exclude_run_id,
+    )
+    if len(failures) < threshold:
+        return ""
+    short_hash = patch_sha256[:12]
+    return (
+        f"memory filter rejected patch {short_hash}: "
+        f"{len(failures)} prior failed outcomes >= threshold {threshold}"
+    )
+
+
 def build_outcome_record(
     *,
     run_id: str,

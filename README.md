@@ -83,6 +83,8 @@ failed proposals and metric deltas that future agent backends can read before
 creating the next patch.
 Iteration runs append proposal outcomes to `experiments/memory.jsonl`, which is
 used as cross-run context for later agent calls.
+Before applying a patch, the loop checks outcome memory and rejects patch hashes
+that have already failed at least `memory_filter.failed_patch_threshold` times.
 
 Use `python -m orchestrator.experiments list` and
 `python -m orchestrator.experiments show <run_id>` to inspect local experiment

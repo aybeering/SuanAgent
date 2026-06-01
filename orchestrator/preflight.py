@@ -66,6 +66,8 @@ def validate_config(
     """Populate preflight errors and warnings for a loaded config."""
     if config.max_rounds <= 0:
         errors.append("max_rounds must be positive")
+    if config.memory_failed_patch_threshold < 0:
+        errors.append("memory_filter.failed_patch_threshold must be non-negative")
 
     for split in REQUIRED_DATASETS:
         if split not in config.datasets:

@@ -25,7 +25,11 @@ from orchestrator.git_manager import (
     ensure_git_repo,
     rollback_strategy,
 )
-from orchestrator.outcome_memory import append_outcome_memory, build_outcome_record
+from orchestrator.outcome_memory import (
+    append_outcome_memory,
+    build_outcome_record,
+    memory_filter_rejection_reason,
+)
 from orchestrator.policy_gate import evaluate_policy
 from orchestrator.preflight import run_preflight
 from orchestrator.proposal import annotate_proposal_quality
@@ -124,6 +128,7 @@ def run_iteration_loop(
                     strategy_module=strategy_module,
                     strategy_file_path=strategy_file_path,
                     modifier=modifier,
+                    memory_failed_patch_threshold=active_config.memory_failed_patch_threshold,
                 )
                 manifest["completed_rounds"] = round_index
                 manifest["rounds"].append(round_summary)  # type: ignore[union-attr]
@@ -205,6 +210,7 @@ def run_round(
     strategy_module: str,
     strategy_file_path: Path,
     modifier: StrategyModifier,
+    memory_failed_patch_threshold: int,
 ) -> dict[str, object]:
     """Run one proposal/apply/evaluate round."""
     clear_strategy_import(repo_root, strategy_module)
@@ -256,7 +262,15 @@ def run_round(
     (round_dir / "patch.diff").write_text(proposal.patch_diff, encoding="utf-8")
 
     apply_error = ""
-    if proposal.applicable:
+    memory_filter_reason = memory_filter_rejection_reason(
+        experiments_dir=round_dir.parent.parent,
+        patch_sha256=proposal.patch_sha256,
+        threshold=memory_failed_patch_threshold,
+        exclude_run_id=run_id,
+    )
+    if memory_filter_reason:
+        apply_error = memory_filter_reason
+    elif proposal.applicable:
         try:
             apply_patch(repo_root, proposal.patch_diff)
         except GitError as exc:
@@ -317,6 +331,8 @@ def run_round(
         "proposal_patch_sha256": proposal.patch_sha256,
         "proposal_is_repeat": proposal.is_repeat_patch,
         "proposal_repeat_of_round": proposal.repeat_of_round,
+        "proposal_memory_rejected": bool(memory_filter_reason),
+        "proposal_memory_filter_reason": memory_filter_reason,
         "before_trade_count": len(trades_before),
         "after_trade_count": len(trades_after),
         "train_before_trade_count": len(train_trades_before),

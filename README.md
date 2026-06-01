@@ -24,11 +24,15 @@ The strategy interface contract is documented in
 `file_protocol`. The `codex_cli` and `file_protocol` adapters only invoke a
 subprocess when their `execute` flag is explicitly set to `true`. Example
 configs live in `config/adaptive_stub.json`, `config/codex_dry_run.json`,
-`config/codex_cli_guarded.json`, and `config/file_protocol_guarded.json`.
+`config/codex_cli_guarded.json`, `config/file_protocol_guarded.json`, and
+`config/file_protocol_demo.json`.
 Enabled `file_protocol` commands run inside an isolated workspace and may only
 bring back the configured proposal output file. Each file-protocol round writes
 `agent_execution.json` with the command, workspace path, return code, output
 hashes, stdout/stderr summaries, and mutation-guard result.
+The demo file-protocol config executes `agents.file_protocol_demo_agent`, a
+local deterministic command that exercises the same JSON contract without
+calling Codex or any network service.
 
 Codex-facing adapters use ignored `workspaces/<run_id>/<round_id>/` directories
 for isolated project copies. Returned text can be a unified diff or structured
@@ -62,6 +66,7 @@ python -m orchestrator.iteration_loop --config config/codex_dry_run.json --run-i
 python -m orchestrator.iteration_loop --config config/adaptive_stub.json --run-id adaptive-demo
 python -m orchestrator.iteration_loop --config config/codex_cli_guarded.json --run-id guarded-demo --max-rounds 1
 python -m orchestrator.iteration_loop --config config/file_protocol_guarded.json --run-id file-protocol-demo --max-rounds 1
+python -m orchestrator.iteration_loop --config config/file_protocol_demo.json --run-id file-protocol-local-demo --max-rounds 1
 python -m orchestrator.iteration_loop --allow-repeated-proposals --run-id max-round-demo
 python -m orchestrator.run_loop --config config/default.json --run-id single-run-demo
 python -m orchestrator.preflight --config config/codex_cli_guarded.json
@@ -101,6 +106,10 @@ Enabled file-protocol subprocesses are stricter: they may only write the
 configured proposal output file inside the isolated workspace. Each run records
 an `agent_execution.json` audit log so command execution and guard decisions can
 be inspected without replaying the agent.
+`agents.file_protocol_demo_agent` is the reference local command for this path:
+it reads `agent_input.json`, writes structured proposal JSON, and lets the loop
+perform the same patch parsing, validation, backtest, policy gate, and rollback
+used for future SDK or CLI-backed agents.
 Iteration status is one of `accepted`, `stopped_repeated_proposal`,
 `stopped_max_rounds`, or `failed`.
 The validation policy remains the primary acceptance rule, while the optional

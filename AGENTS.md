@@ -70,8 +70,9 @@ Allowed components:
 19. Repeated-proposal stop control.
 20. Clear tests and smoke checks.
 21. A guarded file-protocol adapter for future CLI or SDK-backed agents.
-22. File-protocol execution audit logs with command, output hashes, and mutation-guard results.
-23. GitHub Actions CI for deterministic smoke validation.
+22. A local deterministic file-protocol demo agent for end-to-end external-agent smoke tests.
+23. File-protocol execution audit logs with command, output hashes, and mutation-guard results.
+24. GitHub Actions CI for deterministic smoke validation.
 
 Still out of scope:
 
@@ -117,6 +118,7 @@ Current structure:
 ├── agents/
 │   ├── strategy_modifier_adaptive_stub.py
 │   ├── codex_dry_run_adapter.py
+│   ├── file_protocol_demo_agent.py
 │   ├── registry.py
 │   └── strategy_modifier_stub.py
 ├── data/

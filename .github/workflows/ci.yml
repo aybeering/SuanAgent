@@ -39,6 +39,9 @@ jobs:
       - name: Run adaptive stub iteration
         run: python -m orchestrator.iteration_loop --config config/adaptive_stub.json --run-id ci-adaptive
 
+      - name: Run file-protocol demo iteration
+        run: python -m orchestrator.iteration_loop --config config/file_protocol_demo.json --run-id ci-file-protocol-demo --max-rounds 1
+
       - name: Summarize local experiments
         run: python -m orchestrator.experiments summary
 

@@ -92,3 +92,8 @@ mutating workspace files other than the configured output file is rejected.
 Every file-protocol round also writes `agent_execution.json`, which records the
 command, working directory, return code, output-file hashes, stdout/stderr
 summaries, and mutation-guard errors.
+
+`agents.file_protocol_demo_agent` is the deterministic reference command for
+this protocol. It can be run through `config/file_protocol_demo.json` to prove
+that an external process can consume `agent_input.json`, emit proposal JSON, and
+then let the loop apply all normal deterministic gates.

@@ -123,14 +123,24 @@ def test_example_configs_load_modifier_modes() -> None:
         Path.cwd(),
         Path("config/file_protocol_guarded.json"),
     )
+    file_protocol_demo = load_project_config(
+        Path.cwd(),
+        Path("config/file_protocol_demo.json"),
+    )
 
     assert dry_run.strategy_modifier == "codex_cli_dry_run"
     assert guarded.strategy_modifier == "codex_cli"
     assert adaptive.strategy_modifier == "adaptive_stub"
     assert file_protocol.strategy_modifier == "file_protocol"
+    assert file_protocol_demo.strategy_modifier == "file_protocol"
     assert adaptive.max_rounds == 2
     assert guarded.modifier_settings["execute"] is False
     assert file_protocol.modifier_settings["execute"] is False
+    assert file_protocol_demo.modifier_settings["execute"] is True
+    assert file_protocol_demo.modifier_settings["args"] == [
+        "-m",
+        "agents.file_protocol_demo_agent",
+    ]
 
 
 def test_preflight_passes_default_config() -> None:
@@ -144,6 +154,16 @@ def test_preflight_passes_adaptive_stub_config() -> None:
     result = run_preflight(
         repo_root=Path.cwd(),
         config_path=Path("config/adaptive_stub.json"),
+    )
+
+    assert result.ok is True
+    assert result.errors == []
+
+
+def test_preflight_passes_file_protocol_demo_config() -> None:
+    result = run_preflight(
+        repo_root=Path.cwd(),
+        config_path=Path("config/file_protocol_demo.json"),
     )
 
     assert result.ok is True
@@ -1608,6 +1628,46 @@ def test_file_protocol_adapter_disabled_writes_execution_audit(
     assert agent_execution["command"][0] == "definitely-not-run"
     assert agent_execution["output_file"]["exists"] is False
     assert agent_execution["mutation_errors"] == []
+
+
+def test_file_protocol_demo_agent_runs_from_config(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+
+    manifest = run_iteration_loop(
+        run_id="file-protocol-demo",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/file-protocol-demo/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    agent_execution = json.loads(
+        (round_dir / "agent_execution.json").read_text(encoding="utf-8")
+    )
+    agent_output = json.loads(
+        (round_dir / "agent_output.json").read_text(encoding="utf-8")
+    )
+
+    assert manifest["completed_rounds"] == 1
+    assert proposal["agent_name"] == "file_protocol_agent"
+    assert proposal["summary"] == "Demo file-protocol agent lowers MIN_EDGE."
+    assert proposal["direction_tag"] == "file_protocol_demo_lower_min_edge"
+    assert proposal["applicable"] is True
+    assert "MIN_EDGE = 0.04" in proposal["patch_diff"]
+    assert agent_execution["schema_version"] == AGENT_EXECUTION_SCHEMA_VERSION
+    assert agent_execution["status"] == "completed"
+    assert agent_execution["command"][:3] == [
+        "python",
+        "-m",
+        "agents.file_protocol_demo_agent",
+    ]
+    assert agent_execution["output_file"]["exists"] is True
+    assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_codex_cli_adapter_disabled_does_not_execute(tmp_path: Path) -> None:

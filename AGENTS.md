@@ -228,8 +228,12 @@ Before applying a patch, the loop should reject patch hashes that have already
 failed at least `memory_filter.failed_patch_threshold` times in outcome memory.
 When `memory_filter.fallback_modifiers` is set, the loop may route through
 multiple fallback candidates in the same round. Record each primary/fallback
-attempt in `proposal_attempts.json` and select only the first candidate that is
-applicable and not rejected by outcome memory.
+attempt in `proposal_attempts.json` and select only a candidate that is
+applicable, not rejected by outcome memory, and highest scored among candidates
+by cheap pre-backtest metadata.
+Candidate attempts should include deterministic pre-backtest score metadata so
+the selected proposal can be audited without relying on natural language
+judgment.
 
 ## Strategy policy
 

@@ -111,8 +111,8 @@ def write_iteration_summary(
         lines.extend(["", "## Proposal Quality", ""])
         lines.extend(
             [
-                "| Round | Repeat | Memory Filter | Fallback | Patch SHA | Hypotheses | Expected Change | Risk |",
-                "| --- | --- | --- | --- | --- | --- | --- | --- |",
+                "| Round | Repeat | Memory Filter | Fallback | Score | Patch SHA | Hypotheses | Expected Change | Risk |",
+                "| --- | --- | --- | --- | ---: | --- | --- | --- | --- |",
             ]
         )
         for round_payload in rounds:
@@ -185,12 +185,14 @@ def proposal_quality_row(run_dir: Path, round_payload: dict[str, object]) -> str
     fallback_label = "yes" if round_payload.get("proposal_fallback_used") else "no"
     if fallback_reason:
         fallback_label = f"yes: {fallback_reason}"
+    score = round_payload.get("proposal_candidate_score", "none")
 
     return (
         f"| {escape_cell(round_id)} "
         f"| {escape_cell(repeat_label)} "
         f"| {escape_cell(memory_reason or 'none')} "
         f"| {escape_cell(fallback_label)} "
+        f"| {escape_cell(str(score))} "
         f"| `{patch_sha[:12] if patch_sha else 'none'}` "
         f"| {escape_cell(list_text(hypotheses))} "
         f"| {escape_cell(mapping_text(expected))} "

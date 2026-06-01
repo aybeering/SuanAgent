@@ -354,6 +354,9 @@ def run_round(
         "primary_proposal_memory_filter_reason": primary_memory_filter_reason,
         "proposal_fallback_used": proposal_fallback_used,
         "proposal_fallback_reason": proposal_fallback_reason,
+        "proposal_selected_role": selected_attempt["role"],
+        "proposal_candidate_score": selected_attempt["candidate_score"],
+        "proposal_candidate_status": selected_attempt["status"],
         "before_trade_count": len(trades_before),
         "after_trade_count": len(trades_after),
         "train_before_trade_count": len(train_trades_before),
@@ -389,6 +392,8 @@ def proposal_attempt_record(
     memory_filter_reason: str,
     patch_check_error: str,
     status: str,
+    candidate_score: int,
+    score_reasons: list[str],
 ) -> dict[str, object]:
     """Build an auditable proposal attempt record."""
     payload = proposal.to_dict()
@@ -400,6 +405,8 @@ def proposal_attempt_record(
         "status": status,
         "selected": False,
         "selection_reason": "",
+        "candidate_score": candidate_score,
+        "score_reasons": score_reasons,
         "memory_filter_rejected": bool(memory_filter_reason),
         "memory_filter_reason": memory_filter_reason,
         "patch_check_error": patch_check_error,
@@ -424,17 +431,17 @@ def select_proposal_candidate(
     memory_failed_patch_threshold: int,
     run_id: str,
 ) -> tuple[StrategyProposal, str, list[dict[str, object]], dict[str, object], str]:
-    """Return the first proposal candidate that passes cheap deterministic filters."""
+    """Return the highest-scored proposal that passes cheap deterministic filters."""
     candidate_modifiers = [("primary", modifier)]
     candidate_modifiers.extend(
         (f"fallback_{index:02d}", fallback_modifier)
         for index, fallback_modifier in enumerate(fallback_modifiers, start=1)
     )
     attempts: list[dict[str, object]] = []
-    selected_index: int | None = None
     selected_proposal: StrategyProposal | None = None
     selected_memory_reason = ""
     primary_memory_reason = ""
+    seen_patch_hashes: set[str] = set()
 
     for role, candidate_modifier in candidate_modifiers:
         proposal = candidate_modifier.propose_strategy_change(
@@ -459,8 +466,11 @@ def select_proposal_candidate(
         )
         if role == "primary":
             primary_memory_reason = memory_reason
+        duplicate_patch = bool(proposal.patch_sha256 in seen_patch_hashes)
+        if proposal.patch_sha256:
+            seen_patch_hashes.add(proposal.patch_sha256)
         patch_check_error = ""
-        if not memory_reason and proposal.applicable:
+        if not memory_reason and proposal.applicable and not duplicate_patch:
             try:
                 check_patch(repo_root, proposal.patch_diff)
             except GitError as exc:
@@ -469,6 +479,15 @@ def select_proposal_candidate(
             proposal=proposal,
             memory_filter_reason=memory_reason,
             patch_check_error=patch_check_error,
+            duplicate_patch=duplicate_patch,
+        )
+        score_payload = score_proposal_candidate(
+            proposal=proposal,
+            role=role,
+            status=status,
+            memory_filter_reason=memory_reason,
+            patch_check_error=patch_check_error,
+            duplicate_patch=duplicate_patch,
         )
         attempts.append(
             proposal_attempt_record(
@@ -477,28 +496,36 @@ def select_proposal_candidate(
                 memory_filter_reason=memory_reason,
                 patch_check_error=patch_check_error,
                 status=status,
+                candidate_score=int(score_payload["score"]),
+                score_reasons=list(score_payload["reasons"]),
             )
         )
-        selected_proposal = proposal
-        selected_memory_reason = memory_reason
-        if status == "selectable":
-            selected_index = len(attempts) - 1
-            break
 
+    selected_index = selected_candidate_index(attempts)
+    if selected_index is not None:
+        selected_payload = attempts[selected_index]["proposal"]
+        selected_proposal = StrategyProposal(**selected_payload)  # type: ignore[arg-type]
+        selected_memory_reason = str(attempts[selected_index]["memory_filter_reason"])
+    elif attempts:
+        selected_index = len(attempts) - 1
+        selected_payload = attempts[selected_index]["proposal"]
+        selected_proposal = StrategyProposal(**selected_payload)  # type: ignore[arg-type]
+        selected_memory_reason = str(attempts[selected_index]["memory_filter_reason"])
     if selected_proposal is None:
         raise ValueError("No proposal candidates were generated")
-    if selected_index is None:
-        selected_index = len(attempts) - 1
+
+    if attempts[selected_index]["status"] != "selectable":
         selection_reason = "no selectable proposal candidates; using final rejection"
     else:
-        selection_reason = "selected primary proposal"
+        selection_reason = (
+            f"selected {attempts[selected_index]['role']} with score "
+            f"{attempts[selected_index]['candidate_score']}"
+        )
         if attempts[selected_index]["role"] != "primary":
-            rejected_reasons = [
-                attempt_rejection_summary(attempt)
-                for attempt in attempts[:selected_index]
-            ]
+            rejected_reasons = skipped_attempt_summaries(attempts, selected_index)
             selection_reason = (
-                f"selected {attempts[selected_index]['role']} after "
+                f"selected {attempts[selected_index]['role']} with score "
+                f"{attempts[selected_index]['candidate_score']} after "
                 + "; ".join(rejected_reasons)
             )
     attempts[selected_index]["selected"] = True
@@ -517,15 +544,123 @@ def proposal_candidate_status(
     proposal: StrategyProposal,
     memory_filter_reason: str,
     patch_check_error: str,
+    duplicate_patch: bool,
 ) -> str:
     """Return the cheap deterministic prefilter status for a proposal."""
     if memory_filter_reason:
         return "memory_rejected"
     if not proposal.applicable:
         return "not_applicable"
+    if duplicate_patch:
+        return "duplicate_candidate"
     if patch_check_error:
         return "patch_check_failed"
     return "selectable"
+
+
+def selected_candidate_index(attempts: list[dict[str, object]]) -> int | None:
+    """Return the highest-scored selectable candidate index."""
+    selectable_indexes = [
+        index
+        for index, attempt in enumerate(attempts)
+        if attempt.get("status") == "selectable"
+    ]
+    if not selectable_indexes:
+        return None
+    return max(
+        selectable_indexes,
+        key=lambda index: (int(attempts[index].get("candidate_score", 0)), -index),
+    )
+
+
+def score_proposal_candidate(
+    *,
+    proposal: StrategyProposal,
+    role: str,
+    status: str,
+    memory_filter_reason: str,
+    patch_check_error: str,
+    duplicate_patch: bool,
+) -> dict[str, object]:
+    """Score a candidate deterministically before running expensive evaluation."""
+    if status != "selectable":
+        reasons = [f"status={status}"]
+        if memory_filter_reason:
+            reasons.append("blocked by outcome memory")
+        if patch_check_error:
+            reasons.append("patch check failed")
+        if duplicate_patch:
+            reasons.append("duplicate patch hash")
+        return {"score": 0, "reasons": reasons}
+
+    score = 100
+    reasons = ["base selectable score +100"]
+    expected = proposal.expected_metric_change
+    for metric, value in sorted(expected.items()):
+        delta, reason = expected_metric_score(metric, value)
+        if delta:
+            score += delta
+            reasons.append(reason)
+    risk_delta, risk_reason = risk_score(proposal.risk_notes)
+    if risk_delta:
+        score += risk_delta
+        reasons.append(risk_reason)
+    if role == "primary":
+        score += 2
+        reasons.append("primary modifier stability +2")
+    return {"score": score, "reasons": reasons}
+
+
+def expected_metric_score(metric: str, value: str) -> tuple[int, str]:
+    """Return a deterministic score contribution for expected metric metadata."""
+    normalized = value.lower()
+    if metric == "ev":
+        if "increase" in normalized or "improve" in normalized:
+            return 20, "expected ev improvement +20"
+        if "uncertain" in normalized:
+            return 5, "explicit ev uncertainty +5"
+    if metric == "total_pnl":
+        if "increase" in normalized or "improve" in normalized:
+            return 10, "expected pnl improvement +10"
+        if "uncertain" in normalized:
+            return 2, "explicit pnl uncertainty +2"
+    if metric == "trade_count":
+        if "same_or_increase" in normalized:
+            return 6, "trade count stable/increase +6"
+        if "increase" in normalized:
+            return 8, "trade count increase +8"
+        if "decrease" in normalized:
+            return -2, "trade count decrease -2"
+    if metric == "avg_slippage":
+        if "decrease" in normalized:
+            return 4, "expected slippage decrease +4"
+        if "increase" in normalized:
+            return -4, "expected slippage increase -4"
+    if metric == "max_drawdown" and "decrease" in normalized:
+        return 6, "expected drawdown decrease +6"
+    return 0, ""
+
+
+def risk_score(risk_notes: str) -> tuple[int, str]:
+    """Return a small deterministic risk contribution from risk notes."""
+    normalized = risk_notes.lower()
+    if "increas" in normalized:
+        return -3, "risk note includes increase -3"
+    if "reduce" in normalized or "decrease" in normalized:
+        return 3, "risk note suggests reduction +3"
+    return 0, ""
+
+
+def skipped_attempt_summaries(
+    attempts: list[dict[str, object]],
+    selected_index: int,
+) -> list[str]:
+    """Summarize attempts that were not selected before the winning candidate."""
+    return [
+        attempt_rejection_summary(attempt)
+        for attempt in attempts[:selected_index]
+        if attempt.get("status") != "selectable"
+    ]
 
 
 def attempt_rejection_summary(attempt: dict[str, object]) -> str:

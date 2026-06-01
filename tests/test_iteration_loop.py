@@ -296,11 +296,17 @@ def test_iteration_loop_accepts_and_stops_with_relaxed_rules(tmp_path: Path) -> 
 
 def test_iteration_loop_runs_at_most_five_rounds(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
+    no_fallback = replace(
+        load_project_config(repo),
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+    )
 
     manifest = run_iteration_loop(
         run_id="max-rounds",
         max_rounds=5,
         repo_root=repo,
+        config=no_fallback,
         stop_on_repeated_proposal=False,
     )
 
@@ -329,8 +335,18 @@ def test_iteration_loop_runs_at_most_five_rounds(tmp_path: Path) -> None:
 
 def test_iteration_loop_stops_on_repeated_proposal_by_default(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
+    no_fallback = replace(
+        load_project_config(repo),
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+    )
 
-    manifest = run_iteration_loop(run_id="repeat-stop", max_rounds=5, repo_root=repo)
+    manifest = run_iteration_loop(
+        run_id="repeat-stop",
+        max_rounds=5,
+        repo_root=repo,
+        config=no_fallback,
+    )
 
     assert manifest["status"] == "stopped_repeated_proposal"
     assert manifest["completed_rounds"] == 2
@@ -415,9 +431,24 @@ def test_iteration_loop_uses_fallback_after_memory_rejected_primary(
     tmp_path: Path,
 ) -> None:
     repo = copy_repo_fixture(tmp_path)
+    no_fallback = replace(
+        load_project_config(repo),
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+    )
 
-    run_iteration_loop(run_id="fallback-source-1", max_rounds=1, repo_root=repo)
-    run_iteration_loop(run_id="fallback-source-2", max_rounds=1, repo_root=repo)
+    run_iteration_loop(
+        run_id="fallback-source-1",
+        max_rounds=1,
+        repo_root=repo,
+        config=no_fallback,
+    )
+    run_iteration_loop(
+        run_id="fallback-source-2",
+        max_rounds=1,
+        repo_root=repo,
+        config=no_fallback,
+    )
     manifest = run_iteration_loop(
         run_id="fallback-target",
         max_rounds=1,
@@ -441,10 +472,12 @@ def test_iteration_loop_uses_fallback_after_memory_rejected_primary(
     assert attempts[1]["role"] == "fallback_01"
     assert attempts[1]["memory_filter_rejected"] is False
     assert attempts[1]["selected"] is True
+    assert attempts[1]["candidate_score"] > 0
+    assert attempts[1]["score_reasons"]
     assert proposal["agent_name"] == "strategy_modifier_adaptive_stub"
     assert "STAKE = 8.0" in proposal["patch_diff"]
     assert not decision["reasons"][0].startswith("memory filter rejected patch")
-    assert "selected fallback_01 after primary memory rejected" in summary_text
+    assert "selected fallback_01 with score" in summary_text
 
 
 def test_iteration_loop_tries_next_candidate_after_fallback_memory_rejection(
@@ -514,6 +547,7 @@ def test_iteration_loop_tries_next_candidate_after_fallback_memory_rejection(
         "selectable",
     ]
     assert attempts[2]["selected"] is True
+    assert attempts[2]["candidate_score"] > attempts[0]["candidate_score"]
     assert proposal["agent_name"] == "strategy_modifier_conservative_stub"
     assert "MIN_EDGE = 0.06" in proposal["patch_diff"]
 
@@ -811,10 +845,16 @@ def test_codex_prompt_and_command_builders_are_deterministic() -> None:
 
 def test_agent_context_summarizes_prior_failed_rounds(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
+    no_fallback = replace(
+        load_project_config(repo),
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+    )
     run_iteration_loop(
         run_id="context-history",
         max_rounds=2,
         repo_root=repo,
+        config=no_fallback,
         stop_on_repeated_proposal=False,
     )
 

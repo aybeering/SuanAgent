@@ -86,8 +86,13 @@ used as cross-run context for later agent calls.
 Before applying a patch, the loop checks outcome memory and rejects patch hashes
 that have already failed at least `memory_filter.failed_patch_threshold` times.
 If `memory_filter.fallback_modifiers` is configured, the same round can route
-through a deterministic candidate list and select the first proposal that is
-applicable and not rejected by outcome memory.
+through a deterministic candidate list and select a proposal that is applicable,
+not rejected by outcome memory, and highest scored among candidates by cheap
+pre-backtest metadata.
+Selectable candidates are scored with deterministic metadata from
+`expected_metric_change`, risk notes, patch validity, duplicate patch hashes,
+and outcome-memory status before the loop spends a validation backtest on one
+proposal.
 
 Use `python -m orchestrator.experiments list` and
 `python -m orchestrator.experiments show <run_id>` to inspect local experiment

@@ -22,7 +22,11 @@ from orchestrator.agent_context import build_agent_context
 from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
 from orchestrator.iteration_loop import run_iteration_loop
-from orchestrator.outcome_memory import read_outcome_memory
+from orchestrator.outcome_memory import (
+    append_outcome_memory,
+    direction_filter_rejection_reason,
+    read_outcome_memory,
+)
 from orchestrator.run_loop import run_pipeline
 from orchestrator.preflight import run_preflight
 from orchestrator.experiments import (
@@ -74,6 +78,7 @@ def test_default_config_loads_dataset_splits() -> None:
     assert config.max_rounds == 5
     assert config.strategy_modifier == "fixed_patch_stub"
     assert config.memory_failed_patch_threshold == 2
+    assert config.memory_failed_direction_threshold == 3
     assert config.memory_fallback_modifier == "adaptive_stub"
     assert config.memory_fallback_modifiers == (
         "adaptive_stub",
@@ -155,6 +160,22 @@ def test_preflight_rejects_negative_memory_filter_threshold(tmp_path: Path) -> N
     assert any("memory_filter.failed_patch_threshold" in error for error in result.errors)
 
 
+def test_preflight_rejects_negative_direction_filter_threshold(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_path = repo / "config/negative_direction_filter.json"
+    config = json.loads((repo / "config/default.json").read_text())
+    config["memory_filter"]["failed_direction_threshold"] = -1
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    result = run_preflight(repo_root=repo, config_path=config_path)
+
+    assert result.ok is False
+    assert any(
+        "memory_filter.failed_direction_threshold" in error
+        for error in result.errors
+    )
+
+
 def test_preflight_rejects_negative_no_improvement_threshold(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     config_path = repo / "config/negative_exploration.json"
@@ -207,6 +228,7 @@ def test_stub_agent_generates_fixed_patch(tmp_path: Path) -> None:
 
     assert proposal.applicable is True
     assert proposal.agent_name == "strategy_modifier_stub"
+    assert proposal.direction_tag == "lower_min_edge"
     assert proposal.hypotheses
     assert proposal.expected_metric_change["trade_count"] == "increase"
     assert proposal.risk_notes
@@ -286,6 +308,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     selected_attempt = next(attempt for attempt in attempts if attempt["selected"])
     assert decision["accepted"] is False
     assert selected_attempt["candidate_score"] > 0
+    assert selected_attempt["direction_tag"] == "lower_min_edge"
     assert selected_attempt["validation_status"] == "evaluated"
     assert isinstance(selected_attempt["validation_ev_delta"], float)
     assert selected_attempt["probe_metrics_before"]
@@ -293,6 +316,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert selected_attempt["probe_artifacts"]["metrics"]
     assert (round_dir / selected_attempt["probe_artifacts"]["metrics"]).exists()
     assert leaderboard[0]["selected"] is True
+    assert leaderboard[0]["direction_tag"] == "lower_min_edge"
     assert leaderboard[0]["validation_status"] == "evaluated"
     assert leaderboard[0]["round_id"] == "round_001"
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
@@ -501,6 +525,7 @@ def test_iteration_loop_rejects_known_failed_patch_from_memory(tmp_path: Path) -
     assert "memory filter rejected patch" in summary_text
     assert memory[-1]["run_id"] == "memory-filtered"
     assert memory[-1]["validation_ev_delta"] == 0.0
+    assert memory[-1]["direction_tag"] == "lower_min_edge"
 
 
 def test_iteration_loop_uses_fallback_after_memory_rejected_primary(
@@ -551,6 +576,7 @@ def test_iteration_loop_uses_fallback_after_memory_rejected_primary(
     assert attempts[1]["candidate_score"] > 0
     assert attempts[1]["score_reasons"]
     assert proposal["agent_name"] == "strategy_modifier_adaptive_stub"
+    assert proposal["direction_tag"] == "reduce_stake"
     assert "STAKE = 8.0" in proposal["patch_diff"]
     assert not decision["reasons"][0].startswith("memory filter rejected patch")
     assert "selected fallback_01 with score" in summary_text
@@ -625,7 +651,82 @@ def test_iteration_loop_tries_next_candidate_after_fallback_memory_rejection(
     assert attempts[2]["selected"] is True
     assert attempts[2]["candidate_score"] > attempts[0]["candidate_score"]
     assert proposal["agent_name"] == "strategy_modifier_conservative_stub"
+    assert proposal["direction_tag"] == "raise_min_edge"
     assert "MIN_EDGE = 0.06" in proposal["patch_diff"]
+
+
+def test_direction_memory_filter_rejects_failed_direction(tmp_path: Path) -> None:
+    experiments_dir = tmp_path / "experiments"
+    for index in range(3):
+        append_outcome_memory(
+            experiments_dir=experiments_dir,
+            record={
+                "kind": "proposal_outcome",
+                "run_id": f"direction-source-{index}",
+                "round_id": "round_001",
+                "direction_tag": "lower_min_edge",
+                "accepted": False,
+                "patch_sha256": f"different-patch-{index}",
+            },
+        )
+
+    reason = direction_filter_rejection_reason(
+        experiments_dir=experiments_dir,
+        direction_tag="lower_min_edge",
+        threshold=3,
+        exclude_run_id="direction-target",
+    )
+
+    assert reason.startswith("memory filter rejected direction lower_min_edge")
+
+
+def test_iteration_loop_rejects_failed_direction_from_memory(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = replace(
+        load_project_config(repo),
+        memory_failed_patch_threshold=0,
+        memory_failed_direction_threshold=3,
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+        stop_after_no_improvement_rounds=0,
+    )
+    for index in range(3):
+        append_outcome_memory(
+            experiments_dir=repo / "experiments",
+            record={
+                "kind": "proposal_outcome",
+                "run_id": f"direction-source-{index}",
+                "round_id": "round_001",
+                "agent_name": "external_test_agent",
+                "direction_tag": "lower_min_edge",
+                "accepted": False,
+                "patch_sha256": f"different-patch-{index}",
+            },
+        )
+
+    manifest = run_iteration_loop(
+        run_id="direction-filtered",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/direction-filtered/round_001"
+    decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
+    attempts = json.loads(
+        (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
+    )
+
+    assert manifest["rounds"][0]["proposal_direction_memory_rejected"] is True  # type: ignore[index]
+    assert attempts[0]["direction_memory_filter_rejected"] is True
+    assert attempts[0]["patch_memory_filter_rejected"] is False
+    assert attempts[0]["status"] == "memory_rejected"
+    assert decision["reasons"][0].startswith(
+        "memory filter rejected direction lower_min_edge"
+    )
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_iteration_loop_initializes_git_when_missing(tmp_path: Path) -> None:

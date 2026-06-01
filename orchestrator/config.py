@@ -27,6 +27,7 @@ class ProjectConfig:
     stub_new_threshold: str
     stop_on_repeated_proposal: bool
     memory_failed_patch_threshold: int = 2
+    memory_failed_direction_threshold: int = 3
     memory_fallback_modifier: str = ""
     memory_fallback_modifiers: tuple[str, ...] = ()
     stop_after_no_improvement_rounds: int = 0
@@ -80,6 +81,9 @@ def load_project_config(
         stop_on_repeated_proposal=bool(raw.get("stop_on_repeated_proposal", True)),
         memory_failed_patch_threshold=int(
             memory_filter.get("failed_patch_threshold", 2)
+        ),
+        memory_failed_direction_threshold=int(
+            memory_filter.get("failed_direction_threshold", 3)
         ),
         memory_fallback_modifier=fallback_names[0] if fallback_names else "",
         memory_fallback_modifiers=fallback_names,

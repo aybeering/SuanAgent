@@ -76,6 +76,7 @@ def propose_strategy_change(
             ),
             patch_diff="",
             applicable=False,
+            direction_tag="lower_min_edge",
             hypotheses=(
                 "The current strategy file must contain the configured old threshold.",
             ),
@@ -109,6 +110,7 @@ def propose_strategy_change(
         ),
         patch_diff=patch_diff,
         applicable=True,
+        direction_tag="lower_min_edge",
         hypotheses=(
             "Lowering MIN_EDGE should allow more candidate trades to pass the filter.",
             "The extra trades may improve total opportunity capture if edge estimates are reliable.",

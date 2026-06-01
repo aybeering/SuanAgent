@@ -216,8 +216,9 @@ round_001/
 Additional rounds use the same `round_NNN/` structure.
 
 Each `proposal.json` should keep agent output auditable. It records the patch,
-agent summary, hypotheses, expected metric changes, risk notes, patch hash,
-quality checks, and whether the patch repeats a prior round in the same run.
+agent summary, direction tag, hypotheses, expected metric changes, risk notes,
+patch hash, quality checks, and whether the patch repeats a prior round in the
+same run.
 Each `agent_context.md` should summarize prior rounds for the next modifier
 call, including failed patch hashes, validation/holdout deltas, repeat status,
 and deterministic rejection reasons.
@@ -226,6 +227,8 @@ Each iteration round should append a compact proposal outcome to
 reuse prior proposal outcomes.
 Before applying a patch, the loop should reject patch hashes that have already
 failed at least `memory_filter.failed_patch_threshold` times in outcome memory.
+It should also reject direction tags that have already failed at least
+`memory_filter.failed_direction_threshold` times in outcome memory.
 When `memory_filter.fallback_modifiers` is set, the loop may route through
 multiple fallback candidates in the same round. Record each primary/fallback
 attempt in `proposal_attempts.json` and select only a candidate that is
@@ -239,8 +242,9 @@ the train split. Probe data must be written under the round directory, not under
 `data/`, and each candidate's probe artifacts should be linked from
 `proposal_attempts.json`.
 Iteration runs should also maintain a run-level `candidate_leaderboard.json`
-that aggregates candidate attempts, selected status, probe deltas, and final
-validation deltas for later agent context and search analysis.
+that aggregates candidate attempts, selected status, direction tags, probe
+deltas, and final validation deltas for later agent context and search
+analysis.
 `agent_context.md` should include prior rows from `candidate_leaderboard.json`
 so future modifier backends can see selected candidates, scores, probe deltas,
 and validation deltas before proposing the next patch.

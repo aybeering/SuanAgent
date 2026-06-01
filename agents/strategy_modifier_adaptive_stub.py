@@ -73,6 +73,7 @@ def propose_strategy_change(
             round_index=round_index,
             old_text=STAKE_OLD,
             new_text=STAKE_NEW,
+            direction_tag="reduce_stake",
             summary=f"Replace `{STAKE_OLD}` with `{STAKE_NEW}` after prior failure.",
             risk_notes="May increase fill affordability while changing position sizing.",
             expected_metric_change={
@@ -94,6 +95,7 @@ def propose_strategy_change(
         round_index=round_index,
         old_text=old_threshold,
         new_text=new_threshold,
+        direction_tag="lower_min_edge",
         summary=f"Replace `{old_threshold}` with `{new_threshold}`.",
         risk_notes="May increase trade count while lowering average edge per trade.",
         expected_metric_change={
@@ -117,6 +119,7 @@ def build_replacement_proposal(
     round_index: int,
     old_text: str,
     new_text: str,
+    direction_tag: str,
     summary: str,
     risk_notes: str,
     expected_metric_change: dict[str, str],
@@ -134,6 +137,7 @@ def build_replacement_proposal(
             raw_response=response_text(report_text, context_text),
             patch_diff="",
             applicable=False,
+            direction_tag=direction_tag,
             hypotheses=hypotheses,
             rejection_reason=f"Expected `{old_text}` in {target_relative}.",
         )
@@ -157,6 +161,7 @@ def build_replacement_proposal(
         raw_response=response_text(report_text, context_text),
         patch_diff=patch_diff,
         applicable=True,
+        direction_tag=direction_tag,
         hypotheses=hypotheses,
         rejection_reason="",
     )

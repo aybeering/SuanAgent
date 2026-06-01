@@ -22,6 +22,7 @@ class StrategyProposal:
     raw_response: str
     patch_diff: str
     applicable: bool
+    direction_tag: str = ""
     hypotheses: tuple[str, ...] = ()
     patch_sha256: str = ""
     is_repeat_patch: bool = False

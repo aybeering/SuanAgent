@@ -31,6 +31,7 @@ from orchestrator.git_manager import (
 from orchestrator.outcome_memory import (
     append_outcome_memory,
     build_outcome_record,
+    direction_filter_rejection_reason,
     memory_filter_rejection_reason,
 )
 from orchestrator.policy_gate import evaluate_policy
@@ -107,6 +108,10 @@ def run_iteration_loop(
         "final_strategy_commit": None,
         "stop_on_repeated_proposal": active_stop_on_repeated_proposal,
         "memory_fallback_modifiers": list(active_config.memory_fallback_modifiers),
+        "memory_filter_policy": {
+            "failed_patch_threshold": active_config.memory_failed_patch_threshold,
+            "failed_direction_threshold": active_config.memory_failed_direction_threshold,
+        },
         "exploration_policy": {
             "stop_after_no_improvement_rounds": (
                 active_config.stop_after_no_improvement_rounds
@@ -145,6 +150,9 @@ def run_iteration_loop(
                     modifier=modifier,
                     fallback_modifiers=fallback_modifiers,
                     memory_failed_patch_threshold=active_config.memory_failed_patch_threshold,
+                    memory_failed_direction_threshold=(
+                        active_config.memory_failed_direction_threshold
+                    ),
                 )
                 manifest["completed_rounds"] = round_index
                 manifest["rounds"].append(round_summary)  # type: ignore[union-attr]
@@ -252,6 +260,7 @@ def run_round(
     modifier: StrategyModifier,
     fallback_modifiers: tuple[StrategyModifier, ...],
     memory_failed_patch_threshold: int,
+    memory_failed_direction_threshold: int,
 ) -> dict[str, object]:
     """Run one proposal/apply/evaluate round."""
     clear_strategy_import(repo_root, strategy_module)
@@ -316,6 +325,7 @@ def run_round(
         current_round_id=round_id,
         experiments_dir=round_dir.parent.parent,
         memory_failed_patch_threshold=memory_failed_patch_threshold,
+        memory_failed_direction_threshold=memory_failed_direction_threshold,
         run_id=run_id,
         strategy_module=strategy_module,
         probe_data_path=probe_data_path,
@@ -404,10 +414,18 @@ def run_round(
         "reasons": decision["reasons"],
         "proposal_applicable": proposal.applicable,
         "proposal_patch_sha256": proposal.patch_sha256,
+        "proposal_direction_tag": proposal.direction_tag,
         "proposal_is_repeat": proposal.is_repeat_patch,
         "proposal_repeat_of_round": proposal.repeat_of_round,
         "proposal_memory_rejected": bool(memory_filter_reason),
         "proposal_memory_filter_reason": memory_filter_reason,
+        "proposal_direction_memory_rejected": bool(
+            selected_attempt.get("direction_filter_reason", "")
+        ),
+        "proposal_direction_filter_reason": selected_attempt.get(
+            "direction_filter_reason",
+            "",
+        ),
         "primary_proposal_memory_rejected": bool(primary_memory_filter_reason),
         "primary_proposal_memory_filter_reason": primary_memory_filter_reason,
         "proposal_fallback_used": proposal_fallback_used,
@@ -548,6 +566,7 @@ def candidate_leaderboard_rows(run_dir: Path) -> list[dict[str, object]]:
                     "attempt_index": attempt_index,
                     "role": attempt.get("role", ""),
                     "agent_name": attempt.get("agent_name", ""),
+                    "direction_tag": attempt.get("direction_tag", ""),
                     "selected": bool(attempt.get("selected", False)),
                     "status": attempt.get("status", ""),
                     "candidate_score": attempt.get("candidate_score", 0),
@@ -569,6 +588,14 @@ def candidate_leaderboard_rows(run_dir: Path) -> list[dict[str, object]]:
                     "selection_reason": attempt.get("selection_reason", ""),
                     "score_reasons": attempt.get("score_reasons", []),
                     "memory_filter_reason": attempt.get("memory_filter_reason", ""),
+                    "patch_memory_filter_reason": attempt.get(
+                        "patch_memory_filter_reason",
+                        "",
+                    ),
+                    "direction_filter_reason": attempt.get(
+                        "direction_filter_reason",
+                        "",
+                    ),
                     "patch_check_error": attempt.get("patch_check_error", ""),
                     "probe_error": attempt.get("probe_error", ""),
                     "probe_artifacts": attempt.get("probe_artifacts", {}),
@@ -607,6 +634,8 @@ def proposal_attempt_record(
     role: str,
     proposal: StrategyProposal,
     memory_filter_reason: str,
+    patch_memory_filter_reason: str,
+    direction_filter_reason: str,
     patch_check_error: str,
     status: str,
     candidate_score: int,
@@ -621,6 +650,7 @@ def proposal_attempt_record(
     return {
         "role": role,
         "agent_name": payload.get("agent_name", ""),
+        "direction_tag": payload.get("direction_tag", ""),
         "summary": payload.get("summary", ""),
         "patch_sha256": payload.get("patch_sha256", ""),
         "status": status,
@@ -640,6 +670,10 @@ def proposal_attempt_record(
         "probe_artifacts": probe_artifacts,
         "memory_filter_rejected": bool(memory_filter_reason),
         "memory_filter_reason": memory_filter_reason,
+        "patch_memory_filter_rejected": bool(patch_memory_filter_reason),
+        "patch_memory_filter_reason": patch_memory_filter_reason,
+        "direction_memory_filter_rejected": bool(direction_filter_reason),
+        "direction_filter_reason": direction_filter_reason,
         "patch_check_error": patch_check_error,
         "proposal": payload,
     }
@@ -660,6 +694,7 @@ def select_proposal_candidate(
     current_round_id: str,
     experiments_dir: Path,
     memory_failed_patch_threshold: int,
+    memory_failed_direction_threshold: int,
     run_id: str,
     strategy_module: str,
     probe_data_path: Path,
@@ -693,11 +728,21 @@ def select_proposal_candidate(
             run_dir=run_dir,
             current_round_id=current_round_id,
         )
-        memory_reason = memory_filter_rejection_reason(
+        patch_memory_reason = memory_filter_rejection_reason(
             experiments_dir=experiments_dir,
             patch_sha256=proposal.patch_sha256,
             threshold=memory_failed_patch_threshold,
             exclude_run_id=run_id,
+        )
+        direction_memory_reason = direction_filter_rejection_reason(
+            experiments_dir=experiments_dir,
+            direction_tag=proposal.direction_tag,
+            threshold=memory_failed_direction_threshold,
+            exclude_run_id=run_id,
+        )
+        memory_reason = combined_filter_reason(
+            patch_memory_reason,
+            direction_memory_reason,
         )
         if role == "primary":
             primary_memory_reason = memory_reason
@@ -746,6 +791,8 @@ def select_proposal_candidate(
                 role=role,
                 proposal=proposal,
                 memory_filter_reason=memory_reason,
+                patch_memory_filter_reason=patch_memory_reason,
+                direction_filter_reason=direction_memory_reason,
                 patch_check_error=patch_check_error,
                 status=status,
                 candidate_score=int(score_payload["score"]),
@@ -812,6 +859,11 @@ def proposal_candidate_status(
     if patch_check_error:
         return "patch_check_failed"
     return "selectable"
+
+
+def combined_filter_reason(*reasons: str) -> str:
+    """Return one stable rejection reason from patch and direction memory."""
+    return "; ".join(reason for reason in reasons if reason)
 
 
 def selected_candidate_index(attempts: list[dict[str, object]]) -> int | None:

@@ -68,6 +68,7 @@ def propose_strategy_change(
             raw_response=response_text(report_text, context_text),
             patch_diff="",
             applicable=False,
+            direction_tag="raise_min_edge",
             hypotheses=(
                 "The current strategy file must contain the configured threshold.",
             ),
@@ -98,6 +99,7 @@ def propose_strategy_change(
         raw_response=response_text(report_text, context_text),
         patch_diff=patch_diff,
         applicable=True,
+        direction_tag="raise_min_edge",
         hypotheses=(
             "Raising MIN_EDGE should filter out weaker candidate trades.",
             "This explores a conservative direction after lower-threshold patches fail.",

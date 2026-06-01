@@ -88,6 +88,7 @@ class CodexCliModifier:
                 raw_response="codex cli execution disabled",
                 patch_diff="",
                 applicable=False,
+                direction_tag="codex_cli_disabled",
                 hypotheses=(
                     "A future enabled Codex CLI run should return a strategy-only patch.",
                 ),
@@ -117,6 +118,7 @@ class CodexCliModifier:
                 raw_response=raw_output,
                 patch_diff="",
                 applicable=False,
+                direction_tag="codex_cli_failed",
                 hypotheses=(
                     "A successful Codex CLI subprocess is required before patch parsing.",
                 ),

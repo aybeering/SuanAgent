@@ -61,8 +61,8 @@ def build_agent_context(
         lines.extend(
             [
                 "| Round | Accepted | Patch SHA | Repeat | Validation EV | "
-                "Holdout EV | Reasons |",
-                "| --- | --- | --- | --- | ---: | ---: | --- |",
+                "Holdout EV | Direction | Reasons |",
+                "| --- | --- | --- | --- | ---: | ---: | --- | --- |",
             ]
         )
         for payload in prior_rounds:
@@ -87,8 +87,8 @@ def build_agent_context(
         lines.extend(
             [
                 "| Round | Role | Agent | Selected | Score | Probe EV Delta | "
-                "Validation EV Delta | Status | Summary |",
-                "| --- | --- | --- | --- | ---: | ---: | ---: | --- | --- |",
+                "Validation EV Delta | Direction | Status | Summary |",
+                "| --- | --- | --- | --- | ---: | ---: | ---: | --- | --- | --- |",
             ]
         )
         for payload in candidate_rows:
@@ -100,8 +100,8 @@ def build_agent_context(
     else:
         lines.extend(
             [
-                "| Run | Round | Agent | Accepted | Patch SHA | Validation EV Delta | Reasons |",
-                "| --- | --- | --- | --- | --- | ---: | --- |",
+                "| Run | Round | Agent | Accepted | Patch SHA | Validation EV Delta | Direction | Reasons |",
+                "| --- | --- | --- | --- | --- | ---: | --- | --- |",
             ]
         )
         for payload in memory_records:
@@ -145,6 +145,7 @@ def candidate_search_row(payload: dict[str, object]) -> str:
         f"| {int(payload.get('candidate_score', 0))} "
         f"| {format_number(float(payload.get('probe_ev_delta', 0.0)))} "
         f"| {validation_text} "
+        f"| {escape_cell(str(payload.get('direction_tag', '')) or 'none')} "
         f"| {escape_cell(str(payload.get('status', '')))} "
         f"| {escape_cell(str(payload.get('summary', '')))} |"
     )
@@ -173,6 +174,7 @@ def prior_round_summaries(
                 "accepted": bool(decision.get("accepted", False)),
                 "reasons": decision.get("reasons", []),
                 "patch_sha256": proposal.get("patch_sha256", ""),
+                "direction_tag": proposal.get("direction_tag", ""),
                 "is_repeat_patch": proposal.get("is_repeat_patch", False),
                 "repeat_of_round": proposal.get("repeat_of_round", ""),
                 "validation_ev_before": metrics_before.get("ev", 0.0),
@@ -202,6 +204,7 @@ def prior_round_row(payload: dict[str, object]) -> str:
         f"| {escape_cell(repeat_label)} "
         f"| {delta_cell(payload, 'validation_ev_before', 'validation_ev_after')} "
         f"| {delta_cell(payload, 'holdout_ev_before', 'holdout_ev_after')} "
+        f"| {escape_cell(str(payload.get('direction_tag', '')) or 'none')} "
         f"| {escape_cell(reason_text or 'none')} |"
     )
 
@@ -244,6 +247,7 @@ def memory_row(payload: dict[str, object]) -> str:
         f"| `{str(bool(payload.get('accepted', False))).lower()}` "
         f"| `{patch_sha[:12] if patch_sha else 'none'}` "
         f"| {format_number(float(payload.get('validation_ev_delta', 0.0)))} "
+        f"| {escape_cell(str(payload.get('direction_tag', '')) or 'none')} "
         f"| {escape_cell(reason_text or 'none')} |"
     )
 

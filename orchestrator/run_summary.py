@@ -111,8 +111,8 @@ def write_iteration_summary(
         lines.extend(["", "## Proposal Quality", ""])
         lines.extend(
             [
-                "| Round | Repeat | Memory Filter | Fallback | Score | Probe EV | Patch SHA | Hypotheses | Expected Change | Risk |",
-                "| --- | --- | --- | --- | ---: | ---: | --- | --- | --- | --- |",
+                "| Round | Direction | Repeat | Memory Filter | Fallback | Score | Probe EV | Patch SHA | Hypotheses | Expected Change | Risk |",
+                "| --- | --- | --- | --- | --- | ---: | ---: | --- | --- | --- | --- |",
             ]
         )
         for round_payload in rounds:
@@ -123,8 +123,8 @@ def write_iteration_summary(
             lines.extend(["", "## Candidate Leaderboard", ""])
             lines.extend(
                 [
-                    "| Round | Role | Agent | Selected | Score | Probe EV | Validation EV | Status |",
-                    "| --- | --- | --- | --- | ---: | ---: | ---: | --- |",
+                    "| Round | Role | Agent | Direction | Selected | Score | Probe EV | Validation EV | Status |",
+                    "| --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
                 ]
             )
             for row in candidate_rows[:10]:
@@ -195,6 +195,7 @@ def proposal_quality_row(run_dir: Path, round_payload: dict[str, object]) -> str
     hypotheses = proposal.get("hypotheses", []) if proposal else []
     expected = proposal.get("expected_metric_change", {}) if proposal else {}
     risk_notes = str(proposal.get("risk_notes", "")) if proposal else ""
+    direction_tag = str(proposal.get("direction_tag", "")) if proposal else ""
     memory_reason = str(round_payload.get("proposal_memory_filter_reason", ""))
     fallback_reason = str(round_payload.get("proposal_fallback_reason", ""))
     fallback_label = "yes" if round_payload.get("proposal_fallback_used") else "no"
@@ -205,6 +206,7 @@ def proposal_quality_row(run_dir: Path, round_payload: dict[str, object]) -> str
 
     return (
         f"| {escape_cell(round_id)} "
+        f"| {escape_cell(direction_tag or 'none')} "
         f"| {escape_cell(repeat_label)} "
         f"| {escape_cell(memory_reason or 'none')} "
         f"| {escape_cell(fallback_label)} "
@@ -225,6 +227,7 @@ def candidate_leaderboard_row(row: dict[str, Any]) -> str:
         f"| {escape_cell(str(row.get('round_id', '')))} "
         f"| {escape_cell(str(row.get('role', '')))} "
         f"| {escape_cell(str(row.get('agent_name', '')))} "
+        f"| {escape_cell(str(row.get('direction_tag', '')) or 'none')} "
         f"| `{str(bool(row.get('selected', False))).lower()}` "
         f"| {escape_cell(str(row.get('candidate_score', 0)))} "
         f"| {escape_cell(str(row.get('probe_ev_delta', 0.0)))} "

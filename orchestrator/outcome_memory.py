@@ -81,6 +81,24 @@ def failed_patch_outcomes(
     ]
 
 
+def failed_direction_outcomes(
+    *,
+    experiments_dir: Path,
+    direction_tag: str,
+    exclude_run_id: str = "",
+) -> list[dict[str, object]]:
+    """Return failed memory records for a proposal direction tag."""
+    if not direction_tag:
+        return []
+    return [
+        record
+        for record in read_outcome_memory(experiments_dir)
+        if record.get("direction_tag") == direction_tag
+        and record.get("accepted") is False
+        and str(record.get("run_id", "")) != exclude_run_id
+    ]
+
+
 def memory_filter_rejection_reason(
     *,
     experiments_dir: Path,
@@ -105,6 +123,29 @@ def memory_filter_rejection_reason(
     )
 
 
+def direction_filter_rejection_reason(
+    *,
+    experiments_dir: Path,
+    direction_tag: str,
+    threshold: int,
+    exclude_run_id: str = "",
+) -> str:
+    """Return a rejection reason when a direction has failed too often."""
+    if threshold <= 0 or not direction_tag:
+        return ""
+    failures = failed_direction_outcomes(
+        experiments_dir=experiments_dir,
+        direction_tag=direction_tag,
+        exclude_run_id=exclude_run_id,
+    )
+    if len(failures) < threshold:
+        return ""
+    return (
+        f"memory filter rejected direction {direction_tag}: "
+        f"{len(failures)} prior failed outcomes >= threshold {threshold}"
+    )
+
+
 def build_outcome_record(
     *,
     run_id: str,
@@ -124,6 +165,7 @@ def build_outcome_record(
         "run_id": run_id,
         "round_id": round_id,
         "agent_name": proposal.agent_name,
+        "direction_tag": proposal.direction_tag,
         "target_file": proposal.target_file,
         "summary": proposal.summary,
         "accepted": bool(decision.get("accepted", False)),

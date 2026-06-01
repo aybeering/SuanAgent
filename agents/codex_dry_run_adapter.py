@@ -84,6 +84,7 @@ class CodexDryRunModifier:
             ),
             patch_diff="",
             applicable=False,
+            direction_tag="codex_dry_run",
             hypotheses=(
                 "A future Codex CLI call should inspect the train report before editing.",
             ),
@@ -166,6 +167,7 @@ def proposal_from_codex_output(
             raw_response=raw_output,
             patch_diff="",
             applicable=False,
+            direction_tag="codex_cli_unknown",
             hypotheses=(
                 "The Codex response must contain a unified diff for the strategy file.",
             ),
@@ -185,6 +187,7 @@ def proposal_from_codex_output(
         raw_response=raw_output,
         patch_diff=patch_diff,
         applicable=True,
+        direction_tag="codex_cli_unknown",
         hypotheses=(
             "The parsed patch is intended to improve validation metrics after simulation.",
         ),

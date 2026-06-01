@@ -74,8 +74,8 @@ Each run writes artifacts to `experiments/<run_id>/`:
 
 The multi-round loop also writes per-round train and holdout artifacts, a
 human-readable `summary.md`, and an append-only `experiments/index.jsonl`.
-Iteration summaries include proposal hypotheses, expected metric changes, risk
-notes, patch fingerprints, and repeat-patch detection.
+Iteration summaries include proposal direction tags, hypotheses, expected
+metric changes, risk notes, patch fingerprints, and repeat-patch detection.
 Iteration status is one of `accepted`, `stopped_repeated_proposal`,
 `stopped_max_rounds`, or `failed`.
 Each round also writes `agent_context.md`, a deterministic summary of prior
@@ -85,6 +85,9 @@ Iteration runs append proposal outcomes to `experiments/memory.jsonl`, which is
 used as cross-run context for later agent calls.
 Before applying a patch, the loop checks outcome memory and rejects patch hashes
 that have already failed at least `memory_filter.failed_patch_threshold` times.
+It also rejects proposal directions that have failed at least
+`memory_filter.failed_direction_threshold` times, so the prototype can avoid a
+weak idea family even when the exact patch text changes.
 If `memory_filter.fallback_modifiers` is configured, the same round can route
 through a deterministic candidate list and select a proposal that is applicable,
 not rejected by outcome memory, and highest scored among candidates by cheap
@@ -97,8 +100,8 @@ The scorer also writes a tiny per-round `probe_data.csv` copied from the train
 split and runs selectable candidates against it before final selection, storing
 `probe_<role>_metrics.json`, trades, and reports under the round directory.
 Iteration runs also write `candidate_leaderboard.json`, a run-level search trace
-that ranks all candidate attempts by selection status, probe deltas, validation
-deltas, and deterministic candidate score.
+that ranks all candidate attempts by selection status, direction tag, probe
+deltas, validation deltas, and deterministic candidate score.
 Later rounds include prior rows from that leaderboard in `agent_context.md`, so
 modifier backends can avoid weak search directions and reuse promising ones.
 The optional `exploration.stop_after_no_improvement_rounds` policy can stop a

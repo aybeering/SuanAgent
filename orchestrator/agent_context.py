@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from orchestrator.experiment_index import read_experiment_index
 from orchestrator.outcome_memory import read_outcome_memory
 
 
@@ -74,6 +75,7 @@ def build_agent_context_payload(
             memory_path=memory_path,
             run_dir=run_dir,
         ),
+        "recent_research_briefs": recent_research_briefs(run_dir=run_dir),
     }
 
 
@@ -98,6 +100,7 @@ def build_agent_context_markdown(payload: dict[str, object]) -> str:
     prior_rounds = list_of_dicts(payload.get("prior_rounds", []))
     memory_records = list_of_dicts(payload.get("global_outcome_memory", []))
     candidate_rows = list_of_dicts(payload.get("candidate_search_trace", []))
+    research_briefs = list_of_dicts(payload.get("recent_research_briefs", []))
     champion = dict_payload(payload.get("champion", {}))
     champion_comparison = dict_payload(
         payload.get("previous_champion_comparison", {}),
@@ -196,6 +199,19 @@ def build_agent_context_markdown(payload: dict[str, object]) -> str:
         )
         for payload in memory_records:
             lines.append(memory_row(payload))
+
+    lines.extend(["", "## Recent Research Briefs", ""])
+    if not research_briefs:
+        lines.append("No prior research briefs yet.")
+    else:
+        lines.extend(
+            [
+                "| Run | Status | Rounds | Accepted | Top Direction | Recommendation | Next Questions |",
+                "| --- | --- | ---: | --- | --- | --- | --- |",
+            ]
+        )
+        for payload in research_briefs:
+            lines.append(research_brief_row(payload))
 
     return "\n".join(lines).rstrip() + "\n"
 
@@ -404,6 +420,105 @@ def memory_row(payload: dict[str, object]) -> str:
         f"| {format_number(float(payload.get('validation_ev_delta', 0.0)))} "
         f"| {escape_cell(str(payload.get('direction_tag', '')) or 'none')} "
         f"| {escape_cell(reason_text or 'none')} |"
+    )
+
+
+def recent_research_briefs(
+    *,
+    run_dir: Path,
+    limit: int = 3,
+) -> list[dict[str, object]]:
+    """Return compact research briefs from recent completed runs."""
+    if limit <= 0:
+        return []
+    experiments_dir = run_dir.parent
+    active_run_id = run_dir.name
+    run_ids = recent_index_run_ids(experiments_dir=experiments_dir)
+    if not run_ids:
+        run_ids = [
+            path.name
+            for path in sorted(experiments_dir.iterdir())
+            if path.is_dir() and path.name != active_run_id
+        ]
+
+    rows: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for run_id in reversed(run_ids):
+        if run_id == active_run_id or run_id in seen:
+            continue
+        seen.add(run_id)
+        path = experiments_dir / run_id / "research_brief.json"
+        if not path.exists():
+            continue
+        payload = load_json(path)
+        rows.append(compact_research_brief(payload, path=path))
+        if len(rows) >= limit:
+            break
+    return rows
+
+
+def recent_index_run_ids(*, experiments_dir: Path) -> list[str]:
+    """Return run ids from the append-only experiment index."""
+    records = read_experiment_index(experiments_dir)
+    return [
+        str(record.get("run_id", ""))
+        for record in records
+        if str(record.get("kind", "")) == "iteration_loop" and record.get("run_id")
+    ]
+
+
+def compact_research_brief(
+    payload: dict[str, Any],
+    *,
+    path: Path,
+) -> dict[str, object]:
+    """Return the small research-brief shape exposed to modifier agents."""
+    champion = dict_payload(payload.get("champion_comparison", {}))
+    top_candidates = list_of_dicts(payload.get("top_candidates", []))
+    selected_candidates = list_of_dicts(payload.get("selected_candidates", []))
+    top_candidate = top_candidates[0] if top_candidates else {}
+    selected_candidate = selected_candidates[0] if selected_candidates else {}
+    return {
+        "path": str(path),
+        "run_id": payload.get("run_id", ""),
+        "status": payload.get("status", ""),
+        "completed_rounds": payload.get("completed_rounds", 0),
+        "accepted_round": payload.get("accepted_round"),
+        "stop_reason": payload.get("stop_reason"),
+        "summary": payload.get("summary", ""),
+        "top_direction_tag": top_candidate.get("direction_tag", ""),
+        "top_candidate_status": top_candidate.get("status", ""),
+        "top_candidate_score": top_candidate.get("candidate_score", 0),
+        "selected_direction_tag": selected_candidate.get("direction_tag", ""),
+        "champion_recommendation": champion.get("recommendation", ""),
+        "observations": payload.get("observations", []),
+        "next_questions": payload.get("next_questions", []),
+    }
+
+
+def research_brief_row(payload: dict[str, object]) -> str:
+    """Format one recent research brief as a markdown table row."""
+    next_questions = payload.get("next_questions", [])
+    questions = (
+        "; ".join(str(question) for question in next_questions)
+        if isinstance(next_questions, list)
+        else ""
+    )
+    accepted_round = str(payload.get("accepted_round") or "none")
+    direction = (
+        str(payload.get("top_direction_tag", ""))
+        or str(payload.get("selected_direction_tag", ""))
+        or "none"
+    )
+    recommendation = str(payload.get("champion_recommendation", "")) or "none"
+    return (
+        f"| {escape_cell(str(payload.get('run_id', '')))} "
+        f"| {escape_cell(str(payload.get('status', '')))} "
+        f"| {int(payload.get('completed_rounds', 0))} "
+        f"| {escape_cell(accepted_round)} "
+        f"| {escape_cell(direction)} "
+        f"| {escape_cell(recommendation)} "
+        f"| {escape_cell(questions or 'none')} |"
     )
 
 

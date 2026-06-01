@@ -142,7 +142,10 @@ Each round also writes `agent_context.md` and `agent_context.json`, two renders
 of the same deterministic context payload. The markdown file is easy to inspect,
 while the JSON file gives future Codex CLI or SDK-backed agents a stable
 machine-readable view of prior rounds, candidate traces, outcome memory, and
-the current champion when a champion registry exists.
+the current champion when a champion registry exists. It also includes compact
+`recent_research_briefs` rows from the latest completed iteration runs, so a
+modifier backend can see recent observations and next questions without
+re-parsing every artifact directory.
 Each round also writes `agent_input.json` and `agent_output.json`, a stable
 `agent_io_*_v1` fixture pair that records what a modifier backend was given and
 which proposal candidate was selected.
@@ -200,8 +203,9 @@ Completed iteration runs also write `research_brief.json` and
 `research_brief.md`, which compact the diagnosis, top candidates, selected
 candidates, champion comparison, deterministic observations, and next research
 questions into one auditable run summary.
-Later rounds include prior rows from that leaderboard in `agent_context.md`, so
-modifier backends can avoid weak search directions and reuse promising ones.
+Later rounds include prior rows from that leaderboard in `agent_context.md`, and
+new runs include recent research brief rows, so modifier backends can avoid weak
+search directions and reuse promising ones.
 The optional `exploration.stop_after_no_improvement_rounds` policy can stop a
 run when recent selected candidates fail to clear configured probe or validation
 EV improvement thresholds.

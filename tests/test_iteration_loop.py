@@ -2635,10 +2635,42 @@ def test_agent_context_includes_global_outcome_memory(tmp_path: Path) -> None:
     )
 
     assert "Global Outcome Memory" in context_text
+    assert "Recent Research Briefs" in context_text
     assert "memory-source" in context_text
     assert "strategy_modifier_stub" in context_text
     assert "ev improvement" in context_text
     assert context_payload["global_outcome_memory"][0]["run_id"] == "memory-source"
+    assert context_payload["recent_research_briefs"][0]["run_id"] == "memory-source"
+    assert context_payload["recent_research_briefs"][0]["next_questions"]
+
+
+def test_agent_context_limits_recent_research_briefs(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    for index in range(4):
+        run_iteration_loop(
+            run_id=f"brief-source-{index}",
+            max_rounds=1,
+            repo_root=repo,
+        )
+
+    context_payload = build_agent_context_payload(
+        run_dir=repo / "experiments/brief-reader",
+        current_round_id="round_001",
+    )
+    context_text = build_agent_context(
+        run_dir=repo / "experiments/brief-reader",
+        current_round_id="round_001",
+    )
+    brief_ids = [
+        str(payload["run_id"])
+        for payload in context_payload["recent_research_briefs"]  # type: ignore[index]
+    ]
+
+    assert brief_ids == ["brief-source-3", "brief-source-2", "brief-source-1"]
+    assert "Recent Research Briefs" in context_text
+    research_section = context_text.split("## Recent Research Briefs", 1)[1]
+    assert "brief-source-3" in research_section
+    assert "brief-source-0" not in research_section
 
 
 def test_iteration_loop_cli_arguments_work(tmp_path: Path) -> None:

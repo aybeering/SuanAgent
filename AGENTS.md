@@ -264,8 +264,8 @@ the same context payload. The markdown file should summarize prior rounds for
 human inspection. The JSON file should use schema version `agent_context_v1`
 and include prior rounds, failed patch hashes, candidate search trace, global
 outcome memory, current champion context when available, previous champion
-comparison context when available, target file, and policy notes for SDK-backed
-agents.
+comparison context when available, recent research brief summaries from
+completed runs, target file, and policy notes for SDK-backed agents.
 Each round should also write `agent_input.json` and `agent_output.json`.
 `agent_input.json` should use schema version `agent_io_input_v1` and describe
 the reports, context, before metrics, policy config, candidate-selection config,
@@ -325,6 +325,10 @@ later agent context and search analysis.
 so future modifier backends can see selected candidates, scores, direction
 priors, exploration bonuses, probe deltas, and validation deltas before
 proposing the next patch.
+New runs should also include recent `research_brief.json` summaries in
+`agent_context.md` and `agent_context.json`, limited to a small deterministic
+window, so future SDK-backed agents can use recent observations and next
+questions without scanning every experiment artifact.
 The loop may stop with `stopped_no_improvement` when the configured exploration
 window shows no selected candidate with sufficient probe or validation EV
 improvement.

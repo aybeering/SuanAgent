@@ -45,6 +45,7 @@ from orchestrator.proposal import (
 )
 from orchestrator.run_diagnosis import write_run_diagnosis
 from orchestrator.run_loop import run_and_write, write_json
+from orchestrator.run_metadata import write_run_metadata
 from orchestrator.run_summary import write_iteration_summary
 
 
@@ -140,6 +141,22 @@ def run_iteration_loop(
     try:
         ensure_git_repo(repo_root)
         assert_strategy_clean(repo_root, strategy_path)
+        write_run_metadata(
+            output_path=run_dir / "run_metadata.json",
+            run_id=active_run_id,
+            kind="iteration_loop",
+            repo_root=repo_root,
+            experiments_dir=active_experiments_dir,
+            config=active_config,
+            config_path=config_path,
+            overrides={
+                "max_rounds": active_max_rounds,
+                "data_path": str(data_path) if data_path is not None else "",
+                "policy_rules_override": bool(policy_rules),
+                "stop_on_repeated_proposal": active_stop_on_repeated_proposal,
+                "config_object_provided": config is not None,
+            },
+        )
 
         with repo_context(repo_root):
             for round_index in range(1, active_max_rounds + 1):

@@ -30,6 +30,7 @@ def diagnose_run(
         "artifact_ok": bool(artifact_report.get("ok", False)),
         "artifact_errors": artifact_report.get("errors", []),
         "artifact_warnings": artifact_report.get("warnings", []),
+        "metadata": compact_metadata(load_json_object(run_dir / "run_metadata.json")),
     }
 
     manifest = load_json_object(run_dir / "manifest.json")
@@ -207,6 +208,21 @@ def compact_candidates(rows: list[dict[str, Any]]) -> list[dict[str, object]]:
             }
         )
     return compact
+
+
+def compact_metadata(metadata: dict[str, Any] | None) -> dict[str, object]:
+    """Return compact run metadata for diagnosis."""
+    if not metadata:
+        return {}
+    git_payload = metadata.get("git", {})
+    git = git_payload if isinstance(git_payload, dict) else {}
+    return {
+        "schema_version": metadata.get("schema_version", ""),
+        "config_path": metadata.get("config_path", ""),
+        "strategy_modifier": metadata.get("strategy_modifier", ""),
+        "git_commit": git.get("commit", ""),
+        "git_dirty": bool(git.get("dirty", False)),
+    }
 
 
 def best_validation_round(rounds: list[dict[str, object]]) -> dict[str, object] | None:

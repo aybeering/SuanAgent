@@ -89,6 +89,7 @@ Each run writes artifacts to `experiments/<run_id>/`:
 - `report_after.md`
 - `summary.md`
 - `diagnosis.json`
+- `run_metadata.json`
 - `decision.json`
 - `patch.diff`
 - `trades_before.csv`
@@ -96,7 +97,8 @@ Each run writes artifacts to `experiments/<run_id>/`:
 
 The multi-round loop also writes per-round train and holdout artifacts, a
 human-readable `summary.md`, a machine-readable `diagnosis.json`, and an
-append-only `experiments/index.jsonl`.
+immutable `run_metadata.json` provenance snapshot, plus an append-only
+`experiments/index.jsonl`.
 Iteration summaries include proposal direction tags, hypotheses, expected
 metric changes, risk notes, patch fingerprints, and repeat-patch detection.
 Every candidate proposal must pass the deterministic `proposal_v1` contract
@@ -144,6 +146,9 @@ diagnosis of artifact health, selected candidates, per-round EV deltas,
 rejection reasons, and file-protocol execution status.
 Each completed run writes the same diagnosis payload to `diagnosis.json` inside
 the run directory.
+Each run also writes `run_metadata.json` with the effective config snapshot,
+resolved dataset paths, strategy modifier settings, and best-effort Git commit
+metadata for reproducibility.
 Iteration runs append proposal outcomes to `experiments/memory.jsonl`, which is
 used as cross-run context for later agent calls.
 Before applying a patch, the loop checks outcome memory and rejects patch hashes

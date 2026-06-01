@@ -17,6 +17,7 @@ from orchestrator.git_utils import strategy_diff
 from orchestrator.policy_gate import evaluate_policy
 from orchestrator.preflight import run_preflight
 from orchestrator.run_diagnosis import write_run_diagnosis
+from orchestrator.run_metadata import write_run_metadata
 from orchestrator.run_summary import write_single_run_summary
 from reports.generate_report import generate_report
 
@@ -44,6 +45,18 @@ def run_pipeline(
     run_dir = active_experiments_dir / active_run_id
     run_dir.mkdir(parents=True, exist_ok=False)
     active_data_path = data_path or config.dataset_path(repo_root, "validation")
+    write_run_metadata(
+        output_path=run_dir / "run_metadata.json",
+        run_id=active_run_id,
+        kind="single_run",
+        repo_root=repo_root,
+        experiments_dir=active_experiments_dir,
+        config=config,
+        config_path=config_path,
+        overrides={
+            "data_path": str(data_path) if data_path is not None else "",
+        },
+    )
 
     trades_before, metrics_before = run_and_write(
         strategy_name=config.baseline_strategy_module,

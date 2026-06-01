@@ -103,6 +103,7 @@ def validate_run_artifacts(
         add_error(report, "run has neither manifest.json nor decision.json")
 
     validate_optional_diagnosis(run_dir=run_dir, report=report)
+    validate_optional_metadata(run_dir=run_dir, report=report)
     report["ok"] = not report["errors"]
     return report
 
@@ -212,6 +213,25 @@ def validate_optional_diagnosis(
         return
     checked_files(report).append(str(path))
     validate_json_object(path=path, report=report)
+
+
+def validate_optional_metadata(
+    *,
+    run_dir: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate run_metadata.json when a run has one."""
+    path = run_dir / "run_metadata.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("schema_version") != "run_metadata_v1":
+        add_error(report, f"run_metadata.json has invalid schema_version: {path}")
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(report, f"run_metadata.json run_id does not match report: {path}")
 
 
 def validate_contract_file(

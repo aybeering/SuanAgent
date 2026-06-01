@@ -1276,6 +1276,11 @@ def test_run_pipeline_accepts_config_path_and_run_id(tmp_path: Path) -> None:
     assert (repo / "experiments/single-cli-style/decision.json").exists()
     assert (repo / "experiments/single-cli-style/summary.md").exists()
     assert (repo / "experiments/single-cli-style/diagnosis.json").exists()
+    metadata = json.loads(
+        (repo / "experiments/single-cli-style/run_metadata.json").read_text(
+            encoding="utf-8"
+        )
+    )
     report = validate_run_artifacts(
         run_id="single-cli-style",
         experiments_dir=repo / "experiments",
@@ -1283,6 +1288,12 @@ def test_run_pipeline_accepts_config_path_and_run_id(tmp_path: Path) -> None:
     )
     assert report["ok"] is True
     assert report["kind"] == "single_run"
+    assert metadata["schema_version"] == "run_metadata_v1"
+    assert metadata["kind"] == "single_run"
+    assert metadata["config_snapshot"]["strategy_modifier"] == "fixed_patch_stub"
+    assert metadata["resolved_datasets"]["validation"].endswith(
+        "data/validation/sample_markets.csv"
+    )
 
 
 def test_iteration_loop_accepts_dry_run_config_path(tmp_path: Path) -> None:
@@ -1908,6 +1919,10 @@ def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
         path.endswith("diagnosis.json")
         for path in default_report["checked_files"]  # type: ignore[union-attr]
     )
+    assert any(
+        path.endswith("run_metadata.json")
+        for path in default_report["checked_files"]  # type: ignore[union-attr]
+    )
     assert file_protocol_report["ok"] is True
     assert any(
         path.endswith("agent_execution.json")
@@ -1962,6 +1977,28 @@ def test_artifact_validator_reports_schema_errors(tmp_path: Path) -> None:
 
     assert report["ok"] is False
     assert any("expected one of" in error and "mystery" in error for error in report["errors"])  # type: ignore[union-attr]
+
+
+def test_artifact_validator_reports_metadata_run_id_mismatch(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-metadata-error",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = repo / "experiments/artifact-metadata-error/run_metadata.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["run_id"] = "wrong"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="artifact-metadata-error",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any("run_id does not match" in error for error in report["errors"])  # type: ignore[union-attr]
 
 
 def test_artifact_validator_cli_exits_nonzero_for_invalid_run(tmp_path: Path) -> None:
@@ -2065,6 +2102,7 @@ def test_run_diagnosis_includes_file_protocol_execution_status(
     assert round_diagnosis["agent_name"] == "file_protocol_agent"
     assert round_diagnosis["file_protocol_status"] == "completed"
     assert round_diagnosis["selected_role"] == "primary"
+    assert diagnosis["metadata"]["strategy_modifier"] == "file_protocol"  # type: ignore[index]
     assert diagnosis["selected_candidates"][0]["agent_name"] == "file_protocol_agent"  # type: ignore[index]
 
 

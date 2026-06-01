@@ -245,17 +245,23 @@ Candidate scoring may include a bounded direction-history prior from
 `experiments/memory.jsonl`. The prior should use only prior runs for the same
 `direction_tag`, record its sample counts and score delta, and only affect
 candidate ranking. It must not decide final acceptance.
+Candidate scoring may also include a deterministic exploration bonus after a
+configured no-improvement window. The bonus should apply only to low-sample
+directions that were not selected in the recent no-improvement window, record
+its trigger metadata, and only affect candidate ranking. It must not decide
+final acceptance.
 For selectable candidates, the loop may run a tiny probe evaluation copied from
 the train split. Probe data must be written under the round directory, not under
 `data/`, and each candidate's probe artifacts should be linked from
 `proposal_attempts.json`.
 Iteration runs should also maintain a run-level `candidate_leaderboard.json`
 that aggregates candidate attempts, selected status, direction tags, direction
-priors, probe deltas, and final validation deltas for later agent context and
-search analysis.
+priors, exploration bonuses, probe deltas, and final validation deltas for
+later agent context and search analysis.
 `agent_context.md` should include prior rows from `candidate_leaderboard.json`
 so future modifier backends can see selected candidates, scores, direction
-priors, probe deltas, and validation deltas before proposing the next patch.
+priors, exploration bonuses, probe deltas, and validation deltas before
+proposing the next patch.
 The loop may stop with `stopped_no_improvement` when the configured exploration
 window shows no selected candidate with sufficient probe or validation EV
 improvement.
@@ -394,6 +400,7 @@ Add smoke tests that verify:
 16. Isolated workspaces copy the minimal project without `.git`.
 17. Proposal contract validation rejects malformed or disallowed agent output before apply.
 18. Direction-history priors can influence candidate ranking without deciding acceptance.
+19. Exploration bonuses can push low-sample directions after deterministic stalls.
 
 The project is complete only when these checks pass:
 

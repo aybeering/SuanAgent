@@ -28,7 +28,10 @@
   "exploration": {
     "stop_after_no_improvement_rounds": 3,
     "min_probe_ev_delta": 0.0,
-    "min_validation_ev_delta": 0.0
+    "min_validation_ev_delta": 0.0,
+    "explore_after_no_improvement_rounds": 2,
+    "explore_low_sample_threshold": 1,
+    "explore_bonus": 12
   },
   "codex_cli": {
     "executable": "codex",

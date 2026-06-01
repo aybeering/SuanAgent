@@ -123,6 +123,11 @@ def run_iteration_loop(
             ),
             "min_probe_ev_delta": active_config.min_probe_ev_delta,
             "min_validation_ev_delta": active_config.min_validation_ev_delta,
+            "explore_after_no_improvement_rounds": (
+                active_config.explore_after_no_improvement_rounds
+            ),
+            "explore_low_sample_threshold": active_config.explore_low_sample_threshold,
+            "explore_bonus": active_config.explore_bonus,
         },
         "stop_reason": None,
         "rounds": [],
@@ -158,6 +163,15 @@ def run_iteration_loop(
                     memory_failed_direction_threshold=(
                         active_config.memory_failed_direction_threshold
                     ),
+                    explore_after_no_improvement_rounds=(
+                        active_config.explore_after_no_improvement_rounds
+                    ),
+                    explore_low_sample_threshold=(
+                        active_config.explore_low_sample_threshold
+                    ),
+                    explore_bonus=active_config.explore_bonus,
+                    min_probe_ev_delta=active_config.min_probe_ev_delta,
+                    min_validation_ev_delta=active_config.min_validation_ev_delta,
                 )
                 manifest["completed_rounds"] = round_index
                 manifest["rounds"].append(round_summary)  # type: ignore[union-attr]
@@ -266,6 +280,11 @@ def run_round(
     fallback_modifiers: tuple[StrategyModifier, ...],
     memory_failed_patch_threshold: int,
     memory_failed_direction_threshold: int,
+    explore_after_no_improvement_rounds: int,
+    explore_low_sample_threshold: int,
+    explore_bonus: int,
+    min_probe_ev_delta: float,
+    min_validation_ev_delta: float,
 ) -> dict[str, object]:
     """Run one proposal/apply/evaluate round."""
     clear_strategy_import(repo_root, strategy_module)
@@ -331,6 +350,11 @@ def run_round(
         experiments_dir=round_dir.parent.parent,
         memory_failed_patch_threshold=memory_failed_patch_threshold,
         memory_failed_direction_threshold=memory_failed_direction_threshold,
+        explore_after_no_improvement_rounds=explore_after_no_improvement_rounds,
+        explore_low_sample_threshold=explore_low_sample_threshold,
+        explore_bonus=explore_bonus,
+        min_probe_ev_delta=min_probe_ev_delta,
+        min_validation_ev_delta=min_validation_ev_delta,
         run_id=run_id,
         strategy_module=strategy_module,
         probe_data_path=probe_data_path,
@@ -605,6 +629,7 @@ def candidate_leaderboard_rows(run_dir: Path) -> list[dict[str, object]]:
                         "",
                     ),
                     "direction_prior": attempt.get("direction_prior", {}),
+                    "exploration_bonus": attempt.get("exploration_bonus", {}),
                     "patch_check_error": attempt.get("patch_check_error", ""),
                     "probe_error": attempt.get("probe_error", ""),
                     "probe_artifacts": attempt.get("probe_artifacts", {}),
@@ -646,6 +671,7 @@ def proposal_attempt_record(
     patch_memory_filter_reason: str,
     direction_filter_reason: str,
     direction_prior_payload: dict[str, object],
+    exploration_bonus_payload: dict[str, object],
     patch_check_error: str,
     status: str,
     candidate_score: int,
@@ -686,6 +712,7 @@ def proposal_attempt_record(
         "direction_memory_filter_rejected": bool(direction_filter_reason),
         "direction_filter_reason": direction_filter_reason,
         "direction_prior": direction_prior_payload,
+        "exploration_bonus": exploration_bonus_payload,
         "patch_check_error": patch_check_error,
         "proposal": payload,
     }
@@ -707,6 +734,11 @@ def select_proposal_candidate(
     experiments_dir: Path,
     memory_failed_patch_threshold: int,
     memory_failed_direction_threshold: int,
+    explore_after_no_improvement_rounds: int,
+    explore_low_sample_threshold: int,
+    explore_bonus: int,
+    min_probe_ev_delta: float,
+    min_validation_ev_delta: float,
     run_id: str,
     strategy_module: str,
     probe_data_path: Path,
@@ -766,6 +798,16 @@ def select_proposal_candidate(
             direction_tag=proposal.direction_tag,
             exclude_run_id=run_id,
         )
+        exploration_bonus_payload = exploration_bonus_payload_for_candidate(
+            run_dir=run_dir,
+            current_round_id=current_round_id,
+            direction_prior_payload=direction_prior_payload,
+            explore_after_no_improvement_rounds=explore_after_no_improvement_rounds,
+            explore_low_sample_threshold=explore_low_sample_threshold,
+            explore_bonus=explore_bonus,
+            min_probe_ev_delta=min_probe_ev_delta,
+            min_validation_ev_delta=min_validation_ev_delta,
+        )
         if role == "primary":
             primary_memory_reason = memory_reason
         duplicate_patch = bool(proposal.patch_sha256 in seen_patch_hashes)
@@ -808,6 +850,7 @@ def select_proposal_candidate(
             probe_metrics_after=probe_metrics_after,
             probe_error=probe_error,
             direction_prior_payload=direction_prior_payload,
+            exploration_bonus_payload=exploration_bonus_payload,
         )
         attempts.append(
             proposal_attempt_record(
@@ -817,6 +860,7 @@ def select_proposal_candidate(
                 patch_memory_filter_reason=patch_memory_reason,
                 direction_filter_reason=direction_memory_reason,
                 direction_prior_payload=direction_prior_payload,
+                exploration_bonus_payload=exploration_bonus_payload,
                 patch_check_error=patch_check_error,
                 status=status,
                 candidate_score=int(score_payload["score"]),
@@ -919,6 +963,7 @@ def score_proposal_candidate(
     probe_metrics_after: dict[str, float | int],
     probe_error: str,
     direction_prior_payload: dict[str, object],
+    exploration_bonus_payload: dict[str, object],
 ) -> dict[str, object]:
     """Score a candidate deterministically before running expensive evaluation."""
     if status != "selectable":
@@ -952,6 +997,12 @@ def score_proposal_candidate(
     if prior_delta:
         score += prior_delta
         reasons.append(prior_reason)
+    exploration_delta, exploration_reason = exploration_bonus_score(
+        exploration_bonus_payload
+    )
+    if exploration_delta:
+        score += exploration_delta
+        reasons.append(exploration_reason)
     probe_delta, probe_reason = probe_score(
         metrics_before=probe_metrics_before,
         metrics_after=probe_metrics_after,
@@ -960,6 +1011,105 @@ def score_proposal_candidate(
         score += probe_delta
         reasons.append(probe_reason)
     return {"score": score, "reasons": reasons}
+
+
+def exploration_bonus_payload_for_candidate(
+    *,
+    run_dir: Path,
+    current_round_id: str,
+    direction_prior_payload: dict[str, object],
+    explore_after_no_improvement_rounds: int,
+    explore_low_sample_threshold: int,
+    explore_bonus: int,
+    min_probe_ev_delta: float,
+    min_validation_ev_delta: float,
+) -> dict[str, object]:
+    """Return deterministic exploration-bonus metadata for one candidate."""
+    base_payload: dict[str, object] = {
+        "active": False,
+        "score_delta": 0,
+        "reason": "",
+        "recent_rounds": [],
+        "recent_selected_directions": [],
+        "explore_after_no_improvement_rounds": explore_after_no_improvement_rounds,
+        "explore_low_sample_threshold": explore_low_sample_threshold,
+        "direction_tag": direction_prior_payload.get("direction_tag", ""),
+        "direction_sample_count": int(direction_prior_payload.get("sample_count", 0)),
+    }
+    if explore_after_no_improvement_rounds <= 0 or explore_bonus <= 0:
+        return base_payload
+
+    prior_rounds = prior_manifest_rounds(run_dir, current_round_id)
+    if len(prior_rounds) < explore_after_no_improvement_rounds:
+        return base_payload
+    recent_rounds = prior_rounds[-explore_after_no_improvement_rounds:]
+    base_payload["recent_rounds"] = [
+        str(round_payload.get("round_id", "")) for round_payload in recent_rounds
+    ]
+    recent_selected_directions = [
+        str(round_payload.get("proposal_direction_tag", ""))
+        for round_payload in recent_rounds
+        if round_payload.get("proposal_direction_tag", "")
+    ]
+    base_payload["recent_selected_directions"] = recent_selected_directions
+    if any(
+        round_improved(
+            round_payload=round_payload,
+            min_probe_ev_delta=min_probe_ev_delta,
+            min_validation_ev_delta=min_validation_ev_delta,
+        )
+        for round_payload in recent_rounds
+    ):
+        return base_payload
+    sample_count = int(direction_prior_payload.get("sample_count", 0))
+    if sample_count > explore_low_sample_threshold:
+        return base_payload
+    direction_tag = str(direction_prior_payload.get("direction_tag", ""))
+    if direction_tag in recent_selected_directions:
+        return base_payload
+
+    recent_text = ", ".join(str(round_id) for round_id in base_payload["recent_rounds"])
+    return {
+        **base_payload,
+        "active": True,
+        "score_delta": explore_bonus,
+        "reason": (
+            f"exploration bonus after {explore_after_no_improvement_rounds} "
+            f"no-improvement rounds ({recent_text}) for low-sample direction "
+            f"{direction_tag} n={sample_count}"
+        ),
+    }
+
+
+def prior_manifest_rounds(
+    run_dir: Path,
+    current_round_id: str,
+) -> list[dict[str, object]]:
+    """Return completed prior round payloads from the active manifest."""
+    manifest_path = run_dir / "manifest.json"
+    if not manifest_path.exists():
+        return []
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    rounds = payload.get("rounds", [])
+    if not isinstance(rounds, list):
+        return []
+    return [
+        round_payload
+        for round_payload in rounds
+        if isinstance(round_payload, dict)
+        and str(round_payload.get("round_id", "")) < current_round_id
+    ]
+
+
+def exploration_bonus_score(payload: dict[str, object]) -> tuple[int, str]:
+    """Return score contribution and reason text from exploration metadata."""
+    score_delta = int(payload.get("score_delta", 0))
+    if score_delta <= 0:
+        return 0, ""
+    return score_delta, str(payload.get("reason", "exploration bonus"))
 
 
 def direction_prior_score(prior_payload: dict[str, object]) -> tuple[int, str]:

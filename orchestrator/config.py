@@ -33,6 +33,9 @@ class ProjectConfig:
     stop_after_no_improvement_rounds: int = 0
     min_probe_ev_delta: float = 0.0
     min_validation_ev_delta: float = 0.0
+    explore_after_no_improvement_rounds: int = 0
+    explore_low_sample_threshold: int = 1
+    explore_bonus: int = 0
 
     def resolve_path(self, repo_root: Path, path_text: str) -> Path:
         """Resolve config paths relative to the repository root."""
@@ -94,6 +97,13 @@ def load_project_config(
         min_validation_ev_delta=float(
             exploration.get("min_validation_ev_delta", 0.0)
         ),
+        explore_after_no_improvement_rounds=int(
+            exploration.get("explore_after_no_improvement_rounds", 0)
+        ),
+        explore_low_sample_threshold=int(
+            exploration.get("explore_low_sample_threshold", 1)
+        ),
+        explore_bonus=int(exploration.get("explore_bonus", 0)),
     )
 
 

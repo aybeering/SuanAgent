@@ -102,12 +102,18 @@ outcome-memory status, and a bounded direction-history prior before the loop
 spends a validation backtest on one proposal. The direction prior uses prior
 accepted counts and average validation EV deltas for the same `direction_tag`;
 it only affects candidate ranking and never overrides the policy gate.
+When `exploration.explore_after_no_improvement_rounds` is enabled, recent
+no-improvement rounds can add a deterministic exploration bonus to low-sample
+directions that were not selected in that recent window. This is an
+explore/exploit ranking rule only; final acceptance still belongs to the policy
+gate.
 The scorer also writes a tiny per-round `probe_data.csv` copied from the train
 split and runs selectable candidates against it before final selection, storing
 `probe_<role>_metrics.json`, trades, and reports under the round directory.
 Iteration runs also write `candidate_leaderboard.json`, a run-level search trace
 that ranks all candidate attempts by selection status, direction tag, direction
-prior, probe deltas, validation deltas, and deterministic candidate score.
+prior, exploration bonus, probe deltas, validation deltas, and deterministic
+candidate score.
 Later rounds include prior rows from that leaderboard in `agent_context.md`, so
 modifier backends can avoid weak search directions and reuse promising ones.
 The optional `exploration.stop_after_no_improvement_rounds` policy can stop a

@@ -5,6 +5,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import difflib
 from dataclasses import replace
 from pathlib import Path
 
@@ -89,6 +90,9 @@ def test_default_config_loads_dataset_splits() -> None:
     assert config.stop_after_no_improvement_rounds == 3
     assert config.min_probe_ev_delta == 0.0
     assert config.min_validation_ev_delta == 0.0
+    assert config.explore_after_no_improvement_rounds == 2
+    assert config.explore_low_sample_threshold == 1
+    assert config.explore_bonus == 12
     assert config.datasets["train"] == "data/train/sample_markets.csv"
     assert config.datasets["validation"] == "data/validation/sample_markets.csv"
     assert config.datasets["holdout"] == "data/holdout/sample_markets.csv"
@@ -192,6 +196,19 @@ def test_preflight_rejects_negative_no_improvement_threshold(tmp_path: Path) -> 
         "exploration.stop_after_no_improvement_rounds" in error
         for error in result.errors
     )
+
+
+def test_preflight_rejects_negative_exploration_bonus(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_path = repo / "config/negative_exploration_bonus.json"
+    config = json.loads((repo / "config/default.json").read_text())
+    config["exploration"]["explore_bonus"] = -1
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    result = run_preflight(repo_root=repo, config_path=config_path)
+
+    assert result.ok is False
+    assert any("exploration.explore_bonus" in error for error in result.errors)
 
 
 def test_preflight_rejects_unknown_memory_fallback_modifier(tmp_path: Path) -> None:
@@ -787,6 +804,95 @@ def test_iteration_loop_uses_direction_prior_to_rank_candidates(
         "direction prior" in reason
         for reason in attempts[1]["score_reasons"]
     )
+
+
+def test_iteration_loop_explores_low_sample_direction_after_stalls(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = replace(
+        load_project_config(repo),
+        strategy_modifier="exploit_test_primary",
+        memory_failed_patch_threshold=0,
+        memory_failed_direction_threshold=99,
+        memory_fallback_modifier="explore_test_fallback",
+        memory_fallback_modifiers=("explore_test_fallback",),
+        stop_after_no_improvement_rounds=0,
+        explore_after_no_improvement_rounds=2,
+        explore_low_sample_threshold=1,
+        explore_bonus=20,
+    )
+
+    class ExploitPrimary:
+        def propose_strategy_change(self, **kwargs) -> StrategyProposal:
+            return build_test_replacement_proposal(
+                target_file=kwargs["target_file"],
+                repo_root=kwargs["repo_root"],
+                round_index=kwargs["round_index"],
+                old_text="MIN_EDGE = 0.05",
+                new_text="MIN_EDGE = 0.04",
+                agent_name="exploit_primary",
+                direction_tag="lower_min_edge",
+                expected_metric_change={
+                    "trade_count": "increase",
+                    "ev": "uncertain",
+                },
+                risk_notes="May increase lower-quality trades.",
+            )
+
+    class ExploreFallback:
+        def propose_strategy_change(self, **kwargs) -> StrategyProposal:
+            return build_test_replacement_proposal(
+                target_file=kwargs["target_file"],
+                repo_root=kwargs["repo_root"],
+                round_index=kwargs["round_index"],
+                old_text="STAKE = 10.0",
+                new_text="STAKE = 8.0",
+                agent_name="explore_fallback",
+                direction_tag="reduce_stake",
+                expected_metric_change={"trade_count": "decrease"},
+                risk_notes="May increase uncertainty while exploring sizing.",
+            )
+
+    def modifier_factory(name: str, _settings: dict[str, object]) -> object:
+        if name == "exploit_test_primary":
+            return ExploitPrimary()
+        if name == "explore_test_fallback":
+            return ExploreFallback()
+        raise AssertionError(f"unexpected modifier name: {name}")
+
+    monkeypatch.setattr(
+        "orchestrator.iteration_loop.get_strategy_modifier",
+        modifier_factory,
+    )
+
+    manifest = run_iteration_loop(
+        run_id="explore-after-stall",
+        max_rounds=3,
+        repo_root=repo,
+        config=config,
+        stop_on_repeated_proposal=False,
+    )
+
+    run_dir = repo / "experiments/explore-after-stall"
+    attempts_3 = json.loads(
+        (run_dir / "round_003/proposal_attempts.json").read_text(encoding="utf-8")
+    )
+    selected = next(attempt for attempt in attempts_3 if attempt["selected"])
+    context_3 = (run_dir / "round_003/agent_context.md").read_text(encoding="utf-8")
+    summary_text = (run_dir / "summary.md").read_text(encoding="utf-8")
+
+    assert manifest["completed_rounds"] == 3
+    assert manifest["rounds"][2]["proposal_selected_role"] == "fallback_01"  # type: ignore[index]
+    assert attempts_3[0]["direction_tag"] == "lower_min_edge"
+    assert attempts_3[0]["exploration_bonus"]["active"] is False
+    assert selected["direction_tag"] == "reduce_stake"
+    assert selected["exploration_bonus"]["active"] is True
+    assert selected["exploration_bonus"]["score_delta"] == 20
+    assert any("exploration bonus" in reason for reason in selected["score_reasons"])
+    assert "Explore" in summary_text
+    assert "Explore" in context_3
 
 
 def test_proposal_contract_rejects_invalid_patch_target() -> None:
@@ -1703,6 +1809,45 @@ def write_fake_command(tmp_path: Path, filename: str, content: str) -> Path:
     path.write_text(content, encoding="utf-8")
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
     return path
+
+
+def build_test_replacement_proposal(
+    *,
+    target_file: Path,
+    repo_root: Path,
+    round_index: int,
+    old_text: str,
+    new_text: str,
+    agent_name: str,
+    direction_tag: str,
+    expected_metric_change: dict[str, str],
+    risk_notes: str,
+) -> StrategyProposal:
+    """Build a test proposal that replaces one exact text snippet."""
+    target_text = target_file.read_text(encoding="utf-8")
+    target_relative = target_file.relative_to(repo_root)
+    updated_text = target_text.replace(old_text, new_text, 1)
+    patch_diff = "".join(
+        difflib.unified_diff(
+            target_text.splitlines(keepends=True),
+            updated_text.splitlines(keepends=True),
+            fromfile=f"a/{target_relative}",
+            tofile=f"b/{target_relative}",
+        )
+    )
+    return StrategyProposal(
+        agent_name=agent_name,
+        round_index=round_index,
+        target_file=str(target_relative),
+        summary=f"Replace `{old_text}` with `{new_text}`.",
+        risk_notes=risk_notes,
+        expected_metric_change=expected_metric_change,
+        raw_response=f"{agent_name} response",
+        patch_diff=patch_diff,
+        applicable=True,
+        direction_tag=direction_tag,
+        hypotheses=("Exercise deterministic candidate selection.",),
+    )
 
 
 def test_strategy_order_validation_rejects_invalid_orders() -> None:

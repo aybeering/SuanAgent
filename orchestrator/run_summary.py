@@ -123,8 +123,8 @@ def write_iteration_summary(
             lines.extend(["", "## Candidate Leaderboard", ""])
             lines.extend(
                 [
-                    "| Round | Role | Agent | Direction | Prior | Selected | Score | Probe EV | Validation EV | Status |",
-                    "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
+                    "| Round | Role | Agent | Direction | Prior | Explore | Selected | Score | Probe EV | Validation EV | Status |",
+                    "| --- | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
                 ]
             )
             for row in candidate_rows[:10]:
@@ -231,6 +231,7 @@ def candidate_leaderboard_row(row: dict[str, Any]) -> str:
         f"| {escape_cell(str(row.get('agent_name', '')))} "
         f"| {escape_cell(str(row.get('direction_tag', '')) or 'none')} "
         f"| {escape_cell(direction_prior_label(row.get('direction_prior', {})))} "
+        f"| {escape_cell(exploration_bonus_label(row.get('exploration_bonus', {})))} "
         f"| `{str(bool(row.get('selected', False))).lower()}` "
         f"| {escape_cell(str(row.get('candidate_score', 0)))} "
         f"| {escape_cell(str(row.get('probe_ev_delta', 0.0)))} "
@@ -257,6 +258,15 @@ def direction_prior_label(value: object) -> str:
         f"(n={int(value.get('sample_count', 0))}, "
         f"accept={float(value.get('accept_rate', 0.0)):.3f})"
     )
+
+
+def exploration_bonus_label(value: object) -> str:
+    """Return compact exploration-bonus text."""
+    if not isinstance(value, dict) or not value.get("active"):
+        return "none"
+    score_delta = int(value.get("score_delta", 0))
+    sign = "+" if score_delta > 0 else ""
+    return f"{sign}{score_delta}"
 
 
 def best_validation_round(rounds: list[dict[str, object]]) -> dict[str, object] | None:

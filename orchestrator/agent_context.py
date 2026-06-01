@@ -87,8 +87,8 @@ def build_agent_context(
         lines.extend(
             [
                 "| Round | Role | Agent | Selected | Score | Probe EV Delta | "
-                "Validation EV Delta | Direction | Prior | Status | Summary |",
-                "| --- | --- | --- | --- | ---: | ---: | ---: | --- | --- | --- | --- |",
+                "Validation EV Delta | Direction | Prior | Explore | Status | Summary |",
+                "| --- | --- | --- | --- | ---: | ---: | ---: | --- | --- | --- | --- | --- |",
             ]
         )
         for payload in candidate_rows:
@@ -147,6 +147,7 @@ def candidate_search_row(payload: dict[str, object]) -> str:
         f"| {validation_text} "
         f"| {escape_cell(str(payload.get('direction_tag', '')) or 'none')} "
         f"| {escape_cell(direction_prior_label(payload.get('direction_prior', {})))} "
+        f"| {escape_cell(exploration_bonus_label(payload.get('exploration_bonus', {})))} "
         f"| {escape_cell(str(payload.get('status', '')))} "
         f"| {escape_cell(str(payload.get('summary', '')))} |"
     )
@@ -264,6 +265,15 @@ def direction_prior_label(value: object) -> str:
         f"(n={int(value.get('sample_count', 0))}, "
         f"accept={float(value.get('accept_rate', 0.0)):.3f})"
     )
+
+
+def exploration_bonus_label(value: object) -> str:
+    """Return compact exploration-bonus text for agent context."""
+    if not isinstance(value, dict) or not value.get("active"):
+        return "none"
+    score_delta = int(value.get("score_delta", 0))
+    sign = "+" if score_delta > 0 else ""
+    return f"{sign}{score_delta}"
 
 
 def delta_cell(payload: dict[str, object], before_key: str, after_key: str) -> str:

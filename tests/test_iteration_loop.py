@@ -2857,6 +2857,68 @@ def test_iteration_loop_writes_champion_comparison_when_champion_exists(
     )
 
 
+def test_agent_context_includes_current_champion_when_registry_exists(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(
+        run_id="context-champion-base",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    run_pipeline(
+        run_id="context-champion-current",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    make_run_accepted_with_ev_lift(
+        repo=repo,
+        run_id="context-champion-current",
+        ev_lift=0.2,
+    )
+    promote_champion(
+        base_run_id="context-champion-base",
+        candidate_run_id="context-champion-current",
+        experiments_dir=repo / "experiments",
+    )
+
+    run_iteration_loop(
+        run_id="context-challenger",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    round_dir = repo / "experiments/context-challenger/round_001"
+    context_text = (round_dir / "agent_context.md").read_text(encoding="utf-8")
+    context_payload = json.loads(
+        (round_dir / "agent_context.json").read_text(encoding="utf-8")
+    )
+    agent_input = json.loads(
+        (round_dir / "agent_input.json").read_text(encoding="utf-8")
+    )
+
+    assert "Current Champion" in context_text
+    assert "context-champion-current" in context_text
+    assert "Previous Champion Comparison" in context_text
+    assert context_payload["champion"]["exists"] is True
+    assert context_payload["champion"]["champion_run_id"] == "context-champion-current"
+    assert context_payload["previous_champion_comparison"]["exists"] is False
+    assert agent_input["artifacts"]["champion_registry"].endswith("champion.json")
+    assert agent_input["artifacts"]["previous_champion_comparison"] == ""
+    assert_matches_schema(round_dir / "agent_input.json", "agent_input")
+
+    next_context_payload = build_agent_context_payload(
+        run_dir=repo / "experiments/context-challenger",
+        current_round_id="round_002",
+    )
+    assert next_context_payload["previous_champion_comparison"]["exists"] is True
+    assert (
+        next_context_payload["previous_champion_comparison"]["champion_run_id"]
+        == "context-champion-current"
+    )
+
+
 def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     run_pipeline(

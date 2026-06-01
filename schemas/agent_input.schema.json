@@ -75,6 +75,12 @@
         },
         "holdout_report_before": {
           "type": "string"
+        },
+        "champion_registry": {
+          "type": "string"
+        },
+        "previous_champion_comparison": {
+          "type": "string"
         }
       }
     },

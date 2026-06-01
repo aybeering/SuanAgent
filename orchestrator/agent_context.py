@@ -60,6 +60,10 @@ def build_agent_context_payload(
         "current_round_id": current_round_id,
         "target_file": TARGET_FILE,
         "policy_notes": list(POLICY_NOTES),
+        "champion": champion_context(run_dir=run_dir),
+        "previous_champion_comparison": previous_champion_comparison(
+            run_dir=run_dir,
+        ),
         "prior_rounds": prior_rounds,
         "failed_patch_hashes": sorted(set(failed_hashes)),
         "candidate_search_trace": candidate_search_rows(
@@ -94,6 +98,10 @@ def build_agent_context_markdown(payload: dict[str, object]) -> str:
     prior_rounds = list_of_dicts(payload.get("prior_rounds", []))
     memory_records = list_of_dicts(payload.get("global_outcome_memory", []))
     candidate_rows = list_of_dicts(payload.get("candidate_search_trace", []))
+    champion = dict_payload(payload.get("champion", {}))
+    champion_comparison = dict_payload(
+        payload.get("previous_champion_comparison", {}),
+    )
     policy_notes = [
         str(note) for note in payload.get("policy_notes", []) if str(note)
     ]
@@ -123,6 +131,36 @@ def build_agent_context_markdown(payload: dict[str, object]) -> str:
         )
         for payload in prior_rounds:
             lines.append(prior_round_row(payload))
+
+    lines.extend(["", "## Current Champion", ""])
+    if not champion.get("exists", False):
+        lines.append("No champion registry found.")
+    else:
+        lines.extend(
+            [
+                f"- Champion run: `{champion.get('champion_run_id', '')}`",
+                f"- Source status: `{champion.get('source_status', '')}`",
+                f"- Source best round: `{champion.get('source_best_round') or 'none'}`",
+                f"- Validation EV delta: {format_number(float(champion.get('validation_ev_delta', 0.0)))}",
+                f"- Strategy modifier: `{champion.get('strategy_modifier', '')}`",
+                f"- Strategy commit: `{short_hash(str(champion.get('strategy_commit', '')) or '')}`",
+                f"- Promotion summary: {escape_cell(str(champion.get('comparison_summary', '')))}",
+            ]
+        )
+
+    lines.extend(["", "## Previous Champion Comparison", ""])
+    if not champion_comparison.get("exists", False):
+        lines.append("No champion comparison for this run yet.")
+    else:
+        lines.extend(
+            [
+                f"- Champion run: `{champion_comparison.get('champion_run_id', '')}`",
+                f"- Winner: `{champion_comparison.get('winner', '')}`",
+                f"- Recommendation: `{champion_comparison.get('recommendation', '')}`",
+                f"- EV delta vs champion: {format_number(float(champion_comparison.get('validation_ev_delta', 0.0)))}",
+                f"- Summary: {escape_cell(str(champion_comparison.get('summary', '')))}",
+            ]
+        )
 
     lines.extend(["", "## Failed Patch Hashes", ""])
     failed_hashes = [str(value) for value in payload.get("failed_patch_hashes", [])]
@@ -167,6 +205,61 @@ def list_of_dicts(value: object) -> list[dict[str, object]]:
     if not isinstance(value, list):
         return []
     return [item for item in value if isinstance(item, dict)]
+
+
+def dict_payload(value: object) -> dict[str, object]:
+    """Return a dict payload, or an empty mapping."""
+    return value if isinstance(value, dict) else {}
+
+
+def champion_context(*, run_dir: Path) -> dict[str, object]:
+    """Return compact current champion context for modifier agents."""
+    path = run_dir.parent / "champion.json"
+    if not path.exists():
+        return {
+            "exists": False,
+            "path": str(path),
+        }
+    payload = load_json(path)
+    return {
+        "exists": True,
+        "path": str(path),
+        "champion_run_id": payload.get("champion_run_id", ""),
+        "promoted_from_run_id": payload.get("promoted_from_run_id", ""),
+        "source_kind": payload.get("source_kind", ""),
+        "source_status": payload.get("source_status", ""),
+        "source_best_round": payload.get("source_best_round"),
+        "strategy_commit": payload.get("strategy_commit", ""),
+        "strategy_modifier": payload.get("strategy_modifier", ""),
+        "validation_ev_delta": payload.get("validation_ev_delta", 0.0),
+        "trade_count_delta": payload.get("trade_count_delta", 0),
+        "dataset_sha256": payload.get("dataset_sha256", {}),
+        "comparison_summary": payload.get("comparison_summary", ""),
+        "promotion_reasons": payload.get("promotion_reasons", []),
+    }
+
+
+def previous_champion_comparison(*, run_dir: Path) -> dict[str, object]:
+    """Return compact champion comparison context for the active run."""
+    path = run_dir / "champion_comparison.json"
+    if not path.exists():
+        return {
+            "exists": False,
+            "path": str(path),
+        }
+    payload = load_json(path)
+    comparison = dict_payload(payload.get("comparison", {}))
+    metric_deltas = dict_payload(comparison.get("metric_deltas", {}))
+    return {
+        "exists": True,
+        "path": str(path),
+        "champion_run_id": payload.get("champion_run_id", ""),
+        "winner": comparison.get("winner", ""),
+        "recommendation": comparison.get("recommendation", ""),
+        "reasons": comparison.get("reasons", []),
+        "validation_ev_delta": metric_deltas.get("validation_ev_delta", 0.0),
+        "summary": comparison.get("summary", ""),
+    }
 
 
 def candidate_search_rows(
@@ -354,6 +447,11 @@ def load_json(path: Path) -> dict[str, Any]:
 def format_number(value: float) -> str:
     """Format a numeric value deterministically."""
     return f"{value:.6f}"
+
+
+def short_hash(value: str) -> str:
+    """Return a compact hash label."""
+    return value[:12] if value else "none"
 
 
 def escape_cell(value: str) -> str:

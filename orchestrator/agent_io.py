@@ -98,6 +98,14 @@ def build_agent_input_payload(
             "train_report_before": relative_path(train_report_path, repo_root),
             "validation_report_before": relative_path(validation_report_path, repo_root),
             "holdout_report_before": relative_path(holdout_report_path, repo_root),
+            "champion_registry": optional_relative_path(
+                round_dir.parent.parent / "champion.json",
+                repo_root,
+            ),
+            "previous_champion_comparison": optional_relative_path(
+                round_dir.parent / "champion_comparison.json",
+                repo_root,
+            ),
         },
         "metrics_before": {
             "train": train_metrics_before,
@@ -215,6 +223,11 @@ def relative_path(path: Path, root: Path) -> str:
         return path.resolve().relative_to(root.resolve()).as_posix()
     except ValueError:
         return path.as_posix()
+
+
+def optional_relative_path(path: Path, root: Path) -> str:
+    """Return a relative path only when the optional artifact exists."""
+    return relative_path(path, root) if path.exists() else ""
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:

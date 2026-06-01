@@ -139,7 +139,8 @@ or trade count crosses configured risk limits.
 Each round also writes `agent_context.md` and `agent_context.json`, two renders
 of the same deterministic context payload. The markdown file is easy to inspect,
 while the JSON file gives future Codex CLI or SDK-backed agents a stable
-machine-readable view of prior rounds, candidate traces, and outcome memory.
+machine-readable view of prior rounds, candidate traces, outcome memory, and
+the current champion when a champion registry exists.
 Each round also writes `agent_input.json` and `agent_output.json`, a stable
 `agent_io_*_v1` fixture pair that records what a modifier backend was given and
 which proposal candidate was selected.

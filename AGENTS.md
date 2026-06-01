@@ -253,7 +253,9 @@ Each round should write both `agent_context.md` and `agent_context.json` from
 the same context payload. The markdown file should summarize prior rounds for
 human inspection. The JSON file should use schema version `agent_context_v1`
 and include prior rounds, failed patch hashes, candidate search trace, global
-outcome memory, target file, and policy notes for SDK-backed agents.
+outcome memory, current champion context when available, previous champion
+comparison context when available, target file, and policy notes for SDK-backed
+agents.
 Each round should also write `agent_input.json` and `agent_output.json`.
 `agent_input.json` should use schema version `agent_io_input_v1` and describe
 the reports, context, before metrics, policy config, candidate-selection config,

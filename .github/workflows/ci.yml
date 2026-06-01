@@ -74,6 +74,13 @@ jobs:
             --output experiments/ci-file-protocol-demo/round_001/replayed_agent_validation.json
           test -f experiments/ci-file-protocol-demo/round_001/replayed_agent_validation.json
 
+      - name: Replay selected attempt
+        run: |
+          python -m orchestrator.attempt_replay \
+            experiments/ci-file-protocol-demo/round_001/agent_attempts/attempt_001_primary
+          test -f experiments/ci-file-protocol-demo/round_001/agent_attempts/attempt_001_primary/attempt_replay.json
+          python -m orchestrator.artifact_validator ci-file-protocol-demo
+
       - name: Inspect research brief artifacts
         run: |
           test -f experiments/ci-adaptive/research_brief.json

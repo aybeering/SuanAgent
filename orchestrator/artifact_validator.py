@@ -324,6 +324,15 @@ def validate_agent_attempts_manifest(
         attempt_dir = resolve_path(Path(str(row.get("attempt_dir", ""))), repo_root)
         if not attempt_dir.exists() or not attempt_dir.is_dir():
             add_error(report, f"attempt_dir does not exist: {attempt_dir}")
+        else:
+            replay_path = attempt_dir / "attempt_replay.json"
+            if replay_path.exists():
+                checked_files(report).append(str(replay_path))
+                validate_contract_file(
+                    payload_path=replay_path,
+                    schema_path=repo_root / "schemas/attempt_replay.schema.json",
+                    report=report,
+                )
         file_rows = row.get("files", [])
         if not isinstance(file_rows, list) or not file_rows:
             add_error(report, f"attempt has no file records: {row.get('attempt_id', '')}")

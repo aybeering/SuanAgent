@@ -22,7 +22,8 @@ The strategy interface contract is documented in
 `schemas/agent_input.schema.json`, `schemas/agent_bundle.schema.json`,
 `schemas/agent_attempts.schema.json`, `schemas/agent_selection.schema.json`,
 `schemas/agent_output.schema.json`, `schemas/agent_validation.schema.json`, and
-`schemas/agent_execution.schema.json`;
+`schemas/agent_execution.schema.json`; saved attempt replay reports use
+`schemas/attempt_replay.schema.json`;
 planner intent, run provenance, and
 run-level research notes are described by `schemas/workspace_manifest.schema.json`,
 `schemas/proposal_intent.schema.json`, `schemas/run_metadata.schema.json`, and
@@ -81,6 +82,7 @@ python -m orchestrator.experiments champion
 python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>
 python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json
 python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json --validate
+python -m orchestrator.attempt_replay experiments/<run_id>/round_001/agent_attempts/attempt_001_primary
 python -m orchestrator.agent_output_intake experiments/<run_id>/round_001/agent_input.json experiments/<run_id>/round_001/demo_agent_output.json --output experiments/<run_id>/round_001/agent_validation.json
 ```
 
@@ -156,6 +158,10 @@ requested proposal JSON output and does not run backtests, apply patches, or
 mutate strategy files. Add `--validate` to wrap the replayed proposal with
 deterministic `proposal_v1` contract validation, including strategy-only patch
 target checks, while still avoiding patch application.
+Use `python -m orchestrator.attempt_replay <agent_attempts/attempt_xxx>` to
+replay one saved candidate attempt after it exists. Attempt replay reruns the
+same contract validation, optionally applies the patch against saved probe data,
+writes `attempt_replay.json`, and rolls the strategy file back afterward.
 Use `python -m orchestrator.agent_output_intake <agent_input.json> <agent_output>`
 to validate any saved raw agent output before it can become a candidate patch.
 The intake command normalizes JSON proposal output or plain unified diffs into
@@ -196,7 +202,8 @@ report, and file-protocol execution audit are validated against
 `schemas/proposal_intent.schema.json`, `schemas/agent_bundle.schema.json`,
 `schemas/agent_attempts.schema.json`, `schemas/agent_selection.schema.json`,
 `schemas/workspace_manifest.schema.json`, `schemas/agent_validation.schema.json`,
-and `schemas/agent_execution.schema.json`; run provenance is validated against
+`schemas/agent_execution.schema.json`, and
+`schemas/attempt_replay.schema.json`; run provenance is validated against
 `schemas/run_metadata.schema.json`.
 Use `python -m orchestrator.artifact_validator <run_id>` to check that a run
 directory has required files and that agent contract artifacts match their

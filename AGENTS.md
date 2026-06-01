@@ -73,6 +73,7 @@ Allowed components:
 22. A local deterministic file-protocol demo agent for end-to-end external-agent smoke tests.
 23. File-protocol execution audit logs with command, output hashes, and mutation-guard results.
 24. GitHub Actions CI for deterministic smoke validation.
+25. Saved attempt replay for contract and probe checks without a full loop rerun.
 
 Still out of scope:
 
@@ -118,6 +119,7 @@ Current structure:
 │   ├── agent_output.schema.json
 │   ├── agent_validation.schema.json
 │   ├── agent_execution.schema.json
+│   ├── attempt_replay.schema.json
 │   ├── workspace_manifest.schema.json
 │   ├── champion.schema.json
 │   ├── champion_comparison.schema.json
@@ -561,6 +563,7 @@ python -m orchestrator.experiments champion
 python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>
 python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json
 python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json --validate
+python -m orchestrator.attempt_replay experiments/<run_id>/round_001/agent_attempts/attempt_001_primary
 python -m orchestrator.agent_output_intake experiments/<run_id>/round_001/agent_input.json experiments/<run_id>/round_001/demo_agent_output.json --output experiments/<run_id>/round_001/agent_validation.json
 ```
 
@@ -622,6 +625,10 @@ without applying the patch.
 Agent output intake commands should accept a saved `agent_input.json` plus a
 raw agent output file, normalize it into a proposal, run the same deterministic
 contract and `git apply --check` validation, and write `agent_validation.json`.
+Attempt replay commands should accept one saved `agent_attempts/attempt_xxx`
+directory, rerun deterministic contract validation, optionally evaluate the
+patch on saved probe data, write `attempt_replay.json`, and leave
+`strategies/current_strategy.py` rolled back to HEAD.
 Codex CLI output conversion should use the shared intake normalization path for
 both structured proposal JSON and plain unified diff output; do not add a second
 Codex-only parser for patch extraction or proposal metadata.

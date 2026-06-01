@@ -30,6 +30,7 @@ from orchestrator.agent_output_intake import (
     verify_agent_output,
 )
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
+from orchestrator.attempt_replay import replay_attempt
 from orchestrator.artifact_validator import validate_run_artifacts
 from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
@@ -2257,6 +2258,55 @@ def test_agent_replay_replays_demo_agent_from_agent_input(tmp_path: Path) -> Non
     )
 
 
+def test_attempt_replay_validates_and_probes_saved_attempt(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+    run_iteration_loop(
+        run_id="attempt-replay-source",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    attempt_dir = (
+        repo
+        / "experiments/attempt-replay-source/round_001"
+        / "agent_attempts/attempt_001_primary"
+    )
+
+    report = replay_attempt(attempt_dir=attempt_dir, repo_root=repo)
+    command_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.attempt_replay",
+            str(attempt_dir),
+            "--repo-root",
+            str(repo),
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(command_result.stdout)
+
+    assert command_result.returncode == 0
+    assert report["schema_version"] == "attempt_replay_v1"
+    assert report["ok"] is True
+    assert report["validation"]["ok"] is True  # type: ignore[index]
+    assert report["validation"]["checks"]["git_apply_check"] == "passed"  # type: ignore[index]
+    assert report["probe"]["ran"] is True  # type: ignore[index]
+    assert report["probe"]["ok"] is True  # type: ignore[index]
+    assert cli_payload["ok"] is True
+    assert (attempt_dir / "attempt_replay_probe_metrics.json").exists()
+    assert (attempt_dir / "attempt_replay_probe_trades.csv").exists()
+    assert (attempt_dir / "attempt_replay_probe_report.md").exists()
+    assert_matches_schema(attempt_dir / "attempt_replay.json", "attempt_replay")
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
 def test_agent_output_intake_rejects_disallowed_patch(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     run_iteration_loop(
@@ -2318,6 +2368,14 @@ def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
         repo_root=repo,
         config=demo_config,
     )
+    replay_attempt(
+        attempt_dir=(
+            repo
+            / "experiments/artifact-file-protocol/round_001"
+            / "agent_attempts/attempt_001_primary"
+        ),
+        repo_root=repo,
+    )
 
     default_report = validate_run_artifacts(
         run_id="artifact-default",
@@ -2356,6 +2414,10 @@ def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
     )
     assert any(
         path.endswith("agent_selection_report.json")
+        for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
+        path.endswith("attempt_replay.json")
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
     assert any(

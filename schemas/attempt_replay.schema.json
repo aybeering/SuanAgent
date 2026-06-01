@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Attempt Replay Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "ok",
+    "attempt_dir",
+    "round_dir",
+    "strategy_module",
+    "validation",
+    "probe"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "attempt_replay_v1"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "attempt_dir": {
+      "type": "string"
+    },
+    "round_dir": {
+      "type": "string"
+    },
+    "strategy_module": {
+      "type": "string"
+    },
+    "validation": {
+      "type": "object"
+    },
+    "probe": {
+      "type": "object",
+      "required": [
+        "ran",
+        "ok"
+      ],
+      "properties": {
+        "ran": {
+          "type": "boolean"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        },
+        "metrics": {
+          "type": "object"
+        },
+        "artifacts": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

@@ -46,7 +46,11 @@ from orchestrator.patch_parser import (
     validate_patch_targets,
 )
 from orchestrator.proposal import StrategyProposal, validate_proposal_contract
-from orchestrator.workspace_manager import create_isolated_workspace
+from orchestrator.workspace_manager import (
+    create_isolated_workspace,
+    workspace_mutation_errors,
+    workspace_snapshot,
+)
 
 
 def copy_repo_fixture(tmp_path: Path) -> Path:
@@ -1290,7 +1294,6 @@ import json
 import pathlib
 import sys
 prompt = sys.stdin.read()
-pathlib.Path('prompt_seen.txt').write_text(prompt, encoding='utf-8')
 target = pathlib.Path('strategies/current_strategy.py')
 before = target.read_text(encoding='utf-8')
 after = before.replace('MIN_EDGE = 0.05', 'MIN_EDGE = 0.04', 1)
@@ -1346,11 +1349,6 @@ print(json.dumps({
     attempts = json.loads(
         (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
     )
-    prompt_seen = (
-        repo
-        / "workspaces/codex-structured-fixture/round_001/strategy_workspace/prompt_seen.txt"
-    ).read_text(encoding="utf-8")
-
     assert manifest["completed_rounds"] == 1
     assert proposal["agent_name"] == "codex_cli"
     assert proposal["summary"] == "Lower MIN_EDGE through structured JSON."
@@ -1363,7 +1361,85 @@ print(json.dumps({
     assert proposal["contract_errors"] == []
     assert attempts[0]["status"] == "selectable"
     assert attempts[0]["selected"] is True
-    assert "agent_context.json" in prompt_seen
+    assert "agent_context.json" in proposal["prompt"]
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_iteration_loop_rejects_codex_cli_workspace_mutation(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_mutates_workspace.py",
+        """#!/usr/bin/env python3
+import difflib
+import json
+import pathlib
+import sys
+sys.stdin.read()
+pathlib.Path('README.md').write_text('unexpected mutation\\n', encoding='utf-8')
+target = pathlib.Path('strategies/current_strategy.py')
+before = target.read_text(encoding='utf-8')
+after = before.replace('MIN_EDGE = 0.05', 'MIN_EDGE = 0.04', 1)
+patch = ''.join(difflib.unified_diff(
+    before.splitlines(keepends=True),
+    after.splitlines(keepends=True),
+    fromfile='a/strategies/current_strategy.py',
+    tofile='b/strategies/current_strategy.py',
+))
+print(json.dumps({
+    "summary": "Return a clean strategy patch after mutating README.",
+    "risk_notes": "Mutation guard should reject this.",
+    "direction_tag": "lower_min_edge",
+    "expected_metric_change": {"trade_count": "increase"},
+    "hypotheses": ["Workspace mutation guard should catch side effects."],
+    "patch_diff": patch
+}))
+""",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "mutation-test",
+            "sandbox": "workspace-write",
+            "workspace_root": "workspaces",
+            "execute": True,
+            "timeout_seconds": 5,
+        },
+        memory_failed_patch_threshold=0,
+        memory_failed_direction_threshold=99,
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+        stop_after_no_improvement_rounds=0,
+    )
+
+    run_iteration_loop(
+        run_id="codex-mutation-guard",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/codex-mutation-guard/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    attempts = json.loads(
+        (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
+    )
+    decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
+
+    assert proposal["applicable"] is False
+    assert proposal["contract_errors"] == [
+        "workspace modified disallowed file: README.md"
+    ]
+    assert proposal["rejection_reason"].startswith("proposal contract invalid")
+    assert attempts[0]["status"] == "contract_invalid"
+    assert decision["reasons"][0].startswith("proposal contract invalid")
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
@@ -1853,6 +1929,39 @@ def test_create_isolated_workspace_copies_minimal_project(tmp_path: Path) -> Non
     assert (workspace / "backtester/simulate.py").exists()
     assert (workspace / "docs/strategy_interface.md").exists()
     assert not (workspace / ".git").exists()
+
+
+def test_workspace_snapshot_mutation_guard_allows_only_strategy_file(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    (workspace / "strategies").mkdir(parents=True)
+    (workspace / "backtester").mkdir()
+    strategy = workspace / "strategies/current_strategy.py"
+    strategy.write_text("MIN_EDGE = 0.05\n", encoding="utf-8")
+    readme = workspace / "README.md"
+    readme.write_text("baseline\n", encoding="utf-8")
+    deleted = workspace / "backtester/deleted.py"
+    deleted.write_text("x = 1\n", encoding="utf-8")
+
+    before = workspace_snapshot(workspace)
+
+    strategy.write_text("MIN_EDGE = 0.04\n", encoding="utf-8")
+    readme.write_text("unexpected\n", encoding="utf-8")
+    deleted.unlink()
+    (workspace / "notes.txt").write_text("side effect\n", encoding="utf-8")
+    (workspace / "__pycache__").mkdir()
+    (workspace / "__pycache__/ignored.pyc").write_bytes(b"ignored")
+
+    assert workspace_mutation_errors(
+        before=before,
+        after=workspace_snapshot(workspace),
+        allowed_paths={"strategies/current_strategy.py"},
+    ) == (
+        "workspace modified disallowed file: README.md",
+        "workspace deleted disallowed file: backtester/deleted.py",
+        "workspace added disallowed file: notes.txt",
+    )
 
 
 def test_patch_parser_extracts_and_validates_strategy_diff() -> None:

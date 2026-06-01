@@ -17,7 +17,11 @@ from agents.codex_dry_run_adapter import (
     workspace_ids_from_report,
 )
 from orchestrator.proposal import StrategyProposal
-from orchestrator.workspace_manager import create_isolated_workspace
+from orchestrator.workspace_manager import (
+    create_isolated_workspace,
+    workspace_mutation_errors,
+    workspace_snapshot,
+)
 
 
 class CodexCliModifier:
@@ -98,6 +102,7 @@ class CodexCliModifier:
                 workspace_path=str(workspace_path),
             )
 
+        workspace_before = workspace_snapshot(workspace_path)
         result = run_codex_command(
             command=command,
             prompt=prompt,
@@ -126,6 +131,35 @@ class CodexCliModifier:
                 prompt=prompt,
                 command=tuple(command),
                 workspace_path=str(workspace_path),
+            )
+
+        mutation_errors = workspace_mutation_errors(
+            before=workspace_before,
+            after=workspace_snapshot(workspace_path),
+            allowed_paths={str(target_relative)},
+        )
+        if mutation_errors:
+            return StrategyProposal(
+                agent_name=self.agent_name,
+                round_index=round_index,
+                target_file=str(target_relative),
+                summary="Codex CLI modified disallowed workspace files.",
+                risk_notes="Workspace mutation guard rejected the subprocess output.",
+                expected_metric_change={},
+                raw_response=raw_output,
+                patch_diff="",
+                applicable=False,
+                direction_tag="codex_cli_workspace_violation",
+                hypotheses=(
+                    "Codex CLI subprocesses must modify only the strategy file.",
+                ),
+                rejection_reason=(
+                    "proposal contract invalid: " + "; ".join(mutation_errors)
+                ),
+                prompt=prompt,
+                command=tuple(command),
+                workspace_path=str(workspace_path),
+                contract_errors=mutation_errors,
             )
 
         return proposal_from_codex_output(

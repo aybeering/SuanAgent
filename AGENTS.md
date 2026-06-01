@@ -60,14 +60,15 @@ Allowed components:
 10. A proposal schema and deterministic contract validator for agent output.
 11. A guarded Codex CLI adapter that only executes when config explicitly enables it.
 12. Isolated workspace creation for future Codex execution.
-13. Unified diff extraction and target-file validation.
-14. Git apply, accept commit, and reject rollback helpers.
-15. Round-based experiment outputs.
-16. Config-driven dataset, policy, and modifier settings.
-17. Proposal quality metadata and repeated-patch detection.
-18. Repeated-proposal stop control.
-19. Clear tests and smoke checks.
-20. GitHub Actions CI for deterministic smoke validation.
+13. Workspace mutation checks that reject hidden Codex CLI side effects outside the strategy file.
+14. Unified diff extraction and target-file validation.
+15. Git apply, accept commit, and reject rollback helpers.
+16. Round-based experiment outputs.
+17. Config-driven dataset, policy, and modifier settings.
+18. Proposal quality metadata and repeated-patch detection.
+19. Repeated-proposal stop control.
+20. Clear tests and smoke checks.
+21. GitHub Actions CI for deterministic smoke validation.
 
 Still out of scope:
 
@@ -410,6 +411,7 @@ Add smoke tests that verify:
 19. Exploration bonuses can push low-sample directions after deterministic stalls.
 20. Agent context is written as both markdown and `agent_context_v1` JSON.
 21. Codex output can be parsed from structured proposal JSON or plain diff text.
+22. Enabled Codex CLI subprocesses are rejected if they mutate files outside `strategies/current_strategy.py`.
 
 The project is complete only when these checks pass:
 

@@ -28,7 +28,10 @@ explicitly set to `true`. Example configs live in `config/adaptive_stub.json`,
 Codex-facing adapters use ignored `workspaces/<run_id>/<round_id>/` directories
 for isolated project copies. Returned text can be a unified diff or structured
 proposal JSON, and the extracted patch must touch only
-`strategies/current_strategy.py`.
+`strategies/current_strategy.py`. When execution is enabled, the adapter also
+hashes the isolated workspace before and after the subprocess and rejects the
+proposal if any file outside `strategies/current_strategy.py` is added,
+modified, or deleted.
 
 GitHub Actions runs the deterministic smoke suite on every push and pull
 request. The workflow uses `python -m pytest`, preflight validation, the
@@ -85,6 +88,9 @@ Codex-style adapters can consume either a plain unified diff or a structured
 JSON proposal containing `summary`, `risk_notes`, `direction_tag`,
 `expected_metric_change`, `hypotheses`, and `patch_diff`; both forms flow
 through the same deterministic contract validator.
+Enabled Codex CLI subprocesses are also checked for hidden workspace side
+effects: only `strategies/current_strategy.py` may change inside the isolated
+workspace, and violations are recorded as contract errors.
 Iteration status is one of `accepted`, `stopped_repeated_proposal`,
 `stopped_max_rounds`, or `failed`.
 Each round also writes `agent_context.md` and `agent_context.json`, two renders

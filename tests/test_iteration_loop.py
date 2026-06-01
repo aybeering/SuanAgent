@@ -44,7 +44,9 @@ from orchestrator.experiments import (
     compare_experiments,
     experiment_leaderboard,
     list_experiments,
+    promote_champion,
     show_experiment,
+    show_champion,
     summarize_experiments,
 )
 from orchestrator.patch_parser import (
@@ -2709,6 +2711,98 @@ def test_compare_experiments_recommends_accepted_metric_winner(
     assert comparison["metric_deltas"]["validation_ev_delta"] == 0.25  # type: ignore[index]
 
 
+def make_run_accepted_with_ev_lift(
+    *,
+    repo: Path,
+    run_id: str,
+    ev_lift: float,
+) -> None:
+    """Rewrite a test run into an accepted candidate with an EV lift."""
+    metrics_path = repo / f"experiments/{run_id}/metrics_after.json"
+    metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+    metrics["ev"] = round(float(metrics["ev"]) + ev_lift, 6)
+    metrics_path.write_text(
+        json.dumps(metrics, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    decision_path = repo / f"experiments/{run_id}/decision.json"
+    decision = json.loads(decision_path.read_text(encoding="utf-8"))
+    decision["accepted"] = True
+    decision["reasons"] = []
+    decision_path.write_text(
+        json.dumps(decision, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+
+def test_champion_registry_promotes_recommended_candidate(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(
+        run_id="champion-base",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    run_pipeline(
+        run_id="champion-candidate",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    make_run_accepted_with_ev_lift(
+        repo=repo,
+        run_id="champion-candidate",
+        ev_lift=0.3,
+    )
+
+    result = promote_champion(
+        base_run_id="champion-base",
+        candidate_run_id="champion-candidate",
+        experiments_dir=repo / "experiments",
+    )
+    champion = show_champion(experiments_dir=repo / "experiments")
+
+    assert result["promoted"] is True
+    assert champion["exists"] is True
+    assert result["champion"]["champion_run_id"] == "champion-candidate"  # type: ignore[index]
+    assert result["champion"]["comparison"]["recommendation"] == "promote_candidate"  # type: ignore[index]
+    assert (repo / "experiments/champion.json").exists()
+    assert (repo / "experiments/champion_history.jsonl").exists()
+    assert_matches_schema(repo / "experiments/champion.json", "champion")
+    history = (repo / "experiments/champion_history.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert "champion-candidate" in history
+
+
+def test_champion_registry_refuses_non_promoted_candidate(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(
+        run_id="champion-refuse-base",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    run_pipeline(
+        run_id="champion-refuse-candidate",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+
+    result = promote_champion(
+        base_run_id="champion-refuse-base",
+        candidate_run_id="champion-refuse-candidate",
+        experiments_dir=repo / "experiments",
+    )
+    champion = show_champion(experiments_dir=repo / "experiments")
+
+    assert result["promoted"] is False
+    assert result["comparison"]["recommendation"] == "keep_base"  # type: ignore[index]
+    assert champion["exists"] is False
+    assert not (repo / "experiments/champion.json").exists()
+
+
 def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     run_pipeline(
@@ -2840,6 +2934,81 @@ def test_experiments_cli_compare_work(tmp_path: Path) -> None:
     assert payload["candidate_run_id"] == "cli-compare-candidate"
     assert payload["winner"] == "tie"
     assert payload["recommendation"] == "keep_base"
+
+
+def test_experiments_cli_champion_and_promote_work(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(
+        run_id="cli-champion-base",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    run_pipeline(
+        run_id="cli-champion-candidate",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    make_run_accepted_with_ev_lift(
+        repo=repo,
+        run_id="cli-champion-candidate",
+        ev_lift=0.2,
+    )
+
+    missing_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "champion",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    promote_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "promote",
+            "cli-champion-base",
+            "cli-champion-candidate",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    champion_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "champion",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert missing_result.returncode == 0, missing_result.stderr
+    assert promote_result.returncode == 0, promote_result.stderr
+    assert champion_result.returncode == 0, champion_result.stderr
+    assert json.loads(missing_result.stdout)["exists"] is False
+    assert json.loads(promote_result.stdout)["promoted"] is True
+    champion = json.loads(champion_result.stdout)
+    assert champion["exists"] is True
+    assert champion["champion"]["champion_run_id"] == "cli-champion-candidate"
 
 
 def test_experiments_cli_memory_work(tmp_path: Path) -> None:

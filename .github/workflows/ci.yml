@@ -55,6 +55,11 @@ jobs:
       - name: Compare experiment runs
         run: python -m orchestrator.experiments compare ci-dry ci-adaptive
 
+      - name: Inspect champion registry
+        run: |
+          python -m orchestrator.experiments promote ci-dry ci-adaptive
+          python -m orchestrator.experiments champion
+
       - name: Summarize local experiments
         run: python -m orchestrator.experiments summary
 

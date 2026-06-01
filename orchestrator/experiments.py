@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 from orchestrator.experiment_index import read_experiment_index, recent_experiments
 from orchestrator.outcome_memory import recent_outcomes
 from orchestrator.run_diagnosis import diagnose_run
+
+
+CHAMPION_SCHEMA_VERSION = "champion_v1"
 
 
 def list_experiments(
@@ -167,6 +171,153 @@ def compare_experiments(
             ev_delta=ev_delta,
         ),
     }
+
+
+def show_champion(
+    *,
+    experiments_dir: Path = Path("experiments"),
+) -> dict[str, object]:
+    """Return the current champion registry, or an empty status."""
+    path = champion_path(experiments_dir)
+    if not path.exists():
+        return {
+            "exists": False,
+            "schema_version": CHAMPION_SCHEMA_VERSION,
+            "champion_path": str(path),
+        }
+    payload = load_json(path)
+    return {
+        "exists": True,
+        "champion_path": str(path),
+        "champion": payload,
+    }
+
+
+def promote_champion(
+    *,
+    base_run_id: str,
+    candidate_run_id: str,
+    experiments_dir: Path = Path("experiments"),
+    min_ev_delta: float = 0.0,
+) -> dict[str, object]:
+    """Promote a candidate run to champion when deterministic comparison allows."""
+    comparison = compare_experiments(
+        base_run_id=base_run_id,
+        candidate_run_id=candidate_run_id,
+        experiments_dir=experiments_dir,
+        min_ev_delta=min_ev_delta,
+    )
+    if comparison["recommendation"] != "promote_candidate":
+        return {
+            "promoted": False,
+            "champion_path": str(champion_path(experiments_dir)),
+            "history_path": str(champion_history_path(experiments_dir)),
+            "comparison": comparison,
+            "reason": "comparison did not recommend promotion",
+            "current_champion": show_champion(experiments_dir=experiments_dir),
+        }
+
+    candidate = diagnose_run(
+        run_id=candidate_run_id,
+        experiments_dir=experiments_dir,
+    )
+    payload = champion_payload(
+        base_run_id=base_run_id,
+        candidate_run_id=candidate_run_id,
+        experiments_dir=experiments_dir,
+        comparison=comparison,
+        candidate_diagnosis=candidate,
+    )
+    path = champion_path(experiments_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    history_path = append_champion_history(
+        experiments_dir=experiments_dir,
+        payload=payload,
+    )
+    return {
+        "promoted": True,
+        "champion_path": str(path),
+        "history_path": str(history_path),
+        "champion": payload,
+        "comparison": comparison,
+    }
+
+
+def champion_payload(
+    *,
+    base_run_id: str,
+    candidate_run_id: str,
+    experiments_dir: Path,
+    comparison: dict[str, object],
+    candidate_diagnosis: dict[str, object],
+) -> dict[str, object]:
+    """Build the champion registry payload."""
+    metadata_payload = candidate_diagnosis.get("metadata", {})
+    metadata = metadata_payload if isinstance(metadata_payload, dict) else {}
+    candidate_payload = comparison.get("candidate", {})
+    candidate = candidate_payload if isinstance(candidate_payload, dict) else {}
+    return {
+        "schema_version": CHAMPION_SCHEMA_VERSION,
+        "champion_run_id": candidate_run_id,
+        "promoted_from_run_id": base_run_id,
+        "promoted_at": utc_timestamp(),
+        "experiments_dir": str(experiments_dir),
+        "source_kind": candidate.get("kind", "unknown"),
+        "source_status": candidate.get("status", "unknown"),
+        "source_best_round": candidate.get("best_round"),
+        "strategy_commit": champion_strategy_commit(candidate_diagnosis, metadata),
+        "strategy_modifier": str(metadata.get("strategy_modifier", "")),
+        "dataset_sha256": metadata.get("dataset_sha256", {}),
+        "validation_ev_delta": candidate.get("validation_ev_delta", 0.0),
+        "trade_count_delta": candidate.get("trade_count_delta", 0),
+        "comparison_summary": comparison["summary"],
+        "promotion_reasons": comparison["reasons"],
+        "comparison": comparison,
+    }
+
+
+def champion_strategy_commit(
+    diagnosis: dict[str, object],
+    metadata: dict[str, object],
+) -> str:
+    """Return the best available commit for the champion strategy."""
+    final_commit = diagnosis.get("final_strategy_commit")
+    if isinstance(final_commit, str) and final_commit:
+        return final_commit
+    commit = metadata.get("git_commit")
+    return str(commit) if commit else ""
+
+
+def append_champion_history(
+    *,
+    experiments_dir: Path,
+    payload: dict[str, object],
+) -> Path:
+    """Append one champion promotion event to history."""
+    path = champion_history_path(experiments_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, sort_keys=True) + "\n")
+    return path
+
+
+def champion_path(experiments_dir: Path) -> Path:
+    """Return the current champion registry path."""
+    return experiments_dir / "champion.json"
+
+
+def champion_history_path(experiments_dir: Path) -> Path:
+    """Return the champion promotion history path."""
+    return experiments_dir / "champion_history.jsonl"
+
+
+def utc_timestamp() -> str:
+    """Return a deterministic-format UTC timestamp."""
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def comparable_performance(diagnosis: dict[str, object]) -> dict[str, object]:
@@ -404,6 +555,8 @@ def main() -> None:
     candidates_parser.add_argument("run_id")
     candidates_parser.add_argument("--limit", type=int, default=20)
 
+    subparsers.add_parser("champion", help="Show the current champion registry.")
+
     compare_parser = subparsers.add_parser(
         "compare",
         help="Compare two runs and recommend whether to promote the candidate.",
@@ -411,6 +564,14 @@ def main() -> None:
     compare_parser.add_argument("base_run_id")
     compare_parser.add_argument("candidate_run_id")
     compare_parser.add_argument("--min-ev-delta", type=float, default=0.0)
+
+    promote_parser = subparsers.add_parser(
+        "promote",
+        help="Promote a candidate run to champion when comparison allows.",
+    )
+    promote_parser.add_argument("base_run_id")
+    promote_parser.add_argument("candidate_run_id")
+    promote_parser.add_argument("--min-ev-delta", type=float, default=0.0)
 
     diagnose_parser = subparsers.add_parser(
         "diagnose",
@@ -447,8 +608,17 @@ def main() -> None:
             run_id=args.run_id,
             limit=args.limit,
         )
+    elif args.command == "champion":
+        payload = show_champion(experiments_dir=args.experiments_dir)
     elif args.command == "compare":
         payload = compare_experiments(
+            experiments_dir=args.experiments_dir,
+            base_run_id=args.base_run_id,
+            candidate_run_id=args.candidate_run_id,
+            min_ev_delta=args.min_ev_delta,
+        )
+    elif args.command == "promote":
+        payload = promote_champion(
             experiments_dir=args.experiments_dir,
             base_run_id=args.base_run_id,
             candidate_run_id=args.candidate_run_id,

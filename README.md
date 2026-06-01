@@ -63,6 +63,8 @@ python -m orchestrator.experiments memory --limit 5
 python -m orchestrator.artifact_validator <run_id>
 python -m orchestrator.experiments diagnose <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
+python -m orchestrator.experiments champion
+python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>
 ```
 
 Useful mode switches:
@@ -80,6 +82,7 @@ python -m orchestrator.experiments show dry-run-demo
 python -m orchestrator.artifact_validator file-protocol-local-demo
 python -m orchestrator.experiments diagnose file-protocol-local-demo
 python -m orchestrator.experiments compare dry-run-demo adaptive-demo
+python -m orchestrator.experiments promote dry-run-demo adaptive-demo
 ```
 
 ## Outputs
@@ -199,6 +202,9 @@ them by validation EV improvement. Use `compare <base_run_id>
 <candidate_run_id>` to compare two runs, check dataset fingerprints, and emit a
 deterministic promotion recommendation. Use `memory` to inspect recent proposal
 outcome records. Use `candidates <run_id>` to inspect one iteration run's
-candidate leaderboard.
+candidate leaderboard. Use `promote <base_run_id> <candidate_run_id>` to write
+`experiments/champion.json` and append `experiments/champion_history.jsonl`
+only when compare recommends `promote_candidate`; use `champion` to inspect the
+current registry.
 
 The V0.5 prototype does not call exchanges, wallets, or external APIs.

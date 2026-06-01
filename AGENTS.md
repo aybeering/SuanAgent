@@ -114,6 +114,7 @@ Current structure:
 │   ├── agent_input.schema.json
 │   ├── agent_output.schema.json
 │   ├── agent_execution.schema.json
+│   ├── champion.schema.json
 │   └── run_metadata.schema.json
 ├── .github/
 │   └── workflows/
@@ -481,6 +482,8 @@ python -m orchestrator.experiments memory --limit 5
 python -m orchestrator.artifact_validator <run_id>
 python -m orchestrator.experiments diagnose <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
+python -m orchestrator.experiments champion
+python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>
 ```
 
 ## Expected behavior
@@ -532,6 +535,10 @@ candidate should only receive a promotion recommendation when artifacts are
 valid, compared dataset fingerprints match, validation EV delta improves beyond
 the configured threshold, and the candidate run was accepted by its own policy
 gate.
+Champion promotion should write `experiments/champion.json` using schema
+version `champion_v1` and append `experiments/champion_history.jsonl`. Promotion
+must only happen when deterministic comparison recommends `promote_candidate`;
+failed or inconclusive comparisons should not mutate the champion registry.
 
 Future Codex output must be parsed as a unified diff and rejected before git
 apply if it touches anything except `strategies/current_strategy.py`.

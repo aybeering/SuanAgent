@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Champion Registry",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "champion_run_id",
+    "promoted_from_run_id",
+    "promoted_at",
+    "experiments_dir",
+    "source_kind",
+    "source_status",
+    "source_best_round",
+    "strategy_commit",
+    "strategy_modifier",
+    "dataset_sha256",
+    "validation_ev_delta",
+    "trade_count_delta",
+    "comparison_summary",
+    "promotion_reasons",
+    "comparison"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "champion_v1"
+      ]
+    },
+    "champion_run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "promoted_from_run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "promoted_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "experiments_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_kind": {
+      "type": "string",
+      "enum": [
+        "single_run",
+        "iteration_loop"
+      ]
+    },
+    "source_status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_best_round": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "strategy_commit": {
+      "type": "string"
+    },
+    "strategy_modifier": {
+      "type": "string"
+    },
+    "dataset_sha256": {
+      "type": "object"
+    },
+    "validation_ev_delta": {
+      "type": "number"
+    },
+    "trade_count_delta": {
+      "type": "integer"
+    },
+    "comparison_summary": {
+      "type": "string"
+    },
+    "promotion_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "required": [
+        "base_run_id",
+        "candidate_run_id",
+        "winner",
+        "recommendation",
+        "reasons",
+        "dataset_comparison",
+        "metric_deltas"
+      ],
+      "properties": {
+        "base_run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "candidate_run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "winner": {
+          "type": "string"
+        },
+        "recommendation": {
+          "type": "string",
+          "enum": [
+            "promote_candidate"
+          ]
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dataset_comparison": {
+          "type": "object"
+        },
+        "metric_deltas": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

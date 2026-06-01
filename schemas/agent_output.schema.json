@@ -162,6 +162,7 @@
       "type": "object",
       "required": [
         "agent_input",
+        "raw_agent_output",
         "proposal",
         "proposal_attempts",
         "agent_response",
@@ -169,6 +170,9 @@
       ],
       "properties": {
         "agent_input": {
+          "type": "string"
+        },
+        "raw_agent_output": {
           "type": "string"
         },
         "proposal": {

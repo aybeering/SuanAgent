@@ -233,6 +233,7 @@ round_001/
   agent_validation.json
   workspace_manifest.json  # workspace-backed agents only
   proposal.json
+  raw_agent_output.txt
   agent_execution.json   # file_protocol runs only
   agent_response.txt
   patch.diff
@@ -280,14 +281,18 @@ before calling the modifier. The JSON artifact should use schema version
 `proposal_intent_v1` and summarize the recommended direction, directions to
 avoid, evidence, source context artifacts, and hard constraints. It is planner
 guidance only; it must not decide acceptance.
-Each round should also write `agent_input.json`, `agent_output.json`, and
-`agent_validation.json`.
+Each round should also write `agent_input.json`, `raw_agent_output.txt`,
+`agent_output.json`, and `agent_validation.json`.
 `agent_input.json` should use schema version `agent_io_input_v1` and describe
 the reports, context, proposal intent, before metrics, policy config,
 candidate-selection config, and modifier list available to the agent.
+`raw_agent_output.txt` should preserve the exact raw response text that will be
+normalized into a proposal. For local stubs this can be the deterministic stub
+response; for external agents it should be the subprocess output or configured
+proposal output content.
 `agent_output.json` should use schema
 version `agent_io_output_v1` and record the selected proposal, compact attempt
-rows, and output artifact paths.
+rows, and output artifact paths, including `raw_agent_output.txt`.
 `agent_validation.json` should use schema version `agent_validation_v1` and
 record deterministic intake checks for the selected proposal, including
 contract validity, strategy-only patch targeting, and `git apply --check`.
@@ -543,7 +548,7 @@ When the V0.5 loop runs, it should:
 3. Run the current strategy before modification on all configured data splits.
 4. Save train, validation, and holdout before metrics, trades, and reports.
 5. Call the fixed strategy modifier stub using the train report.
-6. Save `agent_context.md`, `agent_context.json`, `proposal_intent.json`, `proposal_intent.md`, `agent_input.json`, `agent_output.json`, `agent_validation.json`, `proposal.json`, `agent_response.txt`, and `patch.diff`.
+6. Save `agent_context.md`, `agent_context.json`, `proposal_intent.json`, `proposal_intent.md`, `agent_input.json`, `raw_agent_output.txt`, `agent_output.json`, `agent_validation.json`, `proposal.json`, `agent_response.txt`, and `patch.diff`.
 7. Apply the patch with Git only after deterministic agent-output validation passes.
 8. Run the modified strategy on all configured data splits.
 9. Save train, validation, and holdout after metrics, trades, and reports.

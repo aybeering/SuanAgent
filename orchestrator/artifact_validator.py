@@ -51,6 +51,7 @@ ROUND_REQUIRED_FILES = (
     "agent_validation.json",
     "proposal_attempts.json",
     "proposal.json",
+    "raw_agent_output.txt",
     "agent_response.txt",
     "patch.diff",
     "train_metrics_after.json",

@@ -511,6 +511,8 @@ def run_round(
     (round_dir / "agent_response.txt").write_text(
         proposal.raw_response + "\n", encoding="utf-8"
     )
+    raw_agent_output_path = round_dir / "raw_agent_output.txt"
+    raw_agent_output_path.write_text(proposal.raw_response + "\n", encoding="utf-8")
     (round_dir / "patch.diff").write_text(proposal.patch_diff, encoding="utf-8")
     write_agent_output(
         output_path=round_dir / "agent_output.json",
@@ -525,7 +527,7 @@ def run_round(
     )
     agent_validation = validate_agent_proposal(
         agent_input_path=round_dir / "agent_input.json",
-        agent_output_path=round_dir / "agent_output.json",
+        agent_output_path=raw_agent_output_path,
         output_path=round_dir / "agent_validation.json",
         proposal=proposal,
         repo_root=repo_root,

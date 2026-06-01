@@ -409,6 +409,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "agent_validation.json",
         "proposal_attempts.json",
         "proposal.json",
+        "raw_agent_output.txt",
         "agent_response.txt",
         "patch.diff",
         "metrics_after.json",
@@ -464,6 +465,10 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
     assert agent_output["attempt_count"] == len(attempts)
     assert agent_output["artifacts"]["agent_input"].endswith("agent_input.json")
+    assert agent_output["artifacts"]["raw_agent_output"].endswith(
+        "raw_agent_output.txt"
+    )
+    assert agent_validation["agent_output_path"].endswith("raw_agent_output.txt")
     assert agent_validation["schema_version"] == AGENT_VALIDATION_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_validation.json", "agent_validation")
     assert agent_validation["ok"] is True
@@ -2037,6 +2042,10 @@ def test_file_protocol_demo_agent_runs_from_config(tmp_path: Path) -> None:
     assert_matches_schema(round_dir / "agent_output.json", "agent_output")
     assert_matches_schema(round_dir / "agent_execution.json", "agent_execution")
     assert_matches_schema(round_dir / "workspace_manifest.json", "workspace_manifest")
+    assert (round_dir / "raw_agent_output.txt").exists()
+    assert agent_output["artifacts"]["raw_agent_output"].endswith(
+        "raw_agent_output.txt"
+    )
     assert agent_execution["status"] == "completed"
     assert agent_execution["command"][:3] == [
         "python",

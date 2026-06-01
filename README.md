@@ -158,6 +158,8 @@ to validate any saved raw agent output before it can become a candidate patch.
 The intake command normalizes JSON proposal output or plain unified diffs into
 the `proposal_v1` shape, checks that only `strategies/current_strategy.py` is
 targeted, runs `git apply --check`, and can write `agent_validation.json`.
+In normal iteration runs, the saved raw output path is
+`experiments/<run_id>/round_XXX/raw_agent_output.txt`.
 The guarded Codex CLI adapter uses the same raw-output normalization path as
 the standalone intake command, so future real Codex responses and replayed
 agent-output files are interpreted consistently.
@@ -177,10 +179,11 @@ re-parsing every artifact directory.
 Each round also writes `proposal_intent.json` and `proposal_intent.md`, a thin
 deterministic planner output that turns the context into a recommended
 direction, directions to avoid, evidence, and hard constraints for the modifier.
-Each round also writes `agent_input.json`, `agent_output.json`, and
-`agent_validation.json`, stable fixtures that record what a modifier backend
-was given, which proposal candidate was selected, and whether deterministic
-intake checks passed before patch application.
+Each round also writes `agent_input.json`, `raw_agent_output.txt`,
+`agent_output.json`, and `agent_validation.json`, stable fixtures that record
+what a modifier backend was given, the raw text that became the proposal, which
+proposal candidate was selected, and whether deterministic intake checks passed
+before patch application.
 Tests validate these artifacts against the JSON schemas under `schemas/`; the
 proposal intent, workspace manifest, agent validation report, and file-protocol
 execution audit are validated against `schemas/proposal_intent.schema.json`,

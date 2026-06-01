@@ -192,6 +192,10 @@ def build_agent_output_payload(
         "attempts": compact_attempts(proposal_attempts),
         "artifacts": {
             "agent_input": relative_path(round_dir / "agent_input.json", repo_root),
+            "raw_agent_output": relative_path(
+                round_dir / "raw_agent_output.txt",
+                repo_root,
+            ),
             "proposal": relative_path(round_dir / "proposal.json", repo_root),
             "proposal_attempts": relative_path(
                 round_dir / "proposal_attempts.json",

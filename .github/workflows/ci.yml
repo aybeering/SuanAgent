@@ -52,6 +52,7 @@ jobs:
           assert decision["failure_code"] != ""
           attempts = json.load(open("experiments/ci-adaptive/round_001/proposal_attempts.json"))
           assert "failure_code" in attempts[0]
+          assert "routing_prior" in attempts[0]
           leaderboard = json.load(open("experiments/ci-adaptive/candidate_leaderboard.json"))
           assert "failure_stage" in leaderboard[0]
           stats = json.load(open("experiments/ci-adaptive/agent_result_stats.json"))

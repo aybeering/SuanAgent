@@ -359,6 +359,10 @@ Candidate scoring may include a bounded direction-history prior from
 `experiments/memory.jsonl`. The prior should use only prior runs for the same
 `direction_tag`, record its sample counts and score delta, and only affect
 candidate ranking. It must not decide final acceptance.
+Candidate scoring may include a conservative routing prior from prior
+`agent_result_stats.json` artifacts. The prior should match on `agent_name` and
+`direction_tag`, record prefer/downweight counts and score delta, and only
+affect candidate ranking. It must not decide final acceptance.
 Candidate scoring may also include a deterministic exploration bonus after a
 configured no-improvement window. The bonus should apply only to low-sample
 directions that were not selected in the recent no-improvement window, record

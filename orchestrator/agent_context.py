@@ -180,8 +180,8 @@ def build_agent_context_markdown(payload: dict[str, object]) -> str:
         lines.extend(
             [
                 "| Round | Role | Agent | Selected | Score | Probe EV Delta | "
-                "Validation EV Delta | Direction | Prior | Explore | Champion Gap | Status | Summary |",
-                "| --- | --- | --- | --- | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- |",
+                "Validation EV Delta | Direction | Prior | Explore | Routing | Champion Gap | Status | Summary |",
+                "| --- | --- | --- | --- | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- | --- |",
             ]
         )
         for payload in candidate_rows:
@@ -316,6 +316,7 @@ def candidate_search_row(payload: dict[str, object]) -> str:
         f"| {escape_cell(str(payload.get('direction_tag', '')) or 'none')} "
         f"| {escape_cell(direction_prior_label(payload.get('direction_prior', {})))} "
         f"| {escape_cell(exploration_bonus_label(payload.get('exploration_bonus', {})))} "
+        f"| {escape_cell(routing_prior_label(payload.get('routing_prior', {})))} "
         f"| {escape_cell(champion_gap_label(payload.get('champion_gap', {})))} "
         f"| {escape_cell(str(payload.get('status', '')))} "
         f"| {escape_cell(str(payload.get('summary', '')))} |"
@@ -542,6 +543,19 @@ def exploration_bonus_label(value: object) -> str:
     score_delta = int(value.get("score_delta", 0))
     sign = "+" if score_delta > 0 else ""
     return f"{sign}{score_delta}"
+
+
+def routing_prior_label(value: object) -> str:
+    """Return compact routing-prior text for agent context."""
+    if not isinstance(value, dict) or not value.get("active"):
+        return "none"
+    score_delta = int(value.get("score_delta", 0))
+    sign = "+" if score_delta > 0 else ""
+    return (
+        f"{sign}{score_delta} "
+        f"(prefer={int(value.get('prefer_count', 0))}, "
+        f"down={int(value.get('downweight_count', 0))})"
+    )
 
 
 def champion_gap_label(value: object) -> str:

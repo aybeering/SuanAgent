@@ -132,6 +132,9 @@ def test_default_config_loads_dataset_splits() -> None:
     assert config.holdout_policy["min_ev_delta"] == -0.01
     assert config.candidate_selection["base_selectable_score"] == 100
     assert config.candidate_selection["direction_prior_weight"] == 1.0
+    assert config.candidate_selection["routing_prior_weight"] == 1.0
+    assert config.candidate_selection["routing_prefer_bonus"] == 8
+    assert config.candidate_selection["routing_downweight_penalty"] == 12
     assert config.candidate_selection["champion_gap_weight"] == 1.0
     assert config.candidate_selection["probe_ev_cap"] == 25
     assert config.candidate_selection["champion_gap_cap"] == 15
@@ -302,6 +305,22 @@ def test_preflight_rejects_negative_candidate_selection_cap(tmp_path: Path) -> N
 
     assert result.ok is False
     assert any("candidate_selection.probe_ev_cap" in error for error in result.errors)
+
+
+def test_preflight_rejects_negative_routing_prior_penalty(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_path = repo / "config/negative_routing_prior.json"
+    config = json.loads((repo / "config/default.json").read_text())
+    config["candidate_selection"]["routing_downweight_penalty"] = -1
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    result = run_preflight(repo_root=repo, config_path=config_path)
+
+    assert result.ok is False
+    assert any(
+        "candidate_selection.routing_downweight_penalty" in error
+        for error in result.errors
+    )
 
 
 def test_preflight_rejects_unknown_memory_fallback_modifier(tmp_path: Path) -> None:
@@ -526,6 +545,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_output["selected_role"] == selected_attempt["role"]
     assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
     assert agent_output["attempt_count"] == len(attempts)
+    assert "routing_prior" in agent_output["attempts"][0]
     assert agent_output["artifacts"]["agent_input"].endswith("agent_input.json")
     assert agent_output["artifacts"]["agent_bundle_manifest"].endswith(
         "agent_bundle_manifest.json"
@@ -1177,6 +1197,87 @@ def test_candidate_selection_can_disable_direction_prior_weight(
         "direction prior" not in reason
         for reason in attempts[1]["score_reasons"]
     )
+
+
+def test_iteration_loop_uses_routing_prior_to_rank_candidates(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    stats_dir = repo / "experiments/routing-history"
+    stats_dir.mkdir(parents=True)
+    (stats_dir / "agent_result_stats.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "agent_result_stats_v1",
+                "run_id": "routing-history",
+                "source_path": "experiments/routing-history/candidate_leaderboard.json",
+                "generated_at": "2026-06-02T00:00:00Z",
+                "totals": {
+                    "attempt_count": 2,
+                    "selected_count": 2,
+                    "selectable_count": 2,
+                    "accepted_count": 0,
+                    "rejected_count": 2,
+                },
+                "agents": [],
+                "directions": [],
+                "patch_families": [],
+                "routing_hints": [
+                    {
+                        "target_type": "agent_name",
+                        "target": "strategy_modifier_stub",
+                        "action": "downweight",
+                        "reason": "prior stub attempts failed",
+                        "top_failure_code": "policy_ev_improvement_low",
+                        "attempt_count": 2,
+                        "accepted_count": 0,
+                    },
+                    {
+                        "target_type": "direction_tag",
+                        "target": "lower_min_edge",
+                        "action": "downweight",
+                        "reason": "prior lower_min_edge attempts failed",
+                        "top_failure_code": "policy_ev_improvement_low",
+                        "attempt_count": 2,
+                        "accepted_count": 0,
+                    },
+                ],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config = replace(
+        load_project_config(repo),
+        memory_failed_patch_threshold=0,
+        memory_failed_direction_threshold=99,
+        memory_fallback_modifier="conservative_stub",
+        memory_fallback_modifiers=("conservative_stub",),
+        stop_after_no_improvement_rounds=0,
+    )
+
+    manifest = run_iteration_loop(
+        run_id="routing-prior-rank",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/routing-prior-rank/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    attempts = json.loads(
+        (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
+    )
+
+    assert manifest["rounds"][0]["proposal_fallback_used"] is True  # type: ignore[index]
+    assert proposal["direction_tag"] == "raise_min_edge"
+    assert attempts[0]["routing_prior"]["active"] is True
+    assert attempts[0]["routing_prior"]["score_delta"] < 0
+    assert attempts[1]["routing_prior"]["active"] is False
+    assert attempts[1]["selected"] is True
+    assert any("routing prior" in reason for reason in attempts[0]["score_reasons"])
 
 
 def test_iteration_loop_explores_low_sample_direction_after_stalls(

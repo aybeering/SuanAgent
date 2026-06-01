@@ -189,6 +189,9 @@
           },
           "champion_gap": {
             "type": "object"
+          },
+          "routing_prior": {
+            "type": "object"
           }
         }
       }

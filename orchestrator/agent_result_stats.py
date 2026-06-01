@@ -39,6 +39,106 @@ def build_agent_result_stats(run_dir: Path) -> dict[str, object]:
     }
 
 
+def historical_routing_prior(
+    *,
+    experiments_dir: Path,
+    run_dir: Path,
+    agent_name: str,
+    direction_tag: str,
+    max_runs: int = 20,
+) -> dict[str, object]:
+    """Return prior routing signals for one candidate agent and direction."""
+    hints = matching_routing_hints(
+        experiments_dir=experiments_dir,
+        run_dir=run_dir,
+        agent_name=agent_name,
+        direction_tag=direction_tag,
+        max_runs=max_runs,
+    )
+    prefer_count = sum(1 for hint in hints if hint.get("action") == "prefer")
+    downweight_count = sum(1 for hint in hints if hint.get("action") == "downweight")
+    score_delta = prefer_count - downweight_count
+    return {
+        "active": bool(hints),
+        "agent_name": agent_name,
+        "direction_tag": direction_tag,
+        "score_delta": score_delta,
+        "prefer_count": prefer_count,
+        "downweight_count": downweight_count,
+        "hints": hints,
+    }
+
+
+def matching_routing_hints(
+    *,
+    experiments_dir: Path,
+    run_dir: Path,
+    agent_name: str,
+    direction_tag: str,
+    max_runs: int,
+) -> list[dict[str, object]]:
+    """Return recent routing hints matching an agent or direction."""
+    rows: list[dict[str, object]] = []
+    for stats_path in recent_stats_paths(experiments_dir=experiments_dir, max_runs=max_runs):
+        payload = load_json_object(stats_path)
+        if not payload:
+            continue
+        for hint in payload.get("routing_hints", []):
+            if not isinstance(hint, dict):
+                continue
+            target_type = str(hint.get("target_type", ""))
+            target = str(hint.get("target", ""))
+            if target_type == "agent_name" and target != agent_name:
+                continue
+            if target_type == "direction_tag" and target != direction_tag:
+                continue
+            if target_type not in {"agent_name", "direction_tag"}:
+                continue
+            rows.append(
+                {
+                    "source_run_id": payload.get("run_id", stats_path.parent.name),
+                    "source_path": str(stats_path),
+                    "target_type": target_type,
+                    "target": target,
+                    "action": str(hint.get("action", "")),
+                    "top_failure_code": str(hint.get("top_failure_code", "")),
+                    "attempt_count": int(hint.get("attempt_count", 0)),
+                    "accepted_count": int(hint.get("accepted_count", 0)),
+                    "reason": str(hint.get("reason", "")),
+                }
+            )
+    rows.sort(
+        key=lambda row: (
+            str(row["source_run_id"]),
+            str(row["target_type"]),
+            str(row["target"]),
+            str(row["action"]),
+        )
+    )
+    return rows
+
+
+def recent_stats_paths(*, experiments_dir: Path, max_runs: int) -> list[Path]:
+    """Return recent agent_result_stats paths, including active run stats if present."""
+    if max_runs <= 0:
+        return []
+    paths = [
+        path
+        for path in sorted(experiments_dir.glob("*/agent_result_stats.json"))
+        if path.is_file()
+    ]
+    return paths[-max_runs:]
+
+
+def load_json_object(path: Path) -> dict[str, Any]:
+    """Load a JSON object, returning empty dict for invalid content."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
 def load_candidate_rows(path: Path) -> list[dict[str, object]]:
     """Load candidate leaderboard rows from disk."""
     if not path.exists():

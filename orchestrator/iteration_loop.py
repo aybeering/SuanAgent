@@ -19,7 +19,10 @@ from orchestrator.agent_attempts import (
     write_agent_attempts_manifest,
     write_agent_selection_report,
 )
-from orchestrator.agent_result_stats import write_agent_result_stats
+from orchestrator.agent_result_stats import (
+    historical_routing_prior,
+    write_agent_result_stats,
+)
 from orchestrator.agent_bundle import write_agent_bundle_manifest, write_agent_input_bundle
 from orchestrator.agent_context import write_agent_context
 from orchestrator.agent_io import write_agent_input, write_agent_output
@@ -869,6 +872,7 @@ def candidate_leaderboard_rows(run_dir: Path) -> list[dict[str, object]]:
                     ),
                     "direction_prior": attempt.get("direction_prior", {}),
                     "exploration_bonus": attempt.get("exploration_bonus", {}),
+                    "routing_prior": attempt.get("routing_prior", {}),
                     "champion_gap": attempt.get("champion_gap", {}),
                     "patch_check_error": attempt.get("patch_check_error", ""),
                     "probe_error": attempt.get("probe_error", ""),
@@ -918,6 +922,7 @@ def proposal_attempt_record(
     direction_prior_payload: dict[str, object],
     exploration_bonus_payload: dict[str, object],
     champion_gap_payload: dict[str, object],
+    routing_prior_payload: dict[str, object],
     patch_check_error: str,
     status: str,
     candidate_score: int,
@@ -978,6 +983,7 @@ def proposal_attempt_record(
         "direction_prior": direction_prior_payload,
         "exploration_bonus": exploration_bonus_payload,
         "champion_gap": champion_gap_payload,
+        "routing_prior": routing_prior_payload,
         "patch_check_error": patch_check_error,
         "proposal": payload,
     }
@@ -1111,6 +1117,12 @@ def select_proposal_candidate(
             probe_metrics_after=probe_metrics_after,
             candidate_selection=candidate_selection,
         )
+        routing_prior_payload = historical_routing_prior(
+            experiments_dir=experiments_dir,
+            run_dir=run_dir,
+            agent_name=proposal.agent_name,
+            direction_tag=proposal.direction_tag,
+        )
         score_payload = score_proposal_candidate(
             proposal=proposal,
             role=role,
@@ -1124,6 +1136,7 @@ def select_proposal_candidate(
             direction_prior_payload=direction_prior_payload,
             exploration_bonus_payload=exploration_bonus_payload,
             champion_gap_payload=champion_gap_payload,
+            routing_prior_payload=routing_prior_payload,
             candidate_selection=candidate_selection,
         )
         attempts.append(
@@ -1136,6 +1149,7 @@ def select_proposal_candidate(
                 direction_prior_payload=direction_prior_payload,
                 exploration_bonus_payload=exploration_bonus_payload,
                 champion_gap_payload=champion_gap_payload,
+                routing_prior_payload=routing_prior_payload,
                 patch_check_error=patch_check_error,
                 status=status,
                 candidate_score=int(score_payload["score"]),
@@ -1241,6 +1255,7 @@ def score_proposal_candidate(
     direction_prior_payload: dict[str, object],
     exploration_bonus_payload: dict[str, object],
     champion_gap_payload: dict[str, object],
+    routing_prior_payload: dict[str, object],
     candidate_selection: dict[str, float | int],
 ) -> dict[str, object]:
     """Score a candidate deterministically before running expensive evaluation."""
@@ -1286,6 +1301,13 @@ def score_proposal_candidate(
     if exploration_delta:
         score += exploration_delta
         reasons.append(exploration_reason)
+    routing_delta, routing_reason = routing_prior_score(
+        routing_prior_payload,
+        candidate_selection,
+    )
+    if routing_delta:
+        score += routing_delta
+        reasons.append(routing_reason)
     probe_delta, probe_reason = probe_score(
         metrics_before=probe_metrics_before,
         metrics_after=probe_metrics_after,
@@ -1482,6 +1504,38 @@ def champion_gap_score(
         raw_delta,
         score_delta,
         score_weight(candidate_selection, "champion_gap_weight"),
+    )
+
+
+def routing_prior_score(
+    payload: dict[str, object],
+    candidate_selection: dict[str, float | int],
+) -> tuple[int, str]:
+    """Return score contribution from historical agent-result routing hints."""
+    if not payload.get("active", False):
+        return 0, ""
+    prefer_count = int(payload.get("prefer_count", 0))
+    downweight_count = int(payload.get("downweight_count", 0))
+    prefer_bonus = score_setting(candidate_selection, "routing_prefer_bonus")
+    downweight_penalty = score_setting(candidate_selection, "routing_downweight_penalty")
+    raw_delta = prefer_count * prefer_bonus - downweight_count * downweight_penalty
+    score_delta = weighted_score(
+        raw_delta,
+        candidate_selection,
+        "routing_prior_weight",
+    )
+    if score_delta == 0:
+        return 0, ""
+    return score_delta, weighted_reason(
+        (
+            "routing prior "
+            f"prefer={prefer_count} downweight={downweight_count} "
+            f"for agent={payload.get('agent_name', '')} "
+            f"direction={payload.get('direction_tag', '')}"
+        ),
+        raw_delta,
+        score_delta,
+        score_weight(candidate_selection, "routing_prior_weight"),
     )
 
 

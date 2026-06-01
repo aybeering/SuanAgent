@@ -107,6 +107,16 @@ def write_iteration_summary(
         for round_payload in rounds:
             lines.append(round_table_row(run_dir, round_payload))
 
+        lines.extend(["", "## Proposal Quality", ""])
+        lines.extend(
+            [
+                "| Round | Repeat | Patch SHA | Hypotheses | Expected Change | Risk |",
+                "| --- | --- | --- | --- | --- | --- |",
+            ]
+        )
+        for round_payload in rounds:
+            lines.append(proposal_quality_row(run_dir, round_payload))
+
     return write_summary(run_dir / "summary.md", lines)
 
 
@@ -159,6 +169,27 @@ def round_table_row(run_dir: Path, round_payload: dict[str, object]) -> str:
     )
 
 
+def proposal_quality_row(run_dir: Path, round_payload: dict[str, object]) -> str:
+    """Build one markdown row describing proposal quality metadata."""
+    round_id = str(round_payload.get("round_id", ""))
+    proposal = load_optional_json(run_dir / round_id / "proposal.json")
+    repeat_of_round = str(proposal.get("repeat_of_round", "")) if proposal else ""
+    repeat_label = f"yes ({repeat_of_round})" if repeat_of_round else "no"
+    patch_sha = str(proposal.get("patch_sha256", "")) if proposal else ""
+    hypotheses = proposal.get("hypotheses", []) if proposal else []
+    expected = proposal.get("expected_metric_change", {}) if proposal else {}
+    risk_notes = str(proposal.get("risk_notes", "")) if proposal else ""
+
+    return (
+        f"| {escape_cell(round_id)} "
+        f"| {escape_cell(repeat_label)} "
+        f"| `{patch_sha[:12] if patch_sha else 'none'}` "
+        f"| {escape_cell(list_text(hypotheses))} "
+        f"| {escape_cell(mapping_text(expected))} "
+        f"| {escape_cell(risk_notes or 'none')} |"
+    )
+
+
 def best_validation_round(rounds: list[dict[str, object]]) -> dict[str, object] | None:
     """Return the round with the largest validation EV improvement."""
     if not rounds:
@@ -191,6 +222,20 @@ def load_optional_json(path: Path) -> dict[str, Any]:
         return {}
     payload = json.loads(path.read_text(encoding="utf-8"))
     return payload if isinstance(payload, dict) else {}
+
+
+def list_text(value: object) -> str:
+    """Format a list-like proposal field for compact markdown display."""
+    if isinstance(value, list | tuple):
+        return "; ".join(str(item) for item in value) or "none"
+    return str(value) if value else "none"
+
+
+def mapping_text(value: object) -> str:
+    """Format a mapping-like proposal field for compact markdown display."""
+    if not isinstance(value, dict) or not value:
+        return "none"
+    return "; ".join(f"{key}: {value[key]}" for key in sorted(value))
 
 
 def write_summary(path: Path, lines: list[str]) -> Path:

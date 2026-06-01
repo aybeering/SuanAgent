@@ -138,6 +138,7 @@ def test_stub_agent_generates_fixed_patch(tmp_path: Path) -> None:
 
     assert proposal.applicable is True
     assert proposal.agent_name == "strategy_modifier_stub"
+    assert proposal.hypotheses
     assert proposal.expected_metric_change["trade_count"] == "increase"
     assert proposal.risk_notes
     assert "MIN_EDGE = 0.05" in proposal.patch_diff
@@ -251,6 +252,21 @@ def test_iteration_loop_runs_at_most_five_rounds(tmp_path: Path) -> None:
         (repo / "experiments/max-rounds/manifest.json").read_text(encoding="utf-8")
     )
     assert saved_manifest["completed_rounds"] == 5
+    round_001 = json.loads(
+        (repo / "experiments/max-rounds/round_001/proposal.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    round_002 = json.loads(
+        (repo / "experiments/max-rounds/round_002/proposal.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert round_001["patch_sha256"]
+    assert round_001["is_repeat_patch"] is False
+    assert round_001["quality_checks"]["has_hypotheses"] is True
+    assert round_002["is_repeat_patch"] is True
+    assert round_002["repeat_of_round"] == "round_001"
 
 
 def test_iteration_loop_initializes_git_when_missing(tmp_path: Path) -> None:
@@ -329,6 +345,8 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
     assert manifest["status"] == "stopped_max_rounds"
     assert proposal["agent_name"] == "codex_cli_dry_run"
     assert proposal["applicable"] is False
+    assert proposal["hypotheses"]
+    assert proposal["quality_checks"]["has_patch"] is False
     assert "dry-run" in proposal["raw_response"]
     assert proposal["command"][:6] == [
         "codex",
@@ -712,6 +730,8 @@ def test_summary_markdown_is_written_for_single_and_iteration_runs(tmp_path: Pat
     assert "- Kind: `single_run`" in single_summary
     assert "| Round | Accepted | Proposal |" in iteration_summary
     assert "Best Validation Delta" in iteration_summary
+    assert "Proposal Quality" in iteration_summary
+    assert "Expected Change" in iteration_summary
     assert "strategy_modifier_stub" in iteration_summary
 
 

@@ -26,6 +26,7 @@ from orchestrator.git_manager import (
 )
 from orchestrator.policy_gate import evaluate_policy
 from orchestrator.preflight import run_preflight
+from orchestrator.proposal import annotate_proposal_quality
 from orchestrator.run_loop import run_and_write, write_json
 from orchestrator.run_summary import write_iteration_summary
 
@@ -207,6 +208,11 @@ def run_round(
         repo_root=repo_root,
         old_threshold=stub_old_threshold,
         new_threshold=stub_new_threshold,
+    )
+    proposal = annotate_proposal_quality(
+        proposal=proposal,
+        run_dir=round_dir.parent,
+        current_round_id=round_id,
     )
     write_json(round_dir / "proposal.json", proposal.to_dict())
     (round_dir / "agent_response.txt").write_text(

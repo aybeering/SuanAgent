@@ -85,6 +85,9 @@ class CodexCliModifier:
                 raw_response="codex cli execution disabled",
                 patch_diff="",
                 applicable=False,
+                hypotheses=(
+                    "A future enabled Codex CLI run should return a strategy-only patch.",
+                ),
                 rejection_reason="Codex CLI execution disabled.",
                 prompt=prompt,
                 command=tuple(command),
@@ -111,6 +114,9 @@ class CodexCliModifier:
                 raw_response=raw_output,
                 patch_diff="",
                 applicable=False,
+                hypotheses=(
+                    "A successful Codex CLI subprocess is required before patch parsing.",
+                ),
                 rejection_reason=f"Codex CLI exited with {result.returncode}.",
                 prompt=prompt,
                 command=tuple(command),

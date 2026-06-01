@@ -70,6 +70,8 @@ Each run writes artifacts to `experiments/<run_id>/`:
 
 The multi-round loop also writes per-round train and holdout artifacts, a
 human-readable `summary.md`, and an append-only `experiments/index.jsonl`.
+Iteration summaries include proposal hypotheses, expected metric changes, risk
+notes, patch fingerprints, and repeat-patch detection.
 
 Use `python -m orchestrator.experiments list` and
 `python -m orchestrator.experiments show <run_id>` to inspect local experiment

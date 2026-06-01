@@ -69,6 +69,9 @@ def propose_strategy_change(
             raw_response=f"Read report with {len(report_text)} characters.",
             patch_diff="",
             applicable=False,
+            hypotheses=(
+                "The current strategy file must contain the configured old threshold.",
+            ),
             rejection_reason=f"Expected `{old_threshold}` in {target_relative}.",
         )
 
@@ -96,5 +99,9 @@ def propose_strategy_change(
         raw_response=f"stub response: read report with {len(report_text)} characters",
         patch_diff=patch_diff,
         applicable=True,
+        hypotheses=(
+            "Lowering MIN_EDGE should allow more candidate trades to pass the filter.",
+            "The extra trades may improve total opportunity capture if edge estimates are reliable.",
+        ),
         rejection_reason="",
     )

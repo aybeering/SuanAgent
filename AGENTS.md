@@ -126,6 +126,7 @@ Current structure:
 │   ├── iteration_loop.py
 │   ├── policy_gate.py
 │   ├── proposal.py
+│   ├── run_summary.py
 │   ├── patch_parser.py
 │   ├── workspace_manager.py
 │   ├── git_manager.py
@@ -202,6 +203,10 @@ round_001/
 ```
 
 Additional rounds use the same `round_NNN/` structure.
+
+Each `proposal.json` should keep agent output auditable. It records the patch,
+agent summary, hypotheses, expected metric changes, risk notes, patch hash,
+quality checks, and whether the patch repeats a prior round in the same run.
 
 ## Strategy policy
 

@@ -81,6 +81,9 @@ class CodexDryRunModifier:
             ),
             patch_diff="",
             applicable=False,
+            hypotheses=(
+                "A future Codex CLI call should inspect the train report before editing.",
+            ),
             rejection_reason="Codex CLI dry-run adapter does not emit patches.",
             prompt=prompt,
             command=tuple(command),
@@ -156,6 +159,9 @@ def proposal_from_codex_output(
             raw_response=raw_output,
             patch_diff="",
             applicable=False,
+            hypotheses=(
+                "The Codex response must contain a unified diff for the strategy file.",
+            ),
             rejection_reason=str(exc),
             prompt=prompt,
             command=tuple(command),
@@ -172,6 +178,9 @@ def proposal_from_codex_output(
         raw_response=raw_output,
         patch_diff=patch_diff,
         applicable=True,
+        hypotheses=(
+            "The parsed patch is intended to improve validation metrics after simulation.",
+        ),
         rejection_reason="",
         prompt=prompt,
         command=tuple(command),

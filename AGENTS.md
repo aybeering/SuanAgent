@@ -82,6 +82,7 @@ Allowed components:
 31. Attempt-scoped agent input artifacts for candidate-level replay.
 32. Role-level agent contracts that declare future blue-node responsibilities while only the strategy modifier executes.
 33. Deterministic local `chart.html` and `trade_timeline.html` artifacts for round inspection, generated without visual agents or network calls.
+34. A deterministic `visual_artifacts_manifest.json` that indexes visual inputs, source files, hashes, and visual authority policy.
 
 Still out of scope:
 
@@ -131,6 +132,7 @@ Current structure:
 │   ├── agent_execution.schema.json
 │   ├── agent_role_contracts.schema.json
 │   ├── analysis_notes.schema.json
+│   ├── visual_artifacts_manifest.schema.json
 │   ├── visual_review.schema.json
 │   ├── overfit_validation.schema.json
 │   ├── attempt_replay.schema.json
@@ -256,6 +258,7 @@ round_001/
   agent_role_contracts.json
   analysis_notes.json
   analysis_notes.md
+  visual_artifacts_manifest.json
   chart.html
   trade_timeline.html
   visual_review.json
@@ -325,8 +328,8 @@ before calling the modifier. The JSON artifact should use schema version
 avoid, evidence, source context artifacts, and hard constraints. It is planner
 guidance only; it must not decide acceptance.
 Each round should also write `agent_role_contracts.json`, `analysis_notes.json`,
-`analysis_notes.md`, `chart.html`, `trade_timeline.html`, `visual_review.json`,
-`visual_review.md`,
+`analysis_notes.md`, `visual_artifacts_manifest.json`, `chart.html`,
+`trade_timeline.html`, `visual_review.json`, `visual_review.md`,
 `overfit_validation.json`, `overfit_validation.md`,
 `agent_input.json`, `agent_bundle_manifest.json`, `agent_input_bundle/`,
 `agent_output_bundle/`, `raw_agent_output.txt`, `agent_output.json`,
@@ -348,12 +351,16 @@ scripts, external assets, or network calls.
 `trade_timeline.html` should be a deterministic static HTML artifact generated
 by local Python from before-trade files. It must not include external scripts,
 external assets, or network calls.
+`visual_artifacts_manifest.json` should use schema version
+`visual_artifacts_manifest_v1` and index every visual artifact with its path,
+format, schema marker, source files, byte count, SHA-256 digest, and the policy
+that visual inputs cannot change routing or final acceptance.
 `visual_review.json` should use schema version `visual_review_v1` and record
-the read-only visual review stub's consumed `chart.html`, consumed
-`trade_timeline.html`, consumed before-trade files, consumed before-reports,
-trade row counts, observations, and recommendation. In V0.5 visual-agent
-execution must remain disabled, and the artifact must not change routing or
-final acceptance.
+the read-only visual review stub's consumed `visual_artifacts_manifest.json`,
+consumed `chart.html`, consumed `trade_timeline.html`, consumed before-trade
+files, consumed before-reports, trade row counts, observations, and
+recommendation. In V0.5 visual-agent execution must remain disabled, and the
+artifact must not change routing or final acceptance.
 `overfit_validation.json` should use schema version `overfit_validation_v1` and
 record the overfit validator stub's consumed proposal, decision, metric deltas,
 prior rejected round count, and advisory risk flags. In V0.5 it must not veto,

@@ -22,6 +22,7 @@ def write_visual_review(
     analysis_notes_path: Path,
     chart_path: Path,
     timeline_path: Path,
+    visual_artifacts_manifest_path: Path,
 ) -> Path:
     """Write a deterministic, read-only visual-review stub artifact."""
     payload = visual_review_payload(
@@ -33,6 +34,7 @@ def write_visual_review(
         analysis_notes_path=analysis_notes_path,
         chart_path=chart_path,
         timeline_path=timeline_path,
+        visual_artifacts_manifest_path=visual_artifacts_manifest_path,
     )
     output_path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
@@ -52,6 +54,7 @@ def visual_review_payload(
     analysis_notes_path: Path,
     chart_path: Path,
     timeline_path: Path,
+    visual_artifacts_manifest_path: Path,
 ) -> dict[str, object]:
     """Return the JSON payload for the contract-only visual-review stub."""
     trade_rows = {
@@ -70,6 +73,10 @@ def visual_review_payload(
         "round_dir": relative_path(round_dir, repo_root),
         "consumed_artifacts": {
             "analysis_notes": relative_path(analysis_notes_path, repo_root),
+            "visual_artifacts_manifest": relative_path(
+                visual_artifacts_manifest_path,
+                repo_root,
+            ),
             "chart_html": relative_path(chart_path, repo_root),
             "trade_timeline_html": relative_path(timeline_path, repo_root),
             "train_trades_before": relative_path(
@@ -125,6 +132,7 @@ def visual_review_payload(
             "chart_html_generated",
             "trade_timeline_html_generated",
             "visual_agent_disabled",
+            "visual_artifacts_manifest_generated",
         ],
         "recommendation": {
             "action": "continue_without_visual_gate",

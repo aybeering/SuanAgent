@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -49,6 +50,7 @@ ROUND_REQUIRED_FILES = (
     "agent_role_contracts.json",
     "analysis_notes.json",
     "analysis_notes.md",
+    "visual_artifacts_manifest.json",
     "chart.html",
     "trade_timeline.html",
     "visual_review.json",
@@ -213,6 +215,16 @@ def validate_round_dir(
         path=round_dir / "analysis_notes.json",
         repo_root=repo_root,
         role_names=role_names,
+        report=report,
+    )
+    validate_contract_file(
+        payload_path=round_dir / "visual_artifacts_manifest.json",
+        schema_path=repo_root / "schemas/visual_artifacts_manifest.schema.json",
+        report=report,
+    )
+    validate_visual_artifacts_manifest(
+        path=round_dir / "visual_artifacts_manifest.json",
+        repo_root=repo_root,
         report=report,
     )
     validate_contract_file(
@@ -620,6 +632,101 @@ def validate_visual_review(
         )
 
 
+def validate_visual_artifacts_manifest(
+    *,
+    path: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate the manifest that indexes visual input artifacts."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if bool(payload.get("visual_agent_enabled", True)):
+        add_error(report, "visual_artifacts_manifest.json visual agent must be disabled")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "visual_artifacts_manifest.json policy is invalid")
+    else:
+        if bool(policy.get("external_network_assets_allowed", True)):
+            add_error(
+                report,
+                "visual_artifacts_manifest.json must not allow external assets",
+            )
+        if bool(policy.get("visual_agent_can_change_acceptance", True)):
+            add_error(
+                report,
+                "visual_artifacts_manifest.json must not change acceptance",
+            )
+        if bool(policy.get("visual_agent_can_change_routing", True)):
+            add_error(
+                report,
+                "visual_artifacts_manifest.json must not change routing",
+            )
+    artifacts = payload.get("artifacts", [])
+    if not isinstance(artifacts, list) or not artifacts:
+        add_error(report, "visual_artifacts_manifest.json artifacts is empty or invalid")
+        return
+    artifact_ids: set[str] = set()
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            add_error(report, "visual_artifacts_manifest.json artifact is non-object")
+            continue
+        artifact_id = str(artifact.get("artifact_id", ""))
+        if artifact_id in artifact_ids:
+            add_error(
+                report,
+                f"visual_artifacts_manifest.json duplicate artifact_id: {artifact_id}",
+            )
+        artifact_ids.add(artifact_id)
+        if bool(artifact.get("external_dependencies", True)):
+            add_error(
+                report,
+                f"visual_artifacts_manifest.json artifact uses external dependencies: {artifact_id}",
+            )
+        artifact_path = resolve_path(Path(str(artifact.get("path", ""))), repo_root)
+        if not artifact_path.exists() or not artifact_path.is_file():
+            add_error(
+                report,
+                f"visual_artifacts_manifest.json artifact does not exist: {artifact_path}",
+            )
+            continue
+        expected_bytes = artifact.get("bytes", None)
+        if isinstance(expected_bytes, int) and expected_bytes != artifact_path.stat().st_size:
+            add_error(
+                report,
+                f"visual_artifacts_manifest.json byte count mismatch: {artifact_path}",
+            )
+        expected_sha = str(artifact.get("sha256", ""))
+        if expected_sha and expected_sha != file_sha256(artifact_path):
+            add_error(
+                report,
+                f"visual_artifacts_manifest.json sha256 mismatch: {artifact_path}",
+            )
+        marker = str(artifact.get("schema_marker", ""))
+        text = artifact_path.read_text(encoding="utf-8")
+        if marker and marker not in text:
+            add_error(
+                report,
+                f"visual_artifacts_manifest.json schema marker missing in artifact: {artifact_path}",
+            )
+        source_files = artifact.get("source_files", [])
+        if not isinstance(source_files, list) or not source_files:
+            add_error(
+                report,
+                f"visual_artifacts_manifest.json artifact has no source files: {artifact_id}",
+            )
+            continue
+        for source in source_files:
+            source_path = resolve_path(Path(str(source)), repo_root)
+            if not source_path.exists() or not source_path.is_file():
+                add_error(
+                    report,
+                    "visual_artifacts_manifest.json source file does not exist: "
+                    f"{source_path}",
+                )
+
+
 def validate_chart_html(*, path: Path, report: dict[str, object]) -> None:
     """Validate the deterministic static chart artifact."""
     if not path.exists():
@@ -652,6 +759,11 @@ def validate_trade_timeline_html(*, path: Path, report: dict[str, object]) -> No
             report,
             f"trade_timeline.html must not reference external network assets: {path}",
         )
+
+
+def file_sha256(path: Path) -> str:
+    """Return a SHA-256 digest for a file."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def validate_agent_attempts_manifest(

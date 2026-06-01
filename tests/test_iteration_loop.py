@@ -885,6 +885,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "agent_role_contracts.json",
         "analysis_notes.json",
         "analysis_notes.md",
+        "visual_artifacts_manifest.json",
         "chart.html",
         "trade_timeline.html",
         "visual_review.json",
@@ -929,6 +930,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     analysis_notes = json.loads(
         (round_dir / "analysis_notes.json").read_text(encoding="utf-8")
+    )
+    visual_artifacts = json.loads(
+        (round_dir / "visual_artifacts_manifest.json").read_text(encoding="utf-8")
     )
     proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
     agent_input = json.loads((round_dir / "agent_input.json").read_text(encoding="utf-8"))
@@ -1030,6 +1034,21 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert visual_review["agent_role"] == "visual_review"
     assert visual_review["execution_mode"] == "stub_contract"
     assert visual_review["implemented"] is False
+    assert visual_artifacts["schema_version"] == "visual_artifacts_manifest_v1"
+    assert_matches_schema(
+        round_dir / "visual_artifacts_manifest.json",
+        "visual_artifacts_manifest",
+    )
+    assert visual_artifacts["visual_agent_enabled"] is False
+    assert visual_artifacts["policy"]["external_network_assets_allowed"] is False
+    assert visual_artifacts["policy"]["visual_agent_can_change_acceptance"] is False
+    assert [artifact["artifact_id"] for artifact in visual_artifacts["artifacts"]] == [
+        "chart_html",
+        "trade_timeline_html",
+    ]
+    assert visual_artifacts["artifacts"][0]["path"].endswith("chart.html")
+    assert visual_artifacts["artifacts"][0]["sha256"]
+    assert visual_artifacts["artifacts"][1]["path"].endswith("trade_timeline.html")
     assert visual_review["trade_row_counts"]["validation"] == 39
     assert visual_review["checks"]["chart_rendering_enabled"] is True
     assert visual_review["checks"]["visual_agent_enabled"] is False
@@ -1046,6 +1065,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert visual_review["timeline_artifacts"]["external_dependencies"] is False
     assert visual_review["consumed_artifacts"]["validation_trades_before"].endswith(
         "trades_before.csv"
+    )
+    assert visual_review["consumed_artifacts"]["visual_artifacts_manifest"].endswith(
+        "visual_artifacts_manifest.json"
     )
     assert visual_review["consumed_artifacts"]["chart_html"].endswith("chart.html")
     assert visual_review["consumed_artifacts"]["trade_timeline_html"].endswith(
@@ -1066,6 +1088,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert agent_input["artifacts"]["analysis_notes_markdown"].endswith(
         "analysis_notes.md"
+    )
+    assert agent_input["artifacts"]["visual_artifacts_manifest"].endswith(
+        "visual_artifacts_manifest.json"
     )
     assert agent_input["artifacts"]["visual_review_json"].endswith(
         "visual_review.json"
@@ -1120,6 +1145,10 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         for row in agent_bundle["input_files"]
     )
     assert any(
+        row["name"] == "visual_artifacts_manifest.json"
+        for row in agent_bundle["input_files"]
+    )
+    assert any(
         row["name"] == "visual_review.json"
         for row in agent_bundle["input_files"]
     )
@@ -1141,6 +1170,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         for row in agent_bundle["output_files"]
     )
     assert (round_dir / "agent_input_bundle/agent_input.json").exists()
+    assert (round_dir / "agent_input_bundle/visual_artifacts_manifest.json").exists()
     assert (round_dir / "agent_input_bundle/chart.html").exists()
     assert (round_dir / "agent_input_bundle/trade_timeline.html").exists()
     assert (round_dir / "agent_output_bundle/raw_agent_output.txt").exists()
@@ -2905,6 +2935,10 @@ output_path.write_text(json.dumps({
     ).exists()
     assert (
         Path(agent_execution["workspace_path"])
+        / "experiments/file-protocol-fixture/round_001/visual_artifacts_manifest.json"
+    ).exists()
+    assert (
+        Path(agent_execution["workspace_path"])
         / "experiments/file-protocol-fixture/round_001/visual_review.json"
     ).exists()
     assert (
@@ -2917,6 +2951,9 @@ output_path.write_text(json.dumps({
     ).exists()
     assert workspace_agent_input["artifacts"]["analysis_notes_json"].endswith(
         "analysis_notes.json"
+    )
+    assert workspace_agent_input["artifacts"]["visual_artifacts_manifest"].endswith(
+        "visual_artifacts_manifest.json"
     )
     assert workspace_agent_input["artifacts"]["visual_review_json"].endswith(
         "visual_review.json"
@@ -3657,6 +3694,10 @@ def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
     assert any(
+        path.endswith("visual_artifacts_manifest.json")
+        for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
         path.endswith("visual_review.json")
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
@@ -3904,6 +3945,40 @@ def test_artifact_validator_reports_external_timeline_asset(tmp_path: Path) -> N
     assert report["ok"] is False
     assert any(
         "trade_timeline.html must not reference external network assets" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_visual_manifest_hash_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-visual-manifest-hash",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    manifest_path = (
+        repo
+        / "experiments/artifact-visual-manifest-hash/round_001"
+        / "visual_artifacts_manifest.json"
+    )
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    payload["artifacts"][0]["sha256"] = "0" * 64
+    manifest_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id="artifact-visual-manifest-hash",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "visual_artifacts_manifest.json sha256 mismatch" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 

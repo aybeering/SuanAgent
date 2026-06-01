@@ -61,6 +61,7 @@
       "type": "object",
       "required": [
         "analysis_notes",
+        "visual_artifacts_manifest",
         "chart_html",
         "trade_timeline_html",
         "train_trades_before",
@@ -72,6 +73,9 @@
       ],
       "properties": {
         "analysis_notes": {
+          "type": "string"
+        },
+        "visual_artifacts_manifest": {
           "type": "string"
         },
         "chart_html": {

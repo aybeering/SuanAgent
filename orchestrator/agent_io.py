@@ -131,6 +131,10 @@ def build_agent_input_payload(
                 round_dir / "visual_review.md",
                 repo_root,
             ),
+            "visual_artifacts_manifest": relative_path(
+                round_dir / "visual_artifacts_manifest.json",
+                repo_root,
+            ),
             "chart_html": relative_path(round_dir / "chart.html", repo_root),
             "trade_timeline_html": relative_path(
                 round_dir / "trade_timeline.html",

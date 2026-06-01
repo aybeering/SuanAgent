@@ -86,6 +86,7 @@ from orchestrator.run_diagnosis import write_run_diagnosis
 from orchestrator.run_loop import run_and_write, write_json
 from orchestrator.run_metadata import write_run_metadata
 from orchestrator.run_summary import write_iteration_summary
+from orchestrator.visual_artifacts import write_visual_artifacts_manifest
 from orchestrator.visual_review_stub import write_visual_review
 from reports.generate_chart import generate_round_chart
 from reports.generate_timeline import generate_trade_timeline
@@ -575,6 +576,16 @@ def run_round(
             "holdout": round_dir / "holdout_trades_before.csv",
         },
     )
+    visual_artifacts_manifest_path = write_visual_artifacts_manifest(
+        output_path=round_dir / "visual_artifacts_manifest.json",
+        repo_root=repo_root,
+        run_id=run_id,
+        round_id=round_id,
+        round_index=round_index,
+        round_dir=round_dir,
+        chart_path=chart_path,
+        timeline_path=timeline_path,
+    )
     write_visual_review(
         output_path=round_dir / "visual_review.json",
         markdown_path=round_dir / "visual_review.md",
@@ -586,6 +597,7 @@ def run_round(
         analysis_notes_path=round_dir / "analysis_notes.json",
         chart_path=chart_path,
         timeline_path=timeline_path,
+        visual_artifacts_manifest_path=visual_artifacts_manifest_path,
     )
     write_agent_input(
         output_path=round_dir / "agent_input.json",

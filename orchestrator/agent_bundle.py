@@ -17,6 +17,7 @@ INPUT_BUNDLE_FILES = (
     "agent_role_contracts.json",
     "analysis_notes.json",
     "analysis_notes.md",
+    "visual_artifacts_manifest.json",
     "visual_review.json",
     "visual_review.md",
     "chart.html",

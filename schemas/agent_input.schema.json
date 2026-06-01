@@ -71,6 +71,7 @@
         "agent_role_contracts",
         "analysis_notes_json",
         "analysis_notes_markdown",
+        "visual_artifacts_manifest",
         "visual_review_json",
         "visual_review_markdown",
         "chart_html",
@@ -90,6 +91,9 @@
           "type": "string"
         },
         "analysis_notes_markdown": {
+          "type": "string"
+        },
+        "visual_artifacts_manifest": {
           "type": "string"
         },
         "visual_review_json": {

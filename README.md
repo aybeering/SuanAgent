@@ -85,6 +85,9 @@ Iteration runs append proposal outcomes to `experiments/memory.jsonl`, which is
 used as cross-run context for later agent calls.
 Before applying a patch, the loop checks outcome memory and rejects patch hashes
 that have already failed at least `memory_filter.failed_patch_threshold` times.
+If `memory_filter.fallback_modifier` is configured, the same round can route to
+that modifier and try a different deterministic proposal instead of spending
+the round on a known failed patch.
 
 Use `python -m orchestrator.experiments list` and
 `python -m orchestrator.experiments show <run_id>` to inspect local experiment

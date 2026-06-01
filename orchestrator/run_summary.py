@@ -111,8 +111,8 @@ def write_iteration_summary(
         lines.extend(["", "## Proposal Quality", ""])
         lines.extend(
             [
-                "| Round | Repeat | Memory Filter | Patch SHA | Hypotheses | Expected Change | Risk |",
-                "| --- | --- | --- | --- | --- | --- | --- |",
+                "| Round | Repeat | Memory Filter | Fallback | Patch SHA | Hypotheses | Expected Change | Risk |",
+                "| --- | --- | --- | --- | --- | --- | --- | --- |",
             ]
         )
         for round_payload in rounds:
@@ -181,11 +181,16 @@ def proposal_quality_row(run_dir: Path, round_payload: dict[str, object]) -> str
     expected = proposal.get("expected_metric_change", {}) if proposal else {}
     risk_notes = str(proposal.get("risk_notes", "")) if proposal else ""
     memory_reason = str(round_payload.get("proposal_memory_filter_reason", ""))
+    fallback_reason = str(round_payload.get("proposal_fallback_reason", ""))
+    fallback_label = "yes" if round_payload.get("proposal_fallback_used") else "no"
+    if fallback_reason:
+        fallback_label = f"yes: {fallback_reason}"
 
     return (
         f"| {escape_cell(round_id)} "
         f"| {escape_cell(repeat_label)} "
         f"| {escape_cell(memory_reason or 'none')} "
+        f"| {escape_cell(fallback_label)} "
         f"| `{patch_sha[:12] if patch_sha else 'none'}` "
         f"| {escape_cell(list_text(hypotheses))} "
         f"| {escape_cell(mapping_text(expected))} "

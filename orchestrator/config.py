@@ -27,6 +27,7 @@ class ProjectConfig:
     stub_new_threshold: str
     stop_on_repeated_proposal: bool
     memory_failed_patch_threshold: int = 2
+    memory_fallback_modifier: str = ""
 
     def resolve_path(self, repo_root: Path, path_text: str) -> Path:
         """Resolve config paths relative to the repository root."""
@@ -55,6 +56,7 @@ def load_project_config(
     stub = raw.get("stub", {})
     modifier_name = str(raw["strategy_modifier"])
     modifier_settings = raw.get("codex_cli", {}) if modifier_name.startswith("codex") else {}
+    memory_filter = raw.get("memory_filter", {})
     return ProjectConfig(
         baseline_strategy_module=str(raw["baseline_strategy_module"]),
         current_strategy_module=str(raw["current_strategy_module"]),
@@ -71,6 +73,7 @@ def load_project_config(
         stub_new_threshold=str(stub["new_threshold"]),
         stop_on_repeated_proposal=bool(raw.get("stop_on_repeated_proposal", True)),
         memory_failed_patch_threshold=int(
-            raw.get("memory_filter", {}).get("failed_patch_threshold", 2)
+            memory_filter.get("failed_patch_threshold", 2)
         ),
+        memory_fallback_modifier=str(memory_filter.get("fallback_modifier") or ""),
     )

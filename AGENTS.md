@@ -226,6 +226,9 @@ Each iteration round should append a compact proposal outcome to
 reuse prior proposal outcomes.
 Before applying a patch, the loop should reject patch hashes that have already
 failed at least `memory_filter.failed_patch_threshold` times in outcome memory.
+When `memory_filter.fallback_modifier` is set, the loop may route a
+memory-rejected primary proposal to that fallback modifier in the same round.
+Record each primary/fallback attempt in `proposal_attempts.json`.
 
 ## Strategy policy
 

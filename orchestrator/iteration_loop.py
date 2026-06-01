@@ -32,7 +32,7 @@ from orchestrator.outcome_memory import (
 )
 from orchestrator.policy_gate import evaluate_policy
 from orchestrator.preflight import run_preflight
-from orchestrator.proposal import annotate_proposal_quality
+from orchestrator.proposal import StrategyProposal, annotate_proposal_quality
 from orchestrator.run_loop import run_and_write, write_json
 from orchestrator.run_summary import write_iteration_summary
 
@@ -80,6 +80,14 @@ def run_iteration_loop(
         active_config.strategy_modifier,
         active_config.modifier_settings,
     )
+    fallback_modifier = (
+        get_strategy_modifier(
+            active_config.memory_fallback_modifier,
+            active_config.modifier_settings,
+        )
+        if active_config.memory_fallback_modifier
+        else None
+    )
     strategy_path = Path(active_config.strategy_path)
     strategy_file_path = active_config.resolve_path(repo_root, active_config.strategy_path)
     strategy_module = active_config.current_strategy_module
@@ -99,6 +107,7 @@ def run_iteration_loop(
         "accepted_round": None,
         "final_strategy_commit": None,
         "stop_on_repeated_proposal": active_stop_on_repeated_proposal,
+        "memory_fallback_modifier": active_config.memory_fallback_modifier or None,
         "stop_reason": None,
         "rounds": [],
     }
@@ -128,6 +137,7 @@ def run_iteration_loop(
                     strategy_module=strategy_module,
                     strategy_file_path=strategy_file_path,
                     modifier=modifier,
+                    fallback_modifier=fallback_modifier,
                     memory_failed_patch_threshold=active_config.memory_failed_patch_threshold,
                 )
                 manifest["completed_rounds"] = round_index
@@ -210,6 +220,7 @@ def run_round(
     strategy_module: str,
     strategy_file_path: Path,
     modifier: StrategyModifier,
+    fallback_modifier: StrategyModifier | None,
     memory_failed_patch_threshold: int,
 ) -> dict[str, object]:
     """Run one proposal/apply/evaluate round."""
@@ -236,6 +247,12 @@ def run_round(
         report_path=round_dir / "holdout_report_before.md",
     )
 
+    context_path = write_agent_context(
+        run_dir=round_dir.parent,
+        current_round_id=round_id,
+        output_path=round_dir / "agent_context.md",
+        memory_path=round_dir.parent.parent / "memory.jsonl",
+    )
     proposal = modifier.propose_strategy_change(
         report_path=round_dir / "train_report_before.md",
         target_file=strategy_file_path,
@@ -243,18 +260,67 @@ def run_round(
         repo_root=repo_root,
         old_threshold=stub_old_threshold,
         new_threshold=stub_new_threshold,
-        context_path=write_agent_context(
-            run_dir=round_dir.parent,
-            current_round_id=round_id,
-            output_path=round_dir / "agent_context.md",
-            memory_path=round_dir.parent.parent / "memory.jsonl",
-        ),
+        context_path=context_path,
     )
     proposal = annotate_proposal_quality(
         proposal=proposal,
         run_dir=round_dir.parent,
         current_round_id=round_id,
     )
+    primary_memory_filter_reason = memory_filter_rejection_reason(
+        experiments_dir=round_dir.parent.parent,
+        patch_sha256=proposal.patch_sha256,
+        threshold=memory_failed_patch_threshold,
+        exclude_run_id=run_id,
+    )
+    proposal_attempts = [
+        proposal_attempt_record(
+            role="primary",
+            proposal=proposal,
+            memory_filter_reason=primary_memory_filter_reason,
+        )
+    ]
+    proposal_fallback_used = False
+    proposal_fallback_reason = ""
+
+    if primary_memory_filter_reason and fallback_modifier is not None:
+        proposal_fallback_used = True
+        proposal_fallback_reason = (
+            "primary proposal rejected by memory filter: "
+            f"{primary_memory_filter_reason}"
+        )
+        proposal = fallback_modifier.propose_strategy_change(
+            report_path=round_dir / "train_report_before.md",
+            target_file=strategy_file_path,
+            round_index=round_index,
+            repo_root=repo_root,
+            old_threshold=stub_old_threshold,
+            new_threshold=stub_new_threshold,
+            context_path=context_path,
+        )
+        proposal = annotate_proposal_quality(
+            proposal=proposal,
+            run_dir=round_dir.parent,
+            current_round_id=round_id,
+        )
+        fallback_memory_filter_reason = memory_filter_rejection_reason(
+            experiments_dir=round_dir.parent.parent,
+            patch_sha256=proposal.patch_sha256,
+            threshold=memory_failed_patch_threshold,
+            exclude_run_id=run_id,
+        )
+        proposal_attempts.append(
+            proposal_attempt_record(
+                role="fallback",
+                proposal=proposal,
+                memory_filter_reason=fallback_memory_filter_reason,
+            )
+        )
+        memory_filter_reason = fallback_memory_filter_reason
+    else:
+        memory_filter_reason = primary_memory_filter_reason
+
+    write_json(round_dir / "proposal_attempts.json", proposal_attempts)
     write_json(round_dir / "proposal.json", proposal.to_dict())
     (round_dir / "agent_response.txt").write_text(
         proposal.raw_response + "\n", encoding="utf-8"
@@ -262,12 +328,6 @@ def run_round(
     (round_dir / "patch.diff").write_text(proposal.patch_diff, encoding="utf-8")
 
     apply_error = ""
-    memory_filter_reason = memory_filter_rejection_reason(
-        experiments_dir=round_dir.parent.parent,
-        patch_sha256=proposal.patch_sha256,
-        threshold=memory_failed_patch_threshold,
-        exclude_run_id=run_id,
-    )
     if memory_filter_reason:
         apply_error = memory_filter_reason
     elif proposal.applicable:
@@ -333,6 +393,10 @@ def run_round(
         "proposal_repeat_of_round": proposal.repeat_of_round,
         "proposal_memory_rejected": bool(memory_filter_reason),
         "proposal_memory_filter_reason": memory_filter_reason,
+        "primary_proposal_memory_rejected": bool(primary_memory_filter_reason),
+        "primary_proposal_memory_filter_reason": primary_memory_filter_reason,
+        "proposal_fallback_used": proposal_fallback_used,
+        "proposal_fallback_reason": proposal_fallback_reason,
         "before_trade_count": len(trades_before),
         "after_trade_count": len(trades_after),
         "train_before_trade_count": len(train_trades_before),
@@ -358,6 +422,25 @@ def index_record(manifest: dict[str, object]) -> dict[str, object]:
         "accepted_round": manifest["accepted_round"],
         "final_strategy_commit": manifest["final_strategy_commit"],
         "stop_reason": manifest.get("stop_reason"),
+    }
+
+
+def proposal_attempt_record(
+    *,
+    role: str,
+    proposal: StrategyProposal,
+    memory_filter_reason: str,
+) -> dict[str, object]:
+    """Build an auditable proposal attempt record."""
+    payload = proposal.to_dict()
+    return {
+        "role": role,
+        "agent_name": payload.get("agent_name", ""),
+        "summary": payload.get("summary", ""),
+        "patch_sha256": payload.get("patch_sha256", ""),
+        "memory_filter_rejected": bool(memory_filter_reason),
+        "memory_filter_reason": memory_filter_reason,
+        "proposal": payload,
     }
 
 

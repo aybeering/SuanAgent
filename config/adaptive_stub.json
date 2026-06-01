@@ -18,7 +18,8 @@
   "strategy_modifier": "adaptive_stub",
   "stop_on_repeated_proposal": true,
   "memory_filter": {
-    "failed_patch_threshold": 2
+    "failed_patch_threshold": 2,
+    "fallback_modifier": ""
   },
   "codex_cli": {
     "executable": "codex",

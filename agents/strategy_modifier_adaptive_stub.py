@@ -164,7 +164,21 @@ def build_replacement_proposal(
 
 def has_prior_failed_patch(context_text: str) -> bool:
     """Return whether context includes at least one failed patch hash."""
-    return "## Failed Patch Hashes" in context_text and "- `" in context_text
+    if failed_patch_hashes_section_has_hash(context_text):
+        return True
+    return any(
+        "| `false` | `" in line and "| `none` |" not in line
+        for line in context_text.splitlines()
+    )
+
+
+def failed_patch_hashes_section_has_hash(context_text: str) -> bool:
+    """Return whether the local failed-hash section lists a patch hash."""
+    marker = "## Failed Patch Hashes"
+    if marker not in context_text:
+        return False
+    section = context_text.split(marker, maxsplit=1)[1].split("##", maxsplit=1)[0]
+    return "- `" in section
 
 
 def response_text(report_text: str, context_text: str) -> str:

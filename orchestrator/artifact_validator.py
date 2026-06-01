@@ -364,7 +364,7 @@ def validate_round_dir(
         checked_files(report).append(str(round_replay_markdown_path))
 
     proposal = load_json_object(round_dir / "proposal.json", report)
-    if proposal and proposal.get("agent_name") == "file_protocol_agent":
+    if proposal and proposal.get("agent_name") in {"file_protocol_agent", "codex_cli"}:
         validate_required_files(
             base_dir=round_dir,
             filenames=("agent_execution.json",),
@@ -1460,6 +1460,20 @@ def validate_attempt_output_artifacts(
         artifact_path = resolve_path(Path(value), repo_root)
         if not artifact_path.exists() or not artifact_path.is_file():
             add_error(report, f"attempt_output artifact does not exist: {key}={artifact_path}")
+            continue
+        checked_files(report).append(str(artifact_path))
+        if key == "workspace_manifest":
+            validate_contract_file(
+                payload_path=artifact_path,
+                schema_path=repo_root / "schemas/workspace_manifest.schema.json",
+                report=report,
+            )
+        if key == "agent_execution":
+            validate_contract_file(
+                payload_path=artifact_path,
+                schema_path=repo_root / "schemas/agent_execution.schema.json",
+                report=report,
+            )
 
 
 def validate_agent_executor_report(

@@ -13,6 +13,7 @@ from orchestrator.workspace_manager import workspace_mutation_errors, workspace_
 
 
 AGENT_CONTRACT_RUNNER_NAME = "agent_contract_runner_v1"
+CODEX_CLI_GUARDED_RUNNER_NAME = "codex_cli_guarded_adapter"
 AGENT_EXECUTION_SCHEMA_VERSION = "agent_execution_v1"
 AUDIT_PREVIEW_CHARS = 500
 
@@ -199,13 +200,15 @@ def write_agent_execution(
     profile_name: str,
     adapter_name: str,
     contract_result: AgentContractRunResult,
+    runner_name: str = AGENT_CONTRACT_RUNNER_NAME,
+    stdin_text: str = "",
 ) -> None:
     """Write a deterministic audit record for one external agent execution."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     result = contract_result.result
     payload = {
         "schema_version": AGENT_EXECUTION_SCHEMA_VERSION,
-        "runner_name": AGENT_CONTRACT_RUNNER_NAME,
+        "runner_name": runner_name,
         "agent_name": agent_name,
         "profile_name": profile_name,
         "adapter_name": adapter_name,
@@ -221,6 +224,7 @@ def write_agent_execution(
         "returncode": result.returncode if result is not None else None,
         "stdout": stream_summary(result.stdout if result is not None else ""),
         "stderr": stream_summary(result.stderr if result is not None else ""),
+        "stdin": stream_summary(stdin_text),
         "raw_response": stream_summary(contract_result.raw_response),
         "output_file": file_summary(contract_result.workspace_output_path),
         "round_output_file": file_summary(contract_result.round_output_path),

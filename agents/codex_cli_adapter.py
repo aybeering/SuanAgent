@@ -17,6 +17,12 @@ from agents.codex_dry_run_adapter import (
     workspace_manifest_output_path,
     workspace_ids_from_report,
 )
+from orchestrator.agent_contract_runner import (
+    AgentCommandResult,
+    AgentContractRunResult,
+    CODEX_CLI_GUARDED_RUNNER_NAME,
+    write_agent_execution,
+)
 from orchestrator.proposal import StrategyProposal
 from orchestrator.workspace_manager import (
     create_isolated_workspace,
@@ -105,8 +111,30 @@ class CodexCliModifier:
             sandbox=self.sandbox,
             target_file=str(target_relative),
         )
+        execution_output_path = codex_execution_output_path(
+            round_dir=report_path.parent,
+            attempt_id=attempt_id,
+        )
+        agent_input_path = report_path.parent / "agent_input.json"
+        round_output_path = report_path.parent / "codex_stdout.txt"
+        workspace_output_path = workspace_path / "codex_stdout.txt"
 
         if not self.execute:
+            write_codex_execution_audit(
+                output_path=execution_output_path,
+                profile_name=profile_name,
+                adapter_name=adapter_name,
+                command=command,
+                workspace_path=workspace_path,
+                agent_input_path=agent_input_path,
+                workspace_output_path=workspace_output_path,
+                round_output_path=round_output_path,
+                timeout_seconds=self.timeout_seconds,
+                execution_enabled=False,
+                raw_response="codex cli execution disabled",
+                stdin_text=prompt,
+                allowed_mutation_paths=(str(target_relative),),
+            )
             return StrategyProposal(
                 agent_name=self.agent_name,
                 round_index=round_index,
@@ -137,7 +165,61 @@ class CodexCliModifier:
         raw_output = result.stdout
         if result.stderr:
             raw_output = raw_output + "\n[stderr]\n" + result.stderr
+        if result.timed_out:
+            write_codex_execution_audit(
+                output_path=execution_output_path,
+                profile_name=profile_name,
+                adapter_name=adapter_name,
+                command=command,
+                workspace_path=workspace_path,
+                agent_input_path=agent_input_path,
+                workspace_output_path=workspace_output_path,
+                round_output_path=round_output_path,
+                timeout_seconds=self.timeout_seconds,
+                execution_enabled=True,
+                raw_response=raw_output,
+                stdin_text=prompt,
+                allowed_mutation_paths=(str(target_relative),),
+                result=result,
+                status="timeout",
+            )
+            return StrategyProposal(
+                agent_name=self.agent_name,
+                round_index=round_index,
+                target_file=str(target_relative),
+                summary="Codex CLI execution timed out.",
+                risk_notes="No patch was accepted because the subprocess timed out.",
+                expected_metric_change={},
+                raw_response=raw_output,
+                patch_diff="",
+                applicable=False,
+                direction_tag="codex_cli_timeout",
+                hypotheses=("Codex CLI subprocesses must finish before timeout.",),
+                rejection_reason=(
+                    f"Codex CLI timed out after {self.timeout_seconds} seconds."
+                ),
+                prompt=prompt,
+                command=tuple(command),
+                workspace_path=str(workspace_path),
+            )
         if result.returncode != 0:
+            write_codex_execution_audit(
+                output_path=execution_output_path,
+                profile_name=profile_name,
+                adapter_name=adapter_name,
+                command=command,
+                workspace_path=workspace_path,
+                agent_input_path=agent_input_path,
+                workspace_output_path=workspace_output_path,
+                round_output_path=round_output_path,
+                timeout_seconds=self.timeout_seconds,
+                execution_enabled=True,
+                raw_response=raw_output,
+                stdin_text=prompt,
+                allowed_mutation_paths=(str(target_relative),),
+                result=result,
+                status="command_failed",
+            )
             return StrategyProposal(
                 agent_name=self.agent_name,
                 round_index=round_index,
@@ -164,6 +246,24 @@ class CodexCliModifier:
             allowed_paths={str(target_relative)},
         )
         if mutation_errors:
+            write_codex_execution_audit(
+                output_path=execution_output_path,
+                profile_name=profile_name,
+                adapter_name=adapter_name,
+                command=command,
+                workspace_path=workspace_path,
+                agent_input_path=agent_input_path,
+                workspace_output_path=workspace_output_path,
+                round_output_path=round_output_path,
+                timeout_seconds=self.timeout_seconds,
+                execution_enabled=True,
+                raw_response=raw_output,
+                stdin_text=prompt,
+                allowed_mutation_paths=(str(target_relative),),
+                result=result,
+                mutation_errors=mutation_errors,
+                status="workspace_violation",
+            )
             return StrategyProposal(
                 agent_name=self.agent_name,
                 round_index=round_index,
@@ -187,6 +287,23 @@ class CodexCliModifier:
                 contract_errors=mutation_errors,
             )
 
+        write_codex_execution_audit(
+            output_path=execution_output_path,
+            profile_name=profile_name,
+            adapter_name=adapter_name,
+            command=command,
+            workspace_path=workspace_path,
+            agent_input_path=agent_input_path,
+            workspace_output_path=workspace_output_path,
+            round_output_path=round_output_path,
+            timeout_seconds=self.timeout_seconds,
+            execution_enabled=True,
+            raw_response=raw_output,
+            stdin_text=prompt,
+            allowed_mutation_paths=(str(target_relative),),
+            result=result,
+            status="completed",
+        )
         return proposal_from_codex_output(
             raw_output=raw_output,
             report_path=report_path,
@@ -199,20 +316,96 @@ class CodexCliModifier:
         )
 
 
+def codex_execution_output_path(*, round_dir: Path, attempt_id: str) -> Path:
+    """Return where to store Codex execution audit before attempt selection."""
+    if not attempt_id:
+        return round_dir / "agent_execution.json"
+    return round_dir / "agent_executions" / f"{attempt_id}.json"
+
+
+def write_codex_execution_audit(
+    *,
+    output_path: Path,
+    profile_name: str,
+    adapter_name: str,
+    command: list[str],
+    workspace_path: Path,
+    agent_input_path: Path,
+    workspace_output_path: Path,
+    round_output_path: Path,
+    timeout_seconds: int,
+    execution_enabled: bool,
+    raw_response: str,
+    stdin_text: str,
+    allowed_mutation_paths: tuple[str, ...],
+    result: AgentCommandResult | None = None,
+    mutation_errors: tuple[str, ...] = (),
+    status: str = "disabled",
+) -> None:
+    """Write the unified guarded-Codex execution audit."""
+    write_agent_execution(
+        output_path=output_path,
+        agent_name=CodexCliModifier.agent_name,
+        profile_name=profile_name,
+        adapter_name=adapter_name,
+        runner_name=CODEX_CLI_GUARDED_RUNNER_NAME,
+        stdin_text=stdin_text,
+        contract_result=AgentContractRunResult(
+            status=status,
+            execution_enabled=execution_enabled,
+            command=tuple(command),
+            cwd=workspace_path,
+            workspace_path=workspace_path,
+            agent_input_path=agent_input_path,
+            workspace_output_path=workspace_output_path,
+            round_output_path=round_output_path,
+            timeout_seconds=timeout_seconds,
+            raw_response=raw_response,
+            mutation_errors=mutation_errors,
+            allowed_mutation_paths=allowed_mutation_paths,
+            result=result,
+        ),
+    )
+
+
 def run_codex_command(
     *,
     command: list[str],
     prompt: str,
     cwd: Path,
     timeout_seconds: int,
-) -> subprocess.CompletedProcess[str]:
+) -> AgentCommandResult:
     """Run Codex CLI with prompt on stdin."""
-    return subprocess.run(
-        command,
-        input=prompt,
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        timeout=timeout_seconds,
-        check=False,
+    try:
+        result = subprocess.run(
+            command,
+            input=prompt,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stderr = text_or_empty(exc.stderr)
+        timeout_message = f"codex cli timed out after {timeout_seconds} seconds"
+        return AgentCommandResult(
+            returncode=None,
+            stdout=text_or_empty(exc.stdout),
+            stderr="\n".join(part for part in (stderr, timeout_message) if part),
+            timed_out=True,
+        )
+    return AgentCommandResult(
+        returncode=result.returncode,
+        stdout=result.stdout,
+        stderr=result.stderr,
     )
+
+
+def text_or_empty(value: str | bytes | None) -> str:
+    """Return subprocess output as text."""
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value

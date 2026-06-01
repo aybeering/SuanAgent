@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "SuanAgent File-Protocol Execution Audit",
+  "title": "SuanAgent Agent Execution Audit",
   "type": "object",
   "required": [
     "schema_version",
@@ -20,6 +20,7 @@
     "returncode",
     "stdout",
     "stderr",
+    "stdin",
     "raw_response",
     "output_file",
     "round_output_file",
@@ -37,7 +38,8 @@
     "runner_name": {
       "type": "string",
       "enum": [
-        "agent_contract_runner_v1"
+        "agent_contract_runner_v1",
+        "codex_cli_guarded_adapter"
       ]
     },
     "agent_name": {
@@ -113,6 +115,26 @@
       }
     },
     "stderr": {
+      "$ref_note": "stream summary",
+      "type": "object",
+      "required": [
+        "chars",
+        "sha256",
+        "preview"
+      ],
+      "properties": {
+        "chars": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "preview": {
+          "type": "string"
+        }
+      }
+    },
+    "stdin": {
       "$ref_note": "stream summary",
       "type": "object",
       "required": [

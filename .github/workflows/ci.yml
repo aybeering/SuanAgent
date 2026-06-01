@@ -36,6 +36,9 @@ jobs:
       - name: Run iteration dry run
         run: python -m orchestrator.iteration_loop --config config/codex_dry_run.json --run-id ci-dry --max-rounds 1
 
+      - name: Run guarded Codex CLI audit iteration
+        run: python -m orchestrator.iteration_loop --config config/codex_cli_guarded.json --run-id ci-codex-guarded --max-rounds 1
+
       - name: Run adaptive stub iteration
         run: python -m orchestrator.iteration_loop --config config/adaptive_stub.json --run-id ci-adaptive
 
@@ -57,6 +60,24 @@ jobs:
           assert sandbox["slots"][0]["command"]["source"] == "proposal"
           PY
           python -m orchestrator.artifact_validator ci-dry
+          python -m orchestrator.external_agent_sandbox_drill experiments/ci-codex-guarded
+          test -f experiments/ci-codex-guarded/external_agent_sandbox_drill.json
+          test -f experiments/ci-codex-guarded/external_agent_sandbox_drill.md
+          test -f experiments/ci-codex-guarded/round_001/agent_executions/attempt_001_primary.json
+          python -m orchestrator.experiments sandbox ci-codex-guarded > /tmp/codex_guarded_sandbox.json
+          python - <<'PY'
+          import json
+          audit = json.load(open("experiments/ci-codex-guarded/round_001/agent_executions/attempt_001_primary.json"))
+          sandbox = json.load(open("/tmp/codex_guarded_sandbox.json"))
+          assert audit["schema_version"] == "agent_execution_v1"
+          assert audit["runner_name"] == "codex_cli_guarded_adapter"
+          assert audit["status"] == "disabled"
+          assert audit["stdin"]["chars"] > 0
+          assert sandbox["schema_version"] == "external_agent_sandbox_drill_v1"
+          assert sandbox["ok"] is True
+          assert sandbox["slots"][0]["command"]["source"] == "agent_execution"
+          PY
+          python -m orchestrator.artifact_validator ci-codex-guarded
           python -m orchestrator.artifact_validator ci-adaptive
           python -m orchestrator.artifact_validator ci-file-protocol-demo
           python - <<'PY'

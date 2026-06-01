@@ -33,6 +33,7 @@ from orchestrator.agent_io import (
 from orchestrator.agent_roles import AGENT_ROLE_CONTRACTS_SCHEMA_VERSION
 from orchestrator.agent_contract_runner import (
     AGENT_CONTRACT_RUNNER_NAME,
+    CODEX_CLI_GUARDED_RUNNER_NAME,
     run_agent_contract,
 )
 from orchestrator.agent_output_intake import (
@@ -5077,10 +5078,25 @@ def test_codex_cli_adapter_disabled_does_not_execute(tmp_path: Path) -> None:
 
     round_dir = repo / "experiments/codex-disabled/round_001"
     proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    audit = json.loads(
+        (
+            round_dir / "agent_executions/attempt_001_primary.json"
+        ).read_text(encoding="utf-8")
+    )
     assert proposal["agent_name"] == "codex_cli"
     assert proposal["applicable"] is False
     assert proposal["rejection_reason"] == "Codex CLI execution disabled."
     assert proposal["command"][0] == "missing-codex-for-disabled-test"
+    assert audit["schema_version"] == AGENT_EXECUTION_SCHEMA_VERSION
+    assert audit["runner_name"] == CODEX_CLI_GUARDED_RUNNER_NAME
+    assert audit["status"] == "disabled"
+    assert audit["execution_enabled"] is False
+    assert audit["stdin"]["chars"] > 0
+    assert audit["mutation_guard"]["passed"] is True
+    assert_matches_schema(
+        round_dir / "agent_executions/attempt_001_primary.json",
+        "agent_execution",
+    )
 
 
 def test_codex_cli_adapter_execute_success_parses_patch(tmp_path: Path) -> None:
@@ -5122,6 +5138,15 @@ print('+MIN_EDGE = 0.04')
     assert proposal.agent_name == "codex_cli"
     assert "MIN_EDGE = 0.04" in proposal.patch_diff
     assert proposal.command[0] == str(fake_codex)
+    audit = json.loads(
+        (report_path.parent / "agent_execution.json").read_text(encoding="utf-8")
+    )
+    assert audit["runner_name"] == CODEX_CLI_GUARDED_RUNNER_NAME
+    assert audit["status"] == "completed"
+    assert audit["returncode"] == 0
+    assert audit["stdout"]["chars"] > 0
+    assert audit["stdin"]["chars"] > 0
+    assert_matches_schema(report_path.parent / "agent_execution.json", "agent_execution")
 
 
 def test_iteration_loop_codex_cli_executes_structured_json_fixture(
@@ -5211,6 +5236,19 @@ print(json.dumps({
     assert attempts[0]["status"] == "selectable"
     assert attempts[0]["selected"] is True
     assert "agent_context.json" in proposal["prompt"]
+    audit = json.loads(
+        (
+            round_dir / "agent_executions/attempt_001_primary.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert audit["runner_name"] == CODEX_CLI_GUARDED_RUNNER_NAME
+    assert audit["status"] == "completed"
+    assert audit["execution_enabled"] is True
+    assert audit["mutation_guard"]["passed"] is True
+    assert_matches_schema(
+        round_dir / "agent_executions/attempt_001_primary.json",
+        "agent_execution",
+    )
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
@@ -5289,6 +5327,19 @@ print(json.dumps({
     assert proposal["rejection_reason"].startswith("proposal contract invalid")
     assert attempts[0]["status"] == "contract_invalid"
     assert decision["reasons"][0].startswith("proposal contract invalid")
+    audit = json.loads(
+        (
+            round_dir / "agent_executions/attempt_001_primary.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert audit["runner_name"] == CODEX_CLI_GUARDED_RUNNER_NAME
+    assert audit["status"] == "workspace_violation"
+    assert audit["mutation_guard"]["passed"] is False
+    assert audit["mutation_errors"] == ["workspace modified disallowed file: README.md"]
+    assert_matches_schema(
+        round_dir / "agent_executions/attempt_001_primary.json",
+        "agent_execution",
+    )
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
@@ -5328,6 +5379,14 @@ raise SystemExit(7)
     assert proposal.applicable is False
     assert proposal.rejection_reason == "Codex CLI exited with 7."
     assert "bad things" in proposal.raw_response
+    audit = json.loads(
+        (report_path.parent / "agent_execution.json").read_text(encoding="utf-8")
+    )
+    assert audit["runner_name"] == CODEX_CLI_GUARDED_RUNNER_NAME
+    assert audit["status"] == "command_failed"
+    assert audit["returncode"] == 7
+    assert audit["stderr"]["chars"] > 0
+    assert_matches_schema(report_path.parent / "agent_execution.json", "agent_execution")
 
 
 def test_codex_prompt_and_command_builders_are_deterministic() -> None:

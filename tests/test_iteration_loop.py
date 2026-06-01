@@ -490,6 +490,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "agent_bundle_manifest.json",
         "agent_output.json",
         "agent_validation.json",
+        "agent_executor_report.json",
         "agent_attempts_manifest.json",
         "agent_selection_report.json",
         "proposal_attempts.json",
@@ -527,6 +528,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     agent_validation = json.loads(
         (round_dir / "agent_validation.json").read_text(encoding="utf-8")
+    )
+    agent_executor = json.loads(
+        (round_dir / "agent_executor_report.json").read_text(encoding="utf-8")
     )
     attempts = json.loads(
         (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
@@ -623,6 +627,16 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_validation["checks"]["contract_valid"] is True
     assert agent_validation["checks"]["git_apply_check"] == "passed"
     assert agent_validation["proposal_patch_sha256"] == proposal["patch_sha256"]
+    assert agent_executor["schema_version"] == "agent_executor_v1"
+    assert_matches_schema(round_dir / "agent_executor_report.json", "agent_executor")
+    assert agent_executor["attempt_count"] == len(attempts)
+    assert agent_executor["selected_attempt_id"] == "attempt_001_primary"
+    assert agent_executor["execution_policy"]["mode"] == "sequential"
+    assert agent_executor["attempts"][0]["modifier_name"] == "strategy_modifier_stub"
+    assert agent_executor["attempts"][0]["proposal"]["applicable"] is True
+    assert agent_executor["attempts"][0]["artifacts"]["attempt_dir"].endswith(
+        "agent_attempts/attempt_001_primary"
+    )
     assert selected_attempt["direction_tag"] == "lower_min_edge"
     assert selected_attempt["validation_status"] == "evaluated"
     assert selected_attempt["failure_code"] == "policy_ev_improvement_low"

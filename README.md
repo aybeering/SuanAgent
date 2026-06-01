@@ -21,8 +21,9 @@ The strategy interface contract is documented in
 `docs/strategy_interface.md`. Machine-readable agent contracts live in
 `schemas/agent_input.schema.json`, `schemas/agent_bundle.schema.json`,
 `schemas/agent_attempts.schema.json`, `schemas/agent_selection.schema.json`,
-`schemas/agent_output.schema.json`, `schemas/agent_validation.schema.json`, and
-`schemas/agent_execution.schema.json`; saved attempt replay reports use
+`schemas/agent_executor.schema.json`, `schemas/agent_output.schema.json`,
+`schemas/agent_validation.schema.json`, and `schemas/agent_execution.schema.json`;
+saved attempt replay reports use
 `schemas/attempt_replay.schema.json`; aggregate agent result reports use
 `schemas/agent_result_stats.schema.json`;
 planner intent, run provenance, and
@@ -208,11 +209,12 @@ direction, directions to avoid, evidence, and hard constraints for the modifier.
 Each round also writes `agent_input_bundle/`, `agent_output_bundle/`,
 `agent_bundle_manifest.json`, `agent_attempts/`,
 `agent_attempts_manifest.json`, `agent_selection_report.json`,
-`agent_input.json`, `raw_agent_output.txt`, `agent_output.json`, and
-`agent_validation.json`, stable fixtures that record what a modifier backend was
-given, the raw text that became the proposal, every candidate attempt
-considered, why each attempt was selected or skipped, and whether deterministic
-intake checks passed before patch application.
+`agent_executor_report.json`, `agent_input.json`, `raw_agent_output.txt`,
+`agent_output.json`, and `agent_validation.json`, stable fixtures that record
+what a modifier backend was given, the raw text that became the proposal, every
+candidate attempt considered, the executor queue metadata, why each attempt was
+selected or skipped, and whether deterministic intake checks passed before patch
+application.
 Workspace-backed candidates also keep per-attempt copies of
 `workspace_manifest.json` and, for file-protocol commands, `agent_execution.json`
 inside `agent_attempts/attempt_xxx/`. Tests validate these artifacts against the
@@ -221,8 +223,8 @@ workspace manifest, agent validation report, and file-protocol execution audit
 are validated against
 `schemas/proposal_intent.schema.json`, `schemas/agent_bundle.schema.json`,
 `schemas/agent_attempts.schema.json`, `schemas/agent_selection.schema.json`,
-`schemas/workspace_manifest.schema.json`, `schemas/agent_validation.schema.json`,
-`schemas/agent_execution.schema.json`, and
+`schemas/agent_executor.schema.json`, `schemas/workspace_manifest.schema.json`,
+`schemas/agent_validation.schema.json`, `schemas/agent_execution.schema.json`, and
 `schemas/attempt_replay.schema.json`; run provenance is validated against
 `schemas/run_metadata.schema.json`.
 Use `python -m orchestrator.artifact_validator <run_id>` to check that a run

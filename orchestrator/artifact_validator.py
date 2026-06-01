@@ -50,6 +50,7 @@ ROUND_REQUIRED_FILES = (
     "agent_bundle_manifest.json",
     "agent_output.json",
     "agent_validation.json",
+    "agent_executor_report.json",
     "agent_attempts_manifest.json",
     "agent_selection_report.json",
     "proposal_attempts.json",
@@ -205,6 +206,16 @@ def validate_round_dir(
         report=report,
     )
     validate_contract_file(
+        payload_path=round_dir / "agent_executor_report.json",
+        schema_path=repo_root / "schemas/agent_executor.schema.json",
+        report=report,
+    )
+    validate_agent_executor_report(
+        path=round_dir / "agent_executor_report.json",
+        repo_root=repo_root,
+        report=report,
+    )
+    validate_contract_file(
         payload_path=round_dir / "agent_attempts_manifest.json",
         schema_path=repo_root / "schemas/agent_attempts.schema.json",
         report=report,
@@ -349,6 +360,51 @@ def validate_agent_attempts_manifest(
             file_path = resolve_path(Path(str(file_row.get("path", ""))), repo_root)
             if not file_path.exists() or not file_path.is_file():
                 add_error(report, f"attempt file does not exist: {file_path}")
+
+
+def validate_agent_executor_report(
+    *,
+    path: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate executor rows point at existing attempt/runtime artifacts."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    rows = payload.get("attempts", [])
+    if not isinstance(rows, list) or not rows:
+        add_error(report, "agent_executor_report.json attempts is empty or invalid")
+        return
+    selected_rows = 0
+    for row in rows:
+        if not isinstance(row, dict):
+            add_error(report, "agent_executor_report.json attempts contains non-object")
+            continue
+        if bool(row.get("selected", False)):
+            selected_rows += 1
+        artifacts = row.get("artifacts", {})
+        if not isinstance(artifacts, dict):
+            add_error(report, "agent_executor_report.json artifacts is non-object")
+            continue
+        for key in ("attempt_dir", "workspace_manifest", "agent_execution"):
+            value = str(artifacts.get(key, ""))
+            if not value:
+                continue
+            artifact_path = resolve_path(Path(value), repo_root)
+            if key == "attempt_dir":
+                if not artifact_path.exists() or not artifact_path.is_dir():
+                    add_error(
+                        report,
+                        f"executor attempt_dir does not exist: {artifact_path}",
+                    )
+            elif not artifact_path.exists() or not artifact_path.is_file():
+                add_error(report, f"executor artifact does not exist: {artifact_path}")
+    if selected_rows != 1:
+        add_error(
+            report,
+            f"agent_executor_report.json must have exactly one selected row, got {selected_rows}",
+        )
 
 
 def validate_agent_selection_report(

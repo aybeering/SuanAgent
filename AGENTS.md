@@ -118,6 +118,7 @@ Current structure:
 │   ├── agent_bundle.schema.json
 │   ├── agent_attempts.schema.json
 │   ├── agent_selection.schema.json
+│   ├── agent_executor.schema.json
 │   ├── agent_output.schema.json
 │   ├── agent_validation.schema.json
 │   ├── agent_execution.schema.json
@@ -245,6 +246,7 @@ round_001/
   agent_output_bundle/
   agent_output.json
   agent_validation.json
+  agent_executor_report.json
   agent_attempts_manifest.json
   agent_selection_report.json
   agent_attempts/
@@ -302,8 +304,8 @@ avoid, evidence, source context artifacts, and hard constraints. It is planner
 guidance only; it must not decide acceptance.
 Each round should also write `agent_input.json`, `agent_bundle_manifest.json`,
 `agent_input_bundle/`, `agent_output_bundle/`, `raw_agent_output.txt`,
-`agent_output.json`, `agent_validation.json`, `agent_attempts_manifest.json`,
-and `agent_attempts/`.
+`agent_output.json`, `agent_validation.json`, `agent_executor_report.json`,
+`agent_attempts_manifest.json`, and `agent_attempts/`.
 `agent_input.json` should use schema version `agent_io_input_v1` and describe
 the reports, context, proposal intent, before metrics, policy config,
 candidate-selection config, and modifier list available to the agent.
@@ -322,6 +324,9 @@ rows, and output artifact paths, including `raw_agent_output.txt`.
 `agent_validation.json` should use schema version `agent_validation_v1` and
 record deterministic intake checks for the selected proposal, including
 contract validity, strategy-only patch targeting, and `git apply --check`.
+`agent_executor_report.json` should use schema version `agent_executor_v1` and
+record the deterministic execution queue, selected attempt id, per-attempt
+modifier names, proposal metadata, and runtime artifact paths.
 `agent_attempts/` should contain one subdirectory per candidate attempt, each
 with its own attempt payload, proposal, raw output, patch, and any attempt-level
 workspace or execution audit. The
@@ -596,7 +601,7 @@ When the V0.5 loop runs, it should:
 3. Run the current strategy before modification on all configured data splits.
 4. Save train, validation, and holdout before metrics, trades, and reports.
 5. Call the fixed strategy modifier stub using the train report.
-6. Save `agent_context.md`, `agent_context.json`, `proposal_intent.json`, `proposal_intent.md`, `agent_input.json`, `raw_agent_output.txt`, `agent_output.json`, `agent_validation.json`, `proposal.json`, `agent_response.txt`, and `patch.diff`.
+6. Save `agent_context.md`, `agent_context.json`, `proposal_intent.json`, `proposal_intent.md`, `agent_input.json`, `raw_agent_output.txt`, `agent_output.json`, `agent_validation.json`, `agent_executor_report.json`, `proposal.json`, `agent_response.txt`, and `patch.diff`.
 7. Apply the patch with Git only after deterministic agent-output validation passes.
 8. Run the modified strategy on all configured data splits.
 9. Save train, validation, and holdout after metrics, trades, and reports.

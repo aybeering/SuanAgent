@@ -58,6 +58,10 @@ jobs:
           stats = json.load(open("experiments/ci-adaptive/agent_result_stats.json"))
           assert stats["schema_version"] == "agent_result_stats_v1"
           assert stats["agents"]
+          executor = json.load(open("experiments/ci-adaptive/round_001/agent_executor_report.json"))
+          assert executor["schema_version"] == "agent_executor_v1"
+          assert executor["selected_attempt_id"]
+          assert executor["execution_policy"]["mode"] == "sequential"
           workspace = json.load(open("experiments/ci-file-protocol-demo/round_001/workspace_manifest.json"))
           assert workspace["attempt_id"] == "attempt_001_primary"
           assert "attempt_001_primary" in workspace["workspace_path"]

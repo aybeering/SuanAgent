@@ -24,6 +24,7 @@ from orchestrator.agent_executor import (
     build_agent_queue,
     execute_agent_queue,
     modifier_name,
+    write_agent_executor_report,
 )
 from orchestrator.agent_result_stats import (
     historical_routing_prior,
@@ -655,6 +656,14 @@ def run_round(
         round_id=round_id,
         attempts=proposal_attempts,
     )
+    write_agent_executor_report(
+        output_path=round_dir / "agent_executor_report.json",
+        repo_root=repo_root,
+        round_dir=round_dir,
+        run_id=run_id,
+        round_id=round_id,
+        attempts=proposal_attempts,
+    )
     append_outcome_memory(
         experiments_dir=round_dir.parent.parent,
         record=build_outcome_record(
@@ -921,6 +930,7 @@ def proposal_attempt_record(
     *,
     attempt_id: str,
     role: str,
+    modifier_name: str,
     proposal: StrategyProposal,
     memory_filter_reason: str,
     patch_memory_filter_reason: str,
@@ -956,6 +966,7 @@ def proposal_attempt_record(
     return {
         "attempt_id": attempt_id,
         "role": role,
+        "modifier_name": modifier_name,
         "agent_name": payload.get("agent_name", ""),
         "direction_tag": payload.get("direction_tag", ""),
         "summary": payload.get("summary", ""),
@@ -1048,6 +1059,7 @@ def select_proposal_candidate(
     for agent_result in agent_results:
         role = agent_result.role
         attempt_id = agent_result.attempt_id
+        candidate_modifier_name = agent_result.modifier_name
         proposal = agent_result.proposal
         proposal = enforce_proposal_contract(
             proposal=proposal,
@@ -1153,6 +1165,7 @@ def select_proposal_candidate(
             proposal_attempt_record(
                 attempt_id=attempt_id,
                 role=role,
+                modifier_name=candidate_modifier_name,
                 proposal=proposal,
                 memory_filter_reason=memory_reason,
                 patch_memory_filter_reason=patch_memory_reason,

@@ -470,6 +470,7 @@ python -m orchestrator.experiments list --limit 5
 python -m orchestrator.experiments summary
 python -m orchestrator.experiments leaderboard --limit 5
 python -m orchestrator.experiments memory --limit 5
+python -m orchestrator.artifact_validator <run_id>
 ```
 
 ## Expected behavior

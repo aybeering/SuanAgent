@@ -25,6 +25,7 @@ from orchestrator.agent_io import (
     AGENT_INPUT_SCHEMA_VERSION,
     AGENT_OUTPUT_SCHEMA_VERSION,
 )
+from orchestrator.artifact_validator import validate_run_artifacts
 from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
 from orchestrator.iteration_loop import run_iteration_loop
@@ -1273,6 +1274,13 @@ def test_run_pipeline_accepts_config_path_and_run_id(tmp_path: Path) -> None:
     assert summary["run_id"] == "single-cli-style"
     assert (repo / "experiments/single-cli-style/decision.json").exists()
     assert (repo / "experiments/single-cli-style/summary.md").exists()
+    report = validate_run_artifacts(
+        run_id="single-cli-style",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert report["ok"] is True
+    assert report["kind"] == "single_run"
 
 
 def test_iteration_loop_accepts_dry_run_config_path(tmp_path: Path) -> None:
@@ -1861,6 +1869,115 @@ def test_file_protocol_demo_agent_runs_from_config(tmp_path: Path) -> None:
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
+
+
+def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-default",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    demo_config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+    run_iteration_loop(
+        run_id="artifact-file-protocol",
+        max_rounds=1,
+        repo_root=repo,
+        config=demo_config,
+    )
+
+    default_report = validate_run_artifacts(
+        run_id="artifact-default",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    file_protocol_report = validate_run_artifacts(
+        run_id="artifact-file-protocol",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert default_report["ok"] is True
+    assert default_report["kind"] == "iteration_loop"
+    assert default_report["rounds_checked"] == 1
+    assert file_protocol_report["ok"] is True
+    assert any(
+        path.endswith("agent_execution.json")
+        for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_missing_required_round_file(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-missing",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    missing_path = repo / "experiments/artifact-missing/round_001/agent_input.json"
+    missing_path.unlink()
+
+    report = validate_run_artifacts(
+        run_id="artifact-missing",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "missing required artifact" in error and "agent_input.json" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_schema_errors(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+    run_iteration_loop(
+        run_id="artifact-schema-error",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    path = repo / "experiments/artifact-schema-error/round_001/agent_execution.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["status"] = "mystery"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="artifact-schema-error",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any("expected one of" in error and "mystery" in error for error in report["errors"])  # type: ignore[union-attr]
+
+
+def test_artifact_validator_cli_exits_nonzero_for_invalid_run(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.artifact_validator",
+            "does-not-exist",
+            "--experiments-dir",
+            str(repo / "experiments"),
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "run directory does not exist" in result.stdout
 
 
 def test_schema_validator_reports_missing_required_property() -> None:

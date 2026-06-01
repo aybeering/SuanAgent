@@ -1423,6 +1423,50 @@ def test_adaptive_stub_changes_patch_direction_after_context_failure(
     assert "STAKE = 10.0" in strategy_text
 
 
+def test_adaptive_stub_uses_recent_research_brief_without_memory(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    default = load_project_config(repo)
+    fixed_without_fallback = replace(
+        default,
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+    )
+    adaptive_without_fallback = replace(
+        default,
+        strategy_modifier="adaptive_stub",
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+    )
+    run_iteration_loop(
+        run_id="brief-signal-source",
+        max_rounds=1,
+        repo_root=repo,
+        config=fixed_without_fallback,
+    )
+    (repo / "experiments/memory.jsonl").unlink()
+
+    run_iteration_loop(
+        run_id="brief-signal-target",
+        max_rounds=1,
+        repo_root=repo,
+        config=adaptive_without_fallback,
+    )
+    round_dir = repo / "experiments/brief-signal-target/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    context_payload = json.loads(
+        (round_dir / "agent_context.json").read_text(encoding="utf-8")
+    )
+
+    assert context_payload["global_outcome_memory"] == []
+    assert context_payload["recent_research_briefs"][0]["run_id"] == "brief-signal-source"
+    assert context_payload["recent_research_briefs"][0]["top_direction_tag"] == "lower_min_edge"
+    assert proposal["direction_tag"] == "reduce_stake"
+    assert "STAKE = 8.0" in proposal["patch_diff"]
+    assert "recent research briefs flagged lower_min_edge" in proposal["summary"]
+
+
 def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     default = load_project_config(repo)

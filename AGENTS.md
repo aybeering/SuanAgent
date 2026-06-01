@@ -536,8 +536,9 @@ When the V0.5 loop runs, it should:
 
 The configured modifier may also be `codex_dry_run`, `codex_cli_dry_run`,
 `codex_cli`, or `file_protocol`. The `adaptive_stub` modifier is still
-deterministic, but it should read `agent_context.md` and choose a different
-fixed patch after prior failures. The `codex_cli` and `file_protocol` adapters
+deterministic, but it should read `agent_context.md` / `agent_context.json` and
+choose a different fixed patch after prior failures or recent research briefs
+that flag a weak direction. The `codex_cli` and `file_protocol` adapters
 must default to `execute=false`; only an explicit config change may invoke a
 subprocess. Enabled `file_protocol` commands must run in an isolated workspace
 and only bring back the configured proposal output file. Subprocess fixtures

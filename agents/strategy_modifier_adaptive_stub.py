@@ -8,7 +8,9 @@ seeing prior failed patches in the same run.
 from __future__ import annotations
 
 import difflib
+import json
 from pathlib import Path
+from typing import Any
 
 from orchestrator.proposal import StrategyProposal
 
@@ -64,7 +66,10 @@ def propose_strategy_change(
     target_text = target_file.read_text(encoding="utf-8")
     target_relative = target_file.relative_to(repo_root)
 
-    if has_prior_failed_patch(context_text):
+    if has_prior_failed_patch(context_text) or research_brief_suggests_new_direction(
+        context_path=context_path,
+        context_text=context_text,
+    ):
         return build_replacement_proposal(
             target_text=target_text,
             target_relative=target_relative,
@@ -74,7 +79,7 @@ def propose_strategy_change(
             old_text=STAKE_OLD,
             new_text=STAKE_NEW,
             direction_tag="reduce_stake",
-            summary=f"Replace `{STAKE_OLD}` with `{STAKE_NEW}` after prior failure.",
+            summary=stake_summary(context_path=context_path, context_text=context_text),
             risk_notes="May increase fill affordability while changing position sizing.",
             expected_metric_change={
                 "trade_count": "same_or_increase",
@@ -184,6 +189,96 @@ def failed_patch_hashes_section_has_hash(context_text: str) -> bool:
         return False
     section = context_text.split(marker, maxsplit=1)[1].split("##", maxsplit=1)[0]
     return "- `" in section
+
+
+def research_brief_suggests_new_direction(
+    *,
+    context_path: Path | None,
+    context_text: str,
+) -> bool:
+    """Return whether recent research briefs point away from lower MIN_EDGE."""
+    payload = load_context_payload(context_path)
+    briefs = list_of_dicts(payload.get("recent_research_briefs", []))
+    if briefs:
+        return any(research_brief_flags_failed_lower_edge(brief) for brief in briefs)
+    return markdown_brief_flags_failed_lower_edge(context_text)
+
+
+def load_context_payload(context_path: Path | None) -> dict[str, Any]:
+    """Load sibling agent_context.json when available."""
+    if context_path is None:
+        return {}
+    payload_path = context_path.with_suffix(".json")
+    if not payload_path.exists():
+        return {}
+    try:
+        payload = json.loads(payload_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def research_brief_flags_failed_lower_edge(payload: dict[str, Any]) -> bool:
+    """Return whether one compact brief says lower_min_edge was weak."""
+    direction = str(
+        payload.get("top_direction_tag")
+        or payload.get("selected_direction_tag")
+        or "",
+    )
+    status = str(payload.get("status", ""))
+    accepted_round = payload.get("accepted_round")
+    questions = " ".join(
+        str(question)
+        for question in payload.get("next_questions", [])
+        if str(question)
+    )
+    return (
+        direction == "lower_min_edge"
+        and not accepted_round
+        and (
+            status.startswith("stopped")
+            or "rejection reason" in questions
+            or "champion EV gap" in questions
+        )
+    )
+
+
+def markdown_brief_flags_failed_lower_edge(context_text: str) -> bool:
+    """Fallback markdown check for older context renderers."""
+    marker = "## Recent Research Briefs"
+    if marker not in context_text:
+        return False
+    section = context_text.split(marker, maxsplit=1)[1]
+    return (
+        "lower_min_edge" in section
+        and (
+            "stopped_" in section
+            or "rejection reason" in section
+            or "champion EV gap" in section
+        )
+    )
+
+
+def list_of_dicts(value: object) -> list[dict[str, Any]]:
+    """Return dict items from a list-like payload."""
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def stake_summary(*, context_path: Path | None, context_text: str) -> str:
+    """Return a deterministic summary for why stake was changed."""
+    if has_prior_failed_patch(context_text):
+        return f"Replace `{STAKE_OLD}` with `{STAKE_NEW}` after prior failure."
+    if research_brief_suggests_new_direction(
+        context_path=context_path,
+        context_text=context_text,
+    ):
+        return (
+            f"Replace `{STAKE_OLD}` with `{STAKE_NEW}` after recent research "
+            "briefs flagged lower_min_edge as weak."
+        )
+    return f"Replace `{STAKE_OLD}` with `{STAKE_NEW}`."
 
 
 def response_text(report_text: str, context_text: str) -> str:

@@ -30,6 +30,10 @@ subprocess when their `execute` flag is explicitly set to `true`. Example
 configs live in `config/adaptive_stub.json`, `config/codex_dry_run.json`,
 `config/codex_cli_guarded.json`, `config/file_protocol_guarded.json`, and
 `config/file_protocol_demo.json`.
+The `adaptive_stub` remains deterministic but now reads both same-run failures
+and recent `research_brief` rows from `agent_context.json`; if recent research
+shows failed `lower_min_edge` attempts, it shifts to a fixed `reduce_stake`
+proposal.
 Enabled `file_protocol` commands run inside an isolated workspace and may only
 bring back the configured proposal output file. Each file-protocol round writes
 `agent_execution.json` with the command, workspace path, return code, output

@@ -58,6 +58,13 @@ jobs:
           assert payload["recommended_direction"]
           PY
 
+      - name: Replay demo agent input
+        run: |
+          python -m orchestrator.agent_replay \
+            experiments/ci-file-protocol-demo/round_001/agent_input.json \
+            --output experiments/ci-file-protocol-demo/round_001/replayed_agent_output.json
+          test -f experiments/ci-file-protocol-demo/round_001/replayed_agent_output.json
+
       - name: Inspect research brief artifacts
         run: |
           test -f experiments/ci-adaptive/research_brief.json

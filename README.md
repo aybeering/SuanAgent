@@ -72,6 +72,7 @@ python -m orchestrator.experiments diagnose <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
 python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>
+python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json
 ```
 
 Useful mode switches:
@@ -139,6 +140,10 @@ rolled back unless the policy gates accept a valid patch.
 it reads `agent_input.json` plus `proposal_intent.json`, writes structured
 proposal JSON, and lets the loop perform the same patch parsing, validation,
 backtest, policy gate, and rollback used for future SDK or CLI-backed agents.
+Use `python -m orchestrator.agent_replay <agent_input.json>` to replay that
+same demo agent offline from a saved round input. Replay writes only the
+requested proposal JSON output and does not run backtests, apply patches, or
+mutate strategy files.
 Iteration status is one of `accepted`, `stopped_repeated_proposal`,
 `stopped_max_rounds`, or `failed`.
 The validation policy remains the primary acceptance rule, while the optional

@@ -25,6 +25,7 @@ from orchestrator.agent_io import (
     AGENT_INPUT_SCHEMA_VERSION,
     AGENT_OUTPUT_SCHEMA_VERSION,
 )
+from orchestrator.agent_replay import replay_agent_input
 from orchestrator.artifact_validator import validate_run_artifacts
 from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
@@ -2042,6 +2043,51 @@ def test_file_protocol_demo_agent_follows_proposal_intent(tmp_path: Path) -> Non
         "Demo file-protocol agent follows proposal intent to reduce STAKE."
     )
     assert "STAKE = 8.0" in proposal["patch_diff"]
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_agent_replay_replays_demo_agent_from_agent_input(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+    run_iteration_loop(
+        run_id="replay-source",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    round_dir = repo / "experiments/replay-source/round_001"
+    output_path = round_dir / "replayed_agent_output.json"
+
+    replayed = replay_agent_input(
+        agent_input_path=round_dir / "agent_input.json",
+        output_path=output_path,
+    )
+    command_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.agent_replay",
+            str(round_dir / "agent_input.json"),
+            "--output",
+            str(round_dir / "replayed_agent_output_cli.json"),
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    actual = json.loads((round_dir / "demo_agent_output.json").read_text(encoding="utf-8"))
+    cli_payload = json.loads(command_result.stdout)
+
+    assert command_result.returncode == 0
+    assert replayed == actual
+    assert json.loads(output_path.read_text(encoding="utf-8")) == actual
+    assert cli_payload == actual
+    assert json.loads(
+        (round_dir / "replayed_agent_output_cli.json").read_text(encoding="utf-8")
+    ) == actual
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )

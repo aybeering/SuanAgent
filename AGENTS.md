@@ -517,6 +517,7 @@ python -m orchestrator.experiments diagnose <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
 python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>
+python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json
 ```
 
 ## Expected behavior
@@ -567,6 +568,9 @@ without an available executable.
 Experiment inspection commands should read `experiments/index.jsonl` and local
 run artifacts without mutating strategy code. Leaderboards should rank by
 validation EV improvement, not natural-language judgment.
+Agent replay commands should read saved `agent_input.json` and
+`proposal_intent.json` artifacts, emit deterministic proposal JSON, and must
+not apply patches, run backtests, or mutate strategy files.
 Run comparison should use deterministic metrics and dataset fingerprints. A
 candidate should only receive a promotion recommendation when artifacts are
 valid, compared dataset fingerprints match, validation EV delta improves beyond

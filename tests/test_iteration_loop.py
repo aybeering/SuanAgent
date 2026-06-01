@@ -80,14 +80,27 @@ def test_default_config_loads_dataset_splits() -> None:
 def test_example_configs_load_modifier_modes() -> None:
     dry_run = load_project_config(Path.cwd(), Path("config/codex_dry_run.json"))
     guarded = load_project_config(Path.cwd(), Path("config/codex_cli_guarded.json"))
+    adaptive = load_project_config(Path.cwd(), Path("config/adaptive_stub.json"))
 
     assert dry_run.strategy_modifier == "codex_cli_dry_run"
     assert guarded.strategy_modifier == "codex_cli"
+    assert adaptive.strategy_modifier == "adaptive_stub"
+    assert adaptive.max_rounds == 2
     assert guarded.modifier_settings["execute"] is False
 
 
 def test_preflight_passes_default_config() -> None:
     result = run_preflight(repo_root=Path.cwd(), config_path=Path("config/default.json"))
+
+    assert result.ok is True
+    assert result.errors == []
+
+
+def test_preflight_passes_adaptive_stub_config() -> None:
+    result = run_preflight(
+        repo_root=Path.cwd(),
+        config_path=Path("config/adaptive_stub.json"),
+    )
 
     assert result.ok is True
     assert result.errors == []
@@ -350,6 +363,45 @@ def test_iteration_loop_accepts_dry_run_config_path(tmp_path: Path) -> None:
     )
     assert manifest["completed_rounds"] == 1
     assert proposal["agent_name"] == "codex_cli_dry_run"
+
+
+def test_adaptive_stub_changes_patch_direction_after_context_failure(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+
+    manifest = run_iteration_loop(
+        run_id="adaptive-history",
+        repo_root=repo,
+        config_path=repo / "config/adaptive_stub.json",
+    )
+
+    run_dir = repo / "experiments/adaptive-history"
+    proposal_1 = json.loads(
+        (run_dir / "round_001/proposal.json").read_text(encoding="utf-8")
+    )
+    proposal_2 = json.loads(
+        (run_dir / "round_002/proposal.json").read_text(encoding="utf-8")
+    )
+    context_2 = (run_dir / "round_002/agent_context.md").read_text(encoding="utf-8")
+    summary_text = (run_dir / "summary.md").read_text(encoding="utf-8")
+
+    assert manifest["status"] == "stopped_max_rounds"
+    assert manifest["completed_rounds"] == 2
+    assert proposal_1["agent_name"] == "strategy_modifier_adaptive_stub"
+    assert proposal_2["agent_name"] == "strategy_modifier_adaptive_stub"
+    assert "MIN_EDGE = 0.04" in proposal_1["patch_diff"]
+    assert "STAKE = 8.0" in proposal_2["patch_diff"]
+    assert proposal_1["patch_sha256"] != proposal_2["patch_sha256"]
+    assert proposal_2["is_repeat_patch"] is False
+    assert "round_001" in context_2
+    assert proposal_1["patch_sha256"][:12] in context_2
+    assert "Replace `STAKE = 10.0` with `STAKE = 8.0`" in summary_text
+    strategy_text = (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+    assert OLD_THRESHOLD in strategy_text
+    assert "STAKE = 10.0" in strategy_text
 
 
 def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -> None:

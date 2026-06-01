@@ -56,17 +56,18 @@ Allowed components:
 6. A single-run V0 pipeline.
 7. A multi-round V0.5 iteration loop.
 8. A fixed strategy modifier stub.
-9. A proposal schema for agent output.
-10. A guarded Codex CLI adapter that only executes when config explicitly enables it.
-11. Isolated workspace creation for future Codex execution.
-12. Unified diff extraction and target-file validation.
-13. Git apply, accept commit, and reject rollback helpers.
-14. Round-based experiment outputs.
-15. Config-driven dataset, policy, and modifier settings.
-16. Proposal quality metadata and repeated-patch detection.
-17. Repeated-proposal stop control.
-18. Clear tests and smoke checks.
-19. GitHub Actions CI for deterministic smoke validation.
+9. A deterministic adaptive stub that changes fixed patch direction from context.
+10. A proposal schema for agent output.
+11. A guarded Codex CLI adapter that only executes when config explicitly enables it.
+12. Isolated workspace creation for future Codex execution.
+13. Unified diff extraction and target-file validation.
+14. Git apply, accept commit, and reject rollback helpers.
+15. Round-based experiment outputs.
+16. Config-driven dataset, policy, and modifier settings.
+17. Proposal quality metadata and repeated-patch detection.
+18. Repeated-proposal stop control.
+19. Clear tests and smoke checks.
+20. GitHub Actions CI for deterministic smoke validation.
 
 Still out of scope:
 
@@ -110,6 +111,7 @@ Current structure:
 ├── docs/
 │   └── strategy_interface.md
 ├── agents/
+│   ├── strategy_modifier_adaptive_stub.py
 │   ├── codex_dry_run_adapter.py
 │   ├── registry.py
 │   └── strategy_modifier_stub.py
@@ -387,8 +389,10 @@ When the V0.5 loop runs, it should:
 17. Print a short final summary.
 
 The configured modifier may also be `codex_dry_run`, `codex_cli_dry_run`, or
-`codex_cli`. The `codex_cli` adapter must default to `execute=false`; only an
-explicit config change may invoke a subprocess.
+`codex_cli`. The `adaptive_stub` modifier is still deterministic, but it should
+read `agent_context.md` and choose a different fixed patch after prior failures.
+The `codex_cli` adapter must default to `execute=false`; only an explicit
+config change may invoke a subprocess.
 
 CLI entrypoints must support `--config` and `--run-id` so experiments can switch
 between modes without editing `config/default.json`.

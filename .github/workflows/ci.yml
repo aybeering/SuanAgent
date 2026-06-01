@@ -36,5 +36,8 @@ jobs:
       - name: Run iteration dry run
         run: python -m orchestrator.iteration_loop --config config/codex_dry_run.json --run-id ci-dry --max-rounds 1
 
+      - name: Run adaptive stub iteration
+        run: python -m orchestrator.iteration_loop --config config/adaptive_stub.json --run-id ci-adaptive
+
       - name: Summarize local experiments
         run: python -m orchestrator.experiments summary

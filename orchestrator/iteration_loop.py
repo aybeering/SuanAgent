@@ -17,9 +17,13 @@ from typing import Iterator
 from agents.modifier_adapter import StrategyModifier
 from agents.registry import get_strategy_modifier
 from orchestrator.agent_attempts import (
-    attempt_trace_id,
     write_agent_attempts_manifest,
     write_agent_selection_report,
+)
+from orchestrator.agent_executor import (
+    build_agent_queue,
+    execute_agent_queue,
+    modifier_name,
 )
 from orchestrator.agent_result_stats import (
     historical_routing_prior,
@@ -913,11 +917,6 @@ def json_load_list(path: Path) -> list[object]:
     return payload if isinstance(payload, list) else []
 
 
-def modifier_name(modifier: StrategyModifier) -> str:
-    """Return stable modifier name metadata for agent I/O fixtures."""
-    return str(getattr(modifier, "agent_name", modifier.__class__.__name__))
-
-
 def proposal_attempt_record(
     *,
     attempt_id: str,
@@ -1026,10 +1025,19 @@ def select_proposal_candidate(
     round_dir: Path,
 ) -> tuple[StrategyProposal, str, list[dict[str, object]], dict[str, object], str]:
     """Return the highest-scored proposal that passes cheap deterministic filters."""
-    candidate_modifiers = [("primary", modifier)]
-    candidate_modifiers.extend(
-        (f"fallback_{index:02d}", fallback_modifier)
-        for index, fallback_modifier in enumerate(fallback_modifiers, start=1)
+    agent_queue = build_agent_queue(
+        primary_modifier=modifier,
+        fallback_modifiers=fallback_modifiers,
+    )
+    agent_results = execute_agent_queue(
+        queue=agent_queue,
+        report_path=report_path,
+        target_file=target_file,
+        round_index=round_index,
+        repo_root=repo_root,
+        old_threshold=old_threshold,
+        new_threshold=new_threshold,
+        context_path=context_path,
     )
     attempts: list[dict[str, object]] = []
     selected_proposal: StrategyProposal | None = None
@@ -1037,21 +1045,10 @@ def select_proposal_candidate(
     primary_memory_reason = ""
     seen_patch_hashes: set[str] = set()
 
-    for attempt_index, (role, candidate_modifier) in enumerate(
-        candidate_modifiers,
-        start=1,
-    ):
-        attempt_id = attempt_trace_id(index=attempt_index, role=role)
-        proposal = candidate_modifier.propose_strategy_change(
-            report_path=report_path,
-            target_file=target_file,
-            round_index=round_index,
-            repo_root=repo_root,
-            old_threshold=old_threshold,
-            new_threshold=new_threshold,
-            context_path=context_path,
-            attempt_id=attempt_id,
-        )
+    for agent_result in agent_results:
+        role = agent_result.role
+        attempt_id = agent_result.attempt_id
+        proposal = agent_result.proposal
         proposal = enforce_proposal_contract(
             proposal=proposal,
             expected_target_file=target_file.relative_to(repo_root),

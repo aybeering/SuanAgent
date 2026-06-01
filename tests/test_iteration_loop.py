@@ -21,6 +21,7 @@ from agents.strategy_modifier_stub import NEW_THRESHOLD, OLD_THRESHOLD, propose_
 from backtester.schema import MarketSnapshot, StrategyOrder
 from backtester.simulate import validate_strategy_orders
 from orchestrator.agent_context import build_agent_context, build_agent_context_payload
+from orchestrator.agent_executor import build_agent_queue, execute_agent_queue
 from orchestrator.agent_io import (
     AGENT_INPUT_SCHEMA_VERSION,
     AGENT_OUTPUT_SCHEMA_VERSION,
@@ -139,6 +140,66 @@ def test_default_config_loads_dataset_splits() -> None:
     assert config.candidate_selection["probe_ev_cap"] == 25
     assert config.candidate_selection["champion_gap_cap"] == 15
     assert config.stop_on_repeated_proposal is True
+
+
+def test_agent_executor_builds_stable_attempt_queue(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    report_path = repo / "report.md"
+    context_path = repo / "context.md"
+    report_path.write_text("report\n", encoding="utf-8")
+    context_path.write_text("context\n", encoding="utf-8")
+
+    class RecordingModifier:
+        def __init__(self, agent_name: str) -> None:
+            self.agent_name = agent_name
+            self.calls: list[str] = []
+
+        def propose_strategy_change(self, **kwargs) -> StrategyProposal:
+            self.calls.append(str(kwargs["attempt_id"]))
+            return StrategyProposal(
+                agent_name=self.agent_name,
+                round_index=int(kwargs["round_index"]),
+                target_file=str(kwargs["target_file"].relative_to(kwargs["repo_root"])),
+                summary=f"{self.agent_name} proposal",
+                risk_notes="No real patch; executor test only.",
+                expected_metric_change={},
+                raw_response=f"response for {kwargs['attempt_id']}",
+                patch_diff="",
+                applicable=False,
+                direction_tag="executor_test",
+                hypotheses=("Executor should pass stable attempt ids.",),
+                rejection_reason="executor test proposal is non-applicable",
+            )
+
+    primary = RecordingModifier("primary_agent")
+    fallback = RecordingModifier("fallback_agent")
+
+    queue = build_agent_queue(
+        primary_modifier=primary,
+        fallback_modifiers=(fallback,),
+    )
+    results = execute_agent_queue(
+        queue=queue,
+        report_path=report_path,
+        target_file=repo / "strategies/current_strategy.py",
+        round_index=1,
+        repo_root=repo,
+        old_threshold=OLD_THRESHOLD,
+        new_threshold=NEW_THRESHOLD,
+        context_path=context_path,
+    )
+
+    assert [candidate.role for candidate in queue] == ["primary", "fallback_01"]
+    assert [candidate.attempt_id for candidate in queue] == [
+        "attempt_001_primary",
+        "attempt_002_fallback_01",
+    ]
+    assert [result.proposal.agent_name for result in results] == [
+        "primary_agent",
+        "fallback_agent",
+    ]
+    assert primary.calls == ["attempt_001_primary"]
+    assert fallback.calls == ["attempt_002_fallback_01"]
 
 
 def test_example_configs_load_modifier_modes() -> None:

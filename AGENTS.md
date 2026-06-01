@@ -75,6 +75,7 @@ Allowed components:
 24. GitHub Actions CI for deterministic smoke validation.
 25. Saved attempt replay for contract and probe checks without a full loop rerun.
 26. Stable failure taxonomy fields for decisions, attempts, validation, and replay.
+27. A deterministic agent executor queue that assigns stable attempt ids before candidate selection.
 
 Still out of scope:
 
@@ -158,6 +159,7 @@ Current structure:
 │   ├── agent_attempts.py
 │   ├── agent_bundle.py
 │   ├── agent_context.py
+│   ├── agent_executor.py
 │   ├── agent_output_intake.py
 │   ├── outcome_memory.py
 │   ├── policy_gate.py
@@ -351,10 +353,12 @@ failed at least `memory_filter.failed_patch_threshold` times in outcome memory.
 It should also reject direction tags that have already failed at least
 `memory_filter.failed_direction_threshold` times in outcome memory.
 When `memory_filter.fallback_modifiers` is set, the loop may route through
-multiple fallback candidates in the same round. Record each primary/fallback
-attempt in `proposal_attempts.json` and select only a candidate that is
-applicable, not rejected by outcome memory, and highest scored among candidates
-by cheap pre-backtest metadata.
+multiple fallback candidates in the same round. Candidate invocation should go
+through the deterministic agent executor queue, which assigns stable attempt ids
+before adapter execution. Record each primary/fallback attempt in
+`proposal_attempts.json` and select only a candidate that is applicable, not
+rejected by outcome memory, and highest scored among candidates by cheap
+pre-backtest metadata.
 Candidate attempts should include deterministic pre-backtest score metadata so
 the selected proposal can be audited without relying on natural language
 judgment.

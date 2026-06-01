@@ -42,6 +42,10 @@ shows failed `lower_min_edge` attempts, it shifts to a fixed `reduce_stake`
 proposal. Dry-run Codex prompts and the demo file-protocol agent also consume
 `proposal_intent.json`, so local stand-ins exercise the same planner handoff
 that future SDK or CLI agents will use.
+Candidate modifiers are scheduled through a small deterministic executor queue:
+the primary modifier receives `attempt_001_primary`, configured fallbacks receive
+stable `attempt_00N_fallback_NN` ids, and each proposal is handed back to the
+same contract validation, scoring, backtest, and policy-gate path.
 Enabled `file_protocol` commands run inside an isolated per-attempt workspace
 and may only bring back the configured proposal output file. Each selected
 file-protocol round writes `agent_execution.json` with the command, workspace
@@ -240,9 +244,10 @@ It also rejects proposal directions that have failed at least
 `memory_filter.failed_direction_threshold` times, so the prototype can avoid a
 weak idea family even when the exact patch text changes.
 If `memory_filter.fallback_modifiers` is configured, the same round can route
-through a deterministic candidate list and select a proposal that is applicable,
+through a deterministic executor queue and select a proposal that is applicable,
 not rejected by outcome memory, and highest scored among candidates by cheap
-pre-backtest metadata.
+pre-backtest metadata. The executor only schedules and invokes adapters; final
+selection and acceptance remain deterministic loop decisions.
 Selectable candidates are scored with deterministic metadata from
 `expected_metric_change`, risk notes, patch validity, duplicate patch hashes,
 outcome-memory status, a bounded direction-history prior, and a conservative

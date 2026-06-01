@@ -165,6 +165,7 @@ report_before.md
 report_after.md
 decision.json
 patch.diff
+summary.md
 trades_before.csv
 trades_after.csv
 ```
@@ -173,6 +174,7 @@ The multi-round V0.5 loop writes:
 
 ```text
 manifest.json
+summary.md
 index.jsonl
 round_001/
   train_metrics_before.json

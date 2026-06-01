@@ -27,6 +27,7 @@ from orchestrator.git_manager import (
 from orchestrator.policy_gate import evaluate_policy
 from orchestrator.preflight import run_preflight
 from orchestrator.run_loop import run_and_write, write_json
+from orchestrator.run_summary import write_iteration_summary
 
 
 MAX_ROUNDS = 5
@@ -127,6 +128,7 @@ def run_iteration_loop(
                         strategy_path=strategy_path,
                     )
                     write_json(run_dir / "manifest.json", manifest)
+                    write_iteration_summary(run_dir=run_dir, manifest=manifest)
                     append_experiment_index(
                         experiments_dir=active_experiments_dir,
                         record=index_record(manifest),
@@ -139,6 +141,7 @@ def run_iteration_loop(
         manifest["status"] = "stopped_max_rounds"
         manifest["final_strategy_commit"] = current_commit(repo_root)
         write_json(run_dir / "manifest.json", manifest)
+        write_iteration_summary(run_dir=run_dir, manifest=manifest)
         append_experiment_index(
             experiments_dir=active_experiments_dir,
             record=index_record(manifest),
@@ -148,6 +151,7 @@ def run_iteration_loop(
         manifest["status"] = "failed"
         manifest["error"] = str(exc)
         write_json(run_dir / "manifest.json", manifest)
+        write_iteration_summary(run_dir=run_dir, manifest=manifest)
         append_experiment_index(
             experiments_dir=active_experiments_dir,
             record=index_record(manifest),

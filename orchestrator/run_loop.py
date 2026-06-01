@@ -16,6 +16,7 @@ from orchestrator.experiment_index import append_experiment_index
 from orchestrator.git_utils import strategy_diff
 from orchestrator.policy_gate import evaluate_policy
 from orchestrator.preflight import run_preflight
+from orchestrator.run_summary import write_single_run_summary
 from reports.generate_report import generate_report
 
 
@@ -62,6 +63,13 @@ def run_pipeline(
     decision = evaluate_policy(metrics_before, metrics_after)
     write_json(run_dir / "decision.json", decision)
     (run_dir / "patch.diff").write_text(strategy_diff(), encoding="utf-8")
+    write_single_run_summary(
+        run_dir=run_dir,
+        run_id=active_run_id,
+        decision=decision,
+        metrics_before=metrics_before,
+        metrics_after=metrics_after,
+    )
     append_experiment_index(
         experiments_dir=active_experiments_dir,
         record={

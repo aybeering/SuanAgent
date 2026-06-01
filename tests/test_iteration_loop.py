@@ -205,6 +205,11 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         encoding="utf-8"
     )
     assert (repo / "experiments/index.jsonl").exists()
+    summary_text = (run_dir / "summary.md").read_text(encoding="utf-8")
+    assert "Experiment Summary" in summary_text
+    assert "round_001" in summary_text
+    assert "strategy_modifier_stub" in summary_text
+    assert "ev improvement" in summary_text
 
 
 def test_iteration_loop_accepts_and_stops_with_relaxed_rules(tmp_path: Path) -> None:
@@ -225,6 +230,11 @@ def test_iteration_loop_accepts_and_stops_with_relaxed_rules(tmp_path: Path) -> 
     assert manifest["status"] == "accepted"
     assert manifest["completed_rounds"] == 1
     assert manifest["accepted_round"] == "round_001"
+    summary_text = (
+        repo / "experiments/accept-smoke/summary.md"
+    ).read_text(encoding="utf-8")
+    assert "- Status: `accepted`" in summary_text
+    assert "- Accepted round: `round_001`" in summary_text
     assert NEW_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
@@ -263,6 +273,7 @@ def test_run_pipeline_accepts_config_path_and_run_id(tmp_path: Path) -> None:
 
     assert summary["run_id"] == "single-cli-style"
     assert (repo / "experiments/single-cli-style/decision.json").exists()
+    assert (repo / "experiments/single-cli-style/summary.md").exists()
 
 
 def test_iteration_loop_accepts_dry_run_config_path(tmp_path: Path) -> None:
@@ -551,8 +562,10 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
 
     assert [record["run_id"] for record in records] == ["single-show", "iteration-show"]
     assert single["kind"] == "single_run"
+    assert single["summary_path"].endswith("experiments/single-show/summary.md")
     assert single["decision"]["accepted"] is False  # type: ignore[index]
     assert iteration["kind"] == "iteration_loop"
+    assert iteration["summary_path"].endswith("experiments/iteration-show/summary.md")
     assert iteration["manifest"]["completed_rounds"] == 1  # type: ignore[index]
 
 
@@ -671,6 +684,35 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
     assert leaderboard_result.returncode == 0, leaderboard_result.stderr
     assert json.loads(summary_result.stdout)["total_runs"] == 1
     assert json.loads(leaderboard_result.stdout)[0]["run_id"] == "cli-summary"
+
+
+def test_summary_markdown_is_written_for_single_and_iteration_runs(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(
+        run_id="summary-single",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    run_iteration_loop(
+        run_id="summary-iteration",
+        max_rounds=1,
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+    )
+
+    single_summary = (
+        repo / "experiments/summary-single/summary.md"
+    ).read_text(encoding="utf-8")
+    iteration_summary = (
+        repo / "experiments/summary-iteration/summary.md"
+    ).read_text(encoding="utf-8")
+
+    assert "| Metric | Before | After | Delta |" in single_summary
+    assert "- Kind: `single_run`" in single_summary
+    assert "| Round | Accepted | Proposal |" in iteration_summary
+    assert "Best Validation Delta" in iteration_summary
+    assert "strategy_modifier_stub" in iteration_summary
 
 
 def test_preflight_cli_arguments_work(tmp_path: Path) -> None:

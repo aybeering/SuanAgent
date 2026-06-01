@@ -36,6 +36,7 @@ def show_experiment(
             "kind": "iteration_loop",
             "run_id": run_id,
             "run_dir": str(run_dir),
+            "summary_path": str(run_dir / "summary.md"),
             "manifest": manifest,
         }
     if decision_path.exists():
@@ -44,6 +45,7 @@ def show_experiment(
             "kind": "single_run",
             "run_id": run_id,
             "run_dir": str(run_dir),
+            "summary_path": str(run_dir / "summary.md"),
             "decision": decision,
         }
     raise FileNotFoundError(f"No manifest.json or decision.json for run: {run_id}")

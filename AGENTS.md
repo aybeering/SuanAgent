@@ -132,6 +132,7 @@ Current structure:
 │   ├── run_loop.py
 │   ├── iteration_loop.py
 │   ├── agent_context.py
+│   ├── outcome_memory.py
 │   ├── policy_gate.py
 │   ├── proposal.py
 │   ├── run_summary.py
@@ -185,6 +186,7 @@ The multi-round V0.5 loop writes:
 manifest.json
 summary.md
 index.jsonl
+memory.jsonl
 round_001/
   train_metrics_before.json
   train_report_before.md
@@ -219,6 +221,9 @@ quality checks, and whether the patch repeats a prior round in the same run.
 Each `agent_context.md` should summarize prior rounds for the next modifier
 call, including failed patch hashes, validation/holdout deltas, repeat status,
 and deterministic rejection reasons.
+Each iteration round should append a compact proposal outcome to
+`experiments/memory.jsonl` so later runs and different modifier backends can
+reuse prior proposal outcomes.
 
 ## Strategy policy
 
@@ -364,6 +369,7 @@ python -m orchestrator.iteration_loop --config config/codex_dry_run.json --run-i
 python -m orchestrator.experiments list --limit 5
 python -m orchestrator.experiments summary
 python -m orchestrator.experiments leaderboard --limit 5
+python -m orchestrator.experiments memory --limit 5
 ```
 
 ## Expected behavior
@@ -381,12 +387,13 @@ When the V0.5 loop runs, it should:
 9. Save train, validation, and holdout after metrics, trades, and reports.
 10. Run the policy gate on validation metrics only.
 11. Save `decision.json`.
-12. Accept and commit if policy passes.
-13. Reject and roll back if policy fails.
-14. Stop with `stopped_repeated_proposal` if the rejected patch repeats a prior round.
-15. Stop with `stopped_max_rounds` if max rounds is reached.
-16. Save `manifest.json`.
-17. Print a short final summary.
+12. Append proposal outcome memory to `experiments/memory.jsonl`.
+13. Accept and commit if policy passes.
+14. Reject and roll back if policy fails.
+15. Stop with `stopped_repeated_proposal` if the rejected patch repeats a prior round.
+16. Stop with `stopped_max_rounds` if max rounds is reached.
+17. Save `manifest.json`.
+18. Print a short final summary.
 
 The configured modifier may also be `codex_dry_run`, `codex_cli_dry_run`, or
 `codex_cli`. The `adaptive_stub` modifier is still deterministic, but it should

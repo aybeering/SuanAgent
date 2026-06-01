@@ -25,6 +25,7 @@ from orchestrator.git_manager import (
     ensure_git_repo,
     rollback_strategy,
 )
+from orchestrator.outcome_memory import append_outcome_memory, build_outcome_record
 from orchestrator.policy_gate import evaluate_policy
 from orchestrator.preflight import run_preflight
 from orchestrator.proposal import annotate_proposal_quality
@@ -240,6 +241,7 @@ def run_round(
             run_dir=round_dir.parent,
             current_round_id=round_id,
             output_path=round_dir / "agent_context.md",
+            memory_path=round_dir.parent.parent / "memory.jsonl",
         ),
     )
     proposal = annotate_proposal_quality(
@@ -290,6 +292,21 @@ def run_round(
         decision["accepted"] = False
         decision["reasons"] = [apply_error, *decision["reasons"]]  # type: ignore[index]
     write_json(round_dir / "decision.json", decision)
+    append_outcome_memory(
+        experiments_dir=round_dir.parent.parent,
+        record=build_outcome_record(
+            run_id=run_id,
+            round_id=round_id,
+            proposal=proposal,
+            decision=decision,
+            train_metrics_before=train_metrics_before,
+            train_metrics_after=train_metrics_after,
+            validation_metrics_before=metrics_before,
+            validation_metrics_after=metrics_after,
+            holdout_metrics_before=holdout_metrics_before,
+            holdout_metrics_after=holdout_metrics_after,
+        ),
+    )
 
     return {
         "round_id": round_id,

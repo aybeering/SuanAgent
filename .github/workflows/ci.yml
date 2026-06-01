@@ -41,3 +41,6 @@ jobs:
 
       - name: Summarize local experiments
         run: python -m orchestrator.experiments summary
+
+      - name: Inspect proposal memory
+        run: python -m orchestrator.experiments memory --limit 5

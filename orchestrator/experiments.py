@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from orchestrator.experiment_index import read_experiment_index, recent_experiments
+from orchestrator.outcome_memory import recent_outcomes
 
 
 def list_experiments(
@@ -180,6 +181,12 @@ def main() -> None:
     )
     leaderboard_parser.add_argument("--limit", type=int, default=10)
 
+    memory_parser = subparsers.add_parser(
+        "memory",
+        help="List recent proposal outcome memory records.",
+    )
+    memory_parser.add_argument("--limit", type=int, default=10)
+
     subparsers.add_parser("summary", help="Summarize experiment history.")
 
     args = parser.parse_args()
@@ -195,6 +202,11 @@ def main() -> None:
         )
     elif args.command == "leaderboard":
         payload = experiment_leaderboard(
+            experiments_dir=args.experiments_dir,
+            limit=args.limit,
+        )
+    elif args.command == "memory":
+        payload = recent_outcomes(
             experiments_dir=args.experiments_dir,
             limit=args.limit,
         )

@@ -43,6 +43,7 @@ python -m orchestrator.iteration_loop
 python -m orchestrator.experiments list --limit 5
 python -m orchestrator.experiments summary
 python -m orchestrator.experiments leaderboard --limit 5
+python -m orchestrator.experiments memory --limit 5
 ```
 
 Useful mode switches:
@@ -80,10 +81,13 @@ Iteration status is one of `accepted`, `stopped_repeated_proposal`,
 Each round also writes `agent_context.md`, a deterministic summary of prior
 failed proposals and metric deltas that future agent backends can read before
 creating the next patch.
+Iteration runs append proposal outcomes to `experiments/memory.jsonl`, which is
+used as cross-run context for later agent calls.
 
 Use `python -m orchestrator.experiments list` and
 `python -m orchestrator.experiments show <run_id>` to inspect local experiment
 history. Use `summary` and `leaderboard` to aggregate runs by status and rank
-them by validation EV improvement.
+them by validation EV improvement. Use `memory` to inspect recent proposal
+outcome records.
 
 The V0.5 prototype does not call exchanges, wallets, or external APIs.

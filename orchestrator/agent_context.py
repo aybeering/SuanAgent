@@ -6,27 +6,40 @@ import json
 from pathlib import Path
 from typing import Any
 
+from orchestrator.outcome_memory import read_outcome_memory
+
 
 def write_agent_context(
     *,
     run_dir: Path,
     current_round_id: str,
     output_path: Path,
+    memory_path: Path | None = None,
 ) -> Path:
     """Write prior-round context for the next strategy proposal."""
     output_path.write_text(
-        build_agent_context(run_dir=run_dir, current_round_id=current_round_id),
+        build_agent_context(
+            run_dir=run_dir,
+            current_round_id=current_round_id,
+            memory_path=memory_path,
+        ),
         encoding="utf-8",
     )
     return output_path
 
 
-def build_agent_context(*, run_dir: Path, current_round_id: str) -> str:
+def build_agent_context(
+    *,
+    run_dir: Path,
+    current_round_id: str,
+    memory_path: Path | None = None,
+) -> str:
     """Return a markdown context summary from prior round artifacts."""
     prior_rounds = prior_round_summaries(
         run_dir=run_dir,
         current_round_id=current_round_id,
     )
+    memory_records = recent_memory_records(memory_path=memory_path, run_dir=run_dir)
     lines = [
         "# Agent Context",
         "",
@@ -62,6 +75,19 @@ def build_agent_context(*, run_dir: Path, current_round_id: str) -> str:
     else:
         for patch_hash in sorted(set(failed_hashes)):
             lines.append(f"- `{patch_hash}`")
+
+    lines.extend(["", "## Global Outcome Memory", ""])
+    if not memory_records:
+        lines.append("No global outcome memory yet.")
+    else:
+        lines.extend(
+            [
+                "| Run | Round | Agent | Accepted | Patch SHA | Validation EV Delta | Reasons |",
+                "| --- | --- | --- | --- | --- | ---: | --- |",
+            ]
+        )
+        for payload in memory_records:
+            lines.append(memory_row(payload))
 
     return "\n".join(lines).rstrip() + "\n"
 
@@ -118,6 +144,48 @@ def prior_round_row(payload: dict[str, object]) -> str:
         f"| {escape_cell(repeat_label)} "
         f"| {delta_cell(payload, 'validation_ev_before', 'validation_ev_after')} "
         f"| {delta_cell(payload, 'holdout_ev_before', 'holdout_ev_after')} "
+        f"| {escape_cell(reason_text or 'none')} |"
+    )
+
+
+def recent_memory_records(
+    *,
+    memory_path: Path | None,
+    run_dir: Path,
+    limit: int = 5,
+) -> list[dict[str, object]]:
+    """Return recent outcome memory rows, excluding the active run."""
+    if memory_path is None:
+        memory_path = run_dir.parent / "memory.jsonl"
+    if not memory_path.exists():
+        return []
+
+    records = read_outcome_memory(memory_path.parent)
+    active_run_id = run_dir.name
+    filtered = [
+        record
+        for record in records
+        if str(record.get("run_id", "")) != active_run_id
+    ]
+    return filtered[-limit:]
+
+
+def memory_row(payload: dict[str, object]) -> str:
+    """Format one outcome memory record as a markdown table row."""
+    reasons = payload.get("reasons", [])
+    reason_text = (
+        "; ".join(str(reason) for reason in reasons)
+        if isinstance(reasons, list)
+        else ""
+    )
+    patch_sha = str(payload.get("patch_sha256", ""))
+    return (
+        f"| {escape_cell(str(payload.get('run_id', '')))} "
+        f"| {escape_cell(str(payload.get('round_id', '')))} "
+        f"| {escape_cell(str(payload.get('agent_name', '')))} "
+        f"| `{str(bool(payload.get('accepted', False))).lower()}` "
+        f"| `{patch_sha[:12] if patch_sha else 'none'}` "
+        f"| {format_number(float(payload.get('validation_ev_delta', 0.0)))} "
         f"| {escape_cell(reason_text or 'none')} |"
     )
 

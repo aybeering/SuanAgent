@@ -21,6 +21,7 @@ from orchestrator.agent_context import build_agent_context
 from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
 from orchestrator.iteration_loop import run_iteration_loop
+from orchestrator.outcome_memory import read_outcome_memory
 from orchestrator.run_loop import run_pipeline
 from orchestrator.preflight import run_preflight
 from orchestrator.experiments import (
@@ -397,6 +398,13 @@ def test_adaptive_stub_changes_patch_direction_after_context_failure(
     assert "round_001" in context_2
     assert proposal_1["patch_sha256"][:12] in context_2
     assert "Replace `STAKE = 10.0` with `STAKE = 8.0`" in summary_text
+    memory = read_outcome_memory(repo / "experiments")
+    assert len(memory) == 2
+    assert memory[0]["run_id"] == "adaptive-history"
+    assert memory[0]["round_id"] == "round_001"
+    assert memory[0]["patch_sha256"] == proposal_1["patch_sha256"]
+    assert memory[1]["round_id"] == "round_002"
+    assert memory[1]["validation_ev_delta"] == 0.0
     strategy_text = (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
@@ -627,6 +635,30 @@ def test_agent_context_summarizes_prior_failed_rounds(tmp_path: Path) -> None:
     assert "yes (round_001)" in context_text
 
 
+def test_agent_context_includes_global_outcome_memory(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="memory-source",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_iteration_loop(
+        run_id="memory-reader",
+        max_rounds=1,
+        repo_root=repo,
+        config_path=repo / "config/codex_dry_run.json",
+    )
+
+    context_text = (
+        repo / "experiments/memory-reader/round_001/agent_context.md"
+    ).read_text(encoding="utf-8")
+
+    assert "Global Outcome Memory" in context_text
+    assert "memory-source" in context_text
+    assert "strategy_modifier_stub" in context_text
+    assert "ev improvement" in context_text
+
+
 def test_iteration_loop_cli_arguments_work(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
 
@@ -823,6 +855,37 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
     assert leaderboard_result.returncode == 0, leaderboard_result.stderr
     assert json.loads(summary_result.stdout)["total_runs"] == 1
     assert json.loads(leaderboard_result.stdout)[0]["run_id"] == "cli-summary"
+
+
+def test_experiments_cli_memory_work(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="cli-memory",
+        max_rounds=1,
+        repo_root=repo,
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "memory",
+            "--limit",
+            "1",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload[0]["run_id"] == "cli-memory"
+    assert payload[0]["kind"] == "proposal_outcome"
 
 
 def test_summary_markdown_is_written_for_single_and_iteration_runs(tmp_path: Path) -> None:

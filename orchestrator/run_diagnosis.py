@@ -52,6 +52,28 @@ def diagnose_run(
     }
 
 
+def write_run_diagnosis(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+    repo_root: Path = Path("."),
+) -> Path:
+    """Write diagnosis.json for one experiment run."""
+    repo_root = repo_root.resolve()
+    experiments_dir = resolve_path(experiments_dir, repo_root)
+    output_path = experiments_dir / run_id / "diagnosis.json"
+    payload = diagnose_run(
+        run_id=run_id,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
+    output_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return output_path
+
+
 def diagnose_single_run(
     *,
     run_dir: Path,

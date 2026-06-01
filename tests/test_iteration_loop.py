@@ -1275,6 +1275,7 @@ def test_run_pipeline_accepts_config_path_and_run_id(tmp_path: Path) -> None:
     assert summary["run_id"] == "single-cli-style"
     assert (repo / "experiments/single-cli-style/decision.json").exists()
     assert (repo / "experiments/single-cli-style/summary.md").exists()
+    assert (repo / "experiments/single-cli-style/diagnosis.json").exists()
     report = validate_run_artifacts(
         run_id="single-cli-style",
         experiments_dir=repo / "experiments",
@@ -1903,6 +1904,10 @@ def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
     assert default_report["ok"] is True
     assert default_report["kind"] == "iteration_loop"
     assert default_report["rounds_checked"] == 1
+    assert any(
+        path.endswith("diagnosis.json")
+        for path in default_report["checked_files"]  # type: ignore[union-attr]
+    )
     assert file_protocol_report["ok"] is True
     assert any(
         path.endswith("agent_execution.json")
@@ -2000,6 +2005,12 @@ def test_run_diagnosis_summarizes_single_run(tmp_path: Path) -> None:
     assert diagnosis["status"] == "rejected"
     assert diagnosis["validation_ev_delta"] == 0.0
     assert "Single run rejected" in diagnosis["summary"]
+    saved = json.loads(
+        (repo / "experiments/diagnose-single/diagnosis.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert saved["summary"] == diagnosis["summary"]
 
 
 def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
@@ -2023,6 +2034,12 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     assert diagnosis["best_round"]["round_id"] == "round_001"  # type: ignore[index]
     assert diagnosis["rounds"][0]["direction_tag"] == "lower_min_edge"  # type: ignore[index]
     assert "Iteration run" in diagnosis["summary"]
+    saved = json.loads(
+        (repo / "experiments/diagnose-iteration/diagnosis.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert saved["best_round"]["round_id"] == "round_001"
 
 
 def test_run_diagnosis_includes_file_protocol_execution_status(

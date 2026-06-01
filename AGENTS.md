@@ -184,6 +184,7 @@ metrics_after.json
 report_before.md
 report_after.md
 decision.json
+diagnosis.json
 patch.diff
 summary.md
 trades_before.csv
@@ -195,6 +196,7 @@ The multi-round V0.5 loop writes:
 ```text
 manifest.json
 summary.md
+diagnosis.json
 index.jsonl
 memory.jsonl
 round_001/

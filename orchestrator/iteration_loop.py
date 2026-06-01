@@ -43,6 +43,7 @@ from orchestrator.proposal import (
     annotate_proposal_quality,
     enforce_proposal_contract,
 )
+from orchestrator.run_diagnosis import write_run_diagnosis
 from orchestrator.run_loop import run_and_write, write_json
 from orchestrator.run_summary import write_iteration_summary
 
@@ -199,6 +200,11 @@ def run_iteration_loop(
                         experiments_dir=active_experiments_dir,
                         record=index_record(manifest),
                     )
+                    write_run_diagnosis(
+                        run_id=active_run_id,
+                        experiments_dir=active_experiments_dir,
+                        repo_root=repo_root,
+                    )
                     return manifest
 
                 rollback_strategy(repo_root, strategy_path)
@@ -221,6 +227,11 @@ def run_iteration_loop(
                         experiments_dir=active_experiments_dir,
                         record=index_record(manifest),
                     )
+                    write_run_diagnosis(
+                        run_id=active_run_id,
+                        experiments_dir=active_experiments_dir,
+                        repo_root=repo_root,
+                    )
                     return manifest
 
                 no_improvement_reason = no_improvement_stop_reason(
@@ -240,6 +251,11 @@ def run_iteration_loop(
                         experiments_dir=active_experiments_dir,
                         record=index_record(manifest),
                     )
+                    write_run_diagnosis(
+                        run_id=active_run_id,
+                        experiments_dir=active_experiments_dir,
+                        repo_root=repo_root,
+                    )
                     return manifest
 
         manifest["status"] = "stopped_max_rounds"
@@ -252,6 +268,11 @@ def run_iteration_loop(
             experiments_dir=active_experiments_dir,
             record=index_record(manifest),
         )
+        write_run_diagnosis(
+            run_id=active_run_id,
+            experiments_dir=active_experiments_dir,
+            repo_root=repo_root,
+        )
         return manifest
     except Exception as exc:
         manifest["status"] = "failed"
@@ -262,6 +283,11 @@ def run_iteration_loop(
         append_experiment_index(
             experiments_dir=active_experiments_dir,
             record=index_record(manifest),
+        )
+        write_run_diagnosis(
+            run_id=active_run_id,
+            experiments_dir=active_experiments_dir,
+            repo_root=repo_root,
         )
         raise
 

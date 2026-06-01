@@ -102,6 +102,7 @@ def validate_run_artifacts(
     else:
         add_error(report, "run has neither manifest.json nor decision.json")
 
+    validate_optional_diagnosis(run_dir=run_dir, report=report)
     report["ok"] = not report["errors"]
     return report
 
@@ -198,6 +199,19 @@ def validate_required_files(
             add_error(report, f"missing required artifact: {path}")
             continue
         checked_files(report).append(str(path))
+
+
+def validate_optional_diagnosis(
+    *,
+    run_dir: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate diagnosis.json when a run has one."""
+    path = run_dir / "diagnosis.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_json_object(path=path, report=report)
 
 
 def validate_contract_file(

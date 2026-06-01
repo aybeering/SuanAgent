@@ -16,6 +16,7 @@ from orchestrator.experiment_index import append_experiment_index
 from orchestrator.git_utils import strategy_diff
 from orchestrator.policy_gate import evaluate_policy
 from orchestrator.preflight import run_preflight
+from orchestrator.run_diagnosis import write_run_diagnosis
 from orchestrator.run_summary import write_single_run_summary
 from reports.generate_report import generate_report
 
@@ -82,6 +83,11 @@ def run_pipeline(
             "trade_count_before": metrics_before["trade_count"],
             "trade_count_after": metrics_after["trade_count"],
         },
+    )
+    write_run_diagnosis(
+        run_id=active_run_id,
+        experiments_dir=active_experiments_dir,
+        repo_root=repo_root,
     )
 
     return {

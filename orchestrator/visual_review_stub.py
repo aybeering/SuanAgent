@@ -21,6 +21,7 @@ def write_visual_review(
     round_dir: Path,
     analysis_notes_path: Path,
     chart_path: Path,
+    timeline_path: Path,
 ) -> Path:
     """Write a deterministic, read-only visual-review stub artifact."""
     payload = visual_review_payload(
@@ -31,6 +32,7 @@ def write_visual_review(
         round_dir=round_dir,
         analysis_notes_path=analysis_notes_path,
         chart_path=chart_path,
+        timeline_path=timeline_path,
     )
     output_path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
@@ -49,6 +51,7 @@ def visual_review_payload(
     round_dir: Path,
     analysis_notes_path: Path,
     chart_path: Path,
+    timeline_path: Path,
 ) -> dict[str, object]:
     """Return the JSON payload for the contract-only visual-review stub."""
     trade_rows = {
@@ -68,6 +71,7 @@ def visual_review_payload(
         "consumed_artifacts": {
             "analysis_notes": relative_path(analysis_notes_path, repo_root),
             "chart_html": relative_path(chart_path, repo_root),
+            "trade_timeline_html": relative_path(timeline_path, repo_root),
             "train_trades_before": relative_path(
                 round_dir / "train_trades_before.csv",
                 repo_root,
@@ -93,11 +97,14 @@ def visual_review_payload(
                 repo_root,
             ),
         },
-        "expected_future_artifacts": [
-            "trade_timeline.html",
-        ],
+        "expected_future_artifacts": [],
         "chart_artifacts": {
             "chart_html": relative_path(chart_path, repo_root),
+            "rendering_mode": "deterministic_static_html",
+            "external_dependencies": False,
+        },
+        "timeline_artifacts": {
+            "trade_timeline_html": relative_path(timeline_path, repo_root),
             "rendering_mode": "deterministic_static_html",
             "external_dependencies": False,
         },
@@ -107,6 +114,7 @@ def visual_review_payload(
             "visual_agent_enabled": False,
             "trade_files_present": trade_files_present(round_dir),
             "chart_file_present": chart_path.exists(),
+            "timeline_file_present": timeline_path.exists(),
             "can_change_acceptance": False,
             "can_change_routing": False,
         },
@@ -115,6 +123,7 @@ def visual_review_payload(
             f"validation_trades_before_rows={trade_rows['validation']}",
             f"holdout_trades_before_rows={trade_rows['holdout']}",
             "chart_html_generated",
+            "trade_timeline_html_generated",
             "visual_agent_disabled",
         ],
         "recommendation": {

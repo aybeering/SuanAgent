@@ -74,6 +74,7 @@
         "visual_review_json",
         "visual_review_markdown",
         "chart_html",
+        "trade_timeline_html",
         "agent_context_json",
         "proposal_intent_json",
         "proposal_intent_markdown",
@@ -98,6 +99,9 @@
           "type": "string"
         },
         "chart_html": {
+          "type": "string"
+        },
+        "trade_timeline_html": {
           "type": "string"
         },
         "agent_context_markdown": {

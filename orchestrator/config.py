@@ -117,6 +117,7 @@ DEFAULT_AGENT_ROLES = (
         "allowed_adapters": (),
         "consumes": (
             "chart.html",
+            "trade_timeline.html",
             "trades_before.csv",
             "trades_after.csv",
         ),

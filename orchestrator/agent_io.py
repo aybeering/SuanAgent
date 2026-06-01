@@ -132,6 +132,10 @@ def build_agent_input_payload(
                 repo_root,
             ),
             "chart_html": relative_path(round_dir / "chart.html", repo_root),
+            "trade_timeline_html": relative_path(
+                round_dir / "trade_timeline.html",
+                repo_root,
+            ),
             "agent_context_markdown": relative_path(context_path, repo_root),
             "agent_context_json": relative_path(context_path.with_suffix(".json"), repo_root),
             "proposal_intent_json": relative_path(intent_path, repo_root),

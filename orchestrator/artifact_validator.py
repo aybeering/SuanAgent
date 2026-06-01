@@ -50,6 +50,7 @@ ROUND_REQUIRED_FILES = (
     "analysis_notes.json",
     "analysis_notes.md",
     "chart.html",
+    "trade_timeline.html",
     "visual_review.json",
     "visual_review.md",
     "agent_input.json",
@@ -220,6 +221,10 @@ def validate_round_dir(
         report=report,
     )
     validate_chart_html(path=round_dir / "chart.html", report=report)
+    validate_trade_timeline_html(
+        path=round_dir / "trade_timeline.html",
+        report=report,
+    )
     validate_visual_review(
         path=round_dir / "visual_review.json",
         repo_root=repo_root,
@@ -559,6 +564,8 @@ def validate_visual_review(
             add_error(report, "visual_review.json visual agent must be disabled")
         if not bool(checks.get("chart_file_present", False)):
             add_error(report, "visual_review.json chart file must be present")
+        if not bool(checks.get("timeline_file_present", False)):
+            add_error(report, "visual_review.json timeline file must be present")
         if bool(checks.get("can_change_acceptance", True)):
             add_error(report, "visual_review.json must not change acceptance")
         if bool(checks.get("can_change_routing", True)):
@@ -593,6 +600,24 @@ def validate_visual_review(
     chart_path = resolve_path(Path(str(chart_artifacts.get("chart_html", ""))), repo_root)
     if not chart_path.exists() or not chart_path.is_file():
         add_error(report, f"visual_review.json chart_html does not exist: {chart_path}")
+    timeline_artifacts = payload.get("timeline_artifacts", {})
+    if not isinstance(timeline_artifacts, dict):
+        add_error(report, "visual_review.json timeline_artifacts is invalid")
+        return
+    if bool(timeline_artifacts.get("external_dependencies", True)):
+        add_error(
+            report,
+            "visual_review.json timeline must not use external dependencies",
+        )
+    timeline_path = resolve_path(
+        Path(str(timeline_artifacts.get("trade_timeline_html", ""))),
+        repo_root,
+    )
+    if not timeline_path.exists() or not timeline_path.is_file():
+        add_error(
+            report,
+            f"visual_review.json trade_timeline_html does not exist: {timeline_path}",
+        )
 
 
 def validate_chart_html(*, path: Path, report: dict[str, object]) -> None:
@@ -607,6 +632,26 @@ def validate_chart_html(*, path: Path, report: dict[str, object]) -> None:
         add_error(report, f"chart.html missing inline SVG chart: {path}")
     if "http://" in text or "https://" in text:
         add_error(report, f"chart.html must not reference external network assets: {path}")
+
+
+def validate_trade_timeline_html(*, path: Path, report: dict[str, object]) -> None:
+    """Validate the deterministic static trade timeline artifact."""
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    text = path.read_text(encoding="utf-8")
+    if 'name="suan-timeline-schema" content="trade_timeline_v1"' not in text:
+        add_error(
+            report,
+            f"trade_timeline.html missing trade_timeline_v1 schema marker: {path}",
+        )
+    if "<table>" not in text or "</table>" not in text:
+        add_error(report, f"trade_timeline.html missing trade table: {path}")
+    if "http://" in text or "https://" in text:
+        add_error(
+            report,
+            f"trade_timeline.html must not reference external network assets: {path}",
+        )
 
 
 def validate_agent_attempts_manifest(

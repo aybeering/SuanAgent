@@ -88,6 +88,7 @@ from orchestrator.run_metadata import write_run_metadata
 from orchestrator.run_summary import write_iteration_summary
 from orchestrator.visual_review_stub import write_visual_review
 from reports.generate_chart import generate_round_chart
+from reports.generate_timeline import generate_trade_timeline
 
 
 MAX_ROUNDS = 5
@@ -564,6 +565,16 @@ def run_round(
             "holdout": round_dir / "holdout_trades_before.csv",
         },
     )
+    timeline_path = generate_trade_timeline(
+        output_path=round_dir / "trade_timeline.html",
+        run_id=run_id,
+        round_id=round_id,
+        trades_paths={
+            "train": round_dir / "train_trades_before.csv",
+            "validation": round_dir / "trades_before.csv",
+            "holdout": round_dir / "holdout_trades_before.csv",
+        },
+    )
     write_visual_review(
         output_path=round_dir / "visual_review.json",
         markdown_path=round_dir / "visual_review.md",
@@ -574,6 +585,7 @@ def run_round(
         round_dir=round_dir,
         analysis_notes_path=round_dir / "analysis_notes.json",
         chart_path=chart_path,
+        timeline_path=timeline_path,
     )
     write_agent_input(
         output_path=round_dir / "agent_input.json",

@@ -17,6 +17,7 @@ from agents.modifier_adapter import StrategyModifier
 from agents.registry import get_strategy_modifier
 from orchestrator.agent_context import write_agent_context
 from orchestrator.agent_io import write_agent_input, write_agent_output
+from orchestrator.agent_output_intake import validate_agent_proposal
 from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.experiment_index import append_experiment_index
 from orchestrator.experiments import write_champion_comparison
@@ -522,9 +523,20 @@ def run_round(
         proposal_attempts=proposal_attempts,
         selected_attempt=selected_attempt,
     )
+    agent_validation = validate_agent_proposal(
+        agent_input_path=round_dir / "agent_input.json",
+        agent_output_path=round_dir / "agent_output.json",
+        output_path=round_dir / "agent_validation.json",
+        proposal=proposal,
+        repo_root=repo_root,
+    )
 
     apply_error = ""
-    if memory_filter_reason:
+    if not agent_validation["ok"]:
+        apply_error = "agent output validation failed: " + "; ".join(
+            str(error) for error in agent_validation["errors"]  # type: ignore[index]
+        )
+    elif memory_filter_reason:
         apply_error = memory_filter_reason
     elif proposal.applicable:
         try:
@@ -599,6 +611,8 @@ def run_round(
         "proposal_applicable": proposal.applicable,
         "proposal_contract_valid": not proposal.contract_errors,
         "proposal_contract_errors": list(proposal.contract_errors),
+        "agent_validation_ok": agent_validation["ok"],
+        "agent_validation_errors": agent_validation["errors"],
         "proposal_patch_sha256": proposal.patch_sha256,
         "proposal_direction_tag": proposal.direction_tag,
         "proposal_is_repeat": proposal.is_repeat_patch,

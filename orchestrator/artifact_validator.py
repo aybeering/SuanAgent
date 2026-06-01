@@ -48,6 +48,7 @@ ROUND_REQUIRED_FILES = (
     "proposal_intent.md",
     "agent_input.json",
     "agent_output.json",
+    "agent_validation.json",
     "proposal_attempts.json",
     "proposal.json",
     "agent_response.txt",
@@ -177,6 +178,11 @@ def validate_round_dir(
     validate_contract_file(
         payload_path=round_dir / "agent_output.json",
         schema_path=repo_root / "schemas/agent_output.schema.json",
+        report=report,
+    )
+    validate_contract_file(
+        payload_path=round_dir / "agent_validation.json",
+        schema_path=repo_root / "schemas/agent_validation.schema.json",
         report=report,
     )
 

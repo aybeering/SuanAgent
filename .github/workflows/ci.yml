@@ -66,6 +66,14 @@ jobs:
             --validate
           test -f experiments/ci-file-protocol-demo/round_001/replayed_agent_output.json
 
+      - name: Validate raw demo agent output
+        run: |
+          python -m orchestrator.agent_output_intake \
+            experiments/ci-file-protocol-demo/round_001/agent_input.json \
+            experiments/ci-file-protocol-demo/round_001/replayed_agent_output.json \
+            --output experiments/ci-file-protocol-demo/round_001/replayed_agent_validation.json
+          test -f experiments/ci-file-protocol-demo/round_001/replayed_agent_validation.json
+
       - name: Inspect research brief artifacts
         run: |
           test -f experiments/ci-adaptive/research_brief.json

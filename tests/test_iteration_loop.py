@@ -25,6 +25,10 @@ from orchestrator.agent_io import (
     AGENT_INPUT_SCHEMA_VERSION,
     AGENT_OUTPUT_SCHEMA_VERSION,
 )
+from orchestrator.agent_output_intake import (
+    AGENT_VALIDATION_SCHEMA_VERSION,
+    verify_agent_output,
+)
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.artifact_validator import validate_run_artifacts
 from orchestrator.config import ProjectConfig, load_project_config
@@ -401,6 +405,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "proposal_intent.md",
         "agent_input.json",
         "agent_output.json",
+        "agent_validation.json",
         "proposal_attempts.json",
         "proposal.json",
         "agent_response.txt",
@@ -422,6 +427,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     agent_input = json.loads((round_dir / "agent_input.json").read_text(encoding="utf-8"))
     agent_output = json.loads(
         (round_dir / "agent_output.json").read_text(encoding="utf-8")
+    )
+    agent_validation = json.loads(
+        (round_dir / "agent_validation.json").read_text(encoding="utf-8")
     )
     attempts = json.loads(
         (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
@@ -455,6 +463,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
     assert agent_output["attempt_count"] == len(attempts)
     assert agent_output["artifacts"]["agent_input"].endswith("agent_input.json")
+    assert agent_validation["schema_version"] == AGENT_VALIDATION_SCHEMA_VERSION
+    assert_matches_schema(round_dir / "agent_validation.json", "agent_validation")
+    assert agent_validation["ok"] is True
+    assert agent_validation["checks"]["contract_valid"] is True
+    assert agent_validation["checks"]["git_apply_check"] == "passed"
+    assert agent_validation["proposal_patch_sha256"] == proposal["patch_sha256"]
     assert selected_attempt["direction_tag"] == "lower_min_edge"
     assert selected_attempt["validation_status"] == "evaluated"
     assert isinstance(selected_attempt["validation_ev_delta"], float)
@@ -2098,14 +2112,44 @@ def test_agent_replay_replays_demo_agent_from_agent_input(tmp_path: Path) -> Non
         agent_input_path=round_dir / "agent_input.json",
         proposal_payload=replayed,
     )
+    intake_report = verify_agent_output(
+        agent_input_path=round_dir / "agent_input.json",
+        agent_output_path=output_path,
+        repo_root=repo,
+        output_path=round_dir / "replayed_agent_validation.json",
+        proposal_output_path=round_dir / "replayed_agent_proposal.json",
+        agent_name="file_protocol_demo_agent",
+    )
+    intake_cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.agent_output_intake",
+            str(round_dir / "agent_input.json"),
+            str(output_path),
+            "--repo-root",
+            str(repo),
+            "--output",
+            str(round_dir / "replayed_agent_validation_cli.json"),
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
     assert command_result.returncode == 0
     assert validate_result.returncode == 0
+    assert intake_cli_result.returncode == 0
     assert replayed == actual
     assert json.loads(output_path.read_text(encoding="utf-8")) == actual
     assert cli_payload == actual
     assert validation["ok"] is True
     assert validation["errors"] == []
+    assert intake_report["ok"] is True
+    assert intake_report["checks"]["git_apply_check"] == "passed"  # type: ignore[index]
+    assert_matches_schema(round_dir / "replayed_agent_validation.json", "agent_validation")
+    assert json.loads(intake_cli_result.stdout)["ok"] is True
     assert validate_payload["proposal"] == actual
     assert validate_payload["validation"]["ok"] is True
     assert validate_payload["validation"]["target_file"] == "strategies/current_strategy.py"
@@ -2115,6 +2159,51 @@ def test_agent_replay_replays_demo_agent_from_agent_input(tmp_path: Path) -> Non
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
+
+
+def test_agent_output_intake_rejects_disallowed_patch(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="intake-disallowed",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    round_dir = repo / "experiments/intake-disallowed/round_001"
+    bad_output_path = round_dir / "bad_agent_output.json"
+    bad_output_path.write_text(
+        json.dumps(
+            {
+                "summary": "Try to edit documentation instead of the strategy.",
+                "risk_notes": "This must be rejected before git apply.",
+                "direction_tag": "bad_docs_edit",
+                "expected_metric_change": {"ev": "uncertain"},
+                "hypotheses": ["Disallowed paths should fail intake validation."],
+                "patch_diff": (
+                    "--- a/README.md\n"
+                    "+++ b/README.md\n"
+                    "@@ -1,1 +1,1 @@\n"
+                    "-# Self Iterating Strategy Agent V0.5\n"
+                    "+# Bad Edit\n"
+                ),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    report = verify_agent_output(
+        agent_input_path=round_dir / "agent_input.json",
+        agent_output_path=bad_output_path,
+        repo_root=repo,
+        output_path=round_dir / "bad_agent_validation.json",
+    )
+
+    assert report["ok"] is False
+    assert report["checks"]["strategy_only_patch"] is False  # type: ignore[index]
+    assert any("disallowed files" in error for error in report["errors"])  # type: ignore[union-attr]
+    assert_matches_schema(round_dir / "bad_agent_validation.json", "agent_validation")
 
 
 def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
@@ -2356,6 +2445,7 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     assert diagnosis["completed_rounds"] == 1
     assert diagnosis["best_round"]["round_id"] == "round_001"  # type: ignore[index]
     assert diagnosis["rounds"][0]["direction_tag"] == "lower_min_edge"  # type: ignore[index]
+    assert diagnosis["rounds"][0]["agent_validation_ok"] is True  # type: ignore[index]
     assert "Iteration run" in diagnosis["summary"]
     saved = json.loads(
         (repo / "experiments/diagnose-iteration/diagnosis.json").read_text(

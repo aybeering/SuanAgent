@@ -113,6 +113,7 @@ Current structure:
 ├── schemas/
 │   ├── agent_input.schema.json
 │   ├── agent_output.schema.json
+│   ├── agent_validation.schema.json
 │   ├── agent_execution.schema.json
 │   ├── champion.schema.json
 │   ├── champion_comparison.schema.json
@@ -147,6 +148,7 @@ Current structure:
 │   ├── run_loop.py
 │   ├── iteration_loop.py
 │   ├── agent_context.py
+│   ├── agent_output_intake.py
 │   ├── outcome_memory.py
 │   ├── policy_gate.py
 │   ├── proposal.py
@@ -227,6 +229,7 @@ round_001/
   proposal_intent.md
   agent_input.json
   agent_output.json
+  agent_validation.json
   proposal.json
   agent_execution.json   # file_protocol runs only
   agent_response.txt
@@ -275,13 +278,17 @@ before calling the modifier. The JSON artifact should use schema version
 `proposal_intent_v1` and summarize the recommended direction, directions to
 avoid, evidence, source context artifacts, and hard constraints. It is planner
 guidance only; it must not decide acceptance.
-Each round should also write `agent_input.json` and `agent_output.json`.
+Each round should also write `agent_input.json`, `agent_output.json`, and
+`agent_validation.json`.
 `agent_input.json` should use schema version `agent_io_input_v1` and describe
 the reports, context, proposal intent, before metrics, policy config,
 candidate-selection config, and modifier list available to the agent.
 `agent_output.json` should use schema
 version `agent_io_output_v1` and record the selected proposal, compact attempt
 rows, and output artifact paths.
+`agent_validation.json` should use schema version `agent_validation_v1` and
+record deterministic intake checks for the selected proposal, including
+contract validity, strategy-only patch targeting, and `git apply --check`.
 The machine-readable contracts for these files live in `schemas/`. Run-level
 metadata should write `run_metadata.json`, include resolved dataset paths and
 dataset SHA-256 fingerprints, use schema version `run_metadata_v1`, and match
@@ -519,6 +526,7 @@ python -m orchestrator.experiments champion
 python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>
 python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json
 python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json --validate
+python -m orchestrator.agent_output_intake experiments/<run_id>/round_001/agent_input.json experiments/<run_id>/round_001/demo_agent_output.json --output experiments/<run_id>/round_001/agent_validation.json
 ```
 
 ## Expected behavior
@@ -530,8 +538,8 @@ When the V0.5 loop runs, it should:
 3. Run the current strategy before modification on all configured data splits.
 4. Save train, validation, and holdout before metrics, trades, and reports.
 5. Call the fixed strategy modifier stub using the train report.
-6. Save `agent_context.md`, `agent_context.json`, `proposal_intent.json`, `proposal_intent.md`, `agent_input.json`, `agent_output.json`, `proposal.json`, `agent_response.txt`, and `patch.diff`.
-7. Apply the patch with Git.
+6. Save `agent_context.md`, `agent_context.json`, `proposal_intent.json`, `proposal_intent.md`, `agent_input.json`, `agent_output.json`, `agent_validation.json`, `proposal.json`, `agent_response.txt`, and `patch.diff`.
+7. Apply the patch with Git only after deterministic agent-output validation passes.
 8. Run the modified strategy on all configured data splits.
 9. Save train, validation, and holdout after metrics, trades, and reports.
 10. Run the main policy gate on validation metrics.
@@ -574,6 +582,9 @@ Agent replay commands should read saved `agent_input.json` and
 not apply patches, run backtests, or mutate strategy files. A validate mode may
 check replayed output against the `proposal_v1` contract and patch-target rules
 without applying the patch.
+Agent output intake commands should accept a saved `agent_input.json` plus a
+raw agent output file, normalize it into a proposal, run the same deterministic
+contract and `git apply --check` validation, and write `agent_validation.json`.
 Run comparison should use deterministic metrics and dataset fingerprints. A
 candidate should only receive a promotion recommendation when artifacts are
 valid, compared dataset fingerprints match, validation EV delta improves beyond

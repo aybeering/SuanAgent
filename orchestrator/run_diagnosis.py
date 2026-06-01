@@ -143,6 +143,7 @@ def diagnose_round(
     round_dir = run_dir / round_id
     proposal = load_json_object(round_dir / "proposal.json") or {}
     decision = load_json_object(round_dir / "decision.json") or {}
+    agent_validation = load_json_object(round_dir / "agent_validation.json") or {}
     selected_attempt = selected_attempt_from_file(round_dir / "proposal_attempts.json")
     execution = load_json_object(round_dir / "agent_execution.json") or {}
 
@@ -164,6 +165,8 @@ def diagnose_round(
         "direction_tag": proposal.get("direction_tag", ""),
         "proposal_applicable": bool(proposal.get("applicable", False)),
         "contract_errors": proposal.get("contract_errors", []),
+        "agent_validation_ok": agent_validation.get("ok"),
+        "agent_validation_errors": agent_validation.get("errors", []),
         "patch_sha256": proposal.get("patch_sha256", ""),
         "selected_role": selected_attempt.get("role", ""),
         "candidate_score": selected_attempt.get("candidate_score", 0),

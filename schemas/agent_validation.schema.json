@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Agent Validation Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "ok",
+    "errors",
+    "warnings",
+    "agent_input_path",
+    "agent_output_path",
+    "expected_target_file",
+    "expected_round_index",
+    "proposal_protocol_version",
+    "proposal_applicable",
+    "proposal_target_file",
+    "proposal_direction_tag",
+    "proposal_patch_sha256",
+    "checks",
+    "proposal"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "agent_validation_v1"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "agent_input_path": {
+      "type": "string"
+    },
+    "agent_output_path": {
+      "type": "string"
+    },
+    "expected_target_file": {
+      "type": "string"
+    },
+    "expected_round_index": {
+      "type": "integer"
+    },
+    "proposal_protocol_version": {
+      "type": "string"
+    },
+    "proposal_applicable": {
+      "type": "boolean"
+    },
+    "proposal_target_file": {
+      "type": "string"
+    },
+    "proposal_direction_tag": {
+      "type": "string"
+    },
+    "proposal_patch_sha256": {
+      "type": "string"
+    },
+    "checks": {
+      "type": "object",
+      "required": [
+        "contract_valid",
+        "git_apply_check",
+        "git_apply_error",
+        "strategy_only_patch"
+      ],
+      "properties": {
+        "contract_valid": {
+          "type": "boolean"
+        },
+        "git_apply_check": {
+          "type": "string"
+        },
+        "git_apply_error": {
+          "type": "string"
+        },
+        "strategy_only_patch": {
+          "type": "boolean"
+        }
+      }
+    },
+    "proposal": {
+      "type": "object"
+    }
+  }
+}

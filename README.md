@@ -19,10 +19,11 @@ early when an agent repeats a previously rejected patch.
 
 The strategy interface contract is documented in
 `docs/strategy_interface.md`. Machine-readable agent contracts live in
-`schemas/agent_input.schema.json`, `schemas/agent_output.schema.json`, and
-`schemas/agent_execution.schema.json`; planner intent, run provenance, and
-run-level research notes are described by `schemas/proposal_intent.schema.json`,
-`schemas/run_metadata.schema.json`, and `schemas/research_brief.schema.json`.
+`schemas/agent_input.schema.json`, `schemas/agent_output.schema.json`,
+`schemas/agent_validation.schema.json`, and `schemas/agent_execution.schema.json`;
+planner intent, run provenance, and run-level research notes are described by
+`schemas/proposal_intent.schema.json`, `schemas/run_metadata.schema.json`, and
+`schemas/research_brief.schema.json`.
 The current modifier backend is selected with `strategy_modifier` in config;
 available values are `fixed_patch_stub`, `adaptive_stub`, `codex_dry_run`,
 `codex_cli_dry_run`, `codex_cli`, and `file_protocol`. The `codex_cli` and
@@ -74,6 +75,7 @@ python -m orchestrator.experiments champion
 python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>
 python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json
 python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json --validate
+python -m orchestrator.agent_output_intake experiments/<run_id>/round_001/agent_input.json experiments/<run_id>/round_001/demo_agent_output.json --output experiments/<run_id>/round_001/agent_validation.json
 ```
 
 Useful mode switches:
@@ -147,6 +149,11 @@ requested proposal JSON output and does not run backtests, apply patches, or
 mutate strategy files. Add `--validate` to wrap the replayed proposal with
 deterministic `proposal_v1` contract validation, including strategy-only patch
 target checks, while still avoiding patch application.
+Use `python -m orchestrator.agent_output_intake <agent_input.json> <agent_output>`
+to validate any saved raw agent output before it can become a candidate patch.
+The intake command normalizes JSON proposal output or plain unified diffs into
+the `proposal_v1` shape, checks that only `strategies/current_strategy.py` is
+targeted, runs `git apply --check`, and can write `agent_validation.json`.
 Iteration status is one of `accepted`, `stopped_repeated_proposal`,
 `stopped_max_rounds`, or `failed`.
 The validation policy remains the primary acceptance rule, while the optional
@@ -163,14 +170,15 @@ re-parsing every artifact directory.
 Each round also writes `proposal_intent.json` and `proposal_intent.md`, a thin
 deterministic planner output that turns the context into a recommended
 direction, directions to avoid, evidence, and hard constraints for the modifier.
-Each round also writes `agent_input.json` and `agent_output.json`, a stable
-`agent_io_*_v1` fixture pair that records what a modifier backend was given and
-which proposal candidate was selected.
+Each round also writes `agent_input.json`, `agent_output.json`, and
+`agent_validation.json`, stable fixtures that record what a modifier backend
+was given, which proposal candidate was selected, and whether deterministic
+intake checks passed before patch application.
 Tests validate these artifacts against the JSON schemas under `schemas/`; the
-proposal intent and file-protocol execution audit are validated against
-`schemas/proposal_intent.schema.json` and
-`schemas/agent_execution.schema.json`, and run provenance is validated against
-`schemas/run_metadata.schema.json`.
+proposal intent, agent validation report, and file-protocol execution audit are
+validated against `schemas/proposal_intent.schema.json`,
+`schemas/agent_validation.schema.json`, and `schemas/agent_execution.schema.json`;
+run provenance is validated against `schemas/run_metadata.schema.json`.
 Use `python -m orchestrator.artifact_validator <run_id>` to check that a run
 directory has required files and that agent contract artifacts match their
 schemas.

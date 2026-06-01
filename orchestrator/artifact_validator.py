@@ -208,6 +208,34 @@ def validate_round_dir(
 
     validate_json_object(path=round_dir / "decision.json", report=report)
     validate_json_list(path=round_dir / "proposal_attempts.json", report=report)
+    validate_optional_workspace_manifest(
+        round_dir=round_dir,
+        repo_root=repo_root,
+        proposal=proposal,
+        report=report,
+    )
+
+
+def validate_optional_workspace_manifest(
+    *,
+    round_dir: Path,
+    repo_root: Path,
+    proposal: dict[str, Any] | None,
+    report: dict[str, object],
+) -> None:
+    """Validate workspace_manifest.json for workspace-backed agent rounds."""
+    path = round_dir / "workspace_manifest.json"
+    has_workspace = bool(proposal and proposal.get("workspace_path"))
+    if not path.exists():
+        if has_workspace:
+            add_error(report, f"missing required workspace manifest: {path}")
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/workspace_manifest.schema.json",
+        report=report,
+    )
 
 
 def validate_required_files(

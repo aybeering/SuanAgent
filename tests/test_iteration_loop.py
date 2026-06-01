@@ -63,6 +63,7 @@ from orchestrator.patch_parser import (
 )
 from orchestrator.proposal import StrategyProposal, validate_proposal_contract
 from orchestrator.workspace_manager import (
+    WORKSPACE_MANIFEST_SCHEMA_VERSION,
     create_isolated_workspace,
     workspace_mutation_errors,
     workspace_snapshot,
@@ -1530,6 +1531,9 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
     round_dir = repo / "experiments/dry-run/round_001"
     proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
+    workspace_manifest = json.loads(
+        (round_dir / "workspace_manifest.json").read_text(encoding="utf-8")
+    )
 
     assert manifest["status"] == "stopped_max_rounds"
     assert proposal["agent_name"] == "codex_cli_dry_run"
@@ -1554,6 +1558,14 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
     assert '"recommended_direction": "lower_min_edge"' in proposal["prompt"]
     assert "No prior rounds in this run." in proposal["prompt"]
     assert "workspaces/dry-run/round_001/strategy_workspace" in proposal["workspace_path"]
+    assert workspace_manifest["schema_version"] == WORKSPACE_MANIFEST_SCHEMA_VERSION
+    assert_matches_schema(round_dir / "workspace_manifest.json", "workspace_manifest")
+    assert workspace_manifest["agent_name"] == "codex_cli_dry_run"
+    assert workspace_manifest["execution_enabled"] is False
+    assert workspace_manifest["mutation_policy"]["allowed_paths"] == [
+        "strategies/current_strategy.py"
+    ]
+    assert workspace_manifest["initial_snapshot"]["file_count"] > 0
     assert (
         repo
         / "workspaces/dry-run/round_001/strategy_workspace/strategies/current_strategy.py"
@@ -1630,6 +1642,9 @@ output_path.write_text(json.dumps({
     agent_execution = json.loads(
         (round_dir / "agent_execution.json").read_text(encoding="utf-8")
     )
+    workspace_manifest = json.loads(
+        (round_dir / "workspace_manifest.json").read_text(encoding="utf-8")
+    )
     attempts = json.loads(
         (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
     )
@@ -1653,6 +1668,14 @@ output_path.write_text(json.dumps({
     assert agent_execution["output_file"]["exists"] is True
     assert len(agent_execution["output_file"]["sha256"]) == 64
     assert "file-protocol-fixture-file-protocol" in agent_execution["workspace_path"]
+    assert workspace_manifest["schema_version"] == WORKSPACE_MANIFEST_SCHEMA_VERSION
+    assert_matches_schema(round_dir / "workspace_manifest.json", "workspace_manifest")
+    assert workspace_manifest["agent_name"] == "file_protocol_agent"
+    assert workspace_manifest["execution_enabled"] is True
+    assert workspace_manifest["mutation_policy"]["allowed_paths"] == [
+        "experiments/file-protocol-fixture/round_001/fixture_agent_output.json"
+    ]
+    assert workspace_manifest["initial_snapshot"]["file_count"] > 0
     assert agent_input["target_file_content"].count("MIN_EDGE = 0.05") == 1
     assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
     assert attempts[0]["selected"] is True
@@ -1999,6 +2022,9 @@ def test_file_protocol_demo_agent_runs_from_config(tmp_path: Path) -> None:
     agent_output = json.loads(
         (round_dir / "agent_output.json").read_text(encoding="utf-8")
     )
+    workspace_manifest = json.loads(
+        (round_dir / "workspace_manifest.json").read_text(encoding="utf-8")
+    )
 
     assert manifest["completed_rounds"] == 1
     assert proposal["agent_name"] == "file_protocol_agent"
@@ -2010,6 +2036,7 @@ def test_file_protocol_demo_agent_runs_from_config(tmp_path: Path) -> None:
     assert_matches_schema(round_dir / "agent_input.json", "agent_input")
     assert_matches_schema(round_dir / "agent_output.json", "agent_output")
     assert_matches_schema(round_dir / "agent_execution.json", "agent_execution")
+    assert_matches_schema(round_dir / "workspace_manifest.json", "workspace_manifest")
     assert agent_execution["status"] == "completed"
     assert agent_execution["command"][:3] == [
         "python",
@@ -2018,6 +2045,8 @@ def test_file_protocol_demo_agent_runs_from_config(tmp_path: Path) -> None:
     ]
     assert agent_execution["output_file"]["exists"] is True
     assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
+    assert workspace_manifest["mutation_policy"]["reject_unlisted_changes"] is True
+    assert workspace_manifest["initial_snapshot"]["file_count"] > 0
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
@@ -2248,6 +2277,10 @@ def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
     assert file_protocol_report["ok"] is True
     assert any(
         path.endswith("agent_execution.json")
+        for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
+        path.endswith("workspace_manifest.json")
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
 

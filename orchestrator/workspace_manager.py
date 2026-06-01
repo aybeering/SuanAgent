@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import shutil
 from pathlib import Path
+from typing import Any
 
+
+WORKSPACE_MANIFEST_SCHEMA_VERSION = "workspace_manifest_v1"
 
 DEFAULT_INCLUDE_DIRS = (
     "agents",
@@ -59,6 +63,76 @@ def create_isolated_workspace(
     return workspace_path
 
 
+def write_workspace_manifest(
+    *,
+    output_path: Path,
+    repo_root: Path,
+    workspace_path: Path,
+    run_id: str,
+    round_id: str,
+    agent_name: str,
+    execution_enabled: bool,
+    allowed_mutation_paths: tuple[str, ...],
+) -> Path:
+    """Write a deterministic manifest for one isolated agent workspace."""
+    snapshot = workspace_snapshot(workspace_path)
+    payload = workspace_manifest_payload(
+        repo_root=repo_root,
+        workspace_path=workspace_path,
+        run_id=run_id,
+        round_id=round_id,
+        agent_name=agent_name,
+        execution_enabled=execution_enabled,
+        allowed_mutation_paths=allowed_mutation_paths,
+        snapshot=snapshot,
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return output_path
+
+
+def workspace_manifest_payload(
+    *,
+    repo_root: Path,
+    workspace_path: Path,
+    run_id: str,
+    round_id: str,
+    agent_name: str,
+    execution_enabled: bool,
+    allowed_mutation_paths: tuple[str, ...],
+    snapshot: dict[str, str],
+) -> dict[str, Any]:
+    """Return a JSON-friendly isolated workspace manifest."""
+    return {
+        "schema_version": WORKSPACE_MANIFEST_SCHEMA_VERSION,
+        "run_id": run_id,
+        "round_id": round_id,
+        "agent_name": agent_name,
+        "execution_enabled": execution_enabled,
+        "source_repo_root": str(repo_root.resolve()),
+        "workspace_path": str(workspace_path.resolve()),
+        "include_dirs": list(DEFAULT_INCLUDE_DIRS),
+        "include_files": list(DEFAULT_INCLUDE_FILES),
+        "initial_snapshot": {
+            "file_count": len(snapshot),
+            "sha256": workspace_snapshot_digest(snapshot),
+        },
+        "mutation_policy": {
+            "allowed_paths": list(allowed_mutation_paths),
+            "reject_unlisted_changes": True,
+        },
+    }
+
+
+def workspace_snapshot_digest(snapshot: dict[str, str]) -> str:
+    """Return a deterministic digest for a workspace snapshot mapping."""
+    payload = json.dumps(snapshot, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def workspace_snapshot(workspace_path: Path) -> dict[str, str]:
     """Return deterministic file hashes for an isolated workspace."""
     snapshot: dict[str, str] = {}
@@ -98,4 +172,8 @@ def workspace_mutation_errors(
 def should_ignore_snapshot_path(relative_path: str) -> bool:
     """Return whether a generated workspace path should be ignored."""
     parts = set(Path(relative_path).parts)
-    return "__pycache__" in parts or ".pytest_cache" in parts
+    return (
+        "__pycache__" in parts
+        or ".pytest_cache" in parts
+        or Path(relative_path).name == "workspace_manifest.json"
+    )

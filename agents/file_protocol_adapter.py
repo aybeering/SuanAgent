@@ -24,6 +24,7 @@ from orchestrator.patch_parser import (
 from orchestrator.proposal import StrategyProposal
 from orchestrator.workspace_manager import (
     create_isolated_workspace,
+    write_workspace_manifest,
     workspace_mutation_errors,
     workspace_snapshot,
 )
@@ -94,6 +95,17 @@ class FileProtocolModifier:
         )
         agent_input_path = workspace_round_dir / "agent_input.json"
         output_path = workspace_round_dir / self.output_filename
+        allowed_output_path = output_path.relative_to(workspace_path).as_posix()
+        write_workspace_manifest(
+            output_path=round_dir / "workspace_manifest.json",
+            repo_root=repo_root,
+            workspace_path=workspace_path,
+            run_id=f"{run_id}-file-protocol",
+            round_id=round_id,
+            agent_name=self.agent_name,
+            execution_enabled=self.execute,
+            allowed_mutation_paths=(allowed_output_path,),
+        )
         command = [
             self.executable,
             *self.args,
@@ -116,7 +128,7 @@ class FileProtocolModifier:
                 result=None,
                 raw_response="file protocol execution disabled",
                 mutation_errors=(),
-                allowed_mutation_paths=(output_path.relative_to(workspace_path).as_posix(),),
+                allowed_mutation_paths=(allowed_output_path,),
             )
             return StrategyProposal(
                 agent_name=self.agent_name,
@@ -153,7 +165,7 @@ class FileProtocolModifier:
         mutation_errors = workspace_mutation_errors(
             before=before,
             after=after,
-            allowed_paths={output_path.relative_to(workspace_path).as_posix()},
+            allowed_paths={allowed_output_path},
         )
         if result.timed_out:
             write_agent_execution(
@@ -170,9 +182,7 @@ class FileProtocolModifier:
                 result=result,
                 raw_response=raw_response,
                 mutation_errors=mutation_errors,
-                allowed_mutation_paths=(
-                    output_path.relative_to(workspace_path).as_posix(),
-                ),
+                allowed_mutation_paths=(allowed_output_path,),
             )
             return StrategyProposal(
                 agent_name=self.agent_name,
@@ -208,9 +218,7 @@ class FileProtocolModifier:
                 result=result,
                 raw_response=raw_response,
                 mutation_errors=mutation_errors,
-                allowed_mutation_paths=(
-                    output_path.relative_to(workspace_path).as_posix(),
-                ),
+                allowed_mutation_paths=(allowed_output_path,),
             )
             return StrategyProposal(
                 agent_name=self.agent_name,
@@ -245,9 +253,7 @@ class FileProtocolModifier:
                 result=result,
                 raw_response=raw_response,
                 mutation_errors=mutation_errors,
-                allowed_mutation_paths=(
-                    output_path.relative_to(workspace_path).as_posix(),
-                ),
+                allowed_mutation_paths=(allowed_output_path,),
             )
             return StrategyProposal(
                 agent_name=self.agent_name,
@@ -286,7 +292,7 @@ class FileProtocolModifier:
             result=result,
             raw_response=raw_response,
             mutation_errors=(),
-            allowed_mutation_paths=(output_path.relative_to(workspace_path).as_posix(),),
+            allowed_mutation_paths=(allowed_output_path,),
         )
         return proposal_from_file_protocol_output(
             raw_output=raw_response,

@@ -19,6 +19,7 @@ from agents.codex_dry_run_adapter import (
 from orchestrator.proposal import StrategyProposal
 from orchestrator.workspace_manager import (
     create_isolated_workspace,
+    write_workspace_manifest,
     workspace_mutation_errors,
     workspace_snapshot,
 )
@@ -67,6 +68,16 @@ class CodexCliModifier:
             workspace_root=repo_root / self.workspace_root,
             run_id=run_id,
             round_id=round_id,
+        )
+        write_workspace_manifest(
+            output_path=report_path.parent / "workspace_manifest.json",
+            repo_root=repo_root,
+            workspace_path=workspace_path,
+            run_id=run_id,
+            round_id=round_id,
+            agent_name=self.agent_name,
+            execution_enabled=self.execute,
+            allowed_mutation_paths=(str(target_relative),),
         )
         prompt = build_codex_prompt(
             report_text=report_text,

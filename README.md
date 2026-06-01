@@ -22,8 +22,8 @@ The strategy interface contract is documented in
 `schemas/agent_input.schema.json`, `schemas/agent_output.schema.json`,
 `schemas/agent_validation.schema.json`, and `schemas/agent_execution.schema.json`;
 planner intent, run provenance, and run-level research notes are described by
-`schemas/proposal_intent.schema.json`, `schemas/run_metadata.schema.json`, and
-`schemas/research_brief.schema.json`.
+`schemas/workspace_manifest.schema.json`, `schemas/proposal_intent.schema.json`,
+`schemas/run_metadata.schema.json`, and `schemas/research_brief.schema.json`.
 The current modifier backend is selected with `strategy_modifier` in config;
 available values are `fixed_patch_stub`, `adaptive_stub`, `codex_dry_run`,
 `codex_cli_dry_run`, `codex_cli`, and `file_protocol`. The `codex_cli` and
@@ -41,6 +41,9 @@ Enabled `file_protocol` commands run inside an isolated workspace and may only
 bring back the configured proposal output file. Each file-protocol round writes
 `agent_execution.json` with the command, workspace path, return code, output
 hashes, stdout/stderr summaries, and mutation-guard result.
+Workspace-backed agent rounds also write `workspace_manifest.json`, which records
+the copied project surface, isolated workspace path, initial file snapshot
+digest, and allowed mutation paths before any patch can be applied.
 The demo file-protocol config executes `agents.file_protocol_demo_agent`, a
 local deterministic command that exercises the same JSON contract without
 calling Codex or any network service.
@@ -175,10 +178,11 @@ Each round also writes `agent_input.json`, `agent_output.json`, and
 was given, which proposal candidate was selected, and whether deterministic
 intake checks passed before patch application.
 Tests validate these artifacts against the JSON schemas under `schemas/`; the
-proposal intent, agent validation report, and file-protocol execution audit are
-validated against `schemas/proposal_intent.schema.json`,
-`schemas/agent_validation.schema.json`, and `schemas/agent_execution.schema.json`;
-run provenance is validated against `schemas/run_metadata.schema.json`.
+proposal intent, workspace manifest, agent validation report, and file-protocol
+execution audit are validated against `schemas/proposal_intent.schema.json`,
+`schemas/workspace_manifest.schema.json`, `schemas/agent_validation.schema.json`,
+and `schemas/agent_execution.schema.json`; run provenance is validated against
+`schemas/run_metadata.schema.json`.
 Use `python -m orchestrator.artifact_validator <run_id>` to check that a run
 directory has required files and that agent contract artifacts match their
 schemas.

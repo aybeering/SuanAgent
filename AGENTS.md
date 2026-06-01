@@ -115,6 +115,7 @@ Current structure:
 │   ├── agent_output.schema.json
 │   ├── agent_validation.schema.json
 │   ├── agent_execution.schema.json
+│   ├── workspace_manifest.schema.json
 │   ├── champion.schema.json
 │   ├── champion_comparison.schema.json
 │   ├── proposal_intent.schema.json
@@ -230,6 +231,7 @@ round_001/
   agent_input.json
   agent_output.json
   agent_validation.json
+  workspace_manifest.json  # workspace-backed agents only
   proposal.json
   agent_execution.json   # file_protocol runs only
   agent_response.txt
@@ -292,9 +294,12 @@ contract validity, strategy-only patch targeting, and `git apply --check`.
 The machine-readable contracts for these files live in `schemas/`. Run-level
 metadata should write `run_metadata.json`, include resolved dataset paths and
 dataset SHA-256 fingerprints, use schema version `run_metadata_v1`, and match
-`schemas/run_metadata.schema.json`. File-protocol rounds should also write
-`agent_execution.json`, use schema version `agent_execution_v1`, and match
-`schemas/agent_execution.schema.json`.
+`schemas/run_metadata.schema.json`. Workspace-backed agent rounds should also
+write `workspace_manifest.json`, use schema version `workspace_manifest_v1`,
+and record the isolated workspace path, copied project surface, initial
+snapshot digest, and allowed mutation paths. File-protocol rounds should also
+write `agent_execution.json`, use schema version `agent_execution_v1`, and
+match `schemas/agent_execution.schema.json`.
 File-protocol execution status should be one of `disabled`, `completed`,
 `command_failed`, `timeout`, or `workspace_violation`. Timeouts, command
 failures, malformed output, disallowed patch targets, and workspace side effects
@@ -497,7 +502,7 @@ Add smoke tests that verify:
 13. Invalid strategy orders are rejected before simulation.
 14. The dry-run Codex adapter records a non-applicable proposal without changing files.
 15. Patch parsing rejects changes outside `strategies/current_strategy.py`.
-16. Isolated workspaces copy the minimal project without `.git`.
+16. Isolated workspaces copy the minimal project without `.git` and write `workspace_manifest.json`.
 17. Proposal contract validation rejects malformed or disallowed agent output before apply.
 18. Direction-history priors can influence candidate ranking without deciding acceptance.
 19. Exploration bonuses can push low-sample directions after deterministic stalls.
@@ -562,10 +567,12 @@ that flag a weak direction. Dry-run Codex prompts and file-protocol demo agents
 should consume `proposal_intent.json` so future CLI or SDK agents receive one
 compact planner handoff. The `codex_cli` and `file_protocol` adapters must
 default to `execute=false`; only an explicit config change may invoke a
-subprocess. Enabled `file_protocol` commands must run in an isolated workspace
-and only bring back the configured proposal output file. Subprocess fixtures
-should be able to return either plain diffs or structured proposal JSON so the
-external-process boundary remains testable without real Codex.
+subprocess. Workspace-backed agents must write `workspace_manifest.json` before
+proposal application so the copied files, initial snapshot digest, and mutation
+policy are auditable. Enabled `file_protocol` commands must run in an isolated
+workspace and only bring back the configured proposal output file. Subprocess
+fixtures should be able to return either plain diffs or structured proposal JSON
+so the external-process boundary remains testable without real Codex.
 
 CLI entrypoints must support `--config` and `--run-id` so experiments can switch
 between modes without editing `config/default.json`.

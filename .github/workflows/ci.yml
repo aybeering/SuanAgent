@@ -132,6 +132,18 @@ jobs:
           assert stats["round_replays"]["replayed_round_count"] == 1
           assert stats["round_replays"]["rounds"][0]["attempts"][0]["plan_matches_manifest"] is True
           PY
+          python -m orchestrator.agent_slot_health experiments/ci-file-protocol-demo
+          test -f experiments/ci-file-protocol-demo/agent_slot_health.json
+          test -f experiments/ci-file-protocol-demo/agent_slot_health.md
+          python -m orchestrator.experiments slots ci-file-protocol-demo > /tmp/agent_slot_health.json
+          python - <<'PY'
+          import json
+          health = json.load(open("/tmp/agent_slot_health.json"))
+          assert health["schema_version"] == "agent_slot_health_v1"
+          assert health["totals"]["healthy_count"] == 1
+          assert health["slots"][0]["workspace_manifest_present"] is True
+          assert health["slots"][0]["agent_execution_present"] is True
+          PY
 
       - name: Inspect research brief artifacts
         run: |

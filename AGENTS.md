@@ -88,6 +88,7 @@ Allowed components:
 37. A deterministic `agent_execution_plan.json` round plan that records the candidate queue before any modifier is invoked.
 38. A deterministic `round_replay.json` audit command that replays every saved planned attempt without rerunning the full loop.
 39. Agent inspection output that summarizes round replay status for each saved round.
+40. A deterministic `agent_slot_health.json` report that summarizes planned slot readiness, audits, and replay status.
 
 Still out of scope:
 
@@ -138,6 +139,7 @@ Current structure:
 │   ├── agent_activation_preflight.schema.json
 │   ├── agent_execution_plan.schema.json
 │   ├── round_replay.schema.json
+│   ├── agent_slot_health.schema.json
 │   ├── agent_role_contracts.schema.json
 │   ├── agent_role_readiness.schema.json
 │   ├── analysis_notes.schema.json
@@ -247,6 +249,8 @@ diagnosis.json
 run_metadata.json
 agent_activation_preflight.json
 agent_activation_preflight.md
+agent_slot_health.json  # optional slot health audit
+agent_slot_health.md    # optional slot health audit
 research_brief.json
 research_brief.md
 champion_comparison.json  # when a champion registry exists
@@ -479,6 +483,10 @@ with `agent_attempts_manifest.json`, replay every saved attempt through the
 existing deterministic attempt replay contract, and write a round-level summary
 without executing agents, selecting candidates, or applying a final strategy
 patch.
+`agent_slot_health.json` should use schema version `agent_slot_health_v1` when
+the optional slot health command is run. It should summarize preflight status,
+planned attempts, saved attempt manifests, workspace/execution audits, and
+round replay status without calling agents or changing acceptance.
 The machine-readable contracts for these files live in `schemas/`. Run-level
 metadata should write `run_metadata.json`, include resolved dataset paths and
 dataset SHA-256 fingerprints, use schema version `run_metadata_v1`, and match
@@ -744,6 +752,7 @@ Add smoke tests that verify:
 27. Agent execution planning is written as `agent_execution_plan_v1` JSON before candidate modifiers run.
 28. Round replay can replay every saved planned attempt and validate the resulting `round_replay_v1` artifact.
 29. Experiment agent inspection reports round replay presence, counts, and per-attempt plan/manifest alignment.
+30. Agent slot health reports identify healthy, unreplayed, blocked, and audit-missing agent slots.
 
 The project is complete only when these checks pass:
 
@@ -760,6 +769,7 @@ python -m orchestrator.experiments memory --limit 5
 python -m orchestrator.artifact_validator <run_id>
 python -m orchestrator.experiments diagnose <run_id>
 python -m orchestrator.experiments agents <run_id>
+python -m orchestrator.experiments slots <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
 python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>
@@ -767,6 +777,7 @@ python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.j
 python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json --validate
 python -m orchestrator.attempt_replay experiments/<run_id>/round_001/agent_attempts/attempt_001_primary
 python -m orchestrator.round_replay experiments/<run_id>/round_001
+python -m orchestrator.agent_slot_health experiments/<run_id>
 python -m orchestrator.agent_output_intake experiments/<run_id>/round_001/agent_input.json experiments/<run_id>/round_001/demo_agent_output.json --output experiments/<run_id>/round_001/agent_validation.json
 ```
 
@@ -825,7 +836,9 @@ run artifacts without mutating strategy code. Leaderboards should rank by
 validation EV improvement, not natural-language judgment. The agent inspection
 command should include aggregate candidate stats and any available round replay
 status so planned, saved, and replayed attempt traces can be inspected from one
-entrypoint.
+entrypoint. The slot inspection command should report whether each planned
+agent slot is activation-ready, saved, workspace-audited, execution-audited,
+and replayed.
 Agent replay commands should read saved `agent_input.json` and
 `proposal_intent.json` artifacts, emit deterministic proposal JSON, and must
 not apply patches, run backtests, or mutate strategy files. A validate mode may
@@ -843,6 +856,9 @@ execution plan with the attempt manifest, replay every saved attempt through
 the attempt replay path, write `round_replay.json` and `round_replay.md`, and
 leave `strategies/current_strategy.py` rolled back to HEAD. They must not call
 agents, rerun candidate selection, or change acceptance decisions.
+Agent slot health commands should accept one saved run directory, inspect
+preflight, plan, attempt, workspace, execution, and replay artifacts, write
+`agent_slot_health.json` and `agent_slot_health.md`, and remain inspection-only.
 Failure classification should remain machine-readable and stable. Preserve the
 human-readable `reasons` text, but add or maintain `reason_codes`,
 `failure_stage`, `failure_code`, and `failure_message` for contract, memory,

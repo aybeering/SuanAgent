@@ -41,6 +41,11 @@ from orchestrator.agent_output_intake import (
 )
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
+from orchestrator.agent_slot_health import (
+    AGENT_SLOT_HEALTH_SCHEMA_VERSION,
+    build_agent_slot_health,
+    write_agent_slot_health,
+)
 from orchestrator.attempt_replay import replay_attempt
 from orchestrator.round_replay import ROUND_REPLAY_SCHEMA_VERSION, replay_round
 from orchestrator.artifact_validator import validate_run_artifacts
@@ -63,6 +68,7 @@ from orchestrator.preflight import run_preflight
 from orchestrator.schema_validation import validate_json_file, validate_json_payload
 from orchestrator.experiments import (
     agent_result_stats,
+    agent_slot_health_report,
     candidate_leaderboard,
     compare_experiments,
     experiment_leaderboard,
@@ -3882,6 +3888,94 @@ def test_artifact_validator_reports_round_replay_plan_mismatch(
         "round_replay.json plan mismatch" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
+
+
+def test_agent_slot_health_reports_default_and_replayed_slots(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="slot-health-default",
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments/slot-health-default"
+    round_dir = run_dir / "round_001"
+    replay_round(round_dir=round_dir, repo_root=repo, run_probe=False)
+
+    health = write_agent_slot_health(run_dir=run_dir, repo_root=repo)
+    dynamic_health = agent_slot_health_report(
+        run_id="slot-health-default",
+        experiments_dir=repo / "experiments",
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "slots",
+            "slot-health-default",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    validation_report = validate_run_artifacts(
+        run_id="slot-health-default",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert health["schema_version"] == AGENT_SLOT_HEALTH_SCHEMA_VERSION
+    expected_slot_count = len(list(run_dir.glob("round_*"))) * 3
+    assert health["totals"]["slot_count"] == expected_slot_count
+    assert health["totals"]["healthy_count"] == 3
+    assert health["totals"]["needs_replay_count"] == expected_slot_count - 3
+    assert health["totals"]["blocked_count"] == 0
+    assert health["slots"][0]["health_status"] == "healthy"
+    assert health["slots"][0]["plan_matches_manifest"] is True
+    assert health["slots"][0]["replay_present"] is True
+    assert any(slot["health_status"] == "needs_replay" for slot in health["slots"])
+    assert health["policy"]["does_not_execute_agents"] is True
+    assert dynamic_health["from_artifact"] is True
+    assert cli_result.returncode == 0, cli_result.stderr
+    cli_payload = json.loads(cli_result.stdout)
+    assert cli_payload["from_artifact"] is True
+    assert cli_payload["totals"]["healthy_count"] == 3
+    assert_matches_schema(run_dir / "agent_slot_health.json", "agent_slot_health")
+    assert (run_dir / "agent_slot_health.md").exists()
+    assert validation_report["ok"] is True
+
+
+def test_agent_slot_health_reports_workspace_and_execution_audits(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+    run_iteration_loop(
+        run_id="slot-health-file-protocol",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/slot-health-file-protocol"
+    round_dir = run_dir / "round_001"
+    replay_round(round_dir=round_dir, repo_root=repo)
+
+    health = build_agent_slot_health(run_dir=run_dir, repo_root=repo)
+
+    assert health["totals"]["slot_count"] == 1
+    assert health["totals"]["healthy_count"] == 1
+    assert health["totals"]["workspace_required_count"] == 1
+    assert health["totals"]["execution_audit_required_count"] == 1
+    slot = health["slots"][0]
+    assert slot["health_status"] == "healthy"
+    assert slot["workspace_manifest_present"] is True
+    assert slot["agent_execution_present"] is True
+    assert slot["agent_execution_status"] == "completed"
+    assert slot["runner_name"] == AGENT_CONTRACT_RUNNER_NAME
 
 
 def test_agent_output_intake_rejects_disallowed_patch(tmp_path: Path) -> None:

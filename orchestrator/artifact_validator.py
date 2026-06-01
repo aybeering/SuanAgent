@@ -140,6 +140,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_agent_slot_health(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     report["ok"] = not report["errors"]
     return report
 
@@ -1681,6 +1686,51 @@ def validate_optional_champion_comparison(
             report,
             f"champion_comparison.json run_id does not match report: {path}",
         )
+
+
+def validate_optional_agent_slot_health(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate agent_slot_health.json when a run has one."""
+    path = run_dir / "agent_slot_health.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/agent_slot_health.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(report, f"agent_slot_health.json run_id does not match report: {path}")
+    slots = payload.get("slots", [])
+    if not isinstance(slots, list) or not slots:
+        add_error(report, "agent_slot_health.json slots is empty or invalid")
+        return
+    totals = payload.get("totals", {})
+    if isinstance(totals, dict) and totals.get("slot_count") != len(slots):
+        add_error(report, "agent_slot_health.json slot_count mismatch")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "agent_slot_health.json policy invalid")
+    else:
+        for key in (
+            "inspection_only",
+            "does_not_execute_agents",
+            "does_not_select_candidate",
+            "does_not_change_acceptance",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(report, f"agent_slot_health.json policy false: {key}")
+    markdown_path = run_dir / "agent_slot_health.md"
+    if markdown_path.exists():
+        checked_files(report).append(str(markdown_path))
 
 
 def validate_optional_research_brief(

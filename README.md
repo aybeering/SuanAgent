@@ -26,6 +26,7 @@ The strategy interface contract is documented in
 `schemas/agent_activation_preflight.schema.json`,
 `schemas/agent_execution_plan.schema.json`,
 `schemas/round_replay.schema.json`,
+`schemas/agent_slot_health.schema.json`,
 `schemas/agent_role_contracts.schema.json`,
 `schemas/agent_role_readiness.schema.json`,
 `schemas/analysis_notes.schema.json`,
@@ -34,7 +35,8 @@ The strategy interface contract is documented in
 `schemas/overfit_validation.schema.json`;
 saved attempt replay reports use
 `schemas/attempt_replay.schema.json`; round replay reports use
-`schemas/round_replay.schema.json`; aggregate agent result reports use
+`schemas/round_replay.schema.json`; slot health reports use
+`schemas/agent_slot_health.schema.json`; aggregate agent result reports use
 `schemas/agent_result_stats.schema.json`;
 planner intent, run provenance, and
 run-level research notes are described by `schemas/workspace_manifest.schema.json`,
@@ -141,12 +143,15 @@ python -m orchestrator.experiments memory --limit 5
 python -m orchestrator.artifact_validator <run_id>
 python -m orchestrator.experiments diagnose <run_id>
 python -m orchestrator.experiments agents <run_id>
+python -m orchestrator.experiments slots <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
 python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>
 python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json
 python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json --validate
 python -m orchestrator.attempt_replay experiments/<run_id>/round_001/agent_attempts/attempt_001_primary
+python -m orchestrator.round_replay experiments/<run_id>/round_001
+python -m orchestrator.agent_slot_health experiments/<run_id>
 python -m orchestrator.agent_output_intake experiments/<run_id>/round_001/agent_input.json experiments/<run_id>/round_001/demo_agent_output.json --output experiments/<run_id>/round_001/agent_validation.json
 ```
 
@@ -165,6 +170,7 @@ python -m orchestrator.experiments show dry-run-demo
 python -m orchestrator.artifact_validator file-protocol-local-demo
 python -m orchestrator.experiments diagnose file-protocol-local-demo
 python -m orchestrator.experiments agents file-protocol-local-demo
+python -m orchestrator.experiments slots file-protocol-local-demo
 python -m orchestrator.experiments compare dry-run-demo adaptive-demo
 python -m orchestrator.experiments promote dry-run-demo adaptive-demo
 ```
@@ -254,6 +260,12 @@ candidates, or apply a final strategy patch.
 After a round replay exists, `python -m orchestrator.experiments agents <run_id>`
 adds a `round_replays` summary with per-round replay presence, replay counts,
 and per-attempt plan/manifest alignment.
+Use `python -m orchestrator.agent_slot_health <experiments/run_id>` to write
+`agent_slot_health.json` and `agent_slot_health.md`. The report combines
+preflight readiness, execution plans, saved attempts, workspace/execution
+audits, and replay status for each planned agent slot. Use
+`python -m orchestrator.experiments slots <run_id>` to inspect the same health
+view without requiring a saved report first.
 Use `python -m orchestrator.agent_output_intake <agent_input.json> <agent_output>`
 to validate any saved raw agent output before it can become a candidate patch.
 The intake command normalizes JSON proposal output or plain unified diffs into
@@ -374,6 +386,7 @@ are validated against
 `schemas/agent_activation_preflight.schema.json`,
 `schemas/agent_execution_plan.schema.json`,
 `schemas/round_replay.schema.json`,
+`schemas/agent_slot_health.schema.json`,
 `schemas/agent_role_contracts.schema.json`,
 `schemas/agent_role_readiness.schema.json`,
 `schemas/analysis_notes.schema.json`,
@@ -384,8 +397,9 @@ are validated against
 `schemas/agent_validation.schema.json`, `schemas/agent_execution.schema.json`,
 `schemas/attempt_output.schema.json`, and
 `schemas/attempt_replay.schema.json`; optional round replay reports are
-validated against `schemas/round_replay.schema.json`; run provenance is
-validated against `schemas/run_metadata.schema.json`.
+validated against `schemas/round_replay.schema.json`; optional slot health
+reports are validated against `schemas/agent_slot_health.schema.json`; run
+provenance is validated against `schemas/run_metadata.schema.json`.
 `agent_execution.json` records `runner_name=agent_contract_runner_v1`, making it
 clear which shared execution contract handled the external command.
 Use `python -m orchestrator.artifact_validator <run_id>` to check that a run

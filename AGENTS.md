@@ -83,6 +83,7 @@ Allowed components:
 32. Role-level agent contracts that declare future blue-node responsibilities while only the strategy modifier executes.
 33. Deterministic local `chart.html` and `trade_timeline.html` artifacts for round inspection, generated without visual agents or network calls.
 34. A deterministic `visual_artifacts_manifest.json` that indexes visual inputs, source files, hashes, and visual authority policy.
+35. A deterministic `agent_role_readiness.json` audit that reports which future agent roles are executable, blocked, or contract-only.
 
 Still out of scope:
 
@@ -131,6 +132,7 @@ Current structure:
 │   ├── agent_validation.schema.json
 │   ├── agent_execution.schema.json
 │   ├── agent_role_contracts.schema.json
+│   ├── agent_role_readiness.schema.json
 │   ├── analysis_notes.schema.json
 │   ├── visual_artifacts_manifest.schema.json
 │   ├── visual_review.schema.json
@@ -265,6 +267,8 @@ round_001/
   visual_review.md
   overfit_validation.json
   overfit_validation.md
+  agent_role_readiness.json
+  agent_role_readiness.md
   agent_input.json
   agent_bundle_manifest.json
   agent_input_bundle/
@@ -331,6 +335,7 @@ Each round should also write `agent_role_contracts.json`, `analysis_notes.json`,
 `analysis_notes.md`, `visual_artifacts_manifest.json`, `chart.html`,
 `trade_timeline.html`, `visual_review.json`, `visual_review.md`,
 `overfit_validation.json`, `overfit_validation.md`,
+`agent_role_readiness.json`, `agent_role_readiness.md`,
 `agent_input.json`, `agent_bundle_manifest.json`, `agent_input_bundle/`,
 `agent_output_bundle/`, `raw_agent_output.txt`, `agent_output.json`,
 `agent_validation.json`, `agent_executor_report.json`, `agent_routing_policy.json`,
@@ -367,6 +372,13 @@ and the artifact must not change routing or final acceptance.
 record the overfit validator stub's consumed proposal, decision, metric deltas,
 prior rejected round count, and advisory risk flags. In V0.5 it must not veto,
 change routing, or change final acceptance.
+`agent_role_readiness.json` should use schema version
+`agent_role_readiness_v1` and record each configured agent role's execution
+mode, executable status, activation blockers, consumed artifacts, produced
+artifacts, and authority flags. In V0.5, only `strategy_modifier` may be
+executable; `analysis`, `visual_review`, and `overfit_validator` must remain
+non-executable contract stubs with no routing, veto, or final acceptance
+authority.
 `agent_input.json` should use schema version `agent_io_input_v1` and describe
 the reports, context, proposal intent, before metrics, policy config,
 candidate-selection config, modifier list, configured agent roles, configured
@@ -693,6 +705,7 @@ Add smoke tests that verify:
 22. Enabled Codex CLI subprocesses are rejected if they mutate files outside `strategies/current_strategy.py`.
 23. Candidate-selection weights are configurable and recorded with attempts.
 24. Agent I/O fixtures are written as `agent_io_input_v1` and `agent_io_output_v1` JSON.
+25. Agent role readiness is written as `agent_role_readiness_v1` JSON and keeps non-strategy roles non-executable in V0.5.
 
 The project is complete only when these checks pass:
 
@@ -734,14 +747,15 @@ When the V0.5 loop runs, it should:
 10. Run the main policy gate on validation metrics.
 11. Run the configured holdout risk gate as a deterministic veto.
 12. Save `decision.json`.
-13. Append proposal outcome memory to `experiments/memory.jsonl`.
-14. Accept and commit if both gates pass.
-15. Reject and roll back if either gate fails.
-16. Stop with `stopped_repeated_proposal` if the rejected patch repeats a prior round.
-17. Stop with `stopped_max_rounds` if max rounds is reached.
-18. Save `manifest.json`.
-19. Save `summary.md`, `diagnosis.json`, and the research brief artifacts.
-20. Print a short final summary.
+13. Save `overfit_validation.json`, `overfit_validation.md`, `agent_role_readiness.json`, and `agent_role_readiness.md`.
+14. Append proposal outcome memory to `experiments/memory.jsonl`.
+15. Accept and commit if both gates pass.
+16. Reject and roll back if either gate fails.
+17. Stop with `stopped_repeated_proposal` if the rejected patch repeats a prior round.
+18. Stop with `stopped_max_rounds` if max rounds is reached.
+19. Save `manifest.json`.
+20. Save `summary.md`, `diagnosis.json`, and the research brief artifacts.
+21. Print a short final summary.
 
 The configured modifier may also be `codex_dry_run`, `codex_cli_dry_run`,
 `codex_cli`, or `file_protocol`. The `adaptive_stub` modifier is still

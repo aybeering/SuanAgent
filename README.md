@@ -24,6 +24,7 @@ The strategy interface contract is documented in
 `schemas/agent_executor.schema.json`, `schemas/agent_output.schema.json`,
 `schemas/agent_validation.schema.json`, `schemas/agent_execution.schema.json`,
 `schemas/agent_role_contracts.schema.json`,
+`schemas/agent_role_readiness.schema.json`,
 `schemas/analysis_notes.schema.json`,
 `schemas/visual_artifacts_manifest.schema.json`,
 `schemas/visual_review.schema.json`, and
@@ -76,6 +77,10 @@ The `overfit_validator` role writes `overfit_validation.json` plus
 `overfit_validation.md` after the deterministic decision exists. It compares
 train, validation, and holdout metric deltas and records advisory risk flags,
 but its V0.5 recommendation cannot veto or alter acceptance.
+Each round also writes `agent_role_readiness.json` plus
+`agent_role_readiness.md`, a compact audit of which planned roles are
+executable, blocked, or contract-only. This is a readiness checklist for future
+isolated Codex CLI or SDK agents; it has no routing or acceptance authority.
 Each configured profile can also carry `agent_role`. In V0.5 enabled profiles
 must point at the active `strategy_modifier` role; disabled profiles may point at
 future roles so they remain visible in manifests without entering the execution
@@ -265,7 +270,8 @@ Each round also writes `agent_input_bundle/`, `agent_output_bundle/`,
 `agent_role_contracts.json`, `analysis_notes.json`, `analysis_notes.md`,
 `visual_artifacts_manifest.json`, `chart.html`, `trade_timeline.html`,
 `visual_review.json`, `visual_review.md`,
-`overfit_validation.json`, `overfit_validation.md`, `agent_input.json`,
+`overfit_validation.json`, `overfit_validation.md`,
+`agent_role_readiness.json`, `agent_role_readiness.md`, `agent_input.json`,
 `raw_agent_output.txt`, `agent_output.json`, and `agent_validation.json`, stable
 fixtures that record what a modifier backend was given, the raw text that
 became the proposal, every candidate attempt considered, the executor queue
@@ -296,6 +302,12 @@ V0.5 keeps visual review inactive.
 view of validation-vs-holdout deltas, prior rejected rounds, and advisory risk
 flags. The artifact validator rejects it if it claims veto authority while V0.5
 keeps overfit validation inactive.
+`agent_role_readiness.json` is the round-level readiness audit for the future
+blue-node roles. It lists each configured role's executable status, activation
+blockers, consumed files, produced files, and authority flags. In V0.5, only
+`strategy_modifier` may be executable; analysis, visual review, and overfit
+validation remain contract stubs and cannot change routing, veto, or final
+acceptance.
 `agent_input.json` includes `agent_roles`, `agent_profiles`, an `active_agent`
 task envelope, and output-contract paths so future SDK or CLI-backed agents do
 not need to infer their identity or allowed output location from filenames.
@@ -336,6 +348,7 @@ are validated against
 `schemas/agent_attempts.schema.json`, `schemas/agent_selection.schema.json`,
 `schemas/agent_executor.schema.json`, `schemas/agent_routing_policy.schema.json`,
 `schemas/agent_role_contracts.schema.json`,
+`schemas/agent_role_readiness.schema.json`,
 `schemas/analysis_notes.schema.json`,
 `schemas/visual_artifacts_manifest.schema.json`,
 `schemas/visual_review.schema.json`,

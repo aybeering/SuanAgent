@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Agent Role Readiness",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "round_id",
+    "round_index",
+    "round_dir",
+    "agent_role_contracts",
+    "roles",
+    "readiness_summary",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "agent_role_readiness_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "round_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "round_index": {
+      "type": "integer"
+    },
+    "round_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "agent_role_contracts": {
+      "type": "string",
+      "minLength": 1
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "role_name",
+          "stage",
+          "enabled",
+          "execution_mode",
+          "implemented",
+          "required",
+          "declared_decision_authority",
+          "executable_now",
+          "activation_blockers",
+          "consumed_artifacts",
+          "produced_artifacts",
+          "integrity_checks",
+          "authority"
+        ],
+        "properties": {
+          "role_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stage": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "execution_mode": {
+            "type": "string"
+          },
+          "implemented": {
+            "type": "boolean"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "declared_decision_authority": {
+            "type": "string"
+          },
+          "executable_now": {
+            "type": "boolean"
+          },
+          "activation_blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "consumed_artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/artifact"
+            }
+          },
+          "produced_artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/artifact"
+            }
+          },
+          "integrity_checks": {
+            "type": "object",
+            "required": [
+              "consumed_artifacts_exist",
+              "produced_artifacts_exist"
+            ],
+            "properties": {
+              "consumed_artifacts_exist": {
+                "type": "boolean"
+              },
+              "produced_artifacts_exist": {
+                "type": "boolean"
+              }
+            }
+          },
+          "authority": {
+            "type": "object",
+            "required": [
+              "can_change_acceptance",
+              "can_change_routing",
+              "can_veto"
+            ],
+            "properties": {
+              "can_change_acceptance": {
+                "type": "boolean"
+              },
+              "can_change_routing": {
+                "type": "boolean"
+              },
+              "can_veto": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "readiness_summary": {
+      "type": "object",
+      "required": [
+        "role_count",
+        "executable_roles",
+        "implemented_roles",
+        "stub_roles",
+        "blocked_roles",
+        "all_produced_artifacts_present",
+        "stub_roles_have_no_execution_authority"
+      ],
+      "properties": {
+        "role_count": {
+          "type": "integer"
+        },
+        "executable_roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "implemented_roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stub_roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blocked_roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "all_produced_artifacts_present": {
+          "type": "boolean"
+        },
+        "stub_roles_have_no_execution_authority": {
+          "type": "boolean"
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "only_strategy_modifier_executes_in_v0_5",
+        "deterministic_gates_keep_acceptance_authority",
+        "readiness_report_can_change_acceptance",
+        "readiness_report_can_change_routing"
+      ],
+      "properties": {
+        "only_strategy_modifier_executes_in_v0_5": {
+          "type": "boolean"
+        },
+        "deterministic_gates_keep_acceptance_authority": {
+          "type": "boolean"
+        },
+        "readiness_report_can_change_acceptance": {
+          "type": "boolean"
+        },
+        "readiness_report_can_change_routing": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "required": [
+        "name",
+        "path",
+        "exists",
+        "schema_version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "schema_version": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

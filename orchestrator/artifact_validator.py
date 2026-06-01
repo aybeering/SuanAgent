@@ -80,6 +80,8 @@ ROUND_REQUIRED_FILES = (
     "decision.json",
     "overfit_validation.json",
     "overfit_validation.md",
+    "agent_role_readiness.json",
+    "agent_role_readiness.md",
 )
 
 
@@ -338,6 +340,17 @@ def validate_round_dir(
         role_names=role_names,
         report=report,
     )
+    validate_contract_file(
+        payload_path=round_dir / "agent_role_readiness.json",
+        schema_path=repo_root / "schemas/agent_role_readiness.schema.json",
+        report=report,
+    )
+    validate_agent_role_readiness(
+        path=round_dir / "agent_role_readiness.json",
+        repo_root=repo_root,
+        role_names=role_names,
+        report=report,
+    )
     proposal_attempts = validate_json_list(
         path=round_dir / "proposal_attempts.json",
         report=report,
@@ -545,6 +558,180 @@ def validate_overfit_validation(
                     "overfit_validation.json artifact does not exist: "
                     f"{artifact_key}={artifact_path}",
                 )
+
+
+def validate_agent_role_readiness(
+    *,
+    path: Path,
+    repo_root: Path,
+    role_names: set[str],
+    report: dict[str, object],
+) -> None:
+    """Validate the round-level readiness report for future agent roles."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    roles = payload.get("roles", [])
+    if not isinstance(roles, list) or not roles:
+        add_error(report, "agent_role_readiness.json roles is empty or invalid")
+        return
+    seen_roles: set[str] = set()
+    executable_roles: list[str] = []
+    for role in roles:
+        if not isinstance(role, dict):
+            add_error(report, "agent_role_readiness.json role is non-object")
+            continue
+        role_name = str(role.get("role_name", ""))
+        if not role_name:
+            add_error(report, "agent_role_readiness.json role_name is empty")
+        elif role_name in seen_roles:
+            add_error(
+                report,
+                f"agent_role_readiness.json duplicate role: {role_name}",
+            )
+        seen_roles.add(role_name)
+        if role_names and role_name not in role_names:
+            add_error(
+                report,
+                f"agent_role_readiness.json unknown role: {role_name}",
+            )
+        executable_now = bool(role.get("executable_now", False))
+        if executable_now:
+            executable_roles.append(role_name)
+        if role_name != "strategy_modifier" and executable_now:
+            add_error(
+                report,
+                "agent_role_readiness.json non-strategy role cannot execute in V0.5: "
+                f"{role_name}",
+            )
+        if str(role.get("execution_mode", "")) == "stub_contract" and executable_now:
+            add_error(
+                report,
+                "agent_role_readiness.json stub role cannot be executable: "
+                f"{role_name}",
+            )
+        authority = role.get("authority", {})
+        if not isinstance(authority, dict):
+            add_error(report, "agent_role_readiness.json role authority is invalid")
+        else:
+            if bool(authority.get("can_change_acceptance", True)):
+                add_error(
+                    report,
+                    "agent_role_readiness.json role must not change acceptance: "
+                    f"{role_name}",
+                )
+            if bool(authority.get("can_change_routing", True)):
+                add_error(
+                    report,
+                    "agent_role_readiness.json role must not change routing: "
+                    f"{role_name}",
+                )
+            if bool(authority.get("can_veto", True)):
+                add_error(
+                    report,
+                    f"agent_role_readiness.json role must not veto in V0.5: {role_name}",
+                )
+        validate_readiness_artifact_records(
+            role_name=role_name,
+            group_key="consumed_artifacts",
+            artifacts=role.get("consumed_artifacts", []),
+            repo_root=repo_root,
+            report=report,
+        )
+        validate_readiness_artifact_records(
+            role_name=role_name,
+            group_key="produced_artifacts",
+            artifacts=role.get("produced_artifacts", []),
+            repo_root=repo_root,
+            report=report,
+        )
+    summary = payload.get("readiness_summary", {})
+    if not isinstance(summary, dict):
+        add_error(report, "agent_role_readiness.json readiness_summary is invalid")
+    else:
+        if summary.get("role_count") != len(roles):
+            add_error(report, "agent_role_readiness.json role_count mismatch")
+        if summary.get("executable_roles") != executable_roles:
+            add_error(report, "agent_role_readiness.json executable_roles mismatch")
+        if executable_roles != ["strategy_modifier"]:
+            add_error(
+                report,
+                "agent_role_readiness.json only strategy_modifier should execute",
+            )
+        if not bool(summary.get("all_produced_artifacts_present", False)):
+            add_error(
+                report,
+                "agent_role_readiness.json produced artifacts must be present",
+            )
+        if not bool(summary.get("stub_roles_have_no_execution_authority", False)):
+            add_error(
+                report,
+                "agent_role_readiness.json stub roles must have no execution authority",
+            )
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "agent_role_readiness.json policy is invalid")
+    else:
+        if not bool(policy.get("only_strategy_modifier_executes_in_v0_5", False)):
+            add_error(
+                report,
+                "agent_role_readiness.json must preserve strategy-only execution",
+            )
+        if not bool(
+            policy.get("deterministic_gates_keep_acceptance_authority", False)
+        ):
+            add_error(
+                report,
+                "agent_role_readiness.json must preserve deterministic gates",
+            )
+        if bool(policy.get("readiness_report_can_change_acceptance", True)):
+            add_error(
+                report,
+                "agent_role_readiness.json report must not change acceptance",
+            )
+        if bool(policy.get("readiness_report_can_change_routing", True)):
+            add_error(
+                report,
+                "agent_role_readiness.json report must not change routing",
+            )
+
+
+def validate_readiness_artifact_records(
+    *,
+    role_name: str,
+    group_key: str,
+    artifacts: object,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate readiness artifact path records."""
+    if not isinstance(artifacts, list) or not artifacts:
+        add_error(
+            report,
+            f"agent_role_readiness.json {role_name} {group_key} is empty or invalid",
+        )
+        return
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            add_error(
+                report,
+                f"agent_role_readiness.json {role_name} {group_key} contains non-object",
+            )
+            continue
+        artifact_path = resolve_path(Path(str(artifact.get("path", ""))), repo_root)
+        exists = bool(artifact.get("exists", False))
+        if not exists:
+            add_error(
+                report,
+                "agent_role_readiness.json artifact marked missing: "
+                f"{role_name}.{group_key}.{artifact.get('name', '')}",
+            )
+        if not artifact_path.exists() or not artifact_path.is_file():
+            add_error(
+                report,
+                "agent_role_readiness.json artifact does not exist: "
+                f"{artifact_path}",
+            )
 
 
 def validate_visual_review(

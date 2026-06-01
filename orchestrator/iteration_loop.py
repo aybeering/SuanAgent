@@ -35,6 +35,7 @@ from orchestrator.agent_context import write_agent_context
 from orchestrator.agent_io import write_agent_input, write_agent_output
 from orchestrator.agent_output_intake import validate_agent_proposal
 from orchestrator.agent_routing import write_agent_routing_policy
+from orchestrator.agent_role_readiness import write_agent_role_readiness
 from orchestrator.agent_roles import write_agent_role_contracts
 from orchestrator.analysis_stub import write_analysis_notes
 from orchestrator.config import (
@@ -787,6 +788,16 @@ def run_round(
         proposal_path=round_dir / "proposal.json",
         decision_path=decision_path,
         analysis_notes_path=round_dir / "analysis_notes.json",
+        agent_role_contracts_path=role_contracts_path,
+    )
+    write_agent_role_readiness(
+        output_path=round_dir / "agent_role_readiness.json",
+        markdown_path=round_dir / "agent_role_readiness.md",
+        repo_root=repo_root,
+        run_id=run_id,
+        round_id=round_id,
+        round_index=round_index,
+        round_dir=round_dir,
         agent_role_contracts_path=role_contracts_path,
     )
     proposal_attempts = attach_validation_result_to_attempts(

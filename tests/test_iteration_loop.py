@@ -36,6 +36,7 @@ from orchestrator.agent_output_intake import (
     verify_agent_output,
 )
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
+from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.attempt_replay import replay_attempt
 from orchestrator.artifact_validator import validate_run_artifacts
 from orchestrator.config import (
@@ -909,6 +910,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "decision.json",
         "overfit_validation.json",
         "overfit_validation.md",
+        "agent_role_readiness.json",
+        "agent_role_readiness.md",
     ):
         assert (round_dir / filename).exists()
     assert (run_dir / "candidate_leaderboard.json").exists()
@@ -919,6 +922,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
     overfit_validation = json.loads(
         (round_dir / "overfit_validation.json").read_text(encoding="utf-8")
+    )
+    agent_role_readiness = json.loads(
+        (round_dir / "agent_role_readiness.json").read_text(encoding="utf-8")
     )
     visual_review = json.loads(
         (round_dir / "visual_review.json").read_text(encoding="utf-8")
@@ -997,6 +1003,58 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "decision.json"
     )
     assert "validation" in overfit_validation["metric_deltas"]
+    assert (
+        agent_role_readiness["schema_version"]
+        == AGENT_ROLE_READINESS_SCHEMA_VERSION
+    )
+    assert_matches_schema(
+        round_dir / "agent_role_readiness.json",
+        "agent_role_readiness",
+    )
+    assert agent_role_readiness["readiness_summary"]["executable_roles"] == [
+        "strategy_modifier"
+    ]
+    assert agent_role_readiness["readiness_summary"]["stub_roles"] == [
+        "analysis",
+        "visual_review",
+        "overfit_validator",
+    ]
+    assert (
+        agent_role_readiness["readiness_summary"][
+            "stub_roles_have_no_execution_authority"
+        ]
+        is True
+    )
+    assert agent_role_readiness["policy"][
+        "readiness_report_can_change_acceptance"
+    ] is False
+    strategy_modifier_readiness = agent_role_readiness["roles"][0]
+    visual_readiness = next(
+        role
+        for role in agent_role_readiness["roles"]
+        if role["role_name"] == "visual_review"
+    )
+    overfit_readiness = next(
+        role
+        for role in agent_role_readiness["roles"]
+        if role["role_name"] == "overfit_validator"
+    )
+    assert strategy_modifier_readiness["executable_now"] is True
+    assert strategy_modifier_readiness["activation_blockers"] == []
+    assert visual_readiness["executable_now"] is False
+    assert "stub_contract_not_executable" in visual_readiness["activation_blockers"]
+    assert visual_readiness["authority"]["can_change_acceptance"] is False
+    assert any(
+        artifact["name"] == "visual_artifacts_manifest"
+        and artifact["exists"] is True
+        for artifact in visual_readiness["consumed_artifacts"]
+    )
+    assert overfit_readiness["authority"]["can_veto"] is False
+    assert any(
+        artifact["name"] == "overfit_validation_json"
+        and artifact["exists"] is True
+        for artifact in overfit_readiness["produced_artifacts"]
+    )
     assert brief["schema_version"] == "research_brief_v1"
     assert brief["run_id"] == "reject-smoke"
     assert brief["status"] == "stopped_max_rounds"
@@ -3882,6 +3940,49 @@ def test_artifact_validator_reports_overfit_veto_violation(tmp_path: Path) -> No
     assert report["ok"] is False
     assert any(
         "overfit_validation.json must not veto in V0.5" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_role_readiness_authority_violation(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-readiness-violation",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/artifact-readiness-violation/round_001"
+        / "agent_role_readiness.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    visual_role = next(
+        role for role in payload["roles"] if role["role_name"] == "visual_review"
+    )
+    visual_role["executable_now"] = True
+    visual_role["authority"]["can_change_acceptance"] = True
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id="artifact-readiness-violation",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "agent_role_readiness.json non-strategy role cannot execute in V0.5"
+        in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+    assert any(
+        "agent_role_readiness.json role must not change acceptance" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 

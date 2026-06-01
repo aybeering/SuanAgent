@@ -14,6 +14,7 @@ from agents.codex_dry_run_adapter import (
     metadata_expected_metric_change,
     metadata_hypotheses,
     metadata_patch_diff,
+    workspace_manifest_output_path,
     workspace_ids_from_report,
 )
 from orchestrator.patch_parser import (
@@ -76,6 +77,7 @@ class FileProtocolModifier:
         old_threshold: str,
         new_threshold: str,
         context_path: Path | None = None,
+        attempt_id: str = "",
     ) -> StrategyProposal:
         """Invoke the configured file-protocol command when enabled."""
         del old_threshold, new_threshold, context_path
@@ -87,6 +89,7 @@ class FileProtocolModifier:
             workspace_root=repo_root / self.workspace_root,
             run_id=f"{run_id}-file-protocol",
             round_id=round_id,
+            attempt_id=attempt_id,
         )
         workspace_round_dir = workspace_path / "experiments" / run_id / round_id
         copy_agent_round_inputs(
@@ -97,7 +100,10 @@ class FileProtocolModifier:
         output_path = workspace_round_dir / self.output_filename
         allowed_output_path = output_path.relative_to(workspace_path).as_posix()
         write_workspace_manifest(
-            output_path=round_dir / "workspace_manifest.json",
+            output_path=workspace_manifest_output_path(
+                round_dir=round_dir,
+                attempt_id=attempt_id,
+            ),
             repo_root=repo_root,
             workspace_path=workspace_path,
             run_id=f"{run_id}-file-protocol",
@@ -105,6 +111,7 @@ class FileProtocolModifier:
             agent_name=self.agent_name,
             execution_enabled=self.execute,
             allowed_mutation_paths=(allowed_output_path,),
+            attempt_id=attempt_id,
         )
         command = [
             self.executable,
@@ -115,7 +122,10 @@ class FileProtocolModifier:
 
         if not self.execute:
             write_agent_execution(
-                output_path=round_dir / "agent_execution.json",
+                output_path=agent_execution_output_path(
+                    round_dir=round_dir,
+                    attempt_id=attempt_id,
+                ),
                 status="disabled",
                 execution_enabled=False,
                 command=command,
@@ -169,7 +179,10 @@ class FileProtocolModifier:
         )
         if result.timed_out:
             write_agent_execution(
-                output_path=round_dir / "agent_execution.json",
+                output_path=agent_execution_output_path(
+                    round_dir=round_dir,
+                    attempt_id=attempt_id,
+                ),
                 status="timeout",
                 execution_enabled=True,
                 command=command,
@@ -205,7 +218,10 @@ class FileProtocolModifier:
             )
         if result.returncode != 0:
             write_agent_execution(
-                output_path=round_dir / "agent_execution.json",
+                output_path=agent_execution_output_path(
+                    round_dir=round_dir,
+                    attempt_id=attempt_id,
+                ),
                 status="command_failed",
                 execution_enabled=True,
                 command=command,
@@ -240,7 +256,10 @@ class FileProtocolModifier:
 
         if mutation_errors:
             write_agent_execution(
-                output_path=round_dir / "agent_execution.json",
+                output_path=agent_execution_output_path(
+                    round_dir=round_dir,
+                    attempt_id=attempt_id,
+                ),
                 status="workspace_violation",
                 execution_enabled=True,
                 command=command,
@@ -279,7 +298,10 @@ class FileProtocolModifier:
             )
 
         write_agent_execution(
-            output_path=round_dir / "agent_execution.json",
+            output_path=agent_execution_output_path(
+                round_dir=round_dir,
+                attempt_id=attempt_id,
+            ),
             status="completed",
             execution_enabled=True,
             command=command,
@@ -303,6 +325,13 @@ class FileProtocolModifier:
             agent_input_path=agent_input_path,
             workspace_path=workspace_path,
         )
+
+
+def agent_execution_output_path(*, round_dir: Path, attempt_id: str) -> Path:
+    """Return where to store execution audit before attempt selection."""
+    if not attempt_id:
+        return round_dir / "agent_execution.json"
+    return round_dir / "agent_executions" / f"{attempt_id}.json"
 
 
 def run_file_protocol_command(
@@ -464,6 +493,7 @@ def write_agent_execution(
     allowed_mutation_paths: tuple[str, ...],
 ) -> None:
     """Write a deterministic audit record for one external agent execution."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "schema_version": AGENT_EXECUTION_SCHEMA_VERSION,
         "agent_name": FileProtocolModifier.agent_name,

@@ -42,20 +42,23 @@ shows failed `lower_min_edge` attempts, it shifts to a fixed `reduce_stake`
 proposal. Dry-run Codex prompts and the demo file-protocol agent also consume
 `proposal_intent.json`, so local stand-ins exercise the same planner handoff
 that future SDK or CLI agents will use.
-Enabled `file_protocol` commands run inside an isolated workspace and may only
-bring back the configured proposal output file. Each file-protocol round writes
-`agent_execution.json` with the command, workspace path, return code, output
-hashes, stdout/stderr summaries, and mutation-guard result.
-Workspace-backed agent rounds also write `workspace_manifest.json`, which records
-the copied project surface, isolated workspace path, initial file snapshot
-digest, and allowed mutation paths before any patch can be applied.
+Enabled `file_protocol` commands run inside an isolated per-attempt workspace
+and may only bring back the configured proposal output file. Each selected
+file-protocol round writes `agent_execution.json` with the command, workspace
+path, return code, output hashes, stdout/stderr summaries, and mutation-guard
+result.
+Workspace-backed agent attempts also write attempt-scoped workspace manifests;
+the selected attempt is published as `workspace_manifest.json`, recording the
+copied project surface, isolated workspace path, attempt id, initial file
+snapshot digest, and allowed mutation paths before any patch can be applied.
 The demo file-protocol config executes `agents.file_protocol_demo_agent`, a
 local deterministic command that exercises the same JSON contract without
 calling Codex or any network service.
 
-Codex-facing adapters use ignored `workspaces/<run_id>/<round_id>/` directories
-for isolated project copies. Returned text can be a unified diff or structured
-proposal JSON, and the extracted patch must touch only
+Codex-facing adapters use ignored
+`workspaces/<run_id>/<round_id>/<attempt_id>/` directories for isolated project
+copies. Returned text can be a unified diff or structured proposal JSON, and
+the extracted patch must touch only
 `strategies/current_strategy.py`. When execution is enabled, the adapter also
 hashes the isolated workspace before and after the subprocess and rejects the
 proposal if any file outside `strategies/current_strategy.py` is added,
@@ -151,9 +154,10 @@ Enabled Codex CLI subprocesses are also checked for hidden workspace side
 effects: only `strategies/current_strategy.py` may change inside the isolated
 workspace, and violations are recorded as contract errors.
 Enabled file-protocol subprocesses are stricter: they may only write the
-configured proposal output file inside the isolated workspace. Each run records
-an `agent_execution.json` audit log so command execution and guard decisions can
-be inspected without replaying the agent.
+configured proposal output file inside their isolated attempt workspace. Each
+selected run records an `agent_execution.json` audit log, and each candidate
+attempt keeps its own copy under `agent_attempts/attempt_xxx/`, so command
+execution and guard decisions can be inspected without replaying the agent.
 Timeouts, non-zero exits, malformed output, disallowed patch targets, and hidden
 workspace mutations are all deterministic rejections; the strategy file remains
 rolled back unless the policy gates accept a valid patch.
@@ -205,9 +209,12 @@ Each round also writes `agent_input_bundle/`, `agent_output_bundle/`,
 given, the raw text that became the proposal, every candidate attempt
 considered, why each attempt was selected or skipped, and whether deterministic
 intake checks passed before patch application.
-Tests validate these artifacts against the JSON schemas under `schemas/`; the
-proposal intent, agent bundle manifest, workspace manifest, agent validation
-report, and file-protocol execution audit are validated against
+Workspace-backed candidates also keep per-attempt copies of
+`workspace_manifest.json` and, for file-protocol commands, `agent_execution.json`
+inside `agent_attempts/attempt_xxx/`. Tests validate these artifacts against the
+JSON schemas under `schemas/`; the proposal intent, agent bundle manifest,
+workspace manifest, agent validation report, and file-protocol execution audit
+are validated against
 `schemas/proposal_intent.schema.json`, `schemas/agent_bundle.schema.json`,
 `schemas/agent_attempts.schema.json`, `schemas/agent_selection.schema.json`,
 `schemas/workspace_manifest.schema.json`, `schemas/agent_validation.schema.json`,

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +41,11 @@ def write_agent_attempts_manifest(
         write_json(attempt_dir / "proposal.json", proposal)
         write_text(attempt_dir / "raw_agent_output.txt", str(proposal.get("raw_response", "")))
         write_text(attempt_dir / "patch.diff", str(proposal.get("patch_diff", "")))
+        copy_attempt_runtime_artifacts(
+            round_dir=round_dir,
+            attempt_dir=attempt_dir,
+            attempt_id=attempt_id,
+        )
         rows.append(
             {
                 "attempt_id": attempt_id,
@@ -185,6 +191,22 @@ def write_attempt_selection_files(
         attempt_dir = round_dir / ATTEMPTS_DIRNAME / str(row["attempt_id"])
         attempt_dir.mkdir(parents=True, exist_ok=True)
         write_json(attempt_dir / "selection.json", row)
+
+
+def copy_attempt_runtime_artifacts(
+    *,
+    round_dir: Path,
+    attempt_dir: Path,
+    attempt_id: str,
+) -> None:
+    """Copy attempt-scoped workspace/execution audits into the attempt trace."""
+    for source_dirname, destination_name in (
+        ("workspace_manifests", "workspace_manifest.json"),
+        ("agent_executions", "agent_execution.json"),
+    ):
+        source = round_dir / source_dirname / f"{attempt_id}.json"
+        if source.exists():
+            shutil.copy2(source, attempt_dir / destination_name)
 
 
 def selected_attempt_index(attempts: list[dict[str, object]]) -> int | None:

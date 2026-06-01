@@ -28,8 +28,10 @@ class ConservativePatchModifier:
         old_threshold: str = OLD_THRESHOLD,
         new_threshold: str = NEW_THRESHOLD,
         context_path: Path | None = None,
+        attempt_id: str = "",
     ) -> StrategyProposal:
         """Return the conservative threshold-change proposal."""
+        del attempt_id
         return propose_strategy_change(
             report_path=report_path,
             target_file=target_file,

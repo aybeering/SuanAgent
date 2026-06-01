@@ -246,6 +246,8 @@ round_001/
   agent_attempts_manifest.json
   agent_selection_report.json
   agent_attempts/
+  workspace_manifests/ # attempt-scoped workspace manifests
+  agent_executions/    # attempt-scoped file-protocol audits
   workspace_manifest.json  # workspace-backed agents only
   proposal.json
   raw_agent_output.txt
@@ -319,7 +321,8 @@ rows, and output artifact paths, including `raw_agent_output.txt`.
 record deterministic intake checks for the selected proposal, including
 contract validity, strategy-only patch targeting, and `git apply --check`.
 `agent_attempts/` should contain one subdirectory per candidate attempt, each
-with its own attempt payload, proposal, raw output, and patch. The
+with its own attempt payload, proposal, raw output, patch, and any attempt-level
+workspace or execution audit. The
 `agent_attempts_manifest.json` artifact should use schema version
 `agent_attempts_v1` and identify the selected attempt.
 `agent_selection_report.json` should use schema version `agent_selection_v1`
@@ -328,12 +331,14 @@ selection reason, or skip reason.
 The machine-readable contracts for these files live in `schemas/`. Run-level
 metadata should write `run_metadata.json`, include resolved dataset paths and
 dataset SHA-256 fingerprints, use schema version `run_metadata_v1`, and match
-`schemas/run_metadata.schema.json`. Workspace-backed agent rounds should also
-write `workspace_manifest.json`, use schema version `workspace_manifest_v1`,
-and record the isolated workspace path, copied project surface, initial
-snapshot digest, and allowed mutation paths. File-protocol rounds should also
-write `agent_execution.json`, use schema version `agent_execution_v1`, and
-match `schemas/agent_execution.schema.json`.
+`schemas/run_metadata.schema.json`. Workspace-backed agent attempts should write
+attempt-scoped manifests under `workspace_manifests/`, publish the selected
+attempt as `workspace_manifest.json`, use schema version `workspace_manifest_v1`,
+and record the attempt id, isolated workspace path, copied project surface,
+initial snapshot digest, and allowed mutation paths. File-protocol attempts
+should write attempt-scoped execution audits under `agent_executions/`, publish
+the selected attempt as `agent_execution.json`, use schema version
+`agent_execution_v1`, and match `schemas/agent_execution.schema.json`.
 File-protocol execution status should be one of `disabled`, `completed`,
 `command_failed`, `timeout`, or `workspace_violation`. Timeouts, command
 failures, malformed output, disallowed patch targets, and workspace side effects
@@ -544,7 +549,7 @@ Add smoke tests that verify:
 13. Invalid strategy orders are rejected before simulation.
 14. The dry-run Codex adapter records a non-applicable proposal without changing files.
 15. Patch parsing rejects changes outside `strategies/current_strategy.py`.
-16. Isolated workspaces copy the minimal project without `.git` and write `workspace_manifest.json`.
+16. Isolated workspaces copy the minimal project without `.git`, are scoped per attempt id, and publish the selected `workspace_manifest.json`.
 17. Proposal contract validation rejects malformed or disallowed agent output before apply.
 18. Direction-history priors can influence candidate ranking without deciding acceptance.
 19. Exploration bonuses can push low-sample directions after deterministic stalls.
@@ -611,12 +616,13 @@ that flag a weak direction. Dry-run Codex prompts and file-protocol demo agents
 should consume `proposal_intent.json` so future CLI or SDK agents receive one
 compact planner handoff. The `codex_cli` and `file_protocol` adapters must
 default to `execute=false`; only an explicit config change may invoke a
-subprocess. Workspace-backed agents must write `workspace_manifest.json` before
-proposal application so the copied files, initial snapshot digest, and mutation
-policy are auditable. Enabled `file_protocol` commands must run in an isolated
-workspace and only bring back the configured proposal output file. Subprocess
-fixtures should be able to return either plain diffs or structured proposal JSON
-so the external-process boundary remains testable without real Codex.
+subprocess. Workspace-backed agents must write attempt-scoped workspace
+manifests before proposal application so the copied files, initial snapshot
+digest, attempt id, and mutation policy are auditable. Enabled `file_protocol`
+commands must run in an isolated attempt workspace and only bring back the
+configured proposal output file. Subprocess fixtures should be able to return
+either plain diffs or structured proposal JSON so the external-process boundary
+remains testable without real Codex.
 
 CLI entrypoints must support `--config` and `--run-id` so experiments can switch
 between modes without editing `config/default.json`.

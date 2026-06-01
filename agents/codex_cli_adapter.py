@@ -14,6 +14,7 @@ from agents.codex_dry_run_adapter import (
     build_codex_command,
     build_codex_prompt,
     proposal_from_codex_output,
+    workspace_manifest_output_path,
     workspace_ids_from_report,
 )
 from orchestrator.proposal import StrategyProposal
@@ -57,6 +58,7 @@ class CodexCliModifier:
         old_threshold: str,
         new_threshold: str,
         context_path: Path | None = None,
+        attempt_id: str = "",
     ) -> StrategyProposal:
         """Build the Codex request and optionally execute it."""
         report_text = report_path.read_text(encoding="utf-8")
@@ -68,9 +70,13 @@ class CodexCliModifier:
             workspace_root=repo_root / self.workspace_root,
             run_id=run_id,
             round_id=round_id,
+            attempt_id=attempt_id,
         )
         write_workspace_manifest(
-            output_path=report_path.parent / "workspace_manifest.json",
+            output_path=workspace_manifest_output_path(
+                round_dir=report_path.parent,
+                attempt_id=attempt_id,
+            ),
             repo_root=repo_root,
             workspace_path=workspace_path,
             run_id=run_id,
@@ -78,6 +84,7 @@ class CodexCliModifier:
             agent_name=self.agent_name,
             execution_enabled=self.execute,
             allowed_mutation_paths=(str(target_relative),),
+            attempt_id=attempt_id,
         )
         prompt = build_codex_prompt(
             report_text=report_text,

@@ -37,9 +37,13 @@ def create_isolated_workspace(
     workspace_root: Path,
     run_id: str,
     round_id: str,
+    attempt_id: str = "",
 ) -> Path:
     """Copy the minimal project into an isolated round workspace."""
-    workspace_path = workspace_root / run_id / round_id / "strategy_workspace"
+    workspace_path = workspace_root / run_id / round_id
+    if attempt_id:
+        workspace_path = workspace_path / attempt_id
+    workspace_path = workspace_path / "strategy_workspace"
     if workspace_path.exists():
         raise FileExistsError(f"Workspace already exists: {workspace_path}")
     workspace_path.mkdir(parents=True)
@@ -73,6 +77,7 @@ def write_workspace_manifest(
     agent_name: str,
     execution_enabled: bool,
     allowed_mutation_paths: tuple[str, ...],
+    attempt_id: str = "",
 ) -> Path:
     """Write a deterministic manifest for one isolated agent workspace."""
     snapshot = workspace_snapshot(workspace_path)
@@ -81,6 +86,7 @@ def write_workspace_manifest(
         workspace_path=workspace_path,
         run_id=run_id,
         round_id=round_id,
+        attempt_id=attempt_id,
         agent_name=agent_name,
         execution_enabled=execution_enabled,
         allowed_mutation_paths=allowed_mutation_paths,
@@ -100,6 +106,7 @@ def workspace_manifest_payload(
     workspace_path: Path,
     run_id: str,
     round_id: str,
+    attempt_id: str,
     agent_name: str,
     execution_enabled: bool,
     allowed_mutation_paths: tuple[str, ...],
@@ -110,6 +117,7 @@ def workspace_manifest_payload(
         "schema_version": WORKSPACE_MANIFEST_SCHEMA_VERSION,
         "run_id": run_id,
         "round_id": round_id,
+        "attempt_id": attempt_id,
         "agent_name": agent_name,
         "execution_enabled": execution_enabled,
         "source_repo_root": str(repo_root.resolve()),

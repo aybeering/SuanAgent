@@ -52,6 +52,7 @@ class CodexDryRunModifier:
         old_threshold: str,
         new_threshold: str,
         context_path: Path | None = None,
+        attempt_id: str = "",
     ) -> StrategyProposal:
         """Return a no-op proposal with the would-be Codex prompt and command."""
         report_text = report_path.read_text(encoding="utf-8")
@@ -64,9 +65,13 @@ class CodexDryRunModifier:
             workspace_root=repo_root / self.workspace_root,
             run_id=run_id,
             round_id=round_id,
+            attempt_id=attempt_id,
         )
         write_workspace_manifest(
-            output_path=report_path.parent / "workspace_manifest.json",
+            output_path=workspace_manifest_output_path(
+                round_dir=report_path.parent,
+                attempt_id=attempt_id,
+            ),
             repo_root=repo_root,
             workspace_path=workspace_path,
             run_id=run_id,
@@ -74,6 +79,7 @@ class CodexDryRunModifier:
             agent_name=self.agent_name,
             execution_enabled=False,
             allowed_mutation_paths=(str(target_relative),),
+            attempt_id=attempt_id,
         )
         prompt = build_codex_prompt(
             report_text=report_text,
@@ -145,6 +151,13 @@ def build_codex_prompt(
             report_text,
         ]
     )
+
+
+def workspace_manifest_output_path(*, round_dir: Path, attempt_id: str) -> Path:
+    """Return where to store a workspace manifest before attempt selection."""
+    if not attempt_id:
+        return round_dir / "workspace_manifest.json"
+    return round_dir / "workspace_manifests" / f"{attempt_id}.json"
 
 
 def proposal_intent_text(context_path: Path | None) -> str:

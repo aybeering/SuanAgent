@@ -7,6 +7,7 @@ import csv
 import importlib
 import json
 import os
+import shutil
 import sys
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -16,6 +17,7 @@ from typing import Iterator
 from agents.modifier_adapter import StrategyModifier
 from agents.registry import get_strategy_modifier
 from orchestrator.agent_attempts import (
+    attempt_trace_id,
     write_agent_attempts_manifest,
     write_agent_selection_report,
 )
@@ -527,6 +529,10 @@ def run_round(
         str(selected_attempt["selection_reason"]) if proposal_fallback_used else ""
     )
 
+    publish_selected_runtime_artifacts(
+        round_dir=round_dir,
+        selected_attempt_id=str(selected_attempt.get("attempt_id", "")),
+    )
     write_json(round_dir / "proposal_attempts.json", proposal_attempts)
     write_json(round_dir / "proposal.json", proposal.to_dict())
     (round_dir / "agent_response.txt").write_text(
@@ -914,6 +920,7 @@ def modifier_name(modifier: StrategyModifier) -> str:
 
 def proposal_attempt_record(
     *,
+    attempt_id: str,
     role: str,
     proposal: StrategyProposal,
     memory_filter_reason: str,
@@ -948,6 +955,7 @@ def proposal_attempt_record(
     )
     failure = primary_failure(reason_codes)
     return {
+        "attempt_id": attempt_id,
         "role": role,
         "agent_name": payload.get("agent_name", ""),
         "direction_tag": payload.get("direction_tag", ""),
@@ -1029,7 +1037,11 @@ def select_proposal_candidate(
     primary_memory_reason = ""
     seen_patch_hashes: set[str] = set()
 
-    for role, candidate_modifier in candidate_modifiers:
+    for attempt_index, (role, candidate_modifier) in enumerate(
+        candidate_modifiers,
+        start=1,
+    ):
+        attempt_id = attempt_trace_id(index=attempt_index, role=role)
         proposal = candidate_modifier.propose_strategy_change(
             report_path=report_path,
             target_file=target_file,
@@ -1038,6 +1050,7 @@ def select_proposal_candidate(
             old_threshold=old_threshold,
             new_threshold=new_threshold,
             context_path=context_path,
+            attempt_id=attempt_id,
         )
         proposal = enforce_proposal_contract(
             proposal=proposal,
@@ -1141,6 +1154,7 @@ def select_proposal_candidate(
         )
         attempts.append(
             proposal_attempt_record(
+                attempt_id=attempt_id,
                 role=role,
                 proposal=proposal,
                 memory_filter_reason=memory_reason,
@@ -1198,6 +1212,23 @@ def select_proposal_candidate(
         attempts[selected_index],
         primary_memory_reason,
     )
+
+
+def publish_selected_runtime_artifacts(
+    *,
+    round_dir: Path,
+    selected_attempt_id: str,
+) -> None:
+    """Publish selected attempt runtime audits to stable round-level filenames."""
+    if not selected_attempt_id:
+        return
+    for source_dirname, destination_name in (
+        ("workspace_manifests", "workspace_manifest.json"),
+        ("agent_executions", "agent_execution.json"),
+    ):
+        source = round_dir / source_dirname / f"{selected_attempt_id}.json"
+        if source.exists():
+            shutil.copy2(source, round_dir / destination_name)
 
 
 def proposal_candidate_status(

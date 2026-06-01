@@ -1738,9 +1738,13 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
     assert '"schema_version": "proposal_intent_v1"' in proposal["prompt"]
     assert '"recommended_direction": "lower_min_edge"' in proposal["prompt"]
     assert "No prior rounds in this run." in proposal["prompt"]
-    assert "workspaces/dry-run/round_001/strategy_workspace" in proposal["workspace_path"]
+    assert (
+        "workspaces/dry-run/round_001/attempt_001_primary/strategy_workspace"
+        in proposal["workspace_path"]
+    )
     assert workspace_manifest["schema_version"] == WORKSPACE_MANIFEST_SCHEMA_VERSION
     assert_matches_schema(round_dir / "workspace_manifest.json", "workspace_manifest")
+    assert workspace_manifest["attempt_id"] == "attempt_001_primary"
     assert workspace_manifest["agent_name"] == "codex_cli_dry_run"
     assert workspace_manifest["execution_enabled"] is False
     assert workspace_manifest["mutation_policy"]["allowed_paths"] == [
@@ -1749,13 +1753,80 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
     assert workspace_manifest["initial_snapshot"]["file_count"] > 0
     assert (
         repo
-        / "workspaces/dry-run/round_001/strategy_workspace/strategies/current_strategy.py"
+        / "workspaces/dry-run/round_001/attempt_001_primary/strategy_workspace/strategies/current_strategy.py"
+    ).exists()
+    assert (
+        round_dir / "workspace_manifests/attempt_001_primary.json"
+    ).exists()
+    assert (
+        round_dir / "agent_attempts/attempt_001_primary/workspace_manifest.json"
     ).exists()
     assert decision["accepted"] is False
     assert "does not emit patches" in decision["reasons"][0]
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
+
+
+def test_workspace_backed_candidates_use_attempt_scoped_workspaces(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_dry_run",
+        modifier_settings={
+            "executable": "codex",
+            "model": "dry-run-model",
+            "sandbox": "workspace-write",
+        },
+        memory_fallback_modifier="codex_dry_run",
+        memory_fallback_modifiers=("codex_dry_run",),
+    )
+
+    manifest = run_iteration_loop(
+        run_id="dry-run-fallback-workspaces",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/dry-run-fallback-workspaces/round_001"
+    attempts = json.loads(
+        (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
+    )
+    workspace_manifest = json.loads(
+        (round_dir / "workspace_manifest.json").read_text(encoding="utf-8")
+    )
+
+    assert manifest["completed_rounds"] == 1
+    assert [attempt["attempt_id"] for attempt in attempts] == [
+        "attempt_001_primary",
+        "attempt_002_fallback_01",
+    ]
+    assert attempts[1]["selected"] is True
+    assert workspace_manifest["attempt_id"] == "attempt_002_fallback_01"
+    assert (
+        "workspaces/dry-run-fallback-workspaces/round_001/attempt_001_primary/strategy_workspace"
+        in attempts[0]["proposal"]["workspace_path"]
+    )
+    assert (
+        "workspaces/dry-run-fallback-workspaces/round_001/attempt_002_fallback_01/strategy_workspace"
+        in attempts[1]["proposal"]["workspace_path"]
+    )
+    assert (
+        round_dir / "workspace_manifests/attempt_001_primary.json"
+    ).exists()
+    assert (
+        round_dir / "workspace_manifests/attempt_002_fallback_01.json"
+    ).exists()
+    assert (
+        round_dir / "agent_attempts/attempt_001_primary/workspace_manifest.json"
+    ).exists()
+    assert (
+        round_dir / "agent_attempts/attempt_002_fallback_01/workspace_manifest.json"
+    ).exists()
 
 
 def test_file_protocol_adapter_executes_json_fixture(tmp_path: Path) -> None:
@@ -1849,9 +1920,13 @@ output_path.write_text(json.dumps({
     assert agent_execution["mutation_errors"] == []
     assert agent_execution["output_file"]["exists"] is True
     assert len(agent_execution["output_file"]["sha256"]) == 64
-    assert "file-protocol-fixture-file-protocol" in agent_execution["workspace_path"]
+    assert (
+        "file-protocol-fixture-file-protocol/round_001/attempt_001_primary"
+        in agent_execution["workspace_path"]
+    )
     assert workspace_manifest["schema_version"] == WORKSPACE_MANIFEST_SCHEMA_VERSION
     assert_matches_schema(round_dir / "workspace_manifest.json", "workspace_manifest")
+    assert workspace_manifest["attempt_id"] == "attempt_001_primary"
     assert workspace_manifest["agent_name"] == "file_protocol_agent"
     assert workspace_manifest["execution_enabled"] is True
     assert workspace_manifest["mutation_policy"]["allowed_paths"] == [
@@ -1861,6 +1936,13 @@ output_path.write_text(json.dumps({
     assert (
         Path(agent_execution["workspace_path"])
         / "experiments/file-protocol-fixture/round_001/agent_input_bundle/agent_input.json"
+    ).exists()
+    assert (round_dir / "agent_executions/attempt_001_primary.json").exists()
+    assert (
+        round_dir / "agent_attempts/attempt_001_primary/agent_execution.json"
+    ).exists()
+    assert (
+        round_dir / "agent_attempts/attempt_001_primary/workspace_manifest.json"
     ).exists()
     assert agent_input["target_file_content"].count("MIN_EDGE = 0.05") == 1
     assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
@@ -1941,7 +2023,7 @@ output_path.write_text(json.dumps({
     )
     workspace_readme = (
         repo
-        / "workspaces/file-protocol-mutation-guard-file-protocol/round_001/strategy_workspace/README.md"
+        / "workspaces/file-protocol-mutation-guard-file-protocol/round_001/attempt_001_primary/strategy_workspace/README.md"
     ).read_text(encoding="utf-8")
 
     assert proposal["applicable"] is False

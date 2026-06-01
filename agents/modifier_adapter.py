@@ -21,5 +21,6 @@ class StrategyModifier(Protocol):
         old_threshold: str,
         new_threshold: str,
         context_path: Path | None = None,
+        attempt_id: str = "",
     ) -> StrategyProposal:
         """Return a proposed strategy patch."""

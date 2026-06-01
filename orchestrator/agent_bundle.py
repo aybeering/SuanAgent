@@ -14,6 +14,7 @@ INPUT_BUNDLE_DIRNAME = "agent_input_bundle"
 OUTPUT_BUNDLE_DIRNAME = "agent_output_bundle"
 
 INPUT_BUNDLE_FILES = (
+    "agent_role_contracts.json",
     "agent_input.json",
     "agent_context.md",
     "agent_context.json",

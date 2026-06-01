@@ -35,6 +35,7 @@ from orchestrator.agent_context import write_agent_context
 from orchestrator.agent_io import write_agent_input, write_agent_output
 from orchestrator.agent_output_intake import validate_agent_proposal
 from orchestrator.agent_routing import write_agent_routing_policy
+from orchestrator.agent_roles import write_agent_role_contracts
 from orchestrator.config import (
     ProjectConfig,
     load_project_config,
@@ -182,6 +183,7 @@ def run_iteration_loop(
         "final_strategy_commit": None,
         "stop_on_repeated_proposal": active_stop_on_repeated_proposal,
         "memory_fallback_modifiers": list(active_config.memory_fallback_modifiers),
+        "agent_roles": list(active_config.agent_roles),
         "agent_profiles": list(configured_agent_profiles),
         "memory_filter_policy": {
             "failed_patch_threshold": active_config.memory_failed_patch_threshold,
@@ -252,6 +254,7 @@ def run_iteration_loop(
                     primary_profile=primary_profile,
                     fallback_profiles=fallback_profiles,
                     configured_agent_profiles=configured_agent_profiles,
+                    agent_roles=active_config.agent_roles,
                     memory_failed_patch_threshold=active_config.memory_failed_patch_threshold,
                     memory_failed_direction_threshold=(
                         active_config.memory_failed_direction_threshold
@@ -458,6 +461,7 @@ def run_round(
     primary_profile: dict[str, object],
     fallback_profiles: tuple[dict[str, object], ...],
     configured_agent_profiles: tuple[dict[str, object], ...],
+    agent_roles: tuple[dict[str, object], ...],
     memory_failed_patch_threshold: int,
     memory_failed_direction_threshold: int,
     explore_after_no_improvement_rounds: int,
@@ -515,6 +519,15 @@ def run_round(
         context_path=context_path,
         output_path=round_dir / "proposal_intent.json",
     )
+    write_agent_role_contracts(
+        output_path=round_dir / "agent_role_contracts.json",
+        repo_root=repo_root,
+        round_dir=round_dir,
+        run_id=run_id,
+        round_id=round_id,
+        round_index=round_index,
+        agent_roles=agent_roles,
+    )
     write_agent_input(
         output_path=round_dir / "agent_input.json",
         run_id=run_id,
@@ -540,6 +553,7 @@ def run_round(
             for fallback_modifier in fallback_modifiers
         ),
         agent_profiles=configured_agent_profiles,
+        agent_roles=agent_roles,
     )
     write_agent_input_bundle(round_dir=round_dir)
     (

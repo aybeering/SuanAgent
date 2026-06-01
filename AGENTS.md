@@ -80,6 +80,7 @@ Allowed components:
 29. Profile-aware workspace and execution audit metadata for workspace-backed adapters.
 30. Profile-aware agent input contracts for external CLI or SDK-backed agents.
 31. Attempt-scoped agent input artifacts for candidate-level replay.
+32. Role-level agent contracts that declare future blue-node responsibilities while only the strategy modifier executes.
 
 Still out of scope:
 
@@ -127,6 +128,7 @@ Current structure:
 │   ├── agent_output.schema.json
 │   ├── agent_validation.schema.json
 │   ├── agent_execution.schema.json
+│   ├── agent_role_contracts.schema.json
 │   ├── attempt_replay.schema.json
 │   ├── agent_result_stats.schema.json
 │   ├── workspace_manifest.schema.json
@@ -245,6 +247,7 @@ round_001/
   agent_context.json
   proposal_intent.json
   proposal_intent.md
+  agent_role_contracts.json
   agent_input.json
   agent_bundle_manifest.json
   agent_input_bundle/
@@ -307,19 +310,26 @@ before calling the modifier. The JSON artifact should use schema version
 `proposal_intent_v1` and summarize the recommended direction, directions to
 avoid, evidence, source context artifacts, and hard constraints. It is planner
 guidance only; it must not decide acceptance.
-Each round should also write `agent_input.json`, `agent_bundle_manifest.json`,
-`agent_input_bundle/`, `agent_output_bundle/`, `raw_agent_output.txt`,
-`agent_output.json`, `agent_validation.json`, `agent_executor_report.json`,
-`agent_routing_policy.json`, `agent_attempts_manifest.json`, and
-`agent_attempts/`.
+Each round should also write `agent_role_contracts.json`, `agent_input.json`,
+`agent_bundle_manifest.json`, `agent_input_bundle/`, `agent_output_bundle/`,
+`raw_agent_output.txt`, `agent_output.json`, `agent_validation.json`,
+`agent_executor_report.json`, `agent_routing_policy.json`,
+`agent_attempts_manifest.json`, and `agent_attempts/`.
+`agent_role_contracts.json` should use schema version
+`agent_role_contracts_v1` and declare the planned agent responsibilities,
+active roles, stub-only roles, disabled role topology, and the rule that
+deterministic gates keep final acceptance authority. In V0.5, only
+`strategy_modifier` should be active and implemented; `analysis`,
+`visual_review`, and `overfit_validator` should remain disabled stub contracts.
 `agent_input.json` should use schema version `agent_io_input_v1` and describe
 the reports, context, proposal intent, before metrics, policy config,
-candidate-selection config, modifier list, configured agent profiles, and an
-`active_agent` task envelope. Round-level inputs should keep `active_agent`
-empty as a template. Workspace-backed adapters should rewrite the workspace
-copy of `agent_input.json` and its bundled copy with the current attempt id,
-role, profile name, adapter name, agent name, expected output filename, and
-workspace output path before invoking any external process.
+candidate-selection config, modifier list, configured agent roles, configured
+agent profiles, and an `active_agent` task envelope. Round-level inputs should
+keep `active_agent` empty as a template. Workspace-backed adapters should
+rewrite the workspace copy of `agent_input.json` and its bundled copy with the
+current attempt id, role, profile name, adapter name, agent name, expected
+output filename, and workspace output path before invoking any external
+process.
 Each configured agent profile should include a normalized `runner` capability
 block. In-process deterministic modifiers should use `runner_name` =
 `in_process_modifier`; file-contract subprocesses should use `runner_name` =
@@ -332,9 +342,10 @@ filenames where relevant. Runner metadata should be copied into
 `agent_routing_policy.json`, `agent_output.json`, `agent_attempts_manifest.json`,
 `agent_selection_report.json`, and attempt-scoped `attempt_output.json`.
 `agent_input_bundle/` should be created before calling the modifier and contain
-the read-only files an external agent may inspect. `agent_output_bundle/` should
-contain the output artifacts the orchestrator will inspect after the modifier
-returns. `agent_bundle_manifest.json` should use schema version
+the read-only files an external agent may inspect, including
+`agent_role_contracts.json`. `agent_output_bundle/` should contain the output
+artifacts the orchestrator will inspect after the modifier returns.
+`agent_bundle_manifest.json` should use schema version
 `agent_bundle_v1` and record both bundle directories plus file hashes.
 `raw_agent_output.txt` should preserve the exact raw response text that will be
 normalized into a proposal. For local stubs this can be the deterministic stub
@@ -414,6 +425,10 @@ optional adapter settings. Exactly one enabled profile must be primary. Disabled
 profiles should remain visible in run manifests but must not enter the execution
 queue. If no explicit `agents` list is present, derive audit profiles from
 `strategy_modifier` and `memory_filter.fallback_modifiers`.
+Configs may also define `agent_roles`; when omitted, use the default role
+contracts. Roles describe architectural responsibilities, while profiles
+describe concrete execution slots. Do not execute analysis, visual review, or
+overfit validation roles in V0.5.
 Executor calls should pass profile metadata to modifiers so workspace-backed
 adapters can isolate future blue agent slots even when they share the same
 underlying adapter.

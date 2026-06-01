@@ -38,6 +38,115 @@ IN_PROCESS_RUNNER_NAME = "in_process_modifier"
 WORKSPACE_DRY_RUNNER_NAME = "workspace_dry_run"
 CONTRACT_RUNNER_ADAPTERS = {"file_protocol"}
 WORKSPACE_ADAPTERS = {"file_protocol", "codex_cli", "codex_dry_run"}
+AGENT_ROLE_STAGES = {
+    "proposal_generation",
+    "analysis",
+    "visual_review",
+    "validation",
+}
+AGENT_ROLE_EXECUTION_MODES = {
+    "active",
+    "stub_contract",
+    "disabled",
+}
+AGENT_ROLE_DECISION_AUTHORITIES = {
+    "proposal_only",
+    "advisory_only",
+    "deterministic_gate",
+}
+DEFAULT_AGENT_ROLES = (
+    {
+        "role_name": "strategy_modifier",
+        "stage": "proposal_generation",
+        "enabled": True,
+        "execution_mode": "active",
+        "required": True,
+        "implemented": True,
+        "description": "Proposes strategy-only patches for the deterministic loop.",
+        "allowed_adapters": (
+            "fixed_patch_stub",
+            "adaptive_stub",
+            "conservative_stub",
+            "codex_cli",
+            "codex_dry_run",
+            "file_protocol",
+        ),
+        "consumes": (
+            "agent_context.json",
+            "proposal_intent.json",
+            "report_before.md",
+            "strategies/current_strategy.py",
+        ),
+        "produces": (
+            "proposal.json",
+            "patch.diff",
+            "raw_agent_output.txt",
+        ),
+        "decision_authority": "proposal_only",
+    },
+    {
+        "role_name": "analysis",
+        "stage": "analysis",
+        "enabled": False,
+        "execution_mode": "stub_contract",
+        "required": False,
+        "implemented": False,
+        "description": "Future analyst role for reading metrics and reports before routing.",
+        "allowed_adapters": (),
+        "consumes": (
+            "metrics_before.json",
+            "metrics_after.json",
+            "report_before.md",
+            "report_after.md",
+            "decision.json",
+        ),
+        "produces": (
+            "analysis_notes.json",
+            "analysis_notes.md",
+        ),
+        "decision_authority": "advisory_only",
+    },
+    {
+        "role_name": "visual_review",
+        "stage": "visual_review",
+        "enabled": False,
+        "execution_mode": "stub_contract",
+        "required": False,
+        "implemented": False,
+        "description": "Future visual role for chart and HTML artifact review.",
+        "allowed_adapters": (),
+        "consumes": (
+            "chart.html",
+            "trades_before.csv",
+            "trades_after.csv",
+        ),
+        "produces": (
+            "visual_review.json",
+            "visual_review.md",
+        ),
+        "decision_authority": "advisory_only",
+    },
+    {
+        "role_name": "overfit_validator",
+        "stage": "validation",
+        "enabled": False,
+        "execution_mode": "stub_contract",
+        "required": False,
+        "implemented": False,
+        "description": "Future validator role for repeated-round and holdout risk checks.",
+        "allowed_adapters": (),
+        "consumes": (
+            "manifest.json",
+            "memory.jsonl",
+            "holdout_metrics_after.json",
+        ),
+        "produces": (
+            "overfit_validation.json",
+            "overfit_validation.md",
+        ),
+        "decision_authority": "deterministic_gate",
+    },
+)
 
 
 @dataclass(frozen=True)
@@ -70,6 +179,7 @@ class ProjectConfig:
     candidate_selection: dict[str, float | int] = field(default_factory=dict)
     executor: dict[str, object] = field(default_factory=dict)
     agent_profiles: tuple[dict[str, object], ...] = ()
+    agent_roles: tuple[dict[str, object], ...] = ()
 
     def resolve_path(self, repo_root: Path, path_text: str) -> Path:
         """Resolve config paths relative to the repository root."""
@@ -107,6 +217,7 @@ def load_project_config(
     executor = DEFAULT_EXECUTOR | raw.get("executor", {})
     fallback_names = fallback_modifier_names(memory_filter)
     agent_profiles = normalize_agent_profiles(raw=raw)
+    agent_roles = normalize_agent_roles(raw=raw)
     return ProjectConfig(
         baseline_strategy_module=str(raw["baseline_strategy_module"]),
         current_strategy_module=str(raw["current_strategy_module"]),
@@ -152,6 +263,7 @@ def load_project_config(
         },
         executor={str(key): value for key, value in executor.items()},
         agent_profiles=agent_profiles,
+        agent_roles=agent_roles,
     )
 
 
@@ -221,6 +333,43 @@ def normalize_agent_profile(
             adapter_name=adapter,
             settings=normalized_settings,
             raw_runner=raw_profile.get("runner", {}),
+        ),
+    }
+
+
+def normalize_agent_roles(
+    *,
+    raw: dict[str, object],
+) -> tuple[dict[str, object], ...]:
+    """Return normalized role contracts from config or repository defaults."""
+    raw_roles = raw.get("agent_roles", DEFAULT_AGENT_ROLES)
+    if not isinstance(raw_roles, list | tuple):
+        return tuple(normalize_agent_role(role, index) for index, role in enumerate(DEFAULT_AGENT_ROLES, start=1))
+    return tuple(
+        normalize_agent_role(raw_role, index)
+        for index, raw_role in enumerate(raw_roles, start=1)
+        if isinstance(raw_role, dict)
+    )
+
+
+def normalize_agent_role(
+    raw_role: dict[str, object],
+    index: int,
+) -> dict[str, object]:
+    """Return one normalized role contract."""
+    return {
+        "role_name": str(raw_role.get("role_name", f"agent_role_{index:02d}")),
+        "stage": str(raw_role.get("stage", "analysis")),
+        "enabled": bool(raw_role.get("enabled", False)),
+        "execution_mode": str(raw_role.get("execution_mode", "stub_contract")),
+        "required": bool(raw_role.get("required", False)),
+        "implemented": bool(raw_role.get("implemented", False)),
+        "description": str(raw_role.get("description", "")),
+        "allowed_adapters": string_list(raw_role.get("allowed_adapters", [])),
+        "consumes": string_list(raw_role.get("consumes", [])),
+        "produces": string_list(raw_role.get("produces", [])),
+        "decision_authority": str(
+            raw_role.get("decision_authority", "advisory_only")
         ),
     }
 

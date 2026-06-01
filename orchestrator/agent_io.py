@@ -7,6 +7,7 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
+from orchestrator.agent_roles import compact_agent_roles as compact_agent_role_contracts
 from orchestrator.proposal import StrategyProposal
 
 
@@ -37,6 +38,7 @@ def write_agent_input(
     primary_modifier: str,
     fallback_modifiers: tuple[str, ...],
     agent_profiles: tuple[dict[str, object], ...] = (),
+    agent_roles: tuple[dict[str, object], ...] = (),
 ) -> Path:
     """Write the deterministic input contract for modifier agents."""
     payload = build_agent_input_payload(
@@ -60,6 +62,7 @@ def write_agent_input(
         primary_modifier=primary_modifier,
         fallback_modifiers=fallback_modifiers,
         agent_profiles=agent_profiles,
+        agent_roles=agent_roles,
     )
     write_json(output_path, payload)
     return output_path
@@ -87,6 +90,7 @@ def build_agent_input_payload(
     primary_modifier: str,
     fallback_modifiers: tuple[str, ...],
     agent_profiles: tuple[dict[str, object], ...] = (),
+    agent_roles: tuple[dict[str, object], ...] = (),
 ) -> dict[str, object]:
     """Return the deterministic input contract for modifier agents."""
     return {
@@ -107,6 +111,10 @@ def build_agent_input_payload(
             repo_root,
         ),
         "artifacts": {
+            "agent_role_contracts": relative_path(
+                round_dir / "agent_role_contracts.json",
+                repo_root,
+            ),
             "agent_context_markdown": relative_path(context_path, repo_root),
             "agent_context_json": relative_path(context_path.with_suffix(".json"), repo_root),
             "proposal_intent_json": relative_path(intent_path, repo_root),
@@ -133,6 +141,7 @@ def build_agent_input_payload(
             "holdout": holdout_policy_rules or {},
         },
         "candidate_selection": candidate_selection,
+        "agent_roles": compact_agent_role_contracts(agent_roles),
         "agent_profiles": compact_agent_profiles(agent_profiles),
         "active_agent": active_agent_template(),
         "modifiers": {

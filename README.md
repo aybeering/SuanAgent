@@ -22,7 +22,8 @@ The strategy interface contract is documented in
 `schemas/agent_input.schema.json`, `schemas/agent_bundle.schema.json`,
 `schemas/agent_attempts.schema.json`, `schemas/agent_selection.schema.json`,
 `schemas/agent_executor.schema.json`, `schemas/agent_output.schema.json`,
-`schemas/agent_validation.schema.json`, and `schemas/agent_execution.schema.json`;
+`schemas/agent_validation.schema.json`, `schemas/agent_execution.schema.json`,
+and `schemas/agent_role_contracts.schema.json`;
 saved attempt replay reports use
 `schemas/attempt_replay.schema.json`; aggregate agent result reports use
 `schemas/agent_result_stats.schema.json`;
@@ -53,6 +54,11 @@ loop derives audit profiles from the legacy `strategy_modifier` and
 `memory_filter.fallback_modifiers` fields. Profiles name the future isolated
 agent slots while adapters still select the deterministic stub, guarded Codex,
 or file-protocol backend.
+The default `agent_roles` contract declares the planned blue-node responsibilities
+without running the full multi-agent system. Only `strategy_modifier` is active
+and implemented in V0.5; `analysis`, `visual_review`, and `overfit_validator`
+are saved as disabled stub contracts so future work can attach agents to stable
+roles without changing acceptance authority.
 Workspace-backed adapters receive both `profile_name` and `attempt_id`, and
 their ignored project copies are scoped as
 `workspaces/<run_id>/<round_id>/<profile>/<attempt_id>/strategy_workspace/`.
@@ -234,15 +240,19 @@ direction, directions to avoid, evidence, and hard constraints for the modifier.
 Each round also writes `agent_input_bundle/`, `agent_output_bundle/`,
 `agent_bundle_manifest.json`, `agent_attempts/`,
 `agent_attempts_manifest.json`, `agent_selection_report.json`,
-`agent_executor_report.json`, `agent_routing_policy.json`, `agent_input.json`,
+`agent_executor_report.json`, `agent_routing_policy.json`,
+`agent_role_contracts.json`, `agent_input.json`,
 `raw_agent_output.txt`, `agent_output.json`, and `agent_validation.json`, stable
 fixtures that record what a modifier backend was given, the raw text that
 became the proposal, every candidate attempt considered, the executor queue
 metadata, why each attempt was selected or skipped, and whether deterministic
 intake checks passed before patch application.
-`agent_input.json` includes `agent_profiles`, an `active_agent` task envelope,
-and output-contract paths so future SDK or CLI-backed agents do not need to
-infer their identity or allowed output location from filenames.
+`agent_role_contracts.json` records the round's planned agent responsibilities,
+active roles, stub-only roles, disabled topology edges, and the rule that
+deterministic gates keep final acceptance authority.
+`agent_input.json` includes `agent_roles`, `agent_profiles`, an `active_agent`
+task envelope, and output-contract paths so future SDK or CLI-backed agents do
+not need to infer their identity or allowed output location from filenames.
 Each agent profile carries a normalized `runner` capability block. In-process
 stubs are marked as `in_process_modifier`; file-contract subprocesses are marked
 as `agent_contract_runner_v1`; the current guarded Codex CLI adapter is marked
@@ -274,6 +284,7 @@ are validated against
 `schemas/proposal_intent.schema.json`, `schemas/agent_bundle.schema.json`,
 `schemas/agent_attempts.schema.json`, `schemas/agent_selection.schema.json`,
 `schemas/agent_executor.schema.json`, `schemas/agent_routing_policy.schema.json`,
+`schemas/agent_role_contracts.schema.json`,
 `schemas/workspace_manifest.schema.json`,
 `schemas/agent_validation.schema.json`, `schemas/agent_execution.schema.json`,
 `schemas/attempt_output.schema.json`, and

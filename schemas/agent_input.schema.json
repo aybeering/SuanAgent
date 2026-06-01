@@ -17,6 +17,7 @@
     "metrics_before",
     "policy",
     "candidate_selection",
+    "agent_roles",
     "agent_profiles",
     "active_agent",
     "modifiers",
@@ -67,6 +68,7 @@
       "type": "object",
       "required": [
         "agent_context_markdown",
+        "agent_role_contracts",
         "agent_context_json",
         "proposal_intent_json",
         "proposal_intent_markdown",
@@ -75,6 +77,9 @@
         "holdout_report_before"
       ],
       "properties": {
+        "agent_role_contracts": {
+          "type": "string"
+        },
         "agent_context_markdown": {
           "type": "string"
         },
@@ -140,6 +145,69 @@
     },
     "candidate_selection": {
       "type": "object"
+    },
+    "agent_roles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "role_name",
+          "stage",
+          "enabled",
+          "execution_mode",
+          "required",
+          "implemented",
+          "description",
+          "allowed_adapters",
+          "consumes",
+          "produces",
+          "decision_authority"
+        ],
+        "properties": {
+          "role_name": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "execution_mode": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "implemented": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "allowed_adapters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "consumes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "produces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "decision_authority": {
+            "type": "string"
+          }
+        }
+      }
     },
     "agent_profiles": {
       "type": "array",

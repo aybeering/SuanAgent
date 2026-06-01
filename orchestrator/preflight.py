@@ -11,6 +11,9 @@ from pathlib import Path
 from agents.registry import SUPPORTED_MODIFIERS
 from orchestrator.config import (
     AGENT_CONTRACT_RUNNER_NAME,
+    AGENT_ROLE_DECISION_AUTHORITIES,
+    AGENT_ROLE_EXECUTION_MODES,
+    AGENT_ROLE_STAGES,
     CODEX_CLI_GUARDED_RUNNER_NAME,
     IN_PROCESS_RUNNER_NAME,
     WORKSPACE_DRY_RUNNER_NAME,
@@ -98,6 +101,7 @@ def validate_config(
         errors.append("exploration.explore_bonus must be non-negative")
     validate_candidate_selection(config, errors)
     validate_executor(config, errors)
+    validate_agent_roles(config, errors)
     validate_agent_profiles(config, errors)
     for fallback_modifier in config.memory_fallback_modifiers:
         if fallback_modifier not in SUPPORTED_MODIFIERS:
@@ -206,6 +210,47 @@ def validate_agent_profiles(config: ProjectConfig, errors: list[str]) -> None:
             enabled_primary_count += 1
     if config.agent_profiles and enabled_primary_count != 1:
         errors.append("agents must contain exactly one enabled primary profile")
+
+
+def validate_agent_roles(config: ProjectConfig, errors: list[str]) -> None:
+    """Validate configured role contracts."""
+    seen_names: set[str] = set()
+    active_implemented_roles = 0
+    for index, role in enumerate(config.agent_roles, start=1):
+        name = str(role.get("role_name", ""))
+        stage = str(role.get("stage", ""))
+        execution_mode = str(role.get("execution_mode", ""))
+        decision_authority = str(role.get("decision_authority", ""))
+        enabled = bool(role.get("enabled", False))
+        implemented = bool(role.get("implemented", False))
+        if not name:
+            errors.append(f"agent_roles[{index}].role_name must be non-empty")
+        if name in seen_names:
+            errors.append(f"agent_roles[{index}].role_name must be unique: {name}")
+        seen_names.add(name)
+        if stage not in AGENT_ROLE_STAGES:
+            errors.append(f"agent_roles[{index}].stage is unsupported: {stage}")
+        if execution_mode not in AGENT_ROLE_EXECUTION_MODES:
+            errors.append(
+                f"agent_roles[{index}].execution_mode is unsupported: {execution_mode}"
+            )
+        if decision_authority not in AGENT_ROLE_DECISION_AUTHORITIES:
+            errors.append(
+                "agent_roles"
+                f"[{index}].decision_authority is unsupported: {decision_authority}"
+            )
+        if execution_mode == "active" and not enabled:
+            errors.append(f"agent_roles[{index}].active role must be enabled")
+        if enabled and execution_mode == "active" and implemented:
+            active_implemented_roles += 1
+        if enabled and not implemented and execution_mode == "active":
+            errors.append(f"agent_roles[{index}].active role must be implemented")
+    if not config.agent_roles:
+        errors.append("agent_roles must contain at least one role")
+    if active_implemented_roles != 1:
+        errors.append(
+            "agent_roles must contain exactly one active implemented role in V0.5"
+        )
 
 
 def validate_agent_profile_runner(

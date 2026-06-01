@@ -46,6 +46,7 @@ ROUND_REQUIRED_FILES = (
     "agent_context.json",
     "proposal_intent.json",
     "proposal_intent.md",
+    "agent_role_contracts.json",
     "agent_input.json",
     "agent_bundle_manifest.json",
     "agent_output.json",
@@ -187,6 +188,15 @@ def validate_round_dir(
         report=report,
     )
     validate_contract_file(
+        payload_path=round_dir / "agent_role_contracts.json",
+        schema_path=repo_root / "schemas/agent_role_contracts.schema.json",
+        report=report,
+    )
+    validate_agent_role_contracts(
+        path=round_dir / "agent_role_contracts.json",
+        report=report,
+    )
+    validate_contract_file(
         payload_path=round_dir / "agent_bundle_manifest.json",
         schema_path=repo_root / "schemas/agent_bundle.schema.json",
         report=report,
@@ -325,6 +335,42 @@ def validate_agent_bundle_manifest(
             file_path = resolve_path(Path(str(row.get("path", ""))), repo_root)
             if not file_path.exists() or not file_path.is_file():
                 add_error(report, f"bundle file does not exist: {file_path}")
+
+
+def validate_agent_role_contracts(
+    *,
+    path: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate role uniqueness and active role references."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    roles = payload.get("roles", [])
+    if not isinstance(roles, list) or not roles:
+        add_error(report, "agent_role_contracts.json roles is empty or invalid")
+        return
+    role_names: set[str] = set()
+    for role in roles:
+        if not isinstance(role, dict):
+            add_error(report, "agent_role_contracts.json roles contains non-object")
+            continue
+        role_name = str(role.get("role_name", ""))
+        if not role_name:
+            add_error(report, "agent_role_contracts.json role_name is empty")
+        if role_name in role_names:
+            add_error(report, f"agent_role_contracts.json duplicate role: {role_name}")
+        role_names.add(role_name)
+    active_roles = payload.get("active_roles", [])
+    if not isinstance(active_roles, list) or not active_roles:
+        add_error(report, "agent_role_contracts.json active_roles is empty or invalid")
+        return
+    for active_role in active_roles:
+        if str(active_role) not in role_names:
+            add_error(
+                report,
+                f"agent_role_contracts.json active role is missing: {active_role}",
+            )
 
 
 def validate_agent_attempts_manifest(

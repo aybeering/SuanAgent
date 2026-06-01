@@ -26,6 +26,7 @@ from orchestrator.agent_io import (
     AGENT_INPUT_SCHEMA_VERSION,
     AGENT_OUTPUT_SCHEMA_VERSION,
 )
+from orchestrator.agent_roles import AGENT_ROLE_CONTRACTS_SCHEMA_VERSION
 from orchestrator.agent_contract_runner import (
     AGENT_CONTRACT_RUNNER_NAME,
     run_agent_contract,
@@ -283,6 +284,16 @@ def test_default_config_loads_dataset_splits() -> None:
     assert config.executor["per_agent_timeout_seconds"] == 120
     assert config.executor["allow_disabled_adapters"] is True
     assert config.agent_profiles == ()
+    assert [role["role_name"] for role in config.agent_roles] == [
+        "strategy_modifier",
+        "analysis",
+        "visual_review",
+        "overfit_validator",
+    ]
+    assert config.agent_roles[0]["execution_mode"] == "active"
+    assert config.agent_roles[0]["implemented"] is True
+    assert config.agent_roles[1]["execution_mode"] == "stub_contract"
+    assert config.agent_roles[1]["implemented"] is False
     assert config.stop_on_repeated_proposal is True
 
 
@@ -712,6 +723,39 @@ def test_preflight_rejects_invalid_agent_profiles(tmp_path: Path) -> None:
     assert any("runner.runner_name is unsupported" in error for error in result.errors)
 
 
+def test_preflight_rejects_invalid_agent_roles(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_path = repo / "config/bad_agent_roles.json"
+    config = json.loads((repo / "config/default.json").read_text())
+    config["agent_roles"] = [
+        {
+            "role_name": "strategy_modifier",
+            "stage": "proposal_generation",
+            "enabled": True,
+            "execution_mode": "active",
+            "implemented": True,
+            "decision_authority": "proposal_only",
+        },
+        {
+            "role_name": "strategy_modifier",
+            "stage": "mystery",
+            "enabled": True,
+            "execution_mode": "active",
+            "implemented": False,
+            "decision_authority": "natural_language_vote",
+        },
+    ]
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    result = run_preflight(repo_root=repo, config_path=config_path)
+
+    assert result.ok is False
+    assert any("role_name must be unique" in error for error in result.errors)
+    assert any("stage is unsupported" in error for error in result.errors)
+    assert any("decision_authority is unsupported" in error for error in result.errors)
+    assert any("active role must be implemented" in error for error in result.errors)
+
+
 def test_preflight_rejects_unknown_memory_fallback_modifier(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     config_path = repo / "config/bad_memory_fallback.json"
@@ -814,6 +858,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "agent_context.json",
         "proposal_intent.json",
         "proposal_intent.md",
+        "agent_role_contracts.json",
         "agent_input.json",
         "agent_bundle_manifest.json",
         "agent_output.json",
@@ -841,6 +886,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
     brief = json.loads((run_dir / "research_brief.json").read_text(encoding="utf-8"))
     intent = json.loads((round_dir / "proposal_intent.json").read_text(encoding="utf-8"))
+    role_contracts = json.loads(
+        (round_dir / "agent_role_contracts.json").read_text(encoding="utf-8")
+    )
     proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
     agent_input = json.loads((round_dir / "agent_input.json").read_text(encoding="utf-8"))
     agent_bundle = json.loads(
@@ -877,6 +925,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert manifest["agent_profiles"][0]["name"] == "primary"
     assert manifest["agent_profiles"][0]["adapter"] == "fixed_patch_stub"
     assert manifest["agent_profiles"][0]["runner"]["runner_name"] == "in_process_modifier"
+    assert [role["role_name"] for role in manifest["agent_roles"]] == [
+        "strategy_modifier",
+        "analysis",
+        "visual_review",
+        "overfit_validator",
+    ]
     assert selected_attempt["profile_name"] == "primary"
     assert selected_attempt["adapter_name"] == "fixed_patch_stub"
     assert selected_attempt["runner_name"] == "in_process_modifier"
@@ -891,16 +945,36 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert intent["schema_version"] == "proposal_intent_v1"
     assert intent["recommended_direction"] == "lower_min_edge"
     assert_matches_schema(round_dir / "proposal_intent.json", "proposal_intent")
+    assert role_contracts["schema_version"] == AGENT_ROLE_CONTRACTS_SCHEMA_VERSION
+    assert_matches_schema(round_dir / "agent_role_contracts.json", "agent_role_contracts")
+    assert role_contracts["active_roles"] == ["strategy_modifier"]
+    assert role_contracts["implemented_roles"] == ["strategy_modifier"]
+    assert role_contracts["stub_roles"] == [
+        "analysis",
+        "visual_review",
+        "overfit_validator",
+    ]
+    assert role_contracts["roles"][0]["role_name"] == "strategy_modifier"
+    assert role_contracts["roles"][0]["execution_mode"] == "active"
+    assert role_contracts["roles"][1]["role_name"] == "analysis"
+    assert role_contracts["roles"][1]["implemented"] is False
+    assert role_contracts["role_topology"][0]["from"] == "strategy_modifier"
     assert selected_attempt["candidate_score"] > 0
     assert agent_input["schema_version"] == AGENT_INPUT_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_input.json", "agent_input")
     assert agent_input["target_file"] == "strategies/current_strategy.py"
     assert agent_input["artifacts"]["agent_context_json"].endswith("agent_context.json")
+    assert agent_input["artifacts"]["agent_role_contracts"].endswith(
+        "agent_role_contracts.json"
+    )
     assert agent_input["artifacts"]["proposal_intent_json"].endswith(
         "proposal_intent.json"
     )
     assert agent_input["input_bundle_dir"].endswith("agent_input_bundle")
     assert agent_input["output_bundle_dir"].endswith("agent_output_bundle")
+    assert agent_input["agent_roles"][0]["role_name"] == "strategy_modifier"
+    assert agent_input["agent_roles"][0]["decision_authority"] == "proposal_only"
+    assert agent_input["agent_roles"][1]["execution_mode"] == "stub_contract"
     assert agent_input["agent_profiles"][0]["profile_name"] == "primary"
     assert agent_input["agent_profiles"][0]["adapter_name"] == "fixed_patch_stub"
     assert agent_input["agent_profiles"][0]["runner"]["runner_name"] == (
@@ -921,6 +995,10 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert_matches_schema(round_dir / "agent_bundle_manifest.json", "agent_bundle")
     assert agent_bundle["input_bundle_dir"].endswith("agent_input_bundle")
     assert agent_bundle["output_bundle_dir"].endswith("agent_output_bundle")
+    assert any(
+        row["name"] == "agent_role_contracts.json"
+        for row in agent_bundle["input_files"]
+    )
     assert any(row["name"] == "agent_input.json" for row in agent_bundle["input_files"])
     assert any(
         row["name"] == "raw_agent_output.txt"
@@ -1151,12 +1229,18 @@ def test_iteration_loop_uses_explicit_agent_profiles(tmp_path: Path) -> None:
     agent_input = json.loads(
         (round_dir / "agent_input.json").read_text(encoding="utf-8")
     )
+    role_contracts = json.loads(
+        (round_dir / "agent_role_contracts.json").read_text(encoding="utf-8")
+    )
 
     assert [profile["name"] for profile in manifest["agent_profiles"]] == [
         "strategy_bot",
         "disabled_agent",
         "risk_agent",
     ]
+    assert manifest["agent_roles"][0]["role_name"] == "strategy_modifier"
+    assert role_contracts["active_roles"] == ["strategy_modifier"]
+    assert agent_input["agent_roles"][0]["role_name"] == "strategy_modifier"
     assert [profile["runner"]["runner_name"] for profile in manifest["agent_profiles"]] == [
         "in_process_modifier",
         "in_process_modifier",
@@ -3366,6 +3450,10 @@ def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
     )
     assert any(
         path.endswith("agent_bundle_manifest.json")
+        for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
+        path.endswith("agent_role_contracts.json")
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
     assert any(

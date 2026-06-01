@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Agent Role Contracts",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "round_id",
+    "round_index",
+    "round_dir",
+    "active_roles",
+    "implemented_roles",
+    "stub_roles",
+    "roles",
+    "role_topology",
+    "execution_policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "agent_role_contracts_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "round_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "round_index": {
+      "type": "integer"
+    },
+    "round_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "active_roles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "implemented_roles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stub_roles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "role_name",
+          "stage",
+          "enabled",
+          "execution_mode",
+          "required",
+          "implemented",
+          "description",
+          "allowed_adapters",
+          "consumes",
+          "produces",
+          "decision_authority"
+        ],
+        "properties": {
+          "role_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "proposal_generation",
+              "analysis",
+              "visual_review",
+              "validation"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "active",
+              "stub_contract",
+              "disabled"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "implemented": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "allowed_adapters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "consumes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "produces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "decision_authority": {
+            "type": "string",
+            "enum": [
+              "proposal_only",
+              "advisory_only",
+              "deterministic_gate"
+            ]
+          }
+        }
+      }
+    },
+    "role_topology": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "artifact",
+          "enabled"
+        ],
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "artifact": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "execution_policy": {
+      "type": "object",
+      "required": [
+        "only_strategy_modifier_executes_in_v0_5",
+        "deterministic_gates_keep_acceptance_authority",
+        "non_implemented_roles_are_contract_only"
+      ],
+      "properties": {
+        "only_strategy_modifier_executes_in_v0_5": {
+          "type": "boolean"
+        },
+        "deterministic_gates_keep_acceptance_authority": {
+          "type": "boolean"
+        },
+        "non_implemented_roles_are_contract_only": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

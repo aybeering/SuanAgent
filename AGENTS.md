@@ -116,7 +116,8 @@ Current structure:
 │   ├── agent_execution.schema.json
 │   ├── champion.schema.json
 │   ├── champion_comparison.schema.json
-│   └── run_metadata.schema.json
+│   ├── run_metadata.schema.json
+│   └── research_brief.schema.json
 ├── .github/
 │   └── workflows/
 │       └── ci.yml
@@ -148,6 +149,7 @@ Current structure:
 │   ├── outcome_memory.py
 │   ├── policy_gate.py
 │   ├── proposal.py
+│   ├── research_brief.py
 │   ├── run_summary.py
 │   ├── patch_parser.py
 │   ├── workspace_manager.py
@@ -202,6 +204,8 @@ manifest.json
 summary.md
 diagnosis.json
 run_metadata.json
+research_brief.json
+research_brief.md
 champion_comparison.json  # when a champion registry exists
 index.jsonl
 memory.jsonl
@@ -236,6 +240,12 @@ round_001/
 ```
 
 Additional rounds use the same `round_NNN/` structure.
+
+Each completed iteration run should write `research_brief.json` and
+`research_brief.md`. The JSON artifact should use schema version
+`research_brief_v1` and compact the run diagnosis, selected candidates, top
+candidate leaderboard rows, champion comparison summary, deterministic
+observations, and next research questions.
 
 Each `proposal.json` should keep agent output auditable. It records the patch,
 agent summary, protocol version, direction tag, hypotheses, expected metric
@@ -517,7 +527,8 @@ When the V0.5 loop runs, it should:
 16. Stop with `stopped_repeated_proposal` if the rejected patch repeats a prior round.
 17. Stop with `stopped_max_rounds` if max rounds is reached.
 18. Save `manifest.json`.
-19. Print a short final summary.
+19. Save `summary.md`, `diagnosis.json`, and the research brief artifacts.
+20. Print a short final summary.
 
 The configured modifier may also be `codex_dry_run`, `codex_cli_dry_run`,
 `codex_cli`, or `file_protocol`. The `adaptive_stub` modifier is still
@@ -551,6 +562,9 @@ failed or inconclusive comparisons should not mutate the champion registry.
 When a champion registry exists, completed iteration runs should write
 `champion_comparison.json` in the run directory using schema version
 `champion_comparison_v1`.
+Completed iteration runs should then write `research_brief.json` and
+`research_brief.md` so the candidate search trace is easy to inspect before the
+next run.
 
 Future Codex output must be parsed as a unified diff and rejected before git
 apply if it touches anything except `strategies/current_strategy.py`.

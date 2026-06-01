@@ -109,6 +109,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_research_brief(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     report["ok"] = not report["errors"]
     return report
 
@@ -267,6 +272,37 @@ def validate_optional_champion_comparison(
             report,
             f"champion_comparison.json run_id does not match report: {path}",
         )
+
+
+def validate_optional_research_brief(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate research_brief.json/md when a run has one."""
+    path = run_dir / "research_brief.json"
+    md_path = run_dir / "research_brief.md"
+    if not path.exists() and not md_path.exists():
+        return
+    if not path.exists():
+        add_error(report, f"missing research brief JSON artifact: {path}")
+        return
+    if not md_path.exists():
+        add_error(report, f"missing research brief markdown artifact: {md_path}")
+    checked_files(report).append(str(path))
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/research_brief.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(report, f"research_brief.json run_id does not match report: {path}")
 
 
 def validate_contract_file(

@@ -44,6 +44,7 @@ from orchestrator.proposal import (
     annotate_proposal_quality,
     enforce_proposal_contract,
 )
+from orchestrator.research_brief import write_research_brief
 from orchestrator.run_diagnosis import write_run_diagnosis
 from orchestrator.run_loop import run_and_write, write_json
 from orchestrator.run_metadata import write_run_metadata
@@ -232,6 +233,11 @@ def run_iteration_loop(
                         experiments_dir=active_experiments_dir,
                         repo_root=repo_root,
                     )
+                    write_research_brief(
+                        run_id=active_run_id,
+                        experiments_dir=active_experiments_dir,
+                        repo_root=repo_root,
+                    )
                     return manifest
 
                 rollback_strategy(repo_root, strategy_path)
@@ -264,6 +270,11 @@ def run_iteration_loop(
                         experiments_dir=active_experiments_dir,
                     )
                     write_run_diagnosis(
+                        run_id=active_run_id,
+                        experiments_dir=active_experiments_dir,
+                        repo_root=repo_root,
+                    )
+                    write_research_brief(
                         run_id=active_run_id,
                         experiments_dir=active_experiments_dir,
                         repo_root=repo_root,
@@ -301,6 +312,11 @@ def run_iteration_loop(
                         experiments_dir=active_experiments_dir,
                         repo_root=repo_root,
                     )
+                    write_research_brief(
+                        run_id=active_run_id,
+                        experiments_dir=active_experiments_dir,
+                        repo_root=repo_root,
+                    )
                     return manifest
 
         manifest["status"] = "stopped_max_rounds"
@@ -323,6 +339,11 @@ def run_iteration_loop(
             experiments_dir=active_experiments_dir,
         )
         write_run_diagnosis(
+            run_id=active_run_id,
+            experiments_dir=active_experiments_dir,
+            repo_root=repo_root,
+        )
+        write_research_brief(
             run_id=active_run_id,
             experiments_dir=active_experiments_dir,
             repo_root=repo_root,

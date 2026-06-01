@@ -47,6 +47,18 @@ jobs:
           python -m orchestrator.artifact_validator ci-adaptive
           python -m orchestrator.artifact_validator ci-file-protocol-demo
 
+      - name: Inspect research brief artifacts
+        run: |
+          test -f experiments/ci-adaptive/research_brief.json
+          test -f experiments/ci-adaptive/research_brief.md
+          python - <<'PY'
+          import json
+          payload = json.load(open("experiments/ci-adaptive/research_brief.json"))
+          assert payload["schema_version"] == "research_brief_v1"
+          assert payload["run_id"] == "ci-adaptive"
+          assert payload["top_candidates"]
+          PY
+
       - name: Diagnose iteration runs
         run: |
           python -m orchestrator.experiments diagnose ci-adaptive

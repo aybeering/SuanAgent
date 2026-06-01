@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Research Brief",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "kind",
+    "status",
+    "artifact_ok",
+    "artifact_error_count",
+    "completed_rounds",
+    "accepted_round",
+    "stop_reason",
+    "final_strategy_commit",
+    "summary",
+    "best_round",
+    "selected_candidates",
+    "top_candidates",
+    "champion_comparison",
+    "candidate_selection",
+    "observations",
+    "next_questions"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "research_brief_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "artifact_ok": {
+      "type": "boolean"
+    },
+    "artifact_error_count": {
+      "type": "integer"
+    },
+    "completed_rounds": {
+      "type": "integer"
+    },
+    "accepted_round": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "stop_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "final_strategy_commit": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "best_round": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "selected_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "top_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "champion_comparison": {
+      "type": "object"
+    },
+    "candidate_selection": {
+      "type": "object"
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "next_questions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

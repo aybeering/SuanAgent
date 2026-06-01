@@ -409,8 +409,11 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     ):
         assert (round_dir / filename).exists()
     assert (run_dir / "candidate_leaderboard.json").exists()
+    assert (run_dir / "research_brief.json").exists()
+    assert (run_dir / "research_brief.md").exists()
 
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
+    brief = json.loads((run_dir / "research_brief.json").read_text(encoding="utf-8"))
     proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
     agent_input = json.loads((round_dir / "agent_input.json").read_text(encoding="utf-8"))
     agent_output = json.loads(
@@ -424,6 +427,10 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     selected_attempt = next(attempt for attempt in attempts if attempt["selected"])
     assert decision["accepted"] is False
+    assert brief["schema_version"] == "research_brief_v1"
+    assert brief["run_id"] == "reject-smoke"
+    assert brief["status"] == "stopped_max_rounds"
+    assert_matches_schema(run_dir / "research_brief.json", "research_brief")
     assert selected_attempt["candidate_score"] > 0
     assert agent_input["schema_version"] == AGENT_INPUT_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_input.json", "agent_input")
@@ -453,6 +460,49 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         encoding="utf-8"
     )
     assert (repo / "experiments/index.jsonl").exists()
+
+
+def test_iteration_loop_writes_research_brief(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+
+    run_iteration_loop(
+        run_id="research-brief",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments/research-brief"
+    round_dir = run_dir / "round_001"
+    brief_path = run_dir / "research_brief.json"
+    markdown_path = run_dir / "research_brief.md"
+    brief = json.loads(brief_path.read_text(encoding="utf-8"))
+    markdown = markdown_path.read_text(encoding="utf-8")
+    report = validate_run_artifacts(
+        run_id="research-brief",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert brief["schema_version"] == "research_brief_v1"
+    assert brief["run_id"] == "research-brief"
+    assert brief["kind"] == "iteration_loop"
+    assert brief["status"] == "stopped_max_rounds"
+    assert brief["artifact_ok"] is True
+    assert brief["artifact_error_count"] == 0
+    assert brief["top_candidates"]
+    assert brief["selected_candidates"]
+    assert brief["next_questions"]
+    assert "# Research Brief" in markdown
+    assert "## Top Candidates" in markdown
+    assert_matches_schema(brief_path, "research_brief")
+    assert report["ok"] is True
+    assert any(
+        path.endswith("research_brief.json")
+        for path in report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
+        path.endswith("research_brief.md")
+        for path in report["checked_files"]  # type: ignore[union-attr]
+    )
     summary_text = (run_dir / "summary.md").read_text(encoding="utf-8")
     assert "Experiment Summary" in summary_text
     assert "round_001" in summary_text
@@ -2014,6 +2064,33 @@ def test_artifact_validator_reports_metadata_run_id_mismatch(tmp_path: Path) -> 
     assert any("run_id does not match" in error for error in report["errors"])  # type: ignore[union-attr]
 
 
+def test_artifact_validator_reports_research_brief_run_id_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-brief-error",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = repo / "experiments/artifact-brief-error/research_brief.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["run_id"] = "wrong"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="artifact-brief-error",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "research_brief.json run_id does not match" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
 def test_artifact_validator_reports_metadata_schema_errors(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     run_iteration_loop(
@@ -2838,7 +2915,12 @@ def test_iteration_loop_writes_champion_comparison_when_champion_exists(
         repo_root=repo,
     )
     comparison_path = repo / "experiments/auto-challenger/champion_comparison.json"
+    brief_path = repo / "experiments/auto-challenger/research_brief.json"
     comparison = json.loads(comparison_path.read_text(encoding="utf-8"))
+    brief = json.loads(brief_path.read_text(encoding="utf-8"))
+    markdown = (repo / "experiments/auto-challenger/research_brief.md").read_text(
+        encoding="utf-8"
+    )
     report = validate_run_artifacts(
         run_id="auto-challenger",
         experiments_dir=repo / "experiments",
@@ -2851,7 +2933,11 @@ def test_iteration_loop_writes_champion_comparison_when_champion_exists(
     assert comparison["champion_run_id"] == "auto-champion-current"
     assert comparison["comparison"]["base_run_id"] == "auto-champion-current"
     assert comparison["comparison"]["candidate_run_id"] == "auto-challenger"
+    assert brief["champion_comparison"]["exists"] is True
+    assert brief["champion_comparison"]["champion_run_id"] == "auto-champion-current"
+    assert "## Champion Comparison" in markdown
     assert_matches_schema(comparison_path, "champion_comparison")
+    assert_matches_schema(brief_path, "research_brief")
     assert report["ok"] is True
     assert any(
         path.endswith("champion_comparison.json")

@@ -20,8 +20,9 @@ early when an agent repeats a previously rejected patch.
 The strategy interface contract is documented in
 `docs/strategy_interface.md`. Machine-readable agent contracts live in
 `schemas/agent_input.schema.json`, `schemas/agent_output.schema.json`, and
-`schemas/agent_execution.schema.json`; run provenance is described by
-`schemas/run_metadata.schema.json`. The current modifier backend is selected
+`schemas/agent_execution.schema.json`; run provenance and run-level research
+notes are described by `schemas/run_metadata.schema.json` and
+`schemas/research_brief.schema.json`. The current modifier backend is selected
 with `strategy_modifier` in config; available values are `fixed_patch_stub`,
 `adaptive_stub`, `codex_dry_run`, `codex_cli_dry_run`, `codex_cli`, and
 `file_protocol`. The `codex_cli` and `file_protocol` adapters only invoke a
@@ -103,8 +104,9 @@ Each run writes artifacts to `experiments/<run_id>/`:
 
 The multi-round loop also writes per-round train and holdout artifacts, a
 human-readable `summary.md`, a machine-readable `diagnosis.json`, and an
-immutable `run_metadata.json` provenance snapshot, plus an append-only
-`experiments/index.jsonl`.
+immutable `run_metadata.json` provenance snapshot, plus `research_brief.json`
+and `research_brief.md` for deterministic run-level research notes. It also
+updates append-only `experiments/index.jsonl`.
 When a champion registry exists, completed iteration runs also write
 `champion_comparison.json`.
 Iteration summaries include proposal direction tags, hypotheses, expected
@@ -194,6 +196,10 @@ prior, exploration bonus, probe deltas, validation deltas, and deterministic
 candidate score. When a champion registry exists, candidate scoring also records
 a capped champion-gap feature comparing each candidate's probe EV delta with the
 current champion's validation EV delta.
+Completed iteration runs also write `research_brief.json` and
+`research_brief.md`, which compact the diagnosis, top candidates, selected
+candidates, champion comparison, deterministic observations, and next research
+questions into one auditable run summary.
 Later rounds include prior rows from that leaderboard in `agent_context.md`, so
 modifier backends can avoid weak search directions and reuse promising ones.
 The optional `exploration.stop_after_no_improvement_rounds` policy can stop a

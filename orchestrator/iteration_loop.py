@@ -36,6 +36,7 @@ from orchestrator.agent_io import write_agent_input, write_agent_output
 from orchestrator.agent_output_intake import validate_agent_proposal
 from orchestrator.agent_routing import write_agent_routing_policy
 from orchestrator.agent_roles import write_agent_role_contracts
+from orchestrator.analysis_stub import write_analysis_notes
 from orchestrator.config import (
     ProjectConfig,
     load_project_config,
@@ -519,7 +520,7 @@ def run_round(
         context_path=context_path,
         output_path=round_dir / "proposal_intent.json",
     )
-    write_agent_role_contracts(
+    role_contracts_path = write_agent_role_contracts(
         output_path=round_dir / "agent_role_contracts.json",
         repo_root=repo_root,
         round_dir=round_dir,
@@ -527,6 +528,23 @@ def run_round(
         round_id=round_id,
         round_index=round_index,
         agent_roles=agent_roles,
+    )
+    write_analysis_notes(
+        output_path=round_dir / "analysis_notes.json",
+        markdown_path=round_dir / "analysis_notes.md",
+        repo_root=repo_root,
+        run_id=run_id,
+        round_id=round_id,
+        round_index=round_index,
+        round_dir=round_dir,
+        train_metrics_before=train_metrics_before,
+        validation_metrics_before=metrics_before,
+        holdout_metrics_before=holdout_metrics_before,
+        train_report_path=round_dir / "train_report_before.md",
+        validation_report_path=round_dir / "report_before.md",
+        holdout_report_path=round_dir / "holdout_report_before.md",
+        agent_role_contracts_path=role_contracts_path,
+        proposal_intent_path=intent_path,
     )
     write_agent_input(
         output_path=round_dir / "agent_input.json",

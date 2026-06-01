@@ -883,6 +883,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "proposal_intent.json",
         "proposal_intent.md",
         "agent_role_contracts.json",
+        "analysis_notes.json",
+        "analysis_notes.md",
         "agent_input.json",
         "agent_bundle_manifest.json",
         "agent_output.json",
@@ -912,6 +914,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     intent = json.loads((round_dir / "proposal_intent.json").read_text(encoding="utf-8"))
     role_contracts = json.loads(
         (round_dir / "agent_role_contracts.json").read_text(encoding="utf-8")
+    )
+    analysis_notes = json.loads(
+        (round_dir / "analysis_notes.json").read_text(encoding="utf-8")
     )
     proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
     agent_input = json.loads((round_dir / "agent_input.json").read_text(encoding="utf-8"))
@@ -984,6 +989,17 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert role_contracts["roles"][1]["role_name"] == "analysis"
     assert role_contracts["roles"][1]["implemented"] is False
     assert role_contracts["role_topology"][0]["from"] == "strategy_modifier"
+    assert analysis_notes["schema_version"] == "analysis_notes_v1"
+    assert_matches_schema(round_dir / "analysis_notes.json", "analysis_notes")
+    assert analysis_notes["agent_role"] == "analysis"
+    assert analysis_notes["execution_mode"] == "stub_contract"
+    assert analysis_notes["implemented"] is False
+    assert analysis_notes["metrics_before"]["validation"]["trade_count"] == 39
+    assert analysis_notes["recommendation"]["action"] == "continue_to_strategy_modifier"
+    assert analysis_notes["recommendation"]["can_change_acceptance"] is False
+    assert analysis_notes["consumed_artifacts"]["agent_role_contracts"].endswith(
+        "agent_role_contracts.json"
+    )
     assert selected_attempt["candidate_score"] > 0
     assert agent_input["schema_version"] == AGENT_INPUT_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_input.json", "agent_input")
@@ -991,6 +1007,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_input["artifacts"]["agent_context_json"].endswith("agent_context.json")
     assert agent_input["artifacts"]["agent_role_contracts"].endswith(
         "agent_role_contracts.json"
+    )
+    assert agent_input["artifacts"]["analysis_notes_json"].endswith(
+        "analysis_notes.json"
+    )
+    assert agent_input["artifacts"]["analysis_notes_markdown"].endswith(
+        "analysis_notes.md"
     )
     assert agent_input["artifacts"]["proposal_intent_json"].endswith(
         "proposal_intent.json"
@@ -1024,6 +1046,14 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_bundle["output_bundle_dir"].endswith("agent_output_bundle")
     assert any(
         row["name"] == "agent_role_contracts.json"
+        for row in agent_bundle["input_files"]
+    )
+    assert any(
+        row["name"] == "analysis_notes.json"
+        for row in agent_bundle["input_files"]
+    )
+    assert any(
+        row["name"] == "analysis_notes.md"
         for row in agent_bundle["input_files"]
     )
     assert any(row["name"] == "agent_input.json" for row in agent_bundle["input_files"])
@@ -2788,6 +2818,13 @@ output_path.write_text(json.dumps({
     assert workspace_agent_input["output_contract"]["workspace_output_path"].endswith(
         "fixture_agent_output.json"
     )
+    assert (
+        Path(agent_execution["workspace_path"])
+        / "experiments/file-protocol-fixture/round_001/analysis_notes.json"
+    ).exists()
+    assert workspace_agent_input["artifacts"]["analysis_notes_json"].endswith(
+        "analysis_notes.json"
+    )
     assert workspace_bundle_agent_input["active_agent"] == workspace_agent_input[
         "active_agent"
     ]
@@ -3516,6 +3553,10 @@ def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
     assert any(
+        path.endswith("analysis_notes.json")
+        for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
         path.endswith("agent_attempts_manifest.json")
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
@@ -3607,6 +3648,33 @@ def test_artifact_validator_reports_agent_role_mismatch(tmp_path: Path) -> None:
     assert report["ok"] is False
     assert any(
         "selected_agent_role does not match selected row" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_analysis_acceptance_violation(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-analysis-violation",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = repo / "experiments/artifact-analysis-violation/round_001/analysis_notes.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["recommendation"]["can_change_acceptance"] = True
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="artifact-analysis-violation",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "analysis_notes.json must not change acceptance" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 

@@ -69,6 +69,8 @@
       "required": [
         "agent_context_markdown",
         "agent_role_contracts",
+        "analysis_notes_json",
+        "analysis_notes_markdown",
         "agent_context_json",
         "proposal_intent_json",
         "proposal_intent_markdown",
@@ -78,6 +80,12 @@
       ],
       "properties": {
         "agent_role_contracts": {
+          "type": "string"
+        },
+        "analysis_notes_json": {
+          "type": "string"
+        },
+        "analysis_notes_markdown": {
           "type": "string"
         },
         "agent_context_markdown": {

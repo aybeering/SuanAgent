@@ -115,6 +115,14 @@ def build_agent_input_payload(
                 round_dir / "agent_role_contracts.json",
                 repo_root,
             ),
+            "analysis_notes_json": relative_path(
+                round_dir / "analysis_notes.json",
+                repo_root,
+            ),
+            "analysis_notes_markdown": relative_path(
+                round_dir / "analysis_notes.md",
+                repo_root,
+            ),
             "agent_context_markdown": relative_path(context_path, repo_root),
             "agent_context_json": relative_path(context_path.with_suffix(".json"), repo_root),
             "proposal_intent_json": relative_path(intent_path, repo_root),

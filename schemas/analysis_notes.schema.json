@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Analysis Notes",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "round_id",
+    "round_index",
+    "agent_role",
+    "execution_mode",
+    "implemented",
+    "round_dir",
+    "consumed_artifacts",
+    "metrics_before",
+    "observations",
+    "constraints",
+    "recommendation",
+    "produced_artifacts"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "analysis_notes_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "round_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "round_index": {
+      "type": "integer"
+    },
+    "agent_role": {
+      "type": "string",
+      "enum": [
+        "analysis"
+      ]
+    },
+    "execution_mode": {
+      "type": "string",
+      "enum": [
+        "stub_contract"
+      ]
+    },
+    "implemented": {
+      "type": "boolean"
+    },
+    "round_dir": {
+      "type": "string"
+    },
+    "consumed_artifacts": {
+      "type": "object",
+      "required": [
+        "agent_role_contracts",
+        "proposal_intent",
+        "train_report_before",
+        "validation_report_before",
+        "holdout_report_before"
+      ],
+      "properties": {
+        "agent_role_contracts": {
+          "type": "string"
+        },
+        "proposal_intent": {
+          "type": "string"
+        },
+        "train_report_before": {
+          "type": "string"
+        },
+        "validation_report_before": {
+          "type": "string"
+        },
+        "holdout_report_before": {
+          "type": "string"
+        }
+      }
+    },
+    "metrics_before": {
+      "type": "object",
+      "required": [
+        "train",
+        "validation",
+        "holdout"
+      ],
+      "properties": {
+        "train": {
+          "type": "object"
+        },
+        "validation": {
+          "type": "object"
+        },
+        "holdout": {
+          "type": "object"
+        }
+      }
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": [
+        "action",
+        "reason",
+        "can_change_routing",
+        "can_change_acceptance"
+      ],
+      "properties": {
+        "action": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "can_change_routing": {
+          "type": "boolean"
+        },
+        "can_change_acceptance": {
+          "type": "boolean"
+        }
+      }
+    },
+    "produced_artifacts": {
+      "type": "object",
+      "required": [
+        "analysis_notes_json",
+        "analysis_notes_markdown"
+      ],
+      "properties": {
+        "analysis_notes_json": {
+          "type": "string"
+        },
+        "analysis_notes_markdown": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

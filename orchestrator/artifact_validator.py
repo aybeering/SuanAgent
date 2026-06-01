@@ -47,6 +47,8 @@ ROUND_REQUIRED_FILES = (
     "proposal_intent.json",
     "proposal_intent.md",
     "agent_role_contracts.json",
+    "analysis_notes.json",
+    "analysis_notes.md",
     "agent_input.json",
     "agent_bundle_manifest.json",
     "agent_output.json",
@@ -194,6 +196,17 @@ def validate_round_dir(
     )
     role_names = validate_agent_role_contracts(
         path=round_dir / "agent_role_contracts.json",
+        report=report,
+    )
+    validate_contract_file(
+        payload_path=round_dir / "analysis_notes.json",
+        schema_path=repo_root / "schemas/analysis_notes.schema.json",
+        report=report,
+    )
+    validate_analysis_notes(
+        path=round_dir / "analysis_notes.json",
+        repo_root=repo_root,
+        role_names=role_names,
         report=report,
     )
     validate_contract_file(
@@ -406,6 +419,42 @@ def validate_attempt_agent_roles(
                 report,
                 f"{payload_name} attempt {index} unknown agent_role: {agent_role}",
             )
+
+
+def validate_analysis_notes(
+    *,
+    path: Path,
+    repo_root: Path,
+    role_names: set[str],
+    report: dict[str, object],
+) -> None:
+    """Validate the read-only analysis role stub artifact."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    agent_role = str(payload.get("agent_role", ""))
+    if agent_role != "analysis":
+        add_error(report, f"analysis_notes.json agent_role must be analysis: {agent_role}")
+    if role_names and agent_role not in role_names:
+        add_error(report, f"analysis_notes.json unknown agent_role: {agent_role}")
+    recommendation = payload.get("recommendation", {})
+    if not isinstance(recommendation, dict):
+        add_error(report, "analysis_notes.json recommendation is invalid")
+    elif bool(recommendation.get("can_change_acceptance", True)):
+        add_error(report, "analysis_notes.json must not change acceptance")
+    for group_key in ("consumed_artifacts", "produced_artifacts"):
+        artifacts = payload.get(group_key, {})
+        if not isinstance(artifacts, dict):
+            add_error(report, f"analysis_notes.json {group_key} is invalid")
+            continue
+        for artifact_key, artifact_value in artifacts.items():
+            artifact_path = resolve_path(Path(str(artifact_value)), repo_root)
+            if not artifact_path.exists() or not artifact_path.is_file():
+                add_error(
+                    report,
+                    "analysis_notes.json artifact does not exist: "
+                    f"{artifact_key}={artifact_path}",
+                )
 
 
 def validate_agent_attempts_manifest(

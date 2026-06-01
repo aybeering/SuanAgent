@@ -328,6 +328,8 @@ def copy_agent_round_inputs(*, source_round_dir: Path, workspace_round_dir: Path
     workspace_round_dir.mkdir(parents=True, exist_ok=True)
     for filename in (
         "agent_role_contracts.json",
+        "analysis_notes.json",
+        "analysis_notes.md",
         "agent_input.json",
         "agent_context.md",
         "agent_context.json",

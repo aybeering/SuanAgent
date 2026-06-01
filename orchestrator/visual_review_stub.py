@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 from pathlib import Path
+from typing import Any
 
 
 VISUAL_REVIEW_SCHEMA_VERSION = "visual_review_v1"
@@ -62,6 +63,9 @@ def visual_review_payload(
         "validation": csv_data_row_count(round_dir / "trades_before.csv"),
         "holdout": csv_data_row_count(round_dir / "holdout_trades_before.csv"),
     }
+    manifest = load_json_object(visual_artifacts_manifest_path)
+    artifact_summaries = visual_artifact_summaries(manifest)
+    visual_policy = visual_policy_summary(manifest)
     return {
         "schema_version": VISUAL_REVIEW_SCHEMA_VERSION,
         "run_id": run_id,
@@ -115,6 +119,13 @@ def visual_review_payload(
             "rendering_mode": "deterministic_static_html",
             "external_dependencies": False,
         },
+        "visual_artifacts_summary": {
+            "manifest_path": relative_path(visual_artifacts_manifest_path, repo_root),
+            "manifest_loaded": bool(manifest),
+            "artifact_count": len(artifact_summaries),
+            "artifacts": artifact_summaries,
+            "policy": visual_policy,
+        },
         "trade_row_counts": trade_rows,
         "checks": {
             "chart_rendering_enabled": True,
@@ -133,6 +144,9 @@ def visual_review_payload(
             "trade_timeline_html_generated",
             "visual_agent_disabled",
             "visual_artifacts_manifest_generated",
+            f"visual_artifact_count={len(artifact_summaries)}",
+            *artifact_observations(artifact_summaries),
+            *policy_observations(visual_policy),
         ],
         "recommendation": {
             "action": "continue_without_visual_gate",
@@ -197,6 +211,94 @@ def visual_review_markdown(payload: dict[str, object]) -> str:
             "",
         ]
     )
+
+
+def load_json_object(path: Path) -> dict[str, Any]:
+    """Load a JSON object from disk, returning an empty dict on parse failure."""
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def visual_artifact_summaries(manifest: dict[str, Any]) -> list[dict[str, object]]:
+    """Return compact deterministic summaries from the visual artifact manifest."""
+    artifacts = manifest.get("artifacts", [])
+    if not isinstance(artifacts, list):
+        return []
+    summaries: list[dict[str, object]] = []
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        source_files = artifact.get("source_files", [])
+        source_count = len(source_files) if isinstance(source_files, list) else 0
+        sha256 = str(artifact.get("sha256", ""))
+        summaries.append(
+            {
+                "artifact_id": str(artifact.get("artifact_id", "")),
+                "artifact_type": str(artifact.get("artifact_type", "")),
+                "path": str(artifact.get("path", "")),
+                "bytes": int_or_zero(artifact.get("bytes", 0)),
+                "sha256_prefix": sha256[:12],
+                "source_file_count": source_count,
+                "external_dependencies": bool(
+                    artifact.get("external_dependencies", True)
+                ),
+                "schema_marker": str(artifact.get("schema_marker", "")),
+            }
+        )
+    return sorted(summaries, key=lambda row: str(row["artifact_id"]))
+
+
+def visual_policy_summary(manifest: dict[str, Any]) -> dict[str, bool]:
+    """Return the visual input policy from the manifest."""
+    policy = manifest.get("policy", {})
+    if not isinstance(policy, dict):
+        return {
+            "external_network_assets_allowed": True,
+            "visual_agent_can_change_acceptance": True,
+            "visual_agent_can_change_routing": True,
+        }
+    return {
+        "external_network_assets_allowed": bool(
+            policy.get("external_network_assets_allowed", True)
+        ),
+        "visual_agent_can_change_acceptance": bool(
+            policy.get("visual_agent_can_change_acceptance", True)
+        ),
+        "visual_agent_can_change_routing": bool(
+            policy.get("visual_agent_can_change_routing", True)
+        ),
+    }
+
+
+def artifact_observations(artifact_summaries: list[dict[str, object]]) -> list[str]:
+    """Return stable observation strings for visual artifacts."""
+    return [
+        "visual_artifact="
+        f"{artifact['artifact_id']}:"
+        f"bytes={artifact['bytes']}:"
+        f"sources={artifact['source_file_count']}:"
+        f"sha256_prefix={artifact['sha256_prefix']}"
+        for artifact in artifact_summaries
+    ]
+
+
+def policy_observations(policy: dict[str, bool]) -> list[str]:
+    """Return stable observation strings for visual policy fields."""
+    return [
+        f"visual_policy_external_assets_allowed={str(policy['external_network_assets_allowed']).lower()}",
+        f"visual_policy_can_change_acceptance={str(policy['visual_agent_can_change_acceptance']).lower()}",
+        f"visual_policy_can_change_routing={str(policy['visual_agent_can_change_routing']).lower()}",
+    ]
+
+
+def int_or_zero(value: object) -> int:
+    """Return an integer value or zero."""
+    return value if isinstance(value, int) else 0
 
 
 def relative_path(path: Path, root: Path) -> str:

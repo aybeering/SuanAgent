@@ -15,6 +15,7 @@
         "expected_future_artifacts",
         "chart_artifacts",
         "timeline_artifacts",
+        "visual_artifacts_summary",
         "trade_row_counts",
         "checks",
     "observations",
@@ -151,6 +152,88 @@
         },
         "external_dependencies": {
           "type": "boolean"
+        }
+      }
+    },
+    "visual_artifacts_summary": {
+      "type": "object",
+      "required": [
+        "manifest_path",
+        "manifest_loaded",
+        "artifact_count",
+        "artifacts",
+        "policy"
+      ],
+      "properties": {
+        "manifest_path": {
+          "type": "string"
+        },
+        "manifest_loaded": {
+          "type": "boolean"
+        },
+        "artifact_count": {
+          "type": "integer"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "artifact_id",
+              "artifact_type",
+              "path",
+              "bytes",
+              "sha256_prefix",
+              "source_file_count",
+              "external_dependencies",
+              "schema_marker"
+            ],
+            "properties": {
+              "artifact_id": {
+                "type": "string"
+              },
+              "artifact_type": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "bytes": {
+                "type": "integer"
+              },
+              "sha256_prefix": {
+                "type": "string"
+              },
+              "source_file_count": {
+                "type": "integer"
+              },
+              "external_dependencies": {
+                "type": "boolean"
+              },
+              "schema_marker": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "policy": {
+          "type": "object",
+          "required": [
+            "external_network_assets_allowed",
+            "visual_agent_can_change_acceptance",
+            "visual_agent_can_change_routing"
+          ],
+          "properties": {
+            "external_network_assets_allowed": {
+              "type": "boolean"
+            },
+            "visual_agent_can_change_acceptance": {
+              "type": "boolean"
+            },
+            "visual_agent_can_change_routing": {
+              "type": "boolean"
+            }
+          }
         }
       }
     },

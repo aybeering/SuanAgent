@@ -630,6 +630,55 @@ def validate_visual_review(
             report,
             f"visual_review.json trade_timeline_html does not exist: {timeline_path}",
         )
+    validate_visual_review_summary(payload=payload, report=report)
+
+
+def validate_visual_review_summary(
+    *,
+    payload: dict[str, Any],
+    report: dict[str, object],
+) -> None:
+    """Validate the manifest-derived summary in visual_review.json."""
+    summary = payload.get("visual_artifacts_summary", {})
+    if not isinstance(summary, dict):
+        add_error(report, "visual_review.json visual_artifacts_summary is invalid")
+        return
+    artifacts = summary.get("artifacts", [])
+    if not isinstance(artifacts, list):
+        add_error(report, "visual_review.json visual_artifacts_summary artifacts invalid")
+        return
+    artifact_count = summary.get("artifact_count", None)
+    if isinstance(artifact_count, int) and artifact_count != len(artifacts):
+        add_error(report, "visual_review.json visual artifact count mismatch")
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            add_error(report, "visual_review.json visual artifact summary is non-object")
+            continue
+        if bool(artifact.get("external_dependencies", True)):
+            add_error(
+                report,
+                "visual_review.json visual artifact summary must not use external dependencies",
+            )
+        if int_value(artifact.get("source_file_count", 0)) <= 0:
+            add_error(
+                report,
+                "visual_review.json visual artifact summary must include source files",
+            )
+        if not str(artifact.get("sha256_prefix", "")):
+            add_error(
+                report,
+                "visual_review.json visual artifact summary missing sha256 prefix",
+            )
+    policy = summary.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "visual_review.json visual summary policy is invalid")
+        return
+    if bool(policy.get("external_network_assets_allowed", True)):
+        add_error(report, "visual_review.json visual summary must not allow external assets")
+    if bool(policy.get("visual_agent_can_change_acceptance", True)):
+        add_error(report, "visual_review.json visual summary must not change acceptance")
+    if bool(policy.get("visual_agent_can_change_routing", True)):
+        add_error(report, "visual_review.json visual summary must not change routing")
 
 
 def validate_visual_artifacts_manifest(
@@ -764,6 +813,11 @@ def validate_trade_timeline_html(*, path: Path, report: dict[str, object]) -> No
 def file_sha256(path: Path) -> str:
     """Return a SHA-256 digest for a file."""
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def int_value(value: object) -> int:
+    """Return an integer value or zero."""
+    return value if isinstance(value, int) else 0
 
 
 def validate_agent_attempts_manifest(

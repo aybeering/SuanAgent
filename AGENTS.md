@@ -358,9 +358,11 @@ that visual inputs cannot change routing or final acceptance.
 `visual_review.json` should use schema version `visual_review_v1` and record
 the read-only visual review stub's consumed `visual_artifacts_manifest.json`,
 consumed `chart.html`, consumed `trade_timeline.html`, consumed before-trade
-files, consumed before-reports, trade row counts, observations, and
-recommendation. In V0.5 visual-agent execution must remain disabled, and the
-artifact must not change routing or final acceptance.
+files, consumed before-reports, trade row counts, manifest-derived artifact
+summaries, observations, and recommendation. The manifest-derived summaries
+should include artifact ids, bytes, SHA-256 prefixes, source-file counts, and
+visual authority policy. In V0.5 visual-agent execution must remain disabled,
+and the artifact must not change routing or final acceptance.
 `overfit_validation.json` should use schema version `overfit_validation_v1` and
 record the overfit validator stub's consumed proposal, decision, metric deltas,
 prior rejected round count, and advisory risk flags. In V0.5 it must not veto,

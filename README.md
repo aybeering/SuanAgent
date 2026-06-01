@@ -285,11 +285,13 @@ assets, or network calls. `visual_artifacts_manifest.json` indexes the visual
 HTML artifacts with schema markers, source files, hashes, byte counts, and the
 policy that visual inputs cannot change routing or acceptance.
 `visual_review.json` records the contract-only visual review stub's view of
-before trade files and these visual artifacts. The artifact validator rejects
-either HTML artifact if it references external network assets, rejects the
-manifest if hashes or source references drift, and rejects `visual_review.json`
-if it claims visual-agent execution, routing authority, or final acceptance
-authority while V0.5 keeps visual review inactive.
+before trade files and these visual artifacts. It also includes a compact
+manifest-derived summary of artifact ids, byte sizes, hash prefixes, source-file
+counts, and visual authority policy. The artifact validator rejects either HTML
+artifact if it references external network assets, rejects the manifest if
+hashes or source references drift, and rejects `visual_review.json` if it claims
+visual-agent execution, routing authority, or final acceptance authority while
+V0.5 keeps visual review inactive.
 `overfit_validation.json` records the contract-only overfit validator stub's
 view of validation-vs-holdout deltas, prior rejected rounds, and advisory risk
 flags. The artifact validator rejects it if it claims veto authority while V0.5

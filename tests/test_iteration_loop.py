@@ -1049,6 +1049,22 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert visual_artifacts["artifacts"][0]["path"].endswith("chart.html")
     assert visual_artifacts["artifacts"][0]["sha256"]
     assert visual_artifacts["artifacts"][1]["path"].endswith("trade_timeline.html")
+    assert visual_review["visual_artifacts_summary"]["manifest_loaded"] is True
+    assert visual_review["visual_artifacts_summary"]["artifact_count"] == 2
+    assert [
+        artifact["artifact_id"]
+        for artifact in visual_review["visual_artifacts_summary"]["artifacts"]
+    ] == [
+        "chart_html",
+        "trade_timeline_html",
+    ]
+    assert visual_review["visual_artifacts_summary"]["artifacts"][0][
+        "source_file_count"
+    ] == 6
+    assert visual_review["visual_artifacts_summary"]["artifacts"][0]["sha256_prefix"]
+    assert visual_review["visual_artifacts_summary"]["policy"][
+        "visual_agent_can_change_acceptance"
+    ] is False
     assert visual_review["trade_row_counts"]["validation"] == 39
     assert visual_review["checks"]["chart_rendering_enabled"] is True
     assert visual_review["checks"]["visual_agent_enabled"] is False
@@ -1075,6 +1091,15 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert "chart_html_generated" in visual_review["observations"]
     assert "trade_timeline_html_generated" in visual_review["observations"]
+    assert "visual_artifact_count=2" in visual_review["observations"]
+    assert any(
+        observation.startswith("visual_artifact=chart_html:")
+        for observation in visual_review["observations"]
+    )
+    assert (
+        "visual_policy_can_change_acceptance=false"
+        in visual_review["observations"]
+    )
     assert selected_attempt["candidate_score"] > 0
     assert agent_input["schema_version"] == AGENT_INPUT_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_input.json", "agent_input")
@@ -3979,6 +4004,42 @@ def test_artifact_validator_reports_visual_manifest_hash_mismatch(
     assert report["ok"] is False
     assert any(
         "visual_artifacts_manifest.json sha256 mismatch" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_visual_review_summary_authority_violation(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-visual-summary-violation",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/artifact-visual-summary-violation/round_001"
+        / "visual_review.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["visual_artifacts_summary"]["policy"][
+        "visual_agent_can_change_acceptance"
+    ] = True
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id="artifact-visual-summary-violation",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "visual_review.json visual summary must not change acceptance" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 

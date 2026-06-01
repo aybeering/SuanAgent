@@ -25,6 +25,7 @@ from orchestrator.iteration_loop import run_iteration_loop
 from orchestrator.outcome_memory import (
     append_outcome_memory,
     direction_filter_rejection_reason,
+    direction_prior,
     read_outcome_memory,
 )
 from orchestrator.run_loop import run_pipeline
@@ -684,6 +685,108 @@ def test_direction_memory_filter_rejects_failed_direction(tmp_path: Path) -> Non
     )
 
     assert reason.startswith("memory filter rejected direction lower_min_edge")
+
+
+def test_direction_prior_scores_historical_outcomes(tmp_path: Path) -> None:
+    experiments_dir = tmp_path / "experiments"
+    append_outcome_memory(
+        experiments_dir=experiments_dir,
+        record={
+            "kind": "proposal_outcome",
+            "run_id": "prior-success-1",
+            "round_id": "round_001",
+            "direction_tag": "raise_min_edge",
+            "accepted": True,
+            "validation_ev_delta": 0.02,
+        },
+    )
+    append_outcome_memory(
+        experiments_dir=experiments_dir,
+        record={
+            "kind": "proposal_outcome",
+            "run_id": "prior-success-2",
+            "round_id": "round_001",
+            "direction_tag": "raise_min_edge",
+            "accepted": False,
+            "validation_ev_delta": 0.0,
+        },
+    )
+
+    prior = direction_prior(
+        experiments_dir=experiments_dir,
+        direction_tag="raise_min_edge",
+        exclude_run_id="new-run",
+    )
+
+    assert prior["sample_count"] == 2
+    assert prior["accepted_count"] == 1
+    assert prior["failed_count"] == 1
+    assert prior["accept_rate"] == 0.5
+    assert prior["avg_validation_ev_delta"] == 0.01
+    assert prior["score_delta"] > 0
+
+
+def test_iteration_loop_uses_direction_prior_to_rank_candidates(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = replace(
+        load_project_config(repo),
+        memory_failed_patch_threshold=0,
+        memory_failed_direction_threshold=99,
+        memory_fallback_modifier="conservative_stub",
+        memory_fallback_modifiers=("conservative_stub",),
+        stop_after_no_improvement_rounds=0,
+    )
+    for index in range(2):
+        append_outcome_memory(
+            experiments_dir=repo / "experiments",
+            record={
+                "kind": "proposal_outcome",
+                "run_id": f"lower-prior-fail-{index}",
+                "round_id": "round_001",
+                "direction_tag": "lower_min_edge",
+                "accepted": False,
+                "patch_sha256": f"lower-different-{index}",
+                "validation_ev_delta": 0.0,
+            },
+        )
+    for index in range(5):
+        append_outcome_memory(
+            experiments_dir=repo / "experiments",
+            record={
+                "kind": "proposal_outcome",
+                "run_id": f"raise-prior-success-{index}",
+                "round_id": "round_001",
+                "direction_tag": "raise_min_edge",
+                "accepted": True,
+                "patch_sha256": f"raise-different-{index}",
+                "validation_ev_delta": 0.02,
+            },
+        )
+
+    manifest = run_iteration_loop(
+        run_id="direction-prior-rank",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/direction-prior-rank/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    attempts = json.loads(
+        (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
+    )
+
+    assert manifest["rounds"][0]["proposal_fallback_used"] is True  # type: ignore[index]
+    assert proposal["direction_tag"] == "raise_min_edge"
+    assert attempts[0]["direction_prior"]["score_delta"] < 0
+    assert attempts[1]["direction_prior"]["score_delta"] > 0
+    assert attempts[1]["selected"] is True
+    assert any(
+        "direction prior" in reason
+        for reason in attempts[1]["score_reasons"]
+    )
 
 
 def test_proposal_contract_rejects_invalid_patch_target() -> None:

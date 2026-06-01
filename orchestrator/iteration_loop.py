@@ -31,6 +31,7 @@ from orchestrator.git_manager import (
 from orchestrator.outcome_memory import (
     append_outcome_memory,
     build_outcome_record,
+    direction_prior,
     direction_filter_rejection_reason,
     memory_filter_rejection_reason,
 )
@@ -603,6 +604,7 @@ def candidate_leaderboard_rows(run_dir: Path) -> list[dict[str, object]]:
                         "direction_filter_reason",
                         "",
                     ),
+                    "direction_prior": attempt.get("direction_prior", {}),
                     "patch_check_error": attempt.get("patch_check_error", ""),
                     "probe_error": attempt.get("probe_error", ""),
                     "probe_artifacts": attempt.get("probe_artifacts", {}),
@@ -643,6 +645,7 @@ def proposal_attempt_record(
     memory_filter_reason: str,
     patch_memory_filter_reason: str,
     direction_filter_reason: str,
+    direction_prior_payload: dict[str, object],
     patch_check_error: str,
     status: str,
     candidate_score: int,
@@ -682,6 +685,7 @@ def proposal_attempt_record(
         "patch_memory_filter_reason": patch_memory_filter_reason,
         "direction_memory_filter_rejected": bool(direction_filter_reason),
         "direction_filter_reason": direction_filter_reason,
+        "direction_prior": direction_prior_payload,
         "patch_check_error": patch_check_error,
         "proposal": payload,
     }
@@ -757,6 +761,11 @@ def select_proposal_candidate(
             patch_memory_reason,
             direction_memory_reason,
         )
+        direction_prior_payload = direction_prior(
+            experiments_dir=experiments_dir,
+            direction_tag=proposal.direction_tag,
+            exclude_run_id=run_id,
+        )
         if role == "primary":
             primary_memory_reason = memory_reason
         duplicate_patch = bool(proposal.patch_sha256 in seen_patch_hashes)
@@ -798,6 +807,7 @@ def select_proposal_candidate(
             probe_metrics_before=probe_metrics_before,
             probe_metrics_after=probe_metrics_after,
             probe_error=probe_error,
+            direction_prior_payload=direction_prior_payload,
         )
         attempts.append(
             proposal_attempt_record(
@@ -806,6 +816,7 @@ def select_proposal_candidate(
                 memory_filter_reason=memory_reason,
                 patch_memory_filter_reason=patch_memory_reason,
                 direction_filter_reason=direction_memory_reason,
+                direction_prior_payload=direction_prior_payload,
                 patch_check_error=patch_check_error,
                 status=status,
                 candidate_score=int(score_payload["score"]),
@@ -907,6 +918,7 @@ def score_proposal_candidate(
     probe_metrics_before: dict[str, float | int],
     probe_metrics_after: dict[str, float | int],
     probe_error: str,
+    direction_prior_payload: dict[str, object],
 ) -> dict[str, object]:
     """Score a candidate deterministically before running expensive evaluation."""
     if status != "selectable":
@@ -936,6 +948,10 @@ def score_proposal_candidate(
     if role == "primary":
         score += 2
         reasons.append("primary modifier stability +2")
+    prior_delta, prior_reason = direction_prior_score(direction_prior_payload)
+    if prior_delta:
+        score += prior_delta
+        reasons.append(prior_reason)
     probe_delta, probe_reason = probe_score(
         metrics_before=probe_metrics_before,
         metrics_after=probe_metrics_after,
@@ -944,6 +960,23 @@ def score_proposal_candidate(
         score += probe_delta
         reasons.append(probe_reason)
     return {"score": score, "reasons": reasons}
+
+
+def direction_prior_score(prior_payload: dict[str, object]) -> tuple[int, str]:
+    """Return score contribution and reason text from direction history."""
+    score_delta = int(prior_payload.get("score_delta", 0))
+    if score_delta == 0:
+        return 0, ""
+    sample_count = int(prior_payload.get("sample_count", 0))
+    accept_rate = float(prior_payload.get("accept_rate", 0.0))
+    avg_ev_delta = float(prior_payload.get("avg_validation_ev_delta", 0.0))
+    sign = "+" if score_delta > 0 else ""
+    return (
+        score_delta,
+        "direction prior "
+        f"n={sample_count} accept_rate={accept_rate:.3f} "
+        f"avg_validation_ev_delta={avg_ev_delta:.6f} {sign}{score_delta}",
+    )
 
 
 def expected_metric_score(metric: str, value: str) -> tuple[int, str]:

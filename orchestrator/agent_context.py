@@ -87,8 +87,8 @@ def build_agent_context(
         lines.extend(
             [
                 "| Round | Role | Agent | Selected | Score | Probe EV Delta | "
-                "Validation EV Delta | Direction | Status | Summary |",
-                "| --- | --- | --- | --- | ---: | ---: | ---: | --- | --- | --- |",
+                "Validation EV Delta | Direction | Prior | Status | Summary |",
+                "| --- | --- | --- | --- | ---: | ---: | ---: | --- | --- | --- | --- |",
             ]
         )
         for payload in candidate_rows:
@@ -146,6 +146,7 @@ def candidate_search_row(payload: dict[str, object]) -> str:
         f"| {format_number(float(payload.get('probe_ev_delta', 0.0)))} "
         f"| {validation_text} "
         f"| {escape_cell(str(payload.get('direction_tag', '')) or 'none')} "
+        f"| {escape_cell(direction_prior_label(payload.get('direction_prior', {})))} "
         f"| {escape_cell(str(payload.get('status', '')))} "
         f"| {escape_cell(str(payload.get('summary', '')))} |"
     )
@@ -249,6 +250,19 @@ def memory_row(payload: dict[str, object]) -> str:
         f"| {format_number(float(payload.get('validation_ev_delta', 0.0)))} "
         f"| {escape_cell(str(payload.get('direction_tag', '')) or 'none')} "
         f"| {escape_cell(reason_text or 'none')} |"
+    )
+
+
+def direction_prior_label(value: object) -> str:
+    """Return compact direction-prior text for agent context."""
+    if not isinstance(value, dict) or int(value.get("sample_count", 0)) <= 0:
+        return "none"
+    score_delta = int(value.get("score_delta", 0))
+    sign = "+" if score_delta > 0 else ""
+    return (
+        f"{sign}{score_delta} "
+        f"(n={int(value.get('sample_count', 0))}, "
+        f"accept={float(value.get('accept_rate', 0.0)):.3f})"
     )
 
 

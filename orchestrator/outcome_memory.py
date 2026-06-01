@@ -146,6 +146,75 @@ def direction_filter_rejection_reason(
     )
 
 
+def direction_prior(
+    *,
+    experiments_dir: Path,
+    direction_tag: str,
+    exclude_run_id: str = "",
+) -> dict[str, object]:
+    """Return deterministic score prior metadata for a proposal direction."""
+    records = [
+        record
+        for record in read_outcome_memory(experiments_dir)
+        if record.get("direction_tag") == direction_tag
+        and str(record.get("run_id", "")) != exclude_run_id
+    ]
+    if not direction_tag or not records:
+        return {
+            "direction_tag": direction_tag,
+            "sample_count": 0,
+            "accepted_count": 0,
+            "failed_count": 0,
+            "accept_rate": 0.0,
+            "avg_validation_ev_delta": 0.0,
+            "score_delta": 0,
+        }
+
+    accepted_count = sum(1 for record in records if record.get("accepted") is True)
+    failed_count = sum(1 for record in records if record.get("accepted") is False)
+    avg_validation_ev_delta = round(
+        sum(float(record.get("validation_ev_delta", 0.0)) for record in records)
+        / len(records),
+        6,
+    )
+    accept_rate = round(accepted_count / len(records), 6)
+    score_delta = direction_prior_score_delta(
+        sample_count=len(records),
+        accept_rate=accept_rate,
+        avg_validation_ev_delta=avg_validation_ev_delta,
+    )
+    return {
+        "direction_tag": direction_tag,
+        "sample_count": len(records),
+        "accepted_count": accepted_count,
+        "failed_count": failed_count,
+        "accept_rate": accept_rate,
+        "avg_validation_ev_delta": avg_validation_ev_delta,
+        "score_delta": score_delta,
+    }
+
+
+def direction_prior_score_delta(
+    *,
+    sample_count: int,
+    accept_rate: float,
+    avg_validation_ev_delta: float,
+) -> int:
+    """Return bounded deterministic score contribution from direction history."""
+    if sample_count <= 0:
+        return 0
+    acceptance_component = int(round((accept_rate - 0.5) * 20))
+    ev_component = clamp_int(int(round(avg_validation_ev_delta * 1000)), -15, 15)
+    sample_confidence = min(sample_count, 5)
+    raw_score = acceptance_component + ev_component
+    return clamp_int(raw_score * sample_confidence // 5, -25, 25)
+
+
+def clamp_int(value: int, lower: int, upper: int) -> int:
+    """Clamp an integer to an inclusive range."""
+    return max(lower, min(upper, value))
+
+
 def build_outcome_record(
     *,
     run_id: str,

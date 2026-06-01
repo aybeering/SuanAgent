@@ -123,8 +123,8 @@ def write_iteration_summary(
             lines.extend(["", "## Candidate Leaderboard", ""])
             lines.extend(
                 [
-                    "| Round | Role | Agent | Direction | Selected | Score | Probe EV | Validation EV | Status |",
-                    "| --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
+                    "| Round | Role | Agent | Direction | Prior | Selected | Score | Probe EV | Validation EV | Status |",
+                    "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
                 ]
             )
             for row in candidate_rows[:10]:
@@ -230,6 +230,7 @@ def candidate_leaderboard_row(row: dict[str, Any]) -> str:
         f"| {escape_cell(str(row.get('role', '')))} "
         f"| {escape_cell(str(row.get('agent_name', '')))} "
         f"| {escape_cell(str(row.get('direction_tag', '')) or 'none')} "
+        f"| {escape_cell(direction_prior_label(row.get('direction_prior', {})))} "
         f"| `{str(bool(row.get('selected', False))).lower()}` "
         f"| {escape_cell(str(row.get('candidate_score', 0)))} "
         f"| {escape_cell(str(row.get('probe_ev_delta', 0.0)))} "
@@ -243,6 +244,19 @@ def contract_label(contract_errors: object) -> str:
     if isinstance(contract_errors, list | tuple) and contract_errors:
         return "invalid: " + str(contract_errors[0])
     return "valid"
+
+
+def direction_prior_label(value: object) -> str:
+    """Return compact direction-prior text."""
+    if not isinstance(value, dict) or int(value.get("sample_count", 0)) <= 0:
+        return "none"
+    score_delta = int(value.get("score_delta", 0))
+    sign = "+" if score_delta > 0 else ""
+    return (
+        f"{sign}{score_delta} "
+        f"(n={int(value.get('sample_count', 0))}, "
+        f"accept={float(value.get('accept_rate', 0.0)):.3f})"
+    )
 
 
 def best_validation_round(rounds: list[dict[str, object]]) -> dict[str, object] | None:

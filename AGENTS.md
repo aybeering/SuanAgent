@@ -69,7 +69,8 @@ Allowed components:
 18. Proposal quality metadata and repeated-patch detection.
 19. Repeated-proposal stop control.
 20. Clear tests and smoke checks.
-21. GitHub Actions CI for deterministic smoke validation.
+21. A guarded file-protocol adapter for future CLI or SDK-backed agents.
+22. GitHub Actions CI for deterministic smoke validation.
 
 Still out of scope:
 
@@ -480,13 +481,14 @@ When the V0.5 loop runs, it should:
 18. Save `manifest.json`.
 19. Print a short final summary.
 
-The configured modifier may also be `codex_dry_run`, `codex_cli_dry_run`, or
-`codex_cli`. The `adaptive_stub` modifier is still deterministic, but it should
-read `agent_context.md` and choose a different fixed patch after prior failures.
-The `codex_cli` adapter must default to `execute=false`; only an explicit
-config change may invoke a subprocess. Subprocess fixtures should be able to
-return either plain diffs or structured proposal JSON so the external-process
-boundary remains testable without real Codex.
+The configured modifier may also be `codex_dry_run`, `codex_cli_dry_run`,
+`codex_cli`, or `file_protocol`. The `adaptive_stub` modifier is still
+deterministic, but it should read `agent_context.md` and choose a different
+fixed patch after prior failures. The `codex_cli` and `file_protocol` adapters
+must default to `execute=false`; only an explicit config change may invoke a
+subprocess. Subprocess fixtures should be able to return either plain diffs or
+structured proposal JSON so the external-process boundary remains testable
+without real Codex.
 
 CLI entrypoints must support `--config` and `--run-id` so experiments can switch
 between modes without editing `config/default.json`.

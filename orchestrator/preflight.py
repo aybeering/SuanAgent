@@ -124,6 +124,8 @@ def validate_config(
 
     if config.strategy_modifier == "codex_cli":
         validate_codex_cli_settings(config, errors, warnings)
+    if config.strategy_modifier == "file_protocol":
+        validate_file_protocol_settings(config, errors, warnings)
 
 
 def validate_holdout_policy(config: ProjectConfig, errors: list[str]) -> None:
@@ -172,6 +174,23 @@ def validate_codex_cli_settings(
         errors.append(f"codex_cli executable not found on PATH: {executable}")
     if not execute:
         warnings.append("codex_cli execution is disabled")
+
+
+def validate_file_protocol_settings(
+    config: ProjectConfig,
+    errors: list[str],
+    warnings: list[str],
+) -> None:
+    """Validate guarded file-protocol agent settings."""
+    executable = str(config.modifier_settings.get("executable", "agent-command"))
+    execute = bool(config.modifier_settings.get("execute", False))
+    timeout = int(config.modifier_settings.get("timeout_seconds", 120))
+    if timeout <= 0:
+        errors.append("file_protocol.timeout_seconds must be positive")
+    if execute and shutil.which(executable) is None:
+        errors.append(f"file_protocol executable not found on PATH: {executable}")
+    if not execute:
+        warnings.append("file_protocol execution is disabled")
 
 
 def main() -> None:

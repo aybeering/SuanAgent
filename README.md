@@ -20,10 +20,11 @@ early when an agent repeats a previously rejected patch.
 The strategy interface contract is documented in
 `docs/strategy_interface.md`. The current modifier backend is selected with
 `strategy_modifier` in config; available values are `fixed_patch_stub`,
-`adaptive_stub`, `codex_dry_run`, `codex_cli_dry_run`, and `codex_cli`. The
-`codex_cli` adapter only invokes a subprocess when `codex_cli.execute` is
-explicitly set to `true`. Example configs live in `config/adaptive_stub.json`,
-`config/codex_dry_run.json`, and `config/codex_cli_guarded.json`.
+`adaptive_stub`, `codex_dry_run`, `codex_cli_dry_run`, `codex_cli`, and
+`file_protocol`. The `codex_cli` and `file_protocol` adapters only invoke a
+subprocess when their `execute` flag is explicitly set to `true`. Example
+configs live in `config/adaptive_stub.json`, `config/codex_dry_run.json`,
+`config/codex_cli_guarded.json`, and `config/file_protocol_guarded.json`.
 
 Codex-facing adapters use ignored `workspaces/<run_id>/<round_id>/` directories
 for isolated project copies. Returned text can be a unified diff or structured
@@ -56,6 +57,7 @@ Useful mode switches:
 python -m orchestrator.iteration_loop --config config/codex_dry_run.json --run-id dry-run-demo
 python -m orchestrator.iteration_loop --config config/adaptive_stub.json --run-id adaptive-demo
 python -m orchestrator.iteration_loop --config config/codex_cli_guarded.json --run-id guarded-demo --max-rounds 1
+python -m orchestrator.iteration_loop --config config/file_protocol_guarded.json --run-id file-protocol-demo --max-rounds 1
 python -m orchestrator.iteration_loop --allow-repeated-proposals --run-id max-round-demo
 python -m orchestrator.run_loop --config config/default.json --run-id single-run-demo
 python -m orchestrator.preflight --config config/codex_cli_guarded.json

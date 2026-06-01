@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from agents.codex_cli_adapter import CodexCliModifier
 from agents.codex_dry_run_adapter import CodexDryRunModifier
+from agents.file_protocol_adapter import FileProtocolModifier
 from agents.modifier_adapter import StrategyModifier
 from agents.strategy_modifier_conservative_stub import ConservativePatchModifier
 from agents.strategy_modifier_adaptive_stub import AdaptivePatchModifier
@@ -17,6 +18,7 @@ SUPPORTED_MODIFIERS = {
     "codex_dry_run",
     "codex_cli_dry_run",
     "codex_cli",
+    "file_protocol",
 }
 
 
@@ -47,5 +49,21 @@ def get_strategy_modifier(
             workspace_root=str(active_settings.get("workspace_root", "workspaces")),
             execute=bool(active_settings.get("execute", False)),
             timeout_seconds=int(active_settings.get("timeout_seconds", 120)),
+        )
+    if name == "file_protocol":
+        args = active_settings.get("args", ())
+        if isinstance(args, str):
+            args = (args,)
+        return FileProtocolModifier(
+            executable=str(active_settings.get("executable", "agent-command")),
+            args=tuple(str(arg) for arg in args),
+            execute=bool(active_settings.get("execute", False)),
+            timeout_seconds=int(active_settings.get("timeout_seconds", 120)),
+            output_filename=str(
+                active_settings.get(
+                    "output_filename",
+                    "agent_command_output.json",
+                )
+            ),
         )
     raise ValueError(f"Unknown strategy modifier adapter: {name}")

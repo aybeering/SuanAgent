@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -88,6 +89,8 @@ def build_agent_input_payload(
         "round_id": round_id,
         "round_index": round_index,
         "target_file": relative_path(target_file, repo_root),
+        "target_file_content": target_file.read_text(encoding="utf-8"),
+        "target_file_sha256": file_sha256(target_file),
         "round_dir": relative_path(round_dir, repo_root),
         "artifacts": {
             "agent_context_markdown": relative_path(context_path, repo_root),
@@ -217,3 +220,8 @@ def relative_path(path: Path, root: Path) -> str:
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     """Write deterministic JSON."""
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def file_sha256(path: Path) -> str:
+    """Return a file SHA-256 digest."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()

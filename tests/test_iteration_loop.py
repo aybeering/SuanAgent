@@ -118,12 +118,18 @@ def test_example_configs_load_modifier_modes() -> None:
     dry_run = load_project_config(Path.cwd(), Path("config/codex_dry_run.json"))
     guarded = load_project_config(Path.cwd(), Path("config/codex_cli_guarded.json"))
     adaptive = load_project_config(Path.cwd(), Path("config/adaptive_stub.json"))
+    file_protocol = load_project_config(
+        Path.cwd(),
+        Path("config/file_protocol_guarded.json"),
+    )
 
     assert dry_run.strategy_modifier == "codex_cli_dry_run"
     assert guarded.strategy_modifier == "codex_cli"
     assert adaptive.strategy_modifier == "adaptive_stub"
+    assert file_protocol.strategy_modifier == "file_protocol"
     assert adaptive.max_rounds == 2
     assert guarded.modifier_settings["execute"] is False
+    assert file_protocol.modifier_settings["execute"] is False
 
 
 def test_preflight_passes_default_config() -> None:
@@ -165,6 +171,22 @@ def test_preflight_rejects_enabled_missing_codex(tmp_path: Path) -> None:
 
     assert result.ok is False
     assert any("executable not found" in error for error in result.errors)
+
+
+def test_preflight_rejects_enabled_missing_file_protocol_command(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_path = repo / "config/missing_file_protocol.json"
+    config = json.loads((repo / "config/file_protocol_guarded.json").read_text())
+    config["file_protocol"]["execute"] = True
+    config["file_protocol"]["executable"] = "definitely-not-a-real-agent-command"
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    result = run_preflight(repo_root=repo, config_path=config_path)
+
+    assert result.ok is False
+    assert any("file_protocol executable not found" in error for error in result.errors)
 
 
 def test_preflight_rejects_negative_memory_filter_threshold(tmp_path: Path) -> None:
@@ -1347,6 +1369,89 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
     ).exists()
     assert decision["accepted"] is False
     assert "does not emit patches" in decision["reasons"][0]
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_file_protocol_adapter_executes_json_fixture(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_agent = write_fake_command(
+        tmp_path,
+        "fake_file_protocol_agent.py",
+        """#!/usr/bin/env python3
+import difflib
+import json
+import pathlib
+import sys
+agent_input = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+output_path = pathlib.Path(sys.argv[2])
+target = agent_input['target_file']
+before = agent_input['target_file_content']
+after = before.replace('MIN_EDGE = 0.05', 'MIN_EDGE = 0.04', 1)
+patch = ''.join(difflib.unified_diff(
+    before.splitlines(keepends=True),
+    after.splitlines(keepends=True),
+    fromfile=f'a/{target}',
+    tofile=f'b/{target}',
+))
+output_path.write_text(json.dumps({
+    "summary": "Lower MIN_EDGE through file protocol.",
+    "risk_notes": "May increase trade count and slippage.",
+    "direction_tag": "lower_min_edge",
+    "expected_metric_change": {"trade_count": "increase", "ev": "uncertain"},
+    "hypotheses": ["File protocol agent can emit a strategy-only patch."],
+    "patch_diff": patch
+}), encoding='utf-8')
+""",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="file_protocol",
+        modifier_settings={
+            "executable": str(fake_agent),
+            "args": (),
+            "execute": True,
+            "timeout_seconds": 5,
+            "output_filename": "fixture_agent_output.json",
+        },
+        memory_failed_patch_threshold=0,
+        memory_failed_direction_threshold=99,
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+        stop_after_no_improvement_rounds=0,
+    )
+
+    manifest = run_iteration_loop(
+        run_id="file-protocol-fixture",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/file-protocol-fixture/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    agent_input = json.loads((round_dir / "agent_input.json").read_text(encoding="utf-8"))
+    agent_output = json.loads(
+        (round_dir / "agent_output.json").read_text(encoding="utf-8")
+    )
+    attempts = json.loads(
+        (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
+    )
+
+    assert manifest["completed_rounds"] == 1
+    assert proposal["agent_name"] == "file_protocol_agent"
+    assert proposal["summary"] == "Lower MIN_EDGE through file protocol."
+    assert proposal["applicable"] is True
+    assert proposal["contract_errors"] == []
+    assert proposal["command"][0] == str(fake_agent)
+    assert proposal["prompt"].endswith("agent_input.json")
+    assert "MIN_EDGE = 0.04" in proposal["patch_diff"]
+    assert (round_dir / "fixture_agent_output.json").exists()
+    assert agent_input["target_file_content"].count("MIN_EDGE = 0.05") == 1
+    assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
+    assert attempts[0]["selected"] is True
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )

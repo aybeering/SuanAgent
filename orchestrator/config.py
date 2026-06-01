@@ -77,7 +77,7 @@ def load_project_config(
     raw = json.loads(active_path.read_text(encoding="utf-8"))
     stub = raw.get("stub", {})
     modifier_name = str(raw["strategy_modifier"])
-    modifier_settings = raw.get("codex_cli", {}) if modifier_name.startswith("codex") else {}
+    modifier_settings = modifier_settings_for(raw, modifier_name)
     memory_filter = raw.get("memory_filter", {})
     exploration = raw.get("exploration", {})
     candidate_selection = DEFAULT_CANDIDATE_SELECTION | raw.get(
@@ -151,3 +151,14 @@ def fallback_modifier_names(memory_filter: object) -> tuple[str, ...]:
         if name and name not in names:
             names.append(name)
     return tuple(names)
+
+
+def modifier_settings_for(raw: dict[str, object], modifier_name: str) -> dict[str, object]:
+    """Return modifier-specific settings from raw config."""
+    if modifier_name.startswith("codex"):
+        settings = raw.get("codex_cli", {})
+    elif modifier_name == "file_protocol":
+        settings = raw.get("file_protocol", {})
+    else:
+        settings = {}
+    return settings if isinstance(settings, dict) else {}

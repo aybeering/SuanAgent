@@ -6,6 +6,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 from agents.codex_dry_run_adapter import (
@@ -30,6 +31,16 @@ from orchestrator.workspace_manager import (
 
 AGENT_EXECUTION_SCHEMA_VERSION = "agent_execution_v1"
 AUDIT_PREVIEW_CHARS = 500
+
+
+@dataclass(frozen=True)
+class FileProtocolCommandResult:
+    """Captured result from a file-protocol subprocess."""
+
+    returncode: int | None
+    stdout: str
+    stderr: str
+    timed_out: bool = False
 
 
 class FileProtocolModifier:
@@ -144,6 +155,44 @@ class FileProtocolModifier:
             after=after,
             allowed_paths={output_path.relative_to(workspace_path).as_posix()},
         )
+        if result.timed_out:
+            write_agent_execution(
+                output_path=round_dir / "agent_execution.json",
+                status="timeout",
+                execution_enabled=True,
+                command=command,
+                cwd=workspace_path,
+                workspace_path=workspace_path,
+                agent_input_path=agent_input_path,
+                workspace_output_path=output_path,
+                round_output_path=round_dir / self.output_filename,
+                timeout_seconds=self.timeout_seconds,
+                result=result,
+                raw_response=raw_response,
+                mutation_errors=mutation_errors,
+                allowed_mutation_paths=(
+                    output_path.relative_to(workspace_path).as_posix(),
+                ),
+            )
+            return StrategyProposal(
+                agent_name=self.agent_name,
+                round_index=round_index,
+                target_file=str(target_relative),
+                summary="File-protocol agent execution timed out.",
+                risk_notes="No patch was accepted because the subprocess timed out.",
+                expected_metric_change={},
+                raw_response=raw_response,
+                patch_diff="",
+                applicable=False,
+                direction_tag="file_protocol_timeout",
+                hypotheses=("External agent commands must finish before timeout.",),
+                rejection_reason=(
+                    f"File-protocol agent timed out after {self.timeout_seconds} seconds."
+                ),
+                prompt=str(agent_input_path),
+                command=tuple(command),
+                workspace_path=str(workspace_path),
+            )
         if result.returncode != 0:
             write_agent_execution(
                 output_path=round_dir / "agent_execution.json",
@@ -255,15 +304,30 @@ def run_file_protocol_command(
     command: list[str],
     cwd: Path,
     timeout_seconds: int,
-) -> subprocess.CompletedProcess[str]:
+) -> FileProtocolCommandResult:
     """Run an external file-protocol agent command."""
-    return subprocess.run(
-        command,
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        timeout=timeout_seconds,
-        check=False,
+    try:
+        result = subprocess.run(
+            command,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stderr = text_or_empty(exc.stderr)
+        timeout_message = f"file protocol command timed out after {timeout_seconds} seconds"
+        return FileProtocolCommandResult(
+            returncode=None,
+            stdout=text_or_empty(exc.stdout),
+            stderr="\n".join(part for part in (stderr, timeout_message) if part),
+            timed_out=True,
+        )
+    return FileProtocolCommandResult(
+        returncode=result.returncode,
+        stdout=result.stdout,
+        stderr=result.stderr,
     )
 
 
@@ -379,7 +443,7 @@ def write_agent_execution(
     workspace_output_path: Path,
     round_output_path: Path,
     timeout_seconds: int,
-    result: subprocess.CompletedProcess[str] | None,
+    result: FileProtocolCommandResult | None,
     raw_response: str,
     mutation_errors: tuple[str, ...],
     allowed_mutation_paths: tuple[str, ...],
@@ -450,7 +514,7 @@ def sha256_text(text: str) -> str:
 
 def response_text(
     *,
-    result: subprocess.CompletedProcess[str],
+    result: FileProtocolCommandResult,
     output_path: Path,
 ) -> str:
     """Return stdout plus optional file output and stderr."""
@@ -464,3 +528,12 @@ def response_text(
     if result.stderr.strip():
         chunks.append("[stderr]\n" + result.stderr)
     return "\n".join(chunks) or "file protocol command produced no output"
+
+
+def text_or_empty(value: str | bytes | None) -> str:
+    """Return timeout output as text."""
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value

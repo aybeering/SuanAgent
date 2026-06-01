@@ -43,6 +43,7 @@
         "disabled",
         "completed",
         "command_failed",
+        "timeout",
         "workspace_violation"
       ]
     },

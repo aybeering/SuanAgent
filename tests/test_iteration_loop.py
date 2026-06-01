@@ -1641,6 +1641,185 @@ def test_file_protocol_adapter_disabled_writes_execution_audit(
     assert agent_execution["mutation_errors"] == []
 
 
+def test_file_protocol_adapter_times_out_with_audit(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_agent = write_fake_command(
+        tmp_path,
+        "fake_file_protocol_timeout.py",
+        """#!/usr/bin/env python3
+import time
+time.sleep(2)
+""",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="file_protocol",
+        modifier_settings={
+            "executable": str(fake_agent),
+            "args": (),
+            "execute": True,
+            "timeout_seconds": 1,
+            "output_filename": "timeout_agent_output.json",
+            "workspace_root": "workspaces",
+        },
+        memory_failed_patch_threshold=0,
+        memory_failed_direction_threshold=99,
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+        stop_after_no_improvement_rounds=0,
+    )
+
+    run_iteration_loop(
+        run_id="file-protocol-timeout",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/file-protocol-timeout/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    agent_execution = json.loads(
+        (round_dir / "agent_execution.json").read_text(encoding="utf-8")
+    )
+
+    assert proposal["applicable"] is False
+    assert proposal["direction_tag"] == "file_protocol_timeout"
+    assert "timed out" in proposal["rejection_reason"]
+    assert agent_execution["status"] == "timeout"
+    assert agent_execution["returncode"] is None
+    assert agent_execution["stderr"]["preview"].endswith("seconds")
+    assert_matches_schema(round_dir / "agent_execution.json", "agent_execution")
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_file_protocol_adapter_rejects_unparseable_output(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_agent = write_fake_command(
+        tmp_path,
+        "fake_file_protocol_bad_output.py",
+        """#!/usr/bin/env python3
+import pathlib
+import sys
+pathlib.Path(sys.argv[2]).write_text('not json and not a patch\\n', encoding='utf-8')
+""",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="file_protocol",
+        modifier_settings={
+            "executable": str(fake_agent),
+            "args": (),
+            "execute": True,
+            "timeout_seconds": 5,
+            "output_filename": "bad_agent_output.txt",
+            "workspace_root": "workspaces",
+        },
+        memory_failed_patch_threshold=0,
+        memory_failed_direction_threshold=99,
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+        stop_after_no_improvement_rounds=0,
+    )
+
+    run_iteration_loop(
+        run_id="file-protocol-bad-output",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/file-protocol-bad-output/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    agent_execution = json.loads(
+        (round_dir / "agent_execution.json").read_text(encoding="utf-8")
+    )
+
+    assert proposal["applicable"] is False
+    assert proposal["direction_tag"] == "file_protocol_unknown"
+    assert proposal["rejection_reason"] == "No unified diff found in agent output"
+    assert agent_execution["status"] == "completed"
+    assert agent_execution["output_file"]["exists"] is True
+    assert_matches_schema(round_dir / "agent_execution.json", "agent_execution")
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_file_protocol_adapter_rejects_disallowed_patch_target(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    original_readme = (repo / "README.md").read_text(encoding="utf-8")
+    fake_agent = write_fake_command(
+        tmp_path,
+        "fake_file_protocol_readme_patch.py",
+        """#!/usr/bin/env python3
+import json
+import pathlib
+import sys
+patch = '''--- a/README.md
++++ b/README.md
+@@ -1,1 +1,1 @@
+-# Self Iterating Strategy Agent V0.5
++# Changed
+'''
+pathlib.Path(sys.argv[2]).write_text(json.dumps({
+    "summary": "Try to edit README.",
+    "risk_notes": "Should be rejected because target is not the strategy file.",
+    "direction_tag": "touch_readme",
+    "expected_metric_change": {},
+    "hypotheses": ["Non-strategy patches must be rejected."],
+    "patch_diff": patch
+}), encoding='utf-8')
+""",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="file_protocol",
+        modifier_settings={
+            "executable": str(fake_agent),
+            "args": (),
+            "execute": True,
+            "timeout_seconds": 5,
+            "output_filename": "readme_patch_output.json",
+            "workspace_root": "workspaces",
+        },
+        memory_failed_patch_threshold=0,
+        memory_failed_direction_threshold=99,
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+        stop_after_no_improvement_rounds=0,
+    )
+
+    run_iteration_loop(
+        run_id="file-protocol-disallowed-patch",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/file-protocol-disallowed-patch/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    agent_execution = json.loads(
+        (round_dir / "agent_execution.json").read_text(encoding="utf-8")
+    )
+
+    assert proposal["applicable"] is False
+    assert proposal["direction_tag"] == "touch_readme"
+    assert proposal["rejection_reason"] == "Patch touches disallowed files: README.md"
+    assert agent_execution["status"] == "completed"
+    assert_matches_schema(round_dir / "agent_execution.json", "agent_execution")
+    assert (repo / "README.md").read_text(encoding="utf-8") == original_readme
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
 def test_file_protocol_demo_agent_runs_from_config(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     config = load_project_config(repo, repo / "config/file_protocol_demo.json")

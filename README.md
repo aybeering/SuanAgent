@@ -108,6 +108,9 @@ Enabled file-protocol subprocesses are stricter: they may only write the
 configured proposal output file inside the isolated workspace. Each run records
 an `agent_execution.json` audit log so command execution and guard decisions can
 be inspected without replaying the agent.
+Timeouts, non-zero exits, malformed output, disallowed patch targets, and hidden
+workspace mutations are all deterministic rejections; the strategy file remains
+rolled back unless the policy gates accept a valid patch.
 `agents.file_protocol_demo_agent` is the reference local command for this path:
 it reads `agent_input.json`, writes structured proposal JSON, and lets the loop
 perform the same patch parsing, validation, backtest, policy gate, and rollback

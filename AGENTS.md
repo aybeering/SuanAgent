@@ -255,6 +255,10 @@ rows, and output artifact paths.
 The machine-readable contracts for these files live in `schemas/`. File-protocol
 rounds should also write `agent_execution.json`, use schema version
 `agent_execution_v1`, and match `schemas/agent_execution.schema.json`.
+File-protocol execution status should be one of `disabled`, `completed`,
+`command_failed`, `timeout`, or `workspace_violation`. Timeouts, command
+failures, malformed output, disallowed patch targets, and workspace side effects
+must be auditable deterministic rejections.
 Each iteration round should append a compact proposal outcome to
 `experiments/memory.jsonl` so later runs and different modifier backends can
 reuse prior proposal outcomes.

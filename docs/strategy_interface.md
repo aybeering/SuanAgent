@@ -100,6 +100,10 @@ mutating workspace files other than the configured output file is rejected.
 Every file-protocol round also writes `agent_execution.json`, which records the
 command, working directory, return code, output-file hashes, stdout/stderr
 summaries, and mutation-guard errors.
+Its execution `status` is deterministic: `disabled`, `completed`,
+`command_failed`, `timeout`, or `workspace_violation`. A completed command can
+still yield a rejected proposal when output is malformed or the patch touches a
+file other than `strategies/current_strategy.py`.
 
 `agents.file_protocol_demo_agent` is the deterministic reference command for
 this protocol. It can be run through `config/file_protocol_demo.json` to prove

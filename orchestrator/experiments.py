@@ -115,6 +115,196 @@ def candidate_leaderboard(
     return rows[: max(limit, 0)]
 
 
+def compare_experiments(
+    *,
+    base_run_id: str,
+    candidate_run_id: str,
+    experiments_dir: Path = Path("experiments"),
+    min_ev_delta: float = 0.0,
+) -> dict[str, object]:
+    """Compare two runs and return a deterministic promotion recommendation."""
+    base = diagnose_run(run_id=base_run_id, experiments_dir=experiments_dir)
+    candidate = diagnose_run(run_id=candidate_run_id, experiments_dir=experiments_dir)
+    base_perf = comparable_performance(base)
+    candidate_perf = comparable_performance(candidate)
+    dataset_comparison = compare_dataset_hashes(base, candidate)
+    ev_delta = round(
+        float(candidate_perf["validation_ev_delta"])
+        - float(base_perf["validation_ev_delta"]),
+        6,
+    )
+    trade_count_delta = int(candidate_perf["trade_count_delta"]) - int(
+        base_perf["trade_count_delta"]
+    )
+    winner = comparison_winner(ev_delta=ev_delta, min_ev_delta=min_ev_delta)
+    recommendation, reasons = comparison_recommendation(
+        winner=winner,
+        ev_delta=ev_delta,
+        min_ev_delta=min_ev_delta,
+        base_perf=base_perf,
+        candidate_perf=candidate_perf,
+        dataset_comparison=dataset_comparison,
+    )
+    return {
+        "base_run_id": base_run_id,
+        "candidate_run_id": candidate_run_id,
+        "base": base_perf,
+        "candidate": candidate_perf,
+        "metric_deltas": {
+            "validation_ev_delta": ev_delta,
+            "trade_count_delta": trade_count_delta,
+        },
+        "dataset_comparison": dataset_comparison,
+        "winner": winner,
+        "recommendation": recommendation,
+        "reasons": reasons,
+        "min_ev_delta": min_ev_delta,
+        "summary": comparison_summary(
+            base_run_id=base_run_id,
+            candidate_run_id=candidate_run_id,
+            winner=winner,
+            recommendation=recommendation,
+            ev_delta=ev_delta,
+        ),
+    }
+
+
+def comparable_performance(diagnosis: dict[str, object]) -> dict[str, object]:
+    """Return the comparable performance row for one diagnosis payload."""
+    kind = str(diagnosis.get("kind", "unknown"))
+    status = str(diagnosis.get("status", "unknown"))
+    if kind == "iteration_loop":
+        best_round = diagnosis.get("best_round")
+        best = best_round if isinstance(best_round, dict) else {}
+        return {
+            "run_id": diagnosis.get("run_id", ""),
+            "kind": kind,
+            "status": status,
+            "accepted": status == "accepted",
+            "artifact_ok": bool(diagnosis.get("artifact_ok", False)),
+            "validation_ev_delta": float(best.get("validation_ev_delta", 0.0)),
+            "trade_count_delta": int(best.get("trade_count_delta", 0)),
+            "best_round": best.get("round_id"),
+            "summary": diagnosis.get("summary", ""),
+        }
+    return {
+        "run_id": diagnosis.get("run_id", ""),
+        "kind": kind,
+        "status": status,
+        "accepted": bool(diagnosis.get("accepted", False)),
+        "artifact_ok": bool(diagnosis.get("artifact_ok", False)),
+        "validation_ev_delta": float(diagnosis.get("validation_ev_delta", 0.0)),
+        "trade_count_delta": int(diagnosis.get("trade_count_delta", 0)),
+        "best_round": None,
+        "summary": diagnosis.get("summary", ""),
+    }
+
+
+def compare_dataset_hashes(
+    base: dict[str, object],
+    candidate: dict[str, object],
+) -> dict[str, object]:
+    """Compare compact dataset hashes from two diagnosis payloads."""
+    base_hashes = dataset_hashes_from_diagnosis(base)
+    candidate_hashes = dataset_hashes_from_diagnosis(candidate)
+    compared_splits = sorted(set(base_hashes) | set(candidate_hashes))
+    missing_fingerprints = []
+    if not base_hashes:
+        missing_fingerprints.append("base")
+    if not candidate_hashes:
+        missing_fingerprints.append("candidate")
+    mismatched = [
+        split
+        for split in compared_splits
+        if base_hashes.get(split, "") != candidate_hashes.get(split, "")
+    ]
+    return {
+        "match": not missing_fingerprints and not mismatched,
+        "compared_splits": compared_splits,
+        "mismatched_splits": mismatched,
+        "missing_fingerprints": missing_fingerprints,
+        "base_sha256": base_hashes,
+        "candidate_sha256": candidate_hashes,
+    }
+
+
+def dataset_hashes_from_diagnosis(diagnosis: dict[str, object]) -> dict[str, str]:
+    """Return dataset hashes from a diagnosis payload."""
+    metadata_payload = diagnosis.get("metadata", {})
+    metadata = metadata_payload if isinstance(metadata_payload, dict) else {}
+    hashes_payload = metadata.get("dataset_sha256", {})
+    if not isinstance(hashes_payload, dict):
+        return {}
+    return {str(key): str(value) for key, value in hashes_payload.items()}
+
+
+def comparison_winner(*, ev_delta: float, min_ev_delta: float) -> str:
+    """Return the metric winner label."""
+    if ev_delta > min_ev_delta:
+        return "candidate"
+    if ev_delta < -min_ev_delta:
+        return "base"
+    return "tie"
+
+
+def comparison_recommendation(
+    *,
+    winner: str,
+    ev_delta: float,
+    min_ev_delta: float,
+    base_perf: dict[str, object],
+    candidate_perf: dict[str, object],
+    dataset_comparison: dict[str, object],
+) -> tuple[str, list[str]]:
+    """Return a deterministic baseline-promotion recommendation."""
+    reasons: list[str] = []
+    if not bool(base_perf.get("artifact_ok", False)):
+        reasons.append("base artifacts are invalid")
+    if not bool(candidate_perf.get("artifact_ok", False)):
+        reasons.append("candidate artifacts are invalid")
+        return "keep_base", reasons
+    missing = dataset_comparison.get("missing_fingerprints", [])
+    if missing:
+        reasons.append(f"dataset fingerprints missing for {', '.join(missing)}")
+        return "inconclusive_missing_dataset_fingerprints", reasons
+    if not bool(dataset_comparison.get("match", False)):
+        reasons.append("dataset fingerprints differ")
+        return "inconclusive_dataset_mismatch", reasons
+    if winner == "candidate":
+        reasons.append(
+            f"candidate validation EV delta beats base by {ev_delta:.6f}"
+        )
+        if bool(candidate_perf.get("accepted", False)):
+            return "promote_candidate", reasons
+        reasons.append("candidate run was not accepted by its policy gate")
+        return "review_candidate_not_accepted", reasons
+    if winner == "base":
+        reasons.append(
+            f"candidate validation EV delta trails base by {abs(ev_delta):.6f}"
+        )
+        return "keep_base", reasons
+    reasons.append(
+        f"validation EV delta difference is within threshold {min_ev_delta:.6f}"
+    )
+    return "keep_base", reasons
+
+
+def comparison_summary(
+    *,
+    base_run_id: str,
+    candidate_run_id: str,
+    winner: str,
+    recommendation: str,
+    ev_delta: float,
+) -> str:
+    """Return a one-line comparison summary."""
+    return (
+        f"Compared {candidate_run_id} against {base_run_id}: winner={winner}; "
+        f"recommendation={recommendation}; validation EV delta difference "
+        f"{ev_delta:.6f}."
+    )
+
+
 def experiment_score(
     *,
     record: dict[str, object],
@@ -214,6 +404,14 @@ def main() -> None:
     candidates_parser.add_argument("run_id")
     candidates_parser.add_argument("--limit", type=int, default=20)
 
+    compare_parser = subparsers.add_parser(
+        "compare",
+        help="Compare two runs and recommend whether to promote the candidate.",
+    )
+    compare_parser.add_argument("base_run_id")
+    compare_parser.add_argument("candidate_run_id")
+    compare_parser.add_argument("--min-ev-delta", type=float, default=0.0)
+
     diagnose_parser = subparsers.add_parser(
         "diagnose",
         help="Diagnose one run with artifact health and round outcomes.",
@@ -248,6 +446,13 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
             limit=args.limit,
+        )
+    elif args.command == "compare":
+        payload = compare_experiments(
+            experiments_dir=args.experiments_dir,
+            base_run_id=args.base_run_id,
+            candidate_run_id=args.candidate_run_id,
+            min_ev_delta=args.min_ev_delta,
         )
     elif args.command == "diagnose":
         payload = diagnose_run(

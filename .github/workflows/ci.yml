@@ -52,6 +52,9 @@ jobs:
           python -m orchestrator.experiments diagnose ci-adaptive
           python -m orchestrator.experiments diagnose ci-file-protocol-demo
 
+      - name: Compare experiment runs
+        run: python -m orchestrator.experiments compare ci-dry ci-adaptive
+
       - name: Summarize local experiments
         run: python -m orchestrator.experiments summary
 

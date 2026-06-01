@@ -480,6 +480,7 @@ python -m orchestrator.experiments leaderboard --limit 5
 python -m orchestrator.experiments memory --limit 5
 python -m orchestrator.artifact_validator <run_id>
 python -m orchestrator.experiments diagnose <run_id>
+python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 ```
 
 ## Expected behavior
@@ -526,6 +527,11 @@ without an available executable.
 Experiment inspection commands should read `experiments/index.jsonl` and local
 run artifacts without mutating strategy code. Leaderboards should rank by
 validation EV improvement, not natural-language judgment.
+Run comparison should use deterministic metrics and dataset fingerprints. A
+candidate should only receive a promotion recommendation when artifacts are
+valid, compared dataset fingerprints match, validation EV delta improves beyond
+the configured threshold, and the candidate run was accepted by its own policy
+gate.
 
 Future Codex output must be parsed as a unified diff and rejected before git
 apply if it touches anything except `strategies/current_strategy.py`.

@@ -20,7 +20,8 @@ early when an agent repeats a previously rejected patch.
 The strategy interface contract is documented in
 `docs/strategy_interface.md`. Machine-readable agent contracts live in
 `schemas/agent_input.schema.json`, `schemas/agent_output.schema.json`, and
-`schemas/agent_execution.schema.json`. The current modifier backend is selected
+`schemas/agent_execution.schema.json`; run provenance is described by
+`schemas/run_metadata.schema.json`. The current modifier backend is selected
 with `strategy_modifier` in config; available values are `fixed_patch_stub`,
 `adaptive_stub`, `codex_dry_run`, `codex_cli_dry_run`, `codex_cli`, and
 `file_protocol`. The `codex_cli` and `file_protocol` adapters only invoke a
@@ -61,6 +62,7 @@ python -m orchestrator.experiments leaderboard --limit 5
 python -m orchestrator.experiments memory --limit 5
 python -m orchestrator.artifact_validator <run_id>
 python -m orchestrator.experiments diagnose <run_id>
+python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 ```
 
 Useful mode switches:
@@ -77,6 +79,7 @@ python -m orchestrator.preflight --config config/codex_cli_guarded.json
 python -m orchestrator.experiments show dry-run-demo
 python -m orchestrator.artifact_validator file-protocol-local-demo
 python -m orchestrator.experiments diagnose file-protocol-local-demo
+python -m orchestrator.experiments compare dry-run-demo adaptive-demo
 ```
 
 ## Outputs
@@ -192,7 +195,9 @@ EV improvement thresholds.
 Use `python -m orchestrator.experiments list` and
 `python -m orchestrator.experiments show <run_id>` to inspect local experiment
 history. Use `summary` and `leaderboard` to aggregate runs by status and rank
-them by validation EV improvement. Use `memory` to inspect recent proposal
+them by validation EV improvement. Use `compare <base_run_id>
+<candidate_run_id>` to compare two runs, check dataset fingerprints, and emit a
+deterministic promotion recommendation. Use `memory` to inspect recent proposal
 outcome records. Use `candidates <run_id>` to inspect one iteration run's
 candidate leaderboard.
 

@@ -41,6 +41,7 @@ from orchestrator.preflight import run_preflight
 from orchestrator.schema_validation import validate_json_file, validate_json_payload
 from orchestrator.experiments import (
     candidate_leaderboard,
+    compare_experiments,
     experiment_leaderboard,
     list_experiments,
     show_experiment,
@@ -2664,6 +2665,50 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     assert all("ev_delta" in row for row in leaderboard)
 
 
+def test_compare_experiments_recommends_accepted_metric_winner(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(
+        run_id="compare-base",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    run_pipeline(
+        run_id="compare-candidate",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    metrics_path = repo / "experiments/compare-candidate/metrics_after.json"
+    metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+    metrics["ev"] = round(float(metrics["ev"]) + 0.25, 6)
+    metrics_path.write_text(
+        json.dumps(metrics, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    decision_path = repo / "experiments/compare-candidate/decision.json"
+    decision = json.loads(decision_path.read_text(encoding="utf-8"))
+    decision["accepted"] = True
+    decision["reasons"] = []
+    decision_path.write_text(
+        json.dumps(decision, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    comparison = compare_experiments(
+        base_run_id="compare-base",
+        candidate_run_id="compare-candidate",
+        experiments_dir=repo / "experiments",
+    )
+
+    assert comparison["winner"] == "candidate"
+    assert comparison["recommendation"] == "promote_candidate"
+    assert comparison["dataset_comparison"]["match"] is True  # type: ignore[index]
+    assert comparison["metric_deltas"]["validation_ev_delta"] == 0.25  # type: ignore[index]
+
+
 def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     run_pipeline(
@@ -2755,6 +2800,46 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
     assert leaderboard_result.returncode == 0, leaderboard_result.stderr
     assert json.loads(summary_result.stdout)["total_runs"] == 1
     assert json.loads(leaderboard_result.stdout)[0]["run_id"] == "cli-summary"
+
+
+def test_experiments_cli_compare_work(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(
+        run_id="cli-compare-base",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    run_pipeline(
+        run_id="cli-compare-candidate",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "compare",
+            "cli-compare-base",
+            "cli-compare-candidate",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    payload = json.loads(result.stdout)
+    assert result.returncode == 0, result.stderr
+    assert payload["base_run_id"] == "cli-compare-base"
+    assert payload["candidate_run_id"] == "cli-compare-candidate"
+    assert payload["winner"] == "tie"
+    assert payload["recommendation"] == "keep_base"
 
 
 def test_experiments_cli_memory_work(tmp_path: Path) -> None:

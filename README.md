@@ -23,8 +23,8 @@ The strategy interface contract is documented in
 `schemas/agent_attempts.schema.json`, `schemas/agent_selection.schema.json`,
 `schemas/agent_executor.schema.json`, `schemas/agent_output.schema.json`,
 `schemas/agent_validation.schema.json`, `schemas/agent_execution.schema.json`,
-`schemas/agent_role_contracts.schema.json`, and
-`schemas/analysis_notes.schema.json`, and
+`schemas/agent_role_contracts.schema.json`,
+`schemas/analysis_notes.schema.json`, `schemas/visual_review.schema.json`, and
 `schemas/overfit_validation.schema.json`;
 saved attempt replay reports use
 `schemas/attempt_replay.schema.json`; aggregate agent result reports use
@@ -65,6 +65,10 @@ The `analysis` role also writes a deterministic read-only stub artifact,
 `analysis_notes.json` plus `analysis_notes.md`, after before-metrics are
 available and before strategy modification. It records observations and consumed
 artifacts for future agents, but cannot change routing or acceptance.
+The `visual_review` role writes `visual_review.json` plus `visual_review.md`
+after before-trades and before-reports are available. It records trade row
+counts and expected future chart artifacts, but chart rendering and visual-agent
+execution remain disabled and cannot change routing or acceptance.
 The `overfit_validator` role writes `overfit_validation.json` plus
 `overfit_validation.md` after the deterministic decision exists. It compares
 train, validation, and holdout metric deltas and records advisory risk flags,
@@ -256,6 +260,7 @@ Each round also writes `agent_input_bundle/`, `agent_output_bundle/`,
 `agent_attempts_manifest.json`, `agent_selection_report.json`,
 `agent_executor_report.json`, `agent_routing_policy.json`,
 `agent_role_contracts.json`, `analysis_notes.json`, `analysis_notes.md`,
+`visual_review.json`, `visual_review.md`,
 `overfit_validation.json`, `overfit_validation.md`, `agent_input.json`,
 `raw_agent_output.txt`, `agent_output.json`, and `agent_validation.json`, stable
 fixtures that record what a modifier backend was given, the raw text that
@@ -268,6 +273,10 @@ deterministic gates keep final acceptance authority.
 `analysis_notes.json` records the read-only analysis stub's observations over
 before metrics and reports. It is contract-only; the artifact validator rejects
 it if it claims authority to change final acceptance.
+`visual_review.json` records the contract-only visual review stub's view of
+before trade files and future chart placeholders. The artifact validator
+rejects it if it claims visual execution, chart rendering, routing authority,
+or final acceptance authority while V0.5 keeps visual review inactive.
 `overfit_validation.json` records the contract-only overfit validator stub's
 view of validation-vs-holdout deltas, prior rejected rounds, and advisory risk
 flags. The artifact validator rejects it if it claims veto authority while V0.5
@@ -313,6 +322,7 @@ are validated against
 `schemas/agent_executor.schema.json`, `schemas/agent_routing_policy.schema.json`,
 `schemas/agent_role_contracts.schema.json`,
 `schemas/analysis_notes.schema.json`,
+`schemas/visual_review.schema.json`,
 `schemas/overfit_validation.schema.json`,
 `schemas/workspace_manifest.schema.json`,
 `schemas/agent_validation.schema.json`, `schemas/agent_execution.schema.json`,

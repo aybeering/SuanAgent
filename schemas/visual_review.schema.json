@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Visual Review",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "round_id",
+    "round_index",
+    "agent_role",
+    "execution_mode",
+    "implemented",
+    "round_dir",
+    "consumed_artifacts",
+    "expected_future_artifacts",
+    "trade_row_counts",
+    "checks",
+    "observations",
+    "recommendation",
+    "produced_artifacts"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "visual_review_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "round_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "round_index": {
+      "type": "integer"
+    },
+    "agent_role": {
+      "type": "string",
+      "enum": [
+        "visual_review"
+      ]
+    },
+    "execution_mode": {
+      "type": "string",
+      "enum": [
+        "stub_contract"
+      ]
+    },
+    "implemented": {
+      "type": "boolean"
+    },
+    "round_dir": {
+      "type": "string"
+    },
+    "consumed_artifacts": {
+      "type": "object",
+      "required": [
+        "analysis_notes",
+        "train_trades_before",
+        "validation_trades_before",
+        "holdout_trades_before",
+        "train_report_before",
+        "validation_report_before",
+        "holdout_report_before"
+      ],
+      "properties": {
+        "analysis_notes": {
+          "type": "string"
+        },
+        "train_trades_before": {
+          "type": "string"
+        },
+        "validation_trades_before": {
+          "type": "string"
+        },
+        "holdout_trades_before": {
+          "type": "string"
+        },
+        "train_report_before": {
+          "type": "string"
+        },
+        "validation_report_before": {
+          "type": "string"
+        },
+        "holdout_report_before": {
+          "type": "string"
+        }
+      }
+    },
+    "expected_future_artifacts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "trade_row_counts": {
+      "type": "object",
+      "required": [
+        "train",
+        "validation",
+        "holdout"
+      ],
+      "properties": {
+        "train": {
+          "type": "integer"
+        },
+        "validation": {
+          "type": "integer"
+        },
+        "holdout": {
+          "type": "integer"
+        }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "required": [
+        "chart_rendering_enabled",
+        "visual_agent_enabled",
+        "trade_files_present",
+        "can_change_acceptance",
+        "can_change_routing"
+      ],
+      "properties": {
+        "chart_rendering_enabled": {
+          "type": "boolean"
+        },
+        "visual_agent_enabled": {
+          "type": "boolean"
+        },
+        "trade_files_present": {
+          "type": "boolean"
+        },
+        "can_change_acceptance": {
+          "type": "boolean"
+        },
+        "can_change_routing": {
+          "type": "boolean"
+        }
+      }
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": [
+        "action",
+        "reason",
+        "can_change_acceptance",
+        "can_change_routing"
+      ],
+      "properties": {
+        "action": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "can_change_acceptance": {
+          "type": "boolean"
+        },
+        "can_change_routing": {
+          "type": "boolean"
+        }
+      }
+    },
+    "produced_artifacts": {
+      "type": "object",
+      "required": [
+        "visual_review_json",
+        "visual_review_markdown"
+      ],
+      "properties": {
+        "visual_review_json": {
+          "type": "string"
+        },
+        "visual_review_markdown": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

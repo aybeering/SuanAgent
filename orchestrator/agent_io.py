@@ -123,6 +123,14 @@ def build_agent_input_payload(
                 round_dir / "analysis_notes.md",
                 repo_root,
             ),
+            "visual_review_json": relative_path(
+                round_dir / "visual_review.json",
+                repo_root,
+            ),
+            "visual_review_markdown": relative_path(
+                round_dir / "visual_review.md",
+                repo_root,
+            ),
             "agent_context_markdown": relative_path(context_path, repo_root),
             "agent_context_json": relative_path(context_path.with_suffix(".json"), repo_root),
             "proposal_intent_json": relative_path(intent_path, repo_root),

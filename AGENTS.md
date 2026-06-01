@@ -130,6 +130,7 @@ Current structure:
 │   ├── agent_execution.schema.json
 │   ├── agent_role_contracts.schema.json
 │   ├── analysis_notes.schema.json
+│   ├── visual_review.schema.json
 │   ├── overfit_validation.schema.json
 │   ├── attempt_replay.schema.json
 │   ├── agent_result_stats.schema.json
@@ -252,6 +253,8 @@ round_001/
   agent_role_contracts.json
   analysis_notes.json
   analysis_notes.md
+  visual_review.json
+  visual_review.md
   overfit_validation.json
   overfit_validation.md
   agent_input.json
@@ -317,7 +320,8 @@ before calling the modifier. The JSON artifact should use schema version
 avoid, evidence, source context artifacts, and hard constraints. It is planner
 guidance only; it must not decide acceptance.
 Each round should also write `agent_role_contracts.json`, `analysis_notes.json`,
-`analysis_notes.md`, `overfit_validation.json`, `overfit_validation.md`,
+`analysis_notes.md`, `visual_review.json`, `visual_review.md`,
+`overfit_validation.json`, `overfit_validation.md`,
 `agent_input.json`, `agent_bundle_manifest.json`, `agent_input_bundle/`,
 `agent_output_bundle/`, `raw_agent_output.txt`, `agent_output.json`,
 `agent_validation.json`, `agent_executor_report.json`, `agent_routing_policy.json`,
@@ -332,6 +336,11 @@ deterministic gates keep final acceptance authority. In V0.5, only
 the read-only analysis stub's consumed reports, before metrics, observations,
 and recommendation. It may advise continuing to the strategy modifier, but it
 must not change routing or final acceptance.
+`visual_review.json` should use schema version `visual_review_v1` and record
+the read-only visual review stub's consumed before-trade files, consumed
+before-reports, trade row counts, expected future chart artifacts, observations,
+and recommendation. In V0.5 chart rendering and visual-agent execution must
+remain disabled, and the artifact must not change routing or final acceptance.
 `overfit_validation.json` should use schema version `overfit_validation_v1` and
 record the overfit validator stub's consumed proposal, decision, metric deltas,
 prior rejected round count, and advisory risk flags. In V0.5 it must not veto,

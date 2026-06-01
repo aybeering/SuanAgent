@@ -885,6 +885,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "agent_role_contracts.json",
         "analysis_notes.json",
         "analysis_notes.md",
+        "visual_review.json",
+        "visual_review.md",
         "agent_input.json",
         "agent_bundle_manifest.json",
         "agent_output.json",
@@ -914,6 +916,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
     overfit_validation = json.loads(
         (round_dir / "overfit_validation.json").read_text(encoding="utf-8")
+    )
+    visual_review = json.loads(
+        (round_dir / "visual_review.json").read_text(encoding="utf-8")
     )
     brief = json.loads((run_dir / "research_brief.json").read_text(encoding="utf-8"))
     intent = json.loads((round_dir / "proposal_intent.json").read_text(encoding="utf-8"))
@@ -1018,6 +1023,21 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert analysis_notes["consumed_artifacts"]["agent_role_contracts"].endswith(
         "agent_role_contracts.json"
     )
+    assert visual_review["schema_version"] == "visual_review_v1"
+    assert_matches_schema(round_dir / "visual_review.json", "visual_review")
+    assert visual_review["agent_role"] == "visual_review"
+    assert visual_review["execution_mode"] == "stub_contract"
+    assert visual_review["implemented"] is False
+    assert visual_review["trade_row_counts"]["validation"] == 39
+    assert visual_review["checks"]["chart_rendering_enabled"] is False
+    assert visual_review["checks"]["visual_agent_enabled"] is False
+    assert visual_review["checks"]["can_change_acceptance"] is False
+    assert visual_review["recommendation"]["action"] == "continue_without_visual_gate"
+    assert visual_review["recommendation"]["can_change_acceptance"] is False
+    assert visual_review["consumed_artifacts"]["validation_trades_before"].endswith(
+        "trades_before.csv"
+    )
+    assert "chart_rendering_disabled" in visual_review["observations"]
     assert selected_attempt["candidate_score"] > 0
     assert agent_input["schema_version"] == AGENT_INPUT_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_input.json", "agent_input")
@@ -1031,6 +1051,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert agent_input["artifacts"]["analysis_notes_markdown"].endswith(
         "analysis_notes.md"
+    )
+    assert agent_input["artifacts"]["visual_review_json"].endswith(
+        "visual_review.json"
+    )
+    assert agent_input["artifacts"]["visual_review_markdown"].endswith(
+        "visual_review.md"
     )
     assert agent_input["artifacts"]["proposal_intent_json"].endswith(
         "proposal_intent.json"
@@ -1072,6 +1098,14 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert any(
         row["name"] == "analysis_notes.md"
+        for row in agent_bundle["input_files"]
+    )
+    assert any(
+        row["name"] == "visual_review.json"
+        for row in agent_bundle["input_files"]
+    )
+    assert any(
+        row["name"] == "visual_review.md"
         for row in agent_bundle["input_files"]
     )
     assert any(row["name"] == "agent_input.json" for row in agent_bundle["input_files"])
@@ -2840,8 +2874,15 @@ output_path.write_text(json.dumps({
         Path(agent_execution["workspace_path"])
         / "experiments/file-protocol-fixture/round_001/analysis_notes.json"
     ).exists()
+    assert (
+        Path(agent_execution["workspace_path"])
+        / "experiments/file-protocol-fixture/round_001/visual_review.json"
+    ).exists()
     assert workspace_agent_input["artifacts"]["analysis_notes_json"].endswith(
         "analysis_notes.json"
+    )
+    assert workspace_agent_input["artifacts"]["visual_review_json"].endswith(
+        "visual_review.json"
     )
     assert workspace_bundle_agent_input["active_agent"] == workspace_agent_input[
         "active_agent"
@@ -3575,6 +3616,10 @@ def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
     assert any(
+        path.endswith("visual_review.json")
+        for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
         path.endswith("overfit_validation.json")
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
@@ -3722,6 +3767,38 @@ def test_artifact_validator_reports_overfit_veto_violation(tmp_path: Path) -> No
     assert report["ok"] is False
     assert any(
         "overfit_validation.json must not veto in V0.5" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_visual_review_authority_violation(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-visual-violation",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = repo / "experiments/artifact-visual-violation/round_001/visual_review.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["checks"]["visual_agent_enabled"] = True
+    payload["recommendation"]["can_change_acceptance"] = True
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="artifact-visual-violation",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "visual_review.json visual agent must be disabled" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+    assert any(
+        "visual_review.json must not change acceptance" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 

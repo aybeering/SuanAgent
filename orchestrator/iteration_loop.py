@@ -86,6 +86,7 @@ from orchestrator.run_diagnosis import write_run_diagnosis
 from orchestrator.run_loop import run_and_write, write_json
 from orchestrator.run_metadata import write_run_metadata
 from orchestrator.run_summary import write_iteration_summary
+from orchestrator.visual_review_stub import write_visual_review
 
 
 MAX_ROUNDS = 5
@@ -546,6 +547,16 @@ def run_round(
         holdout_report_path=round_dir / "holdout_report_before.md",
         agent_role_contracts_path=role_contracts_path,
         proposal_intent_path=intent_path,
+    )
+    write_visual_review(
+        output_path=round_dir / "visual_review.json",
+        markdown_path=round_dir / "visual_review.md",
+        repo_root=repo_root,
+        run_id=run_id,
+        round_id=round_id,
+        round_index=round_index,
+        round_dir=round_dir,
+        analysis_notes_path=round_dir / "analysis_notes.json",
     )
     write_agent_input(
         output_path=round_dir / "agent_input.json",

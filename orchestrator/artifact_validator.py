@@ -49,6 +49,8 @@ ROUND_REQUIRED_FILES = (
     "agent_role_contracts.json",
     "analysis_notes.json",
     "analysis_notes.md",
+    "visual_review.json",
+    "visual_review.md",
     "agent_input.json",
     "agent_bundle_manifest.json",
     "agent_output.json",
@@ -207,6 +209,17 @@ def validate_round_dir(
     )
     validate_analysis_notes(
         path=round_dir / "analysis_notes.json",
+        repo_root=repo_root,
+        role_names=role_names,
+        report=report,
+    )
+    validate_contract_file(
+        payload_path=round_dir / "visual_review.json",
+        schema_path=repo_root / "schemas/visual_review.schema.json",
+        report=report,
+    )
+    validate_visual_review(
+        path=round_dir / "visual_review.json",
         repo_root=repo_root,
         role_names=role_names,
         report=report,
@@ -511,6 +524,60 @@ def validate_overfit_validation(
                 add_error(
                     report,
                     "overfit_validation.json artifact does not exist: "
+                    f"{artifact_key}={artifact_path}",
+                )
+
+
+def validate_visual_review(
+    *,
+    path: Path,
+    repo_root: Path,
+    role_names: set[str],
+    report: dict[str, object],
+) -> None:
+    """Validate the read-only visual-review role stub artifact."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    agent_role = str(payload.get("agent_role", ""))
+    if agent_role != "visual_review":
+        add_error(
+            report,
+            f"visual_review.json agent_role must be visual_review: {agent_role}",
+        )
+    if role_names and agent_role not in role_names:
+        add_error(report, f"visual_review.json unknown agent_role: {agent_role}")
+    checks = payload.get("checks", {})
+    if not isinstance(checks, dict):
+        add_error(report, "visual_review.json checks is invalid")
+    else:
+        if bool(checks.get("chart_rendering_enabled", True)):
+            add_error(report, "visual_review.json chart rendering must be disabled")
+        if bool(checks.get("visual_agent_enabled", True)):
+            add_error(report, "visual_review.json visual agent must be disabled")
+        if bool(checks.get("can_change_acceptance", True)):
+            add_error(report, "visual_review.json must not change acceptance")
+        if bool(checks.get("can_change_routing", True)):
+            add_error(report, "visual_review.json must not change routing")
+    recommendation = payload.get("recommendation", {})
+    if not isinstance(recommendation, dict):
+        add_error(report, "visual_review.json recommendation is invalid")
+    else:
+        if bool(recommendation.get("can_change_acceptance", True)):
+            add_error(report, "visual_review.json must not change acceptance")
+        if bool(recommendation.get("can_change_routing", True)):
+            add_error(report, "visual_review.json must not change routing")
+    for group_key in ("consumed_artifacts", "produced_artifacts"):
+        artifacts = payload.get(group_key, {})
+        if not isinstance(artifacts, dict):
+            add_error(report, f"visual_review.json {group_key} is invalid")
+            continue
+        for artifact_key, artifact_value in artifacts.items():
+            artifact_path = resolve_path(Path(str(artifact_value)), repo_root)
+            if not artifact_path.exists() or not artifact_path.is_file():
+                add_error(
+                    report,
+                    "visual_review.json artifact does not exist: "
                     f"{artifact_key}={artifact_path}",
                 )
 

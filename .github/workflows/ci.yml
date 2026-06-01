@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  smoke:
+    name: Tests and deterministic loops
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest
+
+      - name: Run tests
+        run: python -m pytest
+
+      - name: Run preflight
+        run: python -m orchestrator.preflight --config config/default.json
+
+      - name: Run single evaluation loop
+        run: python -m orchestrator.run_loop --run-id ci-single
+
+      - name: Run iteration dry run
+        run: python -m orchestrator.iteration_loop --config config/codex_dry_run.json --run-id ci-dry --max-rounds 1
+
+      - name: Summarize local experiments
+        run: python -m orchestrator.experiments summary

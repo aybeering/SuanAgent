@@ -1,5 +1,7 @@
 # Self Iterating Strategy Agent V0.5
 
+![CI](https://github.com/aybeering/SuanAgent/actions/workflows/ci.yml/badge.svg)
+
 A small, deterministic prototype for evaluating and iterating strategy changes.
 
 V0 runs a fixed validation dataset through a baseline strategy and the current
@@ -25,6 +27,10 @@ Example configs live in `config/codex_dry_run.json` and
 Codex-facing adapters use ignored `workspaces/<run_id>/<round_id>/` directories
 for isolated project copies. Returned text is parsed as a unified diff and must
 touch only `strategies/current_strategy.py`.
+
+GitHub Actions runs the deterministic smoke suite on every push and pull
+request. The workflow uses `python -m pytest`, preflight validation, the
+single-run loop, and one dry-run iteration loop pass.
 
 ## Commands
 

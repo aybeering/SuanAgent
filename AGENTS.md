@@ -61,6 +61,7 @@ Allowed components:
 14. Round-based experiment outputs.
 15. Config-driven dataset, policy, and modifier settings.
 16. Clear tests and smoke checks.
+17. GitHub Actions CI for deterministic smoke validation.
 
 Still out of scope:
 
@@ -98,6 +99,9 @@ Current structure:
 ├── pyproject.toml
 ├── config/
 │   └── default.json
+├── .github/
+│   └── workflows/
+│       └── ci.yml
 ├── docs/
 │   └── strategy_interface.md
 ├── agents/

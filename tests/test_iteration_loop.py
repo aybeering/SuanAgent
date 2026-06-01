@@ -2701,6 +2701,9 @@ print(json.dumps({
 
     round_dir = repo / "experiments/codex-structured-fixture/round_001"
     proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    agent_validation = json.loads(
+        (round_dir / "agent_validation.json").read_text(encoding="utf-8")
+    )
     attempts = json.loads(
         (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
     )
@@ -2712,6 +2715,9 @@ print(json.dumps({
     assert proposal["hypotheses"] == [
         "Structured proposal metadata should survive subprocess parsing."
     ]
+    assert agent_validation["ok"] is True
+    assert agent_validation["proposal_direction_tag"] == "lower_min_edge"
+    assert agent_validation["checks"]["git_apply_check"] == "passed"
     assert "MIN_EDGE = 0.04" in proposal["patch_diff"]
     assert proposal["contract_errors"] == []
     assert attempts[0]["status"] == "selectable"
@@ -3819,8 +3825,16 @@ def test_codex_output_is_converted_to_applicable_proposal(tmp_path: Path) -> Non
 
     assert proposal.applicable is True
     assert proposal.agent_name == "codex_cli"
+    assert proposal.summary == "Codex output produced a strategy patch."
+    assert proposal.risk_notes == "Patch targets are checked before git apply."
+    assert proposal.direction_tag == "codex_cli_unknown"
     assert proposal.patch_diff.startswith("--- a/strategies/current_strategy.py")
     assert proposal.workspace_path == str(workspace)
+    assert validate_proposal_contract(
+        proposal=proposal,
+        expected_target_file=Path("strategies/current_strategy.py"),
+        expected_round_index=1,
+    ) == ()
 
 
 def test_codex_structured_json_output_is_converted_to_proposal(

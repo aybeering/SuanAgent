@@ -131,6 +131,10 @@ def proposal_from_raw_agent_output(
     prompt: str = "",
     command: tuple[str, ...] = (),
     workspace_path: str = "",
+    default_summary: str = "",
+    default_risk_notes: str = "",
+    default_direction_tag: str = "",
+    default_hypotheses: tuple[str, ...] = (),
 ) -> StrategyProposal:
     """Convert raw agent output text into a standard strategy proposal."""
     expected_target = str(agent_input["target_file"])
@@ -157,8 +161,10 @@ def proposal_from_raw_agent_output(
             agent_name=string_value(metadata.get("agent_name", "")) or agent_name,
             round_index=int(metadata.get("round_index", expected_round_index)),
             target_file=string_value(metadata.get("target_file", "")) or expected_target,
-            summary=string_value(metadata.get("summary", "")),
-            risk_notes=string_value(metadata.get("risk_notes", "")),
+            summary=string_value(metadata.get("summary", "")) or default_summary,
+            risk_notes=(
+                string_value(metadata.get("risk_notes", "")) or default_risk_notes
+            ),
             expected_metric_change=string_mapping(
                 metadata.get("expected_metric_change", {})
             ),
@@ -168,8 +174,12 @@ def proposal_from_raw_agent_output(
             protocol_version=string_value(
                 metadata.get("protocol_version", PROPOSAL_PROTOCOL_VERSION)
             ),
-            direction_tag=string_value(metadata.get("direction_tag", "")),
-            hypotheses=string_tuple(metadata.get("hypotheses", ())),
+            direction_tag=(
+                string_value(metadata.get("direction_tag", "")) or default_direction_tag
+            ),
+            hypotheses=(
+                string_tuple(metadata.get("hypotheses", ())) or default_hypotheses
+            ),
             rejection_reason=rejection_reason,
             prompt=prompt,
             command=command,

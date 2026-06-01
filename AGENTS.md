@@ -592,6 +592,9 @@ without applying the patch.
 Agent output intake commands should accept a saved `agent_input.json` plus a
 raw agent output file, normalize it into a proposal, run the same deterministic
 contract and `git apply --check` validation, and write `agent_validation.json`.
+Codex CLI output conversion should use the shared intake normalization path for
+both structured proposal JSON and plain unified diff output; do not add a second
+Codex-only parser for patch extraction or proposal metadata.
 Run comparison should use deterministic metrics and dataset fingerprints. A
 candidate should only receive a promotion recommendation when artifacts are
 valid, compared dataset fingerprints match, validation EV delta improves beyond
@@ -608,8 +611,8 @@ Completed iteration runs should then write `research_brief.json` and
 `research_brief.md` so the candidate search trace is easy to inspect before the
 next run.
 
-Future Codex output must be parsed as a unified diff and rejected before git
-apply if it touches anything except `strategies/current_strategy.py`.
+Future Codex output must be normalized through agent output intake and rejected
+before git apply if it touches anything except `strategies/current_strategy.py`.
 
 ## Important constraint
 

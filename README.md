@@ -131,7 +131,8 @@ auditable but never applied.
 Codex-style adapters can consume either a plain unified diff or a structured
 JSON proposal containing `summary`, `risk_notes`, `direction_tag`,
 `expected_metric_change`, `hypotheses`, and `patch_diff`; both forms flow
-through the same deterministic contract validator.
+through the shared agent-output intake parser and the same deterministic
+contract validator.
 Enabled Codex CLI subprocesses are also checked for hidden workspace side
 effects: only `strategies/current_strategy.py` may change inside the isolated
 workspace, and violations are recorded as contract errors.
@@ -157,6 +158,9 @@ to validate any saved raw agent output before it can become a candidate patch.
 The intake command normalizes JSON proposal output or plain unified diffs into
 the `proposal_v1` shape, checks that only `strategies/current_strategy.py` is
 targeted, runs `git apply --check`, and can write `agent_validation.json`.
+The guarded Codex CLI adapter uses the same raw-output normalization path as
+the standalone intake command, so future real Codex responses and replayed
+agent-output files are interpreted consistently.
 Iteration status is one of `accepted`, `stopped_repeated_proposal`,
 `stopped_max_rounds`, or `failed`.
 The validation policy remains the primary acceptance rule, while the optional

@@ -12,11 +12,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+from orchestrator.agent_output_intake import proposal_from_raw_agent_output
 from orchestrator.patch_parser import (
     PatchParseError,
     extract_json_object,
-    extract_unified_diff,
-    validate_patch_targets,
 )
 from orchestrator.proposal import StrategyProposal
 from orchestrator.workspace_manager import (
@@ -203,67 +202,22 @@ def proposal_from_codex_output(
 ) -> StrategyProposal:
     """Convert future Codex CLI output into a StrategyProposal."""
     target_relative = target_file.relative_to(repo_root)
-    metadata = extract_proposal_metadata(raw_output)
-    try:
-        patch_diff = metadata_patch_diff(metadata) or extract_unified_diff(raw_output)
-        validate_patch_targets(patch_diff, target_relative)
-    except PatchParseError as exc:
-        return StrategyProposal(
-            agent_name="codex_cli",
-            round_index=round_index,
-            target_file=str(target_relative),
-            summary=str(
-                metadata.get(
-                    "summary",
-                    "Codex output did not contain an applicable strategy patch.",
-                )
-            ),
-            risk_notes=str(
-                metadata.get(
-                    "risk_notes",
-                    "Patch parser rejected the output before git apply.",
-                )
-            ),
-            expected_metric_change=metadata_expected_metric_change(metadata),
-            raw_response=raw_output,
-            patch_diff="",
-            applicable=False,
-            direction_tag=str(metadata.get("direction_tag", "codex_cli_unknown")),
-            hypotheses=metadata_hypotheses(
-                metadata,
-                (
-                    "The Codex response must contain a unified diff for the strategy file.",
-                ),
-            ),
-            rejection_reason=str(exc),
-            prompt=prompt,
-            command=tuple(command),
-            workspace_path=str(workspace_path),
-        )
-
-    return StrategyProposal(
+    return proposal_from_raw_agent_output(
+        raw_output=raw_output,
+        agent_input={
+            "target_file": str(target_relative),
+            "round_index": round_index,
+        },
         agent_name="codex_cli",
-        round_index=round_index,
-        target_file=str(target_relative),
-        summary=str(metadata.get("summary", "Codex output produced a strategy patch.")),
-        risk_notes=str(
-            metadata.get("risk_notes", "Patch targets were validated before git apply.")
-        ),
-        expected_metric_change=metadata_expected_metric_change(metadata),
-        raw_response=raw_output,
-        patch_diff=patch_diff,
-        applicable=True,
-        direction_tag=str(metadata.get("direction_tag", "codex_cli_unknown")),
-        hypotheses=metadata_hypotheses(
-            metadata,
-            (
-                "The parsed patch is intended to improve validation metrics after simulation.",
-            ),
-        ),
-        rejection_reason="",
         prompt=prompt,
         command=tuple(command),
         workspace_path=str(workspace_path),
+        default_summary="Codex output produced a strategy patch.",
+        default_risk_notes="Patch targets are checked before git apply.",
+        default_direction_tag="codex_cli_unknown",
+        default_hypotheses=(
+            "The parsed patch is intended to improve validation metrics after simulation.",
+        ),
     )
 
 

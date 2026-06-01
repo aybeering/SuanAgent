@@ -5741,6 +5741,8 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         max_rounds=1,
         repo_root=repo,
     )
+    round_dir = repo / "experiments/cli-candidates/round_001"
+    replay_round(round_dir=round_dir, repo_root=repo, run_probe=False)
 
     rows = candidate_leaderboard(
         run_id="cli-candidates",
@@ -5790,6 +5792,14 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert stats["from_artifact"] is True
     assert stats["totals"]["attempt_count"] == len(rows)
     assert stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
+    assert stats["round_replays"]["round_count"] == 1
+    assert stats["round_replays"]["replayed_round_count"] == 1
+    assert stats["round_replays"]["ok_count"] == 1
+    assert stats["round_replays"]["rounds"][0]["exists"] is True
+    assert stats["round_replays"]["rounds"][0]["replayed_attempt_count"] == 3
+    assert stats["round_replays"]["rounds"][0]["attempts"][0][
+        "plan_matches_manifest"
+    ] is True
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert len(payload) == 1
@@ -5799,6 +5809,10 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     stats_payload = json.loads(stats_result.stdout)
     assert stats_payload["schema_version"] == "agent_result_stats_v1"
     assert stats_payload["agents"][0]["key"] == "strategy_modifier_stub"
+    assert stats_payload["round_replays"]["replayed_round_count"] == 1
+    assert stats_payload["round_replays"]["rounds"][0]["attempts"][0][
+        "replay_path"
+    ].endswith("attempt_replay.json")
 
 
 def test_summary_markdown_is_written_for_single_and_iteration_runs(tmp_path: Path) -> None:

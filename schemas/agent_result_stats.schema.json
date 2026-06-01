@@ -114,6 +114,135 @@
           }
         }
       }
+    },
+    "round_replays": {
+      "type": "object",
+      "required": [
+        "round_count",
+        "replayed_round_count",
+        "missing_round_count",
+        "ok_count",
+        "failure_count",
+        "rounds"
+      ],
+      "properties": {
+        "round_count": {
+          "type": "integer"
+        },
+        "replayed_round_count": {
+          "type": "integer"
+        },
+        "missing_round_count": {
+          "type": "integer"
+        },
+        "ok_count": {
+          "type": "integer"
+        },
+        "failure_count": {
+          "type": "integer"
+        },
+        "rounds": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "round_id",
+              "exists",
+              "ok",
+              "failure_code",
+              "failure_stage",
+              "path",
+              "markdown_path",
+              "planned_attempt_count",
+              "manifest_attempt_count",
+              "replayed_attempt_count",
+              "selected_attempt_id",
+              "attempts"
+            ],
+            "properties": {
+              "round_id": {
+                "type": "string"
+              },
+              "exists": {
+                "type": "boolean"
+              },
+              "ok": {
+                "type": "boolean"
+              },
+              "failure_code": {
+                "type": "string"
+              },
+              "failure_stage": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "markdown_path": {
+                "type": "string"
+              },
+              "planned_attempt_count": {
+                "type": "integer"
+              },
+              "manifest_attempt_count": {
+                "type": "integer"
+              },
+              "replayed_attempt_count": {
+                "type": "integer"
+              },
+              "selected_attempt_id": {
+                "type": "string"
+              },
+              "attempts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "attempt_id",
+                    "profile_name",
+                    "adapter_name",
+                    "runner_name",
+                    "selected",
+                    "ok",
+                    "failure_code",
+                    "plan_matches_manifest",
+                    "replay_path"
+                  ],
+                  "properties": {
+                    "attempt_id": {
+                      "type": "string"
+                    },
+                    "profile_name": {
+                      "type": "string"
+                    },
+                    "adapter_name": {
+                      "type": "string"
+                    },
+                    "runner_name": {
+                      "type": "string"
+                    },
+                    "selected": {
+                      "type": "boolean"
+                    },
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "failure_code": {
+                      "type": "string"
+                    },
+                    "plan_matches_manifest": {
+                      "type": "boolean"
+                    },
+                    "replay_path": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

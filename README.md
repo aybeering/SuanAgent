@@ -251,6 +251,9 @@ replay every saved planned attempt for one round. Round replay compares
 `agent_execution_plan.json` with `agent_attempts_manifest.json`, writes
 `round_replay.json` and `round_replay.md`, and does not call agents, select
 candidates, or apply a final strategy patch.
+After a round replay exists, `python -m orchestrator.experiments agents <run_id>`
+adds a `round_replays` summary with per-round replay presence, replay counts,
+and per-attempt plan/manifest alignment.
 Use `python -m orchestrator.agent_output_intake <agent_input.json> <agent_output>`
 to validate any saved raw agent output before it can become a candidate patch.
 The intake command normalizes JSON proposal output or plain unified diffs into

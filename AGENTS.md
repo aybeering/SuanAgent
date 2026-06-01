@@ -87,6 +87,7 @@ Allowed components:
 36. A deterministic `agent_activation_preflight.json` startup gate that verifies role/profile activation before iteration begins.
 37. A deterministic `agent_execution_plan.json` round plan that records the candidate queue before any modifier is invoked.
 38. A deterministic `round_replay.json` audit command that replays every saved planned attempt without rerunning the full loop.
+39. Agent inspection output that summarizes round replay status for each saved round.
 
 Still out of scope:
 
@@ -742,6 +743,7 @@ Add smoke tests that verify:
 26. Agent activation preflight is written as `agent_activation_preflight_v1` JSON and blocks invalid enabled role/profile wiring before iteration starts.
 27. Agent execution planning is written as `agent_execution_plan_v1` JSON before candidate modifiers run.
 28. Round replay can replay every saved planned attempt and validate the resulting `round_replay_v1` artifact.
+29. Experiment agent inspection reports round replay presence, counts, and per-attempt plan/manifest alignment.
 
 The project is complete only when these checks pass:
 
@@ -820,7 +822,10 @@ without an available executable.
 
 Experiment inspection commands should read `experiments/index.jsonl` and local
 run artifacts without mutating strategy code. Leaderboards should rank by
-validation EV improvement, not natural-language judgment.
+validation EV improvement, not natural-language judgment. The agent inspection
+command should include aggregate candidate stats and any available round replay
+status so planned, saved, and replayed attempt traces can be inspected from one
+entrypoint.
 Agent replay commands should read saved `agent_input.json` and
 `proposal_intent.json` artifacts, emit deterministic proposal JSON, and must
 not apply patches, run backtests, or mutate strategy files. A validate mode may

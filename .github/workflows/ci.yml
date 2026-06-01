@@ -125,6 +125,13 @@ jobs:
           assert replay["planned_attempt_count"] == replay["manifest_attempt_count"] == 1
           assert replay["attempts"][0]["plan_matches_manifest"] is True
           PY
+          python -m orchestrator.experiments agents ci-file-protocol-demo > /tmp/agent_stats_with_replay.json
+          python - <<'PY'
+          import json
+          stats = json.load(open("/tmp/agent_stats_with_replay.json"))
+          assert stats["round_replays"]["replayed_round_count"] == 1
+          assert stats["round_replays"]["rounds"][0]["attempts"][0]["plan_matches_manifest"] is True
+          PY
 
       - name: Inspect research brief artifacts
         run: |

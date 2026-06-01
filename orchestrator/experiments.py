@@ -131,12 +131,97 @@ def agent_result_stats(
     if path.exists():
         payload = load_json(path)
         payload["from_artifact"] = True
+        payload["round_replays"] = round_replay_summary(run_dir=run_dir)
         return payload
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
     payload = build_agent_result_stats(run_dir=run_dir)
     payload["from_artifact"] = False
+    payload["round_replays"] = round_replay_summary(run_dir=run_dir)
     return payload
+
+
+def round_replay_summary(*, run_dir: Path) -> dict[str, object]:
+    """Return compact round replay status for experiment inspection."""
+    round_dirs = [
+        path
+        for path in sorted(run_dir.glob("round_*"))
+        if path.is_dir()
+    ]
+    rounds = [round_replay_row(round_dir=round_dir) for round_dir in round_dirs]
+    replayed_count = sum(1 for row in rounds if bool(row["exists"]))
+    ok_count = sum(1 for row in rounds if bool(row["ok"]))
+    return {
+        "round_count": len(rounds),
+        "replayed_round_count": replayed_count,
+        "missing_round_count": len(rounds) - replayed_count,
+        "ok_count": ok_count,
+        "failure_count": replayed_count - ok_count,
+        "rounds": rounds,
+    }
+
+
+def round_replay_row(*, round_dir: Path) -> dict[str, object]:
+    """Return one compact round replay inspection row."""
+    path = round_dir / "round_replay.json"
+    markdown_path = round_dir / "round_replay.md"
+    if not path.exists():
+        return {
+            "round_id": round_dir.name,
+            "exists": False,
+            "ok": False,
+            "failure_code": "missing_round_replay",
+            "failure_stage": "replay",
+            "path": str(path),
+            "markdown_path": str(markdown_path),
+            "planned_attempt_count": 0,
+            "manifest_attempt_count": 0,
+            "replayed_attempt_count": 0,
+            "selected_attempt_id": "",
+            "attempts": [],
+        }
+    payload = load_json(path)
+    attempts = payload.get("attempts", [])
+    return {
+        "round_id": str(payload.get("round_id", round_dir.name)),
+        "exists": True,
+        "ok": bool(payload.get("ok", False)),
+        "failure_code": str(payload.get("failure_code", "")),
+        "failure_stage": str(payload.get("failure_stage", "")),
+        "path": str(path),
+        "markdown_path": str(markdown_path),
+        "planned_attempt_count": int(payload.get("planned_attempt_count", 0)),
+        "manifest_attempt_count": int(payload.get("manifest_attempt_count", 0)),
+        "replayed_attempt_count": int(payload.get("replayed_attempt_count", 0)),
+        "selected_attempt_id": str(payload.get("selected_attempt_id", "")),
+        "attempts": compact_round_replay_attempts(attempts),
+    }
+
+
+def compact_round_replay_attempts(attempts: object) -> list[dict[str, object]]:
+    """Return compact attempt rows from a round replay payload."""
+    if not isinstance(attempts, list):
+        return []
+    rows: list[dict[str, object]] = []
+    for attempt in attempts:
+        if not isinstance(attempt, dict):
+            continue
+        rows.append(
+            {
+                "attempt_id": str(attempt.get("attempt_id", "")),
+                "profile_name": str(attempt.get("profile_name", "")),
+                "adapter_name": str(attempt.get("adapter_name", "")),
+                "runner_name": str(attempt.get("runner_name", "")),
+                "selected": bool(attempt.get("selected", False)),
+                "ok": bool(attempt.get("ok", False)),
+                "failure_code": str(attempt.get("failure_code", "")),
+                "plan_matches_manifest": bool(
+                    attempt.get("plan_matches_manifest", False)
+                ),
+                "replay_path": str(attempt.get("replay_path", "")),
+            }
+        )
+    return rows
 
 
 def compare_experiments(

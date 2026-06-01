@@ -5,6 +5,7 @@ from __future__ import annotations
 from agents.codex_cli_adapter import CodexCliModifier
 from agents.codex_dry_run_adapter import CodexDryRunModifier
 from agents.modifier_adapter import StrategyModifier
+from agents.strategy_modifier_conservative_stub import ConservativePatchModifier
 from agents.strategy_modifier_adaptive_stub import AdaptivePatchModifier
 from agents.strategy_modifier_stub import FixedPatchModifier
 
@@ -12,6 +13,7 @@ from agents.strategy_modifier_stub import FixedPatchModifier
 SUPPORTED_MODIFIERS = {
     "fixed_patch_stub",
     "adaptive_stub",
+    "conservative_stub",
     "codex_dry_run",
     "codex_cli_dry_run",
     "codex_cli",
@@ -28,6 +30,8 @@ def get_strategy_modifier(
         return FixedPatchModifier()
     if name == "adaptive_stub":
         return AdaptivePatchModifier()
+    if name == "conservative_stub":
+        return ConservativePatchModifier()
     if name in {"codex_dry_run", "codex_cli_dry_run"}:
         return CodexDryRunModifier(
             executable=str(active_settings.get("executable", "codex")),

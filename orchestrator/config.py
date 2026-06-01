@@ -28,6 +28,7 @@ class ProjectConfig:
     stop_on_repeated_proposal: bool
     memory_failed_patch_threshold: int = 2
     memory_fallback_modifier: str = ""
+    memory_fallback_modifiers: tuple[str, ...] = ()
 
     def resolve_path(self, repo_root: Path, path_text: str) -> Path:
         """Resolve config paths relative to the repository root."""
@@ -57,6 +58,7 @@ def load_project_config(
     modifier_name = str(raw["strategy_modifier"])
     modifier_settings = raw.get("codex_cli", {}) if modifier_name.startswith("codex") else {}
     memory_filter = raw.get("memory_filter", {})
+    fallback_names = fallback_modifier_names(memory_filter)
     return ProjectConfig(
         baseline_strategy_module=str(raw["baseline_strategy_module"]),
         current_strategy_module=str(raw["current_strategy_module"]),
@@ -75,5 +77,28 @@ def load_project_config(
         memory_failed_patch_threshold=int(
             memory_filter.get("failed_patch_threshold", 2)
         ),
-        memory_fallback_modifier=str(memory_filter.get("fallback_modifier") or ""),
+        memory_fallback_modifier=fallback_names[0] if fallback_names else "",
+        memory_fallback_modifiers=fallback_names,
     )
+
+
+def fallback_modifier_names(memory_filter: object) -> tuple[str, ...]:
+    """Return configured fallback modifier names without duplicates."""
+    if not isinstance(memory_filter, dict):
+        return ()
+    raw_names: list[object] = []
+    legacy_name = memory_filter.get("fallback_modifier")
+    if legacy_name:
+        raw_names.append(legacy_name)
+    configured_names = memory_filter.get("fallback_modifiers", [])
+    if isinstance(configured_names, str):
+        raw_names.append(configured_names)
+    elif isinstance(configured_names, list):
+        raw_names.extend(configured_names)
+
+    names: list[str] = []
+    for raw_name in raw_names:
+        name = str(raw_name)
+        if name and name not in names:
+            names.append(name)
+    return tuple(names)

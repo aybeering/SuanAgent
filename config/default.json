@@ -19,7 +19,10 @@
   "stop_on_repeated_proposal": true,
   "memory_filter": {
     "failed_patch_threshold": 2,
-    "fallback_modifier": "adaptive_stub"
+    "fallback_modifiers": [
+      "adaptive_stub",
+      "conservative_stub"
+    ]
   },
   "codex_cli": {
     "executable": "codex",

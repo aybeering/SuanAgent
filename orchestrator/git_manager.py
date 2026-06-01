@@ -76,10 +76,15 @@ def assert_strategy_clean(
 
 def apply_patch(repo_root: Path, patch_diff: str) -> None:
     """Apply a git patch after checking that it is valid."""
+    check_patch(repo_root, patch_diff)
+    run_git(repo_root, "apply", input_text=patch_diff)
+
+
+def check_patch(repo_root: Path, patch_diff: str) -> None:
+    """Check that a git patch is valid without applying it."""
     if not patch_diff.strip():
         raise GitError("empty patch")
     run_git(repo_root, "apply", "--check", input_text=patch_diff)
-    run_git(repo_root, "apply", input_text=patch_diff)
 
 
 def rollback_strategy(

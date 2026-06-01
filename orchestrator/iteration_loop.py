@@ -20,6 +20,7 @@ from orchestrator.git_manager import (
     GitError,
     apply_patch,
     assert_strategy_clean,
+    check_patch,
     commit_strategy,
     current_commit,
     ensure_git_repo,
@@ -80,13 +81,9 @@ def run_iteration_loop(
         active_config.strategy_modifier,
         active_config.modifier_settings,
     )
-    fallback_modifier = (
-        get_strategy_modifier(
-            active_config.memory_fallback_modifier,
-            active_config.modifier_settings,
-        )
-        if active_config.memory_fallback_modifier
-        else None
+    fallback_modifiers = tuple(
+        get_strategy_modifier(fallback_name, active_config.modifier_settings)
+        for fallback_name in active_config.memory_fallback_modifiers
     )
     strategy_path = Path(active_config.strategy_path)
     strategy_file_path = active_config.resolve_path(repo_root, active_config.strategy_path)
@@ -107,7 +104,7 @@ def run_iteration_loop(
         "accepted_round": None,
         "final_strategy_commit": None,
         "stop_on_repeated_proposal": active_stop_on_repeated_proposal,
-        "memory_fallback_modifier": active_config.memory_fallback_modifier or None,
+        "memory_fallback_modifiers": list(active_config.memory_fallback_modifiers),
         "stop_reason": None,
         "rounds": [],
     }
@@ -137,7 +134,7 @@ def run_iteration_loop(
                     strategy_module=strategy_module,
                     strategy_file_path=strategy_file_path,
                     modifier=modifier,
-                    fallback_modifier=fallback_modifier,
+                    fallback_modifiers=fallback_modifiers,
                     memory_failed_patch_threshold=active_config.memory_failed_patch_threshold,
                 )
                 manifest["completed_rounds"] = round_index
@@ -220,7 +217,7 @@ def run_round(
     strategy_module: str,
     strategy_file_path: Path,
     modifier: StrategyModifier,
-    fallback_modifier: StrategyModifier | None,
+    fallback_modifiers: tuple[StrategyModifier, ...],
     memory_failed_patch_threshold: int,
 ) -> dict[str, object]:
     """Run one proposal/apply/evaluate round."""
@@ -253,7 +250,15 @@ def run_round(
         output_path=round_dir / "agent_context.md",
         memory_path=round_dir.parent.parent / "memory.jsonl",
     )
-    proposal = modifier.propose_strategy_change(
+    (
+        proposal,
+        memory_filter_reason,
+        proposal_attempts,
+        selected_attempt,
+        primary_memory_filter_reason,
+    ) = select_proposal_candidate(
+        modifier=modifier,
+        fallback_modifiers=fallback_modifiers,
         report_path=round_dir / "train_report_before.md",
         target_file=strategy_file_path,
         round_index=round_index,
@@ -261,64 +266,16 @@ def run_round(
         old_threshold=stub_old_threshold,
         new_threshold=stub_new_threshold,
         context_path=context_path,
-    )
-    proposal = annotate_proposal_quality(
-        proposal=proposal,
         run_dir=round_dir.parent,
         current_round_id=round_id,
-    )
-    primary_memory_filter_reason = memory_filter_rejection_reason(
         experiments_dir=round_dir.parent.parent,
-        patch_sha256=proposal.patch_sha256,
-        threshold=memory_failed_patch_threshold,
-        exclude_run_id=run_id,
+        memory_failed_patch_threshold=memory_failed_patch_threshold,
+        run_id=run_id,
     )
-    proposal_attempts = [
-        proposal_attempt_record(
-            role="primary",
-            proposal=proposal,
-            memory_filter_reason=primary_memory_filter_reason,
-        )
-    ]
-    proposal_fallback_used = False
-    proposal_fallback_reason = ""
-
-    if primary_memory_filter_reason and fallback_modifier is not None:
-        proposal_fallback_used = True
-        proposal_fallback_reason = (
-            "primary proposal rejected by memory filter: "
-            f"{primary_memory_filter_reason}"
-        )
-        proposal = fallback_modifier.propose_strategy_change(
-            report_path=round_dir / "train_report_before.md",
-            target_file=strategy_file_path,
-            round_index=round_index,
-            repo_root=repo_root,
-            old_threshold=stub_old_threshold,
-            new_threshold=stub_new_threshold,
-            context_path=context_path,
-        )
-        proposal = annotate_proposal_quality(
-            proposal=proposal,
-            run_dir=round_dir.parent,
-            current_round_id=round_id,
-        )
-        fallback_memory_filter_reason = memory_filter_rejection_reason(
-            experiments_dir=round_dir.parent.parent,
-            patch_sha256=proposal.patch_sha256,
-            threshold=memory_failed_patch_threshold,
-            exclude_run_id=run_id,
-        )
-        proposal_attempts.append(
-            proposal_attempt_record(
-                role="fallback",
-                proposal=proposal,
-                memory_filter_reason=fallback_memory_filter_reason,
-            )
-        )
-        memory_filter_reason = fallback_memory_filter_reason
-    else:
-        memory_filter_reason = primary_memory_filter_reason
+    proposal_fallback_used = selected_attempt["role"] != "primary"
+    proposal_fallback_reason = (
+        str(selected_attempt["selection_reason"]) if proposal_fallback_used else ""
+    )
 
     write_json(round_dir / "proposal_attempts.json", proposal_attempts)
     write_json(round_dir / "proposal.json", proposal.to_dict())
@@ -430,6 +387,8 @@ def proposal_attempt_record(
     role: str,
     proposal: StrategyProposal,
     memory_filter_reason: str,
+    patch_check_error: str,
+    status: str,
 ) -> dict[str, object]:
     """Build an auditable proposal attempt record."""
     payload = proposal.to_dict()
@@ -438,10 +397,147 @@ def proposal_attempt_record(
         "agent_name": payload.get("agent_name", ""),
         "summary": payload.get("summary", ""),
         "patch_sha256": payload.get("patch_sha256", ""),
+        "status": status,
+        "selected": False,
+        "selection_reason": "",
         "memory_filter_rejected": bool(memory_filter_reason),
         "memory_filter_reason": memory_filter_reason,
+        "patch_check_error": patch_check_error,
         "proposal": payload,
     }
+
+
+def select_proposal_candidate(
+    *,
+    modifier: StrategyModifier,
+    fallback_modifiers: tuple[StrategyModifier, ...],
+    report_path: Path,
+    target_file: Path,
+    round_index: int,
+    repo_root: Path,
+    old_threshold: str,
+    new_threshold: str,
+    context_path: Path,
+    run_dir: Path,
+    current_round_id: str,
+    experiments_dir: Path,
+    memory_failed_patch_threshold: int,
+    run_id: str,
+) -> tuple[StrategyProposal, str, list[dict[str, object]], dict[str, object], str]:
+    """Return the first proposal candidate that passes cheap deterministic filters."""
+    candidate_modifiers = [("primary", modifier)]
+    candidate_modifiers.extend(
+        (f"fallback_{index:02d}", fallback_modifier)
+        for index, fallback_modifier in enumerate(fallback_modifiers, start=1)
+    )
+    attempts: list[dict[str, object]] = []
+    selected_index: int | None = None
+    selected_proposal: StrategyProposal | None = None
+    selected_memory_reason = ""
+    primary_memory_reason = ""
+
+    for role, candidate_modifier in candidate_modifiers:
+        proposal = candidate_modifier.propose_strategy_change(
+            report_path=report_path,
+            target_file=target_file,
+            round_index=round_index,
+            repo_root=repo_root,
+            old_threshold=old_threshold,
+            new_threshold=new_threshold,
+            context_path=context_path,
+        )
+        proposal = annotate_proposal_quality(
+            proposal=proposal,
+            run_dir=run_dir,
+            current_round_id=current_round_id,
+        )
+        memory_reason = memory_filter_rejection_reason(
+            experiments_dir=experiments_dir,
+            patch_sha256=proposal.patch_sha256,
+            threshold=memory_failed_patch_threshold,
+            exclude_run_id=run_id,
+        )
+        if role == "primary":
+            primary_memory_reason = memory_reason
+        patch_check_error = ""
+        if not memory_reason and proposal.applicable:
+            try:
+                check_patch(repo_root, proposal.patch_diff)
+            except GitError as exc:
+                patch_check_error = str(exc)
+        status = proposal_candidate_status(
+            proposal=proposal,
+            memory_filter_reason=memory_reason,
+            patch_check_error=patch_check_error,
+        )
+        attempts.append(
+            proposal_attempt_record(
+                role=role,
+                proposal=proposal,
+                memory_filter_reason=memory_reason,
+                patch_check_error=patch_check_error,
+                status=status,
+            )
+        )
+        selected_proposal = proposal
+        selected_memory_reason = memory_reason
+        if status == "selectable":
+            selected_index = len(attempts) - 1
+            break
+
+    if selected_proposal is None:
+        raise ValueError("No proposal candidates were generated")
+    if selected_index is None:
+        selected_index = len(attempts) - 1
+        selection_reason = "no selectable proposal candidates; using final rejection"
+    else:
+        selection_reason = "selected primary proposal"
+        if attempts[selected_index]["role"] != "primary":
+            rejected_reasons = [
+                attempt_rejection_summary(attempt)
+                for attempt in attempts[:selected_index]
+            ]
+            selection_reason = (
+                f"selected {attempts[selected_index]['role']} after "
+                + "; ".join(rejected_reasons)
+            )
+    attempts[selected_index]["selected"] = True
+    attempts[selected_index]["selection_reason"] = selection_reason
+    return (
+        selected_proposal,
+        selected_memory_reason,
+        attempts,
+        attempts[selected_index],
+        primary_memory_reason,
+    )
+
+
+def proposal_candidate_status(
+    *,
+    proposal: StrategyProposal,
+    memory_filter_reason: str,
+    patch_check_error: str,
+) -> str:
+    """Return the cheap deterministic prefilter status for a proposal."""
+    if memory_filter_reason:
+        return "memory_rejected"
+    if not proposal.applicable:
+        return "not_applicable"
+    if patch_check_error:
+        return "patch_check_failed"
+    return "selectable"
+
+
+def attempt_rejection_summary(attempt: dict[str, object]) -> str:
+    """Return a compact reason why a candidate was skipped."""
+    role = str(attempt.get("role", "candidate"))
+    reason = str(attempt.get("memory_filter_reason", ""))
+    if reason:
+        return f"{role} memory rejected: {reason}"
+    patch_check_error = str(attempt.get("patch_check_error", ""))
+    if patch_check_error:
+        return f"{role} patch check failed: {patch_check_error}"
+    return f"{role} status: {attempt.get('status', 'unknown')}"
 
 
 def clear_strategy_import(repo_root: Path, strategy_module: str) -> None:

@@ -74,6 +74,10 @@ def test_default_config_loads_dataset_splits() -> None:
     assert config.strategy_modifier == "fixed_patch_stub"
     assert config.memory_failed_patch_threshold == 2
     assert config.memory_fallback_modifier == "adaptive_stub"
+    assert config.memory_fallback_modifiers == (
+        "adaptive_stub",
+        "conservative_stub",
+    )
     assert config.datasets["train"] == "data/train/sample_markets.csv"
     assert config.datasets["validation"] == "data/validation/sample_markets.csv"
     assert config.datasets["holdout"] == "data/holdout/sample_markets.csv"
@@ -151,13 +155,13 @@ def test_preflight_rejects_unknown_memory_fallback_modifier(tmp_path: Path) -> N
     repo = copy_repo_fixture(tmp_path)
     config_path = repo / "config/bad_memory_fallback.json"
     config = json.loads((repo / "config/default.json").read_text())
-    config["memory_filter"]["fallback_modifier"] = "missing_modifier"
+    config["memory_filter"]["fallback_modifiers"] = ["missing_modifier"]
     config_path.write_text(json.dumps(config), encoding="utf-8")
 
     result = run_preflight(repo_root=repo, config_path=config_path)
 
     assert result.ok is False
-    assert any("memory_filter.fallback_modifier" in error for error in result.errors)
+    assert any("memory_filter.fallback_modifiers" in error for error in result.errors)
 
 
 def test_strategy_interface_document_covers_agent_boundaries() -> None:
@@ -357,10 +361,24 @@ def test_iteration_loop_stops_on_repeated_proposal_by_default(tmp_path: Path) ->
 
 def test_iteration_loop_rejects_known_failed_patch_from_memory(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
-    config = replace(load_project_config(repo), memory_fallback_modifier="")
+    config = replace(
+        load_project_config(repo),
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+    )
 
-    run_iteration_loop(run_id="memory-fail-1", max_rounds=1, repo_root=repo, config=config)
-    run_iteration_loop(run_id="memory-fail-2", max_rounds=1, repo_root=repo, config=config)
+    run_iteration_loop(
+        run_id="memory-fail-1",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_iteration_loop(
+        run_id="memory-fail-2",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
     manifest = run_iteration_loop(
         run_id="memory-filtered",
         max_rounds=1,
@@ -420,12 +438,84 @@ def test_iteration_loop_uses_fallback_after_memory_rejected_primary(
     assert manifest["rounds"][0]["proposal_memory_rejected"] is False  # type: ignore[index]
     assert attempts[0]["role"] == "primary"
     assert attempts[0]["memory_filter_rejected"] is True
-    assert attempts[1]["role"] == "fallback"
+    assert attempts[1]["role"] == "fallback_01"
     assert attempts[1]["memory_filter_rejected"] is False
+    assert attempts[1]["selected"] is True
     assert proposal["agent_name"] == "strategy_modifier_adaptive_stub"
     assert "STAKE = 8.0" in proposal["patch_diff"]
     assert not decision["reasons"][0].startswith("memory filter rejected patch")
-    assert "primary proposal rejected by memory filter" in summary_text
+    assert "selected fallback_01 after primary memory rejected" in summary_text
+
+
+def test_iteration_loop_tries_next_candidate_after_fallback_memory_rejection(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    default = load_project_config(repo)
+    no_fallback = replace(
+        default,
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+    )
+    adaptive_without_fallback = replace(
+        default,
+        strategy_modifier="adaptive_stub",
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+    )
+
+    run_iteration_loop(
+        run_id="candidate-min-edge-1",
+        max_rounds=1,
+        repo_root=repo,
+        config=no_fallback,
+    )
+    run_iteration_loop(
+        run_id="candidate-min-edge-2",
+        max_rounds=1,
+        repo_root=repo,
+        config=no_fallback,
+    )
+    run_iteration_loop(
+        run_id="candidate-stake-1",
+        max_rounds=1,
+        repo_root=repo,
+        config=adaptive_without_fallback,
+    )
+    run_iteration_loop(
+        run_id="candidate-stake-2",
+        max_rounds=1,
+        repo_root=repo,
+        config=adaptive_without_fallback,
+    )
+    manifest = run_iteration_loop(
+        run_id="candidate-target",
+        max_rounds=1,
+        repo_root=repo,
+        config=default,
+    )
+
+    round_dir = repo / "experiments/candidate-target/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    attempts = json.loads(
+        (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
+    )
+
+    assert manifest["rounds"][0]["proposal_fallback_used"] is True  # type: ignore[index]
+    assert manifest["rounds"][0]["proposal_memory_rejected"] is False  # type: ignore[index]
+    assert [attempt["role"] for attempt in attempts] == [
+        "primary",
+        "fallback_01",
+        "fallback_02",
+    ]
+    assert [attempt["status"] for attempt in attempts] == [
+        "memory_rejected",
+        "memory_rejected",
+        "selectable",
+    ]
+    assert attempts[2]["selected"] is True
+    assert proposal["agent_name"] == "strategy_modifier_conservative_stub"
+    assert "MIN_EDGE = 0.06" in proposal["patch_diff"]
 
 
 def test_iteration_loop_initializes_git_when_missing(tmp_path: Path) -> None:

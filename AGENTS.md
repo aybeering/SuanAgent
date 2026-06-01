@@ -335,6 +335,7 @@ The project is complete only when these checks pass:
 pytest
 python -m orchestrator.run_loop
 python -m orchestrator.iteration_loop
+python -m orchestrator.iteration_loop --config config/codex_dry_run.json --run-id smoke-dry --max-rounds 1
 ```
 
 ## Expected behavior
@@ -360,6 +361,9 @@ When the V0.5 loop runs, it should:
 The configured modifier may also be `codex_dry_run`, `codex_cli_dry_run`, or
 `codex_cli`. The `codex_cli` adapter must default to `execute=false`; only an
 explicit config change may invoke a subprocess.
+
+CLI entrypoints must support `--config` and `--run-id` so experiments can switch
+between modes without editing `config/default.json`.
 
 Future Codex output must be parsed as a unified diff and rejected before git
 apply if it touches anything except `strategies/current_strategy.py`.

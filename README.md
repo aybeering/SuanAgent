@@ -19,6 +19,8 @@ The strategy interface contract is documented in
 `strategy_modifier` in config; available values are `fixed_patch_stub`,
 `codex_dry_run`, `codex_cli_dry_run`, and `codex_cli`. The `codex_cli` adapter
 only invokes a subprocess when `codex_cli.execute` is explicitly set to `true`.
+Example configs live in `config/codex_dry_run.json` and
+`config/codex_cli_guarded.json`.
 
 Codex-facing adapters use ignored `workspaces/<run_id>/<round_id>/` directories
 for isolated project copies. Returned text is parsed as a unified diff and must
@@ -30,6 +32,14 @@ touch only `strategies/current_strategy.py`.
 pytest
 python -m orchestrator.run_loop
 python -m orchestrator.iteration_loop
+```
+
+Useful mode switches:
+
+```bash
+python -m orchestrator.iteration_loop --config config/codex_dry_run.json --run-id dry-run-demo
+python -m orchestrator.iteration_loop --config config/codex_cli_guarded.json --run-id guarded-demo --max-rounds 1
+python -m orchestrator.run_loop --config config/default.json --run-id single-run-demo
 ```
 
 ## Outputs

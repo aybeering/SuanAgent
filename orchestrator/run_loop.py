@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import csv
 import json
 import os
@@ -22,13 +23,21 @@ def run_pipeline(
     run_id: str | None = None,
     experiments_dir: Path = Path("experiments"),
     data_path: Path | None = None,
+    config_path: Path | None = None,
+    repo_root: Path = Path("."),
 ) -> dict[str, object]:
     """Execute the V0 pipeline and write all experiment artifacts."""
-    config = load_project_config()
+    repo_root = repo_root.resolve()
+    config = load_project_config(repo_root, config_path)
     active_run_id = run_id or os.environ.get("SUAN_RUN_ID") or make_run_id()
-    run_dir = experiments_dir / active_run_id
+    active_experiments_dir = (
+        experiments_dir
+        if experiments_dir.is_absolute()
+        else repo_root / experiments_dir
+    )
+    run_dir = active_experiments_dir / active_run_id
     run_dir.mkdir(parents=True, exist_ok=False)
-    active_data_path = data_path or Path(config.datasets["validation"])
+    active_data_path = data_path or config.dataset_path(repo_root, "validation")
 
     trades_before, metrics_before = run_and_write(
         strategy_name=config.baseline_strategy_module,
@@ -50,7 +59,7 @@ def run_pipeline(
     write_json(run_dir / "decision.json", decision)
     (run_dir / "patch.diff").write_text(strategy_diff(), encoding="utf-8")
     append_experiment_index(
-        experiments_dir=experiments_dir,
+        experiments_dir=active_experiments_dir,
         record={
             "kind": "single_run",
             "run_id": active_run_id,
@@ -123,12 +132,18 @@ def write_trades_csv(path: Path, trades: list[Trade]) -> None:
 
 def make_run_id() -> str:
     """Create a sortable run id."""
-    return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
 
 
 def main() -> None:
     """CLI entrypoint for `python -m orchestrator.run_loop`."""
-    summary = run_pipeline()
+    args = parse_args()
+    summary = run_pipeline(
+        run_id=args.run_id,
+        experiments_dir=args.experiments_dir,
+        data_path=args.data_path,
+        config_path=args.config,
+    )
     print(f"Run directory: {summary['run_dir']}")
     print(f"Accepted: {summary['accepted']}")
     if summary["reasons"]:
@@ -139,6 +154,26 @@ def main() -> None:
         "Trades before/after: "
         f"{summary['before_trade_count']}/{summary['after_trade_count']}"
     )
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse CLI arguments for the single-run pipeline."""
+    parser = argparse.ArgumentParser(description="Run one deterministic V0 evaluation.")
+    parser.add_argument("--config", type=Path, default=None, help="Path to config JSON.")
+    parser.add_argument("--run-id", default=None, help="Experiment run id.")
+    parser.add_argument(
+        "--experiments-dir",
+        type=Path,
+        default=Path("experiments"),
+        help="Directory for experiment artifacts.",
+    )
+    parser.add_argument(
+        "--data-path",
+        type=Path,
+        default=None,
+        help="Override validation data path.",
+    )
+    return parser.parse_args()
 
 
 if __name__ == "__main__":

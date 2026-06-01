@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import importlib
 import os
 import sys
@@ -311,17 +312,50 @@ def repo_context(repo_root: Path) -> Iterator[None]:
 
 def make_run_id() -> str:
     """Create a sortable run id."""
-    return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
 
 
 def main() -> None:
     """CLI entrypoint for `python -m orchestrator.iteration_loop`."""
-    manifest = run_iteration_loop()
+    args = parse_args()
+    manifest = run_iteration_loop(
+        run_id=args.run_id,
+        max_rounds=args.max_rounds,
+        experiments_dir=args.experiments_dir,
+        data_path=args.validation_data,
+        config_path=args.config,
+    )
     print(f"Run id: {manifest['run_id']}")
     print(f"Status: {manifest['status']}")
     print(f"Completed rounds: {manifest['completed_rounds']}")
     print(f"Accepted round: {manifest['accepted_round']}")
     print(f"Final strategy commit: {manifest['final_strategy_commit']}")
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse CLI arguments for the iteration loop."""
+    parser = argparse.ArgumentParser(description="Run the V0.5 self-iteration loop.")
+    parser.add_argument("--config", type=Path, default=None, help="Path to config JSON.")
+    parser.add_argument("--run-id", default=None, help="Experiment run id.")
+    parser.add_argument(
+        "--max-rounds",
+        type=int,
+        default=None,
+        help="Override configured max rounds.",
+    )
+    parser.add_argument(
+        "--experiments-dir",
+        type=Path,
+        default=None,
+        help="Override configured experiment directory.",
+    )
+    parser.add_argument(
+        "--validation-data",
+        type=Path,
+        default=None,
+        help="Override configured validation data path.",
+    )
+    return parser.parse_args()
 
 
 if __name__ == "__main__":

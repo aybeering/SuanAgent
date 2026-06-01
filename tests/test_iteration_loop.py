@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import shutil
 import stat
+import subprocess
+import sys
 from pathlib import Path
 
 from agents.codex_cli_adapter import CodexCliModifier
@@ -18,6 +20,7 @@ from backtester.simulate import validate_strategy_orders
 from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
 from orchestrator.iteration_loop import run_iteration_loop
+from orchestrator.run_loop import run_pipeline
 from orchestrator.patch_parser import (
     PatchParseError,
     changed_paths_from_diff,
@@ -63,6 +66,15 @@ def test_default_config_loads_dataset_splits() -> None:
     assert config.datasets["validation"] == "data/validation/sample_markets.csv"
     assert config.datasets["holdout"] == "data/holdout/sample_markets.csv"
     assert config.policy["min_ev_improvement"] == 0.01
+
+
+def test_example_configs_load_modifier_modes() -> None:
+    dry_run = load_project_config(Path.cwd(), Path("config/codex_dry_run.json"))
+    guarded = load_project_config(Path.cwd(), Path("config/codex_cli_guarded.json"))
+
+    assert dry_run.strategy_modifier == "codex_cli_dry_run"
+    assert guarded.strategy_modifier == "codex_cli"
+    assert guarded.modifier_settings["execute"] is False
 
 
 def test_strategy_interface_document_covers_agent_boundaries() -> None:
@@ -200,6 +212,37 @@ def test_iteration_loop_initializes_git_when_missing(tmp_path: Path) -> None:
     run_iteration_loop(run_id="git-init", max_rounds=1, repo_root=repo)
 
     assert (repo / ".git").exists()
+
+
+def test_run_pipeline_accepts_config_path_and_run_id(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    summary = run_pipeline(
+        run_id="single-cli-style",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+
+    assert summary["run_id"] == "single-cli-style"
+    assert (repo / "experiments/single-cli-style/decision.json").exists()
+
+
+def test_iteration_loop_accepts_dry_run_config_path(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+
+    manifest = run_iteration_loop(
+        run_id="dry-config",
+        repo_root=repo,
+        config_path=repo / "config/codex_dry_run.json",
+    )
+
+    proposal = json.loads(
+        (
+            repo / "experiments/dry-config/round_001/proposal.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert manifest["completed_rounds"] == 1
+    assert proposal["agent_name"] == "codex_cli_dry_run"
 
 
 def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -> None:
@@ -394,6 +437,56 @@ def test_codex_prompt_and_command_builders_are_deterministic() -> None:
         "--",
         "Modify only strategies/current_strategy.py and return a patch.",
     ]
+
+
+def test_iteration_loop_cli_arguments_work(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.iteration_loop",
+            "--config",
+            "config/codex_dry_run.json",
+            "--run-id",
+            "cli-dry",
+            "--max-rounds",
+            "1",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Run id: cli-dry" in result.stdout
+    assert (repo / "experiments/cli-dry/manifest.json").exists()
+
+
+def test_run_loop_cli_arguments_work(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.run_loop",
+            "--config",
+            "config/default.json",
+            "--run-id",
+            "cli-single",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Run directory:" in result.stdout
+    assert (repo / "experiments/cli-single/decision.json").exists()
 
 
 def test_workspace_ids_are_derived_from_report_path() -> None:

@@ -146,6 +146,7 @@ def diagnose_round(
     agent_validation = load_json_object(round_dir / "agent_validation.json") or {}
     agent_bundle = load_json_object(round_dir / "agent_bundle_manifest.json") or {}
     agent_attempts = load_json_object(round_dir / "agent_attempts_manifest.json") or {}
+    agent_selection = load_json_object(round_dir / "agent_selection_report.json") or {}
     workspace_manifest = load_json_object(round_dir / "workspace_manifest.json") or {}
     selected_attempt = selected_attempt_from_file(round_dir / "proposal_attempts.json")
     execution = load_json_object(round_dir / "agent_execution.json") or {}
@@ -180,6 +181,12 @@ def diagnose_round(
         "agent_attempt_trace_present": bool(agent_attempts),
         "agent_attempt_count": agent_attempts.get("attempt_count", 0),
         "selected_attempt_id": agent_attempts.get("selected_attempt_id", ""),
+        "agent_selection_present": bool(agent_selection),
+        "selection_rank_order": (
+            agent_selection.get("selection_policy", {}).get("rank_order", [])
+            if isinstance(agent_selection.get("selection_policy", {}), dict)
+            else []
+        ),
         "workspace_manifest_present": bool(workspace_manifest),
         "workspace_initial_file_count": (
             workspace_manifest.get("initial_snapshot", {}).get("file_count", 0)

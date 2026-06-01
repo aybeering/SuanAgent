@@ -15,7 +15,10 @@ from typing import Iterator
 
 from agents.modifier_adapter import StrategyModifier
 from agents.registry import get_strategy_modifier
-from orchestrator.agent_attempts import write_agent_attempts_manifest
+from orchestrator.agent_attempts import (
+    write_agent_attempts_manifest,
+    write_agent_selection_report,
+)
 from orchestrator.agent_bundle import write_agent_bundle_manifest, write_agent_input_bundle
 from orchestrator.agent_context import write_agent_context
 from orchestrator.agent_io import write_agent_input, write_agent_output
@@ -600,6 +603,13 @@ def run_round(
         metrics_after=metrics_after,
     )
     write_json(round_dir / "proposal_attempts.json", proposal_attempts)
+    write_agent_selection_report(
+        round_dir=round_dir,
+        repo_root=repo_root,
+        run_id=run_id,
+        round_id=round_id,
+        attempts=proposal_attempts,
+    )
     write_agent_attempts_manifest(
         round_dir=round_dir,
         repo_root=repo_root,

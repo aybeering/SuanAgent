@@ -10,6 +10,7 @@ from typing import Any
 
 
 AGENT_ATTEMPTS_SCHEMA_VERSION = "agent_attempts_v1"
+AGENT_SELECTION_SCHEMA_VERSION = "agent_selection_v1"
 ATTEMPTS_DIRNAME = "agent_attempts"
 
 
@@ -64,6 +65,176 @@ def write_agent_attempts_manifest(
     output_path = round_dir / "agent_attempts_manifest.json"
     write_json(output_path, manifest)
     return output_path
+
+
+def write_agent_selection_report(
+    *,
+    round_dir: Path,
+    repo_root: Path,
+    run_id: str,
+    round_id: str,
+    attempts: list[dict[str, object]],
+) -> Path:
+    """Write a deterministic explanation of candidate selection."""
+    rows = selection_rows(attempts=attempts, repo_root=repo_root, round_dir=round_dir)
+    selected_rows = [row for row in rows if row["selected"] is True]
+    selected_attempt_id = (
+        str(selected_rows[0]["attempt_id"]) if selected_rows else ""
+    )
+    report = {
+        "schema_version": AGENT_SELECTION_SCHEMA_VERSION,
+        "run_id": run_id,
+        "round_id": round_id,
+        "selected_attempt_id": selected_attempt_id,
+        "selection_policy": {
+            "eligible_status": "selectable",
+            "rank_order": [
+                "selected",
+                "candidate_score_desc",
+                "attempt_index_asc",
+            ],
+            "final_acceptance": "deterministic policy gate after backtest",
+        },
+        "attempts": rows,
+    }
+    output_path = round_dir / "agent_selection_report.json"
+    write_json(output_path, report)
+    write_attempt_selection_files(round_dir=round_dir, rows=rows)
+    return output_path
+
+
+def selection_rows(
+    *,
+    attempts: list[dict[str, object]],
+    repo_root: Path,
+    round_dir: Path,
+) -> list[dict[str, object]]:
+    """Return per-attempt selection explanation rows."""
+    selected_index = selected_attempt_index(attempts)
+    rows: list[dict[str, object]] = []
+    for index, attempt in enumerate(attempts, start=1):
+        attempt_id = attempt_trace_id(index=index, role=str(attempt.get("role", "")))
+        selected = bool(attempt.get("selected", False))
+        status = str(attempt.get("status", ""))
+        eligible = status == "selectable"
+        blocking_reasons = attempt_blocking_reasons(attempt)
+        rows.append(
+            {
+                "attempt_id": attempt_id,
+                "attempt_index": index,
+                "role": attempt.get("role", ""),
+                "agent_name": attempt.get("agent_name", ""),
+                "direction_tag": attempt.get("direction_tag", ""),
+                "status": status,
+                "eligible": eligible,
+                "selected": selected,
+                "rank": attempt_rank(
+                    attempts=attempts,
+                    attempt_index=index - 1,
+                ),
+                "candidate_score": attempt.get("candidate_score", 0),
+                "score_reasons": attempt.get("score_reasons", []),
+                "blocking_reasons": blocking_reasons,
+                "selection_reason": attempt.get("selection_reason", ""),
+                "skip_reason": attempt_skip_reason(
+                    attempt=attempt,
+                    attempt_index=index - 1,
+                    selected_index=selected_index,
+                    blocking_reasons=blocking_reasons,
+                ),
+                "patch_sha256": attempt.get("patch_sha256", ""),
+                "probe_ev_delta": attempt.get("probe_ev_delta", 0.0),
+                "validation_status": attempt.get("validation_status", ""),
+                "validation_accepted": attempt.get("validation_accepted", None),
+                "validation_ev_delta": attempt.get("validation_ev_delta", None),
+                "attempt_dir": relative_path(
+                    round_dir / ATTEMPTS_DIRNAME / attempt_id,
+                    repo_root,
+                ),
+            }
+        )
+    return rows
+
+
+def write_attempt_selection_files(
+    *,
+    round_dir: Path,
+    rows: list[dict[str, object]],
+) -> None:
+    """Write per-attempt selection report files into trace dirs."""
+    for row in rows:
+        attempt_dir = round_dir / ATTEMPTS_DIRNAME / str(row["attempt_id"])
+        attempt_dir.mkdir(parents=True, exist_ok=True)
+        write_json(attempt_dir / "selection.json", row)
+
+
+def selected_attempt_index(attempts: list[dict[str, object]]) -> int | None:
+    """Return the selected attempt list index."""
+    for index, attempt in enumerate(attempts):
+        if bool(attempt.get("selected", False)):
+            return index
+    return None
+
+
+def attempt_rank(
+    *,
+    attempts: list[dict[str, object]],
+    attempt_index: int,
+) -> int:
+    """Return a stable rank over selected/selectable candidate attempts."""
+    ordered_indexes = sorted(
+        range(len(attempts)),
+        key=lambda index: (
+            bool(attempts[index].get("selected", False)),
+            int(attempts[index].get("candidate_score", 0)),
+            -index,
+        ),
+        reverse=True,
+    )
+    return ordered_indexes.index(attempt_index) + 1
+
+
+def attempt_blocking_reasons(attempt: dict[str, object]) -> list[str]:
+    """Return deterministic reasons why an attempt was not eligible."""
+    reasons: list[str] = []
+    for field in (
+        "contract_errors",
+        "memory_filter_reason",
+        "patch_memory_filter_reason",
+        "direction_filter_reason",
+        "patch_check_error",
+        "probe_error",
+    ):
+        value = attempt.get(field)
+        if isinstance(value, list | tuple):
+            reasons.extend(str(item) for item in value if str(item))
+        elif value:
+            reasons.append(str(value))
+    status = str(attempt.get("status", ""))
+    if status and status != "selectable" and not reasons:
+        reasons.append(f"status={status}")
+    return reasons
+
+
+def attempt_skip_reason(
+    *,
+    attempt: dict[str, object],
+    attempt_index: int,
+    selected_index: int | None,
+    blocking_reasons: list[str],
+) -> str:
+    """Return the stable skip reason for an unselected attempt."""
+    if bool(attempt.get("selected", False)):
+        return ""
+    if blocking_reasons:
+        return "; ".join(blocking_reasons)
+    if selected_index is None:
+        return "no selected attempt"
+    return (
+        "selectable but not highest ranked"
+        if str(attempt.get("status", "")) == "selectable"
+        else f"status={attempt.get('status', 'unknown')}"
+    )
 
 
 def attempt_trace_id(*, index: int, role: str) -> str:

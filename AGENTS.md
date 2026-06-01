@@ -113,6 +113,8 @@ Current structure:
 ├── schemas/
 │   ├── agent_input.schema.json
 │   ├── agent_bundle.schema.json
+│   ├── agent_attempts.schema.json
+│   ├── agent_selection.schema.json
 │   ├── agent_output.schema.json
 │   ├── agent_validation.schema.json
 │   ├── agent_execution.schema.json
@@ -238,6 +240,7 @@ round_001/
   agent_output.json
   agent_validation.json
   agent_attempts_manifest.json
+  agent_selection_report.json
   agent_attempts/
   workspace_manifest.json  # workspace-backed agents only
   proposal.json
@@ -315,6 +318,9 @@ contract validity, strategy-only patch targeting, and `git apply --check`.
 with its own attempt payload, proposal, raw output, and patch. The
 `agent_attempts_manifest.json` artifact should use schema version
 `agent_attempts_v1` and identify the selected attempt.
+`agent_selection_report.json` should use schema version `agent_selection_v1`
+and explain each attempt's eligibility, rank, score reasons, blocking reasons,
+selection reason, or skip reason.
 The machine-readable contracts for these files live in `schemas/`. Run-level
 metadata should write `run_metadata.json`, include resolved dataset paths and
 dataset SHA-256 fingerprints, use schema version `run_metadata_v1`, and match

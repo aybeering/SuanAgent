@@ -51,6 +51,7 @@ ROUND_REQUIRED_FILES = (
     "agent_output.json",
     "agent_validation.json",
     "agent_attempts_manifest.json",
+    "agent_selection_report.json",
     "proposal_attempts.json",
     "proposal.json",
     "raw_agent_output.txt",
@@ -203,8 +204,18 @@ def validate_round_dir(
         schema_path=repo_root / "schemas/agent_attempts.schema.json",
         report=report,
     )
+    validate_contract_file(
+        payload_path=round_dir / "agent_selection_report.json",
+        schema_path=repo_root / "schemas/agent_selection.schema.json",
+        report=report,
+    )
     validate_agent_attempts_manifest(
         path=round_dir / "agent_attempts_manifest.json",
+        repo_root=repo_root,
+        report=report,
+    )
+    validate_agent_selection_report(
+        path=round_dir / "agent_selection_report.json",
         repo_root=repo_root,
         report=report,
     )
@@ -324,6 +335,40 @@ def validate_agent_attempts_manifest(
             file_path = resolve_path(Path(str(file_row.get("path", ""))), repo_root)
             if not file_path.exists() or not file_path.is_file():
                 add_error(report, f"attempt file does not exist: {file_path}")
+
+
+def validate_agent_selection_report(
+    *,
+    path: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate selection report rows point at real attempt dirs."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    rows = payload.get("attempts", [])
+    if not isinstance(rows, list) or not rows:
+        add_error(report, "agent_selection_report.json attempts is empty or invalid")
+        return
+    selected_rows = 0
+    for row in rows:
+        if not isinstance(row, dict):
+            add_error(report, "agent_selection_report.json attempts contains non-object")
+            continue
+        if bool(row.get("selected", False)):
+            selected_rows += 1
+        attempt_dir = resolve_path(Path(str(row.get("attempt_dir", ""))), repo_root)
+        if not attempt_dir.exists() or not attempt_dir.is_dir():
+            add_error(report, f"selection attempt_dir does not exist: {attempt_dir}")
+        selection_file = attempt_dir / "selection.json"
+        if not selection_file.exists():
+            add_error(report, f"missing per-attempt selection file: {selection_file}")
+    if selected_rows != 1:
+        add_error(
+            report,
+            f"agent_selection_report.json must have exactly one selected row, got {selected_rows}",
+        )
 
 
 def validate_required_files(

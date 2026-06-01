@@ -409,6 +409,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "agent_output.json",
         "agent_validation.json",
         "agent_attempts_manifest.json",
+        "agent_selection_report.json",
         "proposal_attempts.json",
         "proposal.json",
         "raw_agent_output.txt",
@@ -434,6 +435,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     agent_attempts = json.loads(
         (round_dir / "agent_attempts_manifest.json").read_text(encoding="utf-8")
+    )
+    agent_selection = json.loads(
+        (round_dir / "agent_selection_report.json").read_text(encoding="utf-8")
     )
     agent_output = json.loads(
         (round_dir / "agent_output.json").read_text(encoding="utf-8")
@@ -489,6 +493,17 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_attempts["selected_attempt_id"] == "attempt_001_primary"
     assert agent_attempts["attempts"][0]["selected"] is True
     assert agent_attempts["attempts"][0]["files"]
+    assert_matches_schema(round_dir / "agent_selection_report.json", "agent_selection")
+    assert agent_selection["schema_version"] == "agent_selection_v1"
+    assert agent_selection["selected_attempt_id"] == "attempt_001_primary"
+    assert agent_selection["attempts"][0]["selected"] is True
+    assert agent_selection["attempts"][0]["eligible"] is True
+    assert agent_selection["attempts"][0]["rank"] == 1
+    assert agent_selection["attempts"][0]["score_reasons"]
+    assert agent_selection["attempts"][0]["skip_reason"] == ""
+    assert (
+        round_dir / "agent_attempts/attempt_001_primary/selection.json"
+    ).exists()
     assert (
         round_dir / "agent_attempts/attempt_001_primary/raw_agent_output.txt"
     ).exists()
@@ -2340,6 +2355,10 @@ def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
     assert any(
+        path.endswith("agent_selection_report.json")
+        for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
         path.endswith("workspace_manifest.json")
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
@@ -2543,6 +2562,8 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     assert diagnosis["rounds"][0]["agent_bundle_input_file_count"] > 0  # type: ignore[index]
     assert diagnosis["rounds"][0]["agent_attempt_trace_present"] is True  # type: ignore[index]
     assert diagnosis["rounds"][0]["agent_attempt_count"] > 0  # type: ignore[index]
+    assert diagnosis["rounds"][0]["agent_selection_present"] is True  # type: ignore[index]
+    assert diagnosis["rounds"][0]["selection_rank_order"]  # type: ignore[index]
     assert "Iteration run" in diagnosis["summary"]
     saved = json.loads(
         (repo / "experiments/diagnose-iteration/diagnosis.json").read_text(

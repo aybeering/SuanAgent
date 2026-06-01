@@ -83,6 +83,12 @@ from orchestrator.experiments import (
     show_experiment,
     show_champion,
     summarize_experiments,
+    external_agent_sandbox_report,
+)
+from orchestrator.external_agent_sandbox_drill import (
+    EXTERNAL_AGENT_SANDBOX_DRILL_SCHEMA_VERSION,
+    build_external_agent_sandbox_drill,
+    write_external_agent_sandbox_drill,
 )
 from orchestrator.patch_parser import (
     PatchParseError,
@@ -4080,6 +4086,147 @@ def test_agent_slot_readiness_gate_blocks_missing_round_replay(
     assert readiness["totals"]["blocked_count"] == 1
     assert readiness["slots"][0]["readiness_status"] == "blocked"
     assert "replay_missing" in readiness["slots"][0]["blocking_issues"]
+    assert cli_result.returncode == 1
+
+
+def test_external_agent_sandbox_drill_reports_codex_dry_run_boundary(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="sandbox-codex-dry-run",
+        max_rounds=1,
+        repo_root=repo,
+        config_path=repo / "config/codex_dry_run.json",
+    )
+    run_dir = repo / "experiments/sandbox-codex-dry-run"
+
+    drill = write_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
+    dynamic_drill = external_agent_sandbox_report(
+        run_id="sandbox-codex-dry-run",
+        experiments_dir=repo / "experiments",
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "sandbox",
+            "sandbox-codex-dry-run",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    validation_report = validate_run_artifacts(
+        run_id="sandbox-codex-dry-run",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert drill["schema_version"] == EXTERNAL_AGENT_SANDBOX_DRILL_SCHEMA_VERSION
+    assert drill["ok"] is True
+    assert drill["totals"]["external_slot_count"] == 1
+    assert drill["totals"]["dry_run_only_count"] == 1
+    assert drill["totals"]["subprocess_executed_count"] == 0
+    slot = drill["slots"][0]
+    assert slot["adapter_name"] == "codex_cli_dry_run"
+    assert slot["sandbox_status"] == "ready"
+    assert slot["dry_run_only"] is True
+    assert slot["subprocess_executed"] is False
+    assert slot["command"]["source"] == "proposal"
+    assert slot["command"]["argv"][0] == "codex"
+    assert slot["requirements"]["workspace_manifest_present"] is True
+    assert slot["requirements"]["execution_audit_required"] is False
+    assert dynamic_drill["from_artifact"] is True
+    assert cli_result.returncode == 0, cli_result.stderr
+    cli_payload = json.loads(cli_result.stdout)
+    assert cli_payload["from_artifact"] is True
+    assert cli_payload["ok"] is True
+    assert_matches_schema(
+        run_dir / "external_agent_sandbox_drill.json",
+        "external_agent_sandbox_drill",
+    )
+    assert (run_dir / "external_agent_sandbox_drill.md").exists()
+    assert validation_report["ok"] is True
+
+
+def test_external_agent_sandbox_drill_reports_file_protocol_execution(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+    run_iteration_loop(
+        run_id="sandbox-file-protocol",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/sandbox-file-protocol"
+
+    drill = build_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
+
+    assert drill["ok"] is True
+    assert drill["totals"]["external_slot_count"] == 1
+    assert drill["totals"]["dry_run_only_count"] == 0
+    assert drill["totals"]["subprocess_executed_count"] == 1
+    slot = drill["slots"][0]
+    assert slot["adapter_name"] == "file_protocol"
+    assert slot["command"]["source"] == "agent_execution"
+    assert slot["subprocess_executed"] is True
+    assert slot["execution_audit"]["status"] == "completed"
+    assert slot["execution_audit"]["mutation_guard_passed"] is True
+    assert slot["requirements"]["execution_audit_present"] is True
+
+
+def test_external_agent_sandbox_drill_blocks_missing_workspace_manifest(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+    run_iteration_loop(
+        run_id="sandbox-missing-workspace",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/sandbox-missing-workspace"
+    for path in (
+        run_dir
+        / "round_001"
+        / "workspace_manifests"
+        / "attempt_001_primary.json",
+        run_dir
+        / "round_001"
+        / "agent_attempts"
+        / "attempt_001_primary"
+        / "workspace_manifest.json",
+        run_dir / "round_001" / "workspace_manifest.json",
+    ):
+        if path.exists():
+            path.unlink()
+
+    drill = build_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.external_agent_sandbox_drill",
+            "experiments/sandbox-missing-workspace",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert drill["ok"] is False
+    assert drill["totals"]["blocked_count"] == 1
+    assert drill["slots"][0]["sandbox_status"] == "blocked"
+    assert "workspace_manifest_missing" in drill["slots"][0]["blocking_issues"]
     assert cli_result.returncode == 1
 
 

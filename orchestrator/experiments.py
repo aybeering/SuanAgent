@@ -11,6 +11,9 @@ from orchestrator.agent_result_stats import build_agent_result_stats
 from orchestrator.agent_slot_readiness_gate import build_agent_slot_readiness_gate
 from orchestrator.agent_slot_health import build_agent_slot_health
 from orchestrator.experiment_index import read_experiment_index, recent_experiments
+from orchestrator.external_agent_sandbox_drill import (
+    build_external_agent_sandbox_drill,
+)
 from orchestrator.outcome_memory import recent_outcomes
 from orchestrator.run_diagnosis import diagnose_run
 
@@ -177,6 +180,28 @@ def agent_slot_readiness_report(
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
     payload = build_agent_slot_readiness_gate(
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+    )
+    payload["from_artifact"] = False
+    return payload
+
+
+def external_agent_sandbox_report(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+) -> dict[str, object]:
+    """Return external agent sandbox drill details for one run."""
+    run_dir = experiments_dir / run_id
+    path = run_dir / "external_agent_sandbox_drill.json"
+    if path.exists():
+        payload = load_json(path)
+        payload["from_artifact"] = True
+        return payload
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    payload = build_external_agent_sandbox_drill(
         run_dir=run_dir,
         repo_root=experiments_dir.parent,
     )
@@ -760,6 +785,12 @@ def main() -> None:
     )
     readiness_parser.add_argument("run_id")
 
+    sandbox_parser = subparsers.add_parser(
+        "sandbox",
+        help="Show external-agent sandbox drill details for one iteration run.",
+    )
+    sandbox_parser.add_argument("run_id")
+
     subparsers.add_parser("champion", help="Show the current champion registry.")
 
     compare_parser = subparsers.add_parser(
@@ -825,6 +856,11 @@ def main() -> None:
         )
     elif args.command == "readiness":
         payload = agent_slot_readiness_report(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
+        )
+    elif args.command == "sandbox":
+        payload = external_agent_sandbox_report(
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )

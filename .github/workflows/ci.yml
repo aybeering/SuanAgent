@@ -44,6 +44,19 @@ jobs:
 
       - name: Validate iteration artifacts
         run: |
+          python -m orchestrator.external_agent_sandbox_drill experiments/ci-dry
+          test -f experiments/ci-dry/external_agent_sandbox_drill.json
+          test -f experiments/ci-dry/external_agent_sandbox_drill.md
+          python -m orchestrator.experiments sandbox ci-dry > /tmp/codex_dry_sandbox.json
+          python - <<'PY'
+          import json
+          sandbox = json.load(open("/tmp/codex_dry_sandbox.json"))
+          assert sandbox["schema_version"] == "external_agent_sandbox_drill_v1"
+          assert sandbox["ok"] is True
+          assert sandbox["totals"]["dry_run_only_count"] == 1
+          assert sandbox["slots"][0]["command"]["source"] == "proposal"
+          PY
+          python -m orchestrator.artifact_validator ci-dry
           python -m orchestrator.artifact_validator ci-adaptive
           python -m orchestrator.artifact_validator ci-file-protocol-demo
           python - <<'PY'
@@ -155,6 +168,18 @@ jobs:
           assert readiness["ok"] is True
           assert readiness["totals"]["ready_count"] == 1
           assert readiness["slots"][0]["requirements"]["replay_ok"] is True
+          PY
+          python -m orchestrator.external_agent_sandbox_drill experiments/ci-file-protocol-demo
+          test -f experiments/ci-file-protocol-demo/external_agent_sandbox_drill.json
+          test -f experiments/ci-file-protocol-demo/external_agent_sandbox_drill.md
+          python -m orchestrator.experiments sandbox ci-file-protocol-demo > /tmp/file_protocol_sandbox.json
+          python - <<'PY'
+          import json
+          sandbox = json.load(open("/tmp/file_protocol_sandbox.json"))
+          assert sandbox["schema_version"] == "external_agent_sandbox_drill_v1"
+          assert sandbox["ok"] is True
+          assert sandbox["totals"]["subprocess_executed_count"] == 1
+          assert sandbox["slots"][0]["execution_audit"]["status"] == "completed"
           PY
           python -m orchestrator.artifact_validator ci-file-protocol-demo
 

@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent External Agent Sandbox Drill",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "ok",
+    "source_artifacts",
+    "totals",
+    "status_counts",
+    "slots",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "external_agent_sandbox_drill_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "source_artifacts": {
+      "type": "object",
+      "required": [
+        "rounds"
+      ],
+      "properties": {
+        "rounds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "required": [
+        "slot_count",
+        "external_slot_count",
+        "dry_run_only_count",
+        "subprocess_executed_count",
+        "blocked_count"
+      ],
+      "properties": {
+        "slot_count": {
+          "type": "integer"
+        },
+        "external_slot_count": {
+          "type": "integer"
+        },
+        "dry_run_only_count": {
+          "type": "integer"
+        },
+        "subprocess_executed_count": {
+          "type": "integer"
+        },
+        "blocked_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "status_counts": {
+      "type": "object"
+    },
+    "slots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "slot_id",
+          "run_id",
+          "round_id",
+          "attempt_id",
+          "attempt_index",
+          "queue_role",
+          "profile_name",
+          "agent_role",
+          "adapter_name",
+          "runner_name",
+          "external_slot",
+          "execution_enabled",
+          "dry_run_only",
+          "subprocess_executed",
+          "sandbox_status",
+          "sandbox_ok",
+          "blocking_issues",
+          "requirements",
+          "command",
+          "workspace",
+          "execution_audit",
+          "io_paths"
+        ],
+        "properties": {
+          "slot_id": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "round_id": {
+            "type": "string"
+          },
+          "attempt_id": {
+            "type": "string"
+          },
+          "attempt_index": {
+            "type": "integer"
+          },
+          "queue_role": {
+            "type": "string"
+          },
+          "profile_name": {
+            "type": "string"
+          },
+          "agent_role": {
+            "type": "string"
+          },
+          "adapter_name": {
+            "type": "string"
+          },
+          "runner_name": {
+            "type": "string"
+          },
+          "external_slot": {
+            "type": "boolean"
+          },
+          "execution_enabled": {
+            "type": "boolean"
+          },
+          "dry_run_only": {
+            "type": "boolean"
+          },
+          "subprocess_executed": {
+            "type": "boolean"
+          },
+          "sandbox_status": {
+            "type": "string"
+          },
+          "sandbox_ok": {
+            "type": "boolean"
+          },
+          "blocking_issues": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "requirements": {
+            "type": "object"
+          },
+          "command": {
+            "type": "object",
+            "required": [
+              "source",
+              "argv",
+              "argc"
+            ],
+            "properties": {
+              "source": {
+                "type": "string"
+              },
+              "argv": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "argc": {
+                "type": "integer"
+              }
+            }
+          },
+          "workspace": {
+            "type": "object"
+          },
+          "execution_audit": {
+            "type": "object"
+          },
+          "io_paths": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "sandbox_drill_only",
+        "does_not_execute_agents",
+        "does_not_apply_patches",
+        "does_not_select_candidate",
+        "does_not_change_acceptance",
+        "deterministic_code_keeps_acceptance_authority"
+      ],
+      "properties": {
+        "sandbox_drill_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_select_candidate": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "deterministic_code_keeps_acceptance_authority": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

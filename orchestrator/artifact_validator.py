@@ -150,6 +150,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_external_agent_sandbox_drill(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     report["ok"] = not report["errors"]
     return report
 
@@ -1793,6 +1798,66 @@ def validate_optional_agent_slot_readiness_gate(
                     f"agent_slot_readiness_gate.json policy false: {key}",
                 )
     markdown_path = run_dir / "agent_slot_readiness_gate.md"
+    if markdown_path.exists():
+        checked_files(report).append(str(markdown_path))
+
+
+def validate_optional_external_agent_sandbox_drill(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate external_agent_sandbox_drill.json when a run has one."""
+    path = run_dir / "external_agent_sandbox_drill.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/external_agent_sandbox_drill.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"external_agent_sandbox_drill.json run_id does not match report: {path}",
+        )
+    slots = payload.get("slots", [])
+    if not isinstance(slots, list):
+        add_error(report, "external_agent_sandbox_drill.json slots is invalid")
+        return
+    totals = payload.get("totals", {})
+    if isinstance(totals, dict) and totals.get("slot_count") != len(slots):
+        add_error(report, "external_agent_sandbox_drill.json slot_count mismatch")
+    blocked_count = sum(
+        1
+        for slot in slots
+        if isinstance(slot, dict) and slot.get("sandbox_status") == "blocked"
+    )
+    if isinstance(totals, dict) and totals.get("blocked_count") != blocked_count:
+        add_error(report, "external_agent_sandbox_drill.json blocked_count mismatch")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "external_agent_sandbox_drill.json policy invalid")
+    else:
+        for key in (
+            "sandbox_drill_only",
+            "does_not_execute_agents",
+            "does_not_apply_patches",
+            "does_not_select_candidate",
+            "does_not_change_acceptance",
+            "deterministic_code_keeps_acceptance_authority",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(
+                    report,
+                    f"external_agent_sandbox_drill.json policy false: {key}",
+                )
+    markdown_path = run_dir / "external_agent_sandbox_drill.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
 

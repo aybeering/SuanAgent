@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Agent Routing Policy",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "round_id",
+    "selected_attempt_id",
+    "selected_profile_name",
+    "selected_adapter_name",
+    "selected_runner_name",
+    "selection_reason",
+    "routing_policy",
+    "candidates"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "agent_routing_policy_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "round_id": {
+      "type": "string"
+    },
+    "selected_attempt_id": {
+      "type": "string"
+    },
+    "selected_profile_name": {
+      "type": "string"
+    },
+    "selected_adapter_name": {
+      "type": "string"
+    },
+    "selected_runner_name": {
+      "type": "string"
+    },
+    "selection_reason": {
+      "type": "string"
+    },
+    "routing_policy": {
+      "type": "object",
+      "required": [
+        "mode",
+        "eligible_status",
+        "rank_order",
+        "candidate_selection",
+        "final_acceptance"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "eligible_status": {
+          "type": "string"
+        },
+        "rank_order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "candidate_selection": {
+          "type": "object"
+        },
+        "final_acceptance": {
+          "type": "string"
+        }
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "attempt_id",
+          "attempt_index",
+          "role",
+          "profile_name",
+          "adapter_name",
+          "runner_name",
+          "runner",
+          "agent_name",
+          "direction_tag",
+          "status",
+          "eligible",
+          "selected",
+          "rank",
+          "candidate_score",
+          "score_reasons",
+          "blocking_reasons",
+          "selection_reason",
+          "skip_reason",
+          "failure_stage",
+          "failure_code",
+          "failure_message",
+          "patch_sha256",
+          "probe_ev_delta",
+          "validation_status",
+          "routing_prior",
+          "exploration_bonus",
+          "champion_gap",
+          "artifacts"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": "string"
+          },
+          "attempt_index": {
+            "type": "integer"
+          },
+          "role": {
+            "type": "string"
+          },
+          "profile_name": {
+            "type": "string"
+          },
+          "adapter_name": {
+            "type": "string"
+          },
+          "runner_name": {
+            "type": "string"
+          },
+          "runner": {
+            "type": "object"
+          },
+          "agent_name": {
+            "type": "string"
+          },
+          "direction_tag": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "eligible": {
+            "type": "boolean"
+          },
+          "selected": {
+            "type": "boolean"
+          },
+          "rank": {
+            "type": "integer"
+          },
+          "candidate_score": {
+            "type": "number"
+          },
+          "score_reasons": {
+            "type": "array"
+          },
+          "blocking_reasons": {
+            "type": "array"
+          },
+          "selection_reason": {
+            "type": "string"
+          },
+          "skip_reason": {
+            "type": "string"
+          },
+          "failure_stage": {
+            "type": "string"
+          },
+          "failure_code": {
+            "type": "string"
+          },
+          "failure_message": {
+            "type": "string"
+          },
+          "patch_sha256": {
+            "type": "string"
+          },
+          "probe_ev_delta": {
+            "type": "number"
+          },
+          "validation_status": {
+            "type": "string"
+          },
+          "routing_prior": {
+            "type": "object"
+          },
+          "exploration_bonus": {
+            "type": "object"
+          },
+          "champion_gap": {
+            "type": "object"
+          },
+          "artifacts": {
+            "type": "object",
+            "required": [
+              "attempt_dir",
+              "attempt_output",
+              "agent_input",
+              "selection",
+              "proposal"
+            ],
+            "properties": {
+              "attempt_dir": {
+                "type": "string"
+              },
+              "attempt_output": {
+                "type": "string"
+              },
+              "agent_input": {
+                "type": "string"
+              },
+              "selection": {
+                "type": "string"
+              },
+              "proposal": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

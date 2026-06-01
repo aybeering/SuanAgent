@@ -34,6 +34,7 @@ from orchestrator.agent_bundle import write_agent_bundle_manifest, write_agent_i
 from orchestrator.agent_context import write_agent_context
 from orchestrator.agent_io import write_agent_input, write_agent_output
 from orchestrator.agent_output_intake import validate_agent_proposal
+from orchestrator.agent_routing import write_agent_routing_policy
 from orchestrator.config import (
     ProjectConfig,
     load_project_config,
@@ -703,6 +704,15 @@ def run_round(
         run_id=run_id,
         round_id=round_id,
         attempts=proposal_attempts,
+    )
+    write_agent_routing_policy(
+        output_path=round_dir / "agent_routing_policy.json",
+        repo_root=repo_root,
+        round_dir=round_dir,
+        run_id=run_id,
+        round_id=round_id,
+        attempts=proposal_attempts,
+        candidate_selection=candidate_selection,
     )
     write_agent_executor_report(
         output_path=round_dir / "agent_executor_report.json",

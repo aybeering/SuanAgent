@@ -51,6 +51,7 @@ ROUND_REQUIRED_FILES = (
     "agent_output.json",
     "agent_validation.json",
     "agent_executor_report.json",
+    "agent_routing_policy.json",
     "agent_attempts_manifest.json",
     "agent_selection_report.json",
     "proposal_attempts.json",
@@ -212,6 +213,16 @@ def validate_round_dir(
     )
     validate_agent_executor_report(
         path=round_dir / "agent_executor_report.json",
+        repo_root=repo_root,
+        report=report,
+    )
+    validate_contract_file(
+        payload_path=round_dir / "agent_routing_policy.json",
+        schema_path=repo_root / "schemas/agent_routing_policy.schema.json",
+        report=report,
+    )
+    validate_agent_routing_policy(
+        path=round_dir / "agent_routing_policy.json",
         repo_root=repo_root,
         report=report,
     )
@@ -468,6 +479,62 @@ def validate_agent_executor_report(
         add_error(
             report,
             f"agent_executor_report.json must have exactly one selected row, got {selected_rows}",
+        )
+
+
+def validate_agent_routing_policy(
+    *,
+    path: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate routing policy rows and referenced attempt artifacts."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    rows = payload.get("candidates", [])
+    if not isinstance(rows, list) or not rows:
+        add_error(report, "agent_routing_policy.json candidates is empty or invalid")
+        return
+    selected_rows = 0
+    for row in rows:
+        if not isinstance(row, dict):
+            add_error(report, "agent_routing_policy.json candidates contains non-object")
+            continue
+        if bool(row.get("selected", False)):
+            selected_rows += 1
+        artifacts = row.get("artifacts", {})
+        if not isinstance(artifacts, dict):
+            add_error(report, "agent_routing_policy.json artifacts is non-object")
+            continue
+        attempt_dir = resolve_path(
+            Path(str(artifacts.get("attempt_dir", ""))),
+            repo_root,
+        )
+        if not attempt_dir.exists() or not attempt_dir.is_dir():
+            add_error(report, f"routing attempt_dir does not exist: {attempt_dir}")
+        for key in ("attempt_output", "agent_input", "selection", "proposal"):
+            artifact_path = resolve_path(Path(str(artifacts.get(key, ""))), repo_root)
+            if not artifact_path.exists() or not artifact_path.is_file():
+                add_error(
+                    report,
+                    f"routing artifact does not exist: {key}={artifact_path}",
+                )
+    if selected_rows != 1:
+        add_error(
+            report,
+            f"agent_routing_policy.json must have exactly one selected row, got {selected_rows}",
+        )
+    selected_attempt_id = str(payload.get("selected_attempt_id", ""))
+    if selected_attempt_id and not any(
+        isinstance(row, dict)
+        and bool(row.get("selected", False))
+        and str(row.get("attempt_id", "")) == selected_attempt_id
+        for row in rows
+    ):
+        add_error(
+            report,
+            "agent_routing_policy.json selected_attempt_id does not match selected row",
         )
 
 

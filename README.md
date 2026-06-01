@@ -234,12 +234,12 @@ direction, directions to avoid, evidence, and hard constraints for the modifier.
 Each round also writes `agent_input_bundle/`, `agent_output_bundle/`,
 `agent_bundle_manifest.json`, `agent_attempts/`,
 `agent_attempts_manifest.json`, `agent_selection_report.json`,
-`agent_executor_report.json`, `agent_input.json`, `raw_agent_output.txt`,
-`agent_output.json`, and `agent_validation.json`, stable fixtures that record
-what a modifier backend was given, the raw text that became the proposal, every
-candidate attempt considered, the executor queue metadata, why each attempt was
-selected or skipped, and whether deterministic intake checks passed before patch
-application.
+`agent_executor_report.json`, `agent_routing_policy.json`, `agent_input.json`,
+`raw_agent_output.txt`, `agent_output.json`, and `agent_validation.json`, stable
+fixtures that record what a modifier backend was given, the raw text that
+became the proposal, every candidate attempt considered, the executor queue
+metadata, why each attempt was selected or skipped, and whether deterministic
+intake checks passed before patch application.
 `agent_input.json` includes `agent_profiles`, an `active_agent` task envelope,
 and output-contract paths so future SDK or CLI-backed agents do not need to
 infer their identity or allowed output location from filenames.
@@ -251,9 +251,14 @@ as `codex_cli_guarded_adapter`; and dry-run Codex boundaries are marked as
 execution flag, output mode, workspace root, and allowed output filenames where
 relevant. The same runner metadata is copied into
 `manifest.json`, `agent_input.json`, `agent_executor_report.json`,
-`agent_output.json`, `agent_attempts_manifest.json`, `agent_selection_report.json`,
-and each `attempt_output.json`, so a single blue-node attempt can be routed or
-audited without guessing how it was supposed to run.
+`agent_routing_policy.json`, `agent_output.json`, `agent_attempts_manifest.json`,
+`agent_selection_report.json`, and each `attempt_output.json`, so a single
+blue-node attempt can be routed or audited without guessing how it was supposed
+to run.
+`agent_routing_policy.json` is the round-level routing decision view: it records
+the selected profile, adapter, runner, deterministic rank policy, score weights,
+candidate scores, score reasons, skip reasons, routing priors, and links to
+attempt-level audit files.
 Workspace-backed candidates also keep per-attempt copies of
 `agent_input.json`, `attempt_output.json`, `workspace_manifest.json`, and, for
 file-protocol commands, `agent_execution.json` inside
@@ -268,7 +273,8 @@ workspace manifest, agent validation report, and file-protocol execution audit
 are validated against
 `schemas/proposal_intent.schema.json`, `schemas/agent_bundle.schema.json`,
 `schemas/agent_attempts.schema.json`, `schemas/agent_selection.schema.json`,
-`schemas/agent_executor.schema.json`, `schemas/workspace_manifest.schema.json`,
+`schemas/agent_executor.schema.json`, `schemas/agent_routing_policy.schema.json`,
+`schemas/workspace_manifest.schema.json`,
 `schemas/agent_validation.schema.json`, `schemas/agent_execution.schema.json`,
 `schemas/attempt_output.schema.json`, and
 `schemas/attempt_replay.schema.json`; run provenance is validated against

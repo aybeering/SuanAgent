@@ -819,6 +819,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "agent_output.json",
         "agent_validation.json",
         "agent_executor_report.json",
+        "agent_routing_policy.json",
         "agent_attempts_manifest.json",
         "agent_selection_report.json",
         "proposal_attempts.json",
@@ -859,6 +860,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     agent_executor = json.loads(
         (round_dir / "agent_executor_report.json").read_text(encoding="utf-8")
+    )
+    agent_routing = json.loads(
+        (round_dir / "agent_routing_policy.json").read_text(encoding="utf-8")
     )
     attempts = json.loads(
         (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
@@ -1043,6 +1047,28 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_executor["execution_policy"]["mode"] == "sequential"
     assert agent_executor["execution_policy"]["max_candidates"] == 0
     assert agent_executor["execution_policy"]["per_agent_timeout_seconds"] == 120
+    assert agent_routing["schema_version"] == "agent_routing_policy_v1"
+    assert_matches_schema(
+        round_dir / "agent_routing_policy.json",
+        "agent_routing_policy",
+    )
+    assert agent_routing["selected_attempt_id"] == "attempt_001_primary"
+    assert agent_routing["selected_profile_name"] == "primary"
+    assert agent_routing["selected_runner_name"] == "in_process_modifier"
+    assert agent_routing["routing_policy"]["mode"] == (
+        "deterministic_score_then_policy_gate"
+    )
+    assert (
+        agent_routing["routing_policy"]["candidate_selection"]["routing_prefer_bonus"]
+        == 8
+    )
+    assert agent_routing["candidates"][0]["selected"] is True
+    assert agent_routing["candidates"][0]["selection_reason"] == selected_attempt[
+        "selection_reason"
+    ]
+    assert agent_routing["candidates"][0]["artifacts"]["attempt_output"].endswith(
+        "agent_attempts/attempt_001_primary/attempt_output.json"
+    )
     assert agent_executor["execution_policy"]["allow_disabled_adapters"] is True
     assert agent_executor["attempts"][0]["modifier_name"] == "strategy_modifier_stub"
     assert agent_executor["attempts"][0]["profile_name"] == "primary"
@@ -2519,6 +2545,9 @@ output_path.write_text(json.dumps({
     agent_output = json.loads(
         (round_dir / "agent_output.json").read_text(encoding="utf-8")
     )
+    agent_routing = json.loads(
+        (round_dir / "agent_routing_policy.json").read_text(encoding="utf-8")
+    )
     agent_execution = json.loads(
         (round_dir / "agent_execution.json").read_text(encoding="utf-8")
     )
@@ -2537,6 +2566,15 @@ output_path.write_text(json.dumps({
     assert manifest["agent_profiles"][0]["runner"]["allowed_output_files"] == [
         "fixture_agent_output.json"
     ]
+    assert_matches_schema(
+        round_dir / "agent_routing_policy.json",
+        "agent_routing_policy",
+    )
+    assert agent_routing["selected_runner_name"] == AGENT_CONTRACT_RUNNER_NAME
+    assert agent_routing["candidates"][0]["runner"]["output_mode"] == "file_contract"
+    assert agent_routing["candidates"][0]["artifacts"]["attempt_output"].endswith(
+        "agent_attempts/attempt_001_primary/attempt_output.json"
+    )
     assert proposal["agent_name"] == "file_protocol_agent"
     assert proposal["summary"] == "Lower MIN_EDGE through file protocol."
     assert proposal["applicable"] is True

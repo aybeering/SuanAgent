@@ -310,7 +310,8 @@ guidance only; it must not decide acceptance.
 Each round should also write `agent_input.json`, `agent_bundle_manifest.json`,
 `agent_input_bundle/`, `agent_output_bundle/`, `raw_agent_output.txt`,
 `agent_output.json`, `agent_validation.json`, `agent_executor_report.json`,
-`agent_attempts_manifest.json`, and `agent_attempts/`.
+`agent_routing_policy.json`, `agent_attempts_manifest.json`, and
+`agent_attempts/`.
 `agent_input.json` should use schema version `agent_io_input_v1` and describe
 the reports, context, proposal intent, before metrics, policy config,
 candidate-selection config, modifier list, configured agent profiles, and an
@@ -328,7 +329,7 @@ block. In-process deterministic modifiers should use `runner_name` =
 mode, execution flag, timeout, workspace root, output mode, and allowed output
 filenames where relevant. Runner metadata should be copied into
 `manifest.json`, `agent_input.json`, `agent_executor_report.json`,
-`agent_output.json`, `agent_attempts_manifest.json`,
+`agent_routing_policy.json`, `agent_output.json`, `agent_attempts_manifest.json`,
 `agent_selection_report.json`, and attempt-scoped `attempt_output.json`.
 `agent_input_bundle/` should be created before calling the modifier and contain
 the read-only files an external agent may inspect. `agent_output_bundle/` should
@@ -349,6 +350,12 @@ contract validity, strategy-only patch targeting, and `git apply --check`.
 record the deterministic execution queue, selected attempt id, per-attempt
 modifier names, proposal metadata, runtime artifact paths, and normalized
 executor config.
+`agent_routing_policy.json` should use schema version
+`agent_routing_policy_v1` and record the selected profile, adapter, runner,
+deterministic rank policy, candidate-selection weights, candidate scores,
+score reasons, skip reasons, routing priors, and links to attempt-level audit
+files. It explains routing only; it must not override deterministic proposal
+validation or the policy gate.
 External command based adapters should use the shared
 `agent_contract_runner_v1` path for subprocess execution, output copy-back,
 workspace mutation checks, and `agent_execution.json` audit writing. Adapters

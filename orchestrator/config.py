@@ -3,11 +3,23 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
 DEFAULT_CONFIG_PATH = Path("config/default.json")
+DEFAULT_CANDIDATE_SELECTION = {
+    "base_selectable_score": 100,
+    "primary_modifier_bonus": 2,
+    "expected_metric_weight": 1.0,
+    "risk_weight": 1.0,
+    "direction_prior_weight": 1.0,
+    "exploration_bonus_weight": 1.0,
+    "probe_weight": 1.0,
+    "probe_ev_multiplier": 1000,
+    "probe_ev_cap": 25,
+    "probe_trade_count_cap": 5,
+}
 
 
 @dataclass(frozen=True)
@@ -37,6 +49,7 @@ class ProjectConfig:
     explore_after_no_improvement_rounds: int = 0
     explore_low_sample_threshold: int = 1
     explore_bonus: int = 0
+    candidate_selection: dict[str, float | int] = field(default_factory=dict)
 
     def resolve_path(self, repo_root: Path, path_text: str) -> Path:
         """Resolve config paths relative to the repository root."""
@@ -67,6 +80,10 @@ def load_project_config(
     modifier_settings = raw.get("codex_cli", {}) if modifier_name.startswith("codex") else {}
     memory_filter = raw.get("memory_filter", {})
     exploration = raw.get("exploration", {})
+    candidate_selection = DEFAULT_CANDIDATE_SELECTION | raw.get(
+        "candidate_selection",
+        {},
+    )
     fallback_names = fallback_modifier_names(memory_filter)
     return ProjectConfig(
         baseline_strategy_module=str(raw["baseline_strategy_module"]),
@@ -108,6 +125,9 @@ def load_project_config(
             exploration.get("explore_low_sample_threshold", 1)
         ),
         explore_bonus=int(exploration.get("explore_bonus", 0)),
+        candidate_selection={
+            str(key): value for key, value in candidate_selection.items()
+        },
     )
 
 

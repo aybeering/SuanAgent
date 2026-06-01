@@ -129,6 +129,7 @@ def run_iteration_loop(
             "explore_low_sample_threshold": active_config.explore_low_sample_threshold,
             "explore_bonus": active_config.explore_bonus,
         },
+        "candidate_selection": active_config.candidate_selection,
         "holdout_policy": active_config.holdout_policy,
         "stop_reason": None,
         "rounds": [],
@@ -174,6 +175,7 @@ def run_iteration_loop(
                     explore_bonus=active_config.explore_bonus,
                     min_probe_ev_delta=active_config.min_probe_ev_delta,
                     min_validation_ev_delta=active_config.min_validation_ev_delta,
+                    candidate_selection=active_config.candidate_selection,
                 )
                 manifest["completed_rounds"] = round_index
                 manifest["rounds"].append(round_summary)  # type: ignore[union-attr]
@@ -288,6 +290,7 @@ def run_round(
     explore_bonus: int,
     min_probe_ev_delta: float,
     min_validation_ev_delta: float,
+    candidate_selection: dict[str, float | int],
 ) -> dict[str, object]:
     """Run one proposal/apply/evaluate round."""
     clear_strategy_import(repo_root, strategy_module)
@@ -358,6 +361,7 @@ def run_round(
         explore_bonus=explore_bonus,
         min_probe_ev_delta=min_probe_ev_delta,
         min_validation_ev_delta=min_validation_ev_delta,
+        candidate_selection=candidate_selection,
         run_id=run_id,
         strategy_module=strategy_module,
         probe_data_path=probe_data_path,
@@ -688,6 +692,7 @@ def proposal_attempt_record(
     probe_metrics_after: dict[str, float | int],
     probe_error: str,
     probe_artifacts: dict[str, str],
+    candidate_selection: dict[str, float | int],
 ) -> dict[str, object]:
     """Build an auditable proposal attempt record."""
     payload = proposal.to_dict()
@@ -702,6 +707,7 @@ def proposal_attempt_record(
         "selection_reason": "",
         "candidate_score": candidate_score,
         "score_reasons": score_reasons,
+        "candidate_selection": candidate_selection,
         "contract_errors": payload.get("contract_errors", ()),
         "probe_metrics_before": probe_metrics_before,
         "probe_metrics_after": probe_metrics_after,
@@ -747,6 +753,7 @@ def select_proposal_candidate(
     explore_bonus: int,
     min_probe_ev_delta: float,
     min_validation_ev_delta: float,
+    candidate_selection: dict[str, float | int],
     run_id: str,
     strategy_module: str,
     probe_data_path: Path,
@@ -859,6 +866,7 @@ def select_proposal_candidate(
             probe_error=probe_error,
             direction_prior_payload=direction_prior_payload,
             exploration_bonus_payload=exploration_bonus_payload,
+            candidate_selection=candidate_selection,
         )
         attempts.append(
             proposal_attempt_record(
@@ -877,6 +885,7 @@ def select_proposal_candidate(
                 probe_metrics_after=probe_metrics_after,
                 probe_error=probe_error,
                 probe_artifacts=probe_artifacts,
+                candidate_selection=candidate_selection,
             )
         )
 
@@ -972,6 +981,7 @@ def score_proposal_candidate(
     probe_error: str,
     direction_prior_payload: dict[str, object],
     exploration_bonus_payload: dict[str, object],
+    candidate_selection: dict[str, float | int],
 ) -> dict[str, object]:
     """Score a candidate deterministically before running expensive evaluation."""
     if status != "selectable":
@@ -986,27 +996,32 @@ def score_proposal_candidate(
             reasons.append("probe evaluation failed")
         return {"score": 0, "reasons": reasons}
 
-    score = 100
-    reasons = ["base selectable score +100"]
+    score = score_setting(candidate_selection, "base_selectable_score")
+    reasons = [f"base selectable score {format_score_delta(score)}"]
     expected = proposal.expected_metric_change
     for metric, value in sorted(expected.items()):
-        delta, reason = expected_metric_score(metric, value)
+        delta, reason = expected_metric_score(metric, value, candidate_selection)
         if delta:
             score += delta
             reasons.append(reason)
-    risk_delta, risk_reason = risk_score(proposal.risk_notes)
+    risk_delta, risk_reason = risk_score(proposal.risk_notes, candidate_selection)
     if risk_delta:
         score += risk_delta
         reasons.append(risk_reason)
     if role == "primary":
-        score += 2
-        reasons.append("primary modifier stability +2")
-    prior_delta, prior_reason = direction_prior_score(direction_prior_payload)
+        primary_bonus = score_setting(candidate_selection, "primary_modifier_bonus")
+        score += primary_bonus
+        reasons.append(f"primary modifier stability {format_score_delta(primary_bonus)}")
+    prior_delta, prior_reason = direction_prior_score(
+        direction_prior_payload,
+        candidate_selection,
+    )
     if prior_delta:
         score += prior_delta
         reasons.append(prior_reason)
     exploration_delta, exploration_reason = exploration_bonus_score(
-        exploration_bonus_payload
+        exploration_bonus_payload,
+        candidate_selection,
     )
     if exploration_delta:
         score += exploration_delta
@@ -1014,6 +1029,7 @@ def score_proposal_candidate(
     probe_delta, probe_reason = probe_score(
         metrics_before=probe_metrics_before,
         metrics_after=probe_metrics_after,
+        candidate_selection=candidate_selection,
     )
     if probe_delta:
         score += probe_delta
@@ -1112,68 +1128,121 @@ def prior_manifest_rounds(
     ]
 
 
-def exploration_bonus_score(payload: dict[str, object]) -> tuple[int, str]:
+def exploration_bonus_score(
+    payload: dict[str, object],
+    candidate_selection: dict[str, float | int],
+) -> tuple[int, str]:
     """Return score contribution and reason text from exploration metadata."""
-    score_delta = int(payload.get("score_delta", 0))
+    raw_delta = int(payload.get("score_delta", 0))
+    score_delta = weighted_score(
+        raw_delta,
+        candidate_selection,
+        "exploration_bonus_weight",
+    )
     if score_delta <= 0:
         return 0, ""
-    return score_delta, str(payload.get("reason", "exploration bonus"))
+    return score_delta, weighted_reason(
+        str(payload.get("reason", "exploration bonus")),
+        raw_delta,
+        score_delta,
+        score_weight(candidate_selection, "exploration_bonus_weight"),
+    )
 
 
-def direction_prior_score(prior_payload: dict[str, object]) -> tuple[int, str]:
+def direction_prior_score(
+    prior_payload: dict[str, object],
+    candidate_selection: dict[str, float | int],
+) -> tuple[int, str]:
     """Return score contribution and reason text from direction history."""
-    score_delta = int(prior_payload.get("score_delta", 0))
+    raw_delta = int(prior_payload.get("score_delta", 0))
+    score_delta = weighted_score(
+        raw_delta,
+        candidate_selection,
+        "direction_prior_weight",
+    )
     if score_delta == 0:
         return 0, ""
     sample_count = int(prior_payload.get("sample_count", 0))
     accept_rate = float(prior_payload.get("accept_rate", 0.0))
     avg_ev_delta = float(prior_payload.get("avg_validation_ev_delta", 0.0))
-    sign = "+" if score_delta > 0 else ""
-    return (
-        score_delta,
+    sign = "+" if raw_delta > 0 else ""
+    reason = (
         "direction prior "
         f"n={sample_count} accept_rate={accept_rate:.3f} "
-        f"avg_validation_ev_delta={avg_ev_delta:.6f} {sign}{score_delta}",
+        f"avg_validation_ev_delta={avg_ev_delta:.6f} {sign}{raw_delta}"
+    )
+    return (
+        score_delta,
+        weighted_reason(
+            reason,
+            raw_delta,
+            score_delta,
+            score_weight(candidate_selection, "direction_prior_weight"),
+        ),
     )
 
 
-def expected_metric_score(metric: str, value: str) -> tuple[int, str]:
+def expected_metric_score(
+    metric: str,
+    value: str,
+    candidate_selection: dict[str, float | int],
+) -> tuple[int, str]:
     """Return a deterministic score contribution for expected metric metadata."""
     normalized = value.lower()
+    raw_delta = 0
+    reason = ""
     if metric == "ev":
         if "increase" in normalized or "improve" in normalized:
-            return 20, "expected ev improvement +20"
-        if "uncertain" in normalized:
-            return 5, "explicit ev uncertainty +5"
-    if metric == "total_pnl":
+            raw_delta, reason = 20, "expected ev improvement +20"
+        elif "uncertain" in normalized:
+            raw_delta, reason = 5, "explicit ev uncertainty +5"
+    elif metric == "total_pnl":
         if "increase" in normalized or "improve" in normalized:
-            return 10, "expected pnl improvement +10"
-        if "uncertain" in normalized:
-            return 2, "explicit pnl uncertainty +2"
-    if metric == "trade_count":
+            raw_delta, reason = 10, "expected pnl improvement +10"
+        elif "uncertain" in normalized:
+            raw_delta, reason = 2, "explicit pnl uncertainty +2"
+    elif metric == "trade_count":
         if "same_or_increase" in normalized:
-            return 6, "trade count stable/increase +6"
-        if "increase" in normalized:
-            return 8, "trade count increase +8"
+            raw_delta, reason = 6, "trade count stable/increase +6"
+        elif "increase" in normalized:
+            raw_delta, reason = 8, "trade count increase +8"
+        elif "decrease" in normalized:
+            raw_delta, reason = -2, "trade count decrease -2"
+    elif metric == "avg_slippage":
         if "decrease" in normalized:
-            return -2, "trade count decrease -2"
-    if metric == "avg_slippage":
-        if "decrease" in normalized:
-            return 4, "expected slippage decrease +4"
-        if "increase" in normalized:
-            return -4, "expected slippage increase -4"
-    if metric == "max_drawdown" and "decrease" in normalized:
-        return 6, "expected drawdown decrease +6"
-    return 0, ""
+            raw_delta, reason = 4, "expected slippage decrease +4"
+        elif "increase" in normalized:
+            raw_delta, reason = -4, "expected slippage increase -4"
+    elif metric == "max_drawdown" and "decrease" in normalized:
+        raw_delta, reason = 6, "expected drawdown decrease +6"
+    return weighted_metric_score(
+        raw_delta,
+        reason,
+        candidate_selection,
+        "expected_metric_weight",
+    )
 
 
-def risk_score(risk_notes: str) -> tuple[int, str]:
+def risk_score(
+    risk_notes: str,
+    candidate_selection: dict[str, float | int],
+) -> tuple[int, str]:
     """Return a small deterministic risk contribution from risk notes."""
     normalized = risk_notes.lower()
     if "increas" in normalized:
-        return -3, "risk note includes increase -3"
+        return weighted_metric_score(
+            -3,
+            "risk note includes increase -3",
+            candidate_selection,
+            "risk_weight",
+        )
     if "reduce" in normalized or "decrease" in normalized:
-        return 3, "risk note suggests reduction +3"
+        return weighted_metric_score(
+            3,
+            "risk note suggests reduction +3",
+            candidate_selection,
+            "risk_weight",
+        )
     return 0, ""
 
 
@@ -1181,6 +1250,7 @@ def probe_score(
     *,
     metrics_before: dict[str, float | int],
     metrics_after: dict[str, float | int],
+    candidate_selection: dict[str, float | int],
 ) -> tuple[int, str]:
     """Return a deterministic score contribution from probe metrics."""
     if not metrics_before or not metrics_after:
@@ -1189,22 +1259,90 @@ def probe_score(
     trade_delta = metric_delta(metrics_before, metrics_after, "trade_count")
     score = 0
     reasons: list[str] = []
+    ev_multiplier = float(candidate_selection.get("probe_ev_multiplier", 1000))
+    ev_cap = score_setting(candidate_selection, "probe_ev_cap")
+    trade_cap = score_setting(candidate_selection, "probe_trade_count_cap")
     if ev_delta > 0:
-        score += min(25, int(round(ev_delta * 1000)))
+        score += min(ev_cap, int(round(ev_delta * ev_multiplier)))
         reasons.append(f"probe ev delta {ev_delta:.6f}")
     elif ev_delta < 0:
-        score -= min(25, int(round(abs(ev_delta) * 1000)))
+        score -= min(ev_cap, int(round(abs(ev_delta) * ev_multiplier)))
         reasons.append(f"probe ev delta {ev_delta:.6f}")
     if trade_delta > 0:
-        score += min(5, int(trade_delta))
+        score += min(trade_cap, int(trade_delta))
         reasons.append(f"probe trade count delta +{int(trade_delta)}")
     elif trade_delta < 0:
-        score -= min(5, abs(int(trade_delta)))
+        score -= min(trade_cap, abs(int(trade_delta)))
         reasons.append(f"probe trade count delta {int(trade_delta)}")
     if not reasons:
         return 0, ""
-    sign = "+" if score >= 0 else ""
-    return score, f"{'; '.join(reasons)} {sign}{score}"
+    raw_score = score
+    score = weighted_score(raw_score, candidate_selection, "probe_weight")
+    return score, weighted_reason(
+        "; ".join(reasons),
+        raw_score,
+        score,
+        score_weight(candidate_selection, "probe_weight"),
+    )
+
+
+def weighted_metric_score(
+    raw_delta: int,
+    reason: str,
+    candidate_selection: dict[str, float | int],
+    weight_key: str,
+) -> tuple[int, str]:
+    """Apply a configured weight to a deterministic score contribution."""
+    if raw_delta == 0:
+        return 0, ""
+    weight = score_weight(candidate_selection, weight_key)
+    delta = weighted_score(raw_delta, candidate_selection, weight_key)
+    if delta == 0:
+        return 0, ""
+    return delta, weighted_reason(reason, raw_delta, delta, weight)
+
+
+def weighted_score(
+    raw_delta: int,
+    candidate_selection: dict[str, float | int],
+    weight_key: str,
+) -> int:
+    """Return a rounded weighted score delta."""
+    return int(round(raw_delta * score_weight(candidate_selection, weight_key)))
+
+
+def score_setting(
+    candidate_selection: dict[str, float | int],
+    key: str,
+) -> int:
+    """Return an integer score setting."""
+    return int(round(float(candidate_selection.get(key, 0))))
+
+
+def score_weight(
+    candidate_selection: dict[str, float | int],
+    key: str,
+) -> float:
+    """Return a floating score weight."""
+    return float(candidate_selection.get(key, 1.0))
+
+
+def weighted_reason(reason: str, raw_delta: int, delta: int, weight: float) -> str:
+    """Return an auditable reason for a weighted score contribution."""
+    if weight == 1.0 or raw_delta == delta:
+        return reason if reason.endswith(str(raw_delta)) else (
+            f"{reason} {format_score_delta(delta)}"
+        )
+    return (
+        f"{reason} -> {format_score_delta(delta)} "
+        f"(raw {format_score_delta(raw_delta)} x {weight:g})"
+    )
+
+
+def format_score_delta(delta: int) -> str:
+    """Format a signed score contribution."""
+    sign = "+" if delta >= 0 else ""
+    return f"{sign}{delta}"
 
 
 def metric_delta(

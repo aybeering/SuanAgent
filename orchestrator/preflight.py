@@ -89,6 +89,7 @@ def validate_config(
         errors.append("exploration.explore_low_sample_threshold must be non-negative")
     if config.explore_bonus < 0:
         errors.append("exploration.explore_bonus must be non-negative")
+    validate_candidate_selection(config, errors)
     for fallback_modifier in config.memory_fallback_modifiers:
         if fallback_modifier not in SUPPORTED_MODIFIERS:
             errors.append(
@@ -135,6 +136,19 @@ def validate_holdout_policy(config: ProjectConfig, errors: list[str]) -> None:
         errors.append("holdout_policy.max_drawdown_worsening must be non-negative")
     if float(config.holdout_policy.get("max_slippage_worsening", 0.0)) < 0.0:
         errors.append("holdout_policy.max_slippage_worsening must be non-negative")
+
+
+def validate_candidate_selection(config: ProjectConfig, errors: list[str]) -> None:
+    """Validate candidate scoring settings."""
+    non_negative_keys = (
+        "base_selectable_score",
+        "probe_ev_multiplier",
+        "probe_ev_cap",
+        "probe_trade_count_cap",
+    )
+    for key in non_negative_keys:
+        if float(config.candidate_selection.get(key, 0.0)) < 0.0:
+            errors.append(f"candidate_selection.{key} must be non-negative")
 
 
 def validate_importable_module(module_name: str, errors: list[str]) -> None:

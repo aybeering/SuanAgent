@@ -117,6 +117,10 @@ outcome-memory status, and a bounded direction-history prior before the loop
 spends a validation backtest on one proposal. The direction prior uses prior
 accepted counts and average validation EV deltas for the same `direction_tag`;
 it only affects candidate ranking and never overrides the policy gate.
+The `candidate_selection` config block controls the deterministic scoring
+weights for expected metrics, risk notes, direction priors, exploration bonuses,
+probe EV, probe trade count, and primary-modifier stability; the active weights
+are written to `manifest.json` and each `proposal_attempts.json` row.
 When `exploration.explore_after_no_improvement_rounds` is enabled, recent
 no-improvement rounds can add a deterministic exploration bonus to low-sample
 directions that were not selected in that recent window. This is an

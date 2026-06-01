@@ -39,6 +39,18 @@
     "explore_low_sample_threshold": 1,
     "explore_bonus": 0
   },
+  "candidate_selection": {
+    "base_selectable_score": 100,
+    "primary_modifier_bonus": 2,
+    "expected_metric_weight": 1.0,
+    "risk_weight": 1.0,
+    "direction_prior_weight": 1.0,
+    "exploration_bonus_weight": 1.0,
+    "probe_weight": 1.0,
+    "probe_ev_multiplier": 1000,
+    "probe_ev_cap": 25,
+    "probe_trade_count_cap": 5
+  },
   "codex_cli": {
     "executable": "codex",
     "model": "default",

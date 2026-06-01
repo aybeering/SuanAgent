@@ -250,6 +250,8 @@ by cheap pre-backtest metadata.
 Candidate attempts should include deterministic pre-backtest score metadata so
 the selected proposal can be audited without relying on natural language
 judgment.
+Candidate scoring weights should come from the `candidate_selection` config
+block and be written into both `manifest.json` and `proposal_attempts.json`.
 Candidate scoring may include a bounded direction-history prior from
 `experiments/memory.jsonl`. The prior should use only prior runs for the same
 `direction_tag`, record its sample counts and score delta, and only affect
@@ -429,6 +431,7 @@ Add smoke tests that verify:
 20. Agent context is written as both markdown and `agent_context_v1` JSON.
 21. Codex output can be parsed from structured proposal JSON or plain diff text.
 22. Enabled Codex CLI subprocesses are rejected if they mutate files outside `strategies/current_strategy.py`.
+23. Candidate-selection weights are configurable and recorded with attempts.
 
 The project is complete only when these checks pass:
 

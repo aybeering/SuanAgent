@@ -104,6 +104,9 @@ def test_default_config_loads_dataset_splits() -> None:
     assert config.policy["min_ev_improvement"] == 0.01
     assert config.holdout_policy["enabled"] is True
     assert config.holdout_policy["min_ev_delta"] == -0.01
+    assert config.candidate_selection["base_selectable_score"] == 100
+    assert config.candidate_selection["direction_prior_weight"] == 1.0
+    assert config.candidate_selection["probe_ev_cap"] == 25
     assert config.stop_on_repeated_proposal is True
 
 
@@ -216,6 +219,19 @@ def test_preflight_rejects_negative_exploration_bonus(tmp_path: Path) -> None:
 
     assert result.ok is False
     assert any("exploration.explore_bonus" in error for error in result.errors)
+
+
+def test_preflight_rejects_negative_candidate_selection_cap(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_path = repo / "config/negative_candidate_selection.json"
+    config = json.loads((repo / "config/default.json").read_text())
+    config["candidate_selection"]["probe_ev_cap"] = -1
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    result = run_preflight(repo_root=repo, config_path=config_path)
+
+    assert result.ok is False
+    assert any("candidate_selection.probe_ev_cap" in error for error in result.errors)
 
 
 def test_preflight_rejects_unknown_memory_fallback_modifier(tmp_path: Path) -> None:
@@ -865,6 +881,63 @@ def test_iteration_loop_uses_direction_prior_to_rank_candidates(
     assert attempts[1]["selected"] is True
     assert any(
         "direction prior" in reason
+        for reason in attempts[1]["score_reasons"]
+    )
+    assert manifest["candidate_selection"]["direction_prior_weight"] == 1.0
+    assert attempts[1]["candidate_selection"]["direction_prior_weight"] == 1.0
+
+
+def test_candidate_selection_can_disable_direction_prior_weight(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    base_config = load_project_config(repo)
+    config = replace(
+        base_config,
+        memory_failed_patch_threshold=0,
+        memory_failed_direction_threshold=99,
+        memory_fallback_modifier="conservative_stub",
+        memory_fallback_modifiers=("conservative_stub",),
+        stop_after_no_improvement_rounds=0,
+        candidate_selection={
+            **base_config.candidate_selection,
+            "direction_prior_weight": 0.0,
+        },
+    )
+    for index in range(5):
+        append_outcome_memory(
+            experiments_dir=repo / "experiments",
+            record={
+                "kind": "proposal_outcome",
+                "run_id": f"disabled-prior-success-{index}",
+                "round_id": "round_001",
+                "direction_tag": "raise_min_edge",
+                "accepted": True,
+                "patch_sha256": f"disabled-prior-raise-{index}",
+                "validation_ev_delta": 0.02,
+            },
+        )
+
+    manifest = run_iteration_loop(
+        run_id="direction-prior-disabled",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/direction-prior-disabled/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    attempts = json.loads(
+        (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
+    )
+
+    assert manifest["candidate_selection"]["direction_prior_weight"] == 0.0
+    assert manifest["rounds"][0]["proposal_fallback_used"] is False  # type: ignore[index]
+    assert proposal["direction_tag"] == "lower_min_edge"
+    assert attempts[1]["direction_prior"]["score_delta"] > 0
+    assert attempts[1]["candidate_selection"]["direction_prior_weight"] == 0.0
+    assert all(
+        "direction prior" not in reason
         for reason in attempts[1]["score_reasons"]
     )
 

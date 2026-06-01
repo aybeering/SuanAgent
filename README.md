@@ -73,6 +73,7 @@ python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
 python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>
 python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json
+python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json --validate
 ```
 
 Useful mode switches:
@@ -143,7 +144,9 @@ backtest, policy gate, and rollback used for future SDK or CLI-backed agents.
 Use `python -m orchestrator.agent_replay <agent_input.json>` to replay that
 same demo agent offline from a saved round input. Replay writes only the
 requested proposal JSON output and does not run backtests, apply patches, or
-mutate strategy files.
+mutate strategy files. Add `--validate` to wrap the replayed proposal with
+deterministic `proposal_v1` contract validation, including strategy-only patch
+target checks, while still avoiding patch application.
 Iteration status is one of `accepted`, `stopped_repeated_proposal`,
 `stopped_max_rounds`, or `failed`.
 The validation policy remains the primary acceptance rule, while the optional

@@ -25,7 +25,7 @@ from orchestrator.agent_io import (
     AGENT_INPUT_SCHEMA_VERSION,
     AGENT_OUTPUT_SCHEMA_VERSION,
 )
-from orchestrator.agent_replay import replay_agent_input
+from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.artifact_validator import validate_run_artifacts
 from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
@@ -2078,13 +2078,37 @@ def test_agent_replay_replays_demo_agent_from_agent_input(tmp_path: Path) -> Non
         text=True,
         check=False,
     )
+    validate_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.agent_replay",
+            str(round_dir / "agent_input.json"),
+            "--validate",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     actual = json.loads((round_dir / "demo_agent_output.json").read_text(encoding="utf-8"))
     cli_payload = json.loads(command_result.stdout)
+    validate_payload = json.loads(validate_result.stdout)
+    validation = validate_replayed_proposal(
+        agent_input_path=round_dir / "agent_input.json",
+        proposal_payload=replayed,
+    )
 
     assert command_result.returncode == 0
+    assert validate_result.returncode == 0
     assert replayed == actual
     assert json.loads(output_path.read_text(encoding="utf-8")) == actual
     assert cli_payload == actual
+    assert validation["ok"] is True
+    assert validation["errors"] == []
+    assert validate_payload["proposal"] == actual
+    assert validate_payload["validation"]["ok"] is True
+    assert validate_payload["validation"]["target_file"] == "strategies/current_strategy.py"
     assert json.loads(
         (round_dir / "replayed_agent_output_cli.json").read_text(encoding="utf-8")
     ) == actual

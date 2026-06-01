@@ -518,6 +518,7 @@ python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
 python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>
 python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json
+python -m orchestrator.agent_replay experiments/<run_id>/round_001/agent_input.json --validate
 ```
 
 ## Expected behavior
@@ -570,7 +571,9 @@ run artifacts without mutating strategy code. Leaderboards should rank by
 validation EV improvement, not natural-language judgment.
 Agent replay commands should read saved `agent_input.json` and
 `proposal_intent.json` artifacts, emit deterministic proposal JSON, and must
-not apply patches, run backtests, or mutate strategy files.
+not apply patches, run backtests, or mutate strategy files. A validate mode may
+check replayed output against the `proposal_v1` contract and patch-target rules
+without applying the patch.
 Run comparison should use deterministic metrics and dataset fingerprints. A
 candidate should only receive a promotion recommendation when artifacts are
 valid, compared dataset fingerprints match, validation EV delta improves beyond

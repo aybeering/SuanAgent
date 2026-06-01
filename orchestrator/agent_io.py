@@ -36,6 +36,7 @@ def write_agent_input(
     candidate_selection: dict[str, float | int],
     primary_modifier: str,
     fallback_modifiers: tuple[str, ...],
+    agent_profiles: tuple[dict[str, object], ...] = (),
 ) -> Path:
     """Write the deterministic input contract for modifier agents."""
     payload = build_agent_input_payload(
@@ -58,6 +59,7 @@ def write_agent_input(
         candidate_selection=candidate_selection,
         primary_modifier=primary_modifier,
         fallback_modifiers=fallback_modifiers,
+        agent_profiles=agent_profiles,
     )
     write_json(output_path, payload)
     return output_path
@@ -84,6 +86,7 @@ def build_agent_input_payload(
     candidate_selection: dict[str, float | int],
     primary_modifier: str,
     fallback_modifiers: tuple[str, ...],
+    agent_profiles: tuple[dict[str, object], ...] = (),
 ) -> dict[str, object]:
     """Return the deterministic input contract for modifier agents."""
     return {
@@ -130,6 +133,8 @@ def build_agent_input_payload(
             "holdout": holdout_policy_rules or {},
         },
         "candidate_selection": candidate_selection,
+        "agent_profiles": compact_agent_profiles(agent_profiles),
+        "active_agent": active_agent_template(),
         "modifiers": {
             "primary": primary_modifier,
             "fallbacks": list(fallback_modifiers),
@@ -142,6 +147,13 @@ def build_agent_input_payload(
                 round_dir / "raw_agent_output.txt",
                 repo_root,
             ),
+            "allowed_output_paths": [
+                relative_path(round_dir / "agent_output.json", repo_root),
+                relative_path(round_dir / "raw_agent_output.txt", repo_root),
+                relative_path(round_dir / "agent_output_bundle", repo_root),
+            ],
+            "workspace_output_path": "",
+            "expected_command_output_filename": "",
             "required_artifacts": [
                 "agent_bundle_manifest.json",
                 "proposal.json",
@@ -152,6 +164,41 @@ def build_agent_input_payload(
             ],
         },
     }
+
+
+def compact_agent_profiles(
+    agent_profiles: tuple[dict[str, object], ...],
+) -> list[dict[str, object]]:
+    """Return stable profile metadata safe for external agent input."""
+    return [
+        {
+            "profile_name": str(profile.get("name", "")),
+            "adapter_name": str(profile.get("adapter", "")),
+            "role": str(profile.get("role", "")),
+            "enabled": bool(profile.get("enabled", True)),
+            "settings": dict_or_empty(profile.get("settings", {})),
+        }
+        for profile in agent_profiles
+    ]
+
+
+def active_agent_template() -> dict[str, object]:
+    """Return the round-level active-agent template."""
+    return {
+        "attempt_id": "",
+        "role": "",
+        "profile_name": "",
+        "adapter_name": "",
+        "agent_name": "",
+        "output_filename": "",
+    }
+
+
+def dict_or_empty(value: object) -> dict[str, object]:
+    """Return a string-keyed dict for JSON agent input metadata."""
+    if not isinstance(value, dict):
+        return {}
+    return {str(key): entry for key, entry in value.items()}
 
 
 def write_agent_output(

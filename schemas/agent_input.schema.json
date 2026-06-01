@@ -17,6 +17,8 @@
     "metrics_before",
     "policy",
     "candidate_selection",
+    "agent_profiles",
+    "active_agent",
     "modifiers",
     "output_contract"
   ],
@@ -139,6 +141,67 @@
     "candidate_selection": {
       "type": "object"
     },
+    "agent_profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "profile_name",
+          "adapter_name",
+          "role",
+          "enabled",
+          "settings"
+        ],
+        "properties": {
+          "profile_name": {
+            "type": "string"
+          },
+          "adapter_name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "settings": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "active_agent": {
+      "type": "object",
+      "required": [
+        "attempt_id",
+        "role",
+        "profile_name",
+        "adapter_name",
+        "agent_name",
+        "output_filename"
+      ],
+      "properties": {
+        "attempt_id": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "profile_name": {
+          "type": "string"
+        },
+        "adapter_name": {
+          "type": "string"
+        },
+        "agent_name": {
+          "type": "string"
+        },
+        "output_filename": {
+          "type": "string"
+        }
+      }
+    },
     "modifiers": {
       "type": "object",
       "required": [
@@ -164,6 +227,9 @@
         "proposal_protocol_version",
         "expected_output_path",
         "expected_raw_output_path",
+        "allowed_output_paths",
+        "workspace_output_path",
+        "expected_command_output_filename",
         "required_artifacts"
       ],
       "properties": {
@@ -183,6 +249,18 @@
           "type": "string"
         },
         "expected_raw_output_path": {
+          "type": "string"
+        },
+        "allowed_output_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "workspace_output_path": {
+          "type": "string"
+        },
+        "expected_command_output_filename": {
           "type": "string"
         },
         "required_artifacts": {

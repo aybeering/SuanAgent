@@ -246,6 +246,7 @@ def run_iteration_loop(
                     fallback_modifiers=fallback_modifiers,
                     primary_profile=primary_profile,
                     fallback_profiles=fallback_profiles,
+                    configured_agent_profiles=configured_agent_profiles,
                     memory_failed_patch_threshold=active_config.memory_failed_patch_threshold,
                     memory_failed_direction_threshold=(
                         active_config.memory_failed_direction_threshold
@@ -451,6 +452,7 @@ def run_round(
     fallback_modifiers: tuple[StrategyModifier, ...],
     primary_profile: dict[str, object],
     fallback_profiles: tuple[dict[str, object], ...],
+    configured_agent_profiles: tuple[dict[str, object], ...],
     memory_failed_patch_threshold: int,
     memory_failed_direction_threshold: int,
     explore_after_no_improvement_rounds: int,
@@ -532,6 +534,7 @@ def run_round(
             modifier_name(fallback_modifier)
             for fallback_modifier in fallback_modifiers
         ),
+        agent_profiles=configured_agent_profiles,
     )
     write_agent_input_bundle(round_dir=round_dir)
     (

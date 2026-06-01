@@ -102,6 +102,15 @@ class FileProtocolModifier:
         agent_input_path = workspace_round_dir / "agent_input.json"
         output_path = workspace_round_dir / self.output_filename
         allowed_output_path = output_path.relative_to(workspace_path).as_posix()
+        write_active_agent_input(
+            agent_input_path=agent_input_path,
+            attempt_id=attempt_id,
+            profile_name=profile_name,
+            adapter_name=adapter_name,
+            agent_name=self.agent_name,
+            output_filename=self.output_filename,
+            workspace_output_path=allowed_output_path,
+        )
         write_workspace_manifest(
             output_path=workspace_manifest_output_path(
                 round_dir=round_dir,
@@ -478,6 +487,51 @@ def copy_agent_round_inputs(*, source_round_dir: Path, workspace_round_dir: Path
             workspace_round_dir / "agent_input_bundle",
             dirs_exist_ok=True,
         )
+
+
+def write_active_agent_input(
+    *,
+    agent_input_path: Path,
+    attempt_id: str,
+    profile_name: str,
+    adapter_name: str,
+    agent_name: str,
+    output_filename: str,
+    workspace_output_path: str,
+) -> None:
+    """Add current attempt metadata to the workspace-local agent input."""
+    if not agent_input_path.exists():
+        return
+    payload = json.loads(agent_input_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        return
+    payload["active_agent"] = {
+        "attempt_id": attempt_id,
+        "role": role_from_attempt_id(attempt_id),
+        "profile_name": profile_name,
+        "adapter_name": adapter_name,
+        "agent_name": agent_name,
+        "output_filename": output_filename,
+    }
+    output_contract = payload.get("output_contract", {})
+    if isinstance(output_contract, dict):
+        output_contract["workspace_output_path"] = workspace_output_path
+        output_contract["expected_command_output_filename"] = output_filename
+    agent_input_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    bundle_copy = agent_input_path.parent / "agent_input_bundle" / "agent_input.json"
+    if bundle_copy.exists():
+        shutil.copy2(agent_input_path, bundle_copy)
+
+
+def role_from_attempt_id(attempt_id: str) -> str:
+    """Return queue role embedded in a stable attempt id."""
+    if not attempt_id:
+        return ""
+    parts = attempt_id.split("_", maxsplit=2)
+    return parts[2] if len(parts) == 3 else ""
 
 
 def copy_agent_output_back(

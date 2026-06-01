@@ -184,6 +184,12 @@ rolled back unless the policy gates accept a valid patch.
 it reads `agent_input.json` plus `proposal_intent.json`, writes structured
 proposal JSON, and lets the loop perform the same patch parsing, validation,
 backtest, policy gate, and rollback used for future SDK or CLI-backed agents.
+Round-level `agent_input.json` lists every configured profile and keeps
+`active_agent` empty as a template. Workspace-backed adapters rewrite the
+workspace-local copy with the current `attempt_id`, role, profile name, adapter
+name, agent name, and expected command output file before invoking an external
+process. The copied `agent_input_bundle/agent_input.json` receives the same
+active-agent metadata.
 Use `python -m orchestrator.agent_replay <agent_input.json>` to replay that
 same demo agent offline from a saved round input. Replay writes only the
 requested proposal JSON output and does not run backtests, apply patches, or
@@ -229,6 +235,9 @@ what a modifier backend was given, the raw text that became the proposal, every
 candidate attempt considered, the executor queue metadata, why each attempt was
 selected or skipped, and whether deterministic intake checks passed before patch
 application.
+`agent_input.json` includes `agent_profiles`, an `active_agent` task envelope,
+and output-contract paths so future SDK or CLI-backed agents do not need to
+infer their identity or allowed output location from filenames.
 Workspace-backed candidates also keep per-attempt copies of
 `workspace_manifest.json` and, for file-protocol commands, `agent_execution.json`
 inside `agent_attempts/attempt_xxx/`. Tests validate these artifacts against the

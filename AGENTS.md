@@ -78,6 +78,7 @@ Allowed components:
 27. A deterministic agent executor queue that assigns stable attempt ids before candidate selection.
 28. Optional config-level agent profiles that name future isolated agent slots while still using deterministic adapters.
 29. Profile-aware workspace and execution audit metadata for workspace-backed adapters.
+30. Profile-aware agent input contracts for external CLI or SDK-backed agents.
 
 Still out of scope:
 
@@ -311,7 +312,12 @@ Each round should also write `agent_input.json`, `agent_bundle_manifest.json`,
 `agent_attempts_manifest.json`, and `agent_attempts/`.
 `agent_input.json` should use schema version `agent_io_input_v1` and describe
 the reports, context, proposal intent, before metrics, policy config,
-candidate-selection config, and modifier list available to the agent.
+candidate-selection config, modifier list, configured agent profiles, and an
+`active_agent` task envelope. Round-level inputs should keep `active_agent`
+empty as a template. Workspace-backed adapters should rewrite the workspace
+copy of `agent_input.json` and its bundled copy with the current attempt id,
+role, profile name, adapter name, agent name, expected output filename, and
+workspace output path before invoking any external process.
 `agent_input_bundle/` should be created before calling the modifier and contain
 the read-only files an external agent may inspect. `agent_output_bundle/` should
 contain the output artifacts the orchestrator will inspect after the modifier

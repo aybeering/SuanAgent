@@ -721,9 +721,16 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert agent_input["input_bundle_dir"].endswith("agent_input_bundle")
     assert agent_input["output_bundle_dir"].endswith("agent_output_bundle")
+    assert agent_input["agent_profiles"][0]["profile_name"] == "primary"
+    assert agent_input["agent_profiles"][0]["adapter_name"] == "fixed_patch_stub"
+    assert agent_input["agent_profiles"][1]["profile_name"] == "fallback_01"
+    assert agent_input["active_agent"]["attempt_id"] == ""
+    assert agent_input["active_agent"]["profile_name"] == ""
     assert agent_input["metrics_before"]["validation"]["trade_count"] == 39
     assert agent_input["modifiers"]["primary"] == "strategy_modifier_stub"
     assert agent_input["output_contract"]["schema_version"] == AGENT_OUTPUT_SCHEMA_VERSION
+    assert agent_input["output_contract"]["allowed_output_paths"]
+    assert agent_input["output_contract"]["workspace_output_path"] == ""
     assert agent_input["output_contract"]["expected_raw_output_path"].endswith(
         "raw_agent_output.txt"
     )
@@ -877,6 +884,9 @@ def test_iteration_loop_uses_explicit_agent_profiles(tmp_path: Path) -> None:
     agent_output = json.loads(
         (round_dir / "agent_output.json").read_text(encoding="utf-8")
     )
+    agent_input = json.loads(
+        (round_dir / "agent_input.json").read_text(encoding="utf-8")
+    )
 
     assert [profile["name"] for profile in manifest["agent_profiles"]] == [
         "strategy_bot",
@@ -900,6 +910,12 @@ def test_iteration_loop_uses_explicit_agent_profiles(tmp_path: Path) -> None:
         "strategy_bot",
         "risk_agent",
     ]
+    assert [profile["profile_name"] for profile in agent_input["agent_profiles"]] == [
+        "strategy_bot",
+        "disabled_agent",
+        "risk_agent",
+    ]
+    assert agent_input["agent_profiles"][1]["enabled"] is False
 
 
 def test_iteration_loop_writes_research_brief(tmp_path: Path) -> None:
@@ -2195,6 +2211,11 @@ agent_input = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
 output_path = pathlib.Path(sys.argv[2])
 target = agent_input['target_file']
 before = agent_input['target_file_content']
+active_agent = agent_input['active_agent']
+assert active_agent['attempt_id'] == 'attempt_001_primary'
+assert active_agent['profile_name'] == 'primary'
+assert active_agent['adapter_name'] == 'file_protocol'
+assert agent_input['output_contract']['workspace_output_path'].endswith('fixture_agent_output.json')
 assert pathlib.Path(agent_input['input_bundle_dir']).exists()
 after = before.replace('MIN_EDGE = 0.05', 'MIN_EDGE = 0.04', 1)
 patch = ''.join(difflib.unified_diff(
@@ -2290,6 +2311,29 @@ output_path.write_text(json.dumps({
         "experiments/file-protocol-fixture/round_001/fixture_agent_output.json"
     ]
     assert workspace_manifest["initial_snapshot"]["file_count"] > 0
+    workspace_agent_input = json.loads(
+        Path(agent_execution["agent_input_path"]).read_text(encoding="utf-8")
+    )
+    workspace_bundle_agent_input = json.loads(
+        (
+            Path(agent_execution["workspace_path"])
+            / "experiments/file-protocol-fixture/round_001/agent_input_bundle/agent_input.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert agent_input["active_agent"]["attempt_id"] == ""
+    assert workspace_agent_input["active_agent"]["attempt_id"] == "attempt_001_primary"
+    assert workspace_agent_input["active_agent"]["profile_name"] == "primary"
+    assert workspace_agent_input["active_agent"]["adapter_name"] == "file_protocol"
+    assert workspace_agent_input["active_agent"]["agent_name"] == "file_protocol_agent"
+    assert workspace_agent_input["active_agent"]["output_filename"] == (
+        "fixture_agent_output.json"
+    )
+    assert workspace_agent_input["output_contract"]["workspace_output_path"].endswith(
+        "fixture_agent_output.json"
+    )
+    assert workspace_bundle_agent_input["active_agent"] == workspace_agent_input[
+        "active_agent"
+    ]
     assert (
         Path(agent_execution["workspace_path"])
         / "experiments/file-protocol-fixture/round_001/agent_input_bundle/agent_input.json"

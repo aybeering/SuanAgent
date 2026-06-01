@@ -7,6 +7,9 @@
     "run_id",
     "round_id",
     "attempt_id",
+    "profile_name",
+    "adapter_name",
+    "profile_workspace_slug",
     "agent_name",
     "execution_enabled",
     "source_repo_root",
@@ -32,6 +35,15 @@
       "minLength": 1
     },
     "attempt_id": {
+      "type": "string"
+    },
+    "profile_name": {
+      "type": "string"
+    },
+    "adapter_name": {
+      "type": "string"
+    },
+    "profile_workspace_slug": {
       "type": "string"
     },
     "agent_name": {

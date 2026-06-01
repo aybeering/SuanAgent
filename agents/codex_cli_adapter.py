@@ -59,6 +59,8 @@ class CodexCliModifier:
         new_threshold: str,
         context_path: Path | None = None,
         attempt_id: str = "",
+        profile_name: str = "",
+        adapter_name: str = "",
     ) -> StrategyProposal:
         """Build the Codex request and optionally execute it."""
         report_text = report_path.read_text(encoding="utf-8")
@@ -71,6 +73,7 @@ class CodexCliModifier:
             run_id=run_id,
             round_id=round_id,
             attempt_id=attempt_id,
+            profile_name=profile_name,
         )
         write_workspace_manifest(
             output_path=workspace_manifest_output_path(
@@ -85,6 +88,8 @@ class CodexCliModifier:
             execution_enabled=self.execute,
             allowed_mutation_paths=(str(target_relative),),
             attempt_id=attempt_id,
+            profile_name=profile_name,
+            adapter_name=adapter_name,
         )
         prompt = build_codex_prompt(
             report_text=report_text,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 from pathlib import Path
 from typing import Any
@@ -38,9 +39,12 @@ def create_isolated_workspace(
     run_id: str,
     round_id: str,
     attempt_id: str = "",
+    profile_name: str = "",
 ) -> Path:
     """Copy the minimal project into an isolated round workspace."""
     workspace_path = workspace_root / run_id / round_id
+    if profile_name:
+        workspace_path = workspace_path / safe_workspace_segment(profile_name)
     if attempt_id:
         workspace_path = workspace_path / attempt_id
     workspace_path = workspace_path / "strategy_workspace"
@@ -78,6 +82,8 @@ def write_workspace_manifest(
     execution_enabled: bool,
     allowed_mutation_paths: tuple[str, ...],
     attempt_id: str = "",
+    profile_name: str = "",
+    adapter_name: str = "",
 ) -> Path:
     """Write a deterministic manifest for one isolated agent workspace."""
     snapshot = workspace_snapshot(workspace_path)
@@ -87,6 +93,8 @@ def write_workspace_manifest(
         run_id=run_id,
         round_id=round_id,
         attempt_id=attempt_id,
+        profile_name=profile_name,
+        adapter_name=adapter_name,
         agent_name=agent_name,
         execution_enabled=execution_enabled,
         allowed_mutation_paths=allowed_mutation_paths,
@@ -107,6 +115,8 @@ def workspace_manifest_payload(
     run_id: str,
     round_id: str,
     attempt_id: str,
+    profile_name: str,
+    adapter_name: str,
     agent_name: str,
     execution_enabled: bool,
     allowed_mutation_paths: tuple[str, ...],
@@ -118,6 +128,9 @@ def workspace_manifest_payload(
         "run_id": run_id,
         "round_id": round_id,
         "attempt_id": attempt_id,
+        "profile_name": profile_name,
+        "adapter_name": adapter_name,
+        "profile_workspace_slug": safe_workspace_segment(profile_name),
         "agent_name": agent_name,
         "execution_enabled": execution_enabled,
         "source_repo_root": str(repo_root.resolve()),
@@ -133,6 +146,12 @@ def workspace_manifest_payload(
             "reject_unlisted_changes": True,
         },
     }
+
+
+def safe_workspace_segment(value: str) -> str:
+    """Return a deterministic filesystem segment for one profile name."""
+    text = re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip())
+    return text.strip("._-") or "profile"
 
 
 def workspace_snapshot_digest(snapshot: dict[str, str]) -> str:

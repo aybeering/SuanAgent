@@ -78,6 +78,8 @@ class FileProtocolModifier:
         new_threshold: str,
         context_path: Path | None = None,
         attempt_id: str = "",
+        profile_name: str = "",
+        adapter_name: str = "",
     ) -> StrategyProposal:
         """Invoke the configured file-protocol command when enabled."""
         del old_threshold, new_threshold, context_path
@@ -90,6 +92,7 @@ class FileProtocolModifier:
             run_id=f"{run_id}-file-protocol",
             round_id=round_id,
             attempt_id=attempt_id,
+            profile_name=profile_name,
         )
         workspace_round_dir = workspace_path / "experiments" / run_id / round_id
         copy_agent_round_inputs(
@@ -112,6 +115,8 @@ class FileProtocolModifier:
             execution_enabled=self.execute,
             allowed_mutation_paths=(allowed_output_path,),
             attempt_id=attempt_id,
+            profile_name=profile_name,
+            adapter_name=adapter_name,
         )
         command = [
             self.executable,
@@ -128,6 +133,8 @@ class FileProtocolModifier:
                 ),
                 status="disabled",
                 execution_enabled=False,
+                profile_name=profile_name,
+                adapter_name=adapter_name,
                 command=command,
                 cwd=workspace_path,
                 workspace_path=workspace_path,
@@ -185,6 +192,8 @@ class FileProtocolModifier:
                 ),
                 status="timeout",
                 execution_enabled=True,
+                profile_name=profile_name,
+                adapter_name=adapter_name,
                 command=command,
                 cwd=workspace_path,
                 workspace_path=workspace_path,
@@ -224,6 +233,8 @@ class FileProtocolModifier:
                 ),
                 status="command_failed",
                 execution_enabled=True,
+                profile_name=profile_name,
+                adapter_name=adapter_name,
                 command=command,
                 cwd=workspace_path,
                 workspace_path=workspace_path,
@@ -262,6 +273,8 @@ class FileProtocolModifier:
                 ),
                 status="workspace_violation",
                 execution_enabled=True,
+                profile_name=profile_name,
+                adapter_name=adapter_name,
                 command=command,
                 cwd=workspace_path,
                 workspace_path=workspace_path,
@@ -304,6 +317,8 @@ class FileProtocolModifier:
             ),
             status="completed",
             execution_enabled=True,
+            profile_name=profile_name,
+            adapter_name=adapter_name,
             command=command,
             cwd=workspace_path,
             workspace_path=workspace_path,
@@ -480,6 +495,8 @@ def write_agent_execution(
     output_path: Path,
     status: str,
     execution_enabled: bool,
+    profile_name: str,
+    adapter_name: str,
     command: list[str],
     cwd: Path,
     workspace_path: Path,
@@ -497,6 +514,8 @@ def write_agent_execution(
     payload = {
         "schema_version": AGENT_EXECUTION_SCHEMA_VERSION,
         "agent_name": FileProtocolModifier.agent_name,
+        "profile_name": profile_name,
+        "adapter_name": adapter_name,
         "status": status,
         "execution_enabled": execution_enabled,
         "command": command,

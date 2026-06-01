@@ -38,9 +38,11 @@ class AdaptivePatchModifier:
         new_threshold: str = MIN_EDGE_NEW,
         context_path: Path | None = None,
         attempt_id: str = "",
+        profile_name: str = "",
+        adapter_name: str = "",
     ) -> StrategyProposal:
         """Return a history-aware fixed proposal."""
-        del attempt_id
+        del attempt_id, profile_name, adapter_name
         return propose_strategy_change(
             report_path=report_path,
             target_file=target_file,

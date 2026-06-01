@@ -77,6 +77,7 @@ Allowed components:
 26. Stable failure taxonomy fields for decisions, attempts, validation, and replay.
 27. A deterministic agent executor queue that assigns stable attempt ids before candidate selection.
 28. Optional config-level agent profiles that name future isolated agent slots while still using deterministic adapters.
+29. Profile-aware workspace and execution audit metadata for workspace-backed adapters.
 
 Still out of scope:
 
@@ -344,11 +345,15 @@ dataset SHA-256 fingerprints, use schema version `run_metadata_v1`, and match
 `schemas/run_metadata.schema.json`. Workspace-backed agent attempts should write
 attempt-scoped manifests under `workspace_manifests/`, publish the selected
 attempt as `workspace_manifest.json`, use schema version `workspace_manifest_v1`,
-and record the attempt id, isolated workspace path, copied project surface,
-initial snapshot digest, and allowed mutation paths. File-protocol attempts
+and record the profile name, adapter name, attempt id, isolated workspace path,
+copied project surface, initial snapshot digest, and allowed mutation paths.
+Workspace paths should include both profile and attempt segments:
+`workspaces/<run_id>/<round_id>/<profile>/<attempt_id>/strategy_workspace/`.
+File-protocol attempts
 should write attempt-scoped execution audits under `agent_executions/`, publish
-the selected attempt as `agent_execution.json`, use schema version
-`agent_execution_v1`, and match `schemas/agent_execution.schema.json`.
+the selected attempt as `agent_execution.json`, include profile and adapter
+metadata, use schema version `agent_execution_v1`, and match
+`schemas/agent_execution.schema.json`.
 File-protocol execution status should be one of `disabled`, `completed`,
 `command_failed`, `timeout`, or `workspace_violation`. Timeouts, command
 failures, malformed output, disallowed patch targets, and workspace side effects
@@ -373,6 +378,9 @@ optional adapter settings. Exactly one enabled profile must be primary. Disabled
 profiles should remain visible in run manifests but must not enter the execution
 queue. If no explicit `agents` list is present, derive audit profiles from
 `strategy_modifier` and `memory_filter.fallback_modifiers`.
+Executor calls should pass profile metadata to modifiers so workspace-backed
+adapters can isolate future blue agent slots even when they share the same
+underlying adapter.
 The `executor` config block should remain deterministic. In V0.5, `mode` must
 be `sequential`; `max_candidates` may cap the queue; `per_agent_timeout_seconds`
 is audit metadata for future adapters; and `allow_disabled_adapters` records

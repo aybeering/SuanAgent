@@ -2088,12 +2088,15 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
     assert '"recommended_direction": "lower_min_edge"' in proposal["prompt"]
     assert "No prior rounds in this run." in proposal["prompt"]
     assert (
-        "workspaces/dry-run/round_001/attempt_001_primary/strategy_workspace"
+        "workspaces/dry-run/round_001/primary/attempt_001_primary/strategy_workspace"
         in proposal["workspace_path"]
     )
     assert workspace_manifest["schema_version"] == WORKSPACE_MANIFEST_SCHEMA_VERSION
     assert_matches_schema(round_dir / "workspace_manifest.json", "workspace_manifest")
     assert workspace_manifest["attempt_id"] == "attempt_001_primary"
+    assert workspace_manifest["profile_name"] == "primary"
+    assert workspace_manifest["adapter_name"] == "codex_dry_run"
+    assert workspace_manifest["profile_workspace_slug"] == "primary"
     assert workspace_manifest["agent_name"] == "codex_cli_dry_run"
     assert workspace_manifest["execution_enabled"] is False
     assert workspace_manifest["mutation_policy"]["allowed_paths"] == [
@@ -2102,7 +2105,7 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
     assert workspace_manifest["initial_snapshot"]["file_count"] > 0
     assert (
         repo
-        / "workspaces/dry-run/round_001/attempt_001_primary/strategy_workspace/strategies/current_strategy.py"
+        / "workspaces/dry-run/round_001/primary/attempt_001_primary/strategy_workspace/strategies/current_strategy.py"
     ).exists()
     assert (
         round_dir / "workspace_manifests/attempt_001_primary.json"
@@ -2157,11 +2160,11 @@ def test_workspace_backed_candidates_use_attempt_scoped_workspaces(
     assert attempts[1]["selected"] is True
     assert workspace_manifest["attempt_id"] == "attempt_002_fallback_01"
     assert (
-        "workspaces/dry-run-fallback-workspaces/round_001/attempt_001_primary/strategy_workspace"
+        "workspaces/dry-run-fallback-workspaces/round_001/primary/attempt_001_primary/strategy_workspace"
         in attempts[0]["proposal"]["workspace_path"]
     )
     assert (
-        "workspaces/dry-run-fallback-workspaces/round_001/attempt_002_fallback_01/strategy_workspace"
+        "workspaces/dry-run-fallback-workspaces/round_001/fallback_01/attempt_002_fallback_01/strategy_workspace"
         in attempts[1]["proposal"]["workspace_path"]
     )
     assert (
@@ -2262,6 +2265,8 @@ output_path.write_text(json.dumps({
     assert (round_dir / "fixture_agent_output.json").exists()
     assert agent_execution["schema_version"] == AGENT_EXECUTION_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_execution.json", "agent_execution")
+    assert agent_execution["profile_name"] == "primary"
+    assert agent_execution["adapter_name"] == "file_protocol"
     assert agent_execution["status"] == "completed"
     assert agent_execution["execution_enabled"] is True
     assert agent_execution["returncode"] == 0
@@ -2270,12 +2275,15 @@ output_path.write_text(json.dumps({
     assert agent_execution["output_file"]["exists"] is True
     assert len(agent_execution["output_file"]["sha256"]) == 64
     assert (
-        "file-protocol-fixture-file-protocol/round_001/attempt_001_primary"
+        "file-protocol-fixture-file-protocol/round_001/primary/attempt_001_primary"
         in agent_execution["workspace_path"]
     )
     assert workspace_manifest["schema_version"] == WORKSPACE_MANIFEST_SCHEMA_VERSION
     assert_matches_schema(round_dir / "workspace_manifest.json", "workspace_manifest")
     assert workspace_manifest["attempt_id"] == "attempt_001_primary"
+    assert workspace_manifest["profile_name"] == "primary"
+    assert workspace_manifest["adapter_name"] == "file_protocol"
+    assert workspace_manifest["profile_workspace_slug"] == "primary"
     assert workspace_manifest["agent_name"] == "file_protocol_agent"
     assert workspace_manifest["execution_enabled"] is True
     assert workspace_manifest["mutation_policy"]["allowed_paths"] == [
@@ -2372,7 +2380,7 @@ output_path.write_text(json.dumps({
     )
     workspace_readme = (
         repo
-        / "workspaces/file-protocol-mutation-guard-file-protocol/round_001/attempt_001_primary/strategy_workspace/README.md"
+        / "workspaces/file-protocol-mutation-guard-file-protocol/round_001/primary/attempt_001_primary/strategy_workspace/README.md"
     ).read_text(encoding="utf-8")
 
     assert proposal["applicable"] is False
@@ -2381,6 +2389,8 @@ output_path.write_text(json.dumps({
         "workspace modified disallowed file: README.md"
     ]
     assert agent_execution["status"] == "workspace_violation"
+    assert agent_execution["profile_name"] == "primary"
+    assert agent_execution["adapter_name"] == "file_protocol"
     assert agent_execution["mutation_errors"] == [
         "workspace modified disallowed file: README.md"
     ]
@@ -2434,6 +2444,8 @@ def test_file_protocol_adapter_disabled_writes_execution_audit(
     assert proposal["direction_tag"] == "file_protocol_disabled"
     assert agent_execution["schema_version"] == AGENT_EXECUTION_SCHEMA_VERSION
     assert agent_execution["status"] == "disabled"
+    assert agent_execution["profile_name"] == "primary"
+    assert agent_execution["adapter_name"] == "file_protocol"
     assert agent_execution["execution_enabled"] is False
     assert agent_execution["returncode"] is None
     assert agent_execution["command"][0] == "definitely-not-run"
@@ -2487,6 +2499,8 @@ time.sleep(2)
     assert proposal["direction_tag"] == "file_protocol_timeout"
     assert "timed out" in proposal["rejection_reason"]
     assert agent_execution["status"] == "timeout"
+    assert agent_execution["profile_name"] == "primary"
+    assert agent_execution["adapter_name"] == "file_protocol"
     assert agent_execution["returncode"] is None
     assert agent_execution["stderr"]["preview"].endswith("seconds")
     assert_matches_schema(round_dir / "agent_execution.json", "agent_execution")
@@ -2542,6 +2556,8 @@ pathlib.Path(sys.argv[2]).write_text('not json and not a patch\\n', encoding='ut
     assert proposal["direction_tag"] == "file_protocol_unknown"
     assert proposal["rejection_reason"] == "No unified diff found in agent output"
     assert agent_execution["status"] == "completed"
+    assert agent_execution["profile_name"] == "primary"
+    assert agent_execution["adapter_name"] == "file_protocol"
     assert agent_execution["output_file"]["exists"] is True
     assert_matches_schema(round_dir / "agent_execution.json", "agent_execution")
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
@@ -2613,6 +2629,8 @@ pathlib.Path(sys.argv[2]).write_text(json.dumps({
     assert proposal["direction_tag"] == "touch_readme"
     assert proposal["rejection_reason"] == "Patch touches disallowed files: README.md"
     assert agent_execution["status"] == "completed"
+    assert agent_execution["profile_name"] == "primary"
+    assert agent_execution["adapter_name"] == "file_protocol"
     assert_matches_schema(round_dir / "agent_execution.json", "agent_execution")
     assert (repo / "README.md").read_text(encoding="utf-8") == original_readme
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
@@ -2659,6 +2677,8 @@ def test_file_protocol_demo_agent_runs_from_config(tmp_path: Path) -> None:
         "raw_agent_output.txt"
     )
     assert agent_execution["status"] == "completed"
+    assert agent_execution["profile_name"] == "primary"
+    assert agent_execution["adapter_name"] == "file_protocol"
     assert agent_execution["command"][:3] == [
         "python",
         "-m",
@@ -4448,6 +4468,20 @@ def test_create_isolated_workspace_copies_minimal_project(tmp_path: Path) -> Non
     assert (workspace / "backtester/simulate.py").exists()
     assert (workspace / "docs/strategy_interface.md").exists()
     assert not (workspace / ".git").exists()
+
+    profiled_workspace = create_isolated_workspace(
+        repo_root=repo,
+        workspace_root=repo / "workspaces",
+        run_id="run-2",
+        round_id="round_001",
+        attempt_id="attempt_001_primary",
+        profile_name="Strategy Bot / Primary",
+    )
+    assert (
+        repo
+        / "workspaces/run-2/round_001/Strategy_Bot_Primary/attempt_001_primary/strategy_workspace"
+    ) == profiled_workspace
+    assert (profiled_workspace / "strategies/current_strategy.py").exists()
 
 
 def test_workspace_snapshot_mutation_guard_allows_only_strategy_file(

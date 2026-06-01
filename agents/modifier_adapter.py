@@ -22,5 +22,7 @@ class StrategyModifier(Protocol):
         new_threshold: str,
         context_path: Path | None = None,
         attempt_id: str = "",
+        profile_name: str = "",
+        adapter_name: str = "",
     ) -> StrategyProposal:
         """Return a proposed strategy patch."""

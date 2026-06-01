@@ -5,6 +5,8 @@
   "required": [
     "schema_version",
     "agent_name",
+    "profile_name",
+    "adapter_name",
     "status",
     "execution_enabled",
     "command",
@@ -36,6 +38,12 @@
       "enum": [
         "file_protocol_agent"
       ]
+    },
+    "profile_name": {
+      "type": "string"
+    },
+    "adapter_name": {
+      "type": "string"
     },
     "status": {
       "type": "string",

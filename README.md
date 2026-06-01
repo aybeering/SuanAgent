@@ -53,26 +53,31 @@ loop derives audit profiles from the legacy `strategy_modifier` and
 `memory_filter.fallback_modifiers` fields. Profiles name the future isolated
 agent slots while adapters still select the deterministic stub, guarded Codex,
 or file-protocol backend.
+Workspace-backed adapters receive both `profile_name` and `attempt_id`, and
+their ignored project copies are scoped as
+`workspaces/<run_id>/<round_id>/<profile>/<attempt_id>/strategy_workspace/`.
+This keeps future isolated agent slots separate even when two profiles use the
+same adapter.
 The `executor` config block currently supports the guarded `sequential` mode,
 `max_candidates` queue caps, `per_agent_timeout_seconds` audit metadata, and an
 `allow_disabled_adapters` guard flag for future CLI/SDK adapters.
-Enabled `file_protocol` commands run inside an isolated per-attempt workspace
-and may only bring back the configured proposal output file. Each selected
-file-protocol round writes `agent_execution.json` with the command, workspace
-path, return code, output hashes, stdout/stderr summaries, and mutation-guard
-result.
+Enabled `file_protocol` commands run inside an isolated profile-attempt
+workspace and may only bring back the configured proposal output file. Each
+selected file-protocol round writes `agent_execution.json` with the command,
+workspace path, return code, output hashes, stdout/stderr summaries, and
+mutation-guard result.
 Workspace-backed agent attempts also write attempt-scoped workspace manifests;
 the selected attempt is published as `workspace_manifest.json`, recording the
-copied project surface, isolated workspace path, attempt id, initial file
-snapshot digest, and allowed mutation paths before any patch can be applied.
+copied project surface, isolated workspace path, profile name, adapter name,
+attempt id, initial file snapshot digest, and allowed mutation paths before any
+patch can be applied.
 The demo file-protocol config executes `agents.file_protocol_demo_agent`, a
 local deterministic command that exercises the same JSON contract without
 calling Codex or any network service.
 
-Codex-facing adapters use ignored
-`workspaces/<run_id>/<round_id>/<attempt_id>/` directories for isolated project
-copies. Returned text can be a unified diff or structured proposal JSON, and
-the extracted patch must touch only
+Codex-facing adapters use the same ignored profile-attempt workspace layout.
+Returned text can be a unified diff or structured proposal JSON, and the
+extracted patch must touch only
 `strategies/current_strategy.py`. When execution is enabled, the adapter also
 hashes the isolated workspace before and after the subprocess and rejects the
 proposal if any file outside `strategies/current_strategy.py` is added,

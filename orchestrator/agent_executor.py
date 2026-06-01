@@ -98,6 +98,8 @@ def execute_agent_queue(
             new_threshold=new_threshold,
             context_path=context_path,
             attempt_id=candidate.attempt_id,
+            profile_name=candidate.profile_name,
+            adapter_name=candidate.adapter_name,
         )
         results.append(
             AgentCandidateResult(

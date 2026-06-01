@@ -54,10 +54,11 @@ Allowed components:
 7. A multi-round V0.5 iteration loop.
 8. A fixed strategy modifier stub.
 9. A proposal schema for agent output.
-10. Git apply, accept commit, and reject rollback helpers.
-11. Round-based experiment outputs.
-12. Config-driven dataset and policy settings.
-13. Clear tests and smoke checks.
+10. A dry-run Codex adapter that does not invoke real Codex.
+11. Git apply, accept commit, and reject rollback helpers.
+12. Round-based experiment outputs.
+13. Config-driven dataset, policy, and modifier settings.
+14. Clear tests and smoke checks.
 
 Still out of scope:
 
@@ -95,7 +96,11 @@ Current structure:
 ├── pyproject.toml
 ├── config/
 │   └── default.json
+├── docs/
+│   └── strategy_interface.md
 ├── agents/
+│   ├── codex_dry_run_adapter.py
+│   ├── registry.py
 │   └── strategy_modifier_stub.py
 ├── data/
 │   ├── train/
@@ -316,6 +321,7 @@ Add smoke tests that verify:
 10. The max-round guard stops repeated rejections.
 11. Config loading exposes train, validation, and holdout splits.
 12. Invalid strategy orders are rejected before simulation.
+13. The dry-run Codex adapter records a non-applicable proposal without changing files.
 
 The project is complete only when these checks pass:
 
@@ -344,6 +350,9 @@ When the V0.5 loop runs, it should:
 13. Reject and roll back if policy fails.
 14. Save `manifest.json`.
 15. Print a short final summary.
+
+The configured modifier may also be `codex_dry_run`, which exercises the future
+Codex adapter boundary without calling Codex or producing a patch.
 
 ## Important constraint
 

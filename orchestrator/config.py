@@ -21,6 +21,7 @@ class ProjectConfig:
     datasets: dict[str, str]
     policy: dict[str, float | int]
     strategy_path: str
+    strategy_modifier: str
     stub_old_threshold: str
     stub_new_threshold: str
 
@@ -57,6 +58,7 @@ def load_project_config(
         datasets={str(key): str(value) for key, value in raw["datasets"].items()},
         policy={str(key): value for key, value in raw["policy"].items()},
         strategy_path=str(raw["strategy_path"]),
+        strategy_modifier=str(raw["strategy_modifier"]),
         stub_old_threshold=str(stub["old_threshold"]),
         stub_new_threshold=str(stub["new_threshold"]),
     )

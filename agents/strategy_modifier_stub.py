@@ -18,6 +18,32 @@ OLD_THRESHOLD = "MIN_EDGE = 0.05"
 NEW_THRESHOLD = "MIN_EDGE = 0.04"
 
 
+class FixedPatchModifier:
+    """Adapter class for the deterministic fixed-patch modifier."""
+
+    agent_name = AGENT_NAME
+
+    def propose_strategy_change(
+        self,
+        *,
+        report_path: Path,
+        target_file: Path,
+        round_index: int,
+        repo_root: Path = Path("."),
+        old_threshold: str = OLD_THRESHOLD,
+        new_threshold: str = NEW_THRESHOLD,
+    ) -> StrategyProposal:
+        """Return the fixed threshold-change proposal."""
+        return propose_strategy_change(
+            report_path=report_path,
+            target_file=target_file,
+            round_index=round_index,
+            repo_root=repo_root,
+            old_threshold=old_threshold,
+            new_threshold=new_threshold,
+        )
+
+
 def propose_strategy_change(
     *,
     report_path: Path,

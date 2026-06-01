@@ -10,7 +10,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterator
 
-from agents.strategy_modifier_stub import propose_strategy_change
+from agents.modifier_adapter import StrategyModifier
+from agents.registry import get_strategy_modifier
 from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.experiment_index import append_experiment_index
 from orchestrator.git_manager import (
@@ -56,6 +57,7 @@ def run_iteration_loop(
     )
     holdout_data_path = active_config.dataset_path(repo_root, "holdout")
     active_policy_rules = policy_rules or active_config.policy
+    modifier = get_strategy_modifier(active_config.strategy_modifier)
     strategy_path = Path(active_config.strategy_path)
     strategy_file_path = active_config.resolve_path(repo_root, active_config.strategy_path)
     strategy_module = active_config.current_strategy_module
@@ -101,6 +103,7 @@ def run_iteration_loop(
                     stub_new_threshold=active_config.stub_new_threshold,
                     strategy_module=strategy_module,
                     strategy_file_path=strategy_file_path,
+                    modifier=modifier,
                 )
                 manifest["completed_rounds"] = round_index
                 manifest["rounds"].append(round_summary)  # type: ignore[union-attr]
@@ -159,6 +162,7 @@ def run_round(
     stub_new_threshold: str,
     strategy_module: str,
     strategy_file_path: Path,
+    modifier: StrategyModifier,
 ) -> dict[str, object]:
     """Run one proposal/apply/evaluate round."""
     clear_strategy_import(repo_root, strategy_module)
@@ -184,7 +188,7 @@ def run_round(
         report_path=round_dir / "holdout_report_before.md",
     )
 
-    proposal = propose_strategy_change(
+    proposal = modifier.propose_strategy_change(
         report_path=round_dir / "train_report_before.md",
         target_file=strategy_file_path,
         round_index=round_index,

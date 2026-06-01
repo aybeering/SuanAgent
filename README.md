@@ -14,6 +14,11 @@ Default run settings live in `config/default.json`. The iteration loop uses
 train data for the agent report, validation data for the policy gate, and
 holdout data for observation-only reports.
 
+The strategy interface contract is documented in
+`docs/strategy_interface.md`. The current modifier backend is selected with
+`strategy_modifier` in config; available values are `fixed_patch_stub` and
+`codex_dry_run`.
+
 ## Commands
 
 ```bash

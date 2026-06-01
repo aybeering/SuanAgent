@@ -7,7 +7,7 @@ from pathlib import Path
 from agents.strategy_modifier_stub import NEW_THRESHOLD, OLD_THRESHOLD, propose_strategy_change
 from backtester.schema import MarketSnapshot, StrategyOrder
 from backtester.simulate import validate_strategy_orders
-from orchestrator.config import load_project_config
+from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
 from orchestrator.iteration_loop import run_iteration_loop
 
@@ -42,10 +42,20 @@ def test_default_config_loads_dataset_splits() -> None:
     config = load_project_config(Path.cwd())
 
     assert config.max_rounds == 5
+    assert config.strategy_modifier == "fixed_patch_stub"
     assert config.datasets["train"] == "data/train/sample_markets.csv"
     assert config.datasets["validation"] == "data/validation/sample_markets.csv"
     assert config.datasets["holdout"] == "data/holdout/sample_markets.csv"
     assert config.policy["min_ev_improvement"] == 0.01
+
+
+def test_strategy_interface_document_covers_agent_boundaries() -> None:
+    contract = Path("docs/strategy_interface.md").read_text(encoding="utf-8")
+
+    assert "generate_orders(snapshot: MarketSnapshot)" in contract
+    assert "list[StrategyOrder]" in contract
+    assert "Invalid outputs fail before simulation" in contract
+    assert "network calls" in contract
 
 
 def test_stub_agent_generates_fixed_patch(tmp_path: Path) -> None:
@@ -174,6 +184,44 @@ def test_iteration_loop_initializes_git_when_missing(tmp_path: Path) -> None:
     run_iteration_loop(run_id="git-init", max_rounds=1, repo_root=repo)
 
     assert (repo / ".git").exists()
+
+
+def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    default = load_project_config(repo)
+    config = ProjectConfig(
+        baseline_strategy_module=default.baseline_strategy_module,
+        current_strategy_module=default.current_strategy_module,
+        experiments_dir=default.experiments_dir,
+        max_rounds=1,
+        datasets=default.datasets,
+        policy=default.policy,
+        strategy_path=default.strategy_path,
+        strategy_modifier="codex_dry_run",
+        stub_old_threshold=default.stub_old_threshold,
+        stub_new_threshold=default.stub_new_threshold,
+    )
+
+    manifest = run_iteration_loop(
+        run_id="dry-run",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/dry-run/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
+
+    assert manifest["status"] == "stopped_max_rounds"
+    assert proposal["agent_name"] == "codex_cli_dry_run"
+    assert proposal["applicable"] is False
+    assert "dry-run" in proposal["raw_response"]
+    assert decision["accepted"] is False
+    assert "does not emit patches" in decision["reasons"][0]
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_strategy_order_validation_rejects_invalid_orders() -> None:

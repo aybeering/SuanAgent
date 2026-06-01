@@ -1457,6 +1457,90 @@ output_path.write_text(json.dumps({
     )
 
 
+def test_file_protocol_adapter_rejects_workspace_side_effect(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    original_readme = (repo / "README.md").read_text(encoding="utf-8")
+    fake_agent = write_fake_command(
+        tmp_path,
+        "fake_file_protocol_mutates_workspace.py",
+        """#!/usr/bin/env python3
+import difflib
+import json
+import pathlib
+import sys
+agent_input = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+output_path = pathlib.Path(sys.argv[2])
+pathlib.Path('README.md').write_text('workspace mutation\\n', encoding='utf-8')
+target = agent_input['target_file']
+before = agent_input['target_file_content']
+after = before.replace('MIN_EDGE = 0.05', 'MIN_EDGE = 0.04', 1)
+patch = ''.join(difflib.unified_diff(
+    before.splitlines(keepends=True),
+    after.splitlines(keepends=True),
+    fromfile=f'a/{target}',
+    tofile=f'b/{target}',
+))
+output_path.write_text(json.dumps({
+    "summary": "Return a patch after mutating workspace README.",
+    "risk_notes": "Mutation guard should reject this.",
+    "direction_tag": "lower_min_edge",
+    "expected_metric_change": {"trade_count": "increase"},
+    "hypotheses": ["Workspace side effects should be rejected."],
+    "patch_diff": patch
+}), encoding='utf-8')
+""",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="file_protocol",
+        modifier_settings={
+            "executable": str(fake_agent),
+            "args": (),
+            "execute": True,
+            "timeout_seconds": 5,
+            "output_filename": "fixture_agent_output.json",
+            "workspace_root": "workspaces",
+        },
+        memory_failed_patch_threshold=0,
+        memory_failed_direction_threshold=99,
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+        stop_after_no_improvement_rounds=0,
+    )
+
+    run_iteration_loop(
+        run_id="file-protocol-mutation-guard",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/file-protocol-mutation-guard/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    attempts = json.loads(
+        (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
+    )
+    workspace_readme = (
+        repo
+        / "workspaces/file-protocol-mutation-guard-file-protocol/round_001/strategy_workspace/README.md"
+    ).read_text(encoding="utf-8")
+
+    assert proposal["applicable"] is False
+    assert proposal["direction_tag"] == "file_protocol_source_violation"
+    assert proposal["contract_errors"] == [
+        "workspace modified disallowed file: README.md"
+    ]
+    assert attempts[0]["status"] == "contract_invalid"
+    assert workspace_readme == "workspace mutation\n"
+    assert (repo / "README.md").read_text(encoding="utf-8") == original_readme
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
 def test_codex_cli_adapter_disabled_does_not_execute(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     default = load_project_config(repo)

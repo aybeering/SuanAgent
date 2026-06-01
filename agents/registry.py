@@ -65,5 +65,6 @@ def get_strategy_modifier(
                     "agent_command_output.json",
                 )
             ),
+            workspace_root=str(active_settings.get("workspace_root", "workspaces")),
         )
     raise ValueError(f"Unknown strategy modifier adapter: {name}")

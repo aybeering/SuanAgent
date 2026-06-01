@@ -54,7 +54,8 @@
     "args": [],
     "execute": false,
     "timeout_seconds": 120,
-    "output_filename": "agent_command_output.json"
+    "output_filename": "agent_command_output.json",
+    "workspace_root": "workspaces"
   },
   "stub": {
     "old_threshold": "MIN_EDGE = 0.05",

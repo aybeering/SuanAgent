@@ -486,9 +486,10 @@ The configured modifier may also be `codex_dry_run`, `codex_cli_dry_run`,
 deterministic, but it should read `agent_context.md` and choose a different
 fixed patch after prior failures. The `codex_cli` and `file_protocol` adapters
 must default to `execute=false`; only an explicit config change may invoke a
-subprocess. Subprocess fixtures should be able to return either plain diffs or
-structured proposal JSON so the external-process boundary remains testable
-without real Codex.
+subprocess. Enabled `file_protocol` commands must run in an isolated workspace
+and only bring back the configured proposal output file. Subprocess fixtures
+should be able to return either plain diffs or structured proposal JSON so the
+external-process boundary remains testable without real Codex.
 
 CLI entrypoints must support `--config` and `--run-id` so experiments can switch
 between modes without editing `config/default.json`.

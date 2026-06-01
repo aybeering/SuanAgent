@@ -25,6 +25,8 @@ The strategy interface contract is documented in
 subprocess when their `execute` flag is explicitly set to `true`. Example
 configs live in `config/adaptive_stub.json`, `config/codex_dry_run.json`,
 `config/codex_cli_guarded.json`, and `config/file_protocol_guarded.json`.
+Enabled `file_protocol` commands run inside an isolated workspace and may only
+bring back the configured proposal output file.
 
 Codex-facing adapters use ignored `workspaces/<run_id>/<round_id>/` directories
 for isolated project copies. Returned text can be a unified diff or structured

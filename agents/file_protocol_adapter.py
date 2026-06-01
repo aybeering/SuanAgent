@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import hashlib
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -11,25 +11,18 @@ from agents.codex_dry_run_adapter import (
     metadata_expected_metric_change,
     metadata_hypotheses,
     metadata_patch_diff,
+    workspace_ids_from_report,
 )
-from orchestrator.patch_parser import PatchParseError, extract_unified_diff, validate_patch_targets
+from orchestrator.patch_parser import (
+    PatchParseError,
+    extract_unified_diff,
+    validate_patch_targets,
+)
 from orchestrator.proposal import StrategyProposal
-
-
-PROTECTED_PATHS = (
-    "AGENTS.md",
-    "README.md",
-    "TASK.md",
-    "pyproject.toml",
-    ".gitignore",
-    "agents",
-    "backtester",
-    "config",
-    "docs",
-    "orchestrator",
-    "reports",
-    "strategies",
-    "tests",
+from orchestrator.workspace_manager import (
+    create_isolated_workspace,
+    workspace_mutation_errors,
+    workspace_snapshot,
 )
 
 
@@ -46,12 +39,14 @@ class FileProtocolModifier:
         execute: bool = False,
         timeout_seconds: int = 120,
         output_filename: str = "agent_command_output.json",
+        workspace_root: str = "workspaces",
     ) -> None:
         self.executable = executable
         self.args = args
         self.execute = execute
         self.timeout_seconds = timeout_seconds
         self.output_filename = output_filename
+        self.workspace_root = Path(workspace_root)
 
     def propose_strategy_change(
         self,
@@ -68,8 +63,20 @@ class FileProtocolModifier:
         del old_threshold, new_threshold, context_path
         target_relative = target_file.relative_to(repo_root)
         round_dir = report_path.parent
-        agent_input_path = round_dir / "agent_input.json"
-        output_path = round_dir / self.output_filename
+        run_id, round_id = workspace_ids_from_report(report_path)
+        workspace_path = create_isolated_workspace(
+            repo_root=repo_root,
+            workspace_root=repo_root / self.workspace_root,
+            run_id=f"{run_id}-file-protocol",
+            round_id=round_id,
+        )
+        workspace_round_dir = workspace_path / "experiments" / run_id / round_id
+        copy_agent_round_inputs(
+            source_round_dir=round_dir,
+            workspace_round_dir=workspace_round_dir,
+        )
+        agent_input_path = workspace_round_dir / "agent_input.json"
+        output_path = workspace_round_dir / self.output_filename
         command = [
             self.executable,
             *self.args,
@@ -95,16 +102,20 @@ class FileProtocolModifier:
                 rejection_reason="File-protocol execution disabled.",
                 prompt=str(agent_input_path),
                 command=tuple(command),
-                workspace_path=str(repo_root),
+                workspace_path=str(workspace_path),
             )
 
-        before = protected_source_snapshot(repo_root)
+        before = workspace_snapshot(workspace_path)
         result = run_file_protocol_command(
             command=command,
-            cwd=round_dir,
+            cwd=workspace_path,
             timeout_seconds=self.timeout_seconds,
         )
         raw_response = response_text(result=result, output_path=output_path)
+        copy_agent_output_back(
+            workspace_output_path=output_path,
+            round_output_path=round_dir / self.output_filename,
+        )
         if result.returncode != 0:
             return StrategyProposal(
                 agent_name=self.agent_name,
@@ -121,12 +132,13 @@ class FileProtocolModifier:
                 rejection_reason=f"File-protocol agent exited with {result.returncode}.",
                 prompt=str(agent_input_path),
                 command=tuple(command),
-                workspace_path=str(repo_root),
+                workspace_path=str(workspace_path),
             )
 
-        mutation_errors = protected_source_mutation_errors(
+        mutation_errors = workspace_mutation_errors(
             before=before,
-            after=protected_source_snapshot(repo_root),
+            after=workspace_snapshot(workspace_path),
+            allowed_paths={output_path.relative_to(workspace_path).as_posix()},
         )
         if mutation_errors:
             return StrategyProposal(
@@ -148,7 +160,7 @@ class FileProtocolModifier:
                 ),
                 prompt=str(agent_input_path),
                 command=tuple(command),
-                workspace_path=str(repo_root),
+                workspace_path=str(workspace_path),
                 contract_errors=mutation_errors,
             )
 
@@ -159,6 +171,7 @@ class FileProtocolModifier:
             repo_root=repo_root,
             command=command,
             agent_input_path=agent_input_path,
+            workspace_path=workspace_path,
         )
 
 
@@ -187,6 +200,7 @@ def proposal_from_file_protocol_output(
     repo_root: Path,
     command: list[str],
     agent_input_path: Path,
+    workspace_path: Path,
 ) -> StrategyProposal:
     """Convert file-protocol output text into a StrategyProposal."""
     target_relative = target_file.relative_to(repo_root)
@@ -223,7 +237,7 @@ def proposal_from_file_protocol_output(
             rejection_reason=str(exc),
             prompt=str(agent_input_path),
             command=tuple(command),
-            workspace_path=str(repo_root),
+            workspace_path=str(workspace_path),
         )
 
     return StrategyProposal(
@@ -248,8 +262,34 @@ def proposal_from_file_protocol_output(
         rejection_reason="",
         prompt=str(agent_input_path),
         command=tuple(command),
-        workspace_path=str(repo_root),
+        workspace_path=str(workspace_path),
     )
+
+
+def copy_agent_round_inputs(*, source_round_dir: Path, workspace_round_dir: Path) -> None:
+    """Copy stable agent input artifacts into the isolated workspace."""
+    workspace_round_dir.mkdir(parents=True, exist_ok=True)
+    for filename in (
+        "agent_input.json",
+        "agent_context.md",
+        "agent_context.json",
+        "train_report_before.md",
+        "report_before.md",
+        "holdout_report_before.md",
+    ):
+        source = source_round_dir / filename
+        if source.exists():
+            shutil.copy2(source, workspace_round_dir / filename)
+
+
+def copy_agent_output_back(
+    *,
+    workspace_output_path: Path,
+    round_output_path: Path,
+) -> None:
+    """Copy external agent output from workspace to the real round artifacts."""
+    if workspace_output_path.exists():
+        shutil.copy2(workspace_output_path, round_output_path)
 
 
 def response_text(
@@ -268,47 +308,3 @@ def response_text(
     if result.stderr.strip():
         chunks.append("[stderr]\n" + result.stderr)
     return "\n".join(chunks) or "file protocol command produced no output"
-
-
-def protected_source_snapshot(repo_root: Path) -> dict[str, str]:
-    """Return hashes for source files an external agent must not mutate."""
-    snapshot: dict[str, str] = {}
-    for protected_path in PROTECTED_PATHS:
-        path = repo_root / protected_path
-        if path.is_file():
-            snapshot[path.relative_to(repo_root).as_posix()] = file_sha256(path)
-        elif path.is_dir():
-            for child in sorted(path.rglob("*")):
-                if child.is_file() and not ignored_path(child):
-                    snapshot[child.relative_to(repo_root).as_posix()] = file_sha256(child)
-    return snapshot
-
-
-def protected_source_mutation_errors(
-    *,
-    before: dict[str, str],
-    after: dict[str, str],
-) -> tuple[str, ...]:
-    """Return source mutations made by an external file-protocol agent."""
-    errors: list[str] = []
-    for path in sorted(set(before) | set(after)):
-        if before.get(path) == after.get(path):
-            continue
-        if path not in before:
-            errors.append(f"file protocol added protected file: {path}")
-        elif path not in after:
-            errors.append(f"file protocol deleted protected file: {path}")
-        else:
-            errors.append(f"file protocol modified protected file: {path}")
-    return tuple(errors)
-
-
-def ignored_path(path: Path) -> bool:
-    """Return whether a source snapshot path should be ignored."""
-    parts = set(path.parts)
-    return "__pycache__" in parts or ".pytest_cache" in parts
-
-
-def file_sha256(path: Path) -> str:
-    """Return a file SHA-256 digest."""
-    return hashlib.sha256(path.read_bytes()).hexdigest()

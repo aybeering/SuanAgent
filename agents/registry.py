@@ -8,6 +8,14 @@ from agents.modifier_adapter import StrategyModifier
 from agents.strategy_modifier_stub import FixedPatchModifier
 
 
+SUPPORTED_MODIFIERS = {
+    "fixed_patch_stub",
+    "codex_dry_run",
+    "codex_cli_dry_run",
+    "codex_cli",
+}
+
+
 def get_strategy_modifier(
     name: str,
     settings: dict[str, object] | None = None,

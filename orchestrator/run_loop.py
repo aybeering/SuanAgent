@@ -15,6 +15,7 @@ from orchestrator.config import load_project_config
 from orchestrator.experiment_index import append_experiment_index
 from orchestrator.git_utils import strategy_diff
 from orchestrator.policy_gate import evaluate_policy
+from orchestrator.preflight import run_preflight
 from reports.generate_report import generate_report
 
 
@@ -28,6 +29,9 @@ def run_pipeline(
 ) -> dict[str, object]:
     """Execute the V0 pipeline and write all experiment artifacts."""
     repo_root = repo_root.resolve()
+    preflight = run_preflight(repo_root=repo_root, config_path=config_path)
+    if not preflight.ok:
+        raise ValueError("Preflight failed: " + "; ".join(preflight.errors))
     config = load_project_config(repo_root, config_path)
     active_run_id = run_id or os.environ.get("SUAN_RUN_ID") or make_run_id()
     active_experiments_dir = (

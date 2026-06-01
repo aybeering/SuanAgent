@@ -25,6 +25,7 @@ from orchestrator.git_manager import (
     rollback_strategy,
 )
 from orchestrator.policy_gate import evaluate_policy
+from orchestrator.preflight import run_preflight
 from orchestrator.run_loop import run_and_write, write_json
 
 
@@ -44,6 +45,9 @@ def run_iteration_loop(
 ) -> dict[str, object]:
     """Run the V0.5 self-iteration skeleton until accepted or max rounds."""
     repo_root = repo_root.resolve()
+    preflight = run_preflight(repo_root=repo_root, config_path=config_path)
+    if config is None and not preflight.ok:
+        raise ValueError("Preflight failed: " + "; ".join(preflight.errors))
     active_config = config or load_project_config(repo_root, config_path)
     active_run_id = run_id or os.environ.get("SUAN_RUN_ID") or make_run_id()
     active_experiments_dir = (

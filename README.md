@@ -30,6 +30,7 @@ touch only `strategies/current_strategy.py`.
 
 ```bash
 pytest
+python -m orchestrator.preflight
 python -m orchestrator.run_loop
 python -m orchestrator.iteration_loop
 ```
@@ -40,6 +41,7 @@ Useful mode switches:
 python -m orchestrator.iteration_loop --config config/codex_dry_run.json --run-id dry-run-demo
 python -m orchestrator.iteration_loop --config config/codex_cli_guarded.json --run-id guarded-demo --max-rounds 1
 python -m orchestrator.run_loop --config config/default.json --run-id single-run-demo
+python -m orchestrator.preflight --config config/codex_cli_guarded.json
 ```
 
 ## Outputs

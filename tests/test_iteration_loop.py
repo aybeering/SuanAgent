@@ -21,6 +21,7 @@ from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
 from orchestrator.iteration_loop import run_iteration_loop
 from orchestrator.run_loop import run_pipeline
+from orchestrator.preflight import run_preflight
 from orchestrator.patch_parser import (
     PatchParseError,
     changed_paths_from_diff,
@@ -75,6 +76,37 @@ def test_example_configs_load_modifier_modes() -> None:
     assert dry_run.strategy_modifier == "codex_cli_dry_run"
     assert guarded.strategy_modifier == "codex_cli"
     assert guarded.modifier_settings["execute"] is False
+
+
+def test_preflight_passes_default_config() -> None:
+    result = run_preflight(repo_root=Path.cwd(), config_path=Path("config/default.json"))
+
+    assert result.ok is True
+    assert result.errors == []
+
+
+def test_preflight_rejects_missing_dataset(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    (repo / "data/train/sample_markets.csv").unlink()
+
+    result = run_preflight(repo_root=repo, config_path=repo / "config/default.json")
+
+    assert result.ok is False
+    assert any("dataset path does not exist" in error for error in result.errors)
+
+
+def test_preflight_rejects_enabled_missing_codex(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_path = repo / "config/missing_codex.json"
+    config = json.loads((repo / "config/codex_cli_guarded.json").read_text())
+    config["codex_cli"]["execute"] = True
+    config["codex_cli"]["executable"] = "definitely-not-a-real-codex-command"
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    result = run_preflight(repo_root=repo, config_path=config_path)
+
+    assert result.ok is False
+    assert any("executable not found" in error for error in result.errors)
 
 
 def test_strategy_interface_document_covers_agent_boundaries() -> None:
@@ -487,6 +519,28 @@ def test_run_loop_cli_arguments_work(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
     assert "Run directory:" in result.stdout
     assert (repo / "experiments/cli-single/decision.json").exists()
+
+
+def test_preflight_cli_arguments_work(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.preflight",
+            "--config",
+            "config/default.json",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is True
 
 
 def test_workspace_ids_are_derived_from_report_path() -> None:

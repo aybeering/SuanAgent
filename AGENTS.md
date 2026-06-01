@@ -335,6 +335,7 @@ The project is complete only when these checks pass:
 pytest
 python -m orchestrator.run_loop
 python -m orchestrator.iteration_loop
+python -m orchestrator.preflight --config config/default.json
 python -m orchestrator.iteration_loop --config config/codex_dry_run.json --run-id smoke-dry --max-rounds 1
 ```
 
@@ -364,6 +365,10 @@ explicit config change may invoke a subprocess.
 
 CLI entrypoints must support `--config` and `--run-id` so experiments can switch
 between modes without editing `config/default.json`.
+
+Run preflight before experiment execution. It must fail fast on missing data
+paths, unsupported modifiers, invalid policy config, or enabled Codex execution
+without an available executable.
 
 Future Codex output must be parsed as a unified diff and rejected before git
 apply if it touches anything except `strategies/current_strategy.py`.

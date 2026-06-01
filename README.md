@@ -18,8 +18,10 @@ holdout data for a conservative risk gate. By default, the iteration loop stops
 early when an agent repeats a previously rejected patch.
 
 The strategy interface contract is documented in
-`docs/strategy_interface.md`. The current modifier backend is selected with
-`strategy_modifier` in config; available values are `fixed_patch_stub`,
+`docs/strategy_interface.md`. Machine-readable agent contracts live in
+`schemas/agent_input.schema.json`, `schemas/agent_output.schema.json`, and
+`schemas/agent_execution.schema.json`. The current modifier backend is selected
+with `strategy_modifier` in config; available values are `fixed_patch_stub`,
 `adaptive_stub`, `codex_dry_run`, `codex_cli_dry_run`, `codex_cli`, and
 `file_protocol`. The `codex_cli` and `file_protocol` adapters only invoke a
 subprocess when their `execute` flag is explicitly set to `true`. Example
@@ -122,6 +124,9 @@ machine-readable view of prior rounds, candidate traces, and outcome memory.
 Each round also writes `agent_input.json` and `agent_output.json`, a stable
 `agent_io_*_v1` fixture pair that records what a modifier backend was given and
 which proposal candidate was selected.
+Tests validate these artifacts against the JSON schemas under `schemas/`; the
+file-protocol execution audit is validated against
+`schemas/agent_execution.schema.json`.
 Iteration runs append proposal outcomes to `experiments/memory.jsonl`, which is
 used as cross-run context for later agent calls.
 Before applying a patch, the loop checks outcome memory and rejects patch hashes

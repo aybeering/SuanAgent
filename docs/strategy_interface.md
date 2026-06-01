@@ -84,6 +84,14 @@ agent_output.json  # schema_version: agent_io_output_v1
 
 Future CLI or SDK-backed agents should treat `agent_input.json` as the structured
 input contract and `agent_output.json` as the audited selected-output contract.
+The corresponding JSON Schema files are:
+
+```text
+schemas/agent_input.schema.json
+schemas/agent_output.schema.json
+schemas/agent_execution.schema.json
+```
+
 The `file_protocol` modifier is a guarded bridge for this contract: when
 `execute=true`, it runs a configured command with `agent_input.json` and an
 output path as arguments, then parses the command's JSON or diff output into the

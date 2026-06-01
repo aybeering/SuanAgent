@@ -36,6 +36,7 @@ from orchestrator.outcome_memory import (
 )
 from orchestrator.run_loop import run_pipeline
 from orchestrator.preflight import run_preflight
+from orchestrator.schema_validation import validate_json_file, validate_json_payload
 from orchestrator.experiments import (
     candidate_leaderboard,
     experiment_leaderboard,
@@ -71,6 +72,7 @@ def copy_repo_fixture(tmp_path: Path) -> Path:
         "docs",
         "orchestrator",
         "reports",
+        "schemas",
         "strategies",
     ):
         shutil.copytree(
@@ -83,6 +85,12 @@ def copy_repo_fixture(tmp_path: Path) -> Path:
     (repo / "experiments").mkdir()
     (repo / "experiments" / ".gitkeep").write_text("", encoding="utf-8")
     return repo
+
+
+def assert_matches_schema(payload_path: Path, schema_name: str) -> None:
+    """Assert a JSON artifact matches one repository contract schema."""
+    schema_path = Path.cwd() / "schemas" / f"{schema_name}.schema.json"
+    assert validate_json_file(payload_path=payload_path, schema_path=schema_path) == ()
 
 
 def test_default_config_loads_dataset_splits() -> None:
@@ -411,12 +419,14 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert decision["accepted"] is False
     assert selected_attempt["candidate_score"] > 0
     assert agent_input["schema_version"] == AGENT_INPUT_SCHEMA_VERSION
+    assert_matches_schema(round_dir / "agent_input.json", "agent_input")
     assert agent_input["target_file"] == "strategies/current_strategy.py"
     assert agent_input["artifacts"]["agent_context_json"].endswith("agent_context.json")
     assert agent_input["metrics_before"]["validation"]["trade_count"] == 39
     assert agent_input["modifiers"]["primary"] == "strategy_modifier_stub"
     assert agent_input["output_contract"]["schema_version"] == AGENT_OUTPUT_SCHEMA_VERSION
     assert agent_output["schema_version"] == AGENT_OUTPUT_SCHEMA_VERSION
+    assert_matches_schema(round_dir / "agent_output.json", "agent_output")
     assert agent_output["selected_role"] == selected_attempt["role"]
     assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
     assert agent_output["attempt_count"] == len(attempts)
@@ -1474,6 +1484,7 @@ output_path.write_text(json.dumps({
     assert "MIN_EDGE = 0.04" in proposal["patch_diff"]
     assert (round_dir / "fixture_agent_output.json").exists()
     assert agent_execution["schema_version"] == AGENT_EXECUTION_SCHEMA_VERSION
+    assert_matches_schema(round_dir / "agent_execution.json", "agent_execution")
     assert agent_execution["status"] == "completed"
     assert agent_execution["execution_enabled"] is True
     assert agent_execution["returncode"] == 0
@@ -1657,6 +1668,9 @@ def test_file_protocol_demo_agent_runs_from_config(tmp_path: Path) -> None:
     assert proposal["applicable"] is True
     assert "MIN_EDGE = 0.04" in proposal["patch_diff"]
     assert agent_execution["schema_version"] == AGENT_EXECUTION_SCHEMA_VERSION
+    assert_matches_schema(round_dir / "agent_input.json", "agent_input")
+    assert_matches_schema(round_dir / "agent_output.json", "agent_output")
+    assert_matches_schema(round_dir / "agent_execution.json", "agent_execution")
     assert agent_execution["status"] == "completed"
     assert agent_execution["command"][:3] == [
         "python",
@@ -1668,6 +1682,19 @@ def test_file_protocol_demo_agent_runs_from_config(tmp_path: Path) -> None:
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
+
+
+def test_schema_validator_reports_missing_required_property() -> None:
+    errors = validate_json_payload(
+        payload={"schema_version": AGENT_INPUT_SCHEMA_VERSION},
+        schema=json.loads(
+            (Path.cwd() / "schemas/agent_input.schema.json").read_text(
+                encoding="utf-8"
+            )
+        ),
+    )
+
+    assert "$: missing required property run_id" in errors
 
 
 def test_codex_cli_adapter_disabled_does_not_execute(tmp_path: Path) -> None:

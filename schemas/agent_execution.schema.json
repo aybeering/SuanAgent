@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent File-Protocol Execution Audit",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "agent_name",
+    "status",
+    "execution_enabled",
+    "command",
+    "cwd",
+    "workspace_path",
+    "agent_input_path",
+    "workspace_output_path",
+    "round_output_path",
+    "timeout_seconds",
+    "returncode",
+    "stdout",
+    "stderr",
+    "raw_response",
+    "output_file",
+    "round_output_file",
+    "allowed_mutation_paths",
+    "mutation_errors",
+    "mutation_guard"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "agent_execution_v1"
+      ]
+    },
+    "agent_name": {
+      "type": "string",
+      "enum": [
+        "file_protocol_agent"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "disabled",
+        "completed",
+        "command_failed",
+        "workspace_violation"
+      ]
+    },
+    "execution_enabled": {
+      "type": "boolean"
+    },
+    "command": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "cwd": {
+      "type": "string"
+    },
+    "workspace_path": {
+      "type": "string"
+    },
+    "agent_input_path": {
+      "type": "string"
+    },
+    "workspace_output_path": {
+      "type": "string"
+    },
+    "round_output_path": {
+      "type": "string"
+    },
+    "timeout_seconds": {
+      "type": "integer"
+    },
+    "returncode": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "stdout": {
+      "$ref_note": "stream summary",
+      "type": "object",
+      "required": [
+        "chars",
+        "sha256",
+        "preview"
+      ],
+      "properties": {
+        "chars": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "preview": {
+          "type": "string"
+        }
+      }
+    },
+    "stderr": {
+      "$ref_note": "stream summary",
+      "type": "object",
+      "required": [
+        "chars",
+        "sha256",
+        "preview"
+      ],
+      "properties": {
+        "chars": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "preview": {
+          "type": "string"
+        }
+      }
+    },
+    "raw_response": {
+      "$ref_note": "stream summary",
+      "type": "object",
+      "required": [
+        "chars",
+        "sha256",
+        "preview"
+      ],
+      "properties": {
+        "chars": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "preview": {
+          "type": "string"
+        }
+      }
+    },
+    "output_file": {
+      "$ref_note": "file summary",
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      }
+    },
+    "round_output_file": {
+      "$ref_note": "file summary",
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      }
+    },
+    "allowed_mutation_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mutation_errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mutation_guard": {
+      "type": "object",
+      "required": [
+        "allowed_paths",
+        "mutation_errors",
+        "passed"
+      ],
+      "properties": {
+        "allowed_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mutation_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

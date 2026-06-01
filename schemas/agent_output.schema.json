@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Agent Output Contract",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "round_id",
+    "round_index",
+    "selected_role",
+    "selection_reason",
+    "selected_proposal",
+    "attempt_count",
+    "attempts",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "agent_io_output_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "round_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "round_index": {
+      "type": "integer"
+    },
+    "selected_role": {
+      "type": "string"
+    },
+    "selection_reason": {
+      "type": "string"
+    },
+    "selected_proposal": {
+      "type": "object",
+      "required": [
+        "protocol_version",
+        "agent_name",
+        "round_index",
+        "target_file",
+        "summary",
+        "risk_notes",
+        "expected_metric_change",
+        "raw_response",
+        "patch_diff",
+        "applicable",
+        "direction_tag",
+        "hypotheses",
+        "patch_sha256",
+        "contract_errors"
+      ],
+      "properties": {
+        "protocol_version": {
+          "type": "string",
+          "enum": [
+            "proposal_v1"
+          ]
+        },
+        "agent_name": {
+          "type": "string"
+        },
+        "round_index": {
+          "type": "integer"
+        },
+        "target_file": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "risk_notes": {
+          "type": "string"
+        },
+        "expected_metric_change": {
+          "type": "object"
+        },
+        "raw_response": {
+          "type": "string"
+        },
+        "patch_diff": {
+          "type": "string"
+        },
+        "applicable": {
+          "type": "boolean"
+        },
+        "direction_tag": {
+          "type": "string"
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "patch_sha256": {
+          "type": "string"
+        },
+        "contract_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "attempt_count": {
+      "type": "integer"
+    },
+    "attempts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "role",
+          "agent_name",
+          "direction_tag",
+          "status",
+          "selected",
+          "candidate_score",
+          "patch_sha256",
+          "selection_reason"
+        ],
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "agent_name": {
+            "type": "string"
+          },
+          "direction_tag": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "selected": {
+            "type": "boolean"
+          },
+          "candidate_score": {
+            "type": "number"
+          },
+          "patch_sha256": {
+            "type": "string"
+          },
+          "selection_reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": [
+        "agent_input",
+        "proposal",
+        "proposal_attempts",
+        "agent_response",
+        "patch"
+      ],
+      "properties": {
+        "agent_input": {
+          "type": "string"
+        },
+        "proposal": {
+          "type": "string"
+        },
+        "proposal_attempts": {
+          "type": "string"
+        },
+        "agent_response": {
+          "type": "string"
+        },
+        "patch": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

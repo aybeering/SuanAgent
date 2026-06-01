@@ -110,6 +110,10 @@ Current structure:
 ├── pyproject.toml
 ├── config/
 │   └── default.json
+├── schemas/
+│   ├── agent_input.schema.json
+│   ├── agent_output.schema.json
+│   └── agent_execution.schema.json
 ├── .github/
 │   └── workflows/
 │       └── ci.yml
@@ -248,6 +252,9 @@ the reports, context, before metrics, policy config, candidate-selection config,
 and modifier list available to the agent. `agent_output.json` should use schema
 version `agent_io_output_v1` and record the selected proposal, compact attempt
 rows, and output artifact paths.
+The machine-readable contracts for these files live in `schemas/`. File-protocol
+rounds should also write `agent_execution.json`, use schema version
+`agent_execution_v1`, and match `schemas/agent_execution.schema.json`.
 Each iteration round should append a compact proposal outcome to
 `experiments/memory.jsonl` so later runs and different modifier backends can
 reuse prior proposal outcomes.

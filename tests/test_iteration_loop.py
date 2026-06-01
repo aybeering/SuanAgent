@@ -19,7 +19,7 @@ from agents.codex_dry_run_adapter import (
 from agents.strategy_modifier_stub import NEW_THRESHOLD, OLD_THRESHOLD, propose_strategy_change
 from backtester.schema import MarketSnapshot, StrategyOrder
 from backtester.simulate import validate_strategy_orders
-from orchestrator.agent_context import build_agent_context
+from orchestrator.agent_context import build_agent_context, build_agent_context_payload
 from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
 from orchestrator.iteration_loop import run_iteration_loop
@@ -310,6 +310,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "probe_report_before.md",
         "probe_trades_before.csv",
         "agent_context.md",
+        "agent_context.json",
         "proposal_attempts.json",
         "proposal.json",
         "agent_response.txt",
@@ -353,7 +354,14 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert "strategy_modifier_stub" in summary_text
     assert "ev improvement" in summary_text
     context_text = (round_dir / "agent_context.md").read_text(encoding="utf-8")
+    context_payload = json.loads(
+        (round_dir / "agent_context.json").read_text(encoding="utf-8")
+    )
     assert "No prior rounds in this run." in context_text
+    assert context_payload["schema_version"] == "agent_context_v1"
+    assert context_payload["current_round_id"] == "round_001"
+    assert context_payload["target_file"] == "strategies/current_strategy.py"
+    assert context_payload["prior_rounds"] == []
 
 
 def test_iteration_loop_accepts_and_stops_with_relaxed_rules(tmp_path: Path) -> None:
@@ -1179,6 +1187,7 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
     assert "Only modify: strategies/current_strategy.py" in proposal["prompt"]
     assert "Return a unified diff patch only." in proposal["prompt"]
     assert "Prior proposal context:" in proposal["prompt"]
+    assert "agent_context.json" in proposal["prompt"]
     assert "No prior rounds in this run." in proposal["prompt"]
     assert "workspaces/dry-run/round_001/strategy_workspace" in proposal["workspace_path"]
     assert (
@@ -1351,6 +1360,10 @@ def test_agent_context_summarizes_prior_failed_rounds(tmp_path: Path) -> None:
         run_dir=repo / "experiments/context-history",
         current_round_id="round_003",
     )
+    context_payload = build_agent_context_payload(
+        run_dir=repo / "experiments/context-history",
+        current_round_id="round_003",
+    )
 
     assert "round_001" in context_text
     assert "round_002" in context_text
@@ -1360,6 +1373,10 @@ def test_agent_context_summarizes_prior_failed_rounds(tmp_path: Path) -> None:
     assert "Probe EV Delta" in context_text
     assert "ev improvement" in context_text
     assert "yes (round_001)" in context_text
+    assert context_payload["schema_version"] == "agent_context_v1"
+    assert len(context_payload["prior_rounds"]) == 2
+    assert context_payload["failed_patch_hashes"]
+    assert context_payload["candidate_search_trace"]
 
 
 def test_agent_context_includes_global_outcome_memory(tmp_path: Path) -> None:
@@ -1379,11 +1396,17 @@ def test_agent_context_includes_global_outcome_memory(tmp_path: Path) -> None:
     context_text = (
         repo / "experiments/memory-reader/round_001/agent_context.md"
     ).read_text(encoding="utf-8")
+    context_payload = json.loads(
+        (
+            repo / "experiments/memory-reader/round_001/agent_context.json"
+        ).read_text(encoding="utf-8")
+    )
 
     assert "Global Outcome Memory" in context_text
     assert "memory-source" in context_text
     assert "strategy_modifier_stub" in context_text
     assert "ev improvement" in context_text
+    assert context_payload["global_outcome_memory"][0]["run_id"] == "memory-source"
 
 
 def test_iteration_loop_cli_arguments_work(tmp_path: Path) -> None:

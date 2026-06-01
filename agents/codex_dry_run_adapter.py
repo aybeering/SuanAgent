@@ -112,6 +112,8 @@ def build_codex_prompt(
             "Return a unified diff patch only.",
             "",
             "Prior proposal context:",
+            "If a sibling agent_context.json artifact exists, treat it as the "
+            "machine-readable version of this context.",
             context_text or "No prior proposal context was provided.",
             "",
             "Report:",

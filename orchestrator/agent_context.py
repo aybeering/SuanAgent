@@ -9,6 +9,14 @@ from typing import Any
 from orchestrator.outcome_memory import read_outcome_memory
 
 
+AGENT_CONTEXT_SCHEMA_VERSION = "agent_context_v1"
+TARGET_FILE = "strategies/current_strategy.py"
+POLICY_NOTES = (
+    "Acceptance is decided only by deterministic policy gate results.",
+    "Avoid repeating failed patch hashes unless there is a new justification.",
+)
+
+
 def write_agent_context(
     *,
     run_dir: Path,
@@ -16,16 +24,53 @@ def write_agent_context(
     output_path: Path,
     memory_path: Path | None = None,
 ) -> Path:
-    """Write prior-round context for the next strategy proposal."""
-    output_path.write_text(
-        build_agent_context(
-            run_dir=run_dir,
-            current_round_id=current_round_id,
-            memory_path=memory_path,
-        ),
+    """Write markdown and JSON context for the next strategy proposal."""
+    payload = build_agent_context_payload(
+        run_dir=run_dir,
+        current_round_id=current_round_id,
+        memory_path=memory_path,
+    )
+    output_path.write_text(build_agent_context_markdown(payload), encoding="utf-8")
+    output_path.with_suffix(".json").write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
     return output_path
+
+
+def build_agent_context_payload(
+    *,
+    run_dir: Path,
+    current_round_id: str,
+    memory_path: Path | None = None,
+) -> dict[str, object]:
+    """Return a structured context payload from prior round artifacts."""
+    prior_rounds = prior_round_summaries(
+        run_dir=run_dir,
+        current_round_id=current_round_id,
+    )
+    failed_hashes = [
+        str(payload["patch_sha256"])
+        for payload in prior_rounds
+        if payload["patch_sha256"] and not payload["accepted"]
+    ]
+    return {
+        "schema_version": AGENT_CONTEXT_SCHEMA_VERSION,
+        "run_id": run_dir.name,
+        "current_round_id": current_round_id,
+        "target_file": TARGET_FILE,
+        "policy_notes": list(POLICY_NOTES),
+        "prior_rounds": prior_rounds,
+        "failed_patch_hashes": sorted(set(failed_hashes)),
+        "candidate_search_trace": candidate_search_rows(
+            run_dir=run_dir,
+            current_round_id=current_round_id,
+        ),
+        "global_outcome_memory": recent_memory_records(
+            memory_path=memory_path,
+            run_dir=run_dir,
+        ),
+    }
 
 
 def build_agent_context(
@@ -35,26 +80,37 @@ def build_agent_context(
     memory_path: Path | None = None,
 ) -> str:
     """Return a markdown context summary from prior round artifacts."""
-    prior_rounds = prior_round_summaries(
-        run_dir=run_dir,
-        current_round_id=current_round_id,
+    return build_agent_context_markdown(
+        build_agent_context_payload(
+            run_dir=run_dir,
+            current_round_id=current_round_id,
+            memory_path=memory_path,
+        )
     )
-    memory_records = recent_memory_records(memory_path=memory_path, run_dir=run_dir)
-    candidate_rows = candidate_search_rows(
-        run_dir=run_dir,
-        current_round_id=current_round_id,
-    )
+
+
+def build_agent_context_markdown(payload: dict[str, object]) -> str:
+    """Render a structured agent context payload as markdown."""
+    prior_rounds = list_of_dicts(payload.get("prior_rounds", []))
+    memory_records = list_of_dicts(payload.get("global_outcome_memory", []))
+    candidate_rows = list_of_dicts(payload.get("candidate_search_trace", []))
+    policy_notes = [
+        str(note) for note in payload.get("policy_notes", []) if str(note)
+    ]
     lines = [
         "# Agent Context",
         "",
-        f"- Current round: `{current_round_id}`",
-        "- Target file: `strategies/current_strategy.py`",
-        "- Acceptance is decided only by deterministic policy gate results.",
-        "- Avoid repeating failed patch hashes unless there is a new justification.",
+        f"- Schema: `{payload.get('schema_version', AGENT_CONTEXT_SCHEMA_VERSION)}`",
+        f"- Current round: `{payload.get('current_round_id', '')}`",
+        f"- Target file: `{payload.get('target_file', TARGET_FILE)}`",
+        "- Structured JSON: `agent_context.json`",
+    ]
+    lines.extend(f"- {note}" for note in policy_notes)
+    lines.extend([
         "",
         "## Prior Rounds",
         "",
-    ]
+    ])
     if not prior_rounds:
         lines.append("No prior rounds in this run.")
     else:
@@ -69,11 +125,7 @@ def build_agent_context(
             lines.append(prior_round_row(payload))
 
     lines.extend(["", "## Failed Patch Hashes", ""])
-    failed_hashes = [
-        str(payload["patch_sha256"])
-        for payload in prior_rounds
-        if payload["patch_sha256"] and not payload["accepted"]
-    ]
+    failed_hashes = [str(value) for value in payload.get("failed_patch_hashes", [])]
     if not failed_hashes:
         lines.append("None.")
     else:
@@ -108,6 +160,13 @@ def build_agent_context(
             lines.append(memory_row(payload))
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+def list_of_dicts(value: object) -> list[dict[str, object]]:
+    """Return only dict items from a list-like payload field."""
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
 
 
 def candidate_search_rows(

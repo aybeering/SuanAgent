@@ -82,9 +82,10 @@ non-applicable proposals with `contract_errors`, so malformed agent output is
 auditable but never applied.
 Iteration status is one of `accepted`, `stopped_repeated_proposal`,
 `stopped_max_rounds`, or `failed`.
-Each round also writes `agent_context.md`, a deterministic summary of prior
-failed proposals and metric deltas that future agent backends can read before
-creating the next patch.
+Each round also writes `agent_context.md` and `agent_context.json`, two renders
+of the same deterministic context payload. The markdown file is easy to inspect,
+while the JSON file gives future Codex CLI or SDK-backed agents a stable
+machine-readable view of prior rounds, candidate traces, and outcome memory.
 Iteration runs append proposal outcomes to `experiments/memory.jsonl`, which is
 used as cross-run context for later agent calls.
 Before applying a patch, the loop checks outcome memory and rejects patch hashes

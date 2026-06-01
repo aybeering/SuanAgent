@@ -68,6 +68,10 @@ def validate_config(
         errors.append("max_rounds must be positive")
     if config.memory_failed_patch_threshold < 0:
         errors.append("memory_filter.failed_patch_threshold must be non-negative")
+    if config.stop_after_no_improvement_rounds < 0:
+        errors.append(
+            "exploration.stop_after_no_improvement_rounds must be non-negative"
+        )
     for fallback_modifier in config.memory_fallback_modifiers:
         if fallback_modifier not in SUPPORTED_MODIFIERS:
             errors.append(

@@ -101,6 +101,9 @@ that ranks all candidate attempts by selection status, probe deltas, validation
 deltas, and deterministic candidate score.
 Later rounds include prior rows from that leaderboard in `agent_context.md`, so
 modifier backends can avoid weak search directions and reuse promising ones.
+The optional `exploration.stop_after_no_improvement_rounds` policy can stop a
+run when recent selected candidates fail to clear configured probe or validation
+EV improvement thresholds.
 
 Use `python -m orchestrator.experiments list` and
 `python -m orchestrator.experiments show <run_id>` to inspect local experiment

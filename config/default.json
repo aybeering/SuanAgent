@@ -24,6 +24,11 @@
       "conservative_stub"
     ]
   },
+  "exploration": {
+    "stop_after_no_improvement_rounds": 3,
+    "min_probe_ev_delta": 0.0,
+    "min_validation_ev_delta": 0.0
+  },
   "codex_cli": {
     "executable": "codex",
     "model": "default",

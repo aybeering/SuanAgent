@@ -21,6 +21,11 @@
     "failed_patch_threshold": 2,
     "fallback_modifiers": []
   },
+  "exploration": {
+    "stop_after_no_improvement_rounds": 0,
+    "min_probe_ev_delta": 0.0,
+    "min_validation_ev_delta": 0.0
+  },
   "codex_cli": {
     "executable": "codex",
     "model": "default",

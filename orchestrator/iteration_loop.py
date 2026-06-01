@@ -107,6 +107,13 @@ def run_iteration_loop(
         "final_strategy_commit": None,
         "stop_on_repeated_proposal": active_stop_on_repeated_proposal,
         "memory_fallback_modifiers": list(active_config.memory_fallback_modifiers),
+        "exploration_policy": {
+            "stop_after_no_improvement_rounds": (
+                active_config.stop_after_no_improvement_rounds
+            ),
+            "min_probe_ev_delta": active_config.min_probe_ev_delta,
+            "min_validation_ev_delta": active_config.min_validation_ev_delta,
+        },
         "stop_reason": None,
         "rounds": [],
     }
@@ -174,6 +181,25 @@ def run_iteration_loop(
                         f"{round_id} repeated patch from "
                         f"{round_summary['proposal_repeat_of_round']}"
                     )
+                    manifest["final_strategy_commit"] = current_commit(repo_root)
+                    write_json(run_dir / "manifest.json", manifest)
+                    write_candidate_leaderboard(run_dir)
+                    write_iteration_summary(run_dir=run_dir, manifest=manifest)
+                    append_experiment_index(
+                        experiments_dir=active_experiments_dir,
+                        record=index_record(manifest),
+                    )
+                    return manifest
+
+                no_improvement_reason = no_improvement_stop_reason(
+                    rounds=manifest["rounds"],  # type: ignore[arg-type]
+                    stop_after_rounds=active_config.stop_after_no_improvement_rounds,
+                    min_probe_ev_delta=active_config.min_probe_ev_delta,
+                    min_validation_ev_delta=active_config.min_validation_ev_delta,
+                )
+                if no_improvement_reason:
+                    manifest["status"] = "stopped_no_improvement"
+                    manifest["stop_reason"] = no_improvement_reason
                     manifest["final_strategy_commit"] = current_commit(repo_root)
                     write_json(run_dir / "manifest.json", manifest)
                     write_candidate_leaderboard(run_dir)
@@ -389,6 +415,7 @@ def run_round(
         "proposal_selected_role": selected_attempt["role"],
         "proposal_candidate_score": selected_attempt["candidate_score"],
         "proposal_candidate_status": selected_attempt["status"],
+        "proposal_probe_ev_delta": selected_attempt.get("probe_ev_delta", 0.0),
         "before_trade_count": len(trades_before),
         "after_trade_count": len(trades_after),
         "train_before_trade_count": len(train_trades_before),
@@ -449,6 +476,49 @@ def index_record(manifest: dict[str, object]) -> dict[str, object]:
         "final_strategy_commit": manifest["final_strategy_commit"],
         "stop_reason": manifest.get("stop_reason"),
     }
+
+
+def no_improvement_stop_reason(
+    *,
+    rounds: list[dict[str, object]],
+    stop_after_rounds: int,
+    min_probe_ev_delta: float,
+    min_validation_ev_delta: float,
+) -> str:
+    """Return a stop reason when recent rounds show no meaningful improvement."""
+    if stop_after_rounds <= 0 or len(rounds) < stop_after_rounds:
+        return ""
+    recent_rounds = rounds[-stop_after_rounds:]
+    improved_rounds = [
+        round_payload
+        for round_payload in recent_rounds
+        if round_improved(
+            round_payload=round_payload,
+            min_probe_ev_delta=min_probe_ev_delta,
+            min_validation_ev_delta=min_validation_ev_delta,
+        )
+    ]
+    if improved_rounds:
+        return ""
+    round_ids = ", ".join(str(payload.get("round_id", "")) for payload in recent_rounds)
+    return (
+        f"no probe or validation EV improvement above thresholds for "
+        f"{stop_after_rounds} rounds: {round_ids}"
+    )
+
+
+def round_improved(
+    *,
+    round_payload: dict[str, object],
+    min_probe_ev_delta: float,
+    min_validation_ev_delta: float,
+) -> bool:
+    """Return whether a round exceeded either configured improvement threshold."""
+    probe_delta = float(round_payload.get("proposal_probe_ev_delta", 0.0))
+    validation_delta = float(round_payload.get("validation_ev_after", 0.0)) - float(
+        round_payload.get("validation_ev_before", 0.0)
+    )
+    return probe_delta > min_probe_ev_delta or validation_delta > min_validation_ev_delta
 
 
 def write_candidate_leaderboard(run_dir: Path) -> list[dict[str, object]]:

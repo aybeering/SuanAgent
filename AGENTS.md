@@ -244,6 +244,9 @@ validation deltas for later agent context and search analysis.
 `agent_context.md` should include prior rows from `candidate_leaderboard.json`
 so future modifier backends can see selected candidates, scores, probe deltas,
 and validation deltas before proposing the next patch.
+The loop may stop with `stopped_no_improvement` when the configured exploration
+window shows no selected candidate with sufficient probe or validation EV
+improvement.
 
 ## Strategy policy
 

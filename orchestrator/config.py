@@ -29,6 +29,9 @@ class ProjectConfig:
     memory_failed_patch_threshold: int = 2
     memory_fallback_modifier: str = ""
     memory_fallback_modifiers: tuple[str, ...] = ()
+    stop_after_no_improvement_rounds: int = 0
+    min_probe_ev_delta: float = 0.0
+    min_validation_ev_delta: float = 0.0
 
     def resolve_path(self, repo_root: Path, path_text: str) -> Path:
         """Resolve config paths relative to the repository root."""
@@ -58,6 +61,7 @@ def load_project_config(
     modifier_name = str(raw["strategy_modifier"])
     modifier_settings = raw.get("codex_cli", {}) if modifier_name.startswith("codex") else {}
     memory_filter = raw.get("memory_filter", {})
+    exploration = raw.get("exploration", {})
     fallback_names = fallback_modifier_names(memory_filter)
     return ProjectConfig(
         baseline_strategy_module=str(raw["baseline_strategy_module"]),
@@ -79,6 +83,13 @@ def load_project_config(
         ),
         memory_fallback_modifier=fallback_names[0] if fallback_names else "",
         memory_fallback_modifiers=fallback_names,
+        stop_after_no_improvement_rounds=int(
+            exploration.get("stop_after_no_improvement_rounds", 0)
+        ),
+        min_probe_ev_delta=float(exploration.get("min_probe_ev_delta", 0.0)),
+        min_validation_ev_delta=float(
+            exploration.get("min_validation_ev_delta", 0.0)
+        ),
     )
 
 

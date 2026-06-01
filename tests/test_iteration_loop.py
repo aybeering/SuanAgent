@@ -79,6 +79,9 @@ def test_default_config_loads_dataset_splits() -> None:
         "adaptive_stub",
         "conservative_stub",
     )
+    assert config.stop_after_no_improvement_rounds == 3
+    assert config.min_probe_ev_delta == 0.0
+    assert config.min_validation_ev_delta == 0.0
     assert config.datasets["train"] == "data/train/sample_markets.csv"
     assert config.datasets["validation"] == "data/validation/sample_markets.csv"
     assert config.datasets["holdout"] == "data/holdout/sample_markets.csv"
@@ -150,6 +153,22 @@ def test_preflight_rejects_negative_memory_filter_threshold(tmp_path: Path) -> N
 
     assert result.ok is False
     assert any("memory_filter.failed_patch_threshold" in error for error in result.errors)
+
+
+def test_preflight_rejects_negative_no_improvement_threshold(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_path = repo / "config/negative_exploration.json"
+    config = json.loads((repo / "config/default.json").read_text())
+    config["exploration"]["stop_after_no_improvement_rounds"] = -1
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    result = run_preflight(repo_root=repo, config_path=config_path)
+
+    assert result.ok is False
+    assert any(
+        "exploration.stop_after_no_improvement_rounds" in error
+        for error in result.errors
+    )
 
 
 def test_preflight_rejects_unknown_memory_fallback_modifier(tmp_path: Path) -> None:
@@ -323,6 +342,7 @@ def test_iteration_loop_runs_at_most_five_rounds(tmp_path: Path) -> None:
         load_project_config(repo),
         memory_fallback_modifier="",
         memory_fallback_modifiers=(),
+        stop_after_no_improvement_rounds=0,
     )
 
     manifest = run_iteration_loop(
@@ -362,6 +382,7 @@ def test_iteration_loop_stops_on_repeated_proposal_by_default(tmp_path: Path) ->
         load_project_config(repo),
         memory_fallback_modifier="",
         memory_fallback_modifiers=(),
+        stop_after_no_improvement_rounds=0,
     )
 
     manifest = run_iteration_loop(
@@ -398,12 +419,44 @@ def test_iteration_loop_stops_on_repeated_proposal_by_default(tmp_path: Path) ->
     assert "- Stop reason: `round_002 repeated patch from round_001`" in summary_text
 
 
+def test_iteration_loop_stops_after_no_improvement_window(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = replace(
+        load_project_config(repo),
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+        stop_after_no_improvement_rounds=2,
+        min_probe_ev_delta=1.0,
+        min_validation_ev_delta=1.0,
+    )
+
+    manifest = run_iteration_loop(
+        run_id="no-improvement-stop",
+        max_rounds=5,
+        repo_root=repo,
+        config=config,
+        stop_on_repeated_proposal=False,
+    )
+
+    assert manifest["status"] == "stopped_no_improvement"
+    assert manifest["completed_rounds"] == 2
+    assert "no probe or validation EV improvement" in str(manifest["stop_reason"])
+    saved_manifest = json.loads(
+        (repo / "experiments/no-improvement-stop/manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert saved_manifest["exploration_policy"]["stop_after_no_improvement_rounds"] == 2
+    assert saved_manifest["status"] == "stopped_no_improvement"
+
+
 def test_iteration_loop_rejects_known_failed_patch_from_memory(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     config = replace(
         load_project_config(repo),
         memory_fallback_modifier="",
         memory_fallback_modifiers=(),
+        stop_after_no_improvement_rounds=0,
     )
 
     run_iteration_loop(

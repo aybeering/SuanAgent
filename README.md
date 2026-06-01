@@ -100,6 +100,9 @@ Each round also writes `agent_context.md` and `agent_context.json`, two renders
 of the same deterministic context payload. The markdown file is easy to inspect,
 while the JSON file gives future Codex CLI or SDK-backed agents a stable
 machine-readable view of prior rounds, candidate traces, and outcome memory.
+Each round also writes `agent_input.json` and `agent_output.json`, a stable
+`agent_io_*_v1` fixture pair that records what a modifier backend was given and
+which proposal candidate was selected.
 Iteration runs append proposal outcomes to `experiments/memory.jsonl`, which is
 used as cross-run context for later agent calls.
 Before applying a patch, the loop checks outcome memory and rejects patch hashes

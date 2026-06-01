@@ -20,6 +20,10 @@ from agents.strategy_modifier_stub import NEW_THRESHOLD, OLD_THRESHOLD, propose_
 from backtester.schema import MarketSnapshot, StrategyOrder
 from backtester.simulate import validate_strategy_orders
 from orchestrator.agent_context import build_agent_context, build_agent_context_payload
+from orchestrator.agent_io import (
+    AGENT_INPUT_SCHEMA_VERSION,
+    AGENT_OUTPUT_SCHEMA_VERSION,
+)
 from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
 from orchestrator.iteration_loop import run_iteration_loop
@@ -334,6 +338,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "probe_trades_before.csv",
         "agent_context.md",
         "agent_context.json",
+        "agent_input.json",
+        "agent_output.json",
         "proposal_attempts.json",
         "proposal.json",
         "agent_response.txt",
@@ -347,6 +353,11 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "candidate_leaderboard.json").exists()
 
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    agent_input = json.loads((round_dir / "agent_input.json").read_text(encoding="utf-8"))
+    agent_output = json.loads(
+        (round_dir / "agent_output.json").read_text(encoding="utf-8")
+    )
     attempts = json.loads(
         (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
     )
@@ -356,6 +367,17 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     selected_attempt = next(attempt for attempt in attempts if attempt["selected"])
     assert decision["accepted"] is False
     assert selected_attempt["candidate_score"] > 0
+    assert agent_input["schema_version"] == AGENT_INPUT_SCHEMA_VERSION
+    assert agent_input["target_file"] == "strategies/current_strategy.py"
+    assert agent_input["artifacts"]["agent_context_json"].endswith("agent_context.json")
+    assert agent_input["metrics_before"]["validation"]["trade_count"] == 39
+    assert agent_input["modifiers"]["primary"] == "strategy_modifier_stub"
+    assert agent_input["output_contract"]["schema_version"] == AGENT_OUTPUT_SCHEMA_VERSION
+    assert agent_output["schema_version"] == AGENT_OUTPUT_SCHEMA_VERSION
+    assert agent_output["selected_role"] == selected_attempt["role"]
+    assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
+    assert agent_output["attempt_count"] == len(attempts)
+    assert agent_output["artifacts"]["agent_input"].endswith("agent_input.json")
     assert selected_attempt["direction_tag"] == "lower_min_edge"
     assert selected_attempt["validation_status"] == "evaluated"
     assert isinstance(selected_attempt["validation_ev_delta"], float)

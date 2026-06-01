@@ -74,3 +74,13 @@ workspaces/<run_id>/<round_id>/strategy_workspace/
 
 Any returned text must be parsed as a unified diff. Patches that touch files
 other than `strategies/current_strategy.py` must be rejected before `git apply`.
+
+Each iteration round writes stable JSON fixtures for agent integration:
+
+```text
+agent_input.json   # schema_version: agent_io_input_v1
+agent_output.json  # schema_version: agent_io_output_v1
+```
+
+Future CLI or SDK-backed agents should treat `agent_input.json` as the structured
+input contract and `agent_output.json` as the audited selected-output contract.

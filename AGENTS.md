@@ -201,6 +201,8 @@ round_001/
   holdout_trades_before.csv
   agent_context.md
   agent_context.json
+  agent_input.json
+  agent_output.json
   proposal.json
   agent_response.txt
   patch.diff
@@ -235,6 +237,12 @@ the same context payload. The markdown file should summarize prior rounds for
 human inspection. The JSON file should use schema version `agent_context_v1`
 and include prior rounds, failed patch hashes, candidate search trace, global
 outcome memory, target file, and policy notes for SDK-backed agents.
+Each round should also write `agent_input.json` and `agent_output.json`.
+`agent_input.json` should use schema version `agent_io_input_v1` and describe
+the reports, context, before metrics, policy config, candidate-selection config,
+and modifier list available to the agent. `agent_output.json` should use schema
+version `agent_io_output_v1` and record the selected proposal, compact attempt
+rows, and output artifact paths.
 Each iteration round should append a compact proposal outcome to
 `experiments/memory.jsonl` so later runs and different modifier backends can
 reuse prior proposal outcomes.
@@ -432,6 +440,7 @@ Add smoke tests that verify:
 21. Codex output can be parsed from structured proposal JSON or plain diff text.
 22. Enabled Codex CLI subprocesses are rejected if they mutate files outside `strategies/current_strategy.py`.
 23. Candidate-selection weights are configurable and recorded with attempts.
+24. Agent I/O fixtures are written as `agent_io_input_v1` and `agent_io_output_v1` JSON.
 
 The project is complete only when these checks pass:
 
@@ -456,7 +465,7 @@ When the V0.5 loop runs, it should:
 3. Run the current strategy before modification on all configured data splits.
 4. Save train, validation, and holdout before metrics, trades, and reports.
 5. Call the fixed strategy modifier stub using the train report.
-6. Save `agent_context.md`, `agent_context.json`, `proposal.json`, `agent_response.txt`, and `patch.diff`.
+6. Save `agent_context.md`, `agent_context.json`, `agent_input.json`, `agent_output.json`, `proposal.json`, `agent_response.txt`, and `patch.diff`.
 7. Apply the patch with Git.
 8. Run the modified strategy on all configured data splits.
 9. Save train, validation, and holdout after metrics, trades, and reports.

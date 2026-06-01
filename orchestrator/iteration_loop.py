@@ -16,6 +16,7 @@ from typing import Iterator
 from agents.modifier_adapter import StrategyModifier
 from agents.registry import get_strategy_modifier
 from orchestrator.agent_context import write_agent_context
+from orchestrator.agent_io import write_agent_input, write_agent_output
 from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.experiment_index import append_experiment_index
 from orchestrator.git_manager import (
@@ -335,6 +336,30 @@ def run_round(
         output_path=round_dir / "agent_context.md",
         memory_path=round_dir.parent.parent / "memory.jsonl",
     )
+    write_agent_input(
+        output_path=round_dir / "agent_input.json",
+        run_id=run_id,
+        round_id=round_id,
+        round_index=round_index,
+        repo_root=repo_root,
+        round_dir=round_dir,
+        target_file=strategy_file_path,
+        context_path=context_path,
+        train_report_path=round_dir / "train_report_before.md",
+        validation_report_path=round_dir / "report_before.md",
+        holdout_report_path=round_dir / "holdout_report_before.md",
+        train_metrics_before=train_metrics_before,
+        validation_metrics_before=metrics_before,
+        holdout_metrics_before=holdout_metrics_before,
+        policy_rules=policy_rules,
+        holdout_policy_rules=holdout_policy_rules,
+        candidate_selection=candidate_selection,
+        primary_modifier=modifier_name(modifier),
+        fallback_modifiers=tuple(
+            modifier_name(fallback_modifier)
+            for fallback_modifier in fallback_modifiers
+        ),
+    )
     (
         proposal,
         memory_filter_reason,
@@ -379,6 +404,17 @@ def run_round(
         proposal.raw_response + "\n", encoding="utf-8"
     )
     (round_dir / "patch.diff").write_text(proposal.patch_diff, encoding="utf-8")
+    write_agent_output(
+        output_path=round_dir / "agent_output.json",
+        run_id=run_id,
+        round_id=round_id,
+        round_index=round_index,
+        repo_root=repo_root,
+        round_dir=round_dir,
+        proposal=proposal,
+        proposal_attempts=proposal_attempts,
+        selected_attempt=selected_attempt,
+    )
 
     apply_error = ""
     if memory_filter_reason:
@@ -673,6 +709,11 @@ def json_load_list(path: Path) -> list[object]:
     """Load a JSON list from disk."""
     payload = json.loads(path.read_text(encoding="utf-8"))
     return payload if isinstance(payload, list) else []
+
+
+def modifier_name(modifier: StrategyModifier) -> str:
+    """Return stable modifier name metadata for agent I/O fixtures."""
+    return str(getattr(modifier, "agent_name", modifier.__class__.__name__))
 
 
 def proposal_attempt_record(

@@ -33,6 +33,7 @@ pytest
 python -m orchestrator.preflight
 python -m orchestrator.run_loop
 python -m orchestrator.iteration_loop
+python -m orchestrator.experiments list --limit 5
 ```
 
 Useful mode switches:
@@ -42,6 +43,7 @@ python -m orchestrator.iteration_loop --config config/codex_dry_run.json --run-i
 python -m orchestrator.iteration_loop --config config/codex_cli_guarded.json --run-id guarded-demo --max-rounds 1
 python -m orchestrator.run_loop --config config/default.json --run-id single-run-demo
 python -m orchestrator.preflight --config config/codex_cli_guarded.json
+python -m orchestrator.experiments show dry-run-demo
 ```
 
 ## Outputs
@@ -59,5 +61,9 @@ Each run writes artifacts to `experiments/<run_id>/`:
 
 The multi-round loop also writes per-round train and holdout artifacts plus an
 append-only `experiments/index.jsonl`.
+
+Use `python -m orchestrator.experiments list` and
+`python -m orchestrator.experiments show <run_id>` to inspect local experiment
+history.
 
 The V0.5 prototype does not call exchanges, wallets, or external APIs.

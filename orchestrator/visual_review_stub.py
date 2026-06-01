@@ -20,6 +20,7 @@ def write_visual_review(
     round_index: int,
     round_dir: Path,
     analysis_notes_path: Path,
+    chart_path: Path,
 ) -> Path:
     """Write a deterministic, read-only visual-review stub artifact."""
     payload = visual_review_payload(
@@ -29,6 +30,7 @@ def write_visual_review(
         round_index=round_index,
         round_dir=round_dir,
         analysis_notes_path=analysis_notes_path,
+        chart_path=chart_path,
     )
     output_path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
@@ -46,6 +48,7 @@ def visual_review_payload(
     round_index: int,
     round_dir: Path,
     analysis_notes_path: Path,
+    chart_path: Path,
 ) -> dict[str, object]:
     """Return the JSON payload for the contract-only visual-review stub."""
     trade_rows = {
@@ -64,6 +67,7 @@ def visual_review_payload(
         "round_dir": relative_path(round_dir, repo_root),
         "consumed_artifacts": {
             "analysis_notes": relative_path(analysis_notes_path, repo_root),
+            "chart_html": relative_path(chart_path, repo_root),
             "train_trades_before": relative_path(
                 round_dir / "train_trades_before.csv",
                 repo_root,
@@ -90,14 +94,19 @@ def visual_review_payload(
             ),
         },
         "expected_future_artifacts": [
-            "chart.html",
             "trade_timeline.html",
         ],
+        "chart_artifacts": {
+            "chart_html": relative_path(chart_path, repo_root),
+            "rendering_mode": "deterministic_static_html",
+            "external_dependencies": False,
+        },
         "trade_row_counts": trade_rows,
         "checks": {
-            "chart_rendering_enabled": False,
+            "chart_rendering_enabled": True,
             "visual_agent_enabled": False,
             "trade_files_present": trade_files_present(round_dir),
+            "chart_file_present": chart_path.exists(),
             "can_change_acceptance": False,
             "can_change_routing": False,
         },
@@ -105,7 +114,8 @@ def visual_review_payload(
             f"train_trades_before_rows={trade_rows['train']}",
             f"validation_trades_before_rows={trade_rows['validation']}",
             f"holdout_trades_before_rows={trade_rows['holdout']}",
-            "chart_rendering_disabled",
+            "chart_html_generated",
+            "visual_agent_disabled",
         ],
         "recommendation": {
             "action": "continue_without_visual_gate",

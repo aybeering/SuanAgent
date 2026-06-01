@@ -885,6 +885,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "agent_role_contracts.json",
         "analysis_notes.json",
         "analysis_notes.md",
+        "chart.html",
         "visual_review.json",
         "visual_review.md",
         "agent_input.json",
@@ -1029,15 +1030,19 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert visual_review["execution_mode"] == "stub_contract"
     assert visual_review["implemented"] is False
     assert visual_review["trade_row_counts"]["validation"] == 39
-    assert visual_review["checks"]["chart_rendering_enabled"] is False
+    assert visual_review["checks"]["chart_rendering_enabled"] is True
     assert visual_review["checks"]["visual_agent_enabled"] is False
+    assert visual_review["checks"]["chart_file_present"] is True
     assert visual_review["checks"]["can_change_acceptance"] is False
     assert visual_review["recommendation"]["action"] == "continue_without_visual_gate"
     assert visual_review["recommendation"]["can_change_acceptance"] is False
+    assert visual_review["chart_artifacts"]["chart_html"].endswith("chart.html")
+    assert visual_review["chart_artifacts"]["external_dependencies"] is False
     assert visual_review["consumed_artifacts"]["validation_trades_before"].endswith(
         "trades_before.csv"
     )
-    assert "chart_rendering_disabled" in visual_review["observations"]
+    assert visual_review["consumed_artifacts"]["chart_html"].endswith("chart.html")
+    assert "chart_html_generated" in visual_review["observations"]
     assert selected_attempt["candidate_score"] > 0
     assert agent_input["schema_version"] == AGENT_INPUT_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_input.json", "agent_input")
@@ -1058,6 +1063,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_input["artifacts"]["visual_review_markdown"].endswith(
         "visual_review.md"
     )
+    assert agent_input["artifacts"]["chart_html"].endswith("chart.html")
     assert agent_input["artifacts"]["proposal_intent_json"].endswith(
         "proposal_intent.json"
     )
@@ -1108,12 +1114,17 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         row["name"] == "visual_review.md"
         for row in agent_bundle["input_files"]
     )
+    assert any(
+        row["name"] == "chart.html"
+        for row in agent_bundle["input_files"]
+    )
     assert any(row["name"] == "agent_input.json" for row in agent_bundle["input_files"])
     assert any(
         row["name"] == "raw_agent_output.txt"
         for row in agent_bundle["output_files"]
     )
     assert (round_dir / "agent_input_bundle/agent_input.json").exists()
+    assert (round_dir / "agent_input_bundle/chart.html").exists()
     assert (round_dir / "agent_output_bundle/raw_agent_output.txt").exists()
     assert agent_attempts["schema_version"] == "agent_attempts_v1"
     assert_matches_schema(round_dir / "agent_attempts_manifest.json", "agent_attempts")
@@ -2878,12 +2889,17 @@ output_path.write_text(json.dumps({
         Path(agent_execution["workspace_path"])
         / "experiments/file-protocol-fixture/round_001/visual_review.json"
     ).exists()
+    assert (
+        Path(agent_execution["workspace_path"])
+        / "experiments/file-protocol-fixture/round_001/chart.html"
+    ).exists()
     assert workspace_agent_input["artifacts"]["analysis_notes_json"].endswith(
         "analysis_notes.json"
     )
     assert workspace_agent_input["artifacts"]["visual_review_json"].endswith(
         "visual_review.json"
     )
+    assert workspace_agent_input["artifacts"]["chart_html"].endswith("chart.html")
     assert workspace_bundle_agent_input["active_agent"] == workspace_agent_input[
         "active_agent"
     ]
@@ -3620,6 +3636,10 @@ def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
     assert any(
+        path.endswith("chart.html")
+        for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
         path.endswith("overfit_validation.json")
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
@@ -3799,6 +3819,33 @@ def test_artifact_validator_reports_visual_review_authority_violation(
     )
     assert any(
         "visual_review.json must not change acceptance" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_external_chart_asset(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-chart-violation",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    chart_path = repo / "experiments/artifact-chart-violation/round_001/chart.html"
+    chart_path.write_text(
+        chart_path.read_text(encoding="utf-8")
+        + '<script src="https://example.invalid/chart.js"></script>',
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id="artifact-chart-violation",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "chart.html must not reference external network assets" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 

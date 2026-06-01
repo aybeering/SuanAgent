@@ -49,6 +49,7 @@ ROUND_REQUIRED_FILES = (
     "agent_role_contracts.json",
     "analysis_notes.json",
     "analysis_notes.md",
+    "chart.html",
     "visual_review.json",
     "visual_review.md",
     "agent_input.json",
@@ -218,6 +219,7 @@ def validate_round_dir(
         schema_path=repo_root / "schemas/visual_review.schema.json",
         report=report,
     )
+    validate_chart_html(path=round_dir / "chart.html", report=report)
     validate_visual_review(
         path=round_dir / "visual_review.json",
         repo_root=repo_root,
@@ -551,10 +553,12 @@ def validate_visual_review(
     if not isinstance(checks, dict):
         add_error(report, "visual_review.json checks is invalid")
     else:
-        if bool(checks.get("chart_rendering_enabled", True)):
-            add_error(report, "visual_review.json chart rendering must be disabled")
+        if not bool(checks.get("chart_rendering_enabled", False)):
+            add_error(report, "visual_review.json chart rendering must be enabled")
         if bool(checks.get("visual_agent_enabled", True)):
             add_error(report, "visual_review.json visual agent must be disabled")
+        if not bool(checks.get("chart_file_present", False)):
+            add_error(report, "visual_review.json chart file must be present")
         if bool(checks.get("can_change_acceptance", True)):
             add_error(report, "visual_review.json must not change acceptance")
         if bool(checks.get("can_change_routing", True)):
@@ -580,6 +584,29 @@ def validate_visual_review(
                     "visual_review.json artifact does not exist: "
                     f"{artifact_key}={artifact_path}",
                 )
+    chart_artifacts = payload.get("chart_artifacts", {})
+    if not isinstance(chart_artifacts, dict):
+        add_error(report, "visual_review.json chart_artifacts is invalid")
+        return
+    if bool(chart_artifacts.get("external_dependencies", True)):
+        add_error(report, "visual_review.json chart must not use external dependencies")
+    chart_path = resolve_path(Path(str(chart_artifacts.get("chart_html", ""))), repo_root)
+    if not chart_path.exists() or not chart_path.is_file():
+        add_error(report, f"visual_review.json chart_html does not exist: {chart_path}")
+
+
+def validate_chart_html(*, path: Path, report: dict[str, object]) -> None:
+    """Validate the deterministic static chart artifact."""
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    text = path.read_text(encoding="utf-8")
+    if 'name="suan-chart-schema" content="round_chart_v1"' not in text:
+        add_error(report, f"chart.html missing round_chart_v1 schema marker: {path}")
+    if "<svg" not in text or "</svg>" not in text:
+        add_error(report, f"chart.html missing inline SVG chart: {path}")
+    if "http://" in text or "https://" in text:
+        add_error(report, f"chart.html must not reference external network assets: {path}")
 
 
 def validate_agent_attempts_manifest(

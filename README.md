@@ -13,8 +13,8 @@ proposes a patch, the loop applies it, reruns validation, and then accepts or
 rolls back the change through Git based on the same deterministic policy gate.
 
 Default run settings live in `config/default.json`. The iteration loop uses
-train data for the agent report, validation data for the policy gate, and
-holdout data for observation-only reports. By default, the iteration loop stops
+train data for the agent report, validation data for the main policy gate, and
+holdout data for a conservative risk gate. By default, the iteration loop stops
 early when an agent repeats a previously rejected patch.
 
 The strategy interface contract is documented in
@@ -93,6 +93,9 @@ effects: only `strategies/current_strategy.py` may change inside the isolated
 workspace, and violations are recorded as contract errors.
 Iteration status is one of `accepted`, `stopped_repeated_proposal`,
 `stopped_max_rounds`, or `failed`.
+The validation policy remains the primary acceptance rule, while the optional
+`holdout_policy` can only veto a candidate when holdout EV, drawdown, slippage,
+or trade count crosses configured risk limits.
 Each round also writes `agent_context.md` and `agent_context.json`, two renders
 of the same deterministic context payload. The markdown file is easy to inspect,
 while the JSON file gives future Codex CLI or SDK-backed agents a stable

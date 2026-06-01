@@ -19,6 +19,13 @@ REQUIRED_POLICY_KEYS = (
     "max_drawdown_worsening",
     "max_slippage_worsening",
 )
+REQUIRED_HOLDOUT_POLICY_KEYS = (
+    "enabled",
+    "min_trade_count",
+    "min_ev_delta",
+    "max_drawdown_worsening",
+    "max_slippage_worsening",
+)
 
 
 @dataclass(frozen=True)
@@ -99,6 +106,10 @@ def validate_config(
     for key in REQUIRED_POLICY_KEYS:
         if key not in config.policy:
             errors.append(f"missing policy key: {key}")
+    for key in REQUIRED_HOLDOUT_POLICY_KEYS:
+        if key not in config.holdout_policy:
+            errors.append(f"missing holdout_policy key: {key}")
+    validate_holdout_policy(config, errors)
 
     strategy_path = config.resolve_path(repo_root, config.strategy_path)
     if not strategy_path.exists():
@@ -112,6 +123,18 @@ def validate_config(
 
     if config.strategy_modifier == "codex_cli":
         validate_codex_cli_settings(config, errors, warnings)
+
+
+def validate_holdout_policy(config: ProjectConfig, errors: list[str]) -> None:
+    """Validate optional holdout gate settings."""
+    if not config.holdout_policy:
+        return
+    if int(config.holdout_policy.get("min_trade_count", 0)) < 0:
+        errors.append("holdout_policy.min_trade_count must be non-negative")
+    if float(config.holdout_policy.get("max_drawdown_worsening", 0.0)) < 0.0:
+        errors.append("holdout_policy.max_drawdown_worsening must be non-negative")
+    if float(config.holdout_policy.get("max_slippage_worsening", 0.0)) < 0.0:
+        errors.append("holdout_policy.max_slippage_worsening must be non-negative")
 
 
 def validate_importable_module(module_name: str, errors: list[str]) -> None:

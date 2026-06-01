@@ -102,6 +102,8 @@ def test_default_config_loads_dataset_splits() -> None:
     assert config.datasets["validation"] == "data/validation/sample_markets.csv"
     assert config.datasets["holdout"] == "data/holdout/sample_markets.csv"
     assert config.policy["min_ev_improvement"] == 0.01
+    assert config.holdout_policy["enabled"] is True
+    assert config.holdout_policy["min_ev_delta"] == -0.01
     assert config.stop_on_repeated_proposal is True
 
 
@@ -393,6 +395,54 @@ def test_iteration_loop_accepts_and_stops_with_relaxed_rules(tmp_path: Path) -> 
     assert "- Status: `accepted`" in summary_text
     assert "- Accepted round: `round_001`" in summary_text
     assert NEW_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_iteration_loop_holdout_gate_rejects_relaxed_validation_acceptance(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = replace(
+        load_project_config(repo),
+        holdout_policy={
+            "enabled": True,
+            "min_trade_count": 1,
+            "min_ev_delta": 0.02,
+            "max_drawdown_worsening": 0.02,
+            "max_slippage_worsening": 0.005,
+        },
+    )
+
+    manifest = run_iteration_loop(
+        run_id="holdout-gate-reject",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+        policy_rules={
+            "min_trade_count": 20,
+            "min_ev_improvement": -1.0,
+            "max_drawdown_worsening": 0.01,
+            "max_slippage_worsening": 0.005,
+        },
+    )
+
+    round_dir = repo / "experiments/holdout-gate-reject/round_001"
+    decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
+    saved_manifest = json.loads(
+        (repo / "experiments/holdout-gate-reject/manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert manifest["status"] == "stopped_max_rounds"
+    assert manifest["rounds"][0]["accepted"] is False  # type: ignore[index]
+    assert decision["accepted"] is False
+    assert decision["reasons"][0].startswith("holdout ev delta ")
+    assert decision["reasons"][0].endswith(" < 0.02")
+    assert decision["holdout_policy"]["enabled"] is True
+    assert saved_manifest["holdout_policy"]["min_ev_delta"] == 0.02
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
 
@@ -1151,6 +1201,7 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
         max_rounds=1,
         datasets=default.datasets,
         policy=default.policy,
+        holdout_policy=default.holdout_policy,
         strategy_path=default.strategy_path,
         strategy_modifier="codex_dry_run",
         modifier_settings={
@@ -1216,6 +1267,7 @@ def test_codex_cli_adapter_disabled_does_not_execute(tmp_path: Path) -> None:
         max_rounds=1,
         datasets=default.datasets,
         policy=default.policy,
+        holdout_policy=default.holdout_policy,
         strategy_path=default.strategy_path,
         strategy_modifier="codex_cli",
         modifier_settings={

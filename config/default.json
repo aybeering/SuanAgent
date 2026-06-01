@@ -14,6 +14,13 @@
     "max_drawdown_worsening": 0.01,
     "max_slippage_worsening": 0.005
   },
+  "holdout_policy": {
+    "enabled": true,
+    "min_trade_count": 1,
+    "min_ev_delta": -0.01,
+    "max_drawdown_worsening": 0.02,
+    "max_slippage_worsening": 0.005
+  },
   "strategy_path": "strategies/current_strategy.py",
   "strategy_modifier": "fixed_patch_stub",
   "stop_on_repeated_proposal": true,

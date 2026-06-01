@@ -240,6 +240,7 @@ def build_outcome_record(
         "summary": proposal.summary,
         "accepted": bool(decision.get("accepted", False)),
         "reasons": decision.get("reasons", []),
+        "holdout_policy": decision.get("holdout_policy", {}),
         "applicable": proposal.applicable,
         "contract_errors": list(proposal.contract_errors),
         "patch_sha256": proposal.patch_sha256,

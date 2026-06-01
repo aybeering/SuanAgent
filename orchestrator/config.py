@@ -20,6 +20,7 @@ class ProjectConfig:
     max_rounds: int
     datasets: dict[str, str]
     policy: dict[str, float | int]
+    holdout_policy: dict[str, float | int | bool]
     strategy_path: str
     strategy_modifier: str
     modifier_settings: dict[str, object]
@@ -74,6 +75,9 @@ def load_project_config(
         max_rounds=int(raw["max_rounds"]),
         datasets={str(key): str(value) for key, value in raw["datasets"].items()},
         policy={str(key): value for key, value in raw["policy"].items()},
+        holdout_policy={
+            str(key): value for key, value in raw.get("holdout_policy", {}).items()
+        },
         strategy_path=str(raw["strategy_path"]),
         strategy_modifier=modifier_name,
         modifier_settings={

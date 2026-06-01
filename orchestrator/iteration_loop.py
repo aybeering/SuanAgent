@@ -35,7 +35,7 @@ from orchestrator.outcome_memory import (
     direction_filter_rejection_reason,
     memory_filter_rejection_reason,
 )
-from orchestrator.policy_gate import evaluate_policy
+from orchestrator.policy_gate import apply_holdout_gate, evaluate_policy
 from orchestrator.preflight import run_preflight
 from orchestrator.proposal import (
     StrategyProposal,
@@ -129,6 +129,7 @@ def run_iteration_loop(
             "explore_low_sample_threshold": active_config.explore_low_sample_threshold,
             "explore_bonus": active_config.explore_bonus,
         },
+        "holdout_policy": active_config.holdout_policy,
         "stop_reason": None,
         "rounds": [],
     }
@@ -153,6 +154,7 @@ def run_iteration_loop(
                     validation_data_path=validation_data_path,
                     holdout_data_path=holdout_data_path,
                     policy_rules=active_policy_rules,
+                    holdout_policy_rules=active_config.holdout_policy,
                     stub_old_threshold=active_config.stub_old_threshold,
                     stub_new_threshold=active_config.stub_new_threshold,
                     strategy_module=strategy_module,
@@ -272,6 +274,7 @@ def run_round(
     validation_data_path: Path,
     holdout_data_path: Path,
     policy_rules: dict[str, float | int] | None,
+    holdout_policy_rules: dict[str, float | int | bool] | None,
     stub_old_threshold: str,
     stub_new_threshold: str,
     strategy_module: str,
@@ -407,7 +410,12 @@ def run_round(
         report_path=round_dir / "holdout_report_after.md",
     )
 
-    decision = evaluate_policy(metrics_before, metrics_after, policy_rules)
+    decision = apply_holdout_gate(
+        evaluate_policy(metrics_before, metrics_after, policy_rules),
+        before=holdout_metrics_before,
+        after=holdout_metrics_after,
+        rules=holdout_policy_rules,
+    )
     if apply_error:
         decision["accepted"] = False
         decision["reasons"] = [apply_error, *decision["reasons"]]  # type: ignore[index]

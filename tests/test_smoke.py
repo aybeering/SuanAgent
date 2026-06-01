@@ -5,7 +5,7 @@ from pathlib import Path
 
 from backtester.metrics import METRIC_KEYS
 from backtester.simulate import DEFAULT_DATA_PATH, run_backtest
-from orchestrator.policy_gate import evaluate_policy
+from orchestrator.policy_gate import apply_holdout_gate, evaluate_policy
 from orchestrator.run_loop import run_pipeline
 from reports.generate_report import generate_report
 
@@ -57,6 +57,48 @@ def test_policy_gate_returns_valid_decision() -> None:
     assert decision["reasons"] == []
     assert decision["before"] == before
     assert decision["after"] == after
+
+
+def test_holdout_gate_can_override_validation_acceptance() -> None:
+    validation_decision = {
+        "accepted": True,
+        "reasons": [],
+        "before": {},
+        "after": {},
+    }
+    before = {
+        "ev": 0.20,
+        "total_pnl": 2.0,
+        "max_drawdown": 0.02,
+        "trade_count": 10,
+        "fill_rate": 1.0,
+        "avg_slippage": 0.002,
+    }
+    after = {
+        "ev": 0.18,
+        "total_pnl": 1.8,
+        "max_drawdown": 0.025,
+        "trade_count": 10,
+        "fill_rate": 1.0,
+        "avg_slippage": 0.002,
+    }
+
+    decision = apply_holdout_gate(
+        validation_decision,
+        before=before,
+        after=after,
+        rules={
+            "enabled": True,
+            "min_trade_count": 1,
+            "min_ev_delta": -0.01,
+            "max_drawdown_worsening": 0.02,
+            "max_slippage_worsening": 0.005,
+        },
+    )
+
+    assert decision["accepted"] is False
+    assert decision["reasons"] == ["holdout ev delta -0.020000 < -0.01"]
+    assert decision["holdout_policy"]["accepted"] is False  # type: ignore[index]
 
 
 def test_full_v0_run_loop_completes(tmp_path: Path) -> None:

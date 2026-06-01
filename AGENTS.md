@@ -24,9 +24,10 @@ V0.5 builds on that by adding a minimal self-iteration skeleton:
 5. Run the modified strategy on train, validation, and holdout data.
 6. Generate after metrics and reports.
 7. Compare old and new validation metrics with the policy gate.
-8. Accept and commit the patch only if policy passes.
-9. Reject and roll back the patch if policy fails.
-10. Repeat until accepted, a failed patch repeats, or the max-round limit is reached.
+8. Run the configured holdout risk gate as a deterministic veto.
+9. Accept and commit the patch only if both gates pass.
+10. Reject and roll back the patch if either gate fails.
+11. Repeat until accepted, a failed patch repeats, or the max-round limit is reached.
 
 V0.5 is not the full multi-agent system. It is the smallest deterministic loop
 that proves the self-iteration control flow works.
@@ -64,7 +65,7 @@ Allowed components:
 14. Unified diff extraction and target-file validation.
 15. Git apply, accept commit, and reject rollback helpers.
 16. Round-based experiment outputs.
-17. Config-driven dataset, policy, and modifier settings.
+17. Config-driven dataset, validation policy, holdout policy, and modifier settings.
 18. Proposal quality metadata and repeated-patch detection.
 19. Repeated-proposal stop control.
 20. Clear tests and smoke checks.
@@ -327,9 +328,10 @@ documented.
 
 ## Acceptance policy
 
-The policy gate should compare before and after metrics.
+The policy gate should compare before and after validation metrics.
 
-A patch should be accepted only if all required rules pass.
+A patch should be accepted only if all required validation rules pass and the
+configured holdout risk gate does not veto it.
 
 Default V0.5 rules:
 
@@ -338,6 +340,18 @@ Default V0.5 rules:
   "min_trade_count": 20,
   "min_ev_improvement": 0.01,
   "max_drawdown_worsening": 0.01,
+  "max_slippage_worsening": 0.005
+}
+```
+
+The default holdout gate is conservative and can only reject a candidate:
+
+```json
+{
+  "enabled": true,
+  "min_trade_count": 1,
+  "min_ev_delta": -0.01,
+  "max_drawdown_worsening": 0.02,
   "max_slippage_worsening": 0.005
 }
 ```
@@ -363,6 +377,9 @@ or:
   "after": {}
 }
 ```
+
+Iteration decisions may also include a `holdout_policy` object with the holdout
+gate result, metrics, and active rules.
 
 ## Engineering rules
 
@@ -440,15 +457,16 @@ When the V0.5 loop runs, it should:
 7. Apply the patch with Git.
 8. Run the modified strategy on all configured data splits.
 9. Save train, validation, and holdout after metrics, trades, and reports.
-10. Run the policy gate on validation metrics only.
-11. Save `decision.json`.
-12. Append proposal outcome memory to `experiments/memory.jsonl`.
-13. Accept and commit if policy passes.
-14. Reject and roll back if policy fails.
-15. Stop with `stopped_repeated_proposal` if the rejected patch repeats a prior round.
-16. Stop with `stopped_max_rounds` if max rounds is reached.
-17. Save `manifest.json`.
-18. Print a short final summary.
+10. Run the main policy gate on validation metrics.
+11. Run the configured holdout risk gate as a deterministic veto.
+12. Save `decision.json`.
+13. Append proposal outcome memory to `experiments/memory.jsonl`.
+14. Accept and commit if both gates pass.
+15. Reject and roll back if either gate fails.
+16. Stop with `stopped_repeated_proposal` if the rejected patch repeats a prior round.
+17. Stop with `stopped_max_rounds` if max rounds is reached.
+18. Save `manifest.json`.
+19. Print a short final summary.
 
 The configured modifier may also be `codex_dry_run`, `codex_cli_dry_run`, or
 `codex_cli`. The `adaptive_stub` modifier is still deterministic, but it should

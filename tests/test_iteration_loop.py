@@ -41,6 +41,11 @@ from orchestrator.agent_output_intake import (
 )
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
+from orchestrator.agent_slot_readiness_gate import (
+    AGENT_SLOT_READINESS_GATE_SCHEMA_VERSION,
+    build_agent_slot_readiness_gate,
+    write_agent_slot_readiness_gate,
+)
 from orchestrator.agent_slot_health import (
     AGENT_SLOT_HEALTH_SCHEMA_VERSION,
     build_agent_slot_health,
@@ -68,6 +73,7 @@ from orchestrator.preflight import run_preflight
 from orchestrator.schema_validation import validate_json_file, validate_json_payload
 from orchestrator.experiments import (
     agent_result_stats,
+    agent_slot_readiness_report,
     agent_slot_health_report,
     candidate_leaderboard,
     compare_experiments,
@@ -3976,6 +3982,105 @@ def test_agent_slot_health_reports_workspace_and_execution_audits(
     assert slot["agent_execution_present"] is True
     assert slot["agent_execution_status"] == "completed"
     assert slot["runner_name"] == AGENT_CONTRACT_RUNNER_NAME
+
+
+def test_agent_slot_readiness_gate_passes_replayed_file_protocol_slot(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+    run_iteration_loop(
+        run_id="slot-readiness-file-protocol",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/slot-readiness-file-protocol"
+    replay_round(round_dir=run_dir / "round_001", repo_root=repo)
+
+    readiness = write_agent_slot_readiness_gate(run_dir=run_dir, repo_root=repo)
+    dynamic_readiness = agent_slot_readiness_report(
+        run_id="slot-readiness-file-protocol",
+        experiments_dir=repo / "experiments",
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "readiness",
+            "slot-readiness-file-protocol",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    validation_report = validate_run_artifacts(
+        run_id="slot-readiness-file-protocol",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert readiness["schema_version"] == AGENT_SLOT_READINESS_GATE_SCHEMA_VERSION
+    assert readiness["ok"] is True
+    assert readiness["totals"]["slot_count"] == 1
+    assert readiness["totals"]["ready_count"] == 1
+    assert readiness["totals"]["blocked_count"] == 0
+    assert readiness["totals"]["external_slot_count"] == 1
+    slot = readiness["slots"][0]
+    assert slot["readiness_status"] == "ready"
+    assert slot["requirements"]["workspace_manifest_present"] is True
+    assert slot["requirements"]["execution_audit_present"] is True
+    assert slot["requirements"]["replay_ok"] is True
+    assert slot["blocking_issues"] == []
+    assert dynamic_readiness["from_artifact"] is True
+    assert cli_result.returncode == 0, cli_result.stderr
+    cli_payload = json.loads(cli_result.stdout)
+    assert cli_payload["from_artifact"] is True
+    assert cli_payload["ok"] is True
+    assert_matches_schema(
+        run_dir / "agent_slot_readiness_gate.json",
+        "agent_slot_readiness_gate",
+    )
+    assert (run_dir / "agent_slot_readiness_gate.md").exists()
+    assert validation_report["ok"] is True
+
+
+def test_agent_slot_readiness_gate_blocks_missing_round_replay(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+    run_iteration_loop(
+        run_id="slot-readiness-no-replay",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/slot-readiness-no-replay"
+
+    readiness = build_agent_slot_readiness_gate(run_dir=run_dir, repo_root=repo)
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.agent_slot_readiness_gate",
+            "experiments/slot-readiness-no-replay",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert readiness["ok"] is False
+    assert readiness["totals"]["blocked_count"] == 1
+    assert readiness["slots"][0]["readiness_status"] == "blocked"
+    assert "replay_missing" in readiness["slots"][0]["blocking_issues"]
+    assert cli_result.returncode == 1
 
 
 def test_agent_output_intake_rejects_disallowed_patch(tmp_path: Path) -> None:

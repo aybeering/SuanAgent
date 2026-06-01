@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from orchestrator.agent_result_stats import build_agent_result_stats
+from orchestrator.agent_slot_readiness_gate import build_agent_slot_readiness_gate
 from orchestrator.agent_slot_health import build_agent_slot_health
 from orchestrator.experiment_index import read_experiment_index, recent_experiments
 from orchestrator.outcome_memory import recent_outcomes
@@ -157,6 +158,28 @@ def agent_slot_health_report(
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
     payload = build_agent_slot_health(run_dir=run_dir, repo_root=experiments_dir.parent)
+    payload["from_artifact"] = False
+    return payload
+
+
+def agent_slot_readiness_report(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+) -> dict[str, object]:
+    """Return agent slot readiness, loading a saved report when present."""
+    run_dir = experiments_dir / run_id
+    path = run_dir / "agent_slot_readiness_gate.json"
+    if path.exists():
+        payload = load_json(path)
+        payload["from_artifact"] = True
+        return payload
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    payload = build_agent_slot_readiness_gate(
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+    )
     payload["from_artifact"] = False
     return payload
 
@@ -731,6 +754,12 @@ def main() -> None:
     )
     slots_parser.add_argument("run_id")
 
+    readiness_parser = subparsers.add_parser(
+        "readiness",
+        help="Show the external-agent slot readiness gate for one iteration run.",
+    )
+    readiness_parser.add_argument("run_id")
+
     subparsers.add_parser("champion", help="Show the current champion registry.")
 
     compare_parser = subparsers.add_parser(
@@ -791,6 +820,11 @@ def main() -> None:
         )
     elif args.command == "slots":
         payload = agent_slot_health_report(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
+        )
+    elif args.command == "readiness":
+        payload = agent_slot_readiness_report(
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )

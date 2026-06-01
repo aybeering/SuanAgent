@@ -144,6 +144,19 @@ jobs:
           assert health["slots"][0]["workspace_manifest_present"] is True
           assert health["slots"][0]["agent_execution_present"] is True
           PY
+          python -m orchestrator.agent_slot_readiness_gate experiments/ci-file-protocol-demo
+          test -f experiments/ci-file-protocol-demo/agent_slot_readiness_gate.json
+          test -f experiments/ci-file-protocol-demo/agent_slot_readiness_gate.md
+          python -m orchestrator.experiments readiness ci-file-protocol-demo > /tmp/agent_slot_readiness_gate.json
+          python - <<'PY'
+          import json
+          readiness = json.load(open("/tmp/agent_slot_readiness_gate.json"))
+          assert readiness["schema_version"] == "agent_slot_readiness_gate_v1"
+          assert readiness["ok"] is True
+          assert readiness["totals"]["ready_count"] == 1
+          assert readiness["slots"][0]["requirements"]["replay_ok"] is True
+          PY
+          python -m orchestrator.artifact_validator ci-file-protocol-demo
 
       - name: Inspect research brief artifacts
         run: |

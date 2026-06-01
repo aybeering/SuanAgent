@@ -89,6 +89,7 @@ Allowed components:
 38. A deterministic `round_replay.json` audit command that replays every saved planned attempt without rerunning the full loop.
 39. Agent inspection output that summarizes round replay status for each saved round.
 40. A deterministic `agent_slot_health.json` report that summarizes planned slot readiness, audits, and replay status.
+41. A deterministic `agent_slot_readiness_gate.json` report that blocks future external agent slots until input, output, workspace, audit, and replay artifacts are present.
 
 Still out of scope:
 
@@ -140,6 +141,7 @@ Current structure:
 │   ├── agent_execution_plan.schema.json
 │   ├── round_replay.schema.json
 │   ├── agent_slot_health.schema.json
+│   ├── agent_slot_readiness_gate.schema.json
 │   ├── agent_role_contracts.schema.json
 │   ├── agent_role_readiness.schema.json
 │   ├── analysis_notes.schema.json
@@ -196,6 +198,7 @@ Current structure:
 │   ├── run_summary.py
 │   ├── patch_parser.py
 │   ├── workspace_manager.py
+│   ├── agent_slot_readiness_gate.py
 │   ├── git_manager.py
 │   └── git_utils.py
 ├── experiments/

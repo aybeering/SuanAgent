@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from agents.codex_cli_adapter import CodexCliModifier
 from agents.codex_dry_run_adapter import CodexDryRunModifier
 from agents.modifier_adapter import StrategyModifier
 from agents.strategy_modifier_stub import FixedPatchModifier
@@ -21,5 +22,14 @@ def get_strategy_modifier(
             model=str(active_settings.get("model", "default")),
             sandbox=str(active_settings.get("sandbox", "workspace-write")),
             workspace_root=str(active_settings.get("workspace_root", "workspaces")),
+        )
+    if name == "codex_cli":
+        return CodexCliModifier(
+            executable=str(active_settings.get("executable", "codex")),
+            model=str(active_settings.get("model", "default")),
+            sandbox=str(active_settings.get("sandbox", "workspace-write")),
+            workspace_root=str(active_settings.get("workspace_root", "workspaces")),
+            execute=bool(active_settings.get("execute", False)),
+            timeout_seconds=int(active_settings.get("timeout_seconds", 120)),
         )
     raise ValueError(f"Unknown strategy modifier adapter: {name}")

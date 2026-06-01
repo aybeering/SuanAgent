@@ -20,7 +20,9 @@
     "executable": "codex",
     "model": "default",
     "sandbox": "workspace-write",
-    "workspace_root": "workspaces"
+    "workspace_root": "workspaces",
+    "execute": false,
+    "timeout_seconds": 120
   },
   "stub": {
     "old_threshold": "MIN_EDGE = 0.05",

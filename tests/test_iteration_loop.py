@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import shutil
+import stat
 from pathlib import Path
 
+from agents.codex_cli_adapter import CodexCliModifier
 from agents.codex_dry_run_adapter import (
     build_codex_command,
     build_codex_prompt,
@@ -258,6 +260,115 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
     )
 
 
+def test_codex_cli_adapter_disabled_does_not_execute(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    default = load_project_config(repo)
+    config = ProjectConfig(
+        baseline_strategy_module=default.baseline_strategy_module,
+        current_strategy_module=default.current_strategy_module,
+        experiments_dir=default.experiments_dir,
+        max_rounds=1,
+        datasets=default.datasets,
+        policy=default.policy,
+        strategy_path=default.strategy_path,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": "missing-codex-for-disabled-test",
+            "model": "dry-run-model",
+            "sandbox": "workspace-write",
+            "execute": False,
+        },
+        stub_old_threshold=default.stub_old_threshold,
+        stub_new_threshold=default.stub_new_threshold,
+    )
+
+    run_iteration_loop(run_id="codex-disabled", max_rounds=1, repo_root=repo, config=config)
+
+    round_dir = repo / "experiments/codex-disabled/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    assert proposal["agent_name"] == "codex_cli"
+    assert proposal["applicable"] is False
+    assert proposal["rejection_reason"] == "Codex CLI execution disabled."
+    assert proposal["command"][0] == "missing-codex-for-disabled-test"
+
+
+def test_codex_cli_adapter_execute_success_parses_patch(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    report_path = repo / "experiments/run-1/round_001/train_report_before.md"
+    report_path.parent.mkdir(parents=True)
+    report_path.write_text("# Report\n", encoding="utf-8")
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_success.py",
+        """#!/usr/bin/env python3
+import sys
+sys.stdin.read()
+print('--- a/strategies/current_strategy.py')
+print('+++ b/strategies/current_strategy.py')
+print('@@ -9,7 +9,7 @@')
+print('-MIN_EDGE = 0.05')
+print('+MIN_EDGE = 0.04')
+""",
+    )
+    adapter = CodexCliModifier(
+        executable=str(fake_codex),
+        model="test",
+        sandbox="workspace-write",
+        execute=True,
+        timeout_seconds=5,
+    )
+
+    proposal = adapter.propose_strategy_change(
+        report_path=report_path,
+        target_file=repo / "strategies/current_strategy.py",
+        round_index=1,
+        repo_root=repo,
+        old_threshold=OLD_THRESHOLD,
+        new_threshold=NEW_THRESHOLD,
+    )
+
+    assert proposal.applicable is True
+    assert proposal.agent_name == "codex_cli"
+    assert "MIN_EDGE = 0.04" in proposal.patch_diff
+    assert proposal.command[0] == str(fake_codex)
+
+
+def test_codex_cli_adapter_execute_failure_is_rejected(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    report_path = repo / "experiments/run-2/round_001/train_report_before.md"
+    report_path.parent.mkdir(parents=True)
+    report_path.write_text("# Report\n", encoding="utf-8")
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_failure.py",
+        """#!/usr/bin/env python3
+import sys
+print('bad things', file=sys.stderr)
+raise SystemExit(7)
+""",
+    )
+    adapter = CodexCliModifier(
+        executable=str(fake_codex),
+        model="test",
+        sandbox="workspace-write",
+        execute=True,
+        timeout_seconds=5,
+    )
+
+    proposal = adapter.propose_strategy_change(
+        report_path=report_path,
+        target_file=repo / "strategies/current_strategy.py",
+        round_index=1,
+        repo_root=repo,
+        old_threshold=OLD_THRESHOLD,
+        new_threshold=NEW_THRESHOLD,
+    )
+
+    assert proposal.applicable is False
+    assert proposal.rejection_reason == "Codex CLI exited with 7."
+    assert "bad things" in proposal.raw_response
+
+
 def test_codex_prompt_and_command_builders_are_deterministic() -> None:
     prompt = build_codex_prompt(
         report_text="# Report\nmetric: value\n",
@@ -373,6 +484,14 @@ def test_codex_output_is_converted_to_applicable_proposal(tmp_path: Path) -> Non
     assert proposal.agent_name == "codex_cli"
     assert proposal.patch_diff.startswith("--- a/strategies/current_strategy.py")
     assert proposal.workspace_path == str(workspace)
+
+
+def write_fake_command(tmp_path: Path, filename: str, content: str) -> Path:
+    """Write an executable fake command for subprocess adapter tests."""
+    path = tmp_path / filename
+    path.write_text(content, encoding="utf-8")
+    path.chmod(path.stat().st_mode | stat.S_IXUSR)
+    return path
 
 
 def test_strategy_order_validation_rejects_invalid_orders() -> None:

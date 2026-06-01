@@ -54,7 +54,7 @@ Allowed components:
 7. A multi-round V0.5 iteration loop.
 8. A fixed strategy modifier stub.
 9. A proposal schema for agent output.
-10. A dry-run Codex CLI adapter that builds prompt and command artifacts but does not invoke real Codex.
+10. A guarded Codex CLI adapter that only executes when config explicitly enables it.
 11. Isolated workspace creation for future Codex execution.
 12. Unified diff extraction and target-file validation.
 13. Git apply, accept commit, and reject rollback helpers.
@@ -357,9 +357,9 @@ When the V0.5 loop runs, it should:
 14. Save `manifest.json`.
 15. Print a short final summary.
 
-The configured modifier may also be `codex_dry_run` or `codex_cli_dry_run`,
-which exercises the future Codex adapter boundary without calling Codex or
-producing a patch.
+The configured modifier may also be `codex_dry_run`, `codex_cli_dry_run`, or
+`codex_cli`. The `codex_cli` adapter must default to `execute=false`; only an
+explicit config change may invoke a subprocess.
 
 Future Codex output must be parsed as a unified diff and rejected before git
 apply if it touches anything except `strategies/current_strategy.py`.

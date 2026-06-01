@@ -17,8 +17,8 @@ holdout data for observation-only reports.
 The strategy interface contract is documented in
 `docs/strategy_interface.md`. The current modifier backend is selected with
 `strategy_modifier` in config; available values are `fixed_patch_stub`,
-`codex_dry_run`, and `codex_cli_dry_run`. The Codex CLI adapters build a prompt
-and command for auditability but do not invoke Codex yet.
+`codex_dry_run`, `codex_cli_dry_run`, and `codex_cli`. The `codex_cli` adapter
+only invokes a subprocess when `codex_cli.execute` is explicitly set to `true`.
 
 Codex-facing adapters use ignored `workspaces/<run_id>/<round_id>/` directories
 for isolated project copies. Returned text is parsed as a unified diff and must

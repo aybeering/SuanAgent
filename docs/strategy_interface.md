@@ -62,8 +62,9 @@ patch is accepted.
 Strategy modifier adapters must return a `StrategyProposal`.
 
 The dry-run Codex CLI adapter is allowed to build and record a prompt and command,
-but it must not invoke Codex or edit files. A future real adapter should keep the
-same proposal shape and still only target `strategies/current_strategy.py`.
+but it must not invoke Codex or edit files. The guarded `codex_cli` adapter may
+invoke a subprocess only when config explicitly sets `execute=true`; it must keep
+the same proposal shape and still only target `strategies/current_strategy.py`.
 
 Codex-facing adapters should run against an isolated copy under:
 

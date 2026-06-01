@@ -20,16 +20,16 @@ early when an agent repeats a previously rejected patch.
 The strategy interface contract is documented in
 `docs/strategy_interface.md`. Machine-readable agent contracts live in
 `schemas/agent_input.schema.json`, `schemas/agent_output.schema.json`, and
-`schemas/agent_execution.schema.json`; run provenance and run-level research
-notes are described by `schemas/run_metadata.schema.json` and
-`schemas/research_brief.schema.json`. The current modifier backend is selected
-with `strategy_modifier` in config; available values are `fixed_patch_stub`,
-`adaptive_stub`, `codex_dry_run`, `codex_cli_dry_run`, `codex_cli`, and
-`file_protocol`. The `codex_cli` and `file_protocol` adapters only invoke a
-subprocess when their `execute` flag is explicitly set to `true`. Example
-configs live in `config/adaptive_stub.json`, `config/codex_dry_run.json`,
-`config/codex_cli_guarded.json`, `config/file_protocol_guarded.json`, and
-`config/file_protocol_demo.json`.
+`schemas/agent_execution.schema.json`; planner intent, run provenance, and
+run-level research notes are described by `schemas/proposal_intent.schema.json`,
+`schemas/run_metadata.schema.json`, and `schemas/research_brief.schema.json`.
+The current modifier backend is selected with `strategy_modifier` in config;
+available values are `fixed_patch_stub`, `adaptive_stub`, `codex_dry_run`,
+`codex_cli_dry_run`, `codex_cli`, and `file_protocol`. The `codex_cli` and
+`file_protocol` adapters only invoke a subprocess when their `execute` flag is
+explicitly set to `true`. Example configs live in `config/adaptive_stub.json`,
+`config/codex_dry_run.json`, `config/codex_cli_guarded.json`,
+`config/file_protocol_guarded.json`, and `config/file_protocol_demo.json`.
 The `adaptive_stub` remains deterministic but now reads both same-run failures
 and recent `research_brief` rows from `agent_context.json`; if recent research
 shows failed `lower_min_edge` attempts, it shifts to a fixed `reduce_stake`
@@ -150,11 +150,15 @@ the current champion when a champion registry exists. It also includes compact
 `recent_research_briefs` rows from the latest completed iteration runs, so a
 modifier backend can see recent observations and next questions without
 re-parsing every artifact directory.
+Each round also writes `proposal_intent.json` and `proposal_intent.md`, a thin
+deterministic planner output that turns the context into a recommended
+direction, directions to avoid, evidence, and hard constraints for the modifier.
 Each round also writes `agent_input.json` and `agent_output.json`, a stable
 `agent_io_*_v1` fixture pair that records what a modifier backend was given and
 which proposal candidate was selected.
 Tests validate these artifacts against the JSON schemas under `schemas/`; the
-file-protocol execution audit is validated against
+proposal intent and file-protocol execution audit are validated against
+`schemas/proposal_intent.schema.json` and
 `schemas/agent_execution.schema.json`, and run provenance is validated against
 `schemas/run_metadata.schema.json`.
 Use `python -m orchestrator.artifact_validator <run_id>` to check that a run

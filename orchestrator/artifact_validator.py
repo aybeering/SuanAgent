@@ -44,6 +44,8 @@ ROUND_REQUIRED_FILES = (
     "probe_trades_before.csv",
     "agent_context.md",
     "agent_context.json",
+    "proposal_intent.json",
+    "proposal_intent.md",
     "agent_input.json",
     "agent_output.json",
     "proposal_attempts.json",
@@ -160,6 +162,11 @@ def validate_round_dir(
     validate_required_files(
         base_dir=round_dir,
         filenames=ROUND_REQUIRED_FILES,
+        report=report,
+    )
+    validate_contract_file(
+        payload_path=round_dir / "proposal_intent.json",
+        schema_path=repo_root / "schemas/proposal_intent.schema.json",
         report=report,
     )
     validate_contract_file(

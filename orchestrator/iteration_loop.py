@@ -39,6 +39,7 @@ from orchestrator.outcome_memory import (
 )
 from orchestrator.policy_gate import apply_holdout_gate, evaluate_policy
 from orchestrator.preflight import run_preflight
+from orchestrator.proposal_intent import write_proposal_intent
 from orchestrator.proposal import (
     StrategyProposal,
     annotate_proposal_quality,
@@ -437,6 +438,10 @@ def run_round(
         output_path=round_dir / "agent_context.md",
         memory_path=round_dir.parent.parent / "memory.jsonl",
     )
+    intent_path = write_proposal_intent(
+        context_path=context_path,
+        output_path=round_dir / "proposal_intent.json",
+    )
     write_agent_input(
         output_path=round_dir / "agent_input.json",
         run_id=run_id,
@@ -446,6 +451,7 @@ def run_round(
         round_dir=round_dir,
         target_file=strategy_file_path,
         context_path=context_path,
+        intent_path=intent_path,
         train_report_path=round_dir / "train_report_before.md",
         validation_report_path=round_dir / "report_before.md",
         holdout_report_path=round_dir / "holdout_report_before.md",

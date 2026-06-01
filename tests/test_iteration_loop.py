@@ -396,6 +396,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "probe_trades_before.csv",
         "agent_context.md",
         "agent_context.json",
+        "proposal_intent.json",
+        "proposal_intent.md",
         "agent_input.json",
         "agent_output.json",
         "proposal_attempts.json",
@@ -414,6 +416,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
 
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
     brief = json.loads((run_dir / "research_brief.json").read_text(encoding="utf-8"))
+    intent = json.loads((round_dir / "proposal_intent.json").read_text(encoding="utf-8"))
     proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
     agent_input = json.loads((round_dir / "agent_input.json").read_text(encoding="utf-8"))
     agent_output = json.loads(
@@ -431,11 +434,17 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert brief["run_id"] == "reject-smoke"
     assert brief["status"] == "stopped_max_rounds"
     assert_matches_schema(run_dir / "research_brief.json", "research_brief")
+    assert intent["schema_version"] == "proposal_intent_v1"
+    assert intent["recommended_direction"] == "lower_min_edge"
+    assert_matches_schema(round_dir / "proposal_intent.json", "proposal_intent")
     assert selected_attempt["candidate_score"] > 0
     assert agent_input["schema_version"] == AGENT_INPUT_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_input.json", "agent_input")
     assert agent_input["target_file"] == "strategies/current_strategy.py"
     assert agent_input["artifacts"]["agent_context_json"].endswith("agent_context.json")
+    assert agent_input["artifacts"]["proposal_intent_json"].endswith(
+        "proposal_intent.json"
+    )
     assert agent_input["metrics_before"]["validation"]["trade_count"] == 39
     assert agent_input["modifiers"]["primary"] == "strategy_modifier_stub"
     assert agent_input["output_contract"]["schema_version"] == AGENT_OUTPUT_SCHEMA_VERSION
@@ -1458,10 +1467,15 @@ def test_adaptive_stub_uses_recent_research_brief_without_memory(
     context_payload = json.loads(
         (round_dir / "agent_context.json").read_text(encoding="utf-8")
     )
+    intent = json.loads((round_dir / "proposal_intent.json").read_text(encoding="utf-8"))
 
     assert context_payload["global_outcome_memory"] == []
     assert context_payload["recent_research_briefs"][0]["run_id"] == "brief-signal-source"
     assert context_payload["recent_research_briefs"][0]["top_direction_tag"] == "lower_min_edge"
+    assert intent["recommended_direction"] == "reduce_stake"
+    assert intent["avoid_directions"] == ["lower_min_edge"]
+    assert any("lower_min_edge appears" in item for item in intent["evidence"])
+    assert_matches_schema(round_dir / "proposal_intent.json", "proposal_intent")
     assert proposal["direction_tag"] == "reduce_stake"
     assert "STAKE = 8.0" in proposal["patch_diff"]
     assert "recent research briefs flagged lower_min_edge" in proposal["summary"]

@@ -47,6 +47,17 @@ jobs:
           python -m orchestrator.artifact_validator ci-adaptive
           python -m orchestrator.artifact_validator ci-file-protocol-demo
 
+      - name: Inspect proposal intent artifacts
+        run: |
+          test -f experiments/ci-adaptive/round_001/proposal_intent.json
+          test -f experiments/ci-adaptive/round_001/proposal_intent.md
+          python - <<'PY'
+          import json
+          payload = json.load(open("experiments/ci-adaptive/round_001/proposal_intent.json"))
+          assert payload["schema_version"] == "proposal_intent_v1"
+          assert payload["recommended_direction"]
+          PY
+
       - name: Inspect research brief artifacts
         run: |
           test -f experiments/ci-adaptive/research_brief.json

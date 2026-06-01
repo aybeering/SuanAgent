@@ -116,6 +116,7 @@ Current structure:
 │   ├── agent_execution.schema.json
 │   ├── champion.schema.json
 │   ├── champion_comparison.schema.json
+│   ├── proposal_intent.schema.json
 │   ├── run_metadata.schema.json
 │   └── research_brief.schema.json
 ├── .github/
@@ -149,6 +150,7 @@ Current structure:
 │   ├── outcome_memory.py
 │   ├── policy_gate.py
 │   ├── proposal.py
+│   ├── proposal_intent.py
 │   ├── research_brief.py
 │   ├── run_summary.py
 │   ├── patch_parser.py
@@ -221,6 +223,8 @@ round_001/
   holdout_trades_before.csv
   agent_context.md
   agent_context.json
+  proposal_intent.json
+  proposal_intent.md
   agent_input.json
   agent_output.json
   proposal.json
@@ -266,10 +270,16 @@ and include prior rounds, failed patch hashes, candidate search trace, global
 outcome memory, current champion context when available, previous champion
 comparison context when available, recent research brief summaries from
 completed runs, target file, and policy notes for SDK-backed agents.
+Each round should then write `proposal_intent.json` and `proposal_intent.md`
+before calling the modifier. The JSON artifact should use schema version
+`proposal_intent_v1` and summarize the recommended direction, directions to
+avoid, evidence, source context artifacts, and hard constraints. It is planner
+guidance only; it must not decide acceptance.
 Each round should also write `agent_input.json` and `agent_output.json`.
 `agent_input.json` should use schema version `agent_io_input_v1` and describe
-the reports, context, before metrics, policy config, candidate-selection config,
-and modifier list available to the agent. `agent_output.json` should use schema
+the reports, context, proposal intent, before metrics, policy config,
+candidate-selection config, and modifier list available to the agent.
+`agent_output.json` should use schema
 version `agent_io_output_v1` and record the selected proposal, compact attempt
 rows, and output artifact paths.
 The machine-readable contracts for these files live in `schemas/`. Run-level
@@ -518,7 +528,7 @@ When the V0.5 loop runs, it should:
 3. Run the current strategy before modification on all configured data splits.
 4. Save train, validation, and holdout before metrics, trades, and reports.
 5. Call the fixed strategy modifier stub using the train report.
-6. Save `agent_context.md`, `agent_context.json`, `agent_input.json`, `agent_output.json`, `proposal.json`, `agent_response.txt`, and `patch.diff`.
+6. Save `agent_context.md`, `agent_context.json`, `proposal_intent.json`, `proposal_intent.md`, `agent_input.json`, `agent_output.json`, `proposal.json`, `agent_response.txt`, and `patch.diff`.
 7. Apply the patch with Git.
 8. Run the modified strategy on all configured data splits.
 9. Save train, validation, and holdout after metrics, trades, and reports.

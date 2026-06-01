@@ -412,6 +412,8 @@ def copy_agent_round_inputs(*, source_round_dir: Path, workspace_round_dir: Path
         "agent_input.json",
         "agent_context.md",
         "agent_context.json",
+        "proposal_intent.json",
+        "proposal_intent.md",
         "train_report_before.md",
         "report_before.md",
         "holdout_report_before.md",

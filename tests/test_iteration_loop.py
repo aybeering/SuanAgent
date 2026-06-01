@@ -36,6 +36,7 @@ from orchestrator.outcome_memory import (
     read_outcome_memory,
 )
 from orchestrator.run_loop import run_pipeline
+from orchestrator.run_diagnosis import diagnose_run
 from orchestrator.preflight import run_preflight
 from orchestrator.schema_validation import validate_json_file, validate_json_payload
 from orchestrator.experiments import (
@@ -1978,6 +1979,107 @@ def test_artifact_validator_cli_exits_nonzero_for_invalid_run(tmp_path: Path) ->
 
     assert result.returncode == 1
     assert "run directory does not exist" in result.stdout
+
+
+def test_run_diagnosis_summarizes_single_run(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(
+        run_id="diagnose-single",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    diagnosis = diagnose_run(
+        run_id="diagnose-single",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert diagnosis["kind"] == "single_run"
+    assert diagnosis["artifact_ok"] is True
+    assert diagnosis["status"] == "rejected"
+    assert diagnosis["validation_ev_delta"] == 0.0
+    assert "Single run rejected" in diagnosis["summary"]
+
+
+def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    manifest = run_iteration_loop(
+        run_id="diagnose-iteration",
+        max_rounds=1,
+        repo_root=repo,
+    )
+
+    diagnosis = diagnose_run(
+        run_id="diagnose-iteration",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert diagnosis["kind"] == "iteration_loop"
+    assert diagnosis["artifact_ok"] is True
+    assert diagnosis["status"] == manifest["status"]
+    assert diagnosis["completed_rounds"] == 1
+    assert diagnosis["best_round"]["round_id"] == "round_001"  # type: ignore[index]
+    assert diagnosis["rounds"][0]["direction_tag"] == "lower_min_edge"  # type: ignore[index]
+    assert "Iteration run" in diagnosis["summary"]
+
+
+def test_run_diagnosis_includes_file_protocol_execution_status(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+    run_iteration_loop(
+        run_id="diagnose-file-protocol",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    diagnosis = diagnose_run(
+        run_id="diagnose-file-protocol",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    round_diagnosis = diagnosis["rounds"][0]  # type: ignore[index]
+    assert diagnosis["artifact_ok"] is True
+    assert round_diagnosis["agent_name"] == "file_protocol_agent"
+    assert round_diagnosis["file_protocol_status"] == "completed"
+    assert round_diagnosis["selected_role"] == "primary"
+    assert diagnosis["selected_candidates"][0]["agent_name"] == "file_protocol_agent"  # type: ignore[index]
+
+
+def test_experiments_diagnose_subcommand_outputs_json(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="diagnose-cli",
+        max_rounds=1,
+        repo_root=repo,
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "diagnose",
+            "diagnose-cli",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 0
+    assert payload["kind"] == "iteration_loop"
+    assert payload["artifact_ok"] is True
+    assert payload["rounds"][0]["round_id"] == "round_001"
 
 
 def test_schema_validator_reports_missing_required_property() -> None:

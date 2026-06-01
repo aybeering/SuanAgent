@@ -47,6 +47,11 @@ jobs:
           python -m orchestrator.artifact_validator ci-adaptive
           python -m orchestrator.artifact_validator ci-file-protocol-demo
 
+      - name: Diagnose iteration runs
+        run: |
+          python -m orchestrator.experiments diagnose ci-adaptive
+          python -m orchestrator.experiments diagnose ci-file-protocol-demo
+
       - name: Summarize local experiments
         run: python -m orchestrator.experiments summary
 

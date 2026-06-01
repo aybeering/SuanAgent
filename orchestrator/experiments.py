@@ -8,6 +8,7 @@ from pathlib import Path
 
 from orchestrator.experiment_index import read_experiment_index, recent_experiments
 from orchestrator.outcome_memory import recent_outcomes
+from orchestrator.run_diagnosis import diagnose_run
 
 
 def list_experiments(
@@ -213,6 +214,12 @@ def main() -> None:
     candidates_parser.add_argument("run_id")
     candidates_parser.add_argument("--limit", type=int, default=20)
 
+    diagnose_parser = subparsers.add_parser(
+        "diagnose",
+        help="Diagnose one run with artifact health and round outcomes.",
+    )
+    diagnose_parser.add_argument("run_id")
+
     subparsers.add_parser("summary", help="Summarize experiment history.")
 
     args = parser.parse_args()
@@ -241,6 +248,11 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
             limit=args.limit,
+        )
+    elif args.command == "diagnose":
+        payload = diagnose_run(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
         )
     else:
         payload = summarize_experiments(experiments_dir=args.experiments_dir)

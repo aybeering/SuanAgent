@@ -60,6 +60,7 @@ python -m orchestrator.experiments summary
 python -m orchestrator.experiments leaderboard --limit 5
 python -m orchestrator.experiments memory --limit 5
 python -m orchestrator.artifact_validator <run_id>
+python -m orchestrator.experiments diagnose <run_id>
 ```
 
 Useful mode switches:
@@ -75,6 +76,7 @@ python -m orchestrator.run_loop --config config/default.json --run-id single-run
 python -m orchestrator.preflight --config config/codex_cli_guarded.json
 python -m orchestrator.experiments show dry-run-demo
 python -m orchestrator.artifact_validator file-protocol-local-demo
+python -m orchestrator.experiments diagnose file-protocol-local-demo
 ```
 
 ## Outputs
@@ -135,6 +137,9 @@ file-protocol execution audit is validated against
 Use `python -m orchestrator.artifact_validator <run_id>` to check that a run
 directory has required files and that agent contract artifacts match their
 schemas.
+Use `python -m orchestrator.experiments diagnose <run_id>` for a compact JSON
+diagnosis of artifact health, selected candidates, per-round EV deltas,
+rejection reasons, and file-protocol execution status.
 Iteration runs append proposal outcomes to `experiments/memory.jsonl`, which is
 used as cross-run context for later agent calls.
 Before applying a patch, the loop checks outcome memory and rejects patch hashes

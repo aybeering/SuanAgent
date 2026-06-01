@@ -774,20 +774,39 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     ).exists()
     assert (round_dir / "agent_attempts/attempt_001_primary/proposal.json").exists()
     assert (round_dir / "agent_attempts/attempt_001_primary/patch.diff").exists()
+    assert (
+        round_dir / "agent_attempts/attempt_001_primary/attempt_output.json"
+    ).exists()
     attempt_agent_input = json.loads(
         (
             round_dir / "agent_attempts/attempt_001_primary/agent_input.json"
+        ).read_text(encoding="utf-8")
+    )
+    attempt_output = json.loads(
+        (
+            round_dir / "agent_attempts/attempt_001_primary/attempt_output.json"
         ).read_text(encoding="utf-8")
     )
     assert_matches_schema(
         round_dir / "agent_attempts/attempt_001_primary/agent_input.json",
         "agent_input",
     )
+    assert_matches_schema(
+        round_dir / "agent_attempts/attempt_001_primary/attempt_output.json",
+        "attempt_output",
+    )
     assert agent_attempts["attempts"][0]["agent_input"].endswith(
         "agent_attempts/attempt_001_primary/agent_input.json"
     )
+    assert agent_attempts["attempts"][0]["attempt_output"].endswith(
+        "agent_attempts/attempt_001_primary/attempt_output.json"
+    )
     assert any(
         row["name"] == "agent_input.json"
+        for row in agent_attempts["attempts"][0]["files"]
+    )
+    assert any(
+        row["name"] == "attempt_output.json"
         for row in agent_attempts["attempts"][0]["files"]
     )
     assert attempt_agent_input["active_agent"]["attempt_id"] == "attempt_001_primary"
@@ -795,6 +814,20 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert attempt_agent_input["active_agent"]["adapter_name"] == "fixed_patch_stub"
     assert attempt_agent_input["active_agent"]["agent_name"] == "strategy_modifier_stub"
     assert attempt_agent_input["output_contract"]["workspace_output_path"] == ""
+    assert attempt_output["schema_version"] == "attempt_output_v1"
+    assert attempt_output["attempt_id"] == "attempt_001_primary"
+    assert attempt_output["profile_name"] == "primary"
+    assert attempt_output["adapter_name"] == "fixed_patch_stub"
+    assert attempt_output["selected"] is True
+    assert attempt_output["proposal"]["patch_sha256"] == proposal["patch_sha256"]
+    assert attempt_output["selection"]["skip_reason"] == ""
+    assert attempt_output["failure_code"] == "policy_ev_improvement_low"
+    assert attempt_output["artifacts"]["agent_input"].endswith(
+        "agent_attempts/attempt_001_primary/agent_input.json"
+    )
+    assert attempt_output["artifacts"]["selection"].endswith(
+        "agent_attempts/attempt_001_primary/selection.json"
+    )
     assert agent_output["schema_version"] == AGENT_OUTPUT_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_output.json", "agent_output")
     assert agent_output["selected_role"] == selected_attempt["role"]
@@ -2340,6 +2373,11 @@ output_path.write_text(json.dumps({
             round_dir / "agent_attempts/attempt_001_primary/agent_input.json"
         ).read_text(encoding="utf-8")
     )
+    attempt_output = json.loads(
+        (
+            round_dir / "agent_attempts/attempt_001_primary/attempt_output.json"
+        ).read_text(encoding="utf-8")
+    )
     workspace_bundle_agent_input = json.loads(
         (
             Path(agent_execution["workspace_path"])
@@ -2365,6 +2403,10 @@ output_path.write_text(json.dumps({
         round_dir / "agent_attempts/attempt_001_primary/agent_input.json",
         "agent_input",
     )
+    assert_matches_schema(
+        round_dir / "agent_attempts/attempt_001_primary/attempt_output.json",
+        "attempt_output",
+    )
     assert (
         Path(agent_execution["workspace_path"])
         / "experiments/file-protocol-fixture/round_001/agent_input_bundle/agent_input.json"
@@ -2376,6 +2418,15 @@ output_path.write_text(json.dumps({
     assert (
         round_dir / "agent_attempts/attempt_001_primary/workspace_manifest.json"
     ).exists()
+    assert attempt_output["profile_name"] == "primary"
+    assert attempt_output["adapter_name"] == "file_protocol"
+    assert attempt_output["agent_name"] == "file_protocol_agent"
+    assert attempt_output["artifacts"]["agent_execution"].endswith(
+        "agent_attempts/attempt_001_primary/agent_execution.json"
+    )
+    assert attempt_output["artifacts"]["workspace_manifest"].endswith(
+        "agent_attempts/attempt_001_primary/workspace_manifest.json"
+    )
     assert agent_input["target_file_content"].count("MIN_EDGE = 0.05") == 1
     assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
     assert attempts[0]["selected"] is True

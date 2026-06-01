@@ -57,6 +57,7 @@
           "patch_sha256",
           "attempt_dir",
           "agent_input",
+          "attempt_output",
           "files"
         ],
         "properties": {
@@ -128,6 +129,9 @@
             "type": "string"
           },
           "agent_input": {
+            "type": "string"
+          },
+          "attempt_output": {
             "type": "string"
           },
           "files": {

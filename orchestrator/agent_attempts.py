@@ -14,6 +14,7 @@ from orchestrator.failure_taxonomy import primary_failure, selection_skip_reason
 
 AGENT_ATTEMPTS_SCHEMA_VERSION = "agent_attempts_v1"
 AGENT_SELECTION_SCHEMA_VERSION = "agent_selection_v1"
+ATTEMPT_OUTPUT_SCHEMA_VERSION = "attempt_output_v1"
 ATTEMPTS_DIRNAME = "agent_attempts"
 
 
@@ -52,6 +53,15 @@ def write_agent_attempts_manifest(
             attempt=attempt,
             attempt_id=attempt_id,
         )
+        attempt_output_path = write_attempt_output(
+            round_dir=round_dir,
+            repo_root=repo_root,
+            attempt_dir=attempt_dir,
+            attempt=attempt,
+            attempts=attempts,
+            attempt_id=attempt_id,
+            attempt_index=index,
+        )
         rows.append(
             {
                 "attempt_id": attempt_id,
@@ -71,6 +81,7 @@ def write_agent_attempts_manifest(
                 "patch_sha256": attempt.get("patch_sha256", ""),
                 "attempt_dir": relative_path(attempt_dir, repo_root),
                 "agent_input": relative_path(attempt_dir / "agent_input.json", repo_root),
+                "attempt_output": relative_path(attempt_output_path, repo_root),
                 "files": file_records(attempt_dir, repo_root),
             }
         )
@@ -202,6 +213,139 @@ def write_attempt_selection_files(
         attempt_dir = round_dir / ATTEMPTS_DIRNAME / str(row["attempt_id"])
         attempt_dir.mkdir(parents=True, exist_ok=True)
         write_json(attempt_dir / "selection.json", row)
+
+
+def write_attempt_output(
+    *,
+    round_dir: Path,
+    repo_root: Path,
+    attempt_dir: Path,
+    attempt: dict[str, object],
+    attempts: list[dict[str, object]],
+    attempt_id: str,
+    attempt_index: int,
+) -> Path:
+    """Write a compact, attempt-scoped output/audit summary."""
+    payload = attempt_output_payload(
+        round_dir=round_dir,
+        repo_root=repo_root,
+        attempt_dir=attempt_dir,
+        attempt=attempt,
+        attempts=attempts,
+        attempt_id=attempt_id,
+        attempt_index=attempt_index,
+    )
+    output_path = attempt_dir / "attempt_output.json"
+    write_json(output_path, payload)
+    return output_path
+
+
+def attempt_output_payload(
+    *,
+    round_dir: Path,
+    repo_root: Path,
+    attempt_dir: Path,
+    attempt: dict[str, object],
+    attempts: list[dict[str, object]],
+    attempt_id: str,
+    attempt_index: int,
+) -> dict[str, object]:
+    """Return the self-contained audit summary for one candidate attempt."""
+    selected_index = selected_attempt_index(attempts)
+    selected = bool(attempt.get("selected", False))
+    status = str(attempt.get("status", ""))
+    blocking_reasons = attempt_blocking_reasons(attempt)
+    reason_codes = attempt.get("reason_codes", [])
+    if not reason_codes:
+        reason_codes = selection_skip_reason_codes(
+            selected=selected,
+            status=status,
+            blocking_reasons=blocking_reasons,
+            selected_index=selected_index,
+        )
+    failure = primary_failure(reason_codes)
+    return {
+        "schema_version": ATTEMPT_OUTPUT_SCHEMA_VERSION,
+        "attempt_id": attempt_id,
+        "attempt_index": attempt_index,
+        "round_id": round_dir.name,
+        "role": attempt.get("role", ""),
+        "profile_name": attempt.get("profile_name", ""),
+        "adapter_name": attempt.get("adapter_name", ""),
+        "agent_name": attempt.get("agent_name", ""),
+        "direction_tag": attempt.get("direction_tag", ""),
+        "status": status,
+        "selected": selected,
+        "eligible": status == "selectable",
+        "rank": attempt_rank(attempts=attempts, attempt_index=attempt_index - 1),
+        "candidate_score": attempt.get("candidate_score", 0),
+        "failure_stage": failure["stage"],
+        "failure_code": failure["code"],
+        "failure_message": failure["message"],
+        "reason_codes": reason_codes,
+        "proposal": proposal_payload(attempt),
+        "selection": {
+            "selected": selected,
+            "selection_reason": attempt.get("selection_reason", ""),
+            "skip_reason": attempt_skip_reason(
+                attempt=attempt,
+                attempt_index=attempt_index - 1,
+                selected_index=selected_index,
+                blocking_reasons=blocking_reasons,
+            ),
+            "score_reasons": attempt.get("score_reasons", []),
+            "blocking_reasons": blocking_reasons,
+        },
+        "validation": {
+            "status": attempt.get("validation_status", ""),
+            "accepted": attempt.get("validation_accepted", None),
+            "ev_delta": attempt.get("validation_ev_delta", None),
+            "probe_ev_delta": attempt.get("probe_ev_delta", 0.0),
+        },
+        "artifacts": attempt_output_artifacts(
+            round_dir=round_dir,
+            repo_root=repo_root,
+            attempt_dir=attempt_dir,
+        ),
+    }
+
+
+def attempt_output_artifacts(
+    *,
+    round_dir: Path,
+    repo_root: Path,
+    attempt_dir: Path,
+) -> dict[str, str]:
+    """Return stable artifact paths referenced by attempt_output.json."""
+    return {
+        "attempt": relative_path(attempt_dir / "attempt.json", repo_root),
+        "agent_input": relative_path(attempt_dir / "agent_input.json", repo_root),
+        "proposal": relative_path(attempt_dir / "proposal.json", repo_root),
+        "raw_agent_output": relative_path(
+            attempt_dir / "raw_agent_output.txt",
+            repo_root,
+        ),
+        "patch": relative_path(attempt_dir / "patch.diff", repo_root),
+        "selection": relative_path(attempt_dir / "selection.json", repo_root),
+        "workspace_manifest": relative_path(
+            attempt_dir / "workspace_manifest.json",
+            repo_root,
+        )
+        if (attempt_dir / "workspace_manifest.json").exists()
+        else "",
+        "agent_execution": relative_path(
+            attempt_dir / "agent_execution.json",
+            repo_root,
+        )
+        if (attempt_dir / "agent_execution.json").exists()
+        else "",
+        "round_agent_input": relative_path(round_dir / "agent_input.json", repo_root),
+        "round_agent_output": relative_path(round_dir / "agent_output.json", repo_root),
+        "round_agent_validation": relative_path(
+            round_dir / "agent_validation.json",
+            repo_root,
+        ),
+    }
 
 
 def copy_attempt_runtime_artifacts(

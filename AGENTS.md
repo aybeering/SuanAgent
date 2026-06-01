@@ -339,11 +339,14 @@ record the deterministic execution queue, selected attempt id, per-attempt
 modifier names, proposal metadata, runtime artifact paths, and normalized
 executor config.
 `agent_attempts/` should contain one subdirectory per candidate attempt, each
-with its own attempt payload, attempt-scoped `agent_input.json`, proposal, raw
-output, patch, and any attempt-level workspace or execution audit. Workspace
-backed attempts should preserve the exact workspace-local `agent_input.json`;
-other attempts should synthesize the same contract from the round input and
-attempt metadata. The
+with its own attempt payload, attempt-scoped `agent_input.json`,
+`attempt_output.json`, proposal, raw output, patch, and any attempt-level
+workspace or execution audit. Workspace backed attempts should preserve the
+exact workspace-local `agent_input.json`; other attempts should synthesize the
+same contract from the round input and attempt metadata. `attempt_output.json`
+should use schema version `attempt_output_v1` and provide a compact audit
+entry linking the attempt input, proposal, raw output, patch, selection
+explanation, validation status, and optional workspace execution audit. The
 `agent_attempts_manifest.json` artifact should use schema version
 `agent_attempts_v1` and identify the selected attempt.
 `agent_selection_report.json` should use schema version `agent_selection_v1`

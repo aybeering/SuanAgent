@@ -239,17 +239,22 @@ application.
 and output-contract paths so future SDK or CLI-backed agents do not need to
 infer their identity or allowed output location from filenames.
 Workspace-backed candidates also keep per-attempt copies of
-`agent_input.json`, `workspace_manifest.json`, and, for file-protocol commands,
-`agent_execution.json` inside `agent_attempts/attempt_xxx/`. Non-workspace
-attempts synthesize the same active-agent input contract from the round input
-and attempt metadata. Tests validate these artifacts against the
+`agent_input.json`, `attempt_output.json`, `workspace_manifest.json`, and, for
+file-protocol commands, `agent_execution.json` inside
+`agent_attempts/attempt_xxx/`. Non-workspace attempts synthesize the same
+active-agent input contract from the round input and attempt metadata.
+`attempt_output.json` is the compact per-attempt audit entry: it links the
+attempt input, proposal, raw output, patch, selection explanation, validation
+status, and optional workspace execution audit. Tests validate these artifacts
+against the
 JSON schemas under `schemas/`; the proposal intent, agent bundle manifest,
 workspace manifest, agent validation report, and file-protocol execution audit
 are validated against
 `schemas/proposal_intent.schema.json`, `schemas/agent_bundle.schema.json`,
 `schemas/agent_attempts.schema.json`, `schemas/agent_selection.schema.json`,
 `schemas/agent_executor.schema.json`, `schemas/workspace_manifest.schema.json`,
-`schemas/agent_validation.schema.json`, `schemas/agent_execution.schema.json`, and
+`schemas/agent_validation.schema.json`, `schemas/agent_execution.schema.json`,
+`schemas/attempt_output.schema.json`, and
 `schemas/attempt_replay.schema.json`; run provenance is validated against
 `schemas/run_metadata.schema.json`.
 Use `python -m orchestrator.artifact_validator <run_id>` to check that a run

@@ -351,6 +351,21 @@ def validate_agent_attempts_manifest(
                 )
             else:
                 add_error(report, f"attempt agent_input.json does not exist: {attempt_input}")
+            attempt_output = attempt_dir / "attempt_output.json"
+            if attempt_output.exists():
+                checked_files(report).append(str(attempt_output))
+                validate_contract_file(
+                    payload_path=attempt_output,
+                    schema_path=repo_root / "schemas/attempt_output.schema.json",
+                    report=report,
+                )
+                validate_attempt_output_artifacts(
+                    path=attempt_output,
+                    repo_root=repo_root,
+                    report=report,
+                )
+            else:
+                add_error(report, f"attempt_output.json does not exist: {attempt_output}")
             replay_path = attempt_dir / "attempt_replay.json"
             if replay_path.exists():
                 checked_files(report).append(str(replay_path))
@@ -370,6 +385,45 @@ def validate_agent_attempts_manifest(
             file_path = resolve_path(Path(str(file_row.get("path", ""))), repo_root)
             if not file_path.exists() or not file_path.is_file():
                 add_error(report, f"attempt file does not exist: {file_path}")
+
+
+def validate_attempt_output_artifacts(
+    *,
+    path: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate attempt_output.json points at existing audit files."""
+    payload = load_json_object(path, report)
+    if payload is None:
+        return
+    artifacts = payload.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        add_error(report, f"attempt_output.json artifacts is invalid: {path}")
+        return
+    required = (
+        "attempt",
+        "agent_input",
+        "proposal",
+        "raw_agent_output",
+        "patch",
+        "selection",
+        "round_agent_input",
+        "round_agent_output",
+        "round_agent_validation",
+    )
+    optional = ("workspace_manifest", "agent_execution")
+    for key in required:
+        artifact_path = resolve_path(Path(str(artifacts.get(key, ""))), repo_root)
+        if not artifact_path.exists() or not artifact_path.is_file():
+            add_error(report, f"attempt_output artifact does not exist: {key}={artifact_path}")
+    for key in optional:
+        value = str(artifacts.get(key, ""))
+        if not value:
+            continue
+        artifact_path = resolve_path(Path(value), repo_root)
+        if not artifact_path.exists() or not artifact_path.is_file():
+            add_error(report, f"attempt_output artifact does not exist: {key}={artifact_path}")
 
 
 def validate_agent_executor_report(

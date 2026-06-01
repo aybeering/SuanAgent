@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Attempt Output",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "attempt_id",
+    "attempt_index",
+    "round_id",
+    "role",
+    "profile_name",
+    "adapter_name",
+    "agent_name",
+    "direction_tag",
+    "status",
+    "selected",
+    "eligible",
+    "rank",
+    "candidate_score",
+    "failure_stage",
+    "failure_code",
+    "failure_message",
+    "reason_codes",
+    "proposal",
+    "selection",
+    "validation",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "attempt_output_v1"
+      ]
+    },
+    "attempt_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "attempt_index": {
+      "type": "integer"
+    },
+    "round_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "role": {
+      "type": "string"
+    },
+    "profile_name": {
+      "type": "string"
+    },
+    "adapter_name": {
+      "type": "string"
+    },
+    "agent_name": {
+      "type": "string"
+    },
+    "direction_tag": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "selected": {
+      "type": "boolean"
+    },
+    "eligible": {
+      "type": "boolean"
+    },
+    "rank": {
+      "type": "integer"
+    },
+    "candidate_score": {
+      "type": "number"
+    },
+    "failure_stage": {
+      "type": "string"
+    },
+    "failure_code": {
+      "type": "string"
+    },
+    "failure_message": {
+      "type": "string"
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "stage",
+          "code",
+          "message"
+        ],
+        "properties": {
+          "stage": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "proposal": {
+      "type": "object"
+    },
+    "selection": {
+      "type": "object",
+      "required": [
+        "selected",
+        "selection_reason",
+        "skip_reason",
+        "score_reasons",
+        "blocking_reasons"
+      ],
+      "properties": {
+        "selected": {
+          "type": "boolean"
+        },
+        "selection_reason": {
+          "type": "string"
+        },
+        "skip_reason": {
+          "type": "string"
+        },
+        "score_reasons": {
+          "type": "array"
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "required": [
+        "status",
+        "accepted",
+        "ev_delta",
+        "probe_ev_delta"
+      ],
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "accepted": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "ev_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "probe_ev_delta": {
+          "type": "number"
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": [
+        "attempt",
+        "agent_input",
+        "proposal",
+        "raw_agent_output",
+        "patch",
+        "selection",
+        "workspace_manifest",
+        "agent_execution",
+        "round_agent_input",
+        "round_agent_output",
+        "round_agent_validation"
+      ],
+      "properties": {
+        "attempt": {
+          "type": "string"
+        },
+        "agent_input": {
+          "type": "string"
+        },
+        "proposal": {
+          "type": "string"
+        },
+        "raw_agent_output": {
+          "type": "string"
+        },
+        "patch": {
+          "type": "string"
+        },
+        "selection": {
+          "type": "string"
+        },
+        "workspace_manifest": {
+          "type": "string"
+        },
+        "agent_execution": {
+          "type": "string"
+        },
+        "round_agent_input": {
+          "type": "string"
+        },
+        "round_agent_output": {
+          "type": "string"
+        },
+        "round_agent_validation": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

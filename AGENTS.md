@@ -130,6 +130,7 @@ Current structure:
 │   ├── agent_execution.schema.json
 │   ├── agent_role_contracts.schema.json
 │   ├── analysis_notes.schema.json
+│   ├── overfit_validation.schema.json
 │   ├── attempt_replay.schema.json
 │   ├── agent_result_stats.schema.json
 │   ├── workspace_manifest.schema.json
@@ -251,6 +252,8 @@ round_001/
   agent_role_contracts.json
   analysis_notes.json
   analysis_notes.md
+  overfit_validation.json
+  overfit_validation.md
   agent_input.json
   agent_bundle_manifest.json
   agent_input_bundle/
@@ -314,10 +317,10 @@ before calling the modifier. The JSON artifact should use schema version
 avoid, evidence, source context artifacts, and hard constraints. It is planner
 guidance only; it must not decide acceptance.
 Each round should also write `agent_role_contracts.json`, `analysis_notes.json`,
-`analysis_notes.md`, `agent_input.json`, `agent_bundle_manifest.json`,
-`agent_input_bundle/`, `agent_output_bundle/`, `raw_agent_output.txt`,
-`agent_output.json`, `agent_validation.json`, `agent_executor_report.json`,
-`agent_routing_policy.json`,
+`analysis_notes.md`, `overfit_validation.json`, `overfit_validation.md`,
+`agent_input.json`, `agent_bundle_manifest.json`, `agent_input_bundle/`,
+`agent_output_bundle/`, `raw_agent_output.txt`, `agent_output.json`,
+`agent_validation.json`, `agent_executor_report.json`, `agent_routing_policy.json`,
 `agent_attempts_manifest.json`, and `agent_attempts/`.
 `agent_role_contracts.json` should use schema version
 `agent_role_contracts_v1` and declare the planned agent responsibilities,
@@ -329,6 +332,10 @@ deterministic gates keep final acceptance authority. In V0.5, only
 the read-only analysis stub's consumed reports, before metrics, observations,
 and recommendation. It may advise continuing to the strategy modifier, but it
 must not change routing or final acceptance.
+`overfit_validation.json` should use schema version `overfit_validation_v1` and
+record the overfit validator stub's consumed proposal, decision, metric deltas,
+prior rejected round count, and advisory risk flags. In V0.5 it must not veto,
+change routing, or change final acceptance.
 `agent_input.json` should use schema version `agent_io_input_v1` and describe
 the reports, context, proposal intent, before metrics, policy config,
 candidate-selection config, modifier list, configured agent roles, configured

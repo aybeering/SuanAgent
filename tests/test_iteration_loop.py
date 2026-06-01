@@ -902,6 +902,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "report_after.md",
         "trades_after.csv",
         "decision.json",
+        "overfit_validation.json",
+        "overfit_validation.md",
     ):
         assert (round_dir / filename).exists()
     assert (run_dir / "candidate_leaderboard.json").exists()
@@ -910,6 +912,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "research_brief.md").exists()
 
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
+    overfit_validation = json.loads(
+        (round_dir / "overfit_validation.json").read_text(encoding="utf-8")
+    )
     brief = json.loads((run_dir / "research_brief.json").read_text(encoding="utf-8"))
     intent = json.loads((round_dir / "proposal_intent.json").read_text(encoding="utf-8"))
     role_contracts = json.loads(
@@ -968,6 +973,19 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert decision["failure_stage"] == "policy_gate"
     assert decision["failure_code"] == "policy_ev_improvement_low"
     assert decision["reason_codes"][0]["code"] == "policy_ev_improvement_low"
+    assert overfit_validation["schema_version"] == "overfit_validation_v1"
+    assert_matches_schema(round_dir / "overfit_validation.json", "overfit_validation")
+    assert overfit_validation["agent_role"] == "overfit_validator"
+    assert overfit_validation["execution_mode"] == "stub_contract"
+    assert overfit_validation["implemented"] is False
+    assert overfit_validation["recommendation"]["action"] == "keep_existing_decision"
+    assert overfit_validation["recommendation"]["can_veto"] is False
+    assert overfit_validation["recommendation"]["can_change_acceptance"] is False
+    assert overfit_validation["checks"]["deterministic_gate_active"] is False
+    assert overfit_validation["consumed_artifacts"]["decision"].endswith(
+        "decision.json"
+    )
+    assert "validation" in overfit_validation["metric_deltas"]
     assert brief["schema_version"] == "research_brief_v1"
     assert brief["run_id"] == "reject-smoke"
     assert brief["status"] == "stopped_max_rounds"
@@ -3557,6 +3575,10 @@ def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
     assert any(
+        path.endswith("overfit_validation.json")
+        for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
         path.endswith("agent_attempts_manifest.json")
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
@@ -3675,6 +3697,31 @@ def test_artifact_validator_reports_analysis_acceptance_violation(
     assert report["ok"] is False
     assert any(
         "analysis_notes.json must not change acceptance" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_overfit_veto_violation(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-overfit-violation",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = repo / "experiments/artifact-overfit-violation/round_001/overfit_validation.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["recommendation"]["can_veto"] = True
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="artifact-overfit-violation",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "overfit_validation.json must not veto in V0.5" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 

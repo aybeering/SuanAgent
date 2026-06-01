@@ -24,7 +24,8 @@ The strategy interface contract is documented in
 `schemas/agent_executor.schema.json`, `schemas/agent_output.schema.json`,
 `schemas/agent_validation.schema.json`, `schemas/agent_execution.schema.json`,
 `schemas/agent_role_contracts.schema.json`, and
-`schemas/analysis_notes.schema.json`;
+`schemas/analysis_notes.schema.json`, and
+`schemas/overfit_validation.schema.json`;
 saved attempt replay reports use
 `schemas/attempt_replay.schema.json`; aggregate agent result reports use
 `schemas/agent_result_stats.schema.json`;
@@ -64,6 +65,10 @@ The `analysis` role also writes a deterministic read-only stub artifact,
 `analysis_notes.json` plus `analysis_notes.md`, after before-metrics are
 available and before strategy modification. It records observations and consumed
 artifacts for future agents, but cannot change routing or acceptance.
+The `overfit_validator` role writes `overfit_validation.json` plus
+`overfit_validation.md` after the deterministic decision exists. It compares
+train, validation, and holdout metric deltas and records advisory risk flags,
+but its V0.5 recommendation cannot veto or alter acceptance.
 Each configured profile can also carry `agent_role`. In V0.5 enabled profiles
 must point at the active `strategy_modifier` role; disabled profiles may point at
 future roles so they remain visible in manifests without entering the execution
@@ -251,7 +256,7 @@ Each round also writes `agent_input_bundle/`, `agent_output_bundle/`,
 `agent_attempts_manifest.json`, `agent_selection_report.json`,
 `agent_executor_report.json`, `agent_routing_policy.json`,
 `agent_role_contracts.json`, `analysis_notes.json`, `analysis_notes.md`,
-`agent_input.json`,
+`overfit_validation.json`, `overfit_validation.md`, `agent_input.json`,
 `raw_agent_output.txt`, `agent_output.json`, and `agent_validation.json`, stable
 fixtures that record what a modifier backend was given, the raw text that
 became the proposal, every candidate attempt considered, the executor queue
@@ -263,6 +268,10 @@ deterministic gates keep final acceptance authority.
 `analysis_notes.json` records the read-only analysis stub's observations over
 before metrics and reports. It is contract-only; the artifact validator rejects
 it if it claims authority to change final acceptance.
+`overfit_validation.json` records the contract-only overfit validator stub's
+view of validation-vs-holdout deltas, prior rejected rounds, and advisory risk
+flags. The artifact validator rejects it if it claims veto authority while V0.5
+keeps overfit validation inactive.
 `agent_input.json` includes `agent_roles`, `agent_profiles`, an `active_agent`
 task envelope, and output-contract paths so future SDK or CLI-backed agents do
 not need to infer their identity or allowed output location from filenames.
@@ -304,6 +313,7 @@ are validated against
 `schemas/agent_executor.schema.json`, `schemas/agent_routing_policy.schema.json`,
 `schemas/agent_role_contracts.schema.json`,
 `schemas/analysis_notes.schema.json`,
+`schemas/overfit_validation.schema.json`,
 `schemas/workspace_manifest.schema.json`,
 `schemas/agent_validation.schema.json`, `schemas/agent_execution.schema.json`,
 `schemas/attempt_output.schema.json`, and

@@ -72,6 +72,8 @@ ROUND_REQUIRED_FILES = (
     "holdout_report_after.md",
     "holdout_trades_after.csv",
     "decision.json",
+    "overfit_validation.json",
+    "overfit_validation.md",
 )
 
 
@@ -293,6 +295,17 @@ def validate_round_dir(
         )
 
     validate_json_object(path=round_dir / "decision.json", report=report)
+    validate_contract_file(
+        payload_path=round_dir / "overfit_validation.json",
+        schema_path=repo_root / "schemas/overfit_validation.schema.json",
+        report=report,
+    )
+    validate_overfit_validation(
+        path=round_dir / "overfit_validation.json",
+        repo_root=repo_root,
+        role_names=role_names,
+        report=report,
+    )
     proposal_attempts = validate_json_list(
         path=round_dir / "proposal_attempts.json",
         report=report,
@@ -388,7 +401,7 @@ def validate_agent_role_contracts(
     active_roles = payload.get("active_roles", [])
     if not isinstance(active_roles, list) or not active_roles:
         add_error(report, "agent_role_contracts.json active_roles is empty or invalid")
-        return
+        return set()
     for active_role in active_roles:
         if str(active_role) not in role_names:
             add_error(
@@ -453,6 +466,51 @@ def validate_analysis_notes(
                 add_error(
                     report,
                     "analysis_notes.json artifact does not exist: "
+                    f"{artifact_key}={artifact_path}",
+                )
+
+
+def validate_overfit_validation(
+    *,
+    path: Path,
+    repo_root: Path,
+    role_names: set[str],
+    report: dict[str, object],
+) -> None:
+    """Validate the deterministic overfit-validator stub artifact."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    agent_role = str(payload.get("agent_role", ""))
+    if agent_role != "overfit_validator":
+        add_error(
+            report,
+            f"overfit_validation.json agent_role must be overfit_validator: {agent_role}",
+        )
+    if role_names and agent_role not in role_names:
+        add_error(report, f"overfit_validation.json unknown agent_role: {agent_role}")
+    recommendation = payload.get("recommendation", {})
+    if not isinstance(recommendation, dict):
+        add_error(report, "overfit_validation.json recommendation is invalid")
+    else:
+        if bool(recommendation.get("can_veto", True)):
+            add_error(report, "overfit_validation.json must not veto in V0.5")
+        if bool(recommendation.get("can_change_acceptance", True)):
+            add_error(report, "overfit_validation.json must not change acceptance")
+    checks = payload.get("checks", {})
+    if isinstance(checks, dict) and bool(checks.get("deterministic_gate_active", True)):
+        add_error(report, "overfit_validation.json deterministic gate must be inactive")
+    for group_key in ("consumed_artifacts", "produced_artifacts"):
+        artifacts = payload.get(group_key, {})
+        if not isinstance(artifacts, dict):
+            add_error(report, f"overfit_validation.json {group_key} is invalid")
+            continue
+        for artifact_key, artifact_value in artifacts.items():
+            artifact_path = resolve_path(Path(str(artifact_value)), repo_root)
+            if not artifact_path.exists() or not artifact_path.is_file():
+                add_error(
+                    report,
+                    "overfit_validation.json artifact does not exist: "
                     f"{artifact_key}={artifact_path}",
                 )
 

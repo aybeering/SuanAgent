@@ -68,6 +68,7 @@ from orchestrator.outcome_memory import (
     direction_filter_rejection_reason,
     memory_filter_rejection_reason,
 )
+from orchestrator.overfit_validator import write_overfit_validation
 from orchestrator.policy_gate import (
     apply_holdout_gate,
     decision_reason_codes,
@@ -714,7 +715,28 @@ def run_round(
             *decision_reason_codes(decision),
         ]
         attach_failure_metadata(decision, decision_reason_codes(decision))
-    write_json(round_dir / "decision.json", decision)
+    decision_path = round_dir / "decision.json"
+    write_json(decision_path, decision)
+    write_overfit_validation(
+        output_path=round_dir / "overfit_validation.json",
+        markdown_path=round_dir / "overfit_validation.md",
+        repo_root=repo_root,
+        run_id=run_id,
+        round_id=round_id,
+        round_index=round_index,
+        round_dir=round_dir,
+        train_metrics_before=train_metrics_before,
+        train_metrics_after=train_metrics_after,
+        validation_metrics_before=metrics_before,
+        validation_metrics_after=metrics_after,
+        holdout_metrics_before=holdout_metrics_before,
+        holdout_metrics_after=holdout_metrics_after,
+        decision=decision,
+        proposal_path=round_dir / "proposal.json",
+        decision_path=decision_path,
+        analysis_notes_path=round_dir / "analysis_notes.json",
+        agent_role_contracts_path=role_contracts_path,
+    )
     proposal_attempts = attach_validation_result_to_attempts(
         attempts=proposal_attempts,
         selected_patch_sha256=proposal.patch_sha256,

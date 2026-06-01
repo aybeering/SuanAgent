@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import shutil
 import subprocess
 from pathlib import Path
@@ -24,6 +26,10 @@ from orchestrator.workspace_manager import (
     workspace_mutation_errors,
     workspace_snapshot,
 )
+
+
+AGENT_EXECUTION_SCHEMA_VERSION = "agent_execution_v1"
+AUDIT_PREVIEW_CHARS = 500
 
 
 class FileProtocolModifier:
@@ -85,6 +91,22 @@ class FileProtocolModifier:
         ]
 
         if not self.execute:
+            write_agent_execution(
+                output_path=round_dir / "agent_execution.json",
+                status="disabled",
+                execution_enabled=False,
+                command=command,
+                cwd=workspace_path,
+                workspace_path=workspace_path,
+                agent_input_path=agent_input_path,
+                workspace_output_path=output_path,
+                round_output_path=round_dir / self.output_filename,
+                timeout_seconds=self.timeout_seconds,
+                result=None,
+                raw_response="file protocol execution disabled",
+                mutation_errors=(),
+                allowed_mutation_paths=(output_path.relative_to(workspace_path).as_posix(),),
+            )
             return StrategyProposal(
                 agent_name=self.agent_name,
                 round_index=round_index,
@@ -116,7 +138,31 @@ class FileProtocolModifier:
             workspace_output_path=output_path,
             round_output_path=round_dir / self.output_filename,
         )
+        after = workspace_snapshot(workspace_path)
+        mutation_errors = workspace_mutation_errors(
+            before=before,
+            after=after,
+            allowed_paths={output_path.relative_to(workspace_path).as_posix()},
+        )
         if result.returncode != 0:
+            write_agent_execution(
+                output_path=round_dir / "agent_execution.json",
+                status="command_failed",
+                execution_enabled=True,
+                command=command,
+                cwd=workspace_path,
+                workspace_path=workspace_path,
+                agent_input_path=agent_input_path,
+                workspace_output_path=output_path,
+                round_output_path=round_dir / self.output_filename,
+                timeout_seconds=self.timeout_seconds,
+                result=result,
+                raw_response=raw_response,
+                mutation_errors=mutation_errors,
+                allowed_mutation_paths=(
+                    output_path.relative_to(workspace_path).as_posix(),
+                ),
+            )
             return StrategyProposal(
                 agent_name=self.agent_name,
                 round_index=round_index,
@@ -135,12 +181,25 @@ class FileProtocolModifier:
                 workspace_path=str(workspace_path),
             )
 
-        mutation_errors = workspace_mutation_errors(
-            before=before,
-            after=workspace_snapshot(workspace_path),
-            allowed_paths={output_path.relative_to(workspace_path).as_posix()},
-        )
         if mutation_errors:
+            write_agent_execution(
+                output_path=round_dir / "agent_execution.json",
+                status="workspace_violation",
+                execution_enabled=True,
+                command=command,
+                cwd=workspace_path,
+                workspace_path=workspace_path,
+                agent_input_path=agent_input_path,
+                workspace_output_path=output_path,
+                round_output_path=round_dir / self.output_filename,
+                timeout_seconds=self.timeout_seconds,
+                result=result,
+                raw_response=raw_response,
+                mutation_errors=mutation_errors,
+                allowed_mutation_paths=(
+                    output_path.relative_to(workspace_path).as_posix(),
+                ),
+            )
             return StrategyProposal(
                 agent_name=self.agent_name,
                 round_index=round_index,
@@ -164,6 +223,22 @@ class FileProtocolModifier:
                 contract_errors=mutation_errors,
             )
 
+        write_agent_execution(
+            output_path=round_dir / "agent_execution.json",
+            status="completed",
+            execution_enabled=True,
+            command=command,
+            cwd=workspace_path,
+            workspace_path=workspace_path,
+            agent_input_path=agent_input_path,
+            workspace_output_path=output_path,
+            round_output_path=round_dir / self.output_filename,
+            timeout_seconds=self.timeout_seconds,
+            result=result,
+            raw_response=raw_response,
+            mutation_errors=(),
+            allowed_mutation_paths=(output_path.relative_to(workspace_path).as_posix(),),
+        )
         return proposal_from_file_protocol_output(
             raw_output=raw_response,
             target_file=target_file,
@@ -290,6 +365,87 @@ def copy_agent_output_back(
     """Copy external agent output from workspace to the real round artifacts."""
     if workspace_output_path.exists():
         shutil.copy2(workspace_output_path, round_output_path)
+
+
+def write_agent_execution(
+    *,
+    output_path: Path,
+    status: str,
+    execution_enabled: bool,
+    command: list[str],
+    cwd: Path,
+    workspace_path: Path,
+    agent_input_path: Path,
+    workspace_output_path: Path,
+    round_output_path: Path,
+    timeout_seconds: int,
+    result: subprocess.CompletedProcess[str] | None,
+    raw_response: str,
+    mutation_errors: tuple[str, ...],
+    allowed_mutation_paths: tuple[str, ...],
+) -> None:
+    """Write a deterministic audit record for one external agent execution."""
+    payload = {
+        "schema_version": AGENT_EXECUTION_SCHEMA_VERSION,
+        "agent_name": FileProtocolModifier.agent_name,
+        "status": status,
+        "execution_enabled": execution_enabled,
+        "command": command,
+        "cwd": str(cwd),
+        "workspace_path": str(workspace_path),
+        "agent_input_path": str(agent_input_path),
+        "workspace_output_path": str(workspace_output_path),
+        "round_output_path": str(round_output_path),
+        "timeout_seconds": timeout_seconds,
+        "returncode": result.returncode if result is not None else None,
+        "stdout": stream_summary(result.stdout if result is not None else ""),
+        "stderr": stream_summary(result.stderr if result is not None else ""),
+        "raw_response": stream_summary(raw_response),
+        "output_file": file_summary(workspace_output_path),
+        "round_output_file": file_summary(round_output_path),
+        "allowed_mutation_paths": list(allowed_mutation_paths),
+        "mutation_errors": list(mutation_errors),
+        "mutation_guard": {
+            "allowed_paths": list(allowed_mutation_paths),
+            "mutation_errors": list(mutation_errors),
+            "passed": not mutation_errors,
+        },
+    }
+    output_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def stream_summary(text: str) -> dict[str, object]:
+    """Return a compact deterministic summary for command output text."""
+    return {
+        "chars": len(text),
+        "sha256": sha256_text(text) if text else "",
+        "preview": text[:AUDIT_PREVIEW_CHARS],
+    }
+
+
+def file_summary(path: Path) -> dict[str, object]:
+    """Return deterministic metadata for an optional file."""
+    if not path.exists():
+        return {
+            "exists": False,
+            "path": str(path),
+            "bytes": 0,
+            "sha256": "",
+        }
+    return {
+        "exists": True,
+        "path": str(path),
+        "bytes": path.stat().st_size,
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
+
+
+def sha256_text(text: str) -> str:
+    """Return a text SHA-256 digest."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def response_text(

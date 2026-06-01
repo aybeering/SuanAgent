@@ -16,6 +16,7 @@ from agents.codex_dry_run_adapter import (
     proposal_from_codex_output,
     workspace_ids_from_report,
 )
+from agents.file_protocol_adapter import AGENT_EXECUTION_SCHEMA_VERSION
 from agents.strategy_modifier_stub import NEW_THRESHOLD, OLD_THRESHOLD, propose_strategy_change
 from backtester.schema import MarketSnapshot, StrategyOrder
 from backtester.simulate import validate_strategy_orders
@@ -1436,6 +1437,9 @@ output_path.write_text(json.dumps({
     agent_output = json.loads(
         (round_dir / "agent_output.json").read_text(encoding="utf-8")
     )
+    agent_execution = json.loads(
+        (round_dir / "agent_execution.json").read_text(encoding="utf-8")
+    )
     attempts = json.loads(
         (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
     )
@@ -1449,6 +1453,15 @@ output_path.write_text(json.dumps({
     assert proposal["prompt"].endswith("agent_input.json")
     assert "MIN_EDGE = 0.04" in proposal["patch_diff"]
     assert (round_dir / "fixture_agent_output.json").exists()
+    assert agent_execution["schema_version"] == AGENT_EXECUTION_SCHEMA_VERSION
+    assert agent_execution["status"] == "completed"
+    assert agent_execution["execution_enabled"] is True
+    assert agent_execution["returncode"] == 0
+    assert agent_execution["command"][0] == str(fake_agent)
+    assert agent_execution["mutation_errors"] == []
+    assert agent_execution["output_file"]["exists"] is True
+    assert len(agent_execution["output_file"]["sha256"]) == 64
+    assert "file-protocol-fixture-file-protocol" in agent_execution["workspace_path"]
     assert agent_input["target_file_content"].count("MIN_EDGE = 0.05") == 1
     assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
     assert attempts[0]["selected"] is True
@@ -1520,6 +1533,9 @@ output_path.write_text(json.dumps({
 
     round_dir = repo / "experiments/file-protocol-mutation-guard/round_001"
     proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    agent_execution = json.loads(
+        (round_dir / "agent_execution.json").read_text(encoding="utf-8")
+    )
     attempts = json.loads(
         (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
     )
@@ -1533,12 +1549,65 @@ output_path.write_text(json.dumps({
     assert proposal["contract_errors"] == [
         "workspace modified disallowed file: README.md"
     ]
+    assert agent_execution["status"] == "workspace_violation"
+    assert agent_execution["mutation_errors"] == [
+        "workspace modified disallowed file: README.md"
+    ]
+    assert agent_execution["output_file"]["exists"] is True
+    assert len(agent_execution["output_file"]["sha256"]) == 64
     assert attempts[0]["status"] == "contract_invalid"
     assert workspace_readme == "workspace mutation\n"
     assert (repo / "README.md").read_text(encoding="utf-8") == original_readme
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
+
+
+def test_file_protocol_adapter_disabled_writes_execution_audit(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="file_protocol",
+        modifier_settings={
+            "executable": "definitely-not-run",
+            "args": (),
+            "execute": False,
+            "timeout_seconds": 5,
+            "output_filename": "disabled_agent_output.json",
+            "workspace_root": "workspaces",
+        },
+        memory_failed_patch_threshold=0,
+        memory_failed_direction_threshold=99,
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+        stop_after_no_improvement_rounds=0,
+    )
+
+    manifest = run_iteration_loop(
+        run_id="file-protocol-disabled",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/file-protocol-disabled/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    agent_execution = json.loads(
+        (round_dir / "agent_execution.json").read_text(encoding="utf-8")
+    )
+
+    assert manifest["completed_rounds"] == 1
+    assert proposal["direction_tag"] == "file_protocol_disabled"
+    assert agent_execution["schema_version"] == AGENT_EXECUTION_SCHEMA_VERSION
+    assert agent_execution["status"] == "disabled"
+    assert agent_execution["execution_enabled"] is False
+    assert agent_execution["returncode"] is None
+    assert agent_execution["command"][0] == "definitely-not-run"
+    assert agent_execution["output_file"]["exists"] is False
+    assert agent_execution["mutation_errors"] == []
 
 
 def test_codex_cli_adapter_disabled_does_not_execute(tmp_path: Path) -> None:

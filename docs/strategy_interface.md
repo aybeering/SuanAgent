@@ -89,3 +89,6 @@ The `file_protocol` modifier is a guarded bridge for this contract: when
 output path as arguments, then parses the command's JSON or diff output into the
 same `StrategyProposal` contract. The command runs in an isolated workspace;
 mutating workspace files other than the configured output file is rejected.
+Every file-protocol round also writes `agent_execution.json`, which records the
+command, working directory, return code, output-file hashes, stdout/stderr
+summaries, and mutation-guard errors.

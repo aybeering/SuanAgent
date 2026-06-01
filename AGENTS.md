@@ -70,7 +70,8 @@ Allowed components:
 19. Repeated-proposal stop control.
 20. Clear tests and smoke checks.
 21. A guarded file-protocol adapter for future CLI or SDK-backed agents.
-22. GitHub Actions CI for deterministic smoke validation.
+22. File-protocol execution audit logs with command, output hashes, and mutation-guard results.
+23. GitHub Actions CI for deterministic smoke validation.
 
 Still out of scope:
 
@@ -205,6 +206,7 @@ round_001/
   agent_input.json
   agent_output.json
   proposal.json
+  agent_execution.json   # file_protocol runs only
   agent_response.txt
   patch.diff
   train_metrics_after.json

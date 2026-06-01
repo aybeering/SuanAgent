@@ -64,3 +64,12 @@ Strategy modifier adapters must return a `StrategyProposal`.
 The dry-run Codex CLI adapter is allowed to build and record a prompt and command,
 but it must not invoke Codex or edit files. A future real adapter should keep the
 same proposal shape and still only target `strategies/current_strategy.py`.
+
+Codex-facing adapters should run against an isolated copy under:
+
+```text
+workspaces/<run_id>/<round_id>/strategy_workspace/
+```
+
+Any returned text must be parsed as a unified diff. Patches that touch files
+other than `strategies/current_strategy.py` must be rejected before `git apply`.

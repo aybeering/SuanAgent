@@ -10,7 +10,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from orchestrator.patch_parser import (
+    PatchParseError,
+    extract_unified_diff,
+    validate_patch_targets,
+)
 from orchestrator.proposal import StrategyProposal
+from orchestrator.workspace_manager import create_isolated_workspace
 
 
 class CodexDryRunModifier:
@@ -24,10 +30,12 @@ class CodexDryRunModifier:
         executable: str = "codex",
         model: str = "default",
         sandbox: str = "workspace-write",
+        workspace_root: str = "workspaces",
     ) -> None:
         self.executable = executable
         self.model = model
         self.sandbox = sandbox
+        self.workspace_root = Path(workspace_root)
 
     def propose_strategy_change(
         self,
@@ -42,6 +50,13 @@ class CodexDryRunModifier:
         """Return a no-op proposal with the would-be Codex prompt and command."""
         report_text = report_path.read_text(encoding="utf-8")
         target_relative = target_file.relative_to(repo_root)
+        run_id, round_id = workspace_ids_from_report(report_path)
+        workspace_path = create_isolated_workspace(
+            repo_root=repo_root,
+            workspace_root=repo_root / self.workspace_root,
+            run_id=run_id,
+            round_id=round_id,
+        )
         prompt = build_codex_prompt(
             report_text=report_text,
             target_file=str(target_relative),
@@ -69,6 +84,7 @@ class CodexDryRunModifier:
             rejection_reason="Codex CLI dry-run adapter does not emit patches.",
             prompt=prompt,
             command=tuple(command),
+            workspace_path=str(workspace_path),
         )
 
 
@@ -111,3 +127,60 @@ def build_codex_command(
         "--",
         f"Modify only {target_file} and return a patch.",
     ]
+
+
+def proposal_from_codex_output(
+    *,
+    raw_output: str,
+    report_path: Path,
+    target_file: Path,
+    round_index: int,
+    repo_root: Path,
+    prompt: str,
+    command: list[str],
+    workspace_path: Path,
+) -> StrategyProposal:
+    """Convert future Codex CLI output into a StrategyProposal."""
+    target_relative = target_file.relative_to(repo_root)
+    try:
+        patch_diff = extract_unified_diff(raw_output)
+        validate_patch_targets(patch_diff, target_relative)
+    except PatchParseError as exc:
+        return StrategyProposal(
+            agent_name="codex_cli",
+            round_index=round_index,
+            target_file=str(target_relative),
+            summary="Codex output did not contain an applicable strategy patch.",
+            risk_notes="Patch parser rejected the output before git apply.",
+            expected_metric_change={},
+            raw_response=raw_output,
+            patch_diff="",
+            applicable=False,
+            rejection_reason=str(exc),
+            prompt=prompt,
+            command=tuple(command),
+            workspace_path=str(workspace_path),
+        )
+
+    return StrategyProposal(
+        agent_name="codex_cli",
+        round_index=round_index,
+        target_file=str(target_relative),
+        summary="Codex output produced a strategy patch.",
+        risk_notes="Patch targets were validated before git apply.",
+        expected_metric_change={},
+        raw_response=raw_output,
+        patch_diff=patch_diff,
+        applicable=True,
+        rejection_reason="",
+        prompt=prompt,
+        command=tuple(command),
+        workspace_path=str(workspace_path),
+    )
+
+
+def workspace_ids_from_report(report_path: Path) -> tuple[str, str]:
+    """Derive stable workspace ids from an experiment report path."""
+    round_id = report_path.parent.name or "round_unknown"
+    run_id = report_path.parent.parent.name or "run_unknown"
+    return run_id, round_id

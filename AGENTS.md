@@ -55,10 +55,12 @@ Allowed components:
 8. A fixed strategy modifier stub.
 9. A proposal schema for agent output.
 10. A dry-run Codex CLI adapter that builds prompt and command artifacts but does not invoke real Codex.
-11. Git apply, accept commit, and reject rollback helpers.
-12. Round-based experiment outputs.
-13. Config-driven dataset, policy, and modifier settings.
-14. Clear tests and smoke checks.
+11. Isolated workspace creation for future Codex execution.
+12. Unified diff extraction and target-file validation.
+13. Git apply, accept commit, and reject rollback helpers.
+14. Round-based experiment outputs.
+15. Config-driven dataset, policy, and modifier settings.
+16. Clear tests and smoke checks.
 
 Still out of scope:
 
@@ -120,6 +122,8 @@ Current structure:
 │   ├── iteration_loop.py
 │   ├── policy_gate.py
 │   ├── proposal.py
+│   ├── patch_parser.py
+│   ├── workspace_manager.py
 │   ├── git_manager.py
 │   └── git_utils.py
 ├── experiments/
@@ -322,6 +326,8 @@ Add smoke tests that verify:
 11. Config loading exposes train, validation, and holdout splits.
 12. Invalid strategy orders are rejected before simulation.
 13. The dry-run Codex adapter records a non-applicable proposal without changing files.
+14. Patch parsing rejects changes outside `strategies/current_strategy.py`.
+15. Isolated workspaces copy the minimal project without `.git`.
 
 The project is complete only when these checks pass:
 
@@ -354,6 +360,9 @@ When the V0.5 loop runs, it should:
 The configured modifier may also be `codex_dry_run` or `codex_cli_dry_run`,
 which exercises the future Codex adapter boundary without calling Codex or
 producing a patch.
+
+Future Codex output must be parsed as a unified diff and rejected before git
+apply if it touches anything except `strategies/current_strategy.py`.
 
 ## Important constraint
 

@@ -20,5 +20,6 @@ def get_strategy_modifier(
             executable=str(active_settings.get("executable", "codex")),
             model=str(active_settings.get("model", "default")),
             sandbox=str(active_settings.get("sandbox", "workspace-write")),
+            workspace_root=str(active_settings.get("workspace_root", "workspaces")),
         )
     raise ValueError(f"Unknown strategy modifier adapter: {name}")

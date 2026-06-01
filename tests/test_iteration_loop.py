@@ -4,13 +4,25 @@ import json
 import shutil
 from pathlib import Path
 
-from agents.codex_dry_run_adapter import build_codex_command, build_codex_prompt
+from agents.codex_dry_run_adapter import (
+    build_codex_command,
+    build_codex_prompt,
+    proposal_from_codex_output,
+    workspace_ids_from_report,
+)
 from agents.strategy_modifier_stub import NEW_THRESHOLD, OLD_THRESHOLD, propose_strategy_change
 from backtester.schema import MarketSnapshot, StrategyOrder
 from backtester.simulate import validate_strategy_orders
 from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
 from orchestrator.iteration_loop import run_iteration_loop
+from orchestrator.patch_parser import (
+    PatchParseError,
+    changed_paths_from_diff,
+    extract_unified_diff,
+    validate_patch_targets,
+)
+from orchestrator.workspace_manager import create_isolated_workspace
 
 
 def copy_repo_fixture(tmp_path: Path) -> Path:
@@ -23,6 +35,7 @@ def copy_repo_fixture(tmp_path: Path) -> Path:
         "backtester",
         "config",
         "data",
+        "docs",
         "orchestrator",
         "reports",
         "strategies",
@@ -233,6 +246,11 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
     ]
     assert "Only modify: strategies/current_strategy.py" in proposal["prompt"]
     assert "Return a unified diff patch only." in proposal["prompt"]
+    assert "workspaces/dry-run/round_001/strategy_workspace" in proposal["workspace_path"]
+    assert (
+        repo
+        / "workspaces/dry-run/round_001/strategy_workspace/strategies/current_strategy.py"
+    ).exists()
     assert decision["accepted"] is False
     assert "does not emit patches" in decision["reasons"][0]
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
@@ -265,6 +283,96 @@ def test_codex_prompt_and_command_builders_are_deterministic() -> None:
         "--",
         "Modify only strategies/current_strategy.py and return a patch.",
     ]
+
+
+def test_workspace_ids_are_derived_from_report_path() -> None:
+    run_id, round_id = workspace_ids_from_report(
+        Path("experiments/example-run/round_003/train_report_before.md")
+    )
+
+    assert run_id == "example-run"
+    assert round_id == "round_003"
+
+
+def test_create_isolated_workspace_copies_minimal_project(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+
+    workspace = create_isolated_workspace(
+        repo_root=repo,
+        workspace_root=repo / "workspaces",
+        run_id="run-1",
+        round_id="round_001",
+    )
+
+    assert (workspace / "strategies/current_strategy.py").exists()
+    assert (workspace / "backtester/simulate.py").exists()
+    assert (workspace / "docs/strategy_interface.md").exists()
+    assert not (workspace / ".git").exists()
+
+
+def test_patch_parser_extracts_and_validates_strategy_diff() -> None:
+    raw_output = """
+Here is the patch:
+
+```diff
+--- a/strategies/current_strategy.py
++++ b/strategies/current_strategy.py
+@@ -1 +1 @@
+-MIN_EDGE = 0.05
++MIN_EDGE = 0.04
+```
+"""
+
+    patch = extract_unified_diff(raw_output)
+
+    assert changed_paths_from_diff(patch) == {"strategies/current_strategy.py"}
+    validate_patch_targets(patch, Path("strategies/current_strategy.py"))
+
+
+def test_patch_parser_rejects_disallowed_paths() -> None:
+    patch = """--- a/backtester/simulate.py
++++ b/backtester/simulate.py
+@@ -1 +1 @@
+-old
++new
+"""
+
+    try:
+        validate_patch_targets(patch, Path("strategies/current_strategy.py"))
+    except PatchParseError as exc:
+        assert "disallowed" in str(exc)
+    else:
+        raise AssertionError("expected non-strategy patch to be rejected")
+
+
+def test_codex_output_is_converted_to_applicable_proposal(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    report_path = repo / "experiments/run-1/round_001/train_report_before.md"
+    report_path.parent.mkdir(parents=True)
+    report_path.write_text("# Report\n", encoding="utf-8")
+    workspace = repo / "workspaces/run-1/round_001/strategy_workspace"
+    raw_output = """--- a/strategies/current_strategy.py
++++ b/strategies/current_strategy.py
+@@ -9,7 +9,7 @@
+-MIN_EDGE = 0.05
++MIN_EDGE = 0.04
+"""
+
+    proposal = proposal_from_codex_output(
+        raw_output=raw_output,
+        report_path=report_path,
+        target_file=repo / "strategies/current_strategy.py",
+        round_index=1,
+        repo_root=repo,
+        prompt="prompt",
+        command=["codex", "exec"],
+        workspace_path=workspace,
+    )
+
+    assert proposal.applicable is True
+    assert proposal.agent_name == "codex_cli"
+    assert proposal.patch_diff.startswith("--- a/strategies/current_strategy.py")
+    assert proposal.workspace_path == str(workspace)
 
 
 def test_strategy_order_validation_rejects_invalid_orders() -> None:

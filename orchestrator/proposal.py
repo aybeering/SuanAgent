@@ -21,6 +21,7 @@ class StrategyProposal:
     rejection_reason: str = ""
     prompt: str = ""
     command: tuple[str, ...] = ()
+    workspace_path: str = ""
 
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-friendly proposal payload."""

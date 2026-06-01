@@ -20,6 +20,10 @@ The strategy interface contract is documented in
 `codex_dry_run`, and `codex_cli_dry_run`. The Codex CLI adapters build a prompt
 and command for auditability but do not invoke Codex yet.
 
+Codex-facing adapters use ignored `workspaces/<run_id>/<round_id>/` directories
+for isolated project copies. Returned text is parsed as a unified diff and must
+touch only `strategies/current_strategy.py`.
+
 ## Commands
 
 ```bash

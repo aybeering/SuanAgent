@@ -111,8 +111,8 @@ def write_iteration_summary(
         lines.extend(["", "## Proposal Quality", ""])
         lines.extend(
             [
-                "| Round | Repeat | Memory Filter | Fallback | Score | Patch SHA | Hypotheses | Expected Change | Risk |",
-                "| --- | --- | --- | --- | ---: | --- | --- | --- | --- |",
+                "| Round | Repeat | Memory Filter | Fallback | Score | Probe EV | Patch SHA | Hypotheses | Expected Change | Risk |",
+                "| --- | --- | --- | --- | ---: | ---: | --- | --- | --- | --- |",
             ]
         )
         for round_payload in rounds:
@@ -174,6 +174,9 @@ def proposal_quality_row(run_dir: Path, round_payload: dict[str, object]) -> str
     """Build one markdown row describing proposal quality metadata."""
     round_id = str(round_payload.get("round_id", ""))
     proposal = load_optional_json(run_dir / round_id / "proposal.json")
+    selected_attempt_payload = selected_attempt(
+        load_optional_json_list(run_dir / round_id / "proposal_attempts.json")
+    )
     repeat_of_round = str(proposal.get("repeat_of_round", "")) if proposal else ""
     repeat_label = f"yes ({repeat_of_round})" if repeat_of_round else "no"
     patch_sha = str(proposal.get("patch_sha256", "")) if proposal else ""
@@ -186,6 +189,7 @@ def proposal_quality_row(run_dir: Path, round_payload: dict[str, object]) -> str
     if fallback_reason:
         fallback_label = f"yes: {fallback_reason}"
     score = round_payload.get("proposal_candidate_score", "none")
+    probe_ev = selected_attempt_payload.get("probe_ev_delta", "none")
 
     return (
         f"| {escape_cell(round_id)} "
@@ -193,6 +197,7 @@ def proposal_quality_row(run_dir: Path, round_payload: dict[str, object]) -> str
         f"| {escape_cell(memory_reason or 'none')} "
         f"| {escape_cell(fallback_label)} "
         f"| {escape_cell(str(score))} "
+        f"| {escape_cell(str(probe_ev))} "
         f"| `{patch_sha[:12] if patch_sha else 'none'}` "
         f"| {escape_cell(list_text(hypotheses))} "
         f"| {escape_cell(mapping_text(expected))} "
@@ -232,6 +237,24 @@ def load_optional_json(path: Path) -> dict[str, Any]:
         return {}
     payload = json.loads(path.read_text(encoding="utf-8"))
     return payload if isinstance(payload, dict) else {}
+
+
+def load_optional_json_list(path: Path) -> list[dict[str, Any]]:
+    """Load a JSON list of objects if it exists."""
+    if not path.exists():
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, list):
+        return []
+    return [item for item in payload if isinstance(item, dict)]
+
+
+def selected_attempt(attempts: list[dict[str, Any]]) -> dict[str, Any]:
+    """Return the selected proposal attempt payload, if present."""
+    for attempt in attempts:
+        if attempt.get("selected") is True:
+            return attempt
+    return {}
 
 
 def list_text(value: object) -> str:

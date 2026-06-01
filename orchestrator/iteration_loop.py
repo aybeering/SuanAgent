@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import importlib
 import os
 import sys
@@ -243,6 +244,19 @@ def run_round(
         trades_path=round_dir / "holdout_trades_before.csv",
         report_path=round_dir / "holdout_report_before.md",
     )
+    probe_data_path = round_dir / "probe_data.csv"
+    create_probe_dataset(
+        source_path=train_data_path,
+        output_path=probe_data_path,
+        max_rows=10,
+    )
+    probe_trades_before, probe_metrics_before = run_and_write(
+        strategy_name=strategy_module,
+        data_path=probe_data_path,
+        metrics_path=round_dir / "probe_metrics_before.json",
+        trades_path=round_dir / "probe_trades_before.csv",
+        report_path=round_dir / "probe_report_before.md",
+    )
 
     context_path = write_agent_context(
         run_dir=round_dir.parent,
@@ -271,6 +285,10 @@ def run_round(
         experiments_dir=round_dir.parent.parent,
         memory_failed_patch_threshold=memory_failed_patch_threshold,
         run_id=run_id,
+        strategy_module=strategy_module,
+        probe_data_path=probe_data_path,
+        probe_metrics_before=probe_metrics_before,
+        round_dir=round_dir,
     )
     proposal_fallback_used = selected_attempt["role"] != "primary"
     proposal_fallback_reason = (
@@ -363,6 +381,7 @@ def run_round(
         "train_after_trade_count": len(train_trades_after),
         "holdout_before_trade_count": len(holdout_trades_before),
         "holdout_after_trade_count": len(holdout_trades_after),
+        "probe_before_trade_count": len(probe_trades_before),
         "train_ev_before": train_metrics_before["ev"],
         "train_ev_after": train_metrics_after["ev"],
         "validation_ev_before": metrics_before["ev"],
@@ -394,6 +413,10 @@ def proposal_attempt_record(
     status: str,
     candidate_score: int,
     score_reasons: list[str],
+    probe_metrics_before: dict[str, float | int],
+    probe_metrics_after: dict[str, float | int],
+    probe_error: str,
+    probe_artifacts: dict[str, str],
 ) -> dict[str, object]:
     """Build an auditable proposal attempt record."""
     payload = proposal.to_dict()
@@ -407,6 +430,16 @@ def proposal_attempt_record(
         "selection_reason": "",
         "candidate_score": candidate_score,
         "score_reasons": score_reasons,
+        "probe_metrics_before": probe_metrics_before,
+        "probe_metrics_after": probe_metrics_after,
+        "probe_ev_delta": metric_delta(probe_metrics_before, probe_metrics_after, "ev"),
+        "probe_trade_count_delta": metric_delta(
+            probe_metrics_before,
+            probe_metrics_after,
+            "trade_count",
+        ),
+        "probe_error": probe_error,
+        "probe_artifacts": probe_artifacts,
         "memory_filter_rejected": bool(memory_filter_reason),
         "memory_filter_reason": memory_filter_reason,
         "patch_check_error": patch_check_error,
@@ -430,6 +463,10 @@ def select_proposal_candidate(
     experiments_dir: Path,
     memory_failed_patch_threshold: int,
     run_id: str,
+    strategy_module: str,
+    probe_data_path: Path,
+    probe_metrics_before: dict[str, float | int],
+    round_dir: Path,
 ) -> tuple[StrategyProposal, str, list[dict[str, object]], dict[str, object], str]:
     """Return the highest-scored proposal that passes cheap deterministic filters."""
     candidate_modifiers = [("primary", modifier)]
@@ -481,6 +518,20 @@ def select_proposal_candidate(
             patch_check_error=patch_check_error,
             duplicate_patch=duplicate_patch,
         )
+        probe_metrics_after: dict[str, float | int] = {}
+        probe_error = ""
+        probe_artifacts: dict[str, str] = {}
+        if status == "selectable":
+            probe_metrics_after, probe_error, probe_artifacts = run_probe_candidate(
+                repo_root=repo_root,
+                proposal=proposal,
+                role=role,
+                strategy_module=strategy_module,
+                probe_data_path=probe_data_path,
+                round_dir=round_dir,
+            )
+            if probe_error:
+                status = "probe_failed"
         score_payload = score_proposal_candidate(
             proposal=proposal,
             role=role,
@@ -488,6 +539,9 @@ def select_proposal_candidate(
             memory_filter_reason=memory_reason,
             patch_check_error=patch_check_error,
             duplicate_patch=duplicate_patch,
+            probe_metrics_before=probe_metrics_before,
+            probe_metrics_after=probe_metrics_after,
+            probe_error=probe_error,
         )
         attempts.append(
             proposal_attempt_record(
@@ -498,6 +552,10 @@ def select_proposal_candidate(
                 status=status,
                 candidate_score=int(score_payload["score"]),
                 score_reasons=list(score_payload["reasons"]),
+                probe_metrics_before=probe_metrics_before,
+                probe_metrics_after=probe_metrics_after,
+                probe_error=probe_error,
+                probe_artifacts=probe_artifacts,
             )
         )
 
@@ -581,6 +639,9 @@ def score_proposal_candidate(
     memory_filter_reason: str,
     patch_check_error: str,
     duplicate_patch: bool,
+    probe_metrics_before: dict[str, float | int],
+    probe_metrics_after: dict[str, float | int],
+    probe_error: str,
 ) -> dict[str, object]:
     """Score a candidate deterministically before running expensive evaluation."""
     if status != "selectable":
@@ -591,6 +652,8 @@ def score_proposal_candidate(
             reasons.append("patch check failed")
         if duplicate_patch:
             reasons.append("duplicate patch hash")
+        if probe_error:
+            reasons.append("probe evaluation failed")
         return {"score": 0, "reasons": reasons}
 
     score = 100
@@ -608,6 +671,13 @@ def score_proposal_candidate(
     if role == "primary":
         score += 2
         reasons.append("primary modifier stability +2")
+    probe_delta, probe_reason = probe_score(
+        metrics_before=probe_metrics_before,
+        metrics_after=probe_metrics_after,
+    )
+    if probe_delta:
+        score += probe_delta
+        reasons.append(probe_reason)
     return {"score": score, "reasons": reasons}
 
 
@@ -651,6 +721,47 @@ def risk_score(risk_notes: str) -> tuple[int, str]:
     return 0, ""
 
 
+def probe_score(
+    *,
+    metrics_before: dict[str, float | int],
+    metrics_after: dict[str, float | int],
+) -> tuple[int, str]:
+    """Return a deterministic score contribution from probe metrics."""
+    if not metrics_before or not metrics_after:
+        return 0, ""
+    ev_delta = metric_delta(metrics_before, metrics_after, "ev")
+    trade_delta = metric_delta(metrics_before, metrics_after, "trade_count")
+    score = 0
+    reasons: list[str] = []
+    if ev_delta > 0:
+        score += min(25, int(round(ev_delta * 1000)))
+        reasons.append(f"probe ev delta {ev_delta:.6f}")
+    elif ev_delta < 0:
+        score -= min(25, int(round(abs(ev_delta) * 1000)))
+        reasons.append(f"probe ev delta {ev_delta:.6f}")
+    if trade_delta > 0:
+        score += min(5, int(trade_delta))
+        reasons.append(f"probe trade count delta +{int(trade_delta)}")
+    elif trade_delta < 0:
+        score -= min(5, abs(int(trade_delta)))
+        reasons.append(f"probe trade count delta {int(trade_delta)}")
+    if not reasons:
+        return 0, ""
+    sign = "+" if score >= 0 else ""
+    return score, f"{'; '.join(reasons)} {sign}{score}"
+
+
+def metric_delta(
+    before: dict[str, float | int],
+    after: dict[str, float | int],
+    key: str,
+) -> float:
+    """Return a metric delta when both metric payloads are present."""
+    if key not in before or key not in after:
+        return 0.0
+    return float(after[key]) - float(before[key])
+
+
 def skipped_attempt_summaries(
     attempts: list[dict[str, object]],
     selected_index: int,
@@ -673,6 +784,63 @@ def attempt_rejection_summary(attempt: dict[str, object]) -> str:
     if patch_check_error:
         return f"{role} patch check failed: {patch_check_error}"
     return f"{role} status: {attempt.get('status', 'unknown')}"
+
+
+def run_probe_candidate(
+    *,
+    repo_root: Path,
+    proposal: StrategyProposal,
+    role: str,
+    strategy_module: str,
+    probe_data_path: Path,
+    round_dir: Path,
+) -> tuple[dict[str, float | int], str, dict[str, str]]:
+    """Apply a candidate temporarily, run probe data, and rollback."""
+    safe_role = role.replace("/", "_")
+    metrics_path = round_dir / f"probe_{safe_role}_metrics.json"
+    trades_path = round_dir / f"probe_{safe_role}_trades.csv"
+    report_path = round_dir / f"probe_{safe_role}_report.md"
+    artifacts = {
+        "metrics": metrics_path.name,
+        "trades": trades_path.name,
+        "report": report_path.name,
+    }
+    try:
+        apply_patch(repo_root, proposal.patch_diff)
+        clear_strategy_import(repo_root, strategy_module)
+        _trades, metrics = run_and_write(
+            strategy_name=strategy_module,
+            data_path=probe_data_path,
+            metrics_path=metrics_path,
+            trades_path=trades_path,
+            report_path=report_path,
+        )
+        return metrics, "", artifacts
+    except Exception as exc:
+        return {}, str(exc), artifacts
+    finally:
+        rollback_strategy(repo_root)
+        clear_strategy_import(repo_root, strategy_module)
+
+
+def create_probe_dataset(
+    *,
+    source_path: Path,
+    output_path: Path,
+    max_rows: int,
+) -> None:
+    """Copy a deterministic prefix of a source CSV into a probe dataset."""
+    with source_path.open(newline="", encoding="utf-8") as source:
+        reader = csv.DictReader(source)
+        if reader.fieldnames is None:
+            raise ValueError(f"CSV has no header: {source_path}")
+        with output_path.open("w", newline="", encoding="utf-8") as output:
+            writer = csv.DictWriter(output, fieldnames=reader.fieldnames)
+            writer.writeheader()
+            for index, row in enumerate(reader):
+                if index >= max_rows:
+                    break
+                writer.writerow(row)
 
 
 def clear_strategy_import(repo_root: Path, strategy_module: str) -> None:

@@ -239,6 +239,10 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "holdout_metrics_after.json",
         "holdout_report_after.md",
         "holdout_trades_after.csv",
+        "probe_data.csv",
+        "probe_metrics_before.json",
+        "probe_report_before.md",
+        "probe_trades_before.csv",
         "agent_context.md",
         "proposal_attempts.json",
         "proposal.json",
@@ -252,7 +256,16 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         assert (round_dir / filename).exists()
 
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
+    attempts = json.loads(
+        (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
+    )
+    selected_attempt = next(attempt for attempt in attempts if attempt["selected"])
     assert decision["accepted"] is False
+    assert selected_attempt["candidate_score"] > 0
+    assert selected_attempt["probe_metrics_before"]
+    assert selected_attempt["probe_metrics_after"]
+    assert selected_attempt["probe_artifacts"]["metrics"]
+    assert (round_dir / selected_attempt["probe_artifacts"]["metrics"]).exists()
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
@@ -1151,6 +1164,7 @@ def test_summary_markdown_is_written_for_single_and_iteration_runs(tmp_path: Pat
     assert "Best Validation Delta" in iteration_summary
     assert "Proposal Quality" in iteration_summary
     assert "Expected Change" in iteration_summary
+    assert "Probe EV" in iteration_summary
     assert "strategy_modifier_stub" in iteration_summary
 
 

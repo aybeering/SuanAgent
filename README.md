@@ -93,6 +93,9 @@ Selectable candidates are scored with deterministic metadata from
 `expected_metric_change`, risk notes, patch validity, duplicate patch hashes,
 and outcome-memory status before the loop spends a validation backtest on one
 proposal.
+The scorer also writes a tiny per-round `probe_data.csv` copied from the train
+split and runs selectable candidates against it before final selection, storing
+`probe_<role>_metrics.json`, trades, and reports under the round directory.
 
 Use `python -m orchestrator.experiments list` and
 `python -m orchestrator.experiments show <run_id>` to inspect local experiment

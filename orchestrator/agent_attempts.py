@@ -46,6 +46,12 @@ def write_agent_attempts_manifest(
             attempt_dir=attempt_dir,
             attempt_id=attempt_id,
         )
+        write_attempt_agent_input(
+            round_dir=round_dir,
+            attempt_dir=attempt_dir,
+            attempt=attempt,
+            attempt_id=attempt_id,
+        )
         rows.append(
             {
                 "attempt_id": attempt_id,
@@ -64,6 +70,7 @@ def write_agent_attempts_manifest(
                 "reason_codes": attempt.get("reason_codes", []),
                 "patch_sha256": attempt.get("patch_sha256", ""),
                 "attempt_dir": relative_path(attempt_dir, repo_root),
+                "agent_input": relative_path(attempt_dir / "agent_input.json", repo_root),
                 "files": file_records(attempt_dir, repo_root),
             }
         )
@@ -211,6 +218,55 @@ def copy_attempt_runtime_artifacts(
         source = round_dir / source_dirname / f"{attempt_id}.json"
         if source.exists():
             shutil.copy2(source, attempt_dir / destination_name)
+
+
+def write_attempt_agent_input(
+    *,
+    round_dir: Path,
+    attempt_dir: Path,
+    attempt: dict[str, object],
+    attempt_id: str,
+) -> None:
+    """Write the exact or synthesized input contract for one attempt."""
+    workspace_input = workspace_agent_input_path(round_dir=round_dir, attempt_id=attempt_id)
+    destination = attempt_dir / "agent_input.json"
+    if workspace_input is not None and workspace_input.exists():
+        shutil.copy2(workspace_input, destination)
+        return
+
+    source = round_dir / "agent_input.json"
+    if not source.exists():
+        return
+    payload = load_json_object(source)
+    payload["active_agent"] = {
+        "attempt_id": attempt_id,
+        "role": str(attempt.get("role", "")),
+        "profile_name": str(attempt.get("profile_name", "")),
+        "adapter_name": str(attempt.get("adapter_name", "")),
+        "agent_name": str(attempt.get("agent_name", "")),
+        "output_filename": "",
+    }
+    output_contract = payload.get("output_contract", {})
+    if isinstance(output_contract, dict):
+        output_contract["workspace_output_path"] = ""
+        output_contract["expected_command_output_filename"] = ""
+    write_json(destination, payload)
+
+
+def workspace_agent_input_path(*, round_dir: Path, attempt_id: str) -> Path | None:
+    """Return workspace-local agent input path from execution audit when present."""
+    execution_path = round_dir / "agent_executions" / f"{attempt_id}.json"
+    if not execution_path.exists():
+        return None
+    payload = load_json_object(execution_path)
+    agent_input_path = str(payload.get("agent_input_path", ""))
+    return Path(agent_input_path) if agent_input_path else None
+
+
+def load_json_object(path: Path) -> dict[str, object]:
+    """Load a JSON object from disk."""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, dict) else {}
 
 
 def selected_attempt_index(attempts: list[dict[str, object]]) -> int | None:

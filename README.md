@@ -239,8 +239,10 @@ application.
 and output-contract paths so future SDK or CLI-backed agents do not need to
 infer their identity or allowed output location from filenames.
 Workspace-backed candidates also keep per-attempt copies of
-`workspace_manifest.json` and, for file-protocol commands, `agent_execution.json`
-inside `agent_attempts/attempt_xxx/`. Tests validate these artifacts against the
+`agent_input.json`, `workspace_manifest.json`, and, for file-protocol commands,
+`agent_execution.json` inside `agent_attempts/attempt_xxx/`. Non-workspace
+attempts synthesize the same active-agent input contract from the round input
+and attempt metadata. Tests validate these artifacts against the
 JSON schemas under `schemas/`; the proposal intent, agent bundle manifest,
 workspace manifest, agent validation report, and file-protocol execution audit
 are validated against

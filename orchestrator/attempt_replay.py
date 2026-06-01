@@ -36,9 +36,14 @@ def replay_attempt(
     repo_root = repo_root.resolve()
     attempt_dir = resolve_path(attempt_dir, repo_root)
     round_dir = infer_round_dir(attempt_dir)
+    agent_input_path = (
+        attempt_dir / "agent_input.json"
+        if (attempt_dir / "agent_input.json").exists()
+        else round_dir / "agent_input.json"
+    )
     proposal = load_strategy_proposal(attempt_dir / "proposal.json")
     validation = validate_agent_proposal(
-        agent_input_path=round_dir / "agent_input.json",
+        agent_input_path=agent_input_path,
         agent_output_path=attempt_dir / "raw_agent_output.txt",
         proposal=proposal,
         repo_root=repo_root,
@@ -63,6 +68,7 @@ def replay_attempt(
         "ok": bool(validation["ok"]) and bool(probe.get("ok", True)),
         "attempt_dir": str(attempt_dir),
         "round_dir": str(round_dir),
+        "agent_input_path": str(agent_input_path),
         "strategy_module": strategy_module,
         "validation": validation,
         "probe": probe,

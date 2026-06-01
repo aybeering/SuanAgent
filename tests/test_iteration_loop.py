@@ -774,6 +774,27 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     ).exists()
     assert (round_dir / "agent_attempts/attempt_001_primary/proposal.json").exists()
     assert (round_dir / "agent_attempts/attempt_001_primary/patch.diff").exists()
+    attempt_agent_input = json.loads(
+        (
+            round_dir / "agent_attempts/attempt_001_primary/agent_input.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert_matches_schema(
+        round_dir / "agent_attempts/attempt_001_primary/agent_input.json",
+        "agent_input",
+    )
+    assert agent_attempts["attempts"][0]["agent_input"].endswith(
+        "agent_attempts/attempt_001_primary/agent_input.json"
+    )
+    assert any(
+        row["name"] == "agent_input.json"
+        for row in agent_attempts["attempts"][0]["files"]
+    )
+    assert attempt_agent_input["active_agent"]["attempt_id"] == "attempt_001_primary"
+    assert attempt_agent_input["active_agent"]["profile_name"] == "primary"
+    assert attempt_agent_input["active_agent"]["adapter_name"] == "fixed_patch_stub"
+    assert attempt_agent_input["active_agent"]["agent_name"] == "strategy_modifier_stub"
+    assert attempt_agent_input["output_contract"]["workspace_output_path"] == ""
     assert agent_output["schema_version"] == AGENT_OUTPUT_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_output.json", "agent_output")
     assert agent_output["selected_role"] == selected_attempt["role"]
@@ -2314,6 +2335,11 @@ output_path.write_text(json.dumps({
     workspace_agent_input = json.loads(
         Path(agent_execution["agent_input_path"]).read_text(encoding="utf-8")
     )
+    attempt_agent_input = json.loads(
+        (
+            round_dir / "agent_attempts/attempt_001_primary/agent_input.json"
+        ).read_text(encoding="utf-8")
+    )
     workspace_bundle_agent_input = json.loads(
         (
             Path(agent_execution["workspace_path"])
@@ -2334,6 +2360,11 @@ output_path.write_text(json.dumps({
     assert workspace_bundle_agent_input["active_agent"] == workspace_agent_input[
         "active_agent"
     ]
+    assert attempt_agent_input == workspace_agent_input
+    assert_matches_schema(
+        round_dir / "agent_attempts/attempt_001_primary/agent_input.json",
+        "agent_input",
+    )
     assert (
         Path(agent_execution["workspace_path"])
         / "experiments/file-protocol-fixture/round_001/agent_input_bundle/agent_input.json"
@@ -2910,6 +2941,9 @@ def test_attempt_replay_validates_and_probes_saved_attempt(tmp_path: Path) -> No
     assert command_result.returncode == 0
     assert report["schema_version"] == "attempt_replay_v1"
     assert report["ok"] is True
+    assert report["agent_input_path"].endswith(
+        "agent_attempts/attempt_001_primary/agent_input.json"
+    )
     assert report["failure_code"] == "none"
     assert report["reason_codes"] == []
     assert report["validation"]["ok"] is True  # type: ignore[index]

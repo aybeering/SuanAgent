@@ -341,6 +341,16 @@ def validate_agent_attempts_manifest(
         if not attempt_dir.exists() or not attempt_dir.is_dir():
             add_error(report, f"attempt_dir does not exist: {attempt_dir}")
         else:
+            attempt_input = attempt_dir / "agent_input.json"
+            if attempt_input.exists():
+                checked_files(report).append(str(attempt_input))
+                validate_contract_file(
+                    payload_path=attempt_input,
+                    schema_path=repo_root / "schemas/agent_input.schema.json",
+                    report=report,
+                )
+            else:
+                add_error(report, f"attempt agent_input.json does not exist: {attempt_input}")
             replay_path = attempt_dir / "attempt_replay.json"
             if replay_path.exists():
                 checked_files(report).append(str(replay_path))

@@ -79,6 +79,7 @@ Allowed components:
 28. Optional config-level agent profiles that name future isolated agent slots while still using deterministic adapters.
 29. Profile-aware workspace and execution audit metadata for workspace-backed adapters.
 30. Profile-aware agent input contracts for external CLI or SDK-backed agents.
+31. Attempt-scoped agent input artifacts for candidate-level replay.
 
 Still out of scope:
 
@@ -338,8 +339,11 @@ record the deterministic execution queue, selected attempt id, per-attempt
 modifier names, proposal metadata, runtime artifact paths, and normalized
 executor config.
 `agent_attempts/` should contain one subdirectory per candidate attempt, each
-with its own attempt payload, proposal, raw output, patch, and any attempt-level
-workspace or execution audit. The
+with its own attempt payload, attempt-scoped `agent_input.json`, proposal, raw
+output, patch, and any attempt-level workspace or execution audit. Workspace
+backed attempts should preserve the exact workspace-local `agent_input.json`;
+other attempts should synthesize the same contract from the round input and
+attempt metadata. The
 `agent_attempts_manifest.json` artifact should use schema version
 `agent_attempts_v1` and identify the selected attempt.
 `agent_selection_report.json` should use schema version `agent_selection_v1`

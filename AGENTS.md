@@ -2,62 +2,81 @@
 
 ## Project name
 
-Self Iterating Strategy Agent V0
+Self Iterating Strategy Agent V0.5
 
 ## Project goal
 
-This repository is the V0 prototype of a self iterating strategy improvement system.
+This repository is a deterministic, auditable prototype for strategy self-iteration.
 
-The goal of V0 is to build a deterministic, auditable, rollback friendly loop:
+V0 implemented the single-run evaluation loop:
 
-1. Run a baseline strategy on fixed backtest data.
+1. Run strategy code on fixed backtest data.
 2. Generate metrics and a markdown report.
-3. Ask a coding agent to modify only the strategy file.
-4. Run the modified strategy on validation data.
-5. Compare old and new metrics with hard coded rules.
-6. Accept the patch only if it passes the policy gate.
-7. Reject and rollback the patch if it fails.
+3. Compare before/after metrics with hard-coded policy rules.
+4. Accept or reject with deterministic code.
 
-V0 is not intended to build a full multi agent system. It should only create the minimal working loop.
+V0.5 builds on that by adding a minimal self-iteration skeleton:
+
+1. Run the current strategy on fixed validation data.
+2. Generate before metrics and report.
+3. Call a strategy modifier stub.
+4. Apply the stub proposal as a patch.
+5. Run the modified strategy.
+6. Generate after metrics and report.
+7. Compare old and new metrics with the policy gate.
+8. Accept and commit the patch only if policy passes.
+9. Reject and roll back the patch if policy fails.
+10. Repeat until accepted or the max-round limit is reached.
+
+V0.5 is not the full multi-agent system. It is the smallest deterministic loop
+that proves the self-iteration control flow works.
 
 ## Core principle
 
 The system must be evaluation driven.
 
-LLM generated suggestions are allowed, but final acceptance must be decided by deterministic code. Do not allow natural language judgment to decide whether a strategy is accepted.
+Agent-generated suggestions are allowed, but final acceptance must be decided by
+deterministic code. Do not allow natural language judgment to decide whether a
+strategy is accepted.
 
 ## Current scope
 
-Build V0 only.
+Build V0.5 only.
 
-Required components:
+Allowed components:
 
 1. A simple strategy interface.
 2. A deterministic backtester.
 3. Metrics generation.
 4. Markdown report generation.
-5. A policy gate.
-6. A run loop that executes the full V0 pipeline.
-7. Git friendly experiment outputs.
-8. Clear tests or smoke checks.
+5. A deterministic policy gate.
+6. A single-run V0 pipeline.
+7. A multi-round V0.5 iteration loop.
+8. A fixed strategy modifier stub.
+9. A proposal schema for agent output.
+10. Git apply, accept commit, and reject rollback helpers.
+11. Round-based experiment outputs.
+12. Clear tests and smoke checks.
 
-Do not implement the full multi agent architecture yet.
+Still out of scope:
 
-Do not implement visual agents yet.
-
-Do not implement overfitting agents yet.
-
-Do not implement live trading.
-
-Do not connect to real exchanges.
-
-Do not call real Polymarket, Binance, or wallet APIs.
+1. Real Codex CLI integration.
+2. Full multi-agent architecture.
+3. Visual agents.
+4. HTML chart rendering agents.
+5. Overfitting agents.
+6. Live trading.
+7. Real exchange, Polymarket, Binance, wallet, or network APIs.
 
 ## Domain context
 
-The long term target domain is prediction market strategy research.
+The long-term target domain is prediction market strategy research.
 
-The strategy may later be used for Polymarket style orderbook based strategies. The main research problem is that a strategy can fail when a signal appears but liquidity disappears quickly due to maker cancellations or taker competition. V0 should not solve this trading problem directly. V0 should only create the infrastructure that can repeatedly test strategy changes.
+The strategy may later be used for Polymarket-style orderbook strategies. The
+research problem is that a strategy can fail when a signal appears but liquidity
+disappears quickly due to maker cancellations or taker competition. V0.5 should
+not solve this trading problem directly. V0.5 should only create the
+infrastructure that can repeatedly test and gate strategy changes.
 
 ## Repository design target
 
@@ -65,7 +84,7 @@ Use Python.
 
 Prefer simple modules over complex frameworks.
 
-Suggested structure:
+Current structure:
 
 ```text
 .
@@ -73,6 +92,8 @@ Suggested structure:
 ├── README.md
 ├── TASK.md
 ├── pyproject.toml
+├── agents/
+│   └── strategy_modifier_stub.py
 ├── data/
 │   ├── train/
 │   ├── validation/
@@ -88,15 +109,20 @@ Suggested structure:
 │   └── generate_report.py
 ├── orchestrator/
 │   ├── run_loop.py
+│   ├── iteration_loop.py
 │   ├── policy_gate.py
+│   ├── proposal.py
+│   ├── git_manager.py
 │   └── git_utils.py
 ├── experiments/
 │   └── .gitkeep
 └── tests/
-    └── test_smoke.py
+    ├── test_smoke.py
+    └── test_iteration_loop.py
 ```
 
-The exact structure may be adjusted if needed, but keep the system small and understandable.
+The exact structure may be adjusted if needed, but keep the system small and
+understandable.
 
 ## Data policy
 
@@ -114,7 +140,7 @@ Generated experiment outputs should go under:
 experiments/<run_id>/
 ```
 
-Each run directory should contain:
+The single-run V0 pipeline writes:
 
 ```text
 metrics_before.json
@@ -127,25 +153,56 @@ trades_before.csv
 trades_after.csv
 ```
 
-If some files are not available in the first implementation, create the pipeline so they can be added later.
+The multi-round V0.5 loop writes:
+
+```text
+manifest.json
+round_001/
+  metrics_before.json
+  report_before.md
+  trades_before.csv
+  proposal.json
+  agent_response.txt
+  patch.diff
+  metrics_after.json
+  report_after.md
+  trades_after.csv
+  decision.json
+```
+
+Additional rounds use the same `round_NNN/` structure.
 
 ## Strategy policy
 
-For V0, only this file should be modified by the strategy improvement step:
+For strategy improvement rounds, only this file should be modified by the agent
+or stub proposal:
 
 ```text
 strategies/current_strategy.py
+```
+
+Infrastructure tasks may modify:
+
+```text
+agents/
+backtester/
+orchestrator/
+reports/
+tests/
+README.md
+TASK.md
+AGENTS.md
+pyproject.toml
 ```
 
 Do not modify:
 
 ```text
 data/
-backtester/
 orchestrator/policy_gate.py
 ```
 
-unless the current task explicitly asks for infrastructure changes.
+unless the current task explicitly asks for infrastructure or policy changes.
 
 ## Metrics
 
@@ -162,15 +219,16 @@ The metrics should include at least:
 }
 ```
 
-The exact formulas can be simple in V0, but they must be deterministic and documented.
+The formulas can be simple in V0.5, but they must be deterministic and
+documented.
 
 ## Acceptance policy
 
-The policy gate should compare baseline metrics and modified strategy metrics.
+The policy gate should compare before and after metrics.
 
 A patch should be accepted only if all required rules pass.
 
-Default V0 rules:
+Default V0.5 rules:
 
 ```json
 {
@@ -209,7 +267,7 @@ Keep the code deterministic.
 
 Use fixed random seeds where randomness is needed.
 
-Prefer plain Python, pandas, pydantic, pytest, and standard library tools.
+Prefer plain Python, pytest, and standard library tools.
 
 Avoid heavy dependencies.
 
@@ -223,7 +281,7 @@ Make every command runnable from the repository root.
 
 Do not add real credentials, private keys, API keys, or wallet logic.
 
-Do not add network calls in V0.
+Do not add network calls in V0.5.
 
 ## Testing
 
@@ -234,31 +292,42 @@ Add smoke tests that verify:
 3. The report is generated.
 4. The policy gate returns a valid decision.
 5. The full V0 run loop completes.
+6. The V0.5 iteration loop creates round artifacts.
+7. The strategy modifier stub generates a fixed patch.
+8. Reject rolls back the strategy file.
+9. Accept can stop the loop under relaxed test rules.
+10. The max-round guard stops repeated rejections.
 
 The project is complete only when these checks pass:
 
 ```bash
 pytest
 python -m orchestrator.run_loop
+python -m orchestrator.iteration_loop
 ```
 
 ## Expected behavior
 
-When the V0 loop runs, it should:
+When the V0.5 loop runs, it should:
 
 1. Create a new run directory under `experiments/`.
-2. Run the current strategy.
-3. Save before metrics.
-4. Generate a report.
-5. Stop and instruct the user to run Codex for strategy modification, or optionally support a placeholder strategy modification step.
-6. Run the modified strategy.
-7. Save after metrics.
-8. Run the policy gate.
-9. Save `decision.json`.
-10. Print a short final summary.
+2. Create per-round directories under that run.
+3. Run the current strategy before modification.
+4. Save before metrics, trades, and report.
+5. Call the fixed strategy modifier stub.
+6. Save `proposal.json`, `agent_response.txt`, and `patch.diff`.
+7. Apply the patch with Git.
+8. Run the modified strategy.
+9. Save after metrics, trades, and report.
+10. Run the policy gate.
+11. Save `decision.json`.
+12. Accept and commit if policy passes.
+13. Reject and roll back if policy fails.
+14. Save `manifest.json`.
+15. Print a short final summary.
 
 ## Important constraint
 
 Do not overbuild.
 
-V0 should be boring, testable, and easy to debug.
+V0.5 should be boring, deterministic, testable, and easy to debug.

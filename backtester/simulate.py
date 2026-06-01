@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import importlib
+import sys
 from pathlib import Path
 from types import ModuleType
 
@@ -34,10 +35,21 @@ def load_snapshots(data_path: Path = DEFAULT_DATA_PATH) -> list[MarketSnapshot]:
 
 def load_strategy(strategy_module: str) -> ModuleType:
     """Import a strategy module by dotted path."""
+    clear_strategy_cache(strategy_module)
     module = importlib.import_module(strategy_module)
     if not hasattr(module, "generate_orders"):
         raise AttributeError(f"{strategy_module} must define generate_orders(snapshot)")
     return module
+
+
+def clear_strategy_cache(strategy_module: str) -> None:
+    """Clear module and bytecode caches before loading a strategy file."""
+    sys.modules.pop(strategy_module, None)
+    if strategy_module.startswith("strategies."):
+        module_name = strategy_module.rsplit(".", maxsplit=1)[-1]
+        for pyc_path in Path("strategies/__pycache__").glob(f"{module_name}*.pyc"):
+            pyc_path.unlink(missing_ok=True)
+    importlib.invalidate_caches()
 
 
 def run_backtest(

@@ -92,7 +92,7 @@ def run_iteration_loop(
                     return manifest
 
                 rollback_strategy(repo_root)
-                clear_strategy_import()
+                clear_strategy_import(repo_root)
 
         manifest["status"] = "stopped_max_rounds"
         manifest["final_strategy_commit"] = current_commit(repo_root)
@@ -116,7 +116,7 @@ def run_round(
     policy_rules: dict[str, float | int] | None,
 ) -> dict[str, object]:
     """Run one proposal/apply/evaluate round."""
-    clear_strategy_import()
+    clear_strategy_import(repo_root)
     trades_before, metrics_before = run_and_write(
         strategy_name=CURRENT_STRATEGY,
         data_path=data_path,
@@ -146,7 +146,7 @@ def run_round(
     else:
         apply_error = proposal.rejection_reason
 
-    clear_strategy_import()
+    clear_strategy_import(repo_root)
     trades_after, metrics_after = run_and_write(
         strategy_name=CURRENT_STRATEGY,
         data_path=data_path,
@@ -172,9 +172,13 @@ def run_round(
     }
 
 
-def clear_strategy_import() -> None:
+def clear_strategy_import(repo_root: Path) -> None:
     """Force Python to load the current strategy from disk after patches."""
     sys.modules.pop(CURRENT_STRATEGY, None)
+    for pyc_path in (repo_root / "strategies" / "__pycache__").glob(
+        "current_strategy*.pyc"
+    ):
+        pyc_path.unlink(missing_ok=True)
     importlib.invalidate_caches()
 
 

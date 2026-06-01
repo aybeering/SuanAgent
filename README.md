@@ -16,8 +16,9 @@ holdout data for observation-only reports.
 
 The strategy interface contract is documented in
 `docs/strategy_interface.md`. The current modifier backend is selected with
-`strategy_modifier` in config; available values are `fixed_patch_stub` and
-`codex_dry_run`.
+`strategy_modifier` in config; available values are `fixed_patch_stub`,
+`codex_dry_run`, and `codex_cli_dry_run`. The Codex CLI adapters build a prompt
+and command for auditability but do not invoke Codex yet.
 
 ## Commands
 

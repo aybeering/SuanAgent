@@ -19,6 +19,8 @@ class StrategyProposal:
     patch_diff: str
     applicable: bool
     rejection_reason: str = ""
+    prompt: str = ""
+    command: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-friendly proposal payload."""

@@ -7,10 +7,18 @@ from agents.modifier_adapter import StrategyModifier
 from agents.strategy_modifier_stub import FixedPatchModifier
 
 
-def get_strategy_modifier(name: str) -> StrategyModifier:
+def get_strategy_modifier(
+    name: str,
+    settings: dict[str, object] | None = None,
+) -> StrategyModifier:
     """Return a strategy modifier adapter by configured name."""
+    active_settings = settings or {}
     if name == "fixed_patch_stub":
         return FixedPatchModifier()
-    if name == "codex_dry_run":
-        return CodexDryRunModifier()
+    if name in {"codex_dry_run", "codex_cli_dry_run"}:
+        return CodexDryRunModifier(
+            executable=str(active_settings.get("executable", "codex")),
+            model=str(active_settings.get("model", "default")),
+            sandbox=str(active_settings.get("sandbox", "workspace-write")),
+        )
     raise ValueError(f"Unknown strategy modifier adapter: {name}")

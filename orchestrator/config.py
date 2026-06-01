@@ -22,6 +22,7 @@ class ProjectConfig:
     policy: dict[str, float | int]
     strategy_path: str
     strategy_modifier: str
+    modifier_settings: dict[str, object]
     stub_old_threshold: str
     stub_new_threshold: str
 
@@ -50,6 +51,8 @@ def load_project_config(
 
     raw = json.loads(active_path.read_text(encoding="utf-8"))
     stub = raw.get("stub", {})
+    modifier_name = str(raw["strategy_modifier"])
+    modifier_settings = raw.get("codex_cli", {}) if modifier_name.startswith("codex") else {}
     return ProjectConfig(
         baseline_strategy_module=str(raw["baseline_strategy_module"]),
         current_strategy_module=str(raw["current_strategy_module"]),
@@ -58,7 +61,10 @@ def load_project_config(
         datasets={str(key): str(value) for key, value in raw["datasets"].items()},
         policy={str(key): value for key, value in raw["policy"].items()},
         strategy_path=str(raw["strategy_path"]),
-        strategy_modifier=str(raw["strategy_modifier"]),
+        strategy_modifier=modifier_name,
+        modifier_settings={
+            str(key): value for key, value in modifier_settings.items()
+        },
         stub_old_threshold=str(stub["old_threshold"]),
         stub_new_threshold=str(stub["new_threshold"]),
     )

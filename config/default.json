@@ -16,6 +16,11 @@
   },
   "strategy_path": "strategies/current_strategy.py",
   "strategy_modifier": "fixed_patch_stub",
+  "codex_cli": {
+    "executable": "codex",
+    "model": "default",
+    "sandbox": "workspace-write"
+  },
   "stub": {
     "old_threshold": "MIN_EDGE = 0.05",
     "new_threshold": "MIN_EDGE = 0.04"

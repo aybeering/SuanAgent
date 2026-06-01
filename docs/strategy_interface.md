@@ -56,3 +56,11 @@ Strategy code must not:
 
 The deterministic policy gate, not the strategy or agent, decides whether a
 patch is accepted.
+
+## Agent Adapter Boundary
+
+Strategy modifier adapters must return a `StrategyProposal`.
+
+The dry-run Codex CLI adapter is allowed to build and record a prompt and command,
+but it must not invoke Codex or edit files. A future real adapter should keep the
+same proposal shape and still only target `strategies/current_strategy.py`.

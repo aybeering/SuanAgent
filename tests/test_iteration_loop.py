@@ -4,6 +4,7 @@ import json
 import shutil
 from pathlib import Path
 
+from agents.codex_dry_run_adapter import build_codex_command, build_codex_prompt
 from agents.strategy_modifier_stub import NEW_THRESHOLD, OLD_THRESHOLD, propose_strategy_change
 from backtester.schema import MarketSnapshot, StrategyOrder
 from backtester.simulate import validate_strategy_orders
@@ -198,6 +199,11 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
         policy=default.policy,
         strategy_path=default.strategy_path,
         strategy_modifier="codex_dry_run",
+        modifier_settings={
+            "executable": "codex",
+            "model": "dry-run-model",
+            "sandbox": "workspace-write",
+        },
         stub_old_threshold=default.stub_old_threshold,
         stub_new_threshold=default.stub_new_threshold,
     )
@@ -217,11 +223,48 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
     assert proposal["agent_name"] == "codex_cli_dry_run"
     assert proposal["applicable"] is False
     assert "dry-run" in proposal["raw_response"]
+    assert proposal["command"][:6] == [
+        "codex",
+        "exec",
+        "--model",
+        "dry-run-model",
+        "--sandbox",
+        "workspace-write",
+    ]
+    assert "Only modify: strategies/current_strategy.py" in proposal["prompt"]
+    assert "Return a unified diff patch only." in proposal["prompt"]
     assert decision["accepted"] is False
     assert "does not emit patches" in decision["reasons"][0]
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
+
+
+def test_codex_prompt_and_command_builders_are_deterministic() -> None:
+    prompt = build_codex_prompt(
+        report_text="# Report\nmetric: value\n",
+        target_file="strategies/current_strategy.py",
+        round_index=3,
+    )
+    command = build_codex_command(
+        executable="codex",
+        model="gpt-test",
+        sandbox="workspace-write",
+        target_file="strategies/current_strategy.py",
+    )
+
+    assert "Round: 3" in prompt
+    assert "Only modify: strategies/current_strategy.py" in prompt
+    assert command == [
+        "codex",
+        "exec",
+        "--model",
+        "gpt-test",
+        "--sandbox",
+        "workspace-write",
+        "--",
+        "Modify only strategies/current_strategy.py and return a patch.",
+    ]
 
 
 def test_strategy_order_validation_rejects_invalid_orders() -> None:

@@ -57,7 +57,10 @@ def run_iteration_loop(
     )
     holdout_data_path = active_config.dataset_path(repo_root, "holdout")
     active_policy_rules = policy_rules or active_config.policy
-    modifier = get_strategy_modifier(active_config.strategy_modifier)
+    modifier = get_strategy_modifier(
+        active_config.strategy_modifier,
+        active_config.modifier_settings,
+    )
     strategy_path = Path(active_config.strategy_path)
     strategy_file_path = active_config.resolve_path(repo_root, active_config.strategy_path)
     strategy_module = active_config.current_strategy_module

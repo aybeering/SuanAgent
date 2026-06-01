@@ -54,7 +54,7 @@ Allowed components:
 7. A multi-round V0.5 iteration loop.
 8. A fixed strategy modifier stub.
 9. A proposal schema for agent output.
-10. A dry-run Codex adapter that does not invoke real Codex.
+10. A dry-run Codex CLI adapter that builds prompt and command artifacts but does not invoke real Codex.
 11. Git apply, accept commit, and reject rollback helpers.
 12. Round-based experiment outputs.
 13. Config-driven dataset, policy, and modifier settings.
@@ -351,8 +351,9 @@ When the V0.5 loop runs, it should:
 14. Save `manifest.json`.
 15. Print a short final summary.
 
-The configured modifier may also be `codex_dry_run`, which exercises the future
-Codex adapter boundary without calling Codex or producing a patch.
+The configured modifier may also be `codex_dry_run` or `codex_cli_dry_run`,
+which exercises the future Codex adapter boundary without calling Codex or
+producing a patch.
 
 ## Important constraint
 

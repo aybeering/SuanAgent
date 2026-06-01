@@ -164,6 +164,7 @@ def run_iteration_loop(
             "explore_bonus": active_config.explore_bonus,
         },
         "candidate_selection": active_config.candidate_selection,
+        "executor_policy": active_config.executor,
         "holdout_policy": active_config.holdout_policy,
         "stop_reason": None,
         "rounds": [],
@@ -226,6 +227,7 @@ def run_iteration_loop(
                     min_probe_ev_delta=active_config.min_probe_ev_delta,
                     min_validation_ev_delta=active_config.min_validation_ev_delta,
                     candidate_selection=active_config.candidate_selection,
+                    executor_config=active_config.executor,
                 )
                 manifest["completed_rounds"] = round_index
                 manifest["rounds"].append(round_summary)  # type: ignore[union-attr]
@@ -422,6 +424,7 @@ def run_round(
     min_probe_ev_delta: float,
     min_validation_ev_delta: float,
     candidate_selection: dict[str, float | int],
+    executor_config: dict[str, object],
 ) -> dict[str, object]:
     """Run one proposal/apply/evaluate round."""
     clear_strategy_import(repo_root, strategy_module)
@@ -523,6 +526,7 @@ def run_round(
         min_probe_ev_delta=min_probe_ev_delta,
         min_validation_ev_delta=min_validation_ev_delta,
         candidate_selection=candidate_selection,
+        executor_config=executor_config,
         run_id=run_id,
         strategy_module=strategy_module,
         probe_data_path=probe_data_path,
@@ -663,6 +667,7 @@ def run_round(
         run_id=run_id,
         round_id=round_id,
         attempts=proposal_attempts,
+        executor_config=executor_config,
     )
     append_outcome_memory(
         experiments_dir=round_dir.parent.parent,
@@ -1029,6 +1034,7 @@ def select_proposal_candidate(
     min_probe_ev_delta: float,
     min_validation_ev_delta: float,
     candidate_selection: dict[str, float | int],
+    executor_config: dict[str, object],
     run_id: str,
     strategy_module: str,
     probe_data_path: Path,
@@ -1039,6 +1045,7 @@ def select_proposal_candidate(
     agent_queue = build_agent_queue(
         primary_modifier=modifier,
         fallback_modifiers=fallback_modifiers,
+        executor_config=executor_config,
     )
     agent_results = execute_agent_queue(
         queue=agent_queue,

@@ -26,6 +26,12 @@ DEFAULT_CANDIDATE_SELECTION = {
     "champion_gap_multiplier": 1000,
     "champion_gap_cap": 15,
 }
+DEFAULT_EXECUTOR = {
+    "mode": "sequential",
+    "max_candidates": 0,
+    "per_agent_timeout_seconds": 120,
+    "allow_disabled_adapters": True,
+}
 
 
 @dataclass(frozen=True)
@@ -56,6 +62,7 @@ class ProjectConfig:
     explore_low_sample_threshold: int = 1
     explore_bonus: int = 0
     candidate_selection: dict[str, float | int] = field(default_factory=dict)
+    executor: dict[str, object] = field(default_factory=dict)
 
     def resolve_path(self, repo_root: Path, path_text: str) -> Path:
         """Resolve config paths relative to the repository root."""
@@ -90,6 +97,7 @@ def load_project_config(
         "candidate_selection",
         {},
     )
+    executor = DEFAULT_EXECUTOR | raw.get("executor", {})
     fallback_names = fallback_modifier_names(memory_filter)
     return ProjectConfig(
         baseline_strategy_module=str(raw["baseline_strategy_module"]),
@@ -134,6 +142,7 @@ def load_project_config(
         candidate_selection={
             str(key): value for key, value in candidate_selection.items()
         },
+        executor={str(key): value for key, value in executor.items()},
     )
 
 

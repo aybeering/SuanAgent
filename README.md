@@ -47,6 +47,9 @@ Candidate modifiers are scheduled through a small deterministic executor queue:
 the primary modifier receives `attempt_001_primary`, configured fallbacks receive
 stable `attempt_00N_fallback_NN` ids, and each proposal is handed back to the
 same contract validation, scoring, backtest, and policy-gate path.
+The `executor` config block currently supports the guarded `sequential` mode,
+`max_candidates` queue caps, `per_agent_timeout_seconds` audit metadata, and an
+`allow_disabled_adapters` guard flag for future CLI/SDK adapters.
 Enabled `file_protocol` commands run inside an isolated per-attempt workspace
 and may only bring back the configured proposal output file. Each selected
 file-protocol round writes `agent_execution.json` with the command, workspace
@@ -249,7 +252,8 @@ If `memory_filter.fallback_modifiers` is configured, the same round can route
 through a deterministic executor queue and select a proposal that is applicable,
 not rejected by outcome memory, and highest scored among candidates by cheap
 pre-backtest metadata. The executor only schedules and invokes adapters; final
-selection and acceptance remain deterministic loop decisions.
+selection and acceptance remain deterministic loop decisions. `max_candidates`
+can cap how many queued modifiers run; `0` means no cap.
 Selectable candidates are scored with deterministic metadata from
 `expected_metric_change`, risk notes, patch validity, duplicate patch hashes,
 outcome-memory status, a bounded direction-history prior, and a conservative
@@ -263,6 +267,8 @@ weights for expected metrics, risk notes, direction priors, exploration bonuses,
 historical routing priors, probe EV, probe trade count, and primary-modifier
 stability; the active weights are written to `manifest.json` and each
 `proposal_attempts.json` row.
+The active executor policy is written to `manifest.json` and
+`agent_executor_report.json`.
 When `exploration.explore_after_no_improvement_rounds` is enabled, recent
 no-improvement rounds can add a deterministic exploration bonus to low-sample
 directions that were not selected in that recent window. This is an

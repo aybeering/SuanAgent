@@ -38,7 +38,10 @@
         "mode",
         "queue_order",
         "attempt_id_source",
-        "acceptance"
+        "acceptance",
+        "max_candidates",
+        "per_agent_timeout_seconds",
+        "allow_disabled_adapters"
       ],
       "properties": {
         "mode": {
@@ -55,6 +58,15 @@
         },
         "acceptance": {
           "type": "string"
+        },
+        "max_candidates": {
+          "type": "integer"
+        },
+        "per_agent_timeout_seconds": {
+          "type": "integer"
+        },
+        "allow_disabled_adapters": {
+          "type": "boolean"
         }
       }
     },

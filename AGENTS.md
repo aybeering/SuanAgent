@@ -326,7 +326,8 @@ record deterministic intake checks for the selected proposal, including
 contract validity, strategy-only patch targeting, and `git apply --check`.
 `agent_executor_report.json` should use schema version `agent_executor_v1` and
 record the deterministic execution queue, selected attempt id, per-attempt
-modifier names, proposal metadata, and runtime artifact paths.
+modifier names, proposal metadata, runtime artifact paths, and normalized
+executor config.
 `agent_attempts/` should contain one subdirectory per candidate attempt, each
 with its own attempt payload, proposal, raw output, patch, and any attempt-level
 workspace or execution audit. The
@@ -364,11 +365,17 @@ before adapter execution. Record each primary/fallback attempt in
 `proposal_attempts.json` and select only a candidate that is applicable, not
 rejected by outcome memory, and highest scored among candidates by cheap
 pre-backtest metadata.
+The `executor` config block should remain deterministic. In V0.5, `mode` must
+be `sequential`; `max_candidates` may cap the queue; `per_agent_timeout_seconds`
+is audit metadata for future adapters; and `allow_disabled_adapters` records
+whether guarded disabled adapters are allowed to participate.
 Candidate attempts should include deterministic pre-backtest score metadata so
 the selected proposal can be audited without relying on natural language
 judgment.
 Candidate scoring weights should come from the `candidate_selection` config
 block and be written into both `manifest.json` and `proposal_attempts.json`.
+Executor settings should be written into `manifest.json` and
+`agent_executor_report.json`.
 Candidate scoring may include a bounded direction-history prior from
 `experiments/memory.jsonl`. The prior should use only prior runs for the same
 `direction_tag`, record its sample counts and score delta, and only affect

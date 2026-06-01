@@ -62,6 +62,8 @@ jobs:
           assert executor["schema_version"] == "agent_executor_v1"
           assert executor["selected_attempt_id"]
           assert executor["execution_policy"]["mode"] == "sequential"
+          assert executor["execution_policy"]["max_candidates"] == 0
+          assert executor["execution_policy"]["per_agent_timeout_seconds"] == 120
           workspace = json.load(open("experiments/ci-file-protocol-demo/round_001/workspace_manifest.json"))
           assert workspace["attempt_id"] == "attempt_001_primary"
           assert "attempt_001_primary" in workspace["workspace_path"]

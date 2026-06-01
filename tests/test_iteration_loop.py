@@ -139,6 +139,10 @@ def test_default_config_loads_dataset_splits() -> None:
     assert config.candidate_selection["champion_gap_weight"] == 1.0
     assert config.candidate_selection["probe_ev_cap"] == 25
     assert config.candidate_selection["champion_gap_cap"] == 15
+    assert config.executor["mode"] == "sequential"
+    assert config.executor["max_candidates"] == 0
+    assert config.executor["per_agent_timeout_seconds"] == 120
+    assert config.executor["allow_disabled_adapters"] is True
     assert config.stop_on_repeated_proposal is True
 
 
@@ -200,6 +204,15 @@ def test_agent_executor_builds_stable_attempt_queue(tmp_path: Path) -> None:
     ]
     assert primary.calls == ["attempt_001_primary"]
     assert fallback.calls == ["attempt_002_fallback_01"]
+
+    capped_queue = build_agent_queue(
+        primary_modifier=primary,
+        fallback_modifiers=(fallback,),
+        executor_config={"max_candidates": 1},
+    )
+    assert [candidate.attempt_id for candidate in capped_queue] == [
+        "attempt_001_primary"
+    ]
 
 
 def test_example_configs_load_modifier_modes() -> None:
@@ -382,6 +395,25 @@ def test_preflight_rejects_negative_routing_prior_penalty(tmp_path: Path) -> Non
         "candidate_selection.routing_downweight_penalty" in error
         for error in result.errors
     )
+
+
+def test_preflight_rejects_invalid_executor_config(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_path = repo / "config/bad_executor.json"
+    config = json.loads((repo / "config/default.json").read_text())
+    config["executor"]["mode"] = "parallel"
+    config["executor"]["max_candidates"] = -1
+    config["executor"]["per_agent_timeout_seconds"] = 0
+    config["executor"]["allow_disabled_adapters"] = "yes"
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    result = run_preflight(repo_root=repo, config_path=config_path)
+
+    assert result.ok is False
+    assert any("executor.mode" in error for error in result.errors)
+    assert any("executor.max_candidates" in error for error in result.errors)
+    assert any("executor.per_agent_timeout_seconds" in error for error in result.errors)
+    assert any("executor.allow_disabled_adapters" in error for error in result.errors)
 
 
 def test_preflight_rejects_unknown_memory_fallback_modifier(tmp_path: Path) -> None:
@@ -632,6 +664,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_executor["attempt_count"] == len(attempts)
     assert agent_executor["selected_attempt_id"] == "attempt_001_primary"
     assert agent_executor["execution_policy"]["mode"] == "sequential"
+    assert agent_executor["execution_policy"]["max_candidates"] == 0
+    assert agent_executor["execution_policy"]["per_agent_timeout_seconds"] == 120
+    assert agent_executor["execution_policy"]["allow_disabled_adapters"] is True
     assert agent_executor["attempts"][0]["modifier_name"] == "strategy_modifier_stub"
     assert agent_executor["attempts"][0]["proposal"]["applicable"] is True
     assert agent_executor["attempts"][0]["artifacts"]["attempt_dir"].endswith(
@@ -1088,6 +1123,40 @@ def test_iteration_loop_tries_next_candidate_after_fallback_memory_rejection(
     assert proposal["agent_name"] == "strategy_modifier_conservative_stub"
     assert proposal["direction_tag"] == "raise_min_edge"
     assert "MIN_EDGE = 0.06" in proposal["patch_diff"]
+
+
+def test_executor_max_candidates_caps_iteration_queue(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = replace(
+        load_project_config(repo),
+        executor={
+            "mode": "sequential",
+            "max_candidates": 1,
+            "per_agent_timeout_seconds": 120,
+            "allow_disabled_adapters": True,
+        },
+    )
+
+    manifest = run_iteration_loop(
+        run_id="executor-caps-candidates",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/executor-caps-candidates/round_001"
+    attempts = json.loads(
+        (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
+    )
+    executor = json.loads(
+        (round_dir / "agent_executor_report.json").read_text(encoding="utf-8")
+    )
+
+    assert manifest["executor_policy"]["max_candidates"] == 1
+    assert [attempt["role"] for attempt in attempts] == ["primary"]
+    assert executor["attempt_count"] == 1
+    assert executor["execution_policy"]["max_candidates"] == 1
+    assert executor["attempts"][0]["attempt_id"] == "attempt_001_primary"
 
 
 def test_direction_memory_filter_rejects_failed_direction(tmp_path: Path) -> None:

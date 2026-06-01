@@ -90,6 +90,7 @@ def validate_config(
     if config.explore_bonus < 0:
         errors.append("exploration.explore_bonus must be non-negative")
     validate_candidate_selection(config, errors)
+    validate_executor(config, errors)
     for fallback_modifier in config.memory_fallback_modifiers:
         if fallback_modifier not in SUPPORTED_MODIFIERS:
             errors.append(
@@ -155,6 +156,19 @@ def validate_candidate_selection(config: ProjectConfig, errors: list[str]) -> No
     for key in non_negative_keys:
         if float(config.candidate_selection.get(key, 0.0)) < 0.0:
             errors.append(f"candidate_selection.{key} must be non-negative")
+
+
+def validate_executor(config: ProjectConfig, errors: list[str]) -> None:
+    """Validate deterministic executor settings."""
+    mode = str(config.executor.get("mode", "sequential"))
+    if mode != "sequential":
+        errors.append("executor.mode must be sequential")
+    if int(config.executor.get("max_candidates", 0)) < 0:
+        errors.append("executor.max_candidates must be non-negative")
+    if int(config.executor.get("per_agent_timeout_seconds", 1)) <= 0:
+        errors.append("executor.per_agent_timeout_seconds must be positive")
+    if not isinstance(config.executor.get("allow_disabled_adapters", True), bool):
+        errors.append("executor.allow_disabled_adapters must be boolean")
 
 
 def validate_importable_module(module_name: str, errors: list[str]) -> None:

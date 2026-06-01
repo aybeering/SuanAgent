@@ -41,6 +41,7 @@ def build_agent_queue(
     *,
     primary_modifier: StrategyModifier,
     fallback_modifiers: tuple[StrategyModifier, ...],
+    executor_config: dict[str, object] | None = None,
 ) -> tuple[AgentCandidate, ...]:
     """Return a stable primary-plus-fallback execution queue."""
     modifiers = [("primary", primary_modifier)]
@@ -48,7 +49,7 @@ def build_agent_queue(
         (f"fallback_{index:02d}", fallback_modifier)
         for index, fallback_modifier in enumerate(fallback_modifiers, start=1)
     )
-    return tuple(
+    queue = tuple(
         AgentCandidate(
             role=role,
             attempt_index=index,
@@ -58,6 +59,8 @@ def build_agent_queue(
         )
         for index, (role, modifier) in enumerate(modifiers, start=1)
     )
+    max_candidates = int((executor_config or {}).get("max_candidates", 0))
+    return queue[:max_candidates] if max_candidates > 0 else queue
 
 
 def execute_agent_queue(
@@ -104,6 +107,7 @@ def write_agent_executor_report(
     run_id: str,
     round_id: str,
     attempts: list[dict[str, object]],
+    executor_config: dict[str, object],
 ) -> Path:
     """Write a deterministic report for agent queue execution and outcomes."""
     payload = agent_executor_report_payload(
@@ -112,6 +116,7 @@ def write_agent_executor_report(
         run_id=run_id,
         round_id=round_id,
         attempts=attempts,
+        executor_config=executor_config,
     )
     output_path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
@@ -127,6 +132,7 @@ def agent_executor_report_payload(
     run_id: str,
     round_id: str,
     attempts: list[dict[str, object]],
+    executor_config: dict[str, object],
 ) -> dict[str, object]:
     """Return a JSON-friendly executor report payload."""
     selected_attempt_id = ""
@@ -148,13 +154,25 @@ def agent_executor_report_payload(
         "round_id": round_id,
         "attempt_count": len(attempts),
         "selected_attempt_id": selected_attempt_id,
-        "execution_policy": {
-            "mode": "sequential",
-            "queue_order": ["primary", "fallbacks_by_config_order"],
-            "attempt_id_source": "orchestrator.agent_attempts.attempt_trace_id",
-            "acceptance": "deterministic policy gate after backtest",
-        },
+        "execution_policy": executor_policy_payload(executor_config),
         "attempts": rows,
+    }
+
+
+def executor_policy_payload(executor_config: dict[str, object]) -> dict[str, object]:
+    """Return the normalized executor policy stored in audit artifacts."""
+    return {
+        "mode": str(executor_config.get("mode", "sequential")),
+        "queue_order": ["primary", "fallbacks_by_config_order"],
+        "attempt_id_source": "orchestrator.agent_attempts.attempt_trace_id",
+        "acceptance": "deterministic policy gate after backtest",
+        "max_candidates": int(executor_config.get("max_candidates", 0)),
+        "per_agent_timeout_seconds": int(
+            executor_config.get("per_agent_timeout_seconds", 120)
+        ),
+        "allow_disabled_adapters": bool(
+            executor_config.get("allow_disabled_adapters", True)
+        ),
     }
 
 

@@ -65,5 +65,11 @@
   "stub": {
     "old_threshold": "MIN_EDGE = 0.05",
     "new_threshold": "MIN_EDGE = 0.04"
+  },
+  "executor": {
+    "mode": "sequential",
+    "max_candidates": 0,
+    "per_agent_timeout_seconds": 120,
+    "allow_disabled_adapters": true
   }
 }

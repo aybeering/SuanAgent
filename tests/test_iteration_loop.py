@@ -405,6 +405,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "proposal_intent.json",
         "proposal_intent.md",
         "agent_input.json",
+        "agent_bundle_manifest.json",
         "agent_output.json",
         "agent_validation.json",
         "proposal_attempts.json",
@@ -427,6 +428,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     intent = json.loads((round_dir / "proposal_intent.json").read_text(encoding="utf-8"))
     proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
     agent_input = json.loads((round_dir / "agent_input.json").read_text(encoding="utf-8"))
+    agent_bundle = json.loads(
+        (round_dir / "agent_bundle_manifest.json").read_text(encoding="utf-8")
+    )
     agent_output = json.loads(
         (round_dir / "agent_output.json").read_text(encoding="utf-8")
     )
@@ -456,15 +460,34 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_input["artifacts"]["proposal_intent_json"].endswith(
         "proposal_intent.json"
     )
+    assert agent_input["input_bundle_dir"].endswith("agent_input_bundle")
+    assert agent_input["output_bundle_dir"].endswith("agent_output_bundle")
     assert agent_input["metrics_before"]["validation"]["trade_count"] == 39
     assert agent_input["modifiers"]["primary"] == "strategy_modifier_stub"
     assert agent_input["output_contract"]["schema_version"] == AGENT_OUTPUT_SCHEMA_VERSION
+    assert agent_input["output_contract"]["expected_raw_output_path"].endswith(
+        "raw_agent_output.txt"
+    )
+    assert agent_bundle["schema_version"] == "agent_bundle_v1"
+    assert_matches_schema(round_dir / "agent_bundle_manifest.json", "agent_bundle")
+    assert agent_bundle["input_bundle_dir"].endswith("agent_input_bundle")
+    assert agent_bundle["output_bundle_dir"].endswith("agent_output_bundle")
+    assert any(row["name"] == "agent_input.json" for row in agent_bundle["input_files"])
+    assert any(
+        row["name"] == "raw_agent_output.txt"
+        for row in agent_bundle["output_files"]
+    )
+    assert (round_dir / "agent_input_bundle/agent_input.json").exists()
+    assert (round_dir / "agent_output_bundle/raw_agent_output.txt").exists()
     assert agent_output["schema_version"] == AGENT_OUTPUT_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_output.json", "agent_output")
     assert agent_output["selected_role"] == selected_attempt["role"]
     assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
     assert agent_output["attempt_count"] == len(attempts)
     assert agent_output["artifacts"]["agent_input"].endswith("agent_input.json")
+    assert agent_output["artifacts"]["agent_bundle_manifest"].endswith(
+        "agent_bundle_manifest.json"
+    )
     assert agent_output["artifacts"]["raw_agent_output"].endswith(
         "raw_agent_output.txt"
     )
@@ -1596,6 +1619,7 @@ agent_input = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
 output_path = pathlib.Path(sys.argv[2])
 target = agent_input['target_file']
 before = agent_input['target_file_content']
+assert pathlib.Path(agent_input['input_bundle_dir']).exists()
 after = before.replace('MIN_EDGE = 0.05', 'MIN_EDGE = 0.04', 1)
 patch = ''.join(difflib.unified_diff(
     before.splitlines(keepends=True),
@@ -1681,6 +1705,10 @@ output_path.write_text(json.dumps({
         "experiments/file-protocol-fixture/round_001/fixture_agent_output.json"
     ]
     assert workspace_manifest["initial_snapshot"]["file_count"] > 0
+    assert (
+        Path(agent_execution["workspace_path"])
+        / "experiments/file-protocol-fixture/round_001/agent_input_bundle/agent_input.json"
+    ).exists()
     assert agent_input["target_file_content"].count("MIN_EDGE = 0.05") == 1
     assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
     assert attempts[0]["selected"] is True
@@ -2289,6 +2317,10 @@ def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
     assert any(
+        path.endswith("agent_bundle_manifest.json")
+        for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
         path.endswith("workspace_manifest.json")
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
@@ -2488,6 +2520,8 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     assert diagnosis["best_round"]["round_id"] == "round_001"  # type: ignore[index]
     assert diagnosis["rounds"][0]["direction_tag"] == "lower_min_edge"  # type: ignore[index]
     assert diagnosis["rounds"][0]["agent_validation_ok"] is True  # type: ignore[index]
+    assert diagnosis["rounds"][0]["agent_bundle_present"] is True  # type: ignore[index]
+    assert diagnosis["rounds"][0]["agent_bundle_input_file_count"] > 0  # type: ignore[index]
     assert "Iteration run" in diagnosis["summary"]
     saved = json.loads(
         (repo / "experiments/diagnose-iteration/diagnosis.json").read_text(

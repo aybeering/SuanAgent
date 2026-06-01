@@ -144,6 +144,7 @@ def diagnose_round(
     proposal = load_json_object(round_dir / "proposal.json") or {}
     decision = load_json_object(round_dir / "decision.json") or {}
     agent_validation = load_json_object(round_dir / "agent_validation.json") or {}
+    agent_bundle = load_json_object(round_dir / "agent_bundle_manifest.json") or {}
     workspace_manifest = load_json_object(round_dir / "workspace_manifest.json") or {}
     selected_attempt = selected_attempt_from_file(round_dir / "proposal_attempts.json")
     execution = load_json_object(round_dir / "agent_execution.json") or {}
@@ -168,6 +169,13 @@ def diagnose_round(
         "contract_errors": proposal.get("contract_errors", []),
         "agent_validation_ok": agent_validation.get("ok"),
         "agent_validation_errors": agent_validation.get("errors", []),
+        "agent_bundle_present": bool(agent_bundle),
+        "agent_bundle_input_file_count": len(agent_bundle.get("input_files", []))
+        if isinstance(agent_bundle.get("input_files", []), list)
+        else 0,
+        "agent_bundle_output_file_count": len(agent_bundle.get("output_files", []))
+        if isinstance(agent_bundle.get("output_files", []), list)
+        else 0,
         "workspace_manifest_present": bool(workspace_manifest),
         "workspace_initial_file_count": (
             workspace_manifest.get("initial_snapshot", {}).get("file_count", 0)

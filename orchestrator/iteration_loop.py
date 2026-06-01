@@ -15,6 +15,7 @@ from typing import Iterator
 
 from agents.modifier_adapter import StrategyModifier
 from agents.registry import get_strategy_modifier
+from orchestrator.agent_bundle import write_agent_bundle_manifest, write_agent_input_bundle
 from orchestrator.agent_context import write_agent_context
 from orchestrator.agent_io import write_agent_input, write_agent_output
 from orchestrator.agent_output_intake import validate_agent_proposal
@@ -468,6 +469,7 @@ def run_round(
             for fallback_modifier in fallback_modifiers
         ),
     )
+    write_agent_input_bundle(round_dir=round_dir)
     (
         proposal,
         memory_filter_reason,
@@ -531,6 +533,14 @@ def run_round(
         output_path=round_dir / "agent_validation.json",
         proposal=proposal,
         repo_root=repo_root,
+    )
+    write_agent_bundle_manifest(
+        round_dir=round_dir,
+        repo_root=repo_root,
+        run_id=run_id,
+        round_id=round_id,
+        round_index=round_index,
+        agent_name=proposal.agent_name,
     )
 
     apply_error = ""

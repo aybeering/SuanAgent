@@ -47,6 +47,7 @@ ROUND_REQUIRED_FILES = (
     "proposal_intent.json",
     "proposal_intent.md",
     "agent_input.json",
+    "agent_bundle_manifest.json",
     "agent_output.json",
     "agent_validation.json",
     "proposal_attempts.json",
@@ -177,6 +178,16 @@ def validate_round_dir(
         report=report,
     )
     validate_contract_file(
+        payload_path=round_dir / "agent_bundle_manifest.json",
+        schema_path=repo_root / "schemas/agent_bundle.schema.json",
+        report=report,
+    )
+    validate_agent_bundle_manifest(
+        path=round_dir / "agent_bundle_manifest.json",
+        repo_root=repo_root,
+        report=report,
+    )
+    validate_contract_file(
         payload_path=round_dir / "agent_output.json",
         schema_path=repo_root / "schemas/agent_output.schema.json",
         report=report,
@@ -237,6 +248,34 @@ def validate_optional_workspace_manifest(
         schema_path=repo_root / "schemas/workspace_manifest.schema.json",
         report=report,
     )
+
+
+def validate_agent_bundle_manifest(
+    *,
+    path: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate bundle dirs and listed files exist."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    for key in ("input_bundle_dir", "output_bundle_dir"):
+        bundle_dir = resolve_path(Path(str(payload.get(key, ""))), repo_root)
+        if not bundle_dir.exists() or not bundle_dir.is_dir():
+            add_error(report, f"{key} does not exist: {bundle_dir}")
+    for key in ("input_files", "output_files"):
+        rows = payload.get(key, [])
+        if not isinstance(rows, list) or not rows:
+            add_error(report, f"agent_bundle_manifest.json {key} is empty or invalid")
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                add_error(report, f"agent_bundle_manifest.json {key} contains non-object")
+                continue
+            file_path = resolve_path(Path(str(row.get("path", ""))), repo_root)
+            if not file_path.exists() or not file_path.is_file():
+                add_error(report, f"bundle file does not exist: {file_path}")
 
 
 def validate_required_files(

@@ -112,6 +112,7 @@ Current structure:
 │   └── default.json
 ├── schemas/
 │   ├── agent_input.schema.json
+│   ├── agent_bundle.schema.json
 │   ├── agent_output.schema.json
 │   ├── agent_validation.schema.json
 │   ├── agent_execution.schema.json
@@ -148,6 +149,7 @@ Current structure:
 ├── orchestrator/
 │   ├── run_loop.py
 │   ├── iteration_loop.py
+│   ├── agent_bundle.py
 │   ├── agent_context.py
 │   ├── agent_output_intake.py
 │   ├── outcome_memory.py
@@ -229,6 +231,9 @@ round_001/
   proposal_intent.json
   proposal_intent.md
   agent_input.json
+  agent_bundle_manifest.json
+  agent_input_bundle/
+  agent_output_bundle/
   agent_output.json
   agent_validation.json
   workspace_manifest.json  # workspace-backed agents only
@@ -281,11 +286,17 @@ before calling the modifier. The JSON artifact should use schema version
 `proposal_intent_v1` and summarize the recommended direction, directions to
 avoid, evidence, source context artifacts, and hard constraints. It is planner
 guidance only; it must not decide acceptance.
-Each round should also write `agent_input.json`, `raw_agent_output.txt`,
+Each round should also write `agent_input.json`, `agent_bundle_manifest.json`,
+`agent_input_bundle/`, `agent_output_bundle/`, `raw_agent_output.txt`,
 `agent_output.json`, and `agent_validation.json`.
 `agent_input.json` should use schema version `agent_io_input_v1` and describe
 the reports, context, proposal intent, before metrics, policy config,
 candidate-selection config, and modifier list available to the agent.
+`agent_input_bundle/` should be created before calling the modifier and contain
+the read-only files an external agent may inspect. `agent_output_bundle/` should
+contain the output artifacts the orchestrator will inspect after the modifier
+returns. `agent_bundle_manifest.json` should use schema version
+`agent_bundle_v1` and record both bundle directories plus file hashes.
 `raw_agent_output.txt` should preserve the exact raw response text that will be
 normalized into a proposal. For local stubs this can be the deterministic stub
 response; for external agents it should be the subprocess output or configured

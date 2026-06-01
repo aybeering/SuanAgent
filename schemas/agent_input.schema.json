@@ -11,6 +11,8 @@
     "target_file_content",
     "target_file_sha256",
     "round_dir",
+    "input_bundle_dir",
+    "output_bundle_dir",
     "artifacts",
     "metrics_before",
     "policy",
@@ -48,6 +50,14 @@
       "minLength": 64
     },
     "round_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_bundle_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "output_bundle_dir": {
       "type": "string",
       "minLength": 1
     },
@@ -153,6 +163,7 @@
         "schema_version",
         "proposal_protocol_version",
         "expected_output_path",
+        "expected_raw_output_path",
         "required_artifacts"
       ],
       "properties": {
@@ -169,6 +180,9 @@
           ]
         },
         "expected_output_path": {
+          "type": "string"
+        },
+        "expected_raw_output_path": {
           "type": "string"
         },
         "required_artifacts": {

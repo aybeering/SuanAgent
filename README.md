@@ -19,11 +19,12 @@ early when an agent repeats a previously rejected patch.
 
 The strategy interface contract is documented in
 `docs/strategy_interface.md`. Machine-readable agent contracts live in
-`schemas/agent_input.schema.json`, `schemas/agent_output.schema.json`,
-`schemas/agent_validation.schema.json`, and `schemas/agent_execution.schema.json`;
-planner intent, run provenance, and run-level research notes are described by
-`schemas/workspace_manifest.schema.json`, `schemas/proposal_intent.schema.json`,
-`schemas/run_metadata.schema.json`, and `schemas/research_brief.schema.json`.
+`schemas/agent_input.schema.json`, `schemas/agent_bundle.schema.json`,
+`schemas/agent_output.schema.json`, `schemas/agent_validation.schema.json`, and
+`schemas/agent_execution.schema.json`; planner intent, run provenance, and
+run-level research notes are described by `schemas/workspace_manifest.schema.json`,
+`schemas/proposal_intent.schema.json`, `schemas/run_metadata.schema.json`, and
+`schemas/research_brief.schema.json`.
 The current modifier backend is selected with `strategy_modifier` in config;
 available values are `fixed_patch_stub`, `adaptive_stub`, `codex_dry_run`,
 `codex_cli_dry_run`, `codex_cli`, and `file_protocol`. The `codex_cli` and
@@ -179,14 +180,16 @@ re-parsing every artifact directory.
 Each round also writes `proposal_intent.json` and `proposal_intent.md`, a thin
 deterministic planner output that turns the context into a recommended
 direction, directions to avoid, evidence, and hard constraints for the modifier.
-Each round also writes `agent_input.json`, `raw_agent_output.txt`,
+Each round also writes `agent_input_bundle/`, `agent_output_bundle/`,
+`agent_bundle_manifest.json`, `agent_input.json`, `raw_agent_output.txt`,
 `agent_output.json`, and `agent_validation.json`, stable fixtures that record
 what a modifier backend was given, the raw text that became the proposal, which
 proposal candidate was selected, and whether deterministic intake checks passed
 before patch application.
 Tests validate these artifacts against the JSON schemas under `schemas/`; the
-proposal intent, workspace manifest, agent validation report, and file-protocol
-execution audit are validated against `schemas/proposal_intent.schema.json`,
+proposal intent, agent bundle manifest, workspace manifest, agent validation
+report, and file-protocol execution audit are validated against
+`schemas/proposal_intent.schema.json`, `schemas/agent_bundle.schema.json`,
 `schemas/workspace_manifest.schema.json`, `schemas/agent_validation.schema.json`,
 and `schemas/agent_execution.schema.json`; run provenance is validated against
 `schemas/run_metadata.schema.json`.

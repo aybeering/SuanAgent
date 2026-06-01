@@ -427,6 +427,13 @@ def copy_agent_round_inputs(*, source_round_dir: Path, workspace_round_dir: Path
         source = source_round_dir / filename
         if source.exists():
             shutil.copy2(source, workspace_round_dir / filename)
+    source_bundle = source_round_dir / "agent_input_bundle"
+    if source_bundle.exists():
+        shutil.copytree(
+            source_bundle,
+            workspace_round_dir / "agent_input_bundle",
+            dirs_exist_ok=True,
+        )
 
 
 def copy_agent_output_back(

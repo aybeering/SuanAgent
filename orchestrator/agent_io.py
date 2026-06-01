@@ -95,6 +95,14 @@ def build_agent_input_payload(
         "target_file_content": target_file.read_text(encoding="utf-8"),
         "target_file_sha256": file_sha256(target_file),
         "round_dir": relative_path(round_dir, repo_root),
+        "input_bundle_dir": relative_path(
+            round_dir / "agent_input_bundle",
+            repo_root,
+        ),
+        "output_bundle_dir": relative_path(
+            round_dir / "agent_output_bundle",
+            repo_root,
+        ),
         "artifacts": {
             "agent_context_markdown": relative_path(context_path, repo_root),
             "agent_context_json": relative_path(context_path.with_suffix(".json"), repo_root),
@@ -130,9 +138,15 @@ def build_agent_input_payload(
             "schema_version": AGENT_OUTPUT_SCHEMA_VERSION,
             "proposal_protocol_version": "proposal_v1",
             "expected_output_path": relative_path(round_dir / "agent_output.json", repo_root),
+            "expected_raw_output_path": relative_path(
+                round_dir / "raw_agent_output.txt",
+                repo_root,
+            ),
             "required_artifacts": [
+                "agent_bundle_manifest.json",
                 "proposal.json",
                 "proposal_attempts.json",
+                "raw_agent_output.txt",
                 "agent_response.txt",
                 "patch.diff",
             ],
@@ -192,6 +206,10 @@ def build_agent_output_payload(
         "attempts": compact_attempts(proposal_attempts),
         "artifacts": {
             "agent_input": relative_path(round_dir / "agent_input.json", repo_root),
+            "agent_bundle_manifest": relative_path(
+                round_dir / "agent_bundle_manifest.json",
+                repo_root,
+            ),
             "raw_agent_output": relative_path(
                 round_dir / "raw_agent_output.txt",
                 repo_root,

@@ -1277,6 +1277,98 @@ print('+MIN_EDGE = 0.04')
     assert proposal.command[0] == str(fake_codex)
 
 
+def test_iteration_loop_codex_cli_executes_structured_json_fixture(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_structured.py",
+        """#!/usr/bin/env python3
+import difflib
+import json
+import pathlib
+import sys
+prompt = sys.stdin.read()
+pathlib.Path('prompt_seen.txt').write_text(prompt, encoding='utf-8')
+target = pathlib.Path('strategies/current_strategy.py')
+before = target.read_text(encoding='utf-8')
+after = before.replace('MIN_EDGE = 0.05', 'MIN_EDGE = 0.04', 1)
+patch = ''.join(difflib.unified_diff(
+    before.splitlines(keepends=True),
+    after.splitlines(keepends=True),
+    fromfile='a/strategies/current_strategy.py',
+    tofile='b/strategies/current_strategy.py',
+))
+print(json.dumps({
+    "summary": "Lower MIN_EDGE through structured JSON.",
+    "risk_notes": "May increase trade count and slippage.",
+    "direction_tag": "lower_min_edge",
+    "expected_metric_change": {
+        "trade_count": "increase",
+        "ev": "uncertain"
+    },
+    "hypotheses": [
+        "Structured proposal metadata should survive subprocess parsing."
+    ],
+    "patch_diff": patch
+}))
+""",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "structured-test",
+            "sandbox": "workspace-write",
+            "workspace_root": "workspaces",
+            "execute": True,
+            "timeout_seconds": 5,
+        },
+        memory_failed_patch_threshold=0,
+        memory_failed_direction_threshold=99,
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+        stop_after_no_improvement_rounds=0,
+    )
+
+    manifest = run_iteration_loop(
+        run_id="codex-structured-fixture",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/codex-structured-fixture/round_001"
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    attempts = json.loads(
+        (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
+    )
+    prompt_seen = (
+        repo
+        / "workspaces/codex-structured-fixture/round_001/strategy_workspace/prompt_seen.txt"
+    ).read_text(encoding="utf-8")
+
+    assert manifest["completed_rounds"] == 1
+    assert proposal["agent_name"] == "codex_cli"
+    assert proposal["summary"] == "Lower MIN_EDGE through structured JSON."
+    assert proposal["direction_tag"] == "lower_min_edge"
+    assert proposal["expected_metric_change"]["trade_count"] == "increase"
+    assert proposal["hypotheses"] == [
+        "Structured proposal metadata should survive subprocess parsing."
+    ]
+    assert "MIN_EDGE = 0.04" in proposal["patch_diff"]
+    assert proposal["contract_errors"] == []
+    assert attempts[0]["status"] == "selectable"
+    assert attempts[0]["selected"] is True
+    assert "agent_context.json" in prompt_seen
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
 def test_codex_cli_adapter_execute_failure_is_rejected(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     report_path = repo / "experiments/run-2/round_001/train_report_before.md"

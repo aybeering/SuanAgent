@@ -234,8 +234,10 @@ def extract_proposal_metadata(raw_output: str) -> dict[str, object]:
 
 def metadata_patch_diff(metadata: dict[str, object]) -> str:
     """Return patch_diff from metadata with a trailing newline, if present."""
-    patch_diff = str(metadata.get("patch_diff", "")).strip()
-    return patch_diff + "\n" if patch_diff else ""
+    patch_diff = str(metadata.get("patch_diff", ""))
+    if not patch_diff.strip():
+        return ""
+    return patch_diff if patch_diff.endswith("\n") else patch_diff + "\n"
 
 
 def metadata_expected_metric_change(metadata: dict[str, object]) -> dict[str, str]:

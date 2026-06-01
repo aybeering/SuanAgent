@@ -26,8 +26,9 @@ explicitly set to `true`. Example configs live in `config/adaptive_stub.json`,
 `config/codex_dry_run.json`, and `config/codex_cli_guarded.json`.
 
 Codex-facing adapters use ignored `workspaces/<run_id>/<round_id>/` directories
-for isolated project copies. Returned text is parsed as a unified diff and must
-touch only `strategies/current_strategy.py`.
+for isolated project copies. Returned text can be a unified diff or structured
+proposal JSON, and the extracted patch must touch only
+`strategies/current_strategy.py`.
 
 GitHub Actions runs the deterministic smoke suite on every push and pull
 request. The workflow uses `python -m pytest`, preflight validation, the

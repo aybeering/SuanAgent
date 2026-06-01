@@ -191,7 +191,9 @@ split and runs selectable candidates against it before final selection, storing
 Iteration runs also write `candidate_leaderboard.json`, a run-level search trace
 that ranks all candidate attempts by selection status, direction tag, direction
 prior, exploration bonus, probe deltas, validation deltas, and deterministic
-candidate score.
+candidate score. When a champion registry exists, candidate scoring also records
+a capped champion-gap feature comparing each candidate's probe EV delta with the
+current champion's validation EV delta.
 Later rounds include prior rows from that leaderboard in `agent_context.md`, so
 modifier backends can avoid weak search directions and reuse promising ones.
 The optional `exploration.stop_after_no_improvement_rounds` policy can stop a

@@ -16,9 +16,12 @@ DEFAULT_CANDIDATE_SELECTION = {
     "direction_prior_weight": 1.0,
     "exploration_bonus_weight": 1.0,
     "probe_weight": 1.0,
+    "champion_gap_weight": 1.0,
     "probe_ev_multiplier": 1000,
     "probe_ev_cap": 25,
     "probe_trade_count_cap": 5,
+    "champion_gap_multiplier": 1000,
+    "champion_gap_cap": 15,
 }
 
 

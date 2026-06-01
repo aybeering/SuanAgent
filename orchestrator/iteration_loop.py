@@ -758,6 +758,7 @@ def candidate_leaderboard_rows(run_dir: Path) -> list[dict[str, object]]:
                     ),
                     "direction_prior": attempt.get("direction_prior", {}),
                     "exploration_bonus": attempt.get("exploration_bonus", {}),
+                    "champion_gap": attempt.get("champion_gap", {}),
                     "patch_check_error": attempt.get("patch_check_error", ""),
                     "probe_error": attempt.get("probe_error", ""),
                     "probe_artifacts": attempt.get("probe_artifacts", {}),
@@ -805,6 +806,7 @@ def proposal_attempt_record(
     direction_filter_reason: str,
     direction_prior_payload: dict[str, object],
     exploration_bonus_payload: dict[str, object],
+    champion_gap_payload: dict[str, object],
     patch_check_error: str,
     status: str,
     candidate_score: int,
@@ -848,6 +850,7 @@ def proposal_attempt_record(
         "direction_filter_reason": direction_filter_reason,
         "direction_prior": direction_prior_payload,
         "exploration_bonus": exploration_bonus_payload,
+        "champion_gap": champion_gap_payload,
         "patch_check_error": patch_check_error,
         "proposal": payload,
     }
@@ -975,6 +978,12 @@ def select_proposal_candidate(
             )
             if probe_error:
                 status = "probe_failed"
+        champion_gap_payload = champion_gap_payload_for_candidate(
+            experiments_dir=experiments_dir,
+            probe_metrics_before=probe_metrics_before,
+            probe_metrics_after=probe_metrics_after,
+            candidate_selection=candidate_selection,
+        )
         score_payload = score_proposal_candidate(
             proposal=proposal,
             role=role,
@@ -987,6 +996,7 @@ def select_proposal_candidate(
             probe_error=probe_error,
             direction_prior_payload=direction_prior_payload,
             exploration_bonus_payload=exploration_bonus_payload,
+            champion_gap_payload=champion_gap_payload,
             candidate_selection=candidate_selection,
         )
         attempts.append(
@@ -998,6 +1008,7 @@ def select_proposal_candidate(
                 direction_filter_reason=direction_memory_reason,
                 direction_prior_payload=direction_prior_payload,
                 exploration_bonus_payload=exploration_bonus_payload,
+                champion_gap_payload=champion_gap_payload,
                 patch_check_error=patch_check_error,
                 status=status,
                 candidate_score=int(score_payload["score"]),
@@ -1102,6 +1113,7 @@ def score_proposal_candidate(
     probe_error: str,
     direction_prior_payload: dict[str, object],
     exploration_bonus_payload: dict[str, object],
+    champion_gap_payload: dict[str, object],
     candidate_selection: dict[str, float | int],
 ) -> dict[str, object]:
     """Score a candidate deterministically before running expensive evaluation."""
@@ -1155,7 +1167,60 @@ def score_proposal_candidate(
     if probe_delta:
         score += probe_delta
         reasons.append(probe_reason)
+    champion_delta, champion_reason = champion_gap_score(
+        champion_gap_payload,
+        candidate_selection,
+    )
+    if champion_delta:
+        score += champion_delta
+        reasons.append(champion_reason)
     return {"score": score, "reasons": reasons}
+
+
+def champion_gap_payload_for_candidate(
+    *,
+    experiments_dir: Path,
+    probe_metrics_before: dict[str, float | int],
+    probe_metrics_after: dict[str, float | int],
+    candidate_selection: dict[str, float | int],
+) -> dict[str, object]:
+    """Return deterministic metadata comparing candidate probe EV to champion EV."""
+    base_payload: dict[str, object] = {
+        "active": False,
+        "reason": "",
+        "champion_run_id": "",
+        "champion_validation_ev_delta": 0.0,
+        "candidate_probe_ev_delta": 0.0,
+        "gap": 0.0,
+        "score_delta": 0,
+    }
+    champion_path = experiments_dir / "champion.json"
+    if not champion_path.exists() or not probe_metrics_before or not probe_metrics_after:
+        return base_payload
+    champion_payload = json.loads(champion_path.read_text(encoding="utf-8"))
+    if not isinstance(champion_payload, dict):
+        return base_payload
+    champion_delta = float(champion_payload.get("validation_ev_delta", 0.0))
+    candidate_delta = metric_delta(probe_metrics_before, probe_metrics_after, "ev")
+    gap = round(candidate_delta - champion_delta, 6)
+    multiplier = float(candidate_selection.get("champion_gap_multiplier", 1000))
+    cap = score_setting(candidate_selection, "champion_gap_cap")
+    raw_score = clamp_int(int(round(gap * multiplier)), -cap, cap)
+    champion_run_id = str(champion_payload.get("champion_run_id", ""))
+    return {
+        **base_payload,
+        "active": True,
+        "reason": (
+            f"champion gap vs {champion_run_id}: candidate_probe_ev_delta "
+            f"{candidate_delta:.6f} - champion_validation_ev_delta "
+            f"{champion_delta:.6f} = {gap:.6f}"
+        ),
+        "champion_run_id": champion_run_id,
+        "champion_validation_ev_delta": champion_delta,
+        "candidate_probe_ev_delta": candidate_delta,
+        "gap": gap,
+        "score_delta": raw_score,
+    }
 
 
 def exploration_bonus_payload_for_candidate(
@@ -1267,6 +1332,29 @@ def exploration_bonus_score(
         raw_delta,
         score_delta,
         score_weight(candidate_selection, "exploration_bonus_weight"),
+    )
+
+
+def champion_gap_score(
+    payload: dict[str, object],
+    candidate_selection: dict[str, float | int],
+) -> tuple[int, str]:
+    """Return score contribution and reason text from champion-gap metadata."""
+    if not payload.get("active", False):
+        return 0, ""
+    raw_delta = int(payload.get("score_delta", 0))
+    score_delta = weighted_score(
+        raw_delta,
+        candidate_selection,
+        "champion_gap_weight",
+    )
+    if score_delta == 0:
+        return 0, ""
+    return score_delta, weighted_reason(
+        str(payload.get("reason", "champion gap")),
+        raw_delta,
+        score_delta,
+        score_weight(candidate_selection, "champion_gap_weight"),
     )
 
 
@@ -1430,6 +1518,11 @@ def weighted_score(
 ) -> int:
     """Return a rounded weighted score delta."""
     return int(round(raw_delta * score_weight(candidate_selection, weight_key)))
+
+
+def clamp_int(value: int, minimum: int, maximum: int) -> int:
+    """Clamp an integer between inclusive bounds."""
+    return max(minimum, min(maximum, value))
 
 
 def score_setting(

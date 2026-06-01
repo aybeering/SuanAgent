@@ -124,7 +124,9 @@ def test_default_config_loads_dataset_splits() -> None:
     assert config.holdout_policy["min_ev_delta"] == -0.01
     assert config.candidate_selection["base_selectable_score"] == 100
     assert config.candidate_selection["direction_prior_weight"] == 1.0
+    assert config.candidate_selection["champion_gap_weight"] == 1.0
     assert config.candidate_selection["probe_ev_cap"] == 25
+    assert config.candidate_selection["champion_gap_cap"] == 15
     assert config.stop_on_repeated_proposal is True
 
 
@@ -2897,6 +2899,14 @@ def test_agent_context_includes_current_champion_when_registry_exists(
     agent_input = json.loads(
         (round_dir / "agent_input.json").read_text(encoding="utf-8")
     )
+    attempts = json.loads(
+        (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
+    )
+    leaderboard = json.loads(
+        (
+            repo / "experiments/context-challenger/candidate_leaderboard.json"
+        ).read_text(encoding="utf-8")
+    )
 
     assert "Current Champion" in context_text
     assert "context-champion-current" in context_text
@@ -2906,6 +2916,11 @@ def test_agent_context_includes_current_champion_when_registry_exists(
     assert context_payload["previous_champion_comparison"]["exists"] is False
     assert agent_input["artifacts"]["champion_registry"].endswith("champion.json")
     assert agent_input["artifacts"]["previous_champion_comparison"] == ""
+    assert attempts[0]["champion_gap"]["active"] is True
+    assert attempts[0]["champion_gap"]["champion_run_id"] == "context-champion-current"
+    assert attempts[0]["champion_gap"]["score_delta"] < 0
+    assert any("champion gap" in reason for reason in attempts[0]["score_reasons"])
+    assert leaderboard[0]["champion_gap"]["active"] is True
     assert_matches_schema(round_dir / "agent_input.json", "agent_input")
 
     next_context_payload = build_agent_context_payload(

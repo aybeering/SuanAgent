@@ -151,6 +151,9 @@
           },
           "selection_reason": {
             "type": "string"
+          },
+          "champion_gap": {
+            "type": "object"
           }
         }
       }

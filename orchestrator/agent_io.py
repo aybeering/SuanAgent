@@ -212,6 +212,7 @@ def compact_attempts(attempts: list[dict[str, object]]) -> list[dict[str, object
                 "candidate_score": attempt.get("candidate_score", 0),
                 "patch_sha256": attempt.get("patch_sha256", ""),
                 "selection_reason": attempt.get("selection_reason", ""),
+                "champion_gap": attempt.get("champion_gap", {}),
             }
         )
     return rows

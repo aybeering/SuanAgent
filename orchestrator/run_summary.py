@@ -123,8 +123,8 @@ def write_iteration_summary(
             lines.extend(["", "## Candidate Leaderboard", ""])
             lines.extend(
                 [
-                    "| Round | Role | Agent | Direction | Prior | Explore | Selected | Score | Probe EV | Validation EV | Status |",
-                    "| --- | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
+                    "| Round | Role | Agent | Direction | Prior | Explore | Champion Gap | Selected | Score | Probe EV | Validation EV | Status |",
+                    "| --- | --- | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
                 ]
             )
             for row in candidate_rows[:10]:
@@ -232,6 +232,7 @@ def candidate_leaderboard_row(row: dict[str, Any]) -> str:
         f"| {escape_cell(str(row.get('direction_tag', '')) or 'none')} "
         f"| {escape_cell(direction_prior_label(row.get('direction_prior', {})))} "
         f"| {escape_cell(exploration_bonus_label(row.get('exploration_bonus', {})))} "
+        f"| {escape_cell(champion_gap_label(row.get('champion_gap', {})))} "
         f"| `{str(bool(row.get('selected', False))).lower()}` "
         f"| {escape_cell(str(row.get('candidate_score', 0)))} "
         f"| {escape_cell(str(row.get('probe_ev_delta', 0.0)))} "
@@ -267,6 +268,15 @@ def exploration_bonus_label(value: object) -> str:
     score_delta = int(value.get("score_delta", 0))
     sign = "+" if score_delta > 0 else ""
     return f"{sign}{score_delta}"
+
+
+def champion_gap_label(value: object) -> str:
+    """Return compact champion-gap text."""
+    if not isinstance(value, dict) or not value.get("active"):
+        return "none"
+    score_delta = int(value.get("score_delta", 0))
+    sign = "+" if score_delta > 0 else ""
+    return f"{sign}{score_delta} gap={float(value.get('gap', 0.0)):.6f}"
 
 
 def best_validation_round(rounds: list[dict[str, object]]) -> dict[str, object] | None:

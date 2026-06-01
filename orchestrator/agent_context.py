@@ -177,8 +177,8 @@ def build_agent_context_markdown(payload: dict[str, object]) -> str:
         lines.extend(
             [
                 "| Round | Role | Agent | Selected | Score | Probe EV Delta | "
-                "Validation EV Delta | Direction | Prior | Explore | Status | Summary |",
-                "| --- | --- | --- | --- | ---: | ---: | ---: | --- | --- | --- | --- | --- |",
+                "Validation EV Delta | Direction | Prior | Explore | Champion Gap | Status | Summary |",
+                "| --- | --- | --- | --- | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- |",
             ]
         )
         for payload in candidate_rows:
@@ -300,6 +300,7 @@ def candidate_search_row(payload: dict[str, object]) -> str:
         f"| {escape_cell(str(payload.get('direction_tag', '')) or 'none')} "
         f"| {escape_cell(direction_prior_label(payload.get('direction_prior', {})))} "
         f"| {escape_cell(exploration_bonus_label(payload.get('exploration_bonus', {})))} "
+        f"| {escape_cell(champion_gap_label(payload.get('champion_gap', {})))} "
         f"| {escape_cell(str(payload.get('status', '')))} "
         f"| {escape_cell(str(payload.get('summary', '')))} |"
     )
@@ -426,6 +427,19 @@ def exploration_bonus_label(value: object) -> str:
     score_delta = int(value.get("score_delta", 0))
     sign = "+" if score_delta > 0 else ""
     return f"{sign}{score_delta}"
+
+
+def champion_gap_label(value: object) -> str:
+    """Return compact champion-gap text for agent context."""
+    if not isinstance(value, dict) or not value.get("active"):
+        return "none"
+    score_delta = int(value.get("score_delta", 0))
+    sign = "+" if score_delta > 0 else ""
+    return (
+        f"{sign}{score_delta} "
+        f"(gap={float(value.get('gap', 0.0)):.6f}, "
+        f"champion={value.get('champion_run_id', '')})"
+    )
 
 
 def delta_cell(payload: dict[str, object], before_key: str, after_key: str) -> str:

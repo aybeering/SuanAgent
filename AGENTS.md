@@ -298,6 +298,11 @@ configured no-improvement window. The bonus should apply only to low-sample
 directions that were not selected in the recent no-improvement window, record
 its trigger metadata, and only affect candidate ranking. It must not decide
 final acceptance.
+Candidate scoring may also include a capped champion-gap feature when
+`experiments/champion.json` exists. This feature compares the candidate's probe
+EV delta with the current champion's validation EV delta, records the gap in
+`proposal_attempts.json` and `candidate_leaderboard.json`, and only affects
+candidate ranking. It must not decide final acceptance.
 For selectable candidates, the loop may run a tiny probe evaluation copied from
 the train split. Probe data must be written under the round directory, not under
 `data/`, and each candidate's probe artifacts should be linked from

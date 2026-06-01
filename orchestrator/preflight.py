@@ -147,6 +147,8 @@ def validate_candidate_selection(config: ProjectConfig, errors: list[str]) -> No
         "probe_ev_multiplier",
         "probe_ev_cap",
         "probe_trade_count_cap",
+        "champion_gap_multiplier",
+        "champion_gap_cap",
     )
     for key in non_negative_keys:
         if float(config.candidate_selection.get(key, 0.0)) < 0.0:

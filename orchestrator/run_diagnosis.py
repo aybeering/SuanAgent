@@ -203,6 +203,7 @@ def compact_candidates(rows: list[dict[str, Any]]) -> list[dict[str, object]]:
                 "agent_name": row.get("agent_name", ""),
                 "direction_tag": row.get("direction_tag", ""),
                 "candidate_score": row.get("candidate_score", 0),
+                "champion_gap": row.get("champion_gap", {}),
                 "validation_ev_delta": row.get("validation_ev_delta"),
                 "status": row.get("status", ""),
             }

@@ -76,6 +76,9 @@ Iteration summaries include proposal hypotheses, expected metric changes, risk
 notes, patch fingerprints, and repeat-patch detection.
 Iteration status is one of `accepted`, `stopped_repeated_proposal`,
 `stopped_max_rounds`, or `failed`.
+Each round also writes `agent_context.md`, a deterministic summary of prior
+failed proposals and metric deltas that future agent backends can read before
+creating the next patch.
 
 Use `python -m orchestrator.experiments list` and
 `python -m orchestrator.experiments show <run_id>` to inspect local experiment

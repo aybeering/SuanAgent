@@ -46,9 +46,11 @@ class CodexDryRunModifier:
         repo_root: Path,
         old_threshold: str,
         new_threshold: str,
+        context_path: Path | None = None,
     ) -> StrategyProposal:
         """Return a no-op proposal with the would-be Codex prompt and command."""
         report_text = report_path.read_text(encoding="utf-8")
+        context_text = context_path.read_text(encoding="utf-8") if context_path else ""
         target_relative = target_file.relative_to(repo_root)
         run_id, round_id = workspace_ids_from_report(report_path)
         workspace_path = create_isolated_workspace(
@@ -61,6 +63,7 @@ class CodexDryRunModifier:
             report_text=report_text,
             target_file=str(target_relative),
             round_index=round_index,
+            context_text=context_text,
         )
         command = build_codex_command(
             executable=self.executable,
@@ -96,6 +99,7 @@ def build_codex_prompt(
     report_text: str,
     target_file: str,
     round_index: int,
+    context_text: str = "",
 ) -> str:
     """Build the prompt that would be sent to an isolated Codex CLI process."""
     return "\n".join(
@@ -105,6 +109,9 @@ def build_codex_prompt(
             f"Only modify: {target_file}",
             "Do not modify data, backtester, reports, orchestrator, or tests.",
             "Return a unified diff patch only.",
+            "",
+            "Prior proposal context:",
+            context_text or "No prior proposal context was provided.",
             "",
             "Report:",
             report_text,

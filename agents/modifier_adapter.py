@@ -20,5 +20,6 @@ class StrategyModifier(Protocol):
         repo_root: Path,
         old_threshold: str,
         new_threshold: str,
+        context_path: Path | None = None,
     ) -> StrategyProposal:
         """Return a proposed strategy patch."""

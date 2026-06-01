@@ -32,6 +32,7 @@ class FixedPatchModifier:
         repo_root: Path = Path("."),
         old_threshold: str = OLD_THRESHOLD,
         new_threshold: str = NEW_THRESHOLD,
+        context_path: Path | None = None,
     ) -> StrategyProposal:
         """Return the fixed threshold-change proposal."""
         return propose_strategy_change(
@@ -41,6 +42,7 @@ class FixedPatchModifier:
             repo_root=repo_root,
             old_threshold=old_threshold,
             new_threshold=new_threshold,
+            context_path=context_path,
         )
 
 
@@ -52,9 +54,11 @@ def propose_strategy_change(
     repo_root: Path = Path("."),
     old_threshold: str = OLD_THRESHOLD,
     new_threshold: str = NEW_THRESHOLD,
+    context_path: Path | None = None,
 ) -> StrategyProposal:
     """Return a fixed proposal that lowers the candidate strategy threshold."""
     report_text = report_path.read_text(encoding="utf-8")
+    context_text = context_path.read_text(encoding="utf-8") if context_path else ""
     target_text = target_file.read_text(encoding="utf-8")
     target_relative = target_file.relative_to(repo_root)
 
@@ -66,7 +70,10 @@ def propose_strategy_change(
             summary="No patch generated because the expected threshold was absent.",
             risk_notes="No file change was proposed.",
             expected_metric_change={},
-            raw_response=f"Read report with {len(report_text)} characters.",
+            raw_response=(
+                f"Read report with {len(report_text)} characters and "
+                f"context with {len(context_text)} characters."
+            ),
             patch_diff="",
             applicable=False,
             hypotheses=(
@@ -96,7 +103,10 @@ def propose_strategy_change(
             "ev": "uncertain",
             "avg_slippage": "slight_increase",
         },
-        raw_response=f"stub response: read report with {len(report_text)} characters",
+        raw_response=(
+            f"stub response: read report with {len(report_text)} characters and "
+            f"context with {len(context_text)} characters"
+        ),
         patch_diff=patch_diff,
         applicable=True,
         hypotheses=(

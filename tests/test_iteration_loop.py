@@ -17,6 +17,7 @@ from agents.codex_dry_run_adapter import (
 from agents.strategy_modifier_stub import NEW_THRESHOLD, OLD_THRESHOLD, propose_strategy_change
 from backtester.schema import MarketSnapshot, StrategyOrder
 from backtester.simulate import validate_strategy_orders
+from orchestrator.agent_context import build_agent_context
 from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
 from orchestrator.iteration_loop import run_iteration_loop
@@ -191,6 +192,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "holdout_metrics_after.json",
         "holdout_report_after.md",
         "holdout_trades_after.csv",
+        "agent_context.md",
         "proposal.json",
         "agent_response.txt",
         "patch.diff",
@@ -212,6 +214,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert "round_001" in summary_text
     assert "strategy_modifier_stub" in summary_text
     assert "ev improvement" in summary_text
+    context_text = (round_dir / "agent_context.md").read_text(encoding="utf-8")
+    assert "No prior rounds in this run." in context_text
 
 
 def test_iteration_loop_accepts_and_stops_with_relaxed_rules(tmp_path: Path) -> None:
@@ -297,6 +301,12 @@ def test_iteration_loop_stops_on_repeated_proposal_by_default(tmp_path: Path) ->
     assert saved_manifest["status"] == "stopped_repeated_proposal"
     assert saved_manifest["stop_reason"] == "round_002 repeated patch from round_001"
     assert proposal["is_repeat_patch"] is True
+    context_text = (run_dir / "round_002/agent_context.md").read_text(
+        encoding="utf-8"
+    )
+    assert "round_001" in context_text
+    assert "ev improvement" in context_text
+    assert proposal["patch_sha256"][:12] in context_text
     assert "yes (round_001)" in summary_text
     assert "- Stop reason: `round_002 repeated patch from round_001`" in summary_text
 
@@ -391,6 +401,8 @@ def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -
     ]
     assert "Only modify: strategies/current_strategy.py" in proposal["prompt"]
     assert "Return a unified diff patch only." in proposal["prompt"]
+    assert "Prior proposal context:" in proposal["prompt"]
+    assert "No prior rounds in this run." in proposal["prompt"]
     assert "workspaces/dry-run/round_001/strategy_workspace" in proposal["workspace_path"]
     assert (
         repo
@@ -518,6 +530,7 @@ def test_codex_prompt_and_command_builders_are_deterministic() -> None:
         report_text="# Report\nmetric: value\n",
         target_file="strategies/current_strategy.py",
         round_index=3,
+        context_text="# Agent Context\n- prior failure\n",
     )
     command = build_codex_command(
         executable="codex",
@@ -528,6 +541,7 @@ def test_codex_prompt_and_command_builders_are_deterministic() -> None:
 
     assert "Round: 3" in prompt
     assert "Only modify: strategies/current_strategy.py" in prompt
+    assert "prior failure" in prompt
     assert command == [
         "codex",
         "exec",
@@ -538,6 +552,27 @@ def test_codex_prompt_and_command_builders_are_deterministic() -> None:
         "--",
         "Modify only strategies/current_strategy.py and return a patch.",
     ]
+
+
+def test_agent_context_summarizes_prior_failed_rounds(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="context-history",
+        max_rounds=2,
+        repo_root=repo,
+        stop_on_repeated_proposal=False,
+    )
+
+    context_text = build_agent_context(
+        run_dir=repo / "experiments/context-history",
+        current_round_id="round_003",
+    )
+
+    assert "round_001" in context_text
+    assert "round_002" in context_text
+    assert "Failed Patch Hashes" in context_text
+    assert "ev improvement" in context_text
+    assert "yes (round_001)" in context_text
 
 
 def test_iteration_loop_cli_arguments_work(tmp_path: Path) -> None:

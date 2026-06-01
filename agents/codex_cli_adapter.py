@@ -51,9 +51,11 @@ class CodexCliModifier:
         repo_root: Path,
         old_threshold: str,
         new_threshold: str,
+        context_path: Path | None = None,
     ) -> StrategyProposal:
         """Build the Codex request and optionally execute it."""
         report_text = report_path.read_text(encoding="utf-8")
+        context_text = context_path.read_text(encoding="utf-8") if context_path else ""
         target_relative = target_file.relative_to(repo_root)
         run_id, round_id = workspace_ids_from_report(report_path)
         workspace_path = create_isolated_workspace(
@@ -66,6 +68,7 @@ class CodexCliModifier:
             report_text=report_text,
             target_file=str(target_relative),
             round_index=round_index,
+            context_text=context_text,
         )
         command = build_codex_command(
             executable=self.executable,

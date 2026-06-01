@@ -129,6 +129,7 @@ Current structure:
 ├── orchestrator/
 │   ├── run_loop.py
 │   ├── iteration_loop.py
+│   ├── agent_context.py
 │   ├── policy_gate.py
 │   ├── proposal.py
 │   ├── run_summary.py
@@ -192,6 +193,7 @@ round_001/
   holdout_metrics_before.json
   holdout_report_before.md
   holdout_trades_before.csv
+  agent_context.md
   proposal.json
   agent_response.txt
   patch.diff
@@ -212,6 +214,9 @@ Additional rounds use the same `round_NNN/` structure.
 Each `proposal.json` should keep agent output auditable. It records the patch,
 agent summary, hypotheses, expected metric changes, risk notes, patch hash,
 quality checks, and whether the patch repeats a prior round in the same run.
+Each `agent_context.md` should summarize prior rounds for the next modifier
+call, including failed patch hashes, validation/holdout deltas, repeat status,
+and deterministic rejection reasons.
 
 ## Strategy policy
 
@@ -368,7 +373,7 @@ When the V0.5 loop runs, it should:
 3. Run the current strategy before modification on all configured data splits.
 4. Save train, validation, and holdout before metrics, trades, and reports.
 5. Call the fixed strategy modifier stub using the train report.
-6. Save `proposal.json`, `agent_response.txt`, and `patch.diff`.
+6. Save `agent_context.md`, `proposal.json`, `agent_response.txt`, and `patch.diff`.
 7. Apply the patch with Git.
 8. Run the modified strategy on all configured data splits.
 9. Save train, validation, and holdout after metrics, trades, and reports.

@@ -13,6 +13,7 @@ from typing import Iterator
 
 from agents.modifier_adapter import StrategyModifier
 from agents.registry import get_strategy_modifier
+from orchestrator.agent_context import write_agent_context
 from orchestrator.config import ProjectConfig, load_project_config
 from orchestrator.experiment_index import append_experiment_index
 from orchestrator.git_manager import (
@@ -235,6 +236,11 @@ def run_round(
         repo_root=repo_root,
         old_threshold=stub_old_threshold,
         new_threshold=stub_new_threshold,
+        context_path=write_agent_context(
+            run_dir=round_dir.parent,
+            current_round_id=round_id,
+            output_path=round_dir / "agent_context.md",
+        ),
     )
     proposal = annotate_proposal_quality(
         proposal=proposal,

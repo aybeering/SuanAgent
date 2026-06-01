@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Agent Execution Plan",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "round_id",
+    "round_dir",
+    "queue_count",
+    "execution_policy",
+    "attempts",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "agent_execution_plan_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "round_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "round_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "queue_count": {
+      "type": "integer"
+    },
+    "execution_policy": {
+      "type": "object",
+      "required": [
+        "mode",
+        "queue_order",
+        "attempt_id_source",
+        "acceptance",
+        "max_candidates",
+        "per_agent_timeout_seconds",
+        "allow_disabled_adapters"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "queue_order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "attempt_id_source": {
+          "type": "string"
+        },
+        "acceptance": {
+          "type": "string"
+        },
+        "max_candidates": {
+          "type": "integer"
+        },
+        "per_agent_timeout_seconds": {
+          "type": "integer"
+        },
+        "allow_disabled_adapters": {
+          "type": "boolean"
+        }
+      }
+    },
+    "attempts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "attempt_id",
+          "attempt_index",
+          "queue_role",
+          "profile_name",
+          "adapter_name",
+          "agent_role",
+          "modifier_name",
+          "runner",
+          "workspace",
+          "input_contract",
+          "output_contract",
+          "planned_artifacts"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attempt_index": {
+            "type": "integer"
+          },
+          "queue_role": {
+            "type": "string"
+          },
+          "profile_name": {
+            "type": "string"
+          },
+          "adapter_name": {
+            "type": "string"
+          },
+          "agent_role": {
+            "type": "string"
+          },
+          "modifier_name": {
+            "type": "string"
+          },
+          "runner": {
+            "type": "object"
+          },
+          "workspace": {
+            "type": "object",
+            "required": [
+              "workspace_required",
+              "isolation",
+              "workspace_root",
+              "effective_workspace_run_id",
+              "expected_workspace_path",
+              "mutation_guard_required",
+              "allowed_mutation_paths"
+            ],
+            "properties": {
+              "workspace_required": {
+                "type": "boolean"
+              },
+              "isolation": {
+                "type": "string"
+              },
+              "workspace_root": {
+                "type": "string"
+              },
+              "effective_workspace_run_id": {
+                "type": "string"
+              },
+              "expected_workspace_path": {
+                "type": "string"
+              },
+              "mutation_guard_required": {
+                "type": "boolean"
+              },
+              "allowed_mutation_paths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "input_contract": {
+            "type": "object",
+            "required": [
+              "round_agent_input",
+              "attempt_agent_input",
+              "input_bundle_dir"
+            ],
+            "properties": {
+              "round_agent_input": {
+                "type": "string"
+              },
+              "attempt_agent_input": {
+                "type": "string"
+              },
+              "input_bundle_dir": {
+                "type": "string"
+              }
+            }
+          },
+          "output_contract": {
+            "type": "object",
+            "required": [
+              "output_mode",
+              "allowed_output_files",
+              "round_output_files",
+              "attempt_output_bundle",
+              "file_contract_required",
+              "stdout_patch_allowed",
+              "agent_execution_audit"
+            ],
+            "properties": {
+              "output_mode": {
+                "type": "string"
+              },
+              "allowed_output_files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "round_output_files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "attempt_output_bundle": {
+                "type": "string"
+              },
+              "file_contract_required": {
+                "type": "boolean"
+              },
+              "stdout_patch_allowed": {
+                "type": "boolean"
+              },
+              "agent_execution_audit": {
+                "type": "string"
+              }
+            }
+          },
+          "planned_artifacts": {
+            "type": "object",
+            "required": [
+              "attempt_dir",
+              "proposal",
+              "raw_output",
+              "attempt_output",
+              "workspace_manifest",
+              "agent_execution"
+            ],
+            "properties": {
+              "attempt_dir": {
+                "type": "string"
+              },
+              "proposal": {
+                "type": "string"
+              },
+              "raw_output": {
+                "type": "string"
+              },
+              "attempt_output": {
+                "type": "string"
+              },
+              "workspace_manifest": {
+                "type": "string"
+              },
+              "agent_execution": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "plan_only",
+        "does_not_execute_agents",
+        "does_not_select_candidate",
+        "acceptance_still_requires_policy_gate",
+        "only_strategy_modifier_profiles_may_execute"
+      ],
+      "properties": {
+        "plan_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_select_candidate": {
+          "type": "boolean"
+        },
+        "acceptance_still_requires_policy_gate": {
+          "type": "boolean"
+        },
+        "only_strategy_modifier_profiles_may_execute": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

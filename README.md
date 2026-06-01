@@ -24,6 +24,7 @@ The strategy interface contract is documented in
 `schemas/agent_executor.schema.json`, `schemas/agent_output.schema.json`,
 `schemas/agent_validation.schema.json`, `schemas/agent_execution.schema.json`,
 `schemas/agent_activation_preflight.schema.json`,
+`schemas/agent_execution_plan.schema.json`,
 `schemas/agent_role_contracts.schema.json`,
 `schemas/agent_role_readiness.schema.json`,
 `schemas/analysis_notes.schema.json`,
@@ -272,6 +273,7 @@ direction, directions to avoid, evidence, and hard constraints for the modifier.
 Each round also writes `agent_input_bundle/`, `agent_output_bundle/`,
 `agent_bundle_manifest.json`, `agent_attempts/`,
 `agent_attempts_manifest.json`, `agent_selection_report.json`,
+`agent_execution_plan.json`, `agent_execution_plan.md`,
 `agent_executor_report.json`, `agent_routing_policy.json`,
 `agent_role_contracts.json`, `analysis_notes.json`, `analysis_notes.md`,
 `visual_artifacts_manifest.json`, `chart.html`, `trade_timeline.html`,
@@ -314,6 +316,11 @@ blockers, consumed files, produced files, and authority flags. In V0.5, only
 `strategy_modifier` may be executable; analysis, visual review, and overfit
 validation remain contract stubs and cannot change routing, veto, or final
 acceptance.
+`agent_execution_plan.json` is the round-level queue plan written before any
+candidate modifier is invoked. It records planned attempt ids, profiles,
+adapters, agent roles, runner capabilities, expected workspace paths, input
+contracts, output contracts, and planned attempt artifacts. It is plan-only and
+cannot select candidates or change acceptance.
 `agent_input.json` includes `agent_roles`, `agent_profiles`, an `active_agent`
 task envelope, and output-contract paths so future SDK or CLI-backed agents do
 not need to infer their identity or allowed output location from filenames.
@@ -327,7 +334,8 @@ as `codex_cli_guarded_adapter`; and dry-run Codex boundaries are marked as
 `workspace_dry_run`. These blocks record workspace isolation, timeout,
 execution flag, output mode, workspace root, and allowed output filenames where
 relevant. The same runner metadata is copied into
-`manifest.json`, `agent_input.json`, `agent_executor_report.json`,
+`manifest.json`, `agent_input.json`, `agent_execution_plan.json`,
+`agent_executor_report.json`,
 `agent_routing_policy.json`, `agent_output.json`, `agent_attempts_manifest.json`,
 `agent_selection_report.json`, and each `attempt_output.json`, so a single
 blue-node attempt can be routed or audited without guessing how it was supposed
@@ -354,6 +362,7 @@ are validated against
 `schemas/agent_attempts.schema.json`, `schemas/agent_selection.schema.json`,
 `schemas/agent_executor.schema.json`, `schemas/agent_routing_policy.schema.json`,
 `schemas/agent_activation_preflight.schema.json`,
+`schemas/agent_execution_plan.schema.json`,
 `schemas/agent_role_contracts.schema.json`,
 `schemas/agent_role_readiness.schema.json`,
 `schemas/analysis_notes.schema.json`,

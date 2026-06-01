@@ -131,6 +131,14 @@ def build_agent_input_payload(
                 round_dir / "visual_review.md",
                 repo_root,
             ),
+            "agent_execution_plan_json": relative_path(
+                round_dir / "agent_execution_plan.json",
+                repo_root,
+            ),
+            "agent_execution_plan_markdown": relative_path(
+                round_dir / "agent_execution_plan.md",
+                repo_root,
+            ),
             "visual_artifacts_manifest": relative_path(
                 round_dir / "visual_artifacts_manifest.json",
                 repo_root,

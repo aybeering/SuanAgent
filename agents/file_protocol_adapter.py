@@ -333,6 +333,8 @@ def copy_agent_round_inputs(*, source_round_dir: Path, workspace_round_dir: Path
         "visual_artifacts_manifest.json",
         "visual_review.json",
         "visual_review.md",
+        "agent_execution_plan.json",
+        "agent_execution_plan.md",
         "chart.html",
         "trade_timeline.html",
         "agent_input.json",

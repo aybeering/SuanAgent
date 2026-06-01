@@ -25,6 +25,7 @@ from orchestrator.agent_attempts import (
     write_agent_attempts_manifest,
     write_agent_selection_report,
 )
+from orchestrator.agent_execution_plan import write_agent_execution_plan
 from orchestrator.agent_executor import (
     build_agent_queue,
     execute_agent_queue,
@@ -1276,6 +1277,17 @@ def select_proposal_candidate(
         primary_profile=primary_profile,
         fallback_profiles=fallback_profiles,
     )
+    write_agent_execution_plan(
+        output_path=round_dir / "agent_execution_plan.json",
+        markdown_path=round_dir / "agent_execution_plan.md",
+        repo_root=repo_root,
+        round_dir=round_dir,
+        run_id=run_id,
+        round_id=current_round_id,
+        queue=agent_queue,
+        executor_config=executor_config,
+    )
+    write_agent_input_bundle(round_dir=round_dir)
     agent_results = execute_agent_queue(
         queue=agent_queue,
         report_path=report_path,

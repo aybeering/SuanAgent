@@ -20,6 +20,8 @@ INPUT_BUNDLE_FILES = (
     "visual_artifacts_manifest.json",
     "visual_review.json",
     "visual_review.md",
+    "agent_execution_plan.json",
+    "agent_execution_plan.md",
     "chart.html",
     "trade_timeline.html",
     "agent_input.json",

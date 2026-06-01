@@ -25,6 +25,7 @@ from orchestrator.agent_executor import build_agent_queue, execute_agent_queue
 from orchestrator.agent_activation_preflight import (
     AGENT_ACTIVATION_PREFLIGHT_SCHEMA_VERSION,
 )
+from orchestrator.agent_execution_plan import AGENT_EXECUTION_PLAN_SCHEMA_VERSION
 from orchestrator.agent_io import (
     AGENT_INPUT_SCHEMA_VERSION,
     AGENT_OUTPUT_SCHEMA_VERSION,
@@ -921,6 +922,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "trade_timeline.html",
         "visual_review.json",
         "visual_review.md",
+        "agent_execution_plan.json",
+        "agent_execution_plan.md",
         "agent_input.json",
         "agent_bundle_manifest.json",
         "agent_output.json",
@@ -963,6 +966,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     visual_review = json.loads(
         (round_dir / "visual_review.json").read_text(encoding="utf-8")
+    )
+    agent_execution_plan = json.loads(
+        (round_dir / "agent_execution_plan.json").read_text(encoding="utf-8")
     )
     brief = json.loads((run_dir / "research_brief.json").read_text(encoding="utf-8"))
     intent = json.loads((round_dir / "proposal_intent.json").read_text(encoding="utf-8"))
@@ -1226,6 +1232,29 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "visual_policy_can_change_acceptance=false"
         in visual_review["observations"]
     )
+    assert agent_execution_plan["schema_version"] == AGENT_EXECUTION_PLAN_SCHEMA_VERSION
+    assert_matches_schema(round_dir / "agent_execution_plan.json", "agent_execution_plan")
+    assert agent_execution_plan["queue_count"] == 3
+    assert [attempt["attempt_id"] for attempt in agent_execution_plan["attempts"]] == [
+        "attempt_001_primary",
+        "attempt_002_fallback_01",
+        "attempt_003_fallback_02",
+    ]
+    assert [attempt["agent_role"] for attempt in agent_execution_plan["attempts"]] == [
+        "strategy_modifier",
+        "strategy_modifier",
+        "strategy_modifier",
+    ]
+    assert agent_execution_plan["attempts"][0]["workspace"][
+        "workspace_required"
+    ] is False
+    assert agent_execution_plan["attempts"][0]["input_contract"][
+        "round_agent_input"
+    ].endswith("agent_input.json")
+    assert agent_execution_plan["attempts"][0]["planned_artifacts"][
+        "attempt_output"
+    ].endswith("attempt_output.json")
+    assert agent_execution_plan["policy"]["does_not_execute_agents"] is True
     assert selected_attempt["candidate_score"] > 0
     assert agent_input["schema_version"] == AGENT_INPUT_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_input.json", "agent_input")
@@ -1248,6 +1277,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert agent_input["artifacts"]["visual_review_markdown"].endswith(
         "visual_review.md"
+    )
+    assert agent_input["artifacts"]["agent_execution_plan_json"].endswith(
+        "agent_execution_plan.json"
+    )
+    assert agent_input["artifacts"]["agent_execution_plan_markdown"].endswith(
+        "agent_execution_plan.md"
     )
     assert agent_input["artifacts"]["chart_html"].endswith("chart.html")
     assert agent_input["artifacts"]["trade_timeline_html"].endswith(
@@ -1308,6 +1343,14 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         for row in agent_bundle["input_files"]
     )
     assert any(
+        row["name"] == "agent_execution_plan.json"
+        for row in agent_bundle["input_files"]
+    )
+    assert any(
+        row["name"] == "agent_execution_plan.md"
+        for row in agent_bundle["input_files"]
+    )
+    assert any(
         row["name"] == "chart.html"
         for row in agent_bundle["input_files"]
     )
@@ -1322,6 +1365,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert (round_dir / "agent_input_bundle/agent_input.json").exists()
     assert (round_dir / "agent_input_bundle/visual_artifacts_manifest.json").exists()
+    assert (round_dir / "agent_input_bundle/agent_execution_plan.json").exists()
     assert (round_dir / "agent_input_bundle/chart.html").exists()
     assert (round_dir / "agent_input_bundle/trade_timeline.html").exists()
     assert (round_dir / "agent_output_bundle/raw_agent_output.txt").exists()
@@ -2942,6 +2986,9 @@ assert active_agent['profile_name'] == 'primary'
 assert active_agent['adapter_name'] == 'file_protocol'
 assert active_agent['agent_role'] == 'strategy_modifier'
 assert pathlib.Path(agent_input['artifacts']['agent_role_contracts']).exists()
+assert pathlib.Path(agent_input['artifacts']['agent_execution_plan_json']).exists()
+plan = json.loads(pathlib.Path(agent_input['artifacts']['agent_execution_plan_json']).read_text(encoding='utf-8'))
+assert plan['attempts'][0]['attempt_id'] == 'attempt_001_primary'
 assert agent_input['output_contract']['workspace_output_path'].endswith('fixture_agent_output.json')
 assert pathlib.Path(agent_input['input_bundle_dir']).exists()
 after = before.replace('MIN_EDGE = 0.05', 'MIN_EDGE = 0.04', 1)
@@ -4138,6 +4185,40 @@ def test_artifact_validator_reports_activation_preflight_violation(
     )
     assert any(
         "agent_activation_preflight.json enabled non-strategy profile" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_execution_plan_role_violation(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-execution-plan-violation",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/artifact-execution-plan-violation/round_001"
+        / "agent_execution_plan.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["attempts"][0]["agent_role"] = "visual_review"
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id="artifact-execution-plan-violation",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "agent_execution_plan.json only strategy_modifier may be planned" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 

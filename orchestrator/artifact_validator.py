@@ -57,6 +57,8 @@ ROUND_REQUIRED_FILES = (
     "trade_timeline.html",
     "visual_review.json",
     "visual_review.md",
+    "agent_execution_plan.json",
+    "agent_execution_plan.md",
     "agent_input.json",
     "agent_bundle_manifest.json",
     "agent_output.json",
@@ -259,6 +261,17 @@ def validate_round_dir(
     validate_contract_file(
         payload_path=round_dir / "agent_bundle_manifest.json",
         schema_path=repo_root / "schemas/agent_bundle.schema.json",
+        report=report,
+    )
+    validate_contract_file(
+        payload_path=round_dir / "agent_execution_plan.json",
+        schema_path=repo_root / "schemas/agent_execution_plan.schema.json",
+        report=report,
+    )
+    validate_agent_execution_plan(
+        path=round_dir / "agent_execution_plan.json",
+        repo_root=repo_root,
+        role_names=role_names,
         report=report,
     )
     validate_agent_bundle_manifest(
@@ -523,6 +536,145 @@ def validate_agent_activation_preflight(
                 report,
                 "agent_activation_preflight.json must not change routing",
             )
+
+
+def validate_agent_execution_plan(
+    *,
+    path: Path,
+    repo_root: Path,
+    role_names: set[str],
+    report: dict[str, object],
+) -> None:
+    """Validate the pre-execution queue plan for one round."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    attempts = payload.get("attempts", [])
+    if not isinstance(attempts, list) or not attempts:
+        add_error(report, "agent_execution_plan.json attempts is empty or invalid")
+        return
+    if payload.get("queue_count") != len(attempts):
+        add_error(report, "agent_execution_plan.json queue_count mismatch")
+    attempt_ids: set[str] = set()
+    primary_count = 0
+    for attempt in attempts:
+        if not isinstance(attempt, dict):
+            add_error(report, "agent_execution_plan.json attempt is non-object")
+            continue
+        attempt_id = str(attempt.get("attempt_id", ""))
+        if attempt_id in attempt_ids:
+            add_error(
+                report,
+                f"agent_execution_plan.json duplicate attempt_id: {attempt_id}",
+            )
+        attempt_ids.add(attempt_id)
+        if str(attempt.get("queue_role", "")) == "primary":
+            primary_count += 1
+        agent_role = str(attempt.get("agent_role", ""))
+        if role_names and agent_role not in role_names:
+            add_error(
+                report,
+                f"agent_execution_plan.json unknown agent_role: {agent_role}",
+            )
+        if agent_role != "strategy_modifier":
+            add_error(
+                report,
+                "agent_execution_plan.json only strategy_modifier may be planned: "
+                f"{agent_role}",
+            )
+        validate_execution_plan_input_contract(
+            attempt=attempt,
+            repo_root=repo_root,
+            report=report,
+        )
+        validate_execution_plan_workspace(attempt=attempt, report=report)
+        validate_execution_plan_output(attempt=attempt, report=report)
+    if primary_count != 1:
+        add_error(report, "agent_execution_plan.json must contain one primary attempt")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "agent_execution_plan.json policy is invalid")
+    else:
+        for key in (
+            "plan_only",
+            "does_not_execute_agents",
+            "does_not_select_candidate",
+            "acceptance_still_requires_policy_gate",
+            "only_strategy_modifier_profiles_may_execute",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(report, f"agent_execution_plan.json policy false: {key}")
+
+
+def validate_execution_plan_input_contract(
+    *,
+    attempt: dict[str, object],
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate planned agent input paths that should exist by validation time."""
+    input_contract = attempt.get("input_contract", {})
+    if not isinstance(input_contract, dict):
+        add_error(report, "agent_execution_plan.json input_contract invalid")
+        return
+    for key in ("round_agent_input", "input_bundle_dir"):
+        contract_path = resolve_path(Path(str(input_contract.get(key, ""))), repo_root)
+        if not contract_path.exists():
+            add_error(
+                report,
+                f"agent_execution_plan.json input contract path missing: {key}",
+            )
+
+
+def validate_execution_plan_workspace(
+    *,
+    attempt: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate planned workspace contract metadata."""
+    workspace = attempt.get("workspace", {})
+    if not isinstance(workspace, dict):
+        add_error(report, "agent_execution_plan.json workspace invalid")
+        return
+    workspace_required = bool(workspace.get("workspace_required", False))
+    if workspace_required:
+        if str(workspace.get("isolation", "")) != "workspace":
+            add_error(report, "agent_execution_plan.json workspace isolation invalid")
+        if not str(workspace.get("expected_workspace_path", "")):
+            add_error(report, "agent_execution_plan.json workspace path missing")
+        if not bool(workspace.get("mutation_guard_required", False)):
+            add_error(report, "agent_execution_plan.json mutation guard required")
+        allowed_paths = workspace.get("allowed_mutation_paths", [])
+        if not isinstance(allowed_paths, list) or not allowed_paths:
+            add_error(report, "agent_execution_plan.json allowed mutations missing")
+
+
+def validate_execution_plan_output(
+    *,
+    attempt: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate planned output contract metadata."""
+    output = attempt.get("output_contract", {})
+    if not isinstance(output, dict):
+        add_error(report, "agent_execution_plan.json output_contract invalid")
+        return
+    allowed_files = output.get("allowed_output_files", [])
+    if not isinstance(allowed_files, list):
+        add_error(report, "agent_execution_plan.json allowed_output_files invalid")
+        return
+    for filename in allowed_files:
+        text = str(filename)
+        if "/" in text or "\\" in text or text in {"", ".", ".."}:
+            add_error(
+                report,
+                f"agent_execution_plan.json allowed output must be basename: {text}",
+            )
+    if bool(output.get("file_contract_required", False)) and not allowed_files:
+        add_error(
+            report,
+            "agent_execution_plan.json file contract requires allowed output files",
+        )
 
 
 def validate_agent_role_contracts(

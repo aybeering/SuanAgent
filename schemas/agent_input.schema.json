@@ -74,6 +74,8 @@
         "visual_artifacts_manifest",
         "visual_review_json",
         "visual_review_markdown",
+        "agent_execution_plan_json",
+        "agent_execution_plan_markdown",
         "chart_html",
         "trade_timeline_html",
         "agent_context_json",
@@ -100,6 +102,12 @@
           "type": "string"
         },
         "visual_review_markdown": {
+          "type": "string"
+        },
+        "agent_execution_plan_json": {
+          "type": "string"
+        },
+        "agent_execution_plan_markdown": {
           "type": "string"
         },
         "chart_html": {

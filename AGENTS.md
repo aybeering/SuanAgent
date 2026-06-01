@@ -85,6 +85,7 @@ Allowed components:
 34. A deterministic `visual_artifacts_manifest.json` that indexes visual inputs, source files, hashes, and visual authority policy.
 35. A deterministic `agent_role_readiness.json` audit that reports which future agent roles are executable, blocked, or contract-only.
 36. A deterministic `agent_activation_preflight.json` startup gate that verifies role/profile activation before iteration begins.
+37. A deterministic `agent_execution_plan.json` round plan that records the candidate queue before any modifier is invoked.
 
 Still out of scope:
 
@@ -133,6 +134,7 @@ Current structure:
 │   ├── agent_validation.schema.json
 │   ├── agent_execution.schema.json
 │   ├── agent_activation_preflight.schema.json
+│   ├── agent_execution_plan.schema.json
 │   ├── agent_role_contracts.schema.json
 │   ├── agent_role_readiness.schema.json
 │   ├── analysis_notes.schema.json
@@ -269,6 +271,8 @@ round_001/
   trade_timeline.html
   visual_review.json
   visual_review.md
+  agent_execution_plan.json
+  agent_execution_plan.md
   overfit_validation.json
   overfit_validation.md
   agent_role_readiness.json
@@ -338,6 +342,7 @@ guidance only; it must not decide acceptance.
 Each round should also write `agent_role_contracts.json`, `analysis_notes.json`,
 `analysis_notes.md`, `visual_artifacts_manifest.json`, `chart.html`,
 `trade_timeline.html`, `visual_review.json`, `visual_review.md`,
+`agent_execution_plan.json`, `agent_execution_plan.md`,
 `overfit_validation.json`, `overfit_validation.md`,
 `agent_role_readiness.json`, `agent_role_readiness.md`,
 `agent_input.json`, `agent_bundle_manifest.json`, `agent_input_bundle/`,
@@ -407,7 +412,8 @@ block. In-process deterministic modifiers should use `runner_name` =
 mode, execution flag, timeout, workspace root, output mode, and allowed output
 filenames where relevant. Runner metadata should be copied into
 `manifest.json`, `agent_input.json`, `agent_executor_report.json`,
-`agent_routing_policy.json`, `agent_output.json`, `agent_attempts_manifest.json`,
+`agent_execution_plan.json`, `agent_routing_policy.json`, `agent_output.json`,
+`agent_attempts_manifest.json`,
 `agent_selection_report.json`, and attempt-scoped `attempt_output.json`.
 `agent_input_bundle/` should be created before calling the modifier and contain
 the read-only files an external agent may inspect, including
@@ -426,6 +432,13 @@ rows, and output artifact paths, including `raw_agent_output.txt`.
 `agent_validation.json` should use schema version `agent_validation_v1` and
 record deterministic intake checks for the selected proposal, including
 contract validity, strategy-only patch targeting, and `git apply --check`.
+`agent_execution_plan.json` should use schema version `agent_execution_plan_v1`
+and record the planned executor queue before any candidate modifier is invoked.
+It should include attempt ids, queue roles, profile names, adapter names, agent
+roles, runner capability blocks, expected workspace paths, allowed mutation
+paths, input contracts, output contracts, and planned attempt artifacts. It is
+plan-only: it must not execute agents, select candidates, or change final
+acceptance.
 `agent_executor_report.json` should use schema version `agent_executor_v1` and
 record the deterministic execution queue, selected attempt id, per-attempt
 modifier names, proposal metadata, runtime artifact paths, and normalized
@@ -717,6 +730,7 @@ Add smoke tests that verify:
 24. Agent I/O fixtures are written as `agent_io_input_v1` and `agent_io_output_v1` JSON.
 25. Agent role readiness is written as `agent_role_readiness_v1` JSON and keeps non-strategy roles non-executable in V0.5.
 26. Agent activation preflight is written as `agent_activation_preflight_v1` JSON and blocks invalid enabled role/profile wiring before iteration starts.
+27. Agent execution planning is written as `agent_execution_plan_v1` JSON before candidate modifiers run.
 
 The project is complete only when these checks pass:
 
@@ -752,7 +766,7 @@ When the V0.5 loop runs, it should:
 4. Run the current strategy before modification on all configured data splits.
 5. Save train, validation, and holdout before metrics, trades, and reports.
 6. Call the fixed strategy modifier stub using the train report.
-7. Save `agent_context.md`, `agent_context.json`, `proposal_intent.json`, `proposal_intent.md`, `agent_input.json`, `raw_agent_output.txt`, `agent_output.json`, `agent_validation.json`, `agent_executor_report.json`, `proposal.json`, `agent_response.txt`, and `patch.diff`.
+7. Save `agent_context.md`, `agent_context.json`, `proposal_intent.json`, `proposal_intent.md`, `agent_input.json`, `agent_execution_plan.json`, `agent_execution_plan.md`, `raw_agent_output.txt`, `agent_output.json`, `agent_validation.json`, `agent_executor_report.json`, `proposal.json`, `agent_response.txt`, and `patch.diff`.
 8. Apply the patch with Git only after deterministic agent-output validation passes.
 9. Run the modified strategy on all configured data splits.
 10. Save train, validation, and holdout after metrics, trades, and reports.

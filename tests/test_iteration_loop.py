@@ -408,6 +408,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "agent_bundle_manifest.json",
         "agent_output.json",
         "agent_validation.json",
+        "agent_attempts_manifest.json",
         "proposal_attempts.json",
         "proposal.json",
         "raw_agent_output.txt",
@@ -430,6 +431,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     agent_input = json.loads((round_dir / "agent_input.json").read_text(encoding="utf-8"))
     agent_bundle = json.loads(
         (round_dir / "agent_bundle_manifest.json").read_text(encoding="utf-8")
+    )
+    agent_attempts = json.loads(
+        (round_dir / "agent_attempts_manifest.json").read_text(encoding="utf-8")
     )
     agent_output = json.loads(
         (round_dir / "agent_output.json").read_text(encoding="utf-8")
@@ -479,6 +483,17 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert (round_dir / "agent_input_bundle/agent_input.json").exists()
     assert (round_dir / "agent_output_bundle/raw_agent_output.txt").exists()
+    assert agent_attempts["schema_version"] == "agent_attempts_v1"
+    assert_matches_schema(round_dir / "agent_attempts_manifest.json", "agent_attempts")
+    assert agent_attempts["attempt_count"] == len(attempts)
+    assert agent_attempts["selected_attempt_id"] == "attempt_001_primary"
+    assert agent_attempts["attempts"][0]["selected"] is True
+    assert agent_attempts["attempts"][0]["files"]
+    assert (
+        round_dir / "agent_attempts/attempt_001_primary/raw_agent_output.txt"
+    ).exists()
+    assert (round_dir / "agent_attempts/attempt_001_primary/proposal.json").exists()
+    assert (round_dir / "agent_attempts/attempt_001_primary/patch.diff").exists()
     assert agent_output["schema_version"] == AGENT_OUTPUT_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_output.json", "agent_output")
     assert agent_output["selected_role"] == selected_attempt["role"]
@@ -2321,6 +2336,10 @@ def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
     assert any(
+        path.endswith("agent_attempts_manifest.json")
+        for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
         path.endswith("workspace_manifest.json")
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
     )
@@ -2522,6 +2541,8 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     assert diagnosis["rounds"][0]["agent_validation_ok"] is True  # type: ignore[index]
     assert diagnosis["rounds"][0]["agent_bundle_present"] is True  # type: ignore[index]
     assert diagnosis["rounds"][0]["agent_bundle_input_file_count"] > 0  # type: ignore[index]
+    assert diagnosis["rounds"][0]["agent_attempt_trace_present"] is True  # type: ignore[index]
+    assert diagnosis["rounds"][0]["agent_attempt_count"] > 0  # type: ignore[index]
     assert "Iteration run" in diagnosis["summary"]
     saved = json.loads(
         (repo / "experiments/diagnose-iteration/diagnosis.json").read_text(

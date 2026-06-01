@@ -149,6 +149,7 @@ Current structure:
 ├── orchestrator/
 │   ├── run_loop.py
 │   ├── iteration_loop.py
+│   ├── agent_attempts.py
 │   ├── agent_bundle.py
 │   ├── agent_context.py
 │   ├── agent_output_intake.py
@@ -236,6 +237,8 @@ round_001/
   agent_output_bundle/
   agent_output.json
   agent_validation.json
+  agent_attempts_manifest.json
+  agent_attempts/
   workspace_manifest.json  # workspace-backed agents only
   proposal.json
   raw_agent_output.txt
@@ -288,7 +291,8 @@ avoid, evidence, source context artifacts, and hard constraints. It is planner
 guidance only; it must not decide acceptance.
 Each round should also write `agent_input.json`, `agent_bundle_manifest.json`,
 `agent_input_bundle/`, `agent_output_bundle/`, `raw_agent_output.txt`,
-`agent_output.json`, and `agent_validation.json`.
+`agent_output.json`, `agent_validation.json`, `agent_attempts_manifest.json`,
+and `agent_attempts/`.
 `agent_input.json` should use schema version `agent_io_input_v1` and describe
 the reports, context, proposal intent, before metrics, policy config,
 candidate-selection config, and modifier list available to the agent.
@@ -307,6 +311,10 @@ rows, and output artifact paths, including `raw_agent_output.txt`.
 `agent_validation.json` should use schema version `agent_validation_v1` and
 record deterministic intake checks for the selected proposal, including
 contract validity, strategy-only patch targeting, and `git apply --check`.
+`agent_attempts/` should contain one subdirectory per candidate attempt, each
+with its own attempt payload, proposal, raw output, and patch. The
+`agent_attempts_manifest.json` artifact should use schema version
+`agent_attempts_v1` and identify the selected attempt.
 The machine-readable contracts for these files live in `schemas/`. Run-level
 metadata should write `run_metadata.json`, include resolved dataset paths and
 dataset SHA-256 fingerprints, use schema version `run_metadata_v1`, and match

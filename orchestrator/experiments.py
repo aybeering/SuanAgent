@@ -19,6 +19,7 @@ from orchestrator.external_agent_sandbox_drill import (
 )
 from orchestrator.experiment_scope_health import build_experiment_scope_health
 from orchestrator.memory_diagnostics import build_memory_diagnostics
+from orchestrator.memory_hygiene import build_memory_hygiene
 from orchestrator.outcome_memory import recent_outcomes
 from orchestrator.run_artifact_health import (
     DEFAULT_HISTORY_FILENAME,
@@ -712,6 +713,41 @@ def candidate_quality_trace(
     payload = build_candidate_quality_trace(
         run_dir=run_dir,
         repo_root=experiments_dir.parent,
+    )
+    payload["from_artifact"] = False
+    return payload
+
+
+def memory_hygiene_report(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+) -> dict[str, object]:
+    """Return memory hygiene for one iteration run."""
+    run_dir = experiments_dir / run_id
+    path = run_dir / "memory_hygiene.json"
+    if path.exists():
+        payload = load_json(path)
+        payload["from_artifact"] = True
+        return payload
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    manifest = load_json(run_dir / "manifest.json") if (run_dir / "manifest.json").exists() else {}
+    memory_policy = (
+        manifest.get("memory_filter_policy", {})
+        if isinstance(manifest.get("memory_filter_policy", {}), dict)
+        else {}
+    )
+    payload = build_memory_hygiene(
+        experiments_dir=experiments_dir,
+        repo_root=experiments_dir.parent,
+        failed_patch_threshold=int(memory_policy.get("failed_patch_threshold", 2)),
+        failed_direction_threshold=int(
+            memory_policy.get("failed_direction_threshold", 3)
+        ),
+        created_at_from=str(memory_policy.get("created_at_from", "")),
+        recent_record_limit=int(memory_policy.get("recent_record_limit", 0) or 0),
+        exclude_run_id=run_id,
     )
     payload["from_artifact"] = False
     return payload
@@ -1521,6 +1557,12 @@ def main() -> None:
     memory_diagnostics_parser.add_argument("--history-path", type=Path)
     memory_diagnostics_parser.add_argument("--created-at-from", default="")
 
+    memory_hygiene_parser = subparsers.add_parser(
+        "memory-hygiene",
+        help="Show outcome memory hygiene for one iteration run.",
+    )
+    memory_hygiene_parser.add_argument("run_id")
+
     scope_health_parser = subparsers.add_parser(
         "scope-health",
         help="Summarize artifact, history, and memory health for one scope.",
@@ -1660,6 +1702,11 @@ def main() -> None:
             or args.experiments_dir / DEFAULT_HISTORY_FILENAME,
             limit=args.limit,
             created_at_from=args.created_at_from,
+        )
+    elif args.command == "memory-hygiene":
+        payload = memory_hygiene_report(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
         )
     elif args.command == "scope-health":
         payload = build_experiment_scope_health(

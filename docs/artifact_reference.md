@@ -104,6 +104,8 @@ experiments/<run_id>/
   candidate_leaderboard.json
   candidate_quality_trace.json
   candidate_quality_trace.md
+  memory_hygiene.json
+  memory_hygiene.md
   agent_result_stats.json
   candidate_challenger_report.json
   candidate_challenger_report.md
@@ -307,6 +309,12 @@ Replay artifacts:
   `--created-at-from` applies the same current-contract scope to outcome memory
   and indexed health runs. It is inspection-only and cannot execute agents, run
   backtests, route agents, apply patches, or change acceptance.
+- `memory_hygiene.json` and `memory_hygiene.md` summarize the active outcome
+  memory scope used by memory filters. They report total versus active records,
+  ignored records from `created_at_from` or `recent_record_limit`, patch and
+  direction groups that would trigger deterministic rejection, and advisory
+  hygiene recommendations. They never delete memory, run backtests, route
+  agents, apply patches, or change acceptance.
 - `experiment_scope_health.json` combines current artifact health,
   artifact-health history, and memory diagnostics for one `--created-at-from`
   scope. It is a read-only status page and marks the scope unhealthy if any

@@ -688,6 +688,9 @@ jobs:
       - name: Inspect proposal memory
         run: python -m orchestrator.experiments memory --limit 5
 
+      - name: Inspect memory hygiene
+        run: python -m orchestrator.experiments memory-hygiene ci-adaptive
+
       - name: Inspect candidate leaderboard
         run: python -m orchestrator.experiments candidates ci-adaptive --limit 5
 

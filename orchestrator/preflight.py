@@ -112,6 +112,8 @@ def validate_config(
         errors.append("memory_filter.failed_patch_threshold must be non-negative")
     if config.memory_failed_direction_threshold < 0:
         errors.append("memory_filter.failed_direction_threshold must be non-negative")
+    if config.memory_recent_record_limit < 0:
+        errors.append("memory_filter.recent_record_limit must be non-negative")
     if config.stop_after_no_improvement_rounds < 0:
         errors.append(
             "exploration.stop_after_no_improvement_rounds must be non-negative"

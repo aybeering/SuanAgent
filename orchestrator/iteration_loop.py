@@ -83,6 +83,7 @@ from orchestrator.outcome_memory import (
     direction_filter_rejection_reason,
     memory_filter_rejection_reason,
 )
+from orchestrator.memory_hygiene import write_memory_hygiene
 from orchestrator.overfit_validator import write_overfit_validation
 from orchestrator.policy_gate import (
     apply_holdout_gate,
@@ -263,6 +264,13 @@ def run_iteration_loop(
             "ok": False,
             "candidate_count": 0,
         },
+        "memory_hygiene": {
+            "path": "memory_hygiene.json",
+            "markdown_path": "memory_hygiene.md",
+            "active_record_count": 0,
+            "patch_block_count": 0,
+            "direction_block_count": 0,
+        },
         "champion_promotion_dry_run": {
             "path": "champion_promotion_dry_run.json",
             "markdown_path": "champion_promotion_dry_run.md",
@@ -279,6 +287,8 @@ def run_iteration_loop(
         "memory_filter_policy": {
             "failed_patch_threshold": active_config.memory_failed_patch_threshold,
             "failed_direction_threshold": active_config.memory_failed_direction_threshold,
+            "created_at_from": active_config.memory_created_at_from,
+            "recent_record_limit": active_config.memory_recent_record_limit,
         },
         "exploration_policy": {
             "stop_after_no_improvement_rounds": (
@@ -408,6 +418,8 @@ def run_iteration_loop(
                     memory_failed_direction_threshold=(
                         active_config.memory_failed_direction_threshold
                     ),
+                    memory_created_at_from=active_config.memory_created_at_from,
+                    memory_recent_record_limit=active_config.memory_recent_record_limit,
                     explore_after_no_improvement_rounds=(
                         active_config.explore_after_no_improvement_rounds
                     ),
@@ -546,6 +558,38 @@ def finalize_iteration_run(
         "markdown_path": "candidate_quality_trace.md",
         "ok": bool(quality_trace.get("schema_version") == "candidate_quality_trace_v1"),
         "candidate_count": int(quality_summary.get("candidate_count", 0) or 0),
+    }
+    memory_policy = (
+        manifest.get("memory_filter_policy", {})
+        if isinstance(manifest.get("memory_filter_policy", {}), dict)
+        else {}
+    )
+    memory_hygiene = write_memory_hygiene(
+        output_path=run_dir / "memory_hygiene.json",
+        markdown_path=run_dir / "memory_hygiene.md",
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+        failed_patch_threshold=int(memory_policy.get("failed_patch_threshold", 2)),
+        failed_direction_threshold=int(
+            memory_policy.get("failed_direction_threshold", 3)
+        ),
+        created_at_from=str(memory_policy.get("created_at_from", "")),
+        recent_record_limit=int(memory_policy.get("recent_record_limit", 0) or 0),
+        exclude_run_id=run_id,
+    )
+    hygiene_totals = (
+        memory_hygiene.get("totals", {})
+        if isinstance(memory_hygiene.get("totals", {}), dict)
+        else {}
+    )
+    manifest["memory_hygiene"] = {
+        "path": "memory_hygiene.json",
+        "markdown_path": "memory_hygiene.md",
+        "active_record_count": int(hygiene_totals.get("active_record_count", 0) or 0),
+        "patch_block_count": int(hygiene_totals.get("patch_block_count", 0) or 0),
+        "direction_block_count": int(
+            hygiene_totals.get("direction_block_count", 0) or 0
+        ),
     }
     write_iteration_summary(run_dir=run_dir, manifest=manifest)
     append_experiment_index(
@@ -707,6 +751,8 @@ def run_round(
     agent_roles: tuple[dict[str, object], ...],
     memory_failed_patch_threshold: int,
     memory_failed_direction_threshold: int,
+    memory_created_at_from: str,
+    memory_recent_record_limit: int,
     explore_after_no_improvement_rounds: int,
     explore_low_sample_threshold: int,
     explore_bonus: int,
@@ -890,6 +936,8 @@ def run_round(
         experiments_dir=round_dir.parent.parent,
         memory_failed_patch_threshold=memory_failed_patch_threshold,
         memory_failed_direction_threshold=memory_failed_direction_threshold,
+        memory_created_at_from=memory_created_at_from,
+        memory_recent_record_limit=memory_recent_record_limit,
         explore_after_no_improvement_rounds=explore_after_no_improvement_rounds,
         explore_low_sample_threshold=explore_low_sample_threshold,
         explore_bonus=explore_bonus,
@@ -1624,6 +1672,8 @@ def select_proposal_candidate(
     experiments_dir: Path,
     memory_failed_patch_threshold: int,
     memory_failed_direction_threshold: int,
+    memory_created_at_from: str,
+    memory_recent_record_limit: int,
     explore_after_no_improvement_rounds: int,
     explore_low_sample_threshold: int,
     explore_bonus: int,
@@ -1702,12 +1752,16 @@ def select_proposal_candidate(
             patch_sha256=proposal.patch_sha256,
             threshold=memory_failed_patch_threshold,
             exclude_run_id=run_id,
+            created_at_from=memory_created_at_from,
+            recent_record_limit=memory_recent_record_limit,
         )
         direction_memory_reason = direction_filter_rejection_reason(
             experiments_dir=experiments_dir,
             direction_tag=proposal.direction_tag,
             threshold=memory_failed_direction_threshold,
             exclude_run_id=run_id,
+            created_at_from=memory_created_at_from,
+            recent_record_limit=memory_recent_record_limit,
         )
         memory_reason = combined_filter_reason(
             patch_memory_reason,
@@ -1731,6 +1785,8 @@ def select_proposal_candidate(
             experiments_dir=experiments_dir,
             direction_tag=proposal.direction_tag,
             exclude_run_id=run_id,
+            created_at_from=memory_created_at_from,
+            recent_record_limit=memory_recent_record_limit,
         )
         exploration_bonus_payload = exploration_bonus_payload_for_candidate(
             run_dir=run_dir,

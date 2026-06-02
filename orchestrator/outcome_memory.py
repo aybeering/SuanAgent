@@ -68,16 +68,22 @@ def failed_patch_outcomes(
     experiments_dir: Path,
     patch_sha256: str,
     exclude_run_id: str = "",
+    created_at_from: str = "",
+    recent_record_limit: int = 0,
 ) -> list[dict[str, object]]:
     """Return failed memory records for a patch hash."""
     if not patch_sha256:
         return []
     return [
         record
-        for record in read_outcome_memory(experiments_dir)
+        for record in scoped_outcome_memory(
+            experiments_dir=experiments_dir,
+            exclude_run_id=exclude_run_id,
+            created_at_from=created_at_from,
+            recent_record_limit=recent_record_limit,
+        )
         if record.get("patch_sha256") == patch_sha256
         and record.get("accepted") is False
-        and str(record.get("run_id", "")) != exclude_run_id
     ]
 
 
@@ -86,16 +92,22 @@ def failed_direction_outcomes(
     experiments_dir: Path,
     direction_tag: str,
     exclude_run_id: str = "",
+    created_at_from: str = "",
+    recent_record_limit: int = 0,
 ) -> list[dict[str, object]]:
     """Return failed memory records for a proposal direction tag."""
     if not direction_tag:
         return []
     return [
         record
-        for record in read_outcome_memory(experiments_dir)
+        for record in scoped_outcome_memory(
+            experiments_dir=experiments_dir,
+            exclude_run_id=exclude_run_id,
+            created_at_from=created_at_from,
+            recent_record_limit=recent_record_limit,
+        )
         if record.get("direction_tag") == direction_tag
         and record.get("accepted") is False
-        and str(record.get("run_id", "")) != exclude_run_id
     ]
 
 
@@ -105,6 +117,8 @@ def memory_filter_rejection_reason(
     patch_sha256: str,
     threshold: int,
     exclude_run_id: str = "",
+    created_at_from: str = "",
+    recent_record_limit: int = 0,
 ) -> str:
     """Return a rejection reason when a patch has failed too often."""
     if threshold <= 0 or not patch_sha256:
@@ -113,6 +127,8 @@ def memory_filter_rejection_reason(
         experiments_dir=experiments_dir,
         patch_sha256=patch_sha256,
         exclude_run_id=exclude_run_id,
+        created_at_from=created_at_from,
+        recent_record_limit=recent_record_limit,
     )
     if len(failures) < threshold:
         return ""
@@ -129,6 +145,8 @@ def direction_filter_rejection_reason(
     direction_tag: str,
     threshold: int,
     exclude_run_id: str = "",
+    created_at_from: str = "",
+    recent_record_limit: int = 0,
 ) -> str:
     """Return a rejection reason when a direction has failed too often."""
     if threshold <= 0 or not direction_tag:
@@ -137,6 +155,8 @@ def direction_filter_rejection_reason(
         experiments_dir=experiments_dir,
         direction_tag=direction_tag,
         exclude_run_id=exclude_run_id,
+        created_at_from=created_at_from,
+        recent_record_limit=recent_record_limit,
     )
     if len(failures) < threshold:
         return ""
@@ -151,13 +171,19 @@ def direction_prior(
     experiments_dir: Path,
     direction_tag: str,
     exclude_run_id: str = "",
+    created_at_from: str = "",
+    recent_record_limit: int = 0,
 ) -> dict[str, object]:
     """Return deterministic score prior metadata for a proposal direction."""
     records = [
         record
-        for record in read_outcome_memory(experiments_dir)
+        for record in scoped_outcome_memory(
+            experiments_dir=experiments_dir,
+            exclude_run_id=exclude_run_id,
+            created_at_from=created_at_from,
+            recent_record_limit=recent_record_limit,
+        )
         if record.get("direction_tag") == direction_tag
-        and str(record.get("run_id", "")) != exclude_run_id
     ]
     if not direction_tag or not records:
         return {
@@ -208,6 +234,28 @@ def direction_prior_score_delta(
     sample_confidence = min(sample_count, 5)
     raw_score = acceptance_component + ev_component
     return clamp_int(raw_score * sample_confidence // 5, -25, 25)
+
+
+def scoped_outcome_memory(
+    *,
+    experiments_dir: Path,
+    exclude_run_id: str = "",
+    created_at_from: str = "",
+    recent_record_limit: int = 0,
+) -> list[dict[str, object]]:
+    """Return outcome memory records inside the active deterministic scope."""
+    records = [
+        record
+        for record in read_outcome_memory(experiments_dir)
+        if str(record.get("run_id", "")) != exclude_run_id
+        and (
+            not created_at_from
+            or str(record.get("created_at", "")) >= created_at_from
+        )
+    ]
+    if recent_record_limit > 0:
+        return records[-recent_record_limit:]
+    return records
 
 
 def clamp_int(value: int, lower: int, upper: int) -> int:

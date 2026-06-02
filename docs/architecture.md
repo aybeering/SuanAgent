@@ -126,6 +126,14 @@ The loop can reject patch hashes or direction tags that have failed too many
 times, and future context builders can use recent outcomes and research briefs
 to avoid repeating weak search directions.
 
+`memory_filter.created_at_from` and `memory_filter.recent_record_limit` can
+scope the records used by patch rejection, direction rejection, and direction
+history priors. Empty scope values preserve full-history behavior.
+Each iteration run writes `memory_hygiene.json` and `memory_hygiene.md` to show
+which records were active, which were ignored by scope, and which patch or
+direction groups would be blocked. These reports are read-only and do not
+delete memory or change acceptance.
+
 ## Champion Registry
 
 Experiment comparison and promotion commands are deterministic. A candidate can

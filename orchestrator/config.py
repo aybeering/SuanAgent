@@ -224,6 +224,8 @@ class ProjectConfig:
     stop_on_repeated_proposal: bool
     memory_failed_patch_threshold: int = 2
     memory_failed_direction_threshold: int = 3
+    memory_created_at_from: str = ""
+    memory_recent_record_limit: int = 0
     memory_fallback_modifier: str = ""
     memory_fallback_modifiers: tuple[str, ...] = ()
     stop_after_no_improvement_rounds: int = 0
@@ -305,6 +307,8 @@ def load_project_config(
         memory_failed_direction_threshold=int(
             memory_filter.get("failed_direction_threshold", 3)
         ),
+        memory_created_at_from=str(memory_filter.get("created_at_from", "")),
+        memory_recent_record_limit=int(memory_filter.get("recent_record_limit", 0)),
         memory_fallback_modifier=fallback_names[0] if fallback_names else "",
         memory_fallback_modifiers=fallback_names,
         stop_after_no_improvement_rounds=int(

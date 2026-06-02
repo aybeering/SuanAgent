@@ -154,6 +154,12 @@ from orchestrator.memory_diagnostics import (
     validate_memory_diagnostics_file,
     write_memory_diagnostics,
 )
+from orchestrator.memory_hygiene import (
+    SCHEMA_VERSION as MEMORY_HYGIENE_SCHEMA_VERSION,
+    build_memory_hygiene,
+    validate_memory_hygiene_file,
+    write_memory_hygiene,
+)
 from orchestrator.experiment_scope_health import (
     SCHEMA_VERSION as EXPERIMENT_SCOPE_HEALTH_SCHEMA_VERSION,
     build_experiment_scope_health,
@@ -193,6 +199,7 @@ from orchestrator.outcome_memory import (
     append_outcome_memory,
     direction_filter_rejection_reason,
     direction_prior,
+    memory_filter_rejection_reason,
     read_outcome_memory,
 )
 from orchestrator.run_loop import run_pipeline
@@ -213,6 +220,7 @@ from orchestrator.experiments import (
     compare_experiments,
     experiment_leaderboard,
     list_experiments,
+    memory_hygiene_report,
     promote_champion,
     show_experiment,
     show_champion,
@@ -1149,6 +1157,104 @@ def test_experiment_scope_health_cli_and_experiments_command(
     ).read_text(encoding="utf-8") == strategy_before
 
 
+def test_memory_hygiene_scopes_filter_history(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    memory_path = repo / "experiments/memory.jsonl"
+    patch_hash = "abc123" * 11
+    records = [
+        {
+            "created_at": "2026-01-01T00:00:00Z",
+            "kind": "proposal_outcome",
+            "run_id": "old-a",
+            "round_id": "round_001",
+            "agent_name": "stub",
+            "direction_tag": "lower_min_edge",
+            "patch_sha256": patch_hash,
+            "accepted": False,
+            "applicable": True,
+            "validation_ev_delta": 0.0,
+        },
+        {
+            "created_at": "2026-01-02T00:00:00Z",
+            "kind": "proposal_outcome",
+            "run_id": "old-b",
+            "round_id": "round_001",
+            "agent_name": "stub",
+            "direction_tag": "lower_min_edge",
+            "patch_sha256": patch_hash,
+            "accepted": False,
+            "applicable": True,
+            "validation_ev_delta": 0.0,
+        },
+        {
+            "created_at": "2026-02-01T00:00:00Z",
+            "kind": "proposal_outcome",
+            "run_id": "new-a",
+            "round_id": "round_001",
+            "agent_name": "stub",
+            "direction_tag": "lower_min_edge",
+            "patch_sha256": patch_hash,
+            "accepted": False,
+            "applicable": True,
+            "validation_ev_delta": 0.0,
+        },
+    ]
+    memory_path.write_text(
+        "\n".join(json.dumps(record, sort_keys=True) for record in records) + "\n",
+        encoding="utf-8",
+    )
+
+    full_reason = memory_filter_rejection_reason(
+        experiments_dir=repo / "experiments",
+        patch_sha256=patch_hash,
+        threshold=2,
+    )
+    scoped_reason = memory_filter_rejection_reason(
+        experiments_dir=repo / "experiments",
+        patch_sha256=patch_hash,
+        threshold=2,
+        created_at_from="2026-02-01T00:00:00Z",
+    )
+    recent_reason = memory_filter_rejection_reason(
+        experiments_dir=repo / "experiments",
+        patch_sha256=patch_hash,
+        threshold=2,
+        recent_record_limit=1,
+    )
+    hygiene = build_memory_hygiene(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        failed_patch_threshold=2,
+        failed_direction_threshold=2,
+        created_at_from="2026-02-01T00:00:00Z",
+    )
+    output_path = repo / "memory_hygiene.json"
+    markdown_path = repo / "memory_hygiene.md"
+    written = write_memory_hygiene(
+        output_path=output_path,
+        markdown_path=markdown_path,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        failed_patch_threshold=2,
+        failed_direction_threshold=2,
+        created_at_from="2026-02-01T00:00:00Z",
+    )
+
+    assert "memory filter rejected patch" in full_reason
+    assert scoped_reason == ""
+    assert recent_reason == ""
+    assert hygiene["schema_version"] == MEMORY_HYGIENE_SCHEMA_VERSION
+    assert hygiene["totals"]["total_record_count"] == 3
+    assert hygiene["totals"]["active_record_count"] == 1
+    assert hygiene["totals"]["ignored_by_created_at_count"] == 2
+    assert hygiene["totals"]["patch_block_count"] == 0
+    assert hygiene["policy"]["does_not_delete_memory"] is True
+    assert written["schema_version"] == MEMORY_HYGIENE_SCHEMA_VERSION
+    assert "# Memory Hygiene" in markdown_path.read_text(encoding="utf-8")
+    assert_matches_schema_payload(hygiene, "memory_hygiene")
+    assert validate_memory_hygiene_file(payload_path=output_path, repo_root=repo) == ()
+
+
 def test_agent_contract_runner_writes_disabled_audit(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     round_dir = tmp_path / "round"
@@ -1291,6 +1397,8 @@ def test_default_config_loads_dataset_splits() -> None:
     assert config.strategy_modifier == "fixed_patch_stub"
     assert config.memory_failed_patch_threshold == 2
     assert config.memory_failed_direction_threshold == 3
+    assert config.memory_created_at_from == ""
+    assert config.memory_recent_record_limit == 0
     assert config.memory_fallback_modifier == "adaptive_stub"
     assert config.memory_fallback_modifiers == (
         "adaptive_stub",
@@ -1653,6 +1761,19 @@ def test_preflight_rejects_negative_direction_filter_threshold(tmp_path: Path) -
         "memory_filter.failed_direction_threshold" in error
         for error in result.errors
     )
+
+
+def test_preflight_rejects_negative_memory_recent_record_limit(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_path = repo / "config/negative_memory_recent_limit.json"
+    config = json.loads((repo / "config/default.json").read_text())
+    config["memory_filter"]["recent_record_limit"] = -1
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    result = run_preflight(repo_root=repo, config_path=config_path)
+
+    assert result.ok is False
+    assert any("memory_filter.recent_record_limit" in error for error in result.errors)
 
 
 def test_preflight_rejects_negative_no_improvement_threshold(tmp_path: Path) -> None:
@@ -2054,6 +2175,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "candidate_leaderboard.json").exists()
     assert (run_dir / "candidate_quality_trace.json").exists()
     assert (run_dir / "candidate_quality_trace.md").exists()
+    assert (run_dir / "memory_hygiene.json").exists()
+    assert (run_dir / "memory_hygiene.md").exists()
     assert (run_dir / "agent_result_stats.json").exists()
     assert (run_dir / "agent_activation_preflight.json").exists()
     assert (run_dir / "agent_activation_preflight.md").exists()
@@ -2135,6 +2258,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     quality_trace_markdown = (run_dir / "candidate_quality_trace.md").read_text(
         encoding="utf-8"
     )
+    memory_hygiene = json.loads(
+        (run_dir / "memory_hygiene.json").read_text(encoding="utf-8")
+    )
+    memory_hygiene_markdown = (run_dir / "memory_hygiene.md").read_text(
+        encoding="utf-8"
+    )
     agent_stats = json.loads(
         (run_dir / "agent_result_stats.json").read_text(encoding="utf-8")
     )
@@ -2189,6 +2318,13 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         run_dir / "candidate_quality_trace.json",
         "candidate_quality_trace",
     )
+    assert manifest["memory_hygiene"]["path"] == "memory_hygiene.json"
+    assert manifest["memory_hygiene"]["markdown_path"] == "memory_hygiene.md"
+    assert memory_hygiene["schema_version"] == MEMORY_HYGIENE_SCHEMA_VERSION
+    assert memory_hygiene["scope"]["exclude_run_id"] == "reject-smoke"
+    assert memory_hygiene["policy"]["does_not_change_acceptance"] is True
+    assert "# Memory Hygiene" in memory_hygiene_markdown
+    assert_matches_schema(run_dir / "memory_hygiene.json", "memory_hygiene")
     assert manifest["candidate_challenger_report"]["path"] == (
         "candidate_challenger_report.json"
     )
@@ -12492,6 +12628,10 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         run_id="cli-candidates",
         experiments_dir=repo / "experiments",
     )
+    hygiene = memory_hygiene_report(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+    )
     result = subprocess.run(
         [
             sys.executable,
@@ -12532,6 +12672,21 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "--experiments-dir",
             "experiments",
             "quality-trace",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    hygiene_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "memory-hygiene",
             "cli-candidates",
         ],
         cwd=repo,
@@ -12587,6 +12742,9 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert trace["schema_version"] == "candidate_quality_trace_v1"
     assert trace["summary"]["candidate_count"] == len(rows)
     assert trace["candidates"][0]["quality_breakdown"] == rows[0]["quality_breakdown"]
+    assert hygiene["from_artifact"] is True
+    assert hygiene["schema_version"] == MEMORY_HYGIENE_SCHEMA_VERSION
+    assert hygiene["policy"]["does_not_delete_memory"] is True
     assert stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
     assert "avg_holdout_ev_delta" in stats["agents"][0]
     assert stats["round_replays"]["round_count"] == 1
@@ -12616,6 +12774,10 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert trace_payload["schema_version"] == "candidate_quality_trace_v1"
     assert trace_payload["from_artifact"] is True
     assert trace_payload["summary"]["candidate_count"] == len(rows)
+    assert hygiene_result.returncode == 0, hygiene_result.stderr
+    hygiene_payload = json.loads(hygiene_result.stdout)
+    assert hygiene_payload["schema_version"] == MEMORY_HYGIENE_SCHEMA_VERSION
+    assert hygiene_payload["from_artifact"] is True
     assert challenger_result.returncode == 0, challenger_result.stderr
     challenger_payload = json.loads(challenger_result.stdout)
     assert challenger_payload["schema_version"] == CANDIDATE_CHALLENGER_SCHEMA_VERSION

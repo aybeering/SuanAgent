@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Memory Hygiene",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "repo_root",
+    "experiments_dir",
+    "memory_path",
+    "scope",
+    "thresholds",
+    "totals",
+    "top_blocked_patches",
+    "top_blocked_directions",
+    "recommendations",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "memory_hygiene_v1"
+      ]
+    },
+    "repo_root": {
+      "type": "string"
+    },
+    "experiments_dir": {
+      "type": "string"
+    },
+    "memory_path": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "created_at_from",
+        "recent_record_limit",
+        "exclude_run_id",
+        "uses_full_history"
+      ],
+      "properties": {
+        "created_at_from": {
+          "type": "string"
+        },
+        "recent_record_limit": {
+          "type": "integer"
+        },
+        "exclude_run_id": {
+          "type": "string"
+        },
+        "uses_full_history": {
+          "type": "boolean"
+        }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "required": [
+        "failed_patch_threshold",
+        "failed_direction_threshold"
+      ],
+      "properties": {
+        "failed_patch_threshold": {
+          "type": "integer"
+        },
+        "failed_direction_threshold": {
+          "type": "integer"
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "required": [
+        "total_record_count",
+        "active_record_count",
+        "active_failed_count",
+        "active_accepted_count",
+        "ignored_by_created_at_count",
+        "ignored_by_recent_limit_count",
+        "ignored_by_excluded_run_count",
+        "patch_block_count",
+        "direction_block_count",
+        "overblocked_patch_count"
+      ],
+      "properties": {
+        "total_record_count": {
+          "type": "integer"
+        },
+        "active_record_count": {
+          "type": "integer"
+        },
+        "active_failed_count": {
+          "type": "integer"
+        },
+        "active_accepted_count": {
+          "type": "integer"
+        },
+        "ignored_by_created_at_count": {
+          "type": "integer"
+        },
+        "ignored_by_recent_limit_count": {
+          "type": "integer"
+        },
+        "ignored_by_excluded_run_count": {
+          "type": "integer"
+        },
+        "patch_block_count": {
+          "type": "integer"
+        },
+        "direction_block_count": {
+          "type": "integer"
+        },
+        "overblocked_patch_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "top_blocked_patches": {
+      "$ref": "#/$defs/hygiene_rows"
+    },
+    "top_blocked_directions": {
+      "$ref": "#/$defs/hygiene_rows"
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_outcome_memory_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+        "does_not_delete_memory"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_outcome_memory_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_route_agents": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "does_not_delete_memory": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "hygiene_rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "key",
+          "short_key",
+          "active_record_count",
+          "total_record_count",
+          "active_failed_count",
+          "total_failed_count",
+          "active_accepted_count",
+          "would_reject",
+          "threshold",
+          "last_created_at",
+          "run_ids",
+          "top_direction",
+          "top_agent"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "patch_sha256": {
+            "type": "string"
+          },
+          "direction_tag": {
+            "type": "string"
+          },
+          "short_key": {
+            "type": "string"
+          },
+          "active_record_count": {
+            "type": "integer"
+          },
+          "total_record_count": {
+            "type": "integer"
+          },
+          "active_failed_count": {
+            "type": "integer"
+          },
+          "total_failed_count": {
+            "type": "integer"
+          },
+          "active_accepted_count": {
+            "type": "integer"
+          },
+          "would_reject": {
+            "type": "boolean"
+          },
+          "threshold": {
+            "type": "integer"
+          },
+          "last_created_at": {
+            "type": "string"
+          },
+          "run_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "top_direction": {
+            "type": "string"
+          },
+          "top_agent": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

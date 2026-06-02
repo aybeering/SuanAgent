@@ -29,6 +29,8 @@ ITERATION_RUN_REQUIRED_FILES = (
     "candidate_leaderboard.json",
     "candidate_quality_trace.json",
     "candidate_quality_trace.md",
+    "memory_hygiene.json",
+    "memory_hygiene.md",
     "codex_cli_execution_preflight.json",
     "codex_cli_execution_preflight.md",
     "agent_activation_preflight.json",
@@ -322,6 +324,11 @@ def validate_iteration_run(
         repo_root=repo_root,
         report=report,
     )
+    validate_memory_hygiene(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_contract_file(
         payload_path=run_dir / "agent_activation_preflight.json",
         schema_path=repo_root / "schemas/agent_activation_preflight.schema.json",
@@ -471,6 +478,46 @@ def validate_candidate_quality_trace(
     ):
         if policy.get(key) is not True:
             add_error(report, f"candidate_quality_trace.json policy false: {key}")
+
+
+def validate_memory_hygiene(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate run-level memory hygiene artifact."""
+    path = run_dir / "memory_hygiene.json"
+    md_path = run_dir / "memory_hygiene.md"
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/memory_hygiene.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    totals = payload.get("totals", {})
+    if not isinstance(totals, dict):
+        add_error(report, "memory_hygiene.json totals invalid")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "memory_hygiene.json policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "reads_outcome_memory_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+        "does_not_delete_memory",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"memory_hygiene.json policy false: {key}")
 
 
 def validate_round_candidate_quality_bindings(

@@ -109,6 +109,8 @@ Implemented or allowed V0.5 components:
 95. Deterministic candidate quality breakdown bindings inside executor, attempt manifest, attempt output, selection, routing, agent output, leaderboard, brief, and closeout artifacts, proving candidate score explanations remain auditable across the saved candidate trace without changing queue order, scoring rules, patch application, or acceptance.
 96. Deterministic cross-artifact candidate quality consistency checks that bind each `attempt_id` in executor, attempt manifest, attempt output, selection, routing, agent output, and leaderboard artifacts back to `proposal_attempts.json`, without executing agents, rerunning backtests, applying patches, or changing acceptance.
 97. A deterministic `candidate_quality_trace.json` and `candidate_quality_trace.md` report pair that summarizes saved candidate score components, probe/validation/holdout signals, selected attempts, patch families, and failure codes from `candidate_leaderboard.json` without executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
+98. Configurable deterministic outcome-memory scope fields, `memory_filter.created_at_from` and `memory_filter.recent_record_limit`, that constrain patch rejection, direction rejection, and direction history priors while preserving full-history behavior by default.
+99. A deterministic `memory_hygiene.json` and `memory_hygiene.md` report pair that summarizes active versus ignored outcome memory records, patch and direction block groups, and read-only hygiene recommendations without deleting memory, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 
 ## Contract Families
 
@@ -146,6 +148,7 @@ Agent-slot contracts:
 - Batch run artifact health: `schemas/run_artifact_health.schema.json` and
   `schemas/run_artifact_health_history.schema.json`
 - Memory diagnostics: `schemas/memory_diagnostics.schema.json`
+- Memory hygiene: `schemas/memory_hygiene.schema.json`
 - Experiment scope health: `schemas/experiment_scope_health.schema.json`
 - Run closeout: `schemas/run_closeout.schema.json`
 - Candidate quality trace: `schemas/candidate_quality_trace.schema.json`

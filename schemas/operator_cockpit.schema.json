@@ -54,6 +54,7 @@
         "run_closeout",
         "config_lineage",
         "operator_action_dashboard",
+        "codex_cli_execution_preflight",
         "candidate_challenger_report",
         "champion_promotion_dry_run",
         "champion_promotion_approval",
@@ -67,6 +68,9 @@
           "$ref": "#/$defs/source_artifact"
         },
         "operator_action_dashboard": {
+          "$ref": "#/$defs/source_artifact"
+        },
+        "codex_cli_execution_preflight": {
           "$ref": "#/$defs/source_artifact"
         },
         "candidate_challenger_report": {
@@ -98,7 +102,12 @@
         "promotion_status",
         "promotion_would_promote",
         "promotion_approval_status",
-        "promotion_approval_recorded"
+        "promotion_approval_recorded",
+        "codex_preflight_status",
+        "codex_preflight_ok",
+        "codex_real_execute_profile_count",
+        "codex_operator_unlock_ready_count",
+        "codex_preflight_blocker_count"
       ],
       "properties": {
         "run_status": {
@@ -139,6 +148,27 @@
         },
         "promotion_approval_recorded": {
           "type": "boolean"
+        },
+        "codex_preflight_status": {
+          "type": "string",
+          "enum": [
+            "missing",
+            "blocked",
+            "no_real_execution_profiles",
+            "operator_unlock_ready"
+          ]
+        },
+        "codex_preflight_ok": {
+          "type": "boolean"
+        },
+        "codex_real_execute_profile_count": {
+          "type": "integer"
+        },
+        "codex_operator_unlock_ready_count": {
+          "type": "integer"
+        },
+        "codex_preflight_blocker_count": {
+          "type": "integer"
         }
       }
     },

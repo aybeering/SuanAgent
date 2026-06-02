@@ -4326,6 +4326,7 @@ def validate_optional_operator_cockpit(
         ("run_closeout", "run_closeout.json"),
         ("config_lineage", "config_lineage.json"),
         ("operator_action_dashboard", "operator_action_dashboard.json"),
+        ("codex_cli_execution_preflight", "codex_cli_execution_preflight.json"),
         ("candidate_challenger_report", "candidate_challenger_report.json"),
         ("champion_promotion_dry_run", "champion_promotion_dry_run.json"),
         ("champion_promotion_approval", "champion_promotion_approval.json"),
@@ -4362,6 +4363,10 @@ def validate_optional_operator_cockpit(
         add_error(report, "operator_cockpit.json ok false")
     if summary.get("artifact_health_ok") is not True:
         add_error(report, "operator_cockpit.json artifact health not ok")
+    if summary.get("codex_preflight_ok") is not True:
+        add_error(report, "operator_cockpit.json codex preflight not ok")
+    if not isinstance(summary.get("codex_preflight_status", ""), str):
+        add_error(report, "operator_cockpit.json codex preflight status invalid")
 
     authority = payload.get("authority", {})
     if not isinstance(authority, dict):

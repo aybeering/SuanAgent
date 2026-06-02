@@ -736,10 +736,12 @@ jobs:
           assert cockpit["from_artifact"] is True
           assert cockpit["summary"]["action_status"] == "execution_completed"
           assert cockpit["summary"]["config_lineage_status"] == "partial"
+          assert cockpit["summary"]["codex_preflight_ok"] is True
+          assert any(row["panel_id"] == "codex_cli_unlock" for row in cockpit["panels"])
           assert cockpit["authority"]["cockpit_can_execute_commands"] is False
           assert cockpit["authority"]["cockpit_can_promote_champion"] is False
           assert cockpit["policy"]["does_not_change_acceptance"] is True
-          assert len(cockpit["panels"]) >= 6
+          assert len(cockpit["panels"]) >= 7
           assert "# Operator Cockpit" in markdown
           PY
           python -m orchestrator.artifact_validator ci-adaptive
@@ -945,6 +947,8 @@ jobs:
           assert dashboard["schema_version"] == "operator_action_dashboard_v1"
           assert cockpit["schema_version"] == "operator_cockpit_v1"
           assert cockpit["summary"]["config_lineage_status"] == "blocked"
+          assert cockpit["summary"]["codex_preflight_ok"] is True
+          assert cockpit["source_artifacts"]["codex_cli_execution_preflight"]["file"]["exists"] is True
           assert cockpit["source_artifacts"]["config_lineage"]["file"]["exists"] is True
           assert cockpit["policy"]["does_not_change_acceptance"] is True
           PY

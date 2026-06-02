@@ -191,10 +191,12 @@ human-facing next-step view. They must remain read-only and must not record
 approval, execute commands, write config, promote champions, run agents, run
 backtests, apply patches, route agents, or change acceptance.
 Operator cockpit artifacts may summarize run review, config lineage, operator
-action, challenger, champion promotion, and scope-health state into one
-human-facing page. They must remain read-only and must not record approval,
-execute commands, write config, promote champions, run agents, run backtests,
-apply patches, route agents, or change acceptance.
+action, Codex CLI execution preflight, challenger, champion promotion, and
+scope-health state into one human-facing page. The Codex CLI preflight panel
+may expose unlock blockers and readiness counts, but it must not unlock Codex
+or execute agents. Cockpit artifacts must remain read-only and must not record
+approval, execute commands, write config, promote champions, run agents, run
+backtests, apply patches, route agents, or change acceptance.
 The iteration loop writes the final operator action dashboard and cockpit
 during closeout, and explicit commands may refresh them after later operator
 artifacts are written.

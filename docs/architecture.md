@@ -203,9 +203,11 @@ during closeout after the action plan; the explicit dashboard command is still
 available to refresh the view after later approval or execution artifacts.
 `operator_cockpit.json` and `operator_cockpit.md` are the broader operator
 entrypoint. They collect the run closeout, config lineage, operator action
-dashboard, challenger comparison, champion-promotion review, promotion approval,
-and scope-health status into one read-only page with panel rows and command
-hints. The cockpit is an inspection artifact only; it cannot record approvals,
+dashboard, Codex CLI execution preflight, challenger comparison,
+champion-promotion review, promotion approval, and scope-health status into one
+read-only page with panel rows and command hints. The Codex CLI panel exposes
+unlock blockers and readiness counts without unlocking or executing Codex. The
+cockpit is an inspection artifact only; it cannot record approvals,
 execute commands, write config, promote champions, run agents, run backtests,
 route agents, apply patches, or change acceptance. The iteration loop writes
 the final cockpit after the dashboard so source hashes bind to the completed

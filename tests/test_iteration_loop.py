@@ -2207,9 +2207,23 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["source_artifacts"]["operator_action_dashboard"]["file"][
         "exists"
     ] is True
-    assert len(cockpit["panels"]) >= 6
+    assert cockpit["source_artifacts"]["codex_cli_execution_preflight"]["file"][
+        "exists"
+    ] is True
+    assert cockpit["summary"]["codex_preflight_status"] == (
+        "no_real_execution_profiles"
+    )
+    assert cockpit["summary"]["codex_preflight_ok"] is True
+    assert cockpit["summary"]["codex_real_execute_profile_count"] == 0
+    assert cockpit["summary"]["codex_preflight_blocker_count"] == 0
+    assert len(cockpit["panels"]) >= 7
     assert any(row["panel_id"] == "operator_action" for row in cockpit["panels"])
+    assert any(row["panel_id"] == "codex_cli_unlock" for row in cockpit["panels"])
     assert any(row["label"] == "review_cockpit" for row in cockpit["recommended_commands"])
+    assert any(
+        row["label"] == "review_codex_cli_preflight"
+        for row in cockpit["recommended_commands"]
+    )
     assert cockpit["authority"]["cockpit_can_execute_commands"] is False
     assert cockpit["authority"]["cockpit_can_promote_champion"] is False
     assert cockpit["policy"]["does_not_record_approval"] is True
@@ -4009,7 +4023,15 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert cockpit["source_artifacts"]["operator_action_dashboard"]["file"][
         "path"
     ].endswith("operator_action_dashboard.json")
+    assert cockpit["source_artifacts"]["codex_cli_execution_preflight"]["file"][
+        "path"
+    ].endswith("codex_cli_execution_preflight.json")
     assert cockpit["summary"]["run_status"] == manifest["status"]
+    assert cockpit["summary"]["codex_preflight_status"] == (
+        "no_real_execution_profiles"
+    )
+    assert cockpit["summary"]["codex_preflight_ok"] is True
+    assert any(row["panel_id"] == "codex_cli_unlock" for row in cockpit["panels"])
     assert cockpit["policy"]["does_not_execute_commands"] is True
     assert cockpit["policy"]["does_not_change_acceptance"] is True
     assert "# Operator Cockpit" in cockpit_markdown
@@ -15038,6 +15060,10 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert cockpit["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION
     assert cockpit["summary"]["action_status"] == "execution_completed"
     assert cockpit["summary"]["config_lineage_status"] == "partial"
+    assert cockpit["summary"]["codex_preflight_status"] == (
+        "no_real_execution_profiles"
+    )
+    assert cockpit["summary"]["codex_preflight_ok"] is True
     assert cockpit["authority"]["cockpit_can_execute_commands"] is False
     assert cockpit["authority"]["cockpit_can_promote_champion"] is False
     assert cockpit["policy"]["does_not_change_acceptance"] is True
@@ -15152,7 +15178,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert cockpit_payload["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION
     assert cockpit_payload["from_artifact"] is True
     assert cockpit_payload["summary"]["action_status"] == "execution_completed"
-    assert len(cockpit_payload["panels"]) >= 6
+    assert cockpit_payload["summary"]["codex_preflight_ok"] is True
+    assert any(
+        row["panel_id"] == "codex_cli_unlock"
+        for row in cockpit_payload["panels"]
+    )
+    assert len(cockpit_payload["panels"]) >= 7
     assert_matches_schema_payload(cockpit_payload, "operator_cockpit")
     assert cockpit_markdown_result.returncode == 0, cockpit_markdown_result.stderr
     assert "# Operator Cockpit" in cockpit_markdown_result.stdout

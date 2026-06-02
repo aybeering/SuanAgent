@@ -69,6 +69,7 @@ def build_operator_cockpit(
     challenger = load_json_object(run_dir / "candidate_challenger_report.json")
     promotion = load_json_object(run_dir / "champion_promotion_dry_run.json")
     approval = load_json_object(run_dir / "champion_promotion_approval.json")
+    codex_preflight = load_json_object(run_dir / "codex_cli_execution_preflight.json")
     action_dashboard = load_or_build_action_dashboard(
         run_dir=run_dir,
         experiments_dir=experiments_dir,
@@ -81,6 +82,7 @@ def build_operator_cockpit(
         challenger=challenger,
         promotion=promotion,
         approval=approval,
+        codex_preflight=codex_preflight,
         action_dashboard=action_dashboard,
         scope_health=scope_health,
     )
@@ -91,12 +93,14 @@ def build_operator_cockpit(
         challenger=challenger,
         promotion=promotion,
         approval=approval,
+        codex_preflight=codex_preflight,
         action_dashboard=action_dashboard,
         scope_health=scope_health,
     )
     blockers = cockpit_blockers(
         config_lineage=config_lineage,
         action_dashboard=action_dashboard,
+        codex_preflight=codex_preflight,
         promotion=promotion,
         approval=approval,
         scope_health=scope_health,
@@ -168,12 +172,15 @@ def cockpit_summary(
     challenger: dict[str, Any],
     promotion: dict[str, Any],
     approval: dict[str, Any],
+    codex_preflight: dict[str, Any],
     action_dashboard: dict[str, Any],
     scope_health: dict[str, Any],
 ) -> dict[str, object]:
     """Return compact cockpit summary fields."""
     closeout_summary = object_field(closeout, "summary")
     action_summary = object_field(action_dashboard, "summary")
+    codex_summary = object_field(codex_preflight, "summary")
+    codex_blockers = string_rows(codex_preflight.get("blocking_errors", []))
     return {
         "run_status": str(closeout.get("status", "unknown")),
         "artifact_health_ok": bool(
@@ -197,6 +204,18 @@ def cockpit_summary(
         "promotion_approval_recorded": bool(
             object_field(approval, "operator_intent").get("approval_recorded", False)
         ),
+        "codex_preflight_status": codex_preflight_status(
+            preflight=codex_preflight,
+            blockers=codex_blockers,
+        ),
+        "codex_preflight_ok": bool(codex_preflight.get("ok", False)),
+        "codex_real_execute_profile_count": int(
+            codex_summary.get("real_codex_execute_profile_count", 0) or 0
+        ),
+        "codex_operator_unlock_ready_count": int(
+            codex_summary.get("operator_unlock_ready_count", 0) or 0
+        ),
+        "codex_preflight_blocker_count": len(codex_blockers),
     }
 
 
@@ -236,10 +255,12 @@ def cockpit_panels(
     challenger: dict[str, Any],
     promotion: dict[str, Any],
     approval: dict[str, Any],
+    codex_preflight: dict[str, Any],
     action_dashboard: dict[str, Any],
     scope_health: dict[str, Any],
 ) -> list[dict[str, object]]:
     """Return the cockpit panel rows."""
+    preflight_blockers = string_rows(codex_preflight.get("blocking_errors", []))
     return [
         panel(
             panel_id="run_review",
@@ -264,6 +285,20 @@ def cockpit_panels(
             ok=bool(action_dashboard.get("ok", False)),
             artifact_path=run_dir / "operator_action_dashboard.json",
             next_step=str(action_dashboard.get("current_step", "review action dashboard")),
+        ),
+        panel(
+            panel_id="codex_cli_unlock",
+            title="Codex CLI Unlock",
+            status=codex_preflight_status(
+                preflight=codex_preflight,
+                blockers=preflight_blockers,
+            ),
+            ok=bool(codex_preflight.get("ok", False)),
+            artifact_path=run_dir / "codex_cli_execution_preflight.json",
+            next_step=codex_preflight_next_step(
+                preflight=codex_preflight,
+                blockers=preflight_blockers,
+            ),
         ),
         panel(
             panel_id="champion_review",
@@ -325,6 +360,7 @@ def cockpit_blockers(
     *,
     config_lineage: dict[str, Any],
     action_dashboard: dict[str, Any],
+    codex_preflight: dict[str, Any],
     promotion: dict[str, Any],
     approval: dict[str, Any],
     scope_health: dict[str, Any],
@@ -334,6 +370,10 @@ def cockpit_blockers(
     if config_lineage and config_lineage.get("ok") is not True:
         blockers.append("config_lineage_not_ok")
     blockers.extend(string_rows(action_dashboard.get("blockers", [])))
+    blockers.extend(
+        f"codex_cli_preflight:{blocker}"
+        for blocker in string_rows(codex_preflight.get("blocking_errors", []))
+    )
     blockers.extend(
         string_rows(object_field(promotion, "promotion_gate").get("blockers", []))
     )
@@ -359,6 +399,10 @@ def source_artifacts(*, run_dir: Path, repo_root: Path) -> dict[str, object]:
         "operator_action_dashboard": (
             run_dir / "operator_action_dashboard.json",
             "schemas/operator_action_dashboard.schema.json",
+        ),
+        "codex_cli_execution_preflight": (
+            run_dir / "codex_cli_execution_preflight.json",
+            "schemas/codex_cli_execution_preflight.schema.json",
         ),
         "candidate_challenger_report": (
             run_dir / "candidate_challenger_report.json",
@@ -431,6 +475,15 @@ def recommended_commands(
             reason="Inspect operator action state and guarded next commands.",
             writes_artifact="",
         ),
+        command_hint(
+            label="review_codex_cli_preflight",
+            command=(
+                "python -m orchestrator.codex_cli_execution_preflight "
+                f"{relative_path(run_dir, repo_root)}"
+            ),
+            reason="Inspect startup blockers before any real Codex CLI execution.",
+            writes_artifact="codex_cli_execution_preflight.json",
+        ),
     ]
     if not (run_dir / "operator_action_dashboard.json").exists():
         commands.append(
@@ -484,6 +537,38 @@ def command_hint(
     }
 
 
+def codex_preflight_status(
+    *,
+    preflight: dict[str, Any],
+    blockers: list[str],
+) -> str:
+    """Return a compact Codex CLI startup preflight status."""
+    if not preflight:
+        return "missing"
+    if blockers:
+        return "blocked"
+    summary = object_field(preflight, "summary")
+    if int(summary.get("real_codex_execute_profile_count", 0) or 0) == 0:
+        return "no_real_execution_profiles"
+    return "operator_unlock_ready"
+
+
+def codex_preflight_next_step(
+    *,
+    preflight: dict[str, Any],
+    blockers: list[str],
+) -> str:
+    """Return the next operator-facing step for Codex CLI startup preflight."""
+    if not preflight:
+        return "run iteration preflight before reviewing Codex CLI unlock"
+    if blockers:
+        return "inspect Codex CLI preflight blockers before real execution"
+    summary = object_field(preflight, "summary")
+    if int(summary.get("real_codex_execute_profile_count", 0) or 0) == 0:
+        return "keep real Codex execution disabled unless explicitly reviewed"
+    return "review operator unlock evidence before any real Codex execution"
+
+
 def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
     """Render an operator cockpit as markdown."""
     summary = object_field(payload, "summary")
@@ -497,6 +582,7 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         f"- Run status: `{summary.get('run_status', '')}`",
         f"- Config lineage: `{summary.get('config_lineage_status', '')}`",
         f"- Action: `{summary.get('action_status', '')}`",
+        f"- Codex CLI preflight: `{summary.get('codex_preflight_status', '')}`",
         f"- Promotion: `{summary.get('promotion_status', '')}`",
         "",
         "## Panels",

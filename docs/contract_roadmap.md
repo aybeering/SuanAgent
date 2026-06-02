@@ -86,6 +86,7 @@ Implemented or allowed V0.5 components:
 72. A narrow iteration-loop startup exception that permits an existing run directory only when it contains the configured canonical real Codex operator unlock request artifact; ordinary or non-canonical existing run directories remain blocked.
 73. A deterministic `artifact_validator_coverage.json` report that audits whether each repository-local artifact schema has validator coverage, documentation references, tests, and inspection or replay support.
 74. A deterministic `run_artifact_health.json` report that batch-validates saved experiment run artifacts without rerunning backtests or calling agents.
+75. A deterministic `run_artifact_health_history.jsonl` memory layer and `run_artifact_health_history_v1` summary that track repeated artifact-health failures across saved inspection runs.
 
 ## Contract Families
 
@@ -120,7 +121,8 @@ Agent-slot contracts:
   `schemas/agent_slot_readiness_gate.schema.json`
 - Artifact contract coverage:
   `schemas/artifact_validator_coverage.schema.json`
-- Batch run artifact health: `schemas/run_artifact_health.schema.json`
+- Batch run artifact health: `schemas/run_artifact_health.schema.json` and
+  `schemas/run_artifact_health_history.schema.json`
 
 Codex CLI readiness contracts:
 
@@ -158,6 +160,8 @@ Codex CLI readiness contracts:
    run artifacts or change strategy acceptance.
 9. Batch run artifact health reports inspect saved run artifacts only. They do
    not rerun simulations, invoke agents, apply patches, or change acceptance.
+10. Artifact health history is append-only local memory. It can guide future
+    maintenance priorities, but it cannot route agents or decide acceptance.
 
 ## Near-Term Development Order
 

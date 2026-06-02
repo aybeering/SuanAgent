@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Run Artifact Health History",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "repo_root",
+    "experiments_dir",
+    "history_path",
+    "ok",
+    "record_count",
+    "read_errors",
+    "totals",
+    "run_failures",
+    "artifact_failures",
+    "recent_records",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "run_artifact_health_history_v1"
+      ]
+    },
+    "repo_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "experiments_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "history_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "record_count": {
+      "type": "integer"
+    },
+    "read_errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "totals": {
+      "type": "object",
+      "required": [
+        "record_count",
+        "records_with_failures",
+        "failed_run_observation_count",
+        "artifact_failure_count",
+        "read_error_count"
+      ],
+      "properties": {
+        "record_count": {
+          "type": "integer"
+        },
+        "records_with_failures": {
+          "type": "integer"
+        },
+        "failed_run_observation_count": {
+          "type": "integer"
+        },
+        "artifact_failure_count": {
+          "type": "integer"
+        },
+        "read_error_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "run_failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "run_id",
+          "kind",
+          "failure_count",
+          "total_error_count",
+          "latest_errors"
+        ],
+        "properties": {
+          "run_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "failure_count": {
+            "type": "integer"
+          },
+          "total_error_count": {
+            "type": "integer"
+          },
+          "latest_errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "artifact_failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "artifact_name",
+          "failure_count",
+          "run_ids"
+        ],
+        "properties": {
+          "artifact_name": {
+            "type": "string"
+          },
+          "failure_count": {
+            "type": "integer"
+          },
+          "run_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "recent_records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "recorded_at",
+          "ok",
+          "run_count",
+          "failed_count",
+          "error_count",
+          "selected_run_ids",
+          "failed_run_ids"
+        ],
+        "properties": {
+          "recorded_at": {
+            "type": "string"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "run_count": {
+            "type": "integer"
+          },
+          "failed_count": {
+            "type": "integer"
+          },
+          "error_count": {
+            "type": "integer"
+          },
+          "selected_run_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "failed_run_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_history_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_history_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

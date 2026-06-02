@@ -139,9 +139,13 @@ from orchestrator.artifact_validator_coverage import (
     write_coverage_report,
 )
 from orchestrator.run_artifact_health import (
+    HISTORY_SCHEMA_VERSION as RUN_ARTIFACT_HEALTH_HISTORY_SCHEMA_VERSION,
     SCHEMA_VERSION as RUN_ARTIFACT_HEALTH_SCHEMA_VERSION,
+    append_run_artifact_health_history,
+    build_run_artifact_health_history,
     build_run_artifact_health,
     validate_run_artifact_health_file,
+    validate_run_artifact_health_history_file,
     write_run_artifact_health,
 )
 from orchestrator.config import (
@@ -511,6 +515,142 @@ def test_run_artifact_health_strict_reports_invalid_runs(tmp_path: Path) -> None
     assert strict_result.returncode == 1
     strict_payload = json.loads(strict_result.stdout)
     assert strict_payload["ok"] is False
+
+
+def test_run_artifact_health_history_summarizes_failures(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    history_path = repo / "experiments/run_artifact_health_history.jsonl"
+    run_pipeline(run_id="history-good", repo_root=repo)
+    run_iteration_loop(
+        run_id="history-bad",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    bad_artifact = repo / "experiments/history-bad/round_001/agent_input.json"
+    bad_artifact.unlink()
+
+    good_payload = build_run_artifact_health(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        run_ids=["history-good"],
+    )
+    bad_payload = build_run_artifact_health(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        run_ids=["history-bad"],
+    )
+    good_record = append_run_artifact_health_history(
+        payload=good_payload,
+        history_path=history_path,
+        recorded_at="2026-01-01T00:00:00Z",
+    )
+    bad_record = append_run_artifact_health_history(
+        payload=bad_payload,
+        history_path=history_path,
+        recorded_at="2026-01-01T00:01:00Z",
+    )
+    summary = build_run_artifact_health_history(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        history_path=history_path,
+        limit=5,
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "health-history",
+            "--history-path",
+            str(history_path),
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    cli_summary = json.loads(cli_result.stdout)
+
+    assert good_record["schema_version"] == "run_artifact_health_history_record_v1"
+    assert good_record["ok"] is True
+    assert bad_record["ok"] is False
+    assert bad_record["failed_runs"][0]["run_id"] == "history-bad"
+    assert summary["schema_version"] == RUN_ARTIFACT_HEALTH_HISTORY_SCHEMA_VERSION
+    assert_matches_schema_payload(summary, "run_artifact_health_history")
+    assert summary["ok"] is True
+    assert summary["totals"]["record_count"] == 2
+    assert summary["totals"]["records_with_failures"] == 1
+    assert summary["run_failures"][0]["run_id"] == "history-bad"
+    assert summary["artifact_failures"][0]["artifact_name"] == "agent_input.json"
+    assert summary["recent_records"][-1]["failed_run_ids"] == ["history-bad"]
+    assert cli_summary["schema_version"] == RUN_ARTIFACT_HEALTH_HISTORY_SCHEMA_VERSION
+    assert cli_summary["artifact_failures"][0]["artifact_name"] == "agent_input.json"
+
+
+def test_run_artifact_health_history_cli_records_and_validates(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(run_id="history-cli-good", repo_root=repo)
+    history_path = repo / "experiments/run_artifact_health_history.jsonl"
+
+    record_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.run_artifact_health",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "--repo-root",
+            str(repo),
+            "--run-id",
+            "history-cli-good",
+            "--record-history",
+            "--history-path",
+            str(history_path),
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    summary_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.run_artifact_health",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "--repo-root",
+            str(repo),
+            "--history-summary",
+            "--history-path",
+            str(history_path),
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    summary = json.loads(summary_result.stdout)
+    summary_path = repo / "run_artifact_health_history.json"
+    summary_path.write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    assert json.loads(record_result.stdout)["ok"] is True
+    assert history_path.exists()
+    assert len(history_path.read_text(encoding="utf-8").splitlines()) == 1
+    assert summary["schema_version"] == RUN_ARTIFACT_HEALTH_HISTORY_SCHEMA_VERSION
+    assert summary["record_count"] == 1
+    assert summary["totals"]["records_with_failures"] == 0
+    assert validate_run_artifact_health_history_file(
+        payload_path=summary_path,
+        repo_root=repo,
+    ) == ()
 
 
 def test_agent_contract_runner_writes_disabled_audit(tmp_path: Path) -> None:

@@ -36,6 +36,7 @@ KNOWN_ARTIFACT_NAMES = {
     "agent_routing_policy": ("agent_routing_policy.json",),
     "workspace_manifest": ("workspace_manifest.json",),
     "attempt_output": ("attempt_output.json",),
+    "run_artifact_health_history": ("run_artifact_health_history.jsonl",),
 }
 
 INSPECTION_COMMANDS = {
@@ -52,6 +53,10 @@ INSPECTION_COMMANDS = {
     "run_artifact_health": (
         "python -m orchestrator.run_artifact_health",
         "python -m orchestrator.experiments validate",
+    ),
+    "run_artifact_health_history": (
+        "python -m orchestrator.run_artifact_health --history-summary",
+        "python -m orchestrator.experiments health-history",
     ),
     "champion": ("python -m orchestrator.experiments champion",),
     "champion_comparison": ("python -m orchestrator.experiments compare",),

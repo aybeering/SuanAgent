@@ -16,7 +16,11 @@ from orchestrator.external_agent_sandbox_drill import (
     build_external_agent_sandbox_drill,
 )
 from orchestrator.outcome_memory import recent_outcomes
-from orchestrator.run_artifact_health import build_run_artifact_health
+from orchestrator.run_artifact_health import (
+    DEFAULT_HISTORY_FILENAME,
+    build_run_artifact_health,
+    build_run_artifact_health_history,
+)
 from orchestrator.run_diagnosis import diagnose_run
 
 
@@ -831,6 +835,13 @@ def main() -> None:
     validate_parser.add_argument("--run-id", action="append", dest="run_ids", default=[])
     validate_parser.add_argument("--strict", action="store_true")
 
+    health_history_parser = subparsers.add_parser(
+        "health-history",
+        help="Summarize saved run artifact health history.",
+    )
+    health_history_parser.add_argument("--limit", type=int, default=10)
+    health_history_parser.add_argument("--history-path", type=Path)
+
     subparsers.add_parser("summary", help="Summarize experiment history.")
 
     args = parser.parse_args()
@@ -910,6 +921,14 @@ def main() -> None:
             limit=args.limit,
             all_runs=args.all_runs,
             run_ids=args.run_ids,
+        )
+    elif args.command == "health-history":
+        payload = build_run_artifact_health_history(
+            experiments_dir=args.experiments_dir,
+            repo_root=args.experiments_dir.parent,
+            history_path=args.history_path
+            or args.experiments_dir / DEFAULT_HISTORY_FILENAME,
+            limit=args.limit,
         )
     else:
         payload = summarize_experiments(experiments_dir=args.experiments_dir)

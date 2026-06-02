@@ -120,10 +120,15 @@ def experiment_summary_dashboard(
         diagnose_record(record=record, experiments_dir=experiments_dir)
         for record in recent_records
     ]
+    recent_rows = [compact_diagnosis_row(diagnosis) for diagnosis in recent_diagnoses]
     failure_codes = recent_failure_code_counts(recent_diagnoses)
     latest_run = compact_record_row(records[-1]) if records else None
     latest_accepted = latest_record_with_status(records, status="accepted")
     latest_rejected = latest_record_with_status(records, status="rejected")
+    champion_gap = champion_gap_summary(
+        experiments_dir=experiments_dir,
+        best_run=best_run,
+    )
     return {
         "schema_version": SUMMARY_DASHBOARD_SCHEMA_VERSION,
         "total_runs": len(records),
@@ -131,14 +136,16 @@ def experiment_summary_dashboard(
         "latest_run": latest_run,
         "latest_accepted_run": latest_accepted,
         "latest_rejected_run": latest_rejected,
-        "recent_runs": [
-            compact_diagnosis_row(diagnosis) for diagnosis in recent_diagnoses
-        ],
+        "recent_runs": recent_rows,
         "recent_failure_codes": dict(sorted(failure_codes.items())),
         "top_recent_failure_code": top_counter_key(failure_codes),
-        "champion_gap": champion_gap_summary(
-            experiments_dir=experiments_dir,
-            best_run=best_run,
+        "champion_gap": champion_gap,
+        "watchlist": dashboard_watchlist(
+            recent_runs=recent_rows,
+            latest_run=latest_run,
+            latest_accepted=latest_accepted,
+            champion_gap=champion_gap,
+            failure_codes=failure_codes,
         ),
         "policy": {
             "inspection_only": True,
@@ -339,9 +346,148 @@ def top_counter_key(counter: Counter[str]) -> str:
     return sorted(counter.items(), key=lambda item: (-item[1], item[0]))[0][0]
 
 
+def dashboard_watchlist(
+    *,
+    recent_runs: list[dict[str, object]],
+    latest_run: dict[str, object] | None,
+    latest_accepted: dict[str, object] | None,
+    champion_gap: dict[str, object],
+    failure_codes: Counter[str],
+) -> dict[str, object]:
+    """Return deterministic operator-facing dashboard alerts."""
+    alerts: list[dict[str, object]] = []
+    if latest_run is None:
+        alerts.append(
+            watch_alert(
+                severity="info",
+                code="no_runs_indexed",
+                title="No experiment runs indexed",
+                detail="Run a single or iteration loop to populate experiment history.",
+            )
+        )
+    elif str(latest_run.get("status", "")) == "stopped_repeated_proposal":
+        alerts.append(
+            watch_alert(
+                severity="warning",
+                code="latest_run_repeated_proposal",
+                title="Latest run stopped on a repeated proposal",
+                detail="The active modifier is repeating a previously failed patch.",
+                run_id=str(latest_run.get("run_id", "")),
+            )
+        )
+    if latest_accepted is None and latest_run is not None:
+        alerts.append(
+            watch_alert(
+                severity="info",
+                code="no_accepted_run_indexed",
+                title="No accepted run indexed yet",
+                detail="The current experiment history has not recorded an accepted run.",
+            )
+        )
+    repeated_failures = int(failure_codes.get("patch_memory_rejected", 0))
+    if repeated_failures:
+        alerts.append(
+            watch_alert(
+                severity="warning",
+                code="recent_patch_memory_rejections",
+                title="Recent runs hit proposal memory rejection",
+                detail=f"{repeated_failures} recent run(s) rejected a repeated patch.",
+            )
+        )
+    artifact_failed = [
+        row for row in recent_runs if not bool(row.get("artifact_ok", False))
+    ]
+    for row in artifact_failed[:3]:
+        alerts.append(
+            watch_alert(
+                severity="critical",
+                code="recent_artifact_health_failed",
+                title="Recent run has invalid artifacts",
+                detail=str(row.get("summary", "")),
+                run_id=str(row.get("run_id", "")),
+            )
+        )
+    gap = optional_float_value(champion_gap.get("gap_to_champion"))
+    if bool(champion_gap.get("active", False)) and gap is not None and gap < 0:
+        alerts.append(
+            watch_alert(
+                severity="warning",
+                code="best_run_trails_champion",
+                title="Best indexed run trails the champion",
+                detail=(
+                    f"Best run {champion_gap.get('comparison_run_id', '')} "
+                    f"trails champion {champion_gap.get('champion_run_id', '')} "
+                    f"by {abs(gap):.6f} validation EV delta."
+                ),
+                run_id=str(champion_gap.get("comparison_run_id", "")),
+            )
+        )
+    return {
+        "schema_version": "experiment_watchlist_v1",
+        "status": watchlist_status(alerts),
+        "alert_count": len(alerts),
+        "severity_counts": severity_counts(alerts),
+        "alerts": alerts,
+        "policy": {
+            "inspection_only": True,
+            "does_not_execute_agents": True,
+            "does_not_run_backtests": True,
+            "does_not_apply_patches": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+
+def watch_alert(
+    *,
+    severity: str,
+    code: str,
+    title: str,
+    detail: str,
+    run_id: str = "",
+) -> dict[str, object]:
+    """Return one stable watchlist alert row."""
+    return {
+        "severity": severity,
+        "code": code,
+        "title": title,
+        "detail": detail,
+        "run_id": run_id,
+    }
+
+
+def watchlist_status(alerts: list[dict[str, object]]) -> str:
+    """Return compact watchlist status from alert severities."""
+    severities = {str(alert.get("severity", "")) for alert in alerts}
+    if "critical" in severities:
+        return "critical"
+    if "warning" in severities:
+        return "attention"
+    if alerts:
+        return "informational"
+    return "clean"
+
+
+def severity_counts(alerts: list[dict[str, object]]) -> dict[str, int]:
+    """Return stable alert severity counts."""
+    counts = Counter(str(alert.get("severity", "unknown")) for alert in alerts)
+    return {key: int(counts.get(key, 0)) for key in ("critical", "warning", "info")}
+
+
+def optional_float_value(value: object) -> float | None:
+    """Return an optional float from a JSON-like value."""
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
     """Render the experiment summary dashboard as compact markdown."""
     dashboard = dict_payload(payload.get("dashboard", {}))
+    watchlist = dict_payload(dashboard.get("watchlist", {}))
     lineage = dict_payload(payload.get("champion_lineage", {}))
     by_kind = dict_payload(payload.get("by_kind", {}))
     by_status = dict_payload(payload.get("by_status", {}))
@@ -366,12 +512,24 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         f"- Champion gap: `{champion_gap.get('status', 'unknown')}` "
         f"({number_text(champion_gap.get('gap_to_champion'))})",
         f"- Top recent failure: `{dashboard.get('top_recent_failure_code', 'none')}`",
+        f"- Watchlist: `{watchlist.get('status', 'clean')}` "
+        f"({watchlist.get('alert_count', 0)} alert(s))",
         "",
-        "## Counts",
+        "## Watchlist",
         "",
-        "| Kind | Count |",
-        "| --- | ---: |",
+        "| Severity | Code | Run | Detail |",
+        "| --- | --- | --- | --- |",
     ]
+    lines.extend(watchlist_markdown_rows(watchlist))
+    lines.extend(
+        [
+            "",
+            "## Counts",
+            "",
+            "| Kind | Count |",
+            "| --- | ---: |",
+        ]
+    )
     lines.extend(counter_markdown_rows(by_kind))
     lines.extend(
         [
@@ -433,6 +591,23 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         ]
     )
     return "\n".join(lines) + "\n"
+
+
+def watchlist_markdown_rows(watchlist: dict[str, object]) -> list[str]:
+    """Return markdown rows for dashboard watchlist alerts."""
+    alerts = list_payload(watchlist.get("alerts", []))
+    if not alerts:
+        return ["| clean | none |  | No watchlist alerts. |"]
+    rows: list[str] = []
+    for alert in alerts:
+        rows.append(
+            "| "
+            f"`{markdown_cell(alert.get('severity', ''))}` | "
+            f"`{markdown_cell(alert.get('code', ''))}` | "
+            f"`{markdown_cell(alert.get('run_id', ''))}` | "
+            f"{markdown_cell(alert.get('detail', ''))} |"
+        )
+    return rows
 
 
 def counter_markdown_rows(payload: dict[str, object]) -> list[str]:

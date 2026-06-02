@@ -225,10 +225,12 @@ Codex CLI readiness contracts:
 21. Experiment summary dashboards are read-only inspection payloads embedded in
     `python -m orchestrator.experiments summary`. They can summarize latest
     indexed runs, recent diagnosis rows, recent failure-code counts, and
-    best-run-to-champion gaps, but they cannot execute agents, run backtests,
-    route candidates, apply patches, promote champions, write artifacts, or
-    change strategy acceptance. The optional `summary --markdown` mode renders
-    the same payload for terminal inspection without writing artifacts.
+    best-run-to-champion gaps, and they may include a deterministic operator
+    watchlist for repeated proposals, artifact-health failures, and champion
+    gap alerts. They cannot execute agents, run backtests, route candidates,
+    apply patches, promote champions, write artifacts, or change strategy
+    acceptance. The optional `summary --markdown` mode renders the same payload
+    for terminal inspection without writing artifacts.
 
 ## Near-Term Development Order
 

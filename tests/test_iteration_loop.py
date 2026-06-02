@@ -10567,6 +10567,11 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     assert summary["dashboard"]["recent_failure_codes"]["policy_ev_improvement_low"] == 1  # type: ignore[index]
     assert summary["dashboard"]["top_recent_failure_code"] == "policy_ev_improvement_low"  # type: ignore[index]
     assert summary["dashboard"]["champion_gap"]["status"] == "no_champion"  # type: ignore[index]
+    assert summary["dashboard"]["watchlist"]["schema_version"] == "experiment_watchlist_v1"  # type: ignore[index]
+    assert summary["dashboard"]["watchlist"]["status"] == "informational"  # type: ignore[index]
+    assert summary["dashboard"]["watchlist"]["alert_count"] == 1  # type: ignore[index]
+    assert summary["dashboard"]["watchlist"]["alerts"][0]["code"] == "no_accepted_run_indexed"  # type: ignore[index]
+    assert summary["dashboard"]["watchlist"]["policy"]["does_not_change_acceptance"] is True  # type: ignore[index]
     assert summary["dashboard"]["policy"]["does_not_run_backtests"] is True  # type: ignore[index]
     assert summary["champion_lineage"]["ok"] is True  # type: ignore[index]
     assert summary["champion_lineage"]["event_count"] == 0  # type: ignore[index]
@@ -11337,10 +11342,15 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
     assert summary["dashboard"]["latest_rejected_run"]["run_id"] == "cli-summary"
     assert summary["dashboard"]["latest_accepted_run"] is None
     assert summary["dashboard"]["top_recent_failure_code"] == "none"
+    assert summary["dashboard"]["watchlist"]["schema_version"] == "experiment_watchlist_v1"
+    assert summary["dashboard"]["watchlist"]["status"] == "informational"
+    assert summary["dashboard"]["watchlist"]["alerts"][0]["code"] == "no_accepted_run_indexed"
     assert summary["dashboard"]["policy"]["does_not_execute_agents"] is True
     assert summary["champion_lineage"]["event_count"] == 0
     assert summary["champion_lineage"]["policy"]["does_not_write_lineage_artifact"] is True
     assert "# Experiment Summary" in markdown_result.stdout
+    assert "## Watchlist" in markdown_result.stdout
+    assert "no_accepted_run_indexed" in markdown_result.stdout
     assert "## Recent Runs" in markdown_result.stdout
     assert "## Champion Lineage" in markdown_result.stdout
     assert "Executes agents: `False`" in markdown_result.stdout

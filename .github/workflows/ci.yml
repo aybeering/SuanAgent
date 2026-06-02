@@ -646,6 +646,11 @@ jobs:
           assert dashboard["policy"]["does_not_execute_agents"] is True
           assert dashboard["policy"]["does_not_run_backtests"] is True
           assert dashboard["policy"]["does_not_change_acceptance"] is True
+          watchlist = dashboard["watchlist"]
+          assert watchlist["schema_version"] == "experiment_watchlist_v1"
+          assert isinstance(watchlist["alerts"], list)
+          assert watchlist["severity_counts"]["warning"] >= 0
+          assert watchlist["policy"]["does_not_change_acceptance"] is True
           lineage = summary["champion_lineage"]
           assert lineage["schema_version"] == "champion_lineage_summary_v1"
           assert lineage["ok"] is True
@@ -658,6 +663,7 @@ jobs:
           PY
           python -m orchestrator.experiments summary --markdown > /tmp/experiment_summary.md
           grep -q "# Experiment Summary" /tmp/experiment_summary.md
+          grep -q "## Watchlist" /tmp/experiment_summary.md
           grep -q "## Recent Runs" /tmp/experiment_summary.md
           grep -q "## Champion Lineage" /tmp/experiment_summary.md
           grep -q 'Executes agents: `False`' /tmp/experiment_summary.md

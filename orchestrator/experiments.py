@@ -35,6 +35,10 @@ from orchestrator.operator_action_dashboard import (
     build_operator_action_dashboard,
     render_operator_action_dashboard_markdown,
 )
+from orchestrator.operator_cockpit import (
+    build_operator_cockpit,
+    render_operator_cockpit_markdown,
+)
 from orchestrator.operator_action_executor import (
     render_receipt_markdown as render_operator_action_execution_markdown,
 )
@@ -1177,6 +1181,29 @@ def operator_action_dashboard_report(
     return payload
 
 
+def operator_cockpit_report(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+) -> dict[str, object]:
+    """Return the saved or derived operator cockpit for one run."""
+    run_dir = experiments_dir / run_id
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    cockpit_path = run_dir / "operator_cockpit.json"
+    if cockpit_path.exists():
+        payload = load_json(cockpit_path)
+        payload["from_artifact"] = True
+        return payload
+    payload = build_operator_cockpit(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=experiments_dir.parent,
+    )
+    payload["from_artifact"] = False
+    return payload
+
+
 def agent_slot_health_report(
     *,
     run_id: str,
@@ -1872,6 +1899,17 @@ def main() -> None:
         help="Render the operator dashboard as markdown.",
     )
 
+    cockpit_parser = subparsers.add_parser(
+        "cockpit",
+        help="Show the read-only operator cockpit for one iteration run.",
+    )
+    cockpit_parser.add_argument("run_id")
+    cockpit_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the operator cockpit as markdown.",
+    )
+
     action_plan_parser = subparsers.add_parser(
         "action-plan",
         help="Show read-only operator action candidates for one iteration run.",
@@ -2168,6 +2206,14 @@ def main() -> None:
         )
         if args.markdown:
             print(render_operator_run_review_markdown(payload), end="")
+            return
+    elif args.command == "cockpit":
+        payload = operator_cockpit_report(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
+        )
+        if args.markdown:
+            print(render_operator_cockpit_markdown(payload), end="")
             return
     elif args.command == "action-plan":
         payload = operator_action_plan_report(

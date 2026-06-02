@@ -723,6 +723,25 @@ jobs:
           assert dashboard["authority"]["dashboard_can_execute_commands"] is False
           assert "# Operator Action Dashboard" in markdown
           PY
+          python -m orchestrator.operator_cockpit experiments/ci-adaptive
+          test -f experiments/ci-adaptive/operator_cockpit.json
+          test -f experiments/ci-adaptive/operator_cockpit.md
+          python -m orchestrator.experiments cockpit ci-adaptive > /tmp/operator_cockpit.json
+          python -m orchestrator.experiments cockpit ci-adaptive --markdown > /tmp/operator_cockpit.md
+          python - <<'PY'
+          import json
+          cockpit = json.load(open("/tmp/operator_cockpit.json"))
+          markdown = open("/tmp/operator_cockpit.md").read()
+          assert cockpit["schema_version"] == "operator_cockpit_v1"
+          assert cockpit["from_artifact"] is True
+          assert cockpit["summary"]["action_status"] == "execution_completed"
+          assert cockpit["summary"]["config_lineage_status"] == "partial"
+          assert cockpit["authority"]["cockpit_can_execute_commands"] is False
+          assert cockpit["authority"]["cockpit_can_promote_champion"] is False
+          assert cockpit["policy"]["does_not_change_acceptance"] is True
+          assert len(cockpit["panels"]) >= 6
+          assert "# Operator Cockpit" in markdown
+          PY
           python -m orchestrator.artifact_validator ci-adaptive
 
       - name: Diagnose iteration runs

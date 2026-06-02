@@ -56,7 +56,8 @@ guarded config restore receipt artifacts, read-only config lineage artifacts,
 read-only run closeout operator dashboard summaries, read-only operator action
 plans, read-only operator action approval receipts, guarded read-only operator
 action execution receipts, read-only operator action audit artifacts, read-only
-operator action dashboard artifacts, and Codex CLI readiness evidence.
+operator action dashboard artifacts, read-only operator cockpit artifacts, and
+Codex CLI readiness evidence.
 
 Still out of scope:
 
@@ -189,6 +190,11 @@ Operator action dashboard artifacts may summarize that action chain into a
 human-facing next-step view. They must remain read-only and must not record
 approval, execute commands, write config, promote champions, run agents, run
 backtests, apply patches, route agents, or change acceptance.
+Operator cockpit artifacts may summarize run review, config lineage, operator
+action, challenger, champion promotion, and scope-health state into one
+human-facing page. They must remain read-only and must not record approval,
+execute commands, write config, promote champions, run agents, run backtests,
+apply patches, route agents, or change acceptance.
 
 ## Strategy Policy
 

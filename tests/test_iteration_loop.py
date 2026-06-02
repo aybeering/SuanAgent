@@ -288,6 +288,13 @@ from orchestrator.operator_action_dashboard import (
     validate_operator_action_dashboard_file,
     write_operator_action_dashboard,
 )
+from orchestrator.operator_cockpit import (
+    OPERATOR_COCKPIT_SCHEMA_VERSION,
+    build_operator_cockpit,
+    render_operator_cockpit_markdown,
+    validate_operator_cockpit_file,
+    write_operator_cockpit,
+)
 from orchestrator.run_diagnosis import diagnose_run
 from orchestrator.proposal_intent import build_proposal_intent
 from orchestrator.preflight import run_preflight
@@ -311,6 +318,7 @@ from orchestrator.experiments import (
     operator_action_dashboard_report,
     operator_action_execution_report,
     operator_action_plan_report,
+    operator_cockpit_report,
     operator_run_review,
     promote_champion,
     render_operator_run_review_markdown,
@@ -2123,6 +2131,67 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert built["status"] == "execution_completed"
     assert_matches_schema_payload(completed, "operator_action_dashboard")
     assert validate_operator_action_dashboard_file(
+        payload_path=json_path,
+        repo_root=repo,
+    ) == ()
+    assert validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )["ok"] is True
+
+
+def test_operator_cockpit_aggregates_operator_views_without_authority(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "operator-cockpit"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / f"experiments/{run_id}"
+    write_operator_action_dashboard(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    json_path, md_path, cockpit = write_operator_cockpit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    markdown = render_operator_cockpit_markdown(cockpit)
+    built = build_operator_cockpit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert cockpit["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION
+    assert cockpit["status"] in {"action_pending", "needs_operator_review"}
+    assert cockpit["summary"]["run_status"] == "stopped_max_rounds"
+    assert cockpit["summary"]["action_status"] == "pending_approval"
+    assert cockpit["summary"]["action_safe_command_count"] >= 1
+    assert cockpit["summary"]["config_lineage_status"] == "partial"
+    assert cockpit["source_artifacts"]["run_closeout"]["file"]["exists"] is True
+    assert cockpit["source_artifacts"]["operator_action_dashboard"]["file"][
+        "exists"
+    ] is True
+    assert len(cockpit["panels"]) >= 6
+    assert any(row["panel_id"] == "operator_action" for row in cockpit["panels"])
+    assert any(row["label"] == "review_cockpit" for row in cockpit["recommended_commands"])
+    assert cockpit["authority"]["cockpit_can_execute_commands"] is False
+    assert cockpit["authority"]["cockpit_can_promote_champion"] is False
+    assert cockpit["policy"]["does_not_record_approval"] is True
+    assert cockpit["policy"]["does_not_change_acceptance"] is True
+    assert "# Operator Cockpit" in markdown
+    assert "# Operator Cockpit" in md_path.read_text(encoding="utf-8")
+    assert built["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION
+    assert_matches_schema_payload(cockpit, "operator_cockpit")
+    assert validate_operator_cockpit_file(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
@@ -14265,6 +14334,16 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     action_dashboard_markdown = render_operator_action_dashboard_markdown(
         action_dashboard
     )
+    write_operator_cockpit(
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    cockpit = operator_cockpit_report(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+    )
+    cockpit_markdown = render_operator_cockpit_markdown(cockpit)
     result = subprocess.run(
         [
             sys.executable,
@@ -14479,6 +14558,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "--experiments-dir",
             "experiments",
             "action-dashboard",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cockpit_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "cockpit",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cockpit_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "cockpit",
             "cli-candidates",
             "--markdown",
         ],
@@ -14835,6 +14945,14 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert action_dashboard["policy"]["does_not_record_approval"] is True
     assert action_dashboard["authority"]["dashboard_can_execute_commands"] is False
     assert "# Operator Action Dashboard" in action_dashboard_markdown
+    assert cockpit["from_artifact"] is True
+    assert cockpit["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION
+    assert cockpit["summary"]["action_status"] == "execution_completed"
+    assert cockpit["summary"]["config_lineage_status"] == "partial"
+    assert cockpit["authority"]["cockpit_can_execute_commands"] is False
+    assert cockpit["authority"]["cockpit_can_promote_champion"] is False
+    assert cockpit["policy"]["does_not_change_acceptance"] is True
+    assert "# Operator Cockpit" in cockpit_markdown
     assert stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
     assert "avg_holdout_ev_delta" in stats["agents"][0]
     assert stats["round_replays"]["round_count"] == 1
@@ -14940,6 +15058,15 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         action_dashboard_markdown_result.stderr
     )
     assert "# Operator Action Dashboard" in action_dashboard_markdown_result.stdout
+    assert cockpit_result.returncode == 0, cockpit_result.stderr
+    cockpit_payload = json.loads(cockpit_result.stdout)
+    assert cockpit_payload["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION
+    assert cockpit_payload["from_artifact"] is True
+    assert cockpit_payload["summary"]["action_status"] == "execution_completed"
+    assert len(cockpit_payload["panels"]) >= 6
+    assert_matches_schema_payload(cockpit_payload, "operator_cockpit")
+    assert cockpit_markdown_result.returncode == 0, cockpit_markdown_result.stderr
+    assert "# Operator Cockpit" in cockpit_markdown_result.stdout
     assert stats_result.returncode == 0, stats_result.stderr
     stats_payload = json.loads(stats_result.stdout)
     assert stats_payload["schema_version"] == "agent_result_stats_v1"

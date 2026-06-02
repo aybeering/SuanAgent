@@ -261,6 +261,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_operator_cockpit(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_optional_agent_slot_health(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -4281,6 +4286,116 @@ def validate_optional_operator_action_dashboard(
     ):
         if policy.get(key) is not True:
             add_error(report, f"operator_action_dashboard.json policy false: {key}")
+
+
+def validate_optional_operator_cockpit(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate operator_cockpit.json/md when present."""
+    path = run_dir / "operator_cockpit.json"
+    md_path = run_dir / "operator_cockpit.md"
+    if not path.exists() and not md_path.exists():
+        return
+    if not path.exists():
+        add_error(report, f"missing operator cockpit JSON: {path}")
+        return
+    if not md_path.exists():
+        add_error(report, f"missing operator cockpit markdown: {md_path}")
+    checked_files(report).append(str(path))
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/operator_cockpit.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(report, "operator_cockpit.json run_id mismatch")
+
+    sources = payload.get("source_artifacts", {})
+    if not isinstance(sources, dict):
+        add_error(report, "operator_cockpit.json source_artifacts invalid")
+        sources = {}
+    for source_key, expected_name in (
+        ("run_closeout", "run_closeout.json"),
+        ("config_lineage", "config_lineage.json"),
+        ("operator_action_dashboard", "operator_action_dashboard.json"),
+        ("candidate_challenger_report", "candidate_challenger_report.json"),
+        ("champion_promotion_dry_run", "champion_promotion_dry_run.json"),
+        ("champion_promotion_approval", "champion_promotion_approval.json"),
+        ("experiment_scope_health", "experiment_scope_health.json"),
+    ):
+        source = sources.get(source_key, {})
+        if not isinstance(source, dict):
+            add_error(report, f"operator_cockpit source invalid: {source_key}")
+            continue
+        source_file = source.get("file", {})
+        if not isinstance(source_file, dict):
+            add_error(report, f"operator_cockpit source file invalid: {source_key}")
+            continue
+        if source_file.get("exists") is True:
+            validate_recorded_file_hash(
+                record=source_file,
+                repo_root=repo_root,
+                report=report,
+                label=f"operator_cockpit {source_key}",
+            )
+            source_path = resolve_path(Path(str(source_file.get("path", ""))), repo_root)
+            if source_path.name != expected_name:
+                add_error(report, f"operator_cockpit source path invalid: {source_key}")
+
+    for row in list_of_dicts(payload.get("panels", [])):
+        artifact_path = resolve_path(Path(str(row.get("artifact_path", ""))), repo_root)
+        if bool(row.get("artifact_exists", False)) != artifact_path.exists():
+            add_error(report, "operator_cockpit panel artifact existence mismatch")
+    summary = payload.get("summary", {})
+    if not isinstance(summary, dict):
+        add_error(report, "operator_cockpit.json summary invalid")
+        summary = {}
+    if payload.get("ok") is not True:
+        add_error(report, "operator_cockpit.json ok false")
+    if summary.get("artifact_health_ok") is not True:
+        add_error(report, "operator_cockpit.json artifact health not ok")
+
+    authority = payload.get("authority", {})
+    if not isinstance(authority, dict):
+        add_error(report, "operator_cockpit.json authority invalid")
+        authority = {}
+    for key in (
+        "cockpit_can_record_approval",
+        "cockpit_can_execute_commands",
+        "cockpit_can_write_config",
+        "cockpit_can_promote_champion",
+        "cockpit_can_change_acceptance",
+    ):
+        if authority.get(key) is not False:
+            add_error(report, f"operator_cockpit authority true: {key}")
+
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "operator_cockpit.json policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_record_approval",
+        "does_not_execute_commands",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"operator_cockpit.json policy false: {key}")
 
 
 def validate_optional_candidate_challenger_report(

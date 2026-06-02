@@ -71,6 +71,10 @@ KNOWN_ARTIFACT_NAMES = {
         "operator_action_dashboard.json",
         "operator_action_dashboard.md",
     ),
+    "operator_cockpit": (
+        "operator_cockpit.json",
+        "operator_cockpit.md",
+    ),
     "config_application_dry_run": (
         "config_application_dry_run.json",
         "config_application_dry_run.md",
@@ -174,6 +178,10 @@ INSPECTION_COMMANDS = {
     "operator_action_dashboard": (
         "python -m orchestrator.operator_action_dashboard",
         "python -m orchestrator.experiments action-dashboard",
+    ),
+    "operator_cockpit": (
+        "python -m orchestrator.operator_cockpit",
+        "python -m orchestrator.experiments cockpit",
     ),
     "config_application_dry_run": (
         "python -m orchestrator.config_application_dry_run",

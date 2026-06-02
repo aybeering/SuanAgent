@@ -199,6 +199,13 @@ command, safe command counts, blockers, and suggested guarded commands while
 remaining read-only: they do not record approval, execute commands, write
 config, promote champions, run agents, run backtests, route agents, apply
 patches, or change acceptance.
+`operator_cockpit.json` and `operator_cockpit.md` are the broader operator
+entrypoint. They collect the run closeout, config lineage, operator action
+dashboard, challenger comparison, champion-promotion review, promotion approval,
+and scope-health status into one read-only page with panel rows and command
+hints. The cockpit is an inspection artifact only; it cannot record approvals,
+execute commands, write config, promote champions, run agents, run backtests,
+route agents, apply patches, or change acceptance.
 
 ## Champion Registry
 

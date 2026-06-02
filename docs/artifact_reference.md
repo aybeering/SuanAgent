@@ -62,6 +62,9 @@ python -m orchestrator.experiments action-audit <run_id> --markdown
 python -m orchestrator.operator_action_dashboard experiments/<run_id>
 python -m orchestrator.experiments action-dashboard <run_id>
 python -m orchestrator.experiments action-dashboard <run_id> --markdown
+python -m orchestrator.operator_cockpit experiments/<run_id>
+python -m orchestrator.experiments cockpit <run_id>
+python -m orchestrator.experiments cockpit <run_id> --markdown
 ```
 
 Replay and validation:
@@ -166,6 +169,8 @@ experiments/<run_id>/
   operator_action_audit.md    # after optional operator action audit command
   operator_action_dashboard.json  # after optional operator action dashboard command
   operator_action_dashboard.md    # after optional operator action dashboard command
+  operator_cockpit.json  # after optional operator cockpit command
+  operator_cockpit.md    # after optional operator cockpit command
 ```
 
 It also updates append-only experiment indexes:
@@ -234,6 +239,14 @@ counts, blockers, and suggested read-only/guarded commands without recording
 approval, executing commands, writing config, promoting champions, running
 agents, running backtests, applying patches, routing agents, or changing
 acceptance.
+`operator_cockpit.json` and `operator_cockpit.md` collect the run closeout,
+config lineage, operator action dashboard, candidate challenger report,
+champion-promotion dry-run, promotion approval, and scope-health status into a
+single read-only operator page. `python -m orchestrator.experiments cockpit
+<run_id>` and `cockpit --markdown` expose panel rows, blockers, primary focus,
+and command hints without recording approval, executing commands, writing
+config, promoting champions, running agents, running backtests, applying
+patches, routing agents, or changing acceptance.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.
@@ -487,6 +500,11 @@ Replay artifacts:
   operator next-step view. They list the timeline, selected command, safe
   command counts, blockers, and command hints, but cannot approve or execute
   anything.
+- `operator_cockpit.json` and `operator_cockpit.md` aggregate run review,
+  config lineage, operator action, challenger comparison, promotion review,
+  promotion approval, and scope-health state into one read-only cockpit. They
+  list panels, blockers, primary focus, and command hints while preserving
+  deterministic acceptance authority.
 - `candidate_leaderboard.json` records every proposal attempt with stable
   quality metadata. `quality_breakdown` decomposes the pre-backtest candidate
   score into named components, selected rows also record validation and

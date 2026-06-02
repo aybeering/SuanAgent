@@ -242,6 +242,22 @@ jobs:
           assert snapshot["policy"]["freezes_unlock_gate_sha256"] is True
           assert snapshot["policy"]["freezes_evidence_artifact_sha256"] is True
           PY
+          python -m orchestrator.codex_cli_execution_candidate experiments/ci-codex-guarded
+          test -f experiments/ci-codex-guarded/codex_cli_execution_candidate.json
+          test -f experiments/ci-codex-guarded/codex_cli_execution_candidate.md
+          python - <<'PY'
+          import json
+          candidate = json.load(open("experiments/ci-codex-guarded/codex_cli_execution_candidate.json"))
+          assert candidate["schema_version"] == "codex_cli_execution_candidate_v1"
+          assert candidate["ok"] is True
+          assert candidate["execution_candidate_ready"] is False
+          assert "unlock_snapshot_not_unlocked" in candidate["blocking_reasons"]
+          assert candidate["execution_plan"]["target_file"] == "strategies/current_strategy.py"
+          assert candidate["execution_plan"]["allowed_mutation_paths"] == ["strategies/current_strategy.py"]
+          assert candidate["execution_plan"]["execution_enabled_by_this_artifact"] is False
+          assert candidate["policy"]["does_not_execute_codex_cli"] is True
+          assert candidate["policy"]["does_not_create_workspace"] is True
+          PY
           python -m orchestrator.artifact_validator ci-codex-guarded
           python -m orchestrator.artifact_validator ci-codex-canary
           python -m orchestrator.artifact_validator ci-adaptive

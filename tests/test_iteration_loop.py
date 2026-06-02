@@ -83,6 +83,10 @@ from orchestrator.codex_cli_execution_unlock_snapshot import (
     CODEX_CLI_EXECUTION_UNLOCK_SNAPSHOT_SCHEMA_VERSION,
     write_codex_cli_execution_unlock_snapshot,
 )
+from orchestrator.codex_cli_execution_candidate import (
+    CODEX_CLI_EXECUTION_CANDIDATE_SCHEMA_VERSION,
+    write_codex_cli_execution_candidate,
+)
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.agent_slot_readiness_gate import (
@@ -6501,6 +6505,10 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         run_dir=run_dir,
         repo_root=repo,
     )
+    candidate = write_codex_cli_execution_candidate(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
     validation_report = validate_run_artifacts(
         run_id="codex-unlock-locked",
         experiments_dir=repo / "experiments",
@@ -6545,6 +6553,15 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         "experiments/codex-unlock-locked/codex_cli_execution_unlock_gate.json"
     )
     assert len(snapshot["source_gate"]["sha256"]) == 64
+    assert candidate["schema_version"] == CODEX_CLI_EXECUTION_CANDIDATE_SCHEMA_VERSION
+    assert candidate["ok"] is True
+    assert candidate["execution_candidate_ready"] is False
+    assert "unlock_snapshot_not_unlocked" in candidate["blocking_reasons"]
+    assert candidate["execution_plan"]["target_file"] == "strategies/current_strategy.py"
+    assert candidate["execution_plan"]["allowed_mutation_paths"] == [
+        "strategies/current_strategy.py"
+    ]
+    assert candidate["execution_plan"]["execution_enabled_by_this_artifact"] is False
     assert_matches_schema(
         run_dir / "codex_cli_execution_unlock_gate.json",
         "codex_cli_execution_unlock_gate",
@@ -6553,8 +6570,13 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         run_dir / "codex_cli_execution_unlock_snapshot.json",
         "codex_cli_execution_unlock_snapshot",
     )
+    assert_matches_schema(
+        run_dir / "codex_cli_execution_candidate.json",
+        "codex_cli_execution_candidate",
+    )
     assert (run_dir / "codex_cli_execution_unlock_gate.md").exists()
     assert (run_dir / "codex_cli_execution_unlock_snapshot.md").exists()
+    assert (run_dir / "codex_cli_execution_candidate.md").exists()
     assert validation_report["ok"] is True
     assert cli_result.returncode == 0, cli_result.stderr
     assert cli_payload["schema_version"] == CODEX_CLI_EXECUTION_UNLOCK_GATE_SCHEMA_VERSION
@@ -6656,6 +6678,10 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         run_dir=run_dir,
         repo_root=repo,
     )
+    candidate = write_codex_cli_execution_candidate(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
     validation_report = validate_run_artifacts(
         run_id="codex-unlock-ready",
         experiments_dir=repo / "experiments",
@@ -6699,6 +6725,21 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert snapshot["evidence_artifacts"]["candidate_config"]["sha256"] == (
         gate["artifacts"]["candidate_config"]["sha256"]
     )
+    assert candidate["schema_version"] == CODEX_CLI_EXECUTION_CANDIDATE_SCHEMA_VERSION
+    assert candidate["ok"] is True
+    assert candidate["execution_candidate_ready"] is True
+    assert candidate["blocking_reasons"] == []
+    assert candidate["checks"]["snapshot_unlocked"] is True
+    assert candidate["checks"]["candidate_config_sha256_matches_snapshot"] is True
+    assert candidate["execution_plan"]["command"][0] == str(fake_codex)
+    assert "strategies/current_strategy.py" in " ".join(
+        candidate["execution_plan"]["command"]
+    )
+    assert candidate["execution_plan"]["allowed_mutation_paths"] == [
+        "strategies/current_strategy.py"
+    ]
+    assert candidate["execution_plan"]["execution_enabled_by_this_artifact"] is False
+    assert candidate["policy"]["does_not_execute_codex_cli"] is True
     assert_matches_schema(
         run_dir / "codex_cli_execution_unlock_gate.json",
         "codex_cli_execution_unlock_gate",
@@ -6706,6 +6747,10 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert_matches_schema(
         run_dir / "codex_cli_execution_unlock_snapshot.json",
         "codex_cli_execution_unlock_snapshot",
+    )
+    assert_matches_schema(
+        run_dir / "codex_cli_execution_candidate.json",
+        "codex_cli_execution_candidate",
     )
     assert validation_report["ok"] is True
     assert cli_result.returncode == 0, cli_result.stderr

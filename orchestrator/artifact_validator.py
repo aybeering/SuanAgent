@@ -127,6 +127,8 @@ def validate_run_artifacts(
             report=report,
         )
         validate_json_object(path=run_dir / "decision.json", report=report)
+    elif (run_dir / "codex_cli_execution_candidate.json").exists():
+        report["kind"] = "codex_cli_execution_candidate"
     elif (run_dir / "codex_cli_execution_unlock_snapshot.json").exists():
         report["kind"] = "codex_cli_execution_unlock_snapshot"
     elif (run_dir / "codex_cli_execution_unlock_gate.json").exists():
@@ -201,6 +203,11 @@ def validate_run_artifacts(
         report=report,
     )
     validate_optional_codex_cli_execution_unlock_snapshot(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
+    validate_optional_codex_cli_execution_candidate(
         run_dir=run_dir,
         repo_root=repo_root,
         report=report,
@@ -3204,6 +3211,145 @@ def validate_optional_codex_cli_execution_unlock_snapshot(
                     f"codex_cli_execution_unlock_snapshot.json policy false: {key}",
                 )
     markdown_path = run_dir / "codex_cli_execution_unlock_snapshot.md"
+    if markdown_path.exists():
+        checked_files(report).append(str(markdown_path))
+
+
+def validate_optional_codex_cli_execution_candidate(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate codex_cli_execution_candidate.json when a run has one."""
+    path = run_dir / "codex_cli_execution_candidate.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/codex_cli_execution_candidate.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"codex_cli_execution_candidate.json run_id does not match report: {path}",
+        )
+    if bool(payload.get("ok", False)) is not True:
+        add_error(report, "codex_cli_execution_candidate.json ok false")
+    blockers = payload.get("blocking_reasons", [])
+    if not isinstance(blockers, list):
+        add_error(report, "codex_cli_execution_candidate.json blockers invalid")
+        return
+    ready = bool(payload.get("execution_candidate_ready", False))
+    if ready and blockers:
+        add_error(report, "codex_cli_execution_candidate.json ready with blockers")
+    if not ready and not blockers:
+        add_error(report, "codex_cli_execution_candidate.json blocked without reason")
+    checks = payload.get("checks", {})
+    if not isinstance(checks, dict):
+        add_error(report, "codex_cli_execution_candidate.json checks invalid")
+    else:
+        for key in (
+            "does_not_execute_codex_cli",
+            "does_not_create_workspace",
+            "does_not_apply_patches",
+            "does_not_change_acceptance",
+        ):
+            if not bool(checks.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_execution_candidate.json safety check false: {key}",
+                )
+        if ready:
+            for key, value in checks.items():
+                if not bool(value):
+                    add_error(
+                        report,
+                        f"codex_cli_execution_candidate.json check false: {key}",
+                    )
+    source_snapshot = payload.get("source_snapshot", {})
+    if not isinstance(source_snapshot, dict):
+        add_error(report, "codex_cli_execution_candidate.json source_snapshot invalid")
+    else:
+        snapshot_record = source_snapshot.get("file", {})
+        if isinstance(snapshot_record, dict):
+            validate_recorded_file_hash(
+                record=snapshot_record,
+                repo_root=repo_root,
+                report=report,
+                label="codex_cli_execution_candidate source_snapshot",
+            )
+        else:
+            add_error(report, "codex_cli_execution_candidate snapshot file invalid")
+    candidate_config = payload.get("candidate_config", {})
+    if isinstance(candidate_config, dict):
+        validate_recorded_file_hash(
+            record=candidate_config,
+            repo_root=repo_root,
+            report=report,
+            label="codex_cli_execution_candidate candidate_config",
+        )
+    else:
+        add_error(report, "codex_cli_execution_candidate candidate_config invalid")
+    execution_plan = payload.get("execution_plan", {})
+    if not isinstance(execution_plan, dict):
+        add_error(report, "codex_cli_execution_candidate.json execution_plan invalid")
+    else:
+        allowed = execution_plan.get("allowed_mutation_paths", [])
+        if allowed != ["strategies/current_strategy.py"]:
+            add_error(
+                report,
+                "codex_cli_execution_candidate.json allowed mutation paths invalid",
+            )
+        if bool(execution_plan.get("execution_enabled_by_this_artifact", True)):
+            add_error(report, "codex_cli_execution_candidate.json executes by itself")
+        command = execution_plan.get("command", [])
+        if not isinstance(command, list):
+            add_error(report, "codex_cli_execution_candidate.json command invalid")
+        else:
+            command_text = " ".join(str(part) for part in command)
+            if "strategies/current_strategy.py" not in command_text:
+                add_error(
+                    report,
+                    "codex_cli_execution_candidate.json command missing target file",
+                )
+            for forbidden in ("data/", "backtester/", "orchestrator/policy_gate.py"):
+                if forbidden in command_text:
+                    add_error(
+                        report,
+                        f"codex_cli_execution_candidate.json command contains {forbidden}",
+                    )
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "codex_cli_execution_candidate.json policy invalid")
+    else:
+        for key in (
+            "candidate_only",
+            "read_only",
+            "requires_unlock_snapshot",
+            "requires_snapshot_unlocked",
+            "requires_candidate_config_hash_match",
+            "does_not_execute_codex_cli",
+            "does_not_create_workspace",
+            "does_not_send_strategy_prompt",
+            "does_not_modify_config",
+            "does_not_select_candidate",
+            "does_not_apply_patches",
+            "does_not_change_acceptance",
+            "allows_only_strategy_file_mutation",
+            "deterministic_code_keeps_acceptance_authority",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_execution_candidate.json policy false: {key}",
+                )
+    markdown_path = run_dir / "codex_cli_execution_candidate.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
 

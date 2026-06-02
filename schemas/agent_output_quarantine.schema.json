@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Agent Output Quarantine",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "round_id",
+    "round_index",
+    "round_dir",
+    "quarantine_status",
+    "release_to_apply",
+    "blocking_reasons",
+    "selected_attempt",
+    "proposal",
+    "agent_validation",
+    "artifacts",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "agent_output_quarantine_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "round_id": {
+      "type": "string"
+    },
+    "round_index": {
+      "type": "integer"
+    },
+    "round_dir": {
+      "type": "string"
+    },
+    "quarantine_status": {
+      "type": "string",
+      "enum": [
+        "released",
+        "blocked",
+        "not_applicable"
+      ]
+    },
+    "release_to_apply": {
+      "type": "boolean"
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "selected_attempt": {
+      "type": "object",
+      "required": [
+        "attempt_id",
+        "role",
+        "profile_name",
+        "adapter_name",
+        "agent_role",
+        "runner_name",
+        "execution_enabled",
+        "external_adapter",
+        "candidate_status",
+        "selected"
+      ]
+    },
+    "proposal": {
+      "type": "object",
+      "required": [
+        "agent_name",
+        "target_file",
+        "applicable",
+        "direction_tag",
+        "patch_sha256",
+        "contract_errors",
+        "rejection_reason"
+      ]
+    },
+    "agent_validation": {
+      "type": "object",
+      "required": [
+        "path",
+        "ok",
+        "failure_stage",
+        "failure_code",
+        "checks",
+        "errors"
+      ]
+    },
+    "artifacts": {
+      "type": "object"
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "quarantine_before_git_apply",
+        "does_not_execute_agents",
+        "does_not_apply_patch",
+        "release_requires_agent_validation_ok",
+        "release_requires_applicable_patch",
+        "release_requires_git_apply_check_passed",
+        "deterministic_policy_gate_keeps_acceptance_authority"
+      ],
+      "properties": {
+        "quarantine_before_git_apply": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_apply_patch": {
+          "type": "boolean"
+        },
+        "release_requires_agent_validation_ok": {
+          "type": "boolean"
+        },
+        "release_requires_applicable_patch": {
+          "type": "boolean"
+        },
+        "release_requires_git_apply_check_passed": {
+          "type": "boolean"
+        },
+        "deterministic_policy_gate_keeps_acceptance_authority": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

@@ -92,6 +92,7 @@ Allowed components:
 41. A deterministic `agent_slot_readiness_gate.json` report that blocks future external agent slots until input, output, workspace, audit, and replay artifacts are present.
 42. A deterministic `external_agent_sandbox_drill.json` report that audits external slot command, workspace, input, output, subprocess, and mutation-guard evidence without executing agents.
 43. A unified `agent_execution.json` contract for guarded Codex CLI attempts, including disabled, completed, failed, timed-out, and mutation-guard outcomes.
+44. A deterministic `agent_output_quarantine.json` report that quarantines selected agent output before git apply and releases only validated strategy patches.
 
 Still out of scope:
 
@@ -138,6 +139,7 @@ Current structure:
 │   ├── agent_executor.schema.json
 │   ├── agent_output.schema.json
 │   ├── agent_validation.schema.json
+│   ├── agent_output_quarantine.schema.json
 │   ├── agent_execution.schema.json
 │   ├── agent_activation_preflight.schema.json
 │   ├── agent_execution_plan.schema.json
@@ -193,6 +195,7 @@ Current structure:
 │   ├── agent_context.py
 │   ├── agent_executor.py
 │   ├── agent_output_intake.py
+│   ├── agent_output_quarantine.py
 │   ├── outcome_memory.py
 │   ├── policy_gate.py
 │   ├── proposal.py

@@ -40,6 +40,7 @@ from orchestrator.agent_output_intake import (
     AGENT_VALIDATION_SCHEMA_VERSION,
     verify_agent_output,
 )
+from orchestrator.agent_output_quarantine import AGENT_OUTPUT_QUARANTINE_SCHEMA_VERSION
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.agent_slot_readiness_gate import (
@@ -948,6 +949,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "agent_bundle_manifest.json",
         "agent_output.json",
         "agent_validation.json",
+        "agent_output_quarantine.json",
+        "agent_output_quarantine.md",
         "agent_executor_report.json",
         "agent_routing_policy.json",
         "agent_attempts_manifest.json",
@@ -1017,6 +1020,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     agent_validation = json.loads(
         (round_dir / "agent_validation.json").read_text(encoding="utf-8")
+    )
+    agent_output_quarantine = json.loads(
+        (round_dir / "agent_output_quarantine.json").read_text(encoding="utf-8")
     )
     agent_executor = json.loads(
         (round_dir / "agent_executor_report.json").read_text(encoding="utf-8")
@@ -1383,6 +1389,10 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         row["name"] == "raw_agent_output.txt"
         for row in agent_bundle["output_files"]
     )
+    assert any(
+        row["name"] == "agent_output_quarantine.json"
+        for row in agent_bundle["output_files"]
+    )
     assert (round_dir / "agent_input_bundle/agent_input.json").exists()
     assert (round_dir / "agent_input_bundle/visual_artifacts_manifest.json").exists()
     assert (round_dir / "agent_input_bundle/agent_execution_plan.json").exists()
@@ -1507,6 +1517,31 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_validation["checks"]["contract_valid"] is True
     assert agent_validation["checks"]["git_apply_check"] == "passed"
     assert agent_validation["proposal_patch_sha256"] == proposal["patch_sha256"]
+    assert agent_output_quarantine["schema_version"] == (
+        AGENT_OUTPUT_QUARANTINE_SCHEMA_VERSION
+    )
+    assert_matches_schema(
+        round_dir / "agent_output_quarantine.json",
+        "agent_output_quarantine",
+    )
+    assert agent_output_quarantine["release_to_apply"] is True
+    assert agent_output_quarantine["quarantine_status"] == "released"
+    assert agent_output_quarantine["blocking_reasons"] == []
+    assert agent_output_quarantine["selected_attempt"]["adapter_name"] == (
+        "fixed_patch_stub"
+    )
+    assert agent_output_quarantine["selected_attempt"]["external_adapter"] is False
+    assert agent_output_quarantine["proposal"]["patch_sha256"] == (
+        proposal["patch_sha256"]
+    )
+    assert agent_output_quarantine["agent_validation"]["ok"] is True
+    assert agent_output_quarantine["policy"]["quarantine_before_git_apply"] is True
+    assert (
+        agent_output_quarantine["policy"][
+            "deterministic_policy_gate_keeps_acceptance_authority"
+        ]
+        is True
+    )
     assert agent_executor["schema_version"] == "agent_executor_v1"
     assert_matches_schema(round_dir / "agent_executor_report.json", "agent_executor")
     assert agent_executor["attempt_count"] == len(attempts)
@@ -2608,10 +2643,21 @@ def test_iteration_loop_rejects_contract_invalid_proposal(
         (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
     )
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
+    quarantine = json.loads(
+        (round_dir / "agent_output_quarantine.json").read_text(encoding="utf-8")
+    )
 
     assert manifest["rounds"][0]["proposal_contract_valid"] is False  # type: ignore[index]
     assert proposal["applicable"] is False
     assert proposal["contract_errors"]
+    assert quarantine["schema_version"] == AGENT_OUTPUT_QUARANTINE_SCHEMA_VERSION
+    assert quarantine["release_to_apply"] is False
+    assert quarantine["quarantine_status"] == "not_applicable"
+    assert "proposal_not_applicable" in quarantine["blocking_reasons"]
+    assert_matches_schema(
+        round_dir / "agent_output_quarantine.json",
+        "agent_output_quarantine",
+    )
     assert attempts[0]["status"] == "contract_invalid"
     assert attempts[0]["contract_errors"] == proposal["contract_errors"]
     assert decision["reasons"][0].startswith("proposal contract invalid")
@@ -4169,6 +4215,11 @@ def test_external_agent_sandbox_drill_reports_file_protocol_execution(
     run_dir = repo / "experiments/sandbox-file-protocol"
 
     drill = build_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
+    quarantine = json.loads(
+        (
+            run_dir / "round_001/agent_output_quarantine.json"
+        ).read_text(encoding="utf-8")
+    )
 
     assert drill["ok"] is True
     assert drill["totals"]["external_slot_count"] == 1
@@ -4181,6 +4232,10 @@ def test_external_agent_sandbox_drill_reports_file_protocol_execution(
     assert slot["execution_audit"]["status"] == "completed"
     assert slot["execution_audit"]["mutation_guard_passed"] is True
     assert slot["requirements"]["execution_audit_present"] is True
+    assert quarantine["release_to_apply"] is True
+    assert quarantine["quarantine_status"] == "released"
+    assert quarantine["selected_attempt"]["adapter_name"] == "file_protocol"
+    assert quarantine["selected_attempt"]["external_adapter"] is True
 
 
 def test_external_agent_sandbox_drill_blocks_missing_workspace_manifest(
@@ -5078,6 +5133,9 @@ def test_codex_cli_adapter_disabled_does_not_execute(tmp_path: Path) -> None:
 
     round_dir = repo / "experiments/codex-disabled/round_001"
     proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    quarantine = json.loads(
+        (round_dir / "agent_output_quarantine.json").read_text(encoding="utf-8")
+    )
     audit = json.loads(
         (
             round_dir / "agent_executions/attempt_001_primary.json"
@@ -5087,6 +5145,11 @@ def test_codex_cli_adapter_disabled_does_not_execute(tmp_path: Path) -> None:
     assert proposal["applicable"] is False
     assert proposal["rejection_reason"] == "Codex CLI execution disabled."
     assert proposal["command"][0] == "missing-codex-for-disabled-test"
+    assert quarantine["release_to_apply"] is False
+    assert quarantine["quarantine_status"] == "not_applicable"
+    assert quarantine["selected_attempt"]["adapter_name"] == "codex_cli"
+    assert quarantine["selected_attempt"]["external_adapter"] is True
+    assert "proposal_not_applicable" in quarantine["blocking_reasons"]
     assert audit["schema_version"] == AGENT_EXECUTION_SCHEMA_VERSION
     assert audit["runner_name"] == CODEX_CLI_GUARDED_RUNNER_NAME
     assert audit["status"] == "disabled"
@@ -5236,6 +5299,18 @@ print(json.dumps({
     assert attempts[0]["status"] == "selectable"
     assert attempts[0]["selected"] is True
     assert "agent_context.json" in proposal["prompt"]
+    quarantine = json.loads(
+        (round_dir / "agent_output_quarantine.json").read_text(encoding="utf-8")
+    )
+    assert quarantine["release_to_apply"] is True
+    assert quarantine["quarantine_status"] == "released"
+    assert quarantine["selected_attempt"]["adapter_name"] == "codex_cli"
+    assert quarantine["selected_attempt"]["external_adapter"] is True
+    assert quarantine["proposal"]["patch_sha256"] == proposal["patch_sha256"]
+    assert_matches_schema(
+        round_dir / "agent_output_quarantine.json",
+        "agent_output_quarantine",
+    )
     audit = json.loads(
         (
             round_dir / "agent_executions/attempt_001_primary.json"

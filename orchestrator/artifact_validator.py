@@ -63,6 +63,8 @@ ROUND_REQUIRED_FILES = (
     "agent_bundle_manifest.json",
     "agent_output.json",
     "agent_validation.json",
+    "agent_output_quarantine.json",
+    "agent_output_quarantine.md",
     "agent_executor_report.json",
     "agent_routing_policy.json",
     "agent_attempts_manifest.json",
@@ -225,6 +227,16 @@ def validate_round_dir(
     validate_contract_file(
         payload_path=round_dir / "agent_input.json",
         schema_path=repo_root / "schemas/agent_input.schema.json",
+        report=report,
+    )
+    validate_contract_file(
+        payload_path=round_dir / "agent_output_quarantine.json",
+        schema_path=repo_root / "schemas/agent_output_quarantine.schema.json",
+        report=report,
+    )
+    validate_agent_output_quarantine(
+        path=round_dir / "agent_output_quarantine.json",
+        repo_root=repo_root,
         report=report,
     )
     validate_contract_file(
@@ -472,6 +484,46 @@ def validate_agent_bundle_manifest(
             file_path = resolve_path(Path(str(row.get("path", ""))), repo_root)
             if not file_path.exists() or not file_path.is_file():
                 add_error(report, f"bundle file does not exist: {file_path}")
+
+
+def validate_agent_output_quarantine(
+    *,
+    path: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate the pre-apply quarantine report for one selected output."""
+    del repo_root
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    release_to_apply = bool(payload.get("release_to_apply", False))
+    status = str(payload.get("quarantine_status", ""))
+    blockers = payload.get("blocking_reasons", [])
+    if not isinstance(blockers, list):
+        add_error(report, f"agent_output_quarantine blocking_reasons invalid: {path}")
+        return
+    if release_to_apply and blockers:
+        add_error(report, f"agent_output_quarantine released with blockers: {path}")
+    if release_to_apply and status != "released":
+        add_error(report, f"agent_output_quarantine release/status mismatch: {path}")
+    if not release_to_apply and status == "released":
+        add_error(report, f"agent_output_quarantine status released but blocked: {path}")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, f"agent_output_quarantine policy invalid: {path}")
+        return
+    for key in (
+        "quarantine_before_git_apply",
+        "does_not_execute_agents",
+        "does_not_apply_patch",
+        "release_requires_agent_validation_ok",
+        "release_requires_applicable_patch",
+        "release_requires_git_apply_check_passed",
+        "deterministic_policy_gate_keeps_acceptance_authority",
+    ):
+        if not bool(policy.get(key, False)):
+            add_error(report, f"agent_output_quarantine policy false: {key}")
 
 
 def validate_agent_activation_preflight(

@@ -40,6 +40,7 @@ from orchestrator.agent_bundle import write_agent_bundle_manifest, write_agent_i
 from orchestrator.agent_context import write_agent_context
 from orchestrator.agent_io import write_agent_input, write_agent_output
 from orchestrator.agent_output_intake import validate_agent_proposal
+from orchestrator.agent_output_quarantine import write_agent_output_quarantine
 from orchestrator.agent_routing import write_agent_routing_policy
 from orchestrator.agent_role_readiness import write_agent_role_readiness
 from orchestrator.agent_roles import write_agent_role_contracts
@@ -737,6 +738,20 @@ def run_round(
         proposal=proposal,
         repo_root=repo_root,
     )
+    agent_output_quarantine = write_agent_output_quarantine(
+        output_path=round_dir / "agent_output_quarantine.json",
+        markdown_path=round_dir / "agent_output_quarantine.md",
+        repo_root=repo_root,
+        round_dir=round_dir,
+        run_id=run_id,
+        round_id=round_id,
+        round_index=round_index,
+        proposal=proposal,
+        selected_attempt=selected_attempt,
+        agent_validation=agent_validation,
+        raw_agent_output_path=raw_agent_output_path,
+        patch_path=round_dir / "patch.diff",
+    )
     write_agent_bundle_manifest(
         round_dir=round_dir,
         repo_root=repo_root,
@@ -756,6 +771,18 @@ def run_round(
             apply_error_reason_code(apply_error),
             *normalize_reason_codes(agent_validation.get("reason_codes", [])),
         ]
+    elif proposal.applicable and not bool(
+        agent_output_quarantine.get("release_to_apply", False)
+    ):
+        apply_error = (
+            "agent output quarantine blocked: "
+            + "; ".join(
+                str(reason)
+                for reason in agent_output_quarantine.get("blocking_reasons", [])
+                if str(reason)
+            )
+        )
+        apply_reason_codes = [apply_error_reason_code(apply_error)]
     elif memory_filter_reason:
         apply_error = memory_filter_reason
         apply_reason_codes = [apply_error_reason_code(apply_error)]

@@ -39,6 +39,8 @@ OUTPUT_BUNDLE_FILES = (
     "proposal.json",
     "patch.diff",
     "agent_validation.json",
+    "agent_output_quarantine.json",
+    "agent_output_quarantine.md",
 )
 
 

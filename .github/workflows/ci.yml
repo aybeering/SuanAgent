@@ -54,10 +54,14 @@ jobs:
           python - <<'PY'
           import json
           sandbox = json.load(open("/tmp/codex_dry_sandbox.json"))
+          quarantine = json.load(open("experiments/ci-dry/round_001/agent_output_quarantine.json"))
           assert sandbox["schema_version"] == "external_agent_sandbox_drill_v1"
           assert sandbox["ok"] is True
           assert sandbox["totals"]["dry_run_only_count"] == 1
           assert sandbox["slots"][0]["command"]["source"] == "proposal"
+          assert quarantine["schema_version"] == "agent_output_quarantine_v1"
+          assert quarantine["release_to_apply"] is False
+          assert quarantine["quarantine_status"] == "not_applicable"
           PY
           python -m orchestrator.artifact_validator ci-dry
           python -m orchestrator.external_agent_sandbox_drill experiments/ci-codex-guarded
@@ -68,11 +72,15 @@ jobs:
           python - <<'PY'
           import json
           audit = json.load(open("experiments/ci-codex-guarded/round_001/agent_executions/attempt_001_primary.json"))
+          quarantine = json.load(open("experiments/ci-codex-guarded/round_001/agent_output_quarantine.json"))
           sandbox = json.load(open("/tmp/codex_guarded_sandbox.json"))
           assert audit["schema_version"] == "agent_execution_v1"
           assert audit["runner_name"] == "codex_cli_guarded_adapter"
           assert audit["status"] == "disabled"
           assert audit["stdin"]["chars"] > 0
+          assert quarantine["schema_version"] == "agent_output_quarantine_v1"
+          assert quarantine["selected_attempt"]["adapter_name"] == "codex_cli"
+          assert quarantine["release_to_apply"] is False
           assert sandbox["schema_version"] == "external_agent_sandbox_drill_v1"
           assert sandbox["ok"] is True
           assert sandbox["slots"][0]["command"]["source"] == "agent_execution"
@@ -197,10 +205,14 @@ jobs:
           python - <<'PY'
           import json
           sandbox = json.load(open("/tmp/file_protocol_sandbox.json"))
+          quarantine = json.load(open("experiments/ci-file-protocol-demo/round_001/agent_output_quarantine.json"))
           assert sandbox["schema_version"] == "external_agent_sandbox_drill_v1"
           assert sandbox["ok"] is True
           assert sandbox["totals"]["subprocess_executed_count"] == 1
           assert sandbox["slots"][0]["execution_audit"]["status"] == "completed"
+          assert quarantine["schema_version"] == "agent_output_quarantine_v1"
+          assert quarantine["release_to_apply"] is True
+          assert quarantine["selected_attempt"]["adapter_name"] == "file_protocol"
           PY
           python -m orchestrator.artifact_validator ci-file-protocol-demo
 

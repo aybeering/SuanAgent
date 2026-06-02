@@ -413,6 +413,7 @@ def validate_round_dir(
     )
     validate_agent_input_search_space(
         path=round_dir / "agent_input.json",
+        repo_root=repo_root,
         report=report,
     )
     validate_contract_file(
@@ -735,11 +736,22 @@ def validate_agent_execution(
         )
 
 
-def validate_agent_input_search_space(*, path: Path, report: dict[str, object]) -> None:
+def validate_agent_input_search_space(
+    *,
+    path: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
     """Validate saved agent input strategy-search-space authority policy."""
     payload = validate_json_object(path=path, report=report)
     if payload is None:
         return
+    validate_agent_input_proposal_intent_summary(
+        payload=payload,
+        path=path,
+        repo_root=repo_root,
+        report=report,
+    )
     search_space = payload.get("strategy_search_space", {})
     if not isinstance(search_space, dict):
         add_error(report, f"agent_input.json strategy_search_space invalid: {path}")
@@ -770,6 +782,76 @@ def validate_agent_input_search_space(*, path: Path, report: dict[str, object]) 
     ):
         if policy.get(key) is not True:
             add_error(report, f"agent_input.json strategy_search_space policy false: {key}")
+
+
+def validate_agent_input_proposal_intent_summary(
+    *,
+    payload: dict[str, object],
+    path: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate compact proposal-intent summary exposed in agent input."""
+    summary = payload.get("proposal_intent_summary", {})
+    if not isinstance(summary, dict):
+        add_error(report, f"agent_input.json proposal_intent_summary invalid: {path}")
+        return
+    if summary.get("schema_version") != "proposal_intent_summary_v1":
+        add_error(report, f"agent_input.json proposal_intent_summary schema mismatch: {path}")
+    recommended = str(summary.get("recommended_direction", ""))
+    selected = str(summary.get("selected_direction", ""))
+    if recommended != selected:
+        add_error(report, f"agent_input.json proposal intent summary direction mismatch: {path}")
+    candidate_order = string_values(summary.get("candidate_order", []))
+    candidate_rows = summary.get("candidate_rows", [])
+    if not isinstance(candidate_rows, list):
+        add_error(report, f"agent_input.json proposal intent candidate rows invalid: {path}")
+        candidate_rows = []
+    row_directions: list[str] = []
+    selected_rows = 0
+    for index, row in enumerate(candidate_rows, start=1):
+        if not isinstance(row, dict):
+            add_error(report, f"agent_input.json proposal intent candidate row invalid: {path}")
+            continue
+        row_directions.append(str(row.get("direction_tag", "")))
+        if row.get("rank") != index:
+            add_error(report, f"agent_input.json proposal intent candidate rank mismatch: {path}")
+        if bool(row.get("selected", False)):
+            selected_rows += 1
+            if str(row.get("direction_tag", "")) != selected:
+                add_error(report, f"agent_input.json proposal intent selected row mismatch: {path}")
+    if row_directions != candidate_order:
+        add_error(report, f"agent_input.json proposal intent candidate order mismatch: {path}")
+    if selected in row_directions and selected_rows != 1:
+        add_error(report, f"agent_input.json proposal intent selected row count invalid: {path}")
+    policy = summary.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, f"agent_input.json proposal intent summary policy invalid: {path}")
+    else:
+        for key in ("advisory_only", "does_not_route_agents", "does_not_change_acceptance"):
+            if policy.get(key) is not True:
+                add_error(report, f"agent_input.json proposal intent summary policy false: {key}")
+    artifacts = payload.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        return
+    intent_path_text = str(artifacts.get("proposal_intent_json", ""))
+    if not intent_path_text:
+        return
+    intent_path = resolve_path(Path(intent_path_text), repo_root)
+    intent = load_json_object(intent_path, report)
+    if intent is None:
+        return
+    trace = intent.get("direction_decision_trace", {})
+    if not isinstance(trace, dict):
+        return
+    if str(intent.get("recommended_direction", "")) != recommended:
+        add_error(report, f"agent_input.json proposal intent recommendation drift: {path}")
+    if str(trace.get("selection_reason_code", "")) != str(
+        summary.get("selection_reason_code", "")
+    ):
+        add_error(report, f"agent_input.json proposal intent reason drift: {path}")
+    if string_values(trace.get("candidate_order", [])) != candidate_order:
+        add_error(report, f"agent_input.json proposal intent order drift: {path}")
 
 
 def validate_proposal_intent_trace(*, path: Path, report: dict[str, object]) -> None:
@@ -1899,6 +1981,7 @@ def validate_agent_attempts_manifest(
                 )
                 validate_agent_input_search_space(
                     path=attempt_input,
+                    repo_root=repo_root,
                     report=report,
                 )
             else:

@@ -92,6 +92,10 @@ acceptance.
 planner's candidate order, selected direction, and avoid-source codes. Future
 agents may use it as context, but it cannot score candidates, route profiles,
 apply patches, or decide acceptance.
+For convenience, `agent_input.json` also includes `proposal_intent_summary`, a
+compact copy of the recommended direction, trace selection code, candidate
+order, avoid-source summary, and advisory-only policy. Workspace and
+attempt-scoped agent inputs preserve the same summary.
 Agent profiles may separately declare `supported_directions`. The executor uses
 that declaration only as a deterministic contract check after a proposal is
 normalized: a candidate whose `direction_tag` is outside its own declared

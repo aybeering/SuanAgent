@@ -96,6 +96,8 @@ def build_agent_input_payload(
     agent_roles: tuple[dict[str, object], ...] = (),
 ) -> dict[str, object]:
     """Return the deterministic input contract for modifier agents."""
+    proposal_intent = load_json_object(intent_path)
+    proposal_intent_summary = build_proposal_intent_summary(proposal_intent)
     return {
         "schema_version": AGENT_INPUT_SCHEMA_VERSION,
         "run_id": run_id,
@@ -176,6 +178,7 @@ def build_agent_input_payload(
             "validation": policy_rules or {},
             "holdout": holdout_policy_rules or {},
         },
+        "proposal_intent_summary": proposal_intent_summary,
         "candidate_selection": candidate_selection,
         "strategy_search_space": strategy_search_space,
         "agent_roles": compact_agent_role_contracts(agent_roles),
@@ -210,6 +213,63 @@ def build_agent_input_payload(
             ],
         },
     }
+
+
+def build_proposal_intent_summary(intent: dict[str, object]) -> dict[str, object]:
+    """Return compact planner guidance for agent_input.json consumers."""
+    trace = dict_or_empty(intent.get("direction_decision_trace", {}))
+    policy = dict_or_empty(trace.get("policy", {}))
+    return {
+        "schema_version": "proposal_intent_summary_v1",
+        "source_schema_version": str(intent.get("schema_version", "")),
+        "recommended_direction": str(intent.get("recommended_direction", "")),
+        "avoid_directions": string_list(intent.get("avoid_directions", [])),
+        "reason": str(intent.get("reason", "")),
+        "evidence": string_list(intent.get("evidence", [])),
+        "trace_schema_version": str(trace.get("schema_version", "")),
+        "selection_reason_code": str(trace.get("selection_reason_code", "")),
+        "selected_direction": str(trace.get("selected_direction", "")),
+        "fallback_direction": str(trace.get("fallback_direction", "")),
+        "exhausted_known_directions": bool(
+            trace.get("exhausted_known_directions", False)
+        ),
+        "candidate_order": string_list(trace.get("candidate_order", [])),
+        "candidate_rows": compact_direction_candidate_rows(
+            trace.get("candidate_rows", [])
+        ),
+        "avoid_source_summary": string_list_mapping(
+            trace.get("avoid_source_summary", {})
+        ),
+        "policy": {
+            "advisory_only": policy.get("advisory_only") is True,
+            "does_not_route_agents": policy.get("does_not_route_agents") is True,
+            "does_not_change_acceptance": (
+                policy.get("does_not_change_acceptance") is True
+            ),
+        },
+    }
+
+
+def compact_direction_candidate_rows(value: object) -> list[dict[str, object]]:
+    """Return stable candidate trace rows for agent input."""
+    if not isinstance(value, list):
+        return []
+    rows: list[dict[str, object]] = []
+    for row in value:
+        if not isinstance(row, dict):
+            continue
+        rows.append(
+            {
+                "direction_tag": str(row.get("direction_tag", "")),
+                "rank": int_or_zero(row.get("rank", 0)),
+                "selected": bool(row.get("selected", False)),
+                "in_avoid_directions": bool(row.get("in_avoid_directions", False)),
+                "avoid_sources": string_list(row.get("avoid_sources", [])),
+                "reason": str(row.get("reason", "")),
+                "modifier_hint": str(row.get("modifier_hint", "")),
+            }
+        )
+    return rows
 
 
 def compact_agent_profiles(
@@ -254,9 +314,39 @@ def dict_or_empty(value: object) -> dict[str, object]:
     return {str(key): entry for key, entry in value.items()}
 
 
+def string_list(value: object) -> list[str]:
+    """Return stringified list metadata."""
+    if not isinstance(value, list | tuple):
+        return []
+    return [str(item) for item in value]
+
+
+def string_list_mapping(value: object) -> dict[str, list[str]]:
+    """Return a stable mapping of string keys to string lists."""
+    if not isinstance(value, dict):
+        return {}
+    return {str(key): string_list(entry) for key, entry in value.items()}
+
+
+def int_or_zero(value: object) -> int:
+    """Return an integer value without raising on malformed metadata."""
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
 def list_or_empty(value: object) -> list[object]:
     """Return JSON-list metadata without leaking tuple values."""
     return list(value) if isinstance(value, list | tuple) else []
+
+
+def load_json_object(path: Path) -> dict[str, object]:
+    """Load an optional JSON object artifact."""
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
 
 
 def write_agent_output(

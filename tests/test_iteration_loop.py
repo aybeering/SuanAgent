@@ -2610,6 +2610,33 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_input["strategy_search_space"]["policy"][
         "does_not_change_acceptance"
     ] is True
+    assert agent_input["proposal_intent_summary"]["schema_version"] == (
+        "proposal_intent_summary_v1"
+    )
+    assert agent_input["proposal_intent_summary"]["source_schema_version"] == (
+        "proposal_intent_v1"
+    )
+    assert agent_input["proposal_intent_summary"]["recommended_direction"] == (
+        intent["recommended_direction"]
+    )
+    assert agent_input["proposal_intent_summary"]["selected_direction"] == (
+        intent["direction_decision_trace"]["selected_direction"]
+    )
+    assert agent_input["proposal_intent_summary"]["selection_reason_code"] == (
+        intent["direction_decision_trace"]["selection_reason_code"]
+    )
+    assert agent_input["proposal_intent_summary"]["candidate_order"] == (
+        intent["direction_decision_trace"]["candidate_order"]
+    )
+    assert agent_input["proposal_intent_summary"]["candidate_rows"][0][
+        "direction_tag"
+    ] == "lower_min_edge"
+    assert agent_input["proposal_intent_summary"]["candidate_rows"][0][
+        "selected"
+    ] is True
+    assert agent_input["proposal_intent_summary"]["policy"][
+        "does_not_route_agents"
+    ] is True
     assert agent_input["agent_roles"][0]["role_name"] == "strategy_modifier"
     assert agent_input["agent_roles"][0]["decision_authority"] == "proposal_only"
     assert agent_input["agent_roles"][1]["execution_mode"] == "stub_contract"
@@ -2689,6 +2716,14 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (round_dir / "agent_input_bundle/agent_execution_plan.json").exists()
     assert (round_dir / "agent_input_bundle/chart.html").exists()
     assert (round_dir / "agent_input_bundle/trade_timeline.html").exists()
+    bundled_agent_input = json.loads(
+        (round_dir / "agent_input_bundle/agent_input.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert bundled_agent_input["proposal_intent_summary"] == (
+        agent_input["proposal_intent_summary"]
+    )
     assert (round_dir / "agent_output_bundle/raw_agent_output.txt").exists()
     assert agent_attempts["schema_version"] == "agent_attempts_v1"
     assert_matches_schema(round_dir / "agent_attempts_manifest.json", "agent_attempts")
@@ -2778,6 +2813,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert attempt_agent_input["active_agent"]["profile_name"] == "primary"
     assert attempt_agent_input["active_agent"]["adapter_name"] == "fixed_patch_stub"
     assert attempt_agent_input["active_agent"]["agent_name"] == "strategy_modifier_stub"
+    assert attempt_agent_input["proposal_intent_summary"] == (
+        agent_input["proposal_intent_summary"]
+    )
     assert attempt_agent_input["output_contract"]["workspace_output_path"] == ""
     assert attempt_output["schema_version"] == "attempt_output_v1"
     assert attempt_output["attempt_id"] == "attempt_001_primary"

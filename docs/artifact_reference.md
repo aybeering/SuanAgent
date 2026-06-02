@@ -246,6 +246,10 @@ Context and planning artifacts:
   direction order and fallback direction. They also include a
   `direction_decision_trace` that records candidate order, selected direction,
   avoid-source codes, and advisory-only authority policy.
+- `agent_input.json` carries a compact `proposal_intent_summary` copied from
+  that planner trace so external agents can consume the selected direction,
+  candidate order, avoid-source summary, and advisory-only policy from one
+  input contract.
 - `agent_execution_plan.json` records the planned candidate queue and each
   profile's declared direction capability before any modifier runs.
 - `agent_routing_policy.json` explains deterministic candidate ranking,

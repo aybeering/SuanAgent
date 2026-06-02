@@ -98,6 +98,7 @@ def build_operator_action_dashboard(
     execution = load_json_object(execution_path)
     status = dashboard_status(audit=audit)
     current_step = dashboard_current_step(status=status)
+    failure_reasons = dashboard_failure_reasons(audit=audit)
     blockers = dashboard_blockers(audit=audit, approval=approval, execution=execution)
     actions = available_action_rows(plan=plan)
 
@@ -150,6 +151,7 @@ def build_operator_action_dashboard(
         "selected_action": object_field(audit, "selected_action"),
         "selected_command": object_field(audit, "selected_command"),
         "available_actions": actions,
+        "failure_reasons": failure_reasons,
         "blockers": blockers,
         "recommended_commands": recommended_commands(
             status=status,
@@ -282,6 +284,11 @@ def dashboard_blockers(
     """Return stable blocker codes from action artifacts."""
     blockers: list[str] = []
     checks = object_field(audit, "chain_checks")
+    blockers.extend(
+        str(reason.get("code", ""))
+        for reason in dashboard_failure_reasons(audit=audit)
+        if reason.get("code")
+    )
     for key in (
         "plan_schema_errors",
         "approval_schema_errors",
@@ -294,6 +301,22 @@ def dashboard_blockers(
     )
     blockers.extend(string_list(object_field(execution, "evidence_checks").get("blockers", [])))
     return unique_preserving_order(blockers)
+
+
+def dashboard_failure_reasons(*, audit: dict[str, Any]) -> list[dict[str, object]]:
+    """Return compact failure reasons from the action audit."""
+    rows: list[dict[str, object]] = []
+    reasons = object_field(audit, "chain_checks").get("failure_reasons", [])
+    for reason in list_of_dicts(reasons):
+        rows.append(
+            {
+                "stage": str(reason.get("stage", "")),
+                "code": str(reason.get("code", "")),
+                "severity": str(reason.get("severity", "")),
+                "detail": str(reason.get("detail", "")),
+            }
+        )
+    return rows
 
 
 def dashboard_summary(
@@ -321,6 +344,8 @@ def dashboard_summary(
         "execution_present": bool(audit_summary.get("execution_present", False)),
         "execution_completed": bool(audit_summary.get("execution_completed", False)),
         "chain_ok": bool(audit_summary.get("chain_ok", False)),
+        "failure_reason_count": int(audit_summary.get("failure_reason_count", 0) or 0),
+        "first_failure_stage": str(audit_summary.get("first_failure_stage", "none")),
         "blocker_count": len(blockers),
     }
 
@@ -550,6 +575,18 @@ def render_operator_action_dashboard_markdown(payload: dict[str, object]) -> str
     )
     blockers = string_list(payload.get("blockers", []))
     lines.extend([f"- `{blocker}`" for blocker in blockers] or ["- none"])
+    lines.extend(["", "## Failure Reasons", ""])
+    failure_reasons = list_of_dicts(payload.get("failure_reasons", []))
+    lines.extend(
+        [
+            (
+                f"- `{reason.get('stage', '')}` / `{reason.get('code', '')}`: "
+                f"{reason.get('detail', '')}"
+            )
+            for reason in failure_reasons
+        ]
+        or ["- none"]
+    )
     lines.extend(["", "## Recommended Commands", ""])
     for command in list_of_dicts(payload.get("recommended_commands", [])):
         lines.append(f"- `{command.get('label', '')}`: `{command.get('command', '')}`")

@@ -261,11 +261,12 @@ the same chain into a compact next-step view. The iteration loop writes the
 final dashboard during closeout after `operator_action_plan.json`; `python -m
 orchestrator.experiments action-dashboard <run_id>` and `action-dashboard
 --markdown` show or derive the current step, timeline, selected command, safe
-command counts, blockers, and suggested read-only/guarded commands without
-recording approval, executing commands, writing config, promoting champions,
-running agents, running backtests, applying patches, routing agents, or
-changing acceptance. Artifact validation checks dashboard command hints through
-the shared operator command-hint validator for known labels, expected write
+command counts, audit failure reasons, blockers derived from those reason
+codes, and suggested read-only/guarded commands without recording approval,
+executing commands, writing config, promoting champions, running agents,
+running backtests, applying patches, routing agents, or changing acceptance.
+Artifact validation checks dashboard command hints through the shared operator
+command-hint validator for known labels, expected write
 targets, current-step coverage, and simple shell-control-token guards.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose the
 Codex CLI operator-unlock evidence chain as a standalone read-only checklist.
@@ -603,9 +604,10 @@ Replay artifacts:
   operator next-step view. The iteration loop writes them during run closeout,
   and the explicit command can refresh them after later operator action
   artifacts. They list the timeline, selected command, safe command counts,
-  blockers, and command hints, but cannot approve or execute anything. Artifact
-  validation rejects unknown dashboard command labels, unexpected write targets,
-  unsafe shell control tokens, and missing current-step/review commands.
+  audit failure reasons, blockers, and command hints, but cannot approve or
+  execute anything. Artifact validation rejects unknown dashboard command
+  labels, unexpected write targets, unsafe shell control tokens, and missing
+  current-step/review commands.
 - `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose
   Codex CLI operator-unlock evidence as a standalone read-only checklist. They
   classify saved preflight evidence groups and source hashes, then provide

@@ -195,10 +195,11 @@ consistency, execution status, stable stage/code failure reasons, and the next
 operator step without executing commands or changing repository state.
 `operator_action_dashboard.json` and `operator_action_dashboard.md` summarize
 that chain for the operator. They show the current step, timeline, selected
-command, safe command counts, blockers, and suggested guarded commands while
-remaining read-only: they do not record approval, execute commands, write
-config, promote champions, run agents, run backtests, route agents, apply
-patches, or change acceptance. The iteration loop writes the final dashboard
+command, safe command counts, audit failure reasons, blockers derived from
+those reason codes, and suggested guarded commands while remaining read-only:
+they do not record approval, execute commands, write config, promote champions,
+run agents, run backtests, route agents, apply patches, or change acceptance.
+The iteration loop writes the final dashboard
 during closeout after the action plan; the explicit dashboard command is still
 available to refresh the view after later approval or execution artifacts.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` split the

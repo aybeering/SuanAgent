@@ -2301,6 +2301,9 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert completed["current_step"] == "review_execution_receipt"
     assert completed["summary"]["execution_completed"] is True
     assert completed["summary"]["blocker_count"] == 0
+    assert completed["summary"]["failure_reason_count"] == 0
+    assert completed["summary"]["first_failure_stage"] == "none"
+    assert completed["failure_reasons"] == []
     assert completed["blockers"] == []
     assert completed["timeline"][2]["status"] == "complete"
     assert any(
@@ -2329,7 +2332,47 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         repo_root=repo,
     )["ok"] is True
 
+    execution_path = run_dir / "operator_action_execution_receipt.json"
+    tampered_execution = json.loads(execution_path.read_text(encoding="utf-8"))
+    tampered_execution["selected_command"]["command_sha256"] = "tampered-command"
+    execution_path.write_text(
+        json.dumps(tampered_execution, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    write_operator_action_audit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    json_path, _, inconsistent = write_operator_action_dashboard(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    inconsistent_markdown = render_operator_action_dashboard_markdown(inconsistent)
+    assert inconsistent["status"] == "needs_chain_repair"
+    assert inconsistent["current_step"] == "repair_action_chain"
+    assert inconsistent["ok"] is False
+    assert inconsistent["summary"]["failure_reason_count"] == 1
+    assert inconsistent["summary"]["first_failure_stage"] == "execution_receipt"
+    assert "execution_command_digest_mismatch" in inconsistent["blockers"]
+    assert inconsistent["failure_reasons"] == [
+        {
+            "stage": "execution_receipt",
+            "code": "execution_command_digest_mismatch",
+            "severity": "error",
+            "detail": "execution_command_digest_mismatch",
+        }
+    ]
+    assert "## Failure Reasons" in inconsistent_markdown
+    assert_matches_schema_payload(inconsistent, "operator_action_dashboard")
+    assert validate_operator_action_dashboard_file(
+        payload_path=json_path,
+        repo_root=repo,
+    ) == ()
+
     tampered_dashboard = json.loads(json_path.read_text(encoding="utf-8"))
+    tampered_label = tampered_dashboard["recommended_commands"][0]["label"]
     tampered_dashboard["recommended_commands"][0]["command"] = (
         f"python -m orchestrator.experiments action-dashboard {run_id} --markdown "
         "&& python -m orchestrator.run_loop"
@@ -2346,7 +2389,7 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert tampered_validation["ok"] is False
     assert (
         "operator_action_dashboard recommended command unsafe token: "
-        "review_execution_receipt"
+        f"{tampered_label}"
     ) in tampered_validation["errors"]
 
 

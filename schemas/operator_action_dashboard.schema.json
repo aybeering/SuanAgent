@@ -16,6 +16,7 @@
     "selected_action",
     "selected_command",
     "available_actions",
+    "failure_reasons",
     "blockers",
     "recommended_commands",
     "authority",
@@ -93,6 +94,8 @@
         "execution_present",
         "execution_completed",
         "chain_ok",
+        "failure_reason_count",
+        "first_failure_stage",
         "blocker_count"
       ],
       "properties": {
@@ -120,6 +123,12 @@
         "chain_ok": {
           "type": "boolean"
         },
+        "failure_reason_count": {
+          "type": "integer"
+        },
+        "first_failure_stage": {
+          "type": "string"
+        },
         "blocker_count": {
           "type": "integer"
         }
@@ -141,6 +150,12 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/action_row"
+      }
+    },
+    "failure_reasons": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/failure_reason"
       }
     },
     "blockers": {
@@ -415,6 +430,29 @@
           "type": "string"
         },
         "writes_artifact": {
+          "type": "string"
+        }
+      }
+    },
+    "failure_reason": {
+      "type": "object",
+      "required": [
+        "stage",
+        "code",
+        "severity",
+        "detail"
+      ],
+      "properties": {
+        "stage": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "detail": {
           "type": "string"
         }
       }

@@ -1352,6 +1352,7 @@ def refresh_operator_views(
         post_refresh_freshness=post_refresh_freshness,
         blocker_delta=blocker_delta,
         policy_summary=policy_summary,
+        operator_summary=operator_summary,
     )
     return {
         "schema_version": "operator_view_refresh_v1",
@@ -1423,14 +1424,20 @@ def operator_view_refresh_effect(
     post_refresh_freshness: dict[str, object],
     blocker_delta: dict[str, object],
     policy_summary: dict[str, object],
+    operator_summary: dict[str, object],
 ) -> dict[str, object]:
     """Return a compact operator-facing summary of refresh impact."""
     pre_stale_count = int(pre_refresh_freshness.get("stale_count", 0) or 0)
     post_stale_count = int(post_refresh_freshness.get("stale_count", 0) or 0)
+    post_blocker_count = int(operator_summary.get("blocker_count", 0) or 0)
     stale_sources_fixed = pre_stale_count > 0 and post_stale_count == 0
     blockers_changed = bool(blocker_delta.get("changed", False))
     safety_policy_ok = bool(policy_summary.get("ok", False))
     freshness_ok = bool(post_refresh_freshness.get("ok", False))
+    cockpit_ok = bool(operator_summary.get("cockpit_ok", False))
+    operator_review_required = bool(
+        not safety_policy_ok or not freshness_ok or not cockpit_ok or post_blocker_count
+    )
     if not safety_policy_ok:
         status = "safety_policy_attention"
         summary = "Refresh completed, but the safety policy summary needs review."
@@ -1456,8 +1463,10 @@ def operator_view_refresh_effect(
         "stale_sources_fixed": stale_sources_fixed,
         "pre_stale_count": pre_stale_count,
         "post_stale_count": post_stale_count,
+        "post_blocker_count": post_blocker_count,
         "blockers_changed": blockers_changed,
         "safety_policy_ok": safety_policy_ok,
+        "operator_review_required": operator_review_required,
     }
 
 
@@ -1549,6 +1558,12 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     )
     lines.append(
         f"- Safety policy ok: `{refresh_effect.get('safety_policy_ok', False)}`",
+    )
+    lines.append(
+        f"- Operator review required: `{refresh_effect.get('operator_review_required', False)}`",
+    )
+    lines.append(
+        f"- Post-refresh blockers: `{refresh_effect.get('post_blocker_count', 0)}`",
     )
     blocker_preview = operator_summary.get("blocker_preview", [])
     lines.extend(["", "## Current Blockers", ""])

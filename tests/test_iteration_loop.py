@@ -2739,8 +2739,11 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert refresh["refresh_effect"]["pre_stale_count"] == 1
     assert refresh["refresh_effect"]["post_stale_count"] == 0
     assert refresh["refresh_effect"]["safety_policy_ok"] is True
+    assert refresh["refresh_effect"]["post_blocker_count"] == len(refreshed["blockers"])
+    assert refresh["refresh_effect"]["operator_review_required"] is True
     assert "Refresh effect:" in refresh_markdown
     assert "## Refresh Effect" in refresh_markdown
+    assert "Operator review required: `True`" in refresh_markdown
     assert "Blocker delta changed:" in refresh_markdown
     assert "## Blocker Delta" in refresh_markdown
     assert "Safety policy OK: `True`" in refresh_markdown
@@ -2837,11 +2840,18 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
         "stale_sources_fixed": False,
         "pre_stale_count": 0,
         "post_stale_count": 0,
+        "post_blocker_count": refresh["blocker_delta"]["after_count"],
         "blockers_changed": False,
         "safety_policy_ok": True,
+        "operator_review_required": True,
     }
     assert "Refresh effect: `refreshed_no_changes`" in refresh_markdown
     assert "## Refresh Effect" in refresh_markdown
+    assert "Operator review required: `True`" in refresh_markdown
+    assert (
+        f"Post-refresh blockers: `{refresh['blocker_delta']['after_count']}`"
+        in refresh_markdown
+    )
     assert "Blocker delta changed: `False`" in refresh_markdown
     assert "Blockers added: `0`" in refresh_markdown
     assert "Blockers removed: `0`" in refresh_markdown
@@ -2948,6 +2958,7 @@ def test_operator_view_refresh_effect_surfaces_safety_attention() -> None:
         post_refresh_freshness={"ok": True, "stale_count": 0},
         blocker_delta={"changed": False},
         policy_summary={"ok": False},
+        operator_summary={"cockpit_ok": True, "blocker_count": 0},
     )
 
     assert effect == {
@@ -2957,8 +2968,10 @@ def test_operator_view_refresh_effect_surfaces_safety_attention() -> None:
         "stale_sources_fixed": False,
         "pre_stale_count": 0,
         "post_stale_count": 0,
+        "post_blocker_count": 0,
         "blockers_changed": False,
         "safety_policy_ok": False,
+        "operator_review_required": True,
     }
 
 

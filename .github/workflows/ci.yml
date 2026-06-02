@@ -116,6 +116,19 @@ jobs:
           assert gate["slots"][0]["requirements"]["contract_fixture_ok"] is True
           assert gate["slots"][0]["requirements"]["round_replay_ok"] is True
           PY
+          python -m orchestrator.codex_cli_enablement_gate experiments/ci-codex-guarded --config config/codex_cli_enable_candidate.json
+          test -f experiments/ci-codex-guarded/codex_cli_enablement_gate.json
+          test -f experiments/ci-codex-guarded/codex_cli_enablement_gate.md
+          python - <<'PY'
+          import json
+          enablement = json.load(open("experiments/ci-codex-guarded/codex_cli_enablement_gate.json"))
+          assert enablement["schema_version"] == "codex_cli_enablement_gate_v1"
+          assert enablement["ok"] is True
+          assert enablement["permitted_to_enable"] is True
+          assert enablement["checks"]["execute_true"] is True
+          assert enablement["checks"]["replay_gate_ready"] is True
+          assert enablement["config"]["enablement"]["manual_confirmation_required"] is True
+          PY
           python -m orchestrator.artifact_validator ci-codex-guarded
           python -m orchestrator.artifact_validator ci-adaptive
           python -m orchestrator.artifact_validator ci-file-protocol-demo

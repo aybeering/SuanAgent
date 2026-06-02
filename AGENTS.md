@@ -96,6 +96,7 @@ Allowed components:
 45. A deterministic `agent_golden_replay.json` report that freezes one saved agent input/output pair as a replayable protocol fixture.
 46. A deterministic `codex_cli_contract_fixture.json` report that freezes guarded Codex CLI stdin/stdout expectations without executing Codex.
 47. A deterministic `codex_cli_replay_gate.json` report that gates Codex CLI enablement using saved execution, fixture, quarantine, and replay artifacts.
+48. A deterministic `codex_cli_enablement_gate.json` report that checks an explicit execute=true candidate config without executing Codex or modifying config files.
 
 Still out of scope:
 
@@ -146,6 +147,7 @@ Current structure:
 │   ├── agent_golden_replay.schema.json
 │   ├── codex_cli_contract_fixture.schema.json
 │   ├── codex_cli_replay_gate.schema.json
+│   ├── codex_cli_enablement_gate.schema.json
 │   ├── agent_execution.schema.json
 │   ├── agent_activation_preflight.schema.json
 │   ├── agent_execution_plan.schema.json
@@ -205,6 +207,7 @@ Current structure:
 │   ├── agent_golden_replay.py
 │   ├── codex_cli_contract_fixture.py
 │   ├── codex_cli_replay_gate.py
+│   ├── codex_cli_enablement_gate.py
 │   ├── outcome_memory.py
 │   ├── policy_gate.py
 │   ├── proposal.py

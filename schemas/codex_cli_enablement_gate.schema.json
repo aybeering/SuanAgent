@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Codex CLI Enablement Gate",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "config_path",
+    "ok",
+    "permitted_to_enable",
+    "blocking_reasons",
+    "checks",
+    "config",
+    "artifacts",
+    "replay_gate",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "codex_cli_enablement_gate_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "config_path": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "permitted_to_enable": {
+      "type": "boolean"
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "checks": {
+      "type": "object",
+      "required": [
+        "config_exists",
+        "strategy_modifier_is_codex_cli",
+        "execute_true",
+        "sandbox_workspace_write",
+        "workspace_root_declared",
+        "timeout_positive",
+        "candidate_only_declared",
+        "manual_confirmation_required",
+        "requires_replay_gate_declared",
+        "replay_gate_present",
+        "replay_gate_ready",
+        "replay_gate_ok"
+      ]
+    },
+    "config": {
+      "type": "object",
+      "required": [
+        "strategy_modifier",
+        "codex_cli",
+        "enablement"
+      ]
+    },
+    "artifacts": {
+      "type": "object",
+      "required": [
+        "codex_cli_replay_gate",
+        "candidate_config"
+      ]
+    },
+    "replay_gate": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "ok",
+        "ready_to_enable_codex_cli",
+        "blocked_count",
+        "slot_count"
+      ]
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "gate_only",
+        "does_not_execute_codex_cli",
+        "does_not_modify_config",
+        "does_not_select_candidate",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "requires_replay_gate_ready",
+        "requires_manual_confirmation",
+        "deterministic_code_keeps_acceptance_authority"
+      ],
+      "properties": {
+        "gate_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_codex_cli": {
+          "type": "boolean"
+        },
+        "does_not_modify_config": {
+          "type": "boolean"
+        },
+        "does_not_select_candidate": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "requires_replay_gate_ready": {
+          "type": "boolean"
+        },
+        "requires_manual_confirmation": {
+          "type": "boolean"
+        },
+        "deterministic_code_keeps_acceptance_authority": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

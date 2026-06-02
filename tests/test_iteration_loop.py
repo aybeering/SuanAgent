@@ -53,6 +53,10 @@ from orchestrator.codex_cli_replay_gate import (
     CODEX_CLI_REPLAY_GATE_SCHEMA_VERSION,
     write_codex_cli_replay_gate,
 )
+from orchestrator.codex_cli_enablement_gate import (
+    CODEX_CLI_ENABLEMENT_GATE_SCHEMA_VERSION,
+    write_codex_cli_enablement_gate,
+)
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.agent_slot_readiness_gate import (
@@ -5502,6 +5506,120 @@ def test_codex_cli_replay_gate_blocks_missing_fixture(
     assert cli_result.returncode == 1
     assert cli_payload["ok"] is False
     assert_matches_schema(run_dir / "codex_cli_replay_gate.json", "codex_cli_replay_gate")
+
+
+def test_codex_cli_enablement_gate_permits_candidate_config_after_replay_gate(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-enablement",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/codex-enablement"
+    round_dir = run_dir / "round_001"
+    replay_round(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_contract_fixture(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_replay_gate(run_dir=run_dir, repo_root=repo)
+
+    gate = write_codex_cli_enablement_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+    )
+    validation_report = validate_run_artifacts(
+        run_id="codex-enablement",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_enablement_gate",
+            "experiments/codex-enablement",
+            "--config",
+            "config/codex_cli_enable_candidate.json",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert gate["schema_version"] == CODEX_CLI_ENABLEMENT_GATE_SCHEMA_VERSION
+    assert gate["ok"] is True
+    assert gate["permitted_to_enable"] is True
+    assert gate["blocking_reasons"] == []
+    assert gate["checks"]["replay_gate_ready"] is True
+    assert gate["checks"]["execute_true"] is True
+    assert gate["checks"]["manual_confirmation_required"] is True
+    assert gate["config"]["codex_cli"]["execute"] is True
+    assert gate["config"]["enablement"]["candidate_only"] is True
+    assert gate["replay_gate"]["ready_to_enable_codex_cli"] is True
+    assert_matches_schema(
+        run_dir / "codex_cli_enablement_gate.json",
+        "codex_cli_enablement_gate",
+    )
+    assert (run_dir / "codex_cli_enablement_gate.md").exists()
+    assert validation_report["ok"] is True
+    assert cli_result.returncode == 0, cli_result.stderr
+    assert cli_payload["schema_version"] == CODEX_CLI_ENABLEMENT_GATE_SCHEMA_VERSION
+    assert cli_payload["permitted_to_enable"] is True
+
+
+def test_codex_cli_enablement_gate_blocks_without_replay_gate(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-enablement-missing-replay-gate",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/codex-enablement-missing-replay-gate"
+
+    gate = write_codex_cli_enablement_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_enablement_gate",
+            "experiments/codex-enablement-missing-replay-gate",
+            "--config",
+            "config/codex_cli_enable_candidate.json",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert gate["schema_version"] == CODEX_CLI_ENABLEMENT_GATE_SCHEMA_VERSION
+    assert gate["ok"] is False
+    assert gate["permitted_to_enable"] is False
+    assert "replay_gate_missing" in gate["blocking_reasons"]
+    assert "replay_gate_not_ready" in gate["blocking_reasons"]
+    assert "replay_gate_not_ok" in gate["blocking_reasons"]
+    assert gate["checks"]["execute_true"] is True
+    assert gate["checks"]["replay_gate_present"] is False
+    assert cli_result.returncode == 1
+    assert cli_payload["permitted_to_enable"] is False
+    assert_matches_schema(
+        run_dir / "codex_cli_enablement_gate.json",
+        "codex_cli_enablement_gate",
+    )
 
 
 def test_codex_cli_adapter_execute_success_parses_patch(tmp_path: Path) -> None:

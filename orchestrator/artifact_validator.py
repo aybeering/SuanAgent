@@ -162,6 +162,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_codex_cli_enablement_gate(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     report["ok"] = not report["errors"]
     return report
 
@@ -2241,6 +2246,93 @@ def validate_optional_codex_cli_replay_gate(
                     continue
                 checked_files(report).append(str(artifact_path))
     markdown_path = run_dir / "codex_cli_replay_gate.md"
+    if markdown_path.exists():
+        checked_files(report).append(str(markdown_path))
+
+
+def validate_optional_codex_cli_enablement_gate(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate codex_cli_enablement_gate.json when a run has one."""
+    path = run_dir / "codex_cli_enablement_gate.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/codex_cli_enablement_gate.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"codex_cli_enablement_gate.json run_id does not match report: {path}",
+        )
+    blockers = payload.get("blocking_reasons", [])
+    if not isinstance(blockers, list):
+        add_error(report, "codex_cli_enablement_gate.json blocking_reasons invalid")
+        return
+    permitted = bool(payload.get("permitted_to_enable", False))
+    if bool(payload.get("ok", False)) != permitted:
+        add_error(report, "codex_cli_enablement_gate.json ok/permitted mismatch")
+    if permitted and blockers:
+        add_error(report, "codex_cli_enablement_gate.json permitted with blockers")
+    if not permitted and not blockers:
+        add_error(report, "codex_cli_enablement_gate.json blocked without reason")
+    checks = payload.get("checks", {})
+    if not isinstance(checks, dict):
+        add_error(report, "codex_cli_enablement_gate.json checks invalid")
+    elif permitted:
+        for key, value in checks.items():
+            if not bool(value):
+                add_error(report, f"codex_cli_enablement_gate.json check false: {key}")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "codex_cli_enablement_gate.json policy invalid")
+    else:
+        for key in (
+            "gate_only",
+            "does_not_execute_codex_cli",
+            "does_not_modify_config",
+            "does_not_select_candidate",
+            "does_not_apply_patches",
+            "does_not_change_acceptance",
+            "requires_replay_gate_ready",
+            "requires_manual_confirmation",
+            "deterministic_code_keeps_acceptance_authority",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_enablement_gate.json policy false: {key}",
+                )
+    artifacts = payload.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        add_error(report, "codex_cli_enablement_gate.json artifacts invalid")
+    else:
+        for key in ("codex_cli_replay_gate", "candidate_config"):
+            record = artifacts.get(key, {})
+            if not isinstance(record, dict):
+                add_error(
+                    report,
+                    f"codex_cli_enablement_gate artifact invalid: {key}",
+                )
+                continue
+            artifact_path = resolve_path(Path(str(record.get("path", ""))), repo_root)
+            if permitted and not artifact_path.exists():
+                add_error(
+                    report,
+                    f"codex_cli_enablement_gate artifact missing: {key}={artifact_path}",
+                )
+            elif artifact_path.exists():
+                checked_files(report).append(str(artifact_path))
+    markdown_path = run_dir / "codex_cli_enablement_gate.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
 

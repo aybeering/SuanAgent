@@ -226,6 +226,22 @@ jobs:
           assert gate["policy"]["does_not_apply_patches"] is True
           assert gate["policy"]["requires_candidate_config_hash_binding"] is True
           PY
+          python -m orchestrator.codex_cli_execution_unlock_snapshot experiments/ci-codex-guarded
+          test -f experiments/ci-codex-guarded/codex_cli_execution_unlock_snapshot.json
+          test -f experiments/ci-codex-guarded/codex_cli_execution_unlock_snapshot.md
+          python - <<'PY'
+          import json
+          snapshot = json.load(open("experiments/ci-codex-guarded/codex_cli_execution_unlock_snapshot.json"))
+          assert snapshot["schema_version"] == "codex_cli_execution_unlock_snapshot_v1"
+          assert snapshot["ok"] is True
+          assert snapshot["real_codex_execution_unlocked"] is False
+          assert len(snapshot["snapshot_digest"]) == 64
+          assert snapshot["source_gate"]["exists"] is True
+          assert snapshot["evidence_artifacts"]["candidate_config"]["exists"] is True
+          assert len(snapshot["evidence_artifacts"]["candidate_config"]["sha256"]) == 64
+          assert snapshot["policy"]["freezes_unlock_gate_sha256"] is True
+          assert snapshot["policy"]["freezes_evidence_artifact_sha256"] is True
+          PY
           python -m orchestrator.artifact_validator ci-codex-guarded
           python -m orchestrator.artifact_validator ci-codex-canary
           python -m orchestrator.artifact_validator ci-adaptive

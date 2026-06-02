@@ -127,6 +127,8 @@ def validate_run_artifacts(
             report=report,
         )
         validate_json_object(path=run_dir / "decision.json", report=report)
+    elif (run_dir / "codex_cli_execution_unlock_snapshot.json").exists():
+        report["kind"] = "codex_cli_execution_unlock_snapshot"
     elif (run_dir / "codex_cli_execution_unlock_gate.json").exists():
         report["kind"] = "codex_cli_execution_unlock_gate"
     elif (run_dir / "codex_cli_real_preflight.json").exists():
@@ -194,6 +196,11 @@ def validate_run_artifacts(
         report=report,
     )
     validate_optional_codex_cli_execution_unlock_gate(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
+    validate_optional_codex_cli_execution_unlock_snapshot(
         run_dir=run_dir,
         repo_root=repo_root,
         report=report,
@@ -3104,6 +3111,150 @@ def validate_optional_codex_cli_execution_unlock_gate(
     markdown_path = run_dir / "codex_cli_execution_unlock_gate.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
+
+
+def validate_optional_codex_cli_execution_unlock_snapshot(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate codex_cli_execution_unlock_snapshot.json when a run has one."""
+    path = run_dir / "codex_cli_execution_unlock_snapshot.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/codex_cli_execution_unlock_snapshot.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"codex_cli_execution_unlock_snapshot.json run_id does not match report: {path}",
+        )
+    if bool(payload.get("ok", False)) is not True:
+        add_error(report, "codex_cli_execution_unlock_snapshot.json ok false")
+    source_gate = payload.get("source_gate", {})
+    if not isinstance(source_gate, dict):
+        add_error(report, "codex_cli_execution_unlock_snapshot.json source_gate invalid")
+    else:
+        validate_recorded_file_hash(
+            record=source_gate,
+            repo_root=repo_root,
+            report=report,
+            label="codex_cli_execution_unlock_snapshot source_gate",
+        )
+    expected_digest = snapshot_digest_from_payload(payload)
+    if str(payload.get("snapshot_digest", "")) != expected_digest:
+        add_error(report, "codex_cli_execution_unlock_snapshot.json digest mismatch")
+    evidence = payload.get("evidence_artifacts", {})
+    if not isinstance(evidence, dict):
+        add_error(report, "codex_cli_execution_unlock_snapshot.json evidence invalid")
+    else:
+        for key, record in evidence.items():
+            if not isinstance(record, dict):
+                add_error(
+                    report,
+                    f"codex_cli_execution_unlock_snapshot evidence invalid: {key}",
+                )
+                continue
+            validate_recorded_file_hash(
+                record=record,
+                repo_root=repo_root,
+                report=report,
+                label=f"codex_cli_execution_unlock_snapshot evidence {key}",
+                allow_missing_when_recorded_missing=True,
+            )
+    config_binding = payload.get("config_binding", {})
+    if not isinstance(config_binding, dict):
+        add_error(
+            report,
+            "codex_cli_execution_unlock_snapshot.json config_binding invalid",
+        )
+    elif not str(config_binding.get("expected_config_sha256", "")):
+        add_error(
+            report,
+            "codex_cli_execution_unlock_snapshot.json expected config sha256 missing",
+        )
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "codex_cli_execution_unlock_snapshot.json policy invalid")
+    else:
+        for key in (
+            "snapshot_only",
+            "read_only",
+            "does_not_execute_codex_cli",
+            "does_not_send_strategy_prompt",
+            "does_not_modify_config",
+            "does_not_select_candidate",
+            "does_not_apply_patches",
+            "does_not_change_acceptance",
+            "freezes_unlock_gate_sha256",
+            "freezes_evidence_artifact_sha256",
+            "deterministic_code_keeps_acceptance_authority",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_execution_unlock_snapshot.json policy false: {key}",
+                )
+    markdown_path = run_dir / "codex_cli_execution_unlock_snapshot.md"
+    if markdown_path.exists():
+        checked_files(report).append(str(markdown_path))
+
+
+def snapshot_digest_from_payload(payload: dict[str, object]) -> str:
+    """Return the expected digest for a codex_cli_execution_unlock_snapshot payload."""
+    core = {
+        "source_gate": payload.get("source_gate", {}),
+        "real_codex_execution_unlocked": bool(
+            payload.get("real_codex_execution_unlocked", False)
+        ),
+        "blocking_reasons": payload.get("blocking_reasons", []),
+        "checks": payload.get("checks", {}),
+        "gate_status": payload.get("gate_status", {}),
+        "config_binding": payload.get("config_binding", {}),
+        "evidence_artifacts": payload.get("evidence_artifacts", {}),
+    }
+    encoded = json.dumps(core, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def validate_recorded_file_hash(
+    *,
+    record: dict[str, object],
+    repo_root: Path,
+    report: dict[str, object],
+    label: str,
+    allow_missing_when_recorded_missing: bool = False,
+) -> None:
+    """Validate one recorded file hash against the current filesystem."""
+    exists = bool(record.get("exists", False))
+    artifact_path = resolve_path(Path(str(record.get("path", ""))), repo_root)
+    if artifact_path.exists():
+        checked_files(report).append(str(artifact_path))
+    if not exists and allow_missing_when_recorded_missing:
+        if artifact_path.exists():
+            add_error(
+                report,
+                f"{label} recorded missing but now exists: {artifact_path}",
+            )
+        return
+    if exists and not artifact_path.exists():
+        add_error(report, f"{label} missing: {artifact_path}")
+        return
+    if not exists:
+        add_error(report, f"{label} recorded missing")
+        return
+    expected_sha256 = str(record.get("sha256", ""))
+    actual_sha256 = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+    if expected_sha256 != actual_sha256:
+        add_error(report, f"{label} sha256 mismatch")
 
 
 def validate_optional_research_brief(

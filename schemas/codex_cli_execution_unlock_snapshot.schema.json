@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Codex CLI Execution Unlock Snapshot",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "ok",
+    "source_gate_path",
+    "snapshot_digest",
+    "source_gate",
+    "real_codex_execution_unlocked",
+    "blocking_reasons",
+    "checks",
+    "gate_status",
+    "config_binding",
+    "evidence_artifacts",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "codex_cli_execution_unlock_snapshot_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "source_gate_path": {
+      "type": "string"
+    },
+    "snapshot_digest": {
+      "type": "string"
+    },
+    "source_gate": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "bytes",
+        "sha256"
+      ]
+    },
+    "real_codex_execution_unlocked": {
+      "type": "boolean"
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "checks": {
+      "type": "object"
+    },
+    "gate_status": {
+      "type": "object"
+    },
+    "config_binding": {
+      "type": "object"
+    },
+    "evidence_artifacts": {
+      "type": "object"
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "snapshot_only",
+        "read_only",
+        "does_not_execute_codex_cli",
+        "does_not_send_strategy_prompt",
+        "does_not_modify_config",
+        "does_not_select_candidate",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "freezes_unlock_gate_sha256",
+        "freezes_evidence_artifact_sha256",
+        "deterministic_code_keeps_acceptance_authority"
+      ]
+    }
+  }
+}

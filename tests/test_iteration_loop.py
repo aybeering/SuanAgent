@@ -79,6 +79,10 @@ from orchestrator.codex_cli_execution_unlock_gate import (
     CODEX_CLI_EXECUTION_UNLOCK_GATE_SCHEMA_VERSION,
     write_codex_cli_execution_unlock_gate,
 )
+from orchestrator.codex_cli_execution_unlock_snapshot import (
+    CODEX_CLI_EXECUTION_UNLOCK_SNAPSHOT_SCHEMA_VERSION,
+    write_codex_cli_execution_unlock_snapshot,
+)
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.agent_slot_readiness_gate import (
@@ -6493,6 +6497,10 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         config_path=config_path,
         canary_run_dir=canary_run_dir,
     )
+    snapshot = write_codex_cli_execution_unlock_snapshot(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
     validation_report = validate_run_artifacts(
         run_id="codex-unlock-locked",
         experiments_dir=repo / "experiments",
@@ -6529,11 +6537,24 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
     assert gate["policy"]["read_only"] is True
     assert gate["policy"]["does_not_apply_patches"] is True
     assert gate["policy"]["requires_candidate_config_hash_binding"] is True
+    assert snapshot["schema_version"] == CODEX_CLI_EXECUTION_UNLOCK_SNAPSHOT_SCHEMA_VERSION
+    assert snapshot["ok"] is True
+    assert snapshot["real_codex_execution_unlocked"] is False
+    assert snapshot["source_gate"]["exists"] is True
+    assert snapshot["source_gate"]["path"] == (
+        "experiments/codex-unlock-locked/codex_cli_execution_unlock_gate.json"
+    )
+    assert len(snapshot["source_gate"]["sha256"]) == 64
     assert_matches_schema(
         run_dir / "codex_cli_execution_unlock_gate.json",
         "codex_cli_execution_unlock_gate",
     )
+    assert_matches_schema(
+        run_dir / "codex_cli_execution_unlock_snapshot.json",
+        "codex_cli_execution_unlock_snapshot",
+    )
     assert (run_dir / "codex_cli_execution_unlock_gate.md").exists()
+    assert (run_dir / "codex_cli_execution_unlock_snapshot.md").exists()
     assert validation_report["ok"] is True
     assert cli_result.returncode == 0, cli_result.stderr
     assert cli_payload["schema_version"] == CODEX_CLI_EXECUTION_UNLOCK_GATE_SCHEMA_VERSION
@@ -6631,6 +6652,10 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         config_path=config_path,
         canary_run_dir=canary_run_dir,
     )
+    snapshot = write_codex_cli_execution_unlock_snapshot(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
     validation_report = validate_run_artifacts(
         run_id="codex-unlock-ready",
         experiments_dir=repo / "experiments",
@@ -6666,13 +6691,40 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert gate["policy"]["does_not_execute_codex_cli"] is True
     assert gate["policy"]["requires_successful_dry_invocation"] is True
     assert gate["policy"]["requires_candidate_config_hash_binding"] is True
+    assert snapshot["schema_version"] == CODEX_CLI_EXECUTION_UNLOCK_SNAPSHOT_SCHEMA_VERSION
+    assert snapshot["ok"] is True
+    assert snapshot["real_codex_execution_unlocked"] is True
+    assert len(snapshot["snapshot_digest"]) == 64
+    assert snapshot["source_gate"]["exists"] is True
+    assert snapshot["evidence_artifacts"]["candidate_config"]["sha256"] == (
+        gate["artifacts"]["candidate_config"]["sha256"]
+    )
     assert_matches_schema(
         run_dir / "codex_cli_execution_unlock_gate.json",
         "codex_cli_execution_unlock_gate",
     )
+    assert_matches_schema(
+        run_dir / "codex_cli_execution_unlock_snapshot.json",
+        "codex_cli_execution_unlock_snapshot",
+    )
     assert validation_report["ok"] is True
     assert cli_result.returncode == 0, cli_result.stderr
     assert cli_payload["real_codex_execution_unlocked"] is True
+    (run_dir / "codex_cli_real_preflight.json").write_text(
+        "{}\n",
+        encoding="utf-8",
+    )
+    tampered_validation_report = validate_run_artifacts(
+        run_id="codex-unlock-ready",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert tampered_validation_report["ok"] is False
+    assert any(
+        "codex_cli_execution_unlock_snapshot evidence codex_cli_real_preflight sha256 mismatch"
+        in str(error)
+        for error in tampered_validation_report["errors"]
+    )
 
 
 def test_codex_cli_execution_unlock_gate_blocks_candidate_config_mismatch(

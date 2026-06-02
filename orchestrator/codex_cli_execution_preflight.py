@@ -47,6 +47,7 @@ def build_codex_cli_execution_preflight(
         profile_execution_row(
             profile=profile,
             repo_root=repo_root,
+            run_dir=run_dir,
             run_id=run_dir.name,
         )
         for profile in profiles
@@ -125,6 +126,7 @@ def profile_execution_row(
     *,
     profile: dict[str, object],
     repo_root: Path,
+    run_dir: Path,
     run_id: str,
 ) -> dict[str, Any]:
     """Return preflight status for one agent profile."""
@@ -192,6 +194,12 @@ def profile_execution_row(
         "operator_unlock_request_ok": bool(request.get("ok", False)),
         "operator_unlock_request_ready": bool(
             request.get("operator_request_ready", False)
+        ),
+        "operator_request_run_id_matches": str(request.get("run_id", "")) == run_id,
+        "operator_request_run_dir_matches_run": recorded_run_dir_matches(
+            declared_run_dir=str(request.get("run_dir", "")),
+            expected_run_dir=run_dir,
+            repo_root=repo_root,
         ),
         "operator_request_scope_matches": str(
             operator_intent.get("request_scope", "")
@@ -304,6 +312,11 @@ def operator_unlock_blockers(checks: dict[str, bool]) -> list[str]:
         ),
         ("operator_unlock_request_ok", "operator_unlock_request_not_ok"),
         ("operator_unlock_request_ready", "operator_unlock_request_not_ready"),
+        ("operator_request_run_id_matches", "operator_request_run_id_mismatch"),
+        (
+            "operator_request_run_dir_matches_run",
+            "operator_request_run_dir_mismatch",
+        ),
         ("operator_request_scope_matches", "operator_request_scope_mismatch"),
         (
             "operator_request_explicitly_requested",
@@ -413,6 +426,21 @@ def recorded_path_matches(
         return False
     normalized = relative_path(resolve_path(Path(declared_path), repo_root), repo_root)
     return normalized == recorded_path
+
+
+def recorded_run_dir_matches(
+    *,
+    declared_run_dir: str,
+    expected_run_dir: Path,
+    repo_root: Path,
+) -> bool:
+    """Return whether a request run_dir points at the current run directory."""
+    if not declared_run_dir:
+        return False
+    return (
+        resolve_path(Path(declared_run_dir), repo_root).resolve()
+        == expected_run_dir.resolve()
+    )
 
 
 def operator_request_contract_valid(

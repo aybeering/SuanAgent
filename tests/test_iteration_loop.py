@@ -7194,6 +7194,70 @@ def test_codex_cli_execution_preflight_blocks_stale_operator_request(
     ]
 
 
+def test_codex_cli_execution_preflight_blocks_operator_run_identity_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_run_identity_drift.py",
+        "#!/usr/bin/env python3\nprint('{}')\n",
+    )
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / "operator_unlock_fixtures/run_identity_drift_request.json",
+        run_id="run-identity-drift",
+        executable=str(fake_codex),
+        model="run-identity-drift-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request["run_id"] = "other-run"
+    request["run_dir"] = str(repo / "experiments/other-run")
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "run-identity-drift-test",
+            "sandbox": "workspace-write",
+            "workspace_root": "workspaces",
+            "execute": True,
+            "operator_unlock_request_path": str(request_path.relative_to(repo)),
+        },
+    )
+
+    preflight = write_codex_cli_execution_preflight(
+        output_path=repo
+        / "experiments/run-identity-drift/codex_cli_execution_preflight.json",
+        markdown_path=repo
+        / "experiments/run-identity-drift/codex_cli_execution_preflight.md",
+        run_dir=repo / "experiments/run-identity-drift",
+        repo_root=repo,
+        config=config,
+    )
+
+    profile = preflight["profiles"][0]
+    assert preflight["ok"] is False
+    assert profile["checks"]["operator_unlock_request_contract_valid"] is True
+    assert profile["checks"]["operator_unlock_request_ready"] is True
+    assert profile["checks"]["operator_request_run_id_matches"] is False
+    assert profile["checks"]["operator_request_run_dir_matches_run"] is False
+    assert profile["checks"]["operator_request_workspace_prefix_matches_run"] is True
+    assert "profile primary: operator_request_run_id_mismatch" in preflight[
+        "blocking_errors"
+    ]
+    assert "profile primary: operator_request_run_dir_mismatch" in preflight[
+        "blocking_errors"
+    ]
+
+
 def test_codex_cli_execution_preflight_blocks_operator_source_drift(
     tmp_path: Path,
 ) -> None:
@@ -7473,6 +7537,37 @@ def test_artifact_validator_reports_operator_source_path_mismatch(
     assert validation_report["ok"] is False
     assert any(
         "codex_cli_operator_unlock_request source_dry_run path mismatch" in str(error)
+        for error in validation_report["errors"]
+    )
+
+
+def test_artifact_validator_reports_operator_run_dir_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/operator-run-dir-drift"
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        run_dir / "codex_cli_operator_unlock_request.json",
+        run_id="operator-run-dir-drift",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request["run_dir"] = str(repo / "experiments/other-run")
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="operator-run-dir-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_operator_unlock_request.json run_dir does not match report"
+        in str(error)
         for error in validation_report["errors"]
     )
 
@@ -9024,6 +9119,7 @@ def write_operator_unlock_request_fixture(
 ) -> Path:
     """Write a ready operator request fixture for local fake Codex tests."""
     path.parent.mkdir(parents=True, exist_ok=True)
+    run_dir = repo / "experiments" / run_id
     source_pipeline_path = path.parent / f"{path.stem}_readiness_pipeline.json"
     source_dry_run_path = path.parent / f"{path.stem}_real_execution_dry_run.json"
     source_pipeline_path.write_text(
@@ -9063,8 +9159,8 @@ def write_operator_unlock_request_fixture(
     )
     payload = {
         "schema_version": CODEX_CLI_OPERATOR_UNLOCK_REQUEST_SCHEMA_VERSION,
-        "run_id": path.parent.name,
-        "run_dir": str(path.parent),
+        "run_id": run_id,
+        "run_dir": str(run_dir),
         "ok": True,
         "operator_request_ready": True,
         "blocking_reasons": [],

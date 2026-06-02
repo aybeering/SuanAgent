@@ -2503,6 +2503,8 @@ def validate_optional_codex_cli_execution_preflight(
                 for key in (
                     "operator_unlock_request_contract_valid",
                     "operator_unlock_request_schema_version_matches",
+                    "operator_request_run_id_matches",
+                    "operator_request_run_dir_matches_run",
                     "operator_request_scope_matches",
                     "operator_request_explicitly_requested",
                     "operator_request_requested_by_present",
@@ -4094,6 +4096,15 @@ def validate_optional_codex_cli_operator_unlock_request(
             "codex_cli_operator_unlock_request.json run_id does not match report: "
             f"{path}",
         )
+    if not artifact_path_matches_run_dir(
+        path_text=str(payload.get("run_dir", "")),
+        run_dir=run_dir,
+        repo_root=repo_root,
+    ):
+        add_error(
+            report,
+            "codex_cli_operator_unlock_request.json run_dir does not match report",
+        )
     if bool(payload.get("ok", False)) is not True:
         add_error(report, "codex_cli_operator_unlock_request.json ok false")
     blockers = payload.get("blocking_reasons", [])
@@ -4485,6 +4496,18 @@ def normalize_repo_path(path_text: str, repo_root: Path) -> str:
         return path.resolve().relative_to(repo_root.resolve()).as_posix()
     except ValueError:
         return path.as_posix()
+
+
+def artifact_path_matches_run_dir(
+    *,
+    path_text: str,
+    run_dir: Path,
+    repo_root: Path,
+) -> bool:
+    """Return whether a run_dir artifact path points at the current run."""
+    if not path_text:
+        return False
+    return resolve_path(Path(path_text), repo_root).resolve() == run_dir.resolve()
 
 
 def checked_files(report: dict[str, object]) -> list[str]:

@@ -96,6 +96,8 @@
               "operator_unlock_request_schema_version_matches",
               "operator_unlock_request_ok",
               "operator_unlock_request_ready",
+              "operator_request_run_id_matches",
+              "operator_request_run_dir_matches_run",
               "operator_request_scope_matches",
               "operator_request_explicitly_requested",
               "operator_request_requested_by_present",
@@ -142,6 +144,12 @@
                 "type": "boolean"
               },
               "operator_unlock_request_ready": {
+                "type": "boolean"
+              },
+              "operator_request_run_id_matches": {
+                "type": "boolean"
+              },
+              "operator_request_run_dir_matches_run": {
                 "type": "boolean"
               },
               "operator_request_scope_matches": {

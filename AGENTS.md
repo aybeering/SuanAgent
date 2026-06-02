@@ -53,7 +53,8 @@ recommendation artifacts, read-only config change candidate and operator review
 artifacts, read-only config application dry-run artifacts, guarded config
 application receipt artifacts, read-only config rollback preview artifacts, and
 guarded config restore receipt artifacts, read-only config lineage artifacts,
-and Codex CLI readiness evidence.
+read-only run closeout operator dashboard summaries, and Codex CLI readiness
+evidence.
 
 Still out of scope:
 

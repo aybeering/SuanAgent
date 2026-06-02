@@ -39,6 +39,8 @@ ITERATION_RUN_REQUIRED_FILES = (
     "operator_config_review.md",
     "config_application_dry_run.json",
     "config_application_dry_run.md",
+    "config_lineage.json",
+    "config_lineage.md",
     "codex_cli_execution_preflight.json",
     "codex_cli_execution_preflight.md",
     "agent_activation_preflight.json",
@@ -3671,6 +3673,30 @@ def validate_optional_run_closeout(
     ):
         if policy.get(key) is not True:
             add_error(report, f"run_closeout.json policy false: {key}")
+    dashboard = payload.get("operator_dashboard", {})
+    if not isinstance(dashboard, dict):
+        add_error(report, "run_closeout.json operator_dashboard invalid")
+        return
+    dashboard_policy = dashboard.get("policy", {})
+    if not isinstance(dashboard_policy, dict):
+        add_error(report, "run_closeout.json operator_dashboard policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+    ):
+        if dashboard_policy.get(key) is not True:
+            add_error(
+                report,
+                f"run_closeout.json operator_dashboard policy false: {key}",
+            )
 
 
 def validate_optional_candidate_challenger_report(
@@ -4321,10 +4347,11 @@ def validate_optional_config_lineage(
                 Path(str(row.get("artifact_path", ""))),
                 repo_root,
             )
-            if row.get("exists") is True and row.get("sha256") != file_sha256(
-                artifact_path,
-            ):
-                add_error(report, "config_lineage.json stage digest mismatch")
+            if row.get("exists") is True:
+                if not artifact_path.exists():
+                    add_error(report, "config_lineage.json stage artifact missing")
+                elif row.get("sha256") != file_sha256(artifact_path):
+                    add_error(report, "config_lineage.json stage digest mismatch")
     policy = payload.get("policy", {})
     if not isinstance(policy, dict):
         add_error(report, "config_lineage.json policy invalid")

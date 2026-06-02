@@ -166,6 +166,12 @@ match; it does not run agents or change acceptance.
 candidate, review, dry-run, application receipt, rollback preview, and restore
 receipt artifacts into one read-only digest chain. They do not write config.
 
+`run_closeout.json` and `run_closeout.md` include an `operator_dashboard`
+summary that rolls up artifact health, config lineage, champion review,
+promotion review, watchlist status, action items, and deterministic authority.
+It is an inspection view only; it cannot write config, promote champions, route
+candidates, run backtests, apply patches, execute agents, or change acceptance.
+
 ## Champion Registry
 
 Experiment comparison and promotion commands are deterministic. A candidate can

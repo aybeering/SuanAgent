@@ -136,6 +136,20 @@ def write_iteration_summary(
             f"- Markdown: `{display_value(config_application.get('markdown_path'))}`"
         )
 
+    config_lineage = manifest.get("config_lineage")
+    if isinstance(config_lineage, dict):
+        lines.extend(["", "## Config Lineage", ""])
+        lines.append(f"- Status: `{display_value(config_lineage.get('status'))}`")
+        lines.append(f"- OK: `{display_value(config_lineage.get('ok'))}`")
+        lines.append(
+            "- Existing stages: "
+            f"`{display_value(config_lineage.get('existing_stage_count'))}`"
+        )
+        lines.append(f"- Artifact: `{display_value(config_lineage.get('path'))}`")
+        lines.append(
+            f"- Markdown: `{display_value(config_lineage.get('markdown_path'))}`"
+        )
+
     challenger = manifest.get("candidate_challenger_report")
     if isinstance(challenger, dict):
         lines.extend(["", "## Candidate Challenger Report", ""])

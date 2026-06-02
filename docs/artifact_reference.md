@@ -124,8 +124,8 @@ experiments/<run_id>/
   config_application_rollback_preview.md    # after rollback preview command
   config_application_restore_receipt.json  # after guarded restore command
   config_application_restore_receipt.md    # after guarded restore command
-  config_lineage.json                      # after config lineage command
-  config_lineage.md                        # after config lineage command
+  config_lineage.json
+  config_lineage.md
   agent_result_stats.json
   candidate_challenger_report.json
   candidate_challenger_report.md
@@ -389,8 +389,10 @@ Replay artifacts:
 - `run_closeout.json` and `run_closeout.md` summarize the completed iteration
   run for operator review. They read saved artifacts only, record deterministic
   acceptance authority, selected candidates, health status, research watchlist
-  status, research focus, and recommended next actions, and cannot execute
-  agents, run backtests, apply patches, route agents, or change acceptance.
+  status, config-lineage status, champion/promotion review status, an
+  operator-facing dashboard, and recommended next actions, and cannot execute
+  agents, run backtests, write config, promote champions, apply patches, route
+  agents, or change acceptance.
 - `candidate_leaderboard.json` records every proposal attempt with stable
   quality metadata. `quality_breakdown` decomposes the pre-backtest candidate
   score into named components, selected rows also record validation and

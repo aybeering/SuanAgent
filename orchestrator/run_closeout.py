@@ -55,6 +55,10 @@ def build_run_closeout(
     manifest = load_json_object(run_dir / "manifest.json")
     scope_health = load_json_object(run_dir / "experiment_scope_health.json")
     research_brief = load_json_object(run_dir / "research_brief.json")
+    config_lineage = load_json_object(run_dir / "config_lineage.json")
+    challenger = load_json_object(run_dir / "candidate_challenger_report.json")
+    promotion = load_json_object(run_dir / "champion_promotion_dry_run.json")
+    approval = load_json_object(run_dir / "champion_promotion_approval.json")
     candidates = load_json_list(run_dir / "candidate_leaderboard.json")
     selected_candidates = [
         compact_candidate(row)
@@ -104,6 +108,9 @@ def build_run_closeout(
             "research_primary_focus": str(
                 research_focus.get("primary_focus", "unknown")
             ),
+            "config_lineage_present": bool(config_lineage),
+            "config_lineage_status": str(config_lineage.get("status", "unknown")),
+            "config_lineage_ok": bool(config_lineage.get("ok", False)),
         },
         "artifacts": artifact_rows(run_dir=run_dir, experiments_dir=experiments_dir),
         "selected_candidates": selected_candidates,
@@ -115,6 +122,18 @@ def build_run_closeout(
             "final_acceptance_authority": "deterministic_code",
             "agent_language_can_accept": False,
         },
+        "operator_dashboard": operator_dashboard(
+            manifest=manifest,
+            scope_health=scope_health,
+            research_brief=research_brief,
+            config_lineage=config_lineage,
+            challenger=challenger,
+            promotion=promotion,
+            approval=approval,
+            selected_candidates=selected_candidates,
+            closeout_ok=closeout_ok,
+            closeout_status=closeout_status,
+        ),
         "recommended_next_actions": recommended_next_actions(
             closeout_ok=closeout_ok,
             manifest=manifest,
@@ -167,6 +186,7 @@ def artifact_rows(*, run_dir: Path, experiments_dir: Path) -> list[dict[str, obj
             label="candidate_leaderboard",
             required=True,
         ),
+        artifact_row(run_dir / "config_lineage.json", label="config_lineage", required=True),
         artifact_row(
             run_dir / "candidate_challenger_report.json",
             label="candidate_challenger_report",
@@ -189,6 +209,166 @@ def artifact_rows(*, run_dir: Path, experiments_dir: Path) -> list[dict[str, obj
         ),
     ]
     return rows
+
+
+def operator_dashboard(
+    *,
+    manifest: dict[str, Any],
+    scope_health: dict[str, Any],
+    research_brief: dict[str, Any],
+    config_lineage: dict[str, Any],
+    challenger: dict[str, Any],
+    promotion: dict[str, Any],
+    approval: dict[str, Any],
+    selected_candidates: list[dict[str, object]],
+    closeout_ok: bool,
+    closeout_status: str,
+) -> dict[str, object]:
+    """Return a compact operator-facing dashboard from saved artifacts."""
+    config_checks = object_field(config_lineage, "checks")
+    promotion_decision = object_field(promotion, "dry_run_decision")
+    approval_intent = object_field(approval, "operator_intent")
+    watchlist = object_field(research_brief, "watchlist_summary")
+    return {
+        "schema_version": "operator_dashboard_v1",
+        "status_summary": {
+            "run_status": str(manifest.get("status", "unknown")),
+            "closeout_status": closeout_status,
+            "completed_rounds": int(manifest.get("completed_rounds", 0) or 0),
+            "accepted": manifest.get("status") == "accepted",
+            "accepted_round": manifest.get("accepted_round"),
+            "stop_reason": manifest.get("stop_reason"),
+            "selected_candidate_count": len(selected_candidates),
+        },
+        "gates": [
+            dashboard_gate(
+                gate_name="artifact_health",
+                ok=closeout_ok,
+                status=closeout_status,
+                artifact_path="run_closeout.json",
+                details=(
+                    "Run closeout is ready for operator review."
+                    if closeout_ok
+                    else "Run closeout needs artifact or scope attention."
+                ),
+            ),
+            dashboard_gate(
+                gate_name="scope_health",
+                ok=bool(scope_health.get("ok", False)),
+                status=str(scope_health.get("status", "unknown")),
+                artifact_path="experiment_scope_health.json",
+                details="Experiment scope health is read-only.",
+            ),
+            dashboard_gate(
+                gate_name="config_lineage",
+                ok=bool(config_lineage.get("ok", False)),
+                status=str(config_lineage.get("status", "missing")),
+                artifact_path="config_lineage.json",
+                details="Config lineage reads saved config evidence only.",
+            ),
+            dashboard_gate(
+                gate_name="champion_review",
+                ok=bool(challenger.get("ok", False)),
+                status=str(challenger.get("status", "missing")),
+                artifact_path="candidate_challenger_report.json",
+                details="Champion comparison is inspection-only.",
+            ),
+            dashboard_gate(
+                gate_name="promotion_review",
+                ok=bool(promotion.get("ok", False)) and bool(approval.get("ok", False)),
+                status=str(approval.get("status", "missing")),
+                artifact_path="champion_promotion_approval.json",
+                details="Promotion still requires an explicit operator command.",
+            ),
+        ],
+        "config_review": {
+            "lineage_status": str(config_lineage.get("status", "missing")),
+            "lineage_ok": bool(config_lineage.get("ok", False)),
+            "existing_stage_count": int(config_checks.get("existing_stage_count", 0) or 0),
+            "current_config_matches_latest_stage": bool(
+                config_checks.get("current_config_matches_latest_stage", False)
+            ),
+            "applied": bool(config_checks.get("applied", False)),
+            "restored": bool(config_checks.get("restored", False)),
+        },
+        "champion_review": {
+            "challenger_status": str(challenger.get("status", "missing")),
+            "promotion_status": str(promotion.get("status", "missing")),
+            "approval_status": str(approval.get("status", "missing")),
+            "would_promote": bool(promotion_decision.get("would_promote", False)),
+            "approval_recorded": bool(approval_intent.get("approval_recorded", False)),
+        },
+        "watchlist": {
+            "status": str(watchlist.get("status", "unknown")),
+            "alert_count": int(watchlist.get("alert_count", 0) or 0),
+        },
+        "operator_action_items": operator_action_items(
+            manifest=manifest,
+            config_lineage=config_lineage,
+            promotion=promotion,
+            approval=approval,
+            closeout_ok=closeout_ok,
+        ),
+        "authority": {
+            "final_acceptance_authority": "deterministic_code",
+            "agent_language_can_accept": False,
+            "config_changes_require_guarded_command": True,
+            "champion_promotion_requires_explicit_command": True,
+        },
+        "policy": {
+            "inspection_only": True,
+            "reads_saved_artifacts_only": True,
+            "does_not_execute_agents": True,
+            "does_not_run_backtests": True,
+            "does_not_write_config": True,
+            "does_not_promote_champion": True,
+            "does_not_apply_patches": True,
+            "does_not_route_agents": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+
+def dashboard_gate(
+    *,
+    gate_name: str,
+    ok: bool,
+    status: str,
+    artifact_path: str,
+    details: str,
+) -> dict[str, object]:
+    """Return one operator dashboard gate row."""
+    return {
+        "gate_name": gate_name,
+        "ok": ok,
+        "status": status,
+        "artifact_path": artifact_path,
+        "details": details,
+    }
+
+
+def operator_action_items(
+    *,
+    manifest: dict[str, Any],
+    config_lineage: dict[str, Any],
+    promotion: dict[str, Any],
+    approval: dict[str, Any],
+    closeout_ok: bool,
+) -> list[str]:
+    """Return stable operator-facing action items."""
+    actions: list[str] = []
+    if not closeout_ok:
+        actions.append("Review artifact health before starting another run.")
+    if not config_lineage or not bool(config_lineage.get("ok", False)):
+        actions.append("Regenerate or inspect config_lineage.json before config changes.")
+    if promotion and object_field(promotion, "dry_run_decision").get("would_promote") is True:
+        if not object_field(approval, "operator_intent").get("approval_recorded", False):
+            actions.append("Review champion promotion approval before promoting.")
+    if manifest.get("status") == "stopped_repeated_proposal":
+        actions.append("Use a different deterministic modifier profile next.")
+    if not actions:
+        actions.append("Review selected candidates and research brief before the next run.")
+    return actions
 
 
 def artifact_row(path: Path, *, label: str, required: bool) -> dict[str, object]:
@@ -286,11 +466,49 @@ def render_run_closeout_markdown(payload: dict[str, object]) -> str:
         f"- Research watchlist: `{summary.get('research_watchlist_status', 'unknown')}` "
         f"({summary.get('research_watchlist_alert_count', 0)} alert(s))",
         f"- Research focus: `{summary.get('research_primary_focus', 'unknown')}`",
+        f"- Config lineage: `{summary.get('config_lineage_status', 'unknown')}` "
+        f"(ok: `{summary.get('config_lineage_ok', False)}`)",
         "",
-        "## Next Actions",
+        "## Operator Dashboard",
         "",
     ]
-    lines.extend(f"- {action}" for action in string_list(payload.get("recommended_next_actions", [])))
+    dashboard = object_field(payload, "operator_dashboard")
+    config_review = object_field(dashboard, "config_review")
+    champion_review = object_field(dashboard, "champion_review")
+    watchlist = object_field(dashboard, "watchlist")
+    lines.extend(
+        [
+            f"- Config lineage: `{config_review.get('lineage_status', 'unknown')}` "
+            f"({config_review.get('existing_stage_count', 0)} stage(s))",
+            "- Config matches latest stage: "
+            f"`{config_review.get('current_config_matches_latest_stage', False)}`",
+            f"- Champion challenger: `{champion_review.get('challenger_status', 'unknown')}`",
+            f"- Promotion approval: `{champion_review.get('approval_status', 'unknown')}`",
+            f"- Watchlist: `{watchlist.get('status', 'unknown')}` "
+            f"({watchlist.get('alert_count', 0)} alert(s))",
+            "",
+            "| Gate | OK | Status | Artifact |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    for row in list_of_dicts(dashboard.get("gates", [])):
+        lines.append(
+            "| "
+            f"{row.get('gate_name', '')} | "
+            f"{row.get('ok', False)} | "
+            f"{row.get('status', '')} | "
+            f"`{row.get('artifact_path', '')}` |"
+        )
+    lines.extend(["", "## Operator Action Items", ""])
+    lines.extend(
+        f"- {action}"
+        for action in string_list(dashboard.get("operator_action_items", []))
+    )
+    lines.extend(["", "## Next Actions", ""])
+    lines.extend(
+        f"- {action}"
+        for action in string_list(payload.get("recommended_next_actions", []))
+    )
     lines.extend(["", "## Selected Candidates", ""])
     selected = list_of_dicts(payload.get("selected_candidates", []))
     if not selected:

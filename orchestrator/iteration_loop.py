@@ -51,7 +51,9 @@ from orchestrator.champion_promotion_approval import write_champion_promotion_ap
 from orchestrator.champion_promotion_dry_run import write_champion_promotion_dry_run
 from orchestrator.config_application_dry_run import write_config_application_dry_run
 from orchestrator.config_change_candidate import write_config_change_candidate
+from orchestrator.config_lineage import write_config_lineage
 from orchestrator.config import (
+    DEFAULT_CONFIG_PATH,
     ProjectConfig,
     load_project_config,
 )
@@ -300,6 +302,13 @@ def run_iteration_loop(
             "status": "pending",
             "eligible_for_manual_application": False,
         },
+        "config_lineage": {
+            "path": "config_lineage.json",
+            "markdown_path": "config_lineage.md",
+            "ok": False,
+            "status": "pending",
+            "existing_stage_count": 0,
+        },
         "champion_promotion_dry_run": {
             "path": "champion_promotion_dry_run.json",
             "markdown_path": "champion_promotion_dry_run.md",
@@ -483,6 +492,7 @@ def run_iteration_loop(
                         run_id=active_run_id,
                         experiments_dir=active_experiments_dir,
                         repo_root=repo_root,
+                        config_path=config_path or repo_root / DEFAULT_CONFIG_PATH,
                         scope_health_created_at_from=scope_health_created_at_from,
                         write_research=True,
                     )
@@ -507,6 +517,7 @@ def run_iteration_loop(
                         run_id=active_run_id,
                         experiments_dir=active_experiments_dir,
                         repo_root=repo_root,
+                        config_path=config_path or repo_root / DEFAULT_CONFIG_PATH,
                         scope_health_created_at_from=scope_health_created_at_from,
                         write_research=True,
                     )
@@ -528,6 +539,7 @@ def run_iteration_loop(
                         run_id=active_run_id,
                         experiments_dir=active_experiments_dir,
                         repo_root=repo_root,
+                        config_path=config_path or repo_root / DEFAULT_CONFIG_PATH,
                         scope_health_created_at_from=scope_health_created_at_from,
                         write_research=True,
                     )
@@ -542,6 +554,7 @@ def run_iteration_loop(
             run_id=active_run_id,
             experiments_dir=active_experiments_dir,
             repo_root=repo_root,
+            config_path=config_path or repo_root / DEFAULT_CONFIG_PATH,
             scope_health_created_at_from=scope_health_created_at_from,
             write_research=True,
         )
@@ -555,6 +568,7 @@ def run_iteration_loop(
             run_id=active_run_id,
             experiments_dir=active_experiments_dir,
             repo_root=repo_root,
+            config_path=config_path or repo_root / DEFAULT_CONFIG_PATH,
             scope_health_created_at_from=scope_health_created_at_from,
             write_research=False,
         )
@@ -568,6 +582,7 @@ def finalize_iteration_run(
     run_id: str,
     experiments_dir: Path,
     repo_root: Path,
+    config_path: Path,
     scope_health_created_at_from: str,
     write_research: bool,
 ) -> None:
@@ -691,6 +706,26 @@ def finalize_iteration_run(
         "status": str(config_application.get("status", "")),
         "eligible_for_manual_application": bool(
             config_application_gate.get("eligible_for_manual_application", False)
+        ),
+    }
+    _, _, config_lineage = write_config_lineage(
+        run_id=run_id,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+        config_path=config_path,
+    )
+    config_lineage_checks = (
+        config_lineage.get("checks", {})
+        if isinstance(config_lineage.get("checks", {}), dict)
+        else {}
+    )
+    manifest["config_lineage"] = {
+        "path": "config_lineage.json",
+        "markdown_path": "config_lineage.md",
+        "ok": bool(config_lineage.get("ok", False)),
+        "status": str(config_lineage.get("status", "unknown")),
+        "existing_stage_count": int(
+            config_lineage_checks.get("existing_stage_count", 0) or 0
         ),
     }
     write_iteration_summary(run_dir=run_dir, manifest=manifest)

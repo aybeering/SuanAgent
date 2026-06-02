@@ -15,6 +15,7 @@
     "selected_candidates",
     "top_candidates",
     "decision_record",
+    "operator_dashboard",
     "recommended_next_actions",
     "policy"
   ],
@@ -67,7 +68,10 @@
         "research_brief_artifact_ok",
         "research_watchlist_status",
         "research_watchlist_alert_count",
-        "research_primary_focus"
+        "research_primary_focus",
+        "config_lineage_present",
+        "config_lineage_status",
+        "config_lineage_ok"
       ],
       "properties": {
         "completed_rounds": {
@@ -123,6 +127,15 @@
         },
         "research_primary_focus": {
           "type": "string"
+        },
+        "config_lineage_present": {
+          "type": "boolean"
+        },
+        "config_lineage_status": {
+          "type": "string"
+        },
+        "config_lineage_ok": {
+          "type": "boolean"
         }
       }
     },
@@ -191,6 +204,244 @@
         },
         "agent_language_can_accept": {
           "type": "boolean"
+        }
+      }
+    },
+    "operator_dashboard": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status_summary",
+        "gates",
+        "config_review",
+        "champion_review",
+        "watchlist",
+        "operator_action_items",
+        "authority",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "operator_dashboard_v1"
+          ]
+        },
+        "status_summary": {
+          "type": "object",
+          "required": [
+            "run_status",
+            "closeout_status",
+            "completed_rounds",
+            "accepted",
+            "accepted_round",
+            "stop_reason",
+            "selected_candidate_count"
+          ],
+          "properties": {
+            "run_status": {
+              "type": "string"
+            },
+            "closeout_status": {
+              "type": "string"
+            },
+            "completed_rounds": {
+              "type": "integer"
+            },
+            "accepted": {
+              "type": "boolean"
+            },
+            "accepted_round": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "stop_reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "selected_candidate_count": {
+              "type": "integer"
+            }
+          }
+        },
+        "gates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "gate_name",
+              "ok",
+              "status",
+              "artifact_path",
+              "details"
+            ],
+            "properties": {
+              "gate_name": {
+                "type": "string"
+              },
+              "ok": {
+                "type": "boolean"
+              },
+              "status": {
+                "type": "string"
+              },
+              "artifact_path": {
+                "type": "string"
+              },
+              "details": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "config_review": {
+          "type": "object",
+          "required": [
+            "lineage_status",
+            "lineage_ok",
+            "existing_stage_count",
+            "current_config_matches_latest_stage",
+            "applied",
+            "restored"
+          ],
+          "properties": {
+            "lineage_status": {
+              "type": "string"
+            },
+            "lineage_ok": {
+              "type": "boolean"
+            },
+            "existing_stage_count": {
+              "type": "integer"
+            },
+            "current_config_matches_latest_stage": {
+              "type": "boolean"
+            },
+            "applied": {
+              "type": "boolean"
+            },
+            "restored": {
+              "type": "boolean"
+            }
+          }
+        },
+        "champion_review": {
+          "type": "object",
+          "required": [
+            "challenger_status",
+            "promotion_status",
+            "approval_status",
+            "would_promote",
+            "approval_recorded"
+          ],
+          "properties": {
+            "challenger_status": {
+              "type": "string"
+            },
+            "promotion_status": {
+              "type": "string"
+            },
+            "approval_status": {
+              "type": "string"
+            },
+            "would_promote": {
+              "type": "boolean"
+            },
+            "approval_recorded": {
+              "type": "boolean"
+            }
+          }
+        },
+        "watchlist": {
+          "type": "object",
+          "required": [
+            "status",
+            "alert_count"
+          ],
+          "properties": {
+            "status": {
+              "type": "string"
+            },
+            "alert_count": {
+              "type": "integer"
+            }
+          }
+        },
+        "operator_action_items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "authority": {
+          "type": "object",
+          "required": [
+            "final_acceptance_authority",
+            "agent_language_can_accept",
+            "config_changes_require_guarded_command",
+            "champion_promotion_requires_explicit_command"
+          ],
+          "properties": {
+            "final_acceptance_authority": {
+              "type": "string"
+            },
+            "agent_language_can_accept": {
+              "type": "boolean"
+            },
+            "config_changes_require_guarded_command": {
+              "type": "boolean"
+            },
+            "champion_promotion_requires_explicit_command": {
+              "type": "boolean"
+            }
+          }
+        },
+        "policy": {
+          "type": "object",
+          "required": [
+            "inspection_only",
+            "reads_saved_artifacts_only",
+            "does_not_execute_agents",
+            "does_not_run_backtests",
+            "does_not_write_config",
+            "does_not_promote_champion",
+            "does_not_apply_patches",
+            "does_not_route_agents",
+            "does_not_change_acceptance"
+          ],
+          "properties": {
+            "inspection_only": {
+              "type": "boolean"
+            },
+            "reads_saved_artifacts_only": {
+              "type": "boolean"
+            },
+            "does_not_execute_agents": {
+              "type": "boolean"
+            },
+            "does_not_run_backtests": {
+              "type": "boolean"
+            },
+            "does_not_write_config": {
+              "type": "boolean"
+            },
+            "does_not_promote_champion": {
+              "type": "boolean"
+            },
+            "does_not_apply_patches": {
+              "type": "boolean"
+            },
+            "does_not_route_agents": {
+              "type": "boolean"
+            },
+            "does_not_change_acceptance": {
+              "type": "boolean"
+            }
+          }
         }
       }
     },

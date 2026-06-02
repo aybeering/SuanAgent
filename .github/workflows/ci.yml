@@ -527,6 +527,8 @@ jobs:
           test -f experiments/ci-adaptive/champion_promotion_dry_run.md
           test -f experiments/ci-adaptive/champion_promotion_approval.json
           test -f experiments/ci-adaptive/champion_promotion_approval.md
+          test -f experiments/ci-adaptive/config_lineage.json
+          test -f experiments/ci-adaptive/config_lineage.md
           test -f experiments/ci-adaptive/run_closeout.json
           test -f experiments/ci-adaptive/run_closeout.md
           python - <<'PY'
@@ -536,6 +538,7 @@ jobs:
           challenger = json.load(open("experiments/ci-adaptive/candidate_challenger_report.json"))
           promotion = json.load(open("experiments/ci-adaptive/champion_promotion_dry_run.json"))
           approval = json.load(open("experiments/ci-adaptive/champion_promotion_approval.json"))
+          config_lineage = json.load(open("experiments/ci-adaptive/config_lineage.json"))
           closeout = json.load(open("experiments/ci-adaptive/run_closeout.json"))
           manifest = json.load(open("experiments/ci-adaptive/manifest.json"))
           summary = open("experiments/ci-adaptive/summary.md").read()
@@ -562,8 +565,17 @@ jobs:
           assert approval["policy"]["approval_does_not_promote"] is True
           assert closeout["schema_version"] == "run_closeout_v1"
           assert closeout["ok"] is True
+          assert closeout["operator_dashboard"]["schema_version"] == "operator_dashboard_v1"
+          assert closeout["operator_dashboard"]["config_review"]["lineage_status"] == "partial"
+          assert closeout["operator_dashboard"]["policy"]["does_not_write_config"] is True
+          assert closeout["operator_dashboard"]["authority"]["config_changes_require_guarded_command"] is True
           assert closeout["summary"]["research_primary_focus"]
           assert closeout["summary"]["research_watchlist_alert_count"] >= 0
+          assert closeout["summary"]["config_lineage_status"] == "partial"
+          assert config_lineage["schema_version"] == "config_lineage_v1"
+          assert config_lineage["status"] == "partial"
+          assert config_lineage["checks"]["existing_stage_count"] == 3
+          assert config_lineage["policy"]["does_not_write_config"] is True
           assert closeout["decision_record"]["final_acceptance_authority"] == "deterministic_code"
           assert closeout["policy"]["does_not_execute_agents"] is True
           assert "Experiment Scope Health" in summary
@@ -571,6 +583,7 @@ jobs:
           assert "Candidate Challenger Report" in summary
           assert "Champion Promotion Dry Run" in summary
           assert "Champion Promotion Approval" in summary
+          assert "Config Lineage" in summary
           assert "Run Closeout" in summary
           PY
 

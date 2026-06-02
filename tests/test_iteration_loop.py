@@ -2864,6 +2864,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "operator_config_review.md").exists()
     assert (run_dir / "config_application_dry_run.json").exists()
     assert (run_dir / "config_application_dry_run.md").exists()
+    assert (run_dir / "config_lineage.json").exists()
+    assert (run_dir / "config_lineage.md").exists()
     assert (run_dir / "agent_result_stats.json").exists()
     assert (run_dir / "agent_activation_preflight.json").exists()
     assert (run_dir / "agent_activation_preflight.md").exists()
@@ -2975,6 +2977,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     config_application_markdown = (
         run_dir / "config_application_dry_run.md"
     ).read_text(encoding="utf-8")
+    config_lineage = json.loads(
+        (run_dir / "config_lineage.json").read_text(encoding="utf-8")
+    )
+    config_lineage_markdown = (run_dir / "config_lineage.md").read_text(
+        encoding="utf-8"
+    )
     agent_stats = json.loads(
         (run_dir / "agent_result_stats.json").read_text(encoding="utf-8")
     )
@@ -3148,6 +3156,23 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         payload_path=run_dir / "config_application_dry_run.json",
         repo_root=Path.cwd(),
     ) == ()
+    assert manifest["config_lineage"]["path"] == "config_lineage.json"
+    assert manifest["config_lineage"]["markdown_path"] == "config_lineage.md"
+    assert manifest["config_lineage"]["ok"] is True
+    assert manifest["config_lineage"]["status"] == "partial"
+    assert manifest["config_lineage"]["existing_stage_count"] == 3
+    assert config_lineage["schema_version"] == CONFIG_LINEAGE_SCHEMA_VERSION
+    assert config_lineage["ok"] is True
+    assert config_lineage["status"] == "partial"
+    assert config_lineage["checks"]["existing_stage_count"] == 3
+    assert config_lineage["checks"]["current_config_matches_latest_stage"] is True
+    assert config_lineage["policy"]["does_not_write_config"] is True
+    assert "# Config Lineage" in config_lineage_markdown
+    assert_matches_schema(run_dir / "config_lineage.json", "config_lineage")
+    assert validate_config_lineage_file(
+        payload_path=run_dir / "config_lineage.json",
+        repo_root=Path.cwd(),
+    ) == ()
     assert manifest["candidate_challenger_report"]["path"] == (
         "candidate_challenger_report.json"
     )
@@ -3251,6 +3276,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert closeout["summary"]["research_watchlist_alert_count"] >= 0
     assert closeout["summary"]["research_primary_focus"]
+    assert closeout["summary"]["config_lineage_present"] is True
+    assert closeout["summary"]["config_lineage_status"] == "partial"
+    assert closeout["summary"]["config_lineage_ok"] is True
     assert closeout["selected_candidates"][0]["quality_breakdown"]["schema_version"] == (
         "candidate_quality_v1"
     )
@@ -3258,8 +3286,41 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert closeout["decision_record"]["final_acceptance_authority"] == (
         "deterministic_code"
     )
+    assert closeout["operator_dashboard"]["schema_version"] == "operator_dashboard_v1"
+    assert closeout["operator_dashboard"]["status_summary"]["run_status"] == (
+        manifest["status"]
+    )
+    assert closeout["operator_dashboard"]["config_review"]["lineage_status"] == (
+        "partial"
+    )
+    assert closeout["operator_dashboard"]["config_review"]["existing_stage_count"] == 3
+    assert closeout["operator_dashboard"]["config_review"][
+        "current_config_matches_latest_stage"
+    ] is True
+    assert closeout["operator_dashboard"]["champion_review"]["challenger_status"] == (
+        "no_champion"
+    )
+    assert closeout["operator_dashboard"]["champion_review"]["approval_status"] == (
+        "approval_blocked"
+    )
+    assert closeout["operator_dashboard"]["authority"][
+        "final_acceptance_authority"
+    ] == "deterministic_code"
+    assert closeout["operator_dashboard"]["authority"][
+        "config_changes_require_guarded_command"
+    ] is True
+    assert closeout["operator_dashboard"]["policy"]["does_not_write_config"] is True
+    assert closeout["operator_dashboard"]["policy"][
+        "does_not_promote_champion"
+    ] is True
+    assert any(
+        gate["gate_name"] == "config_lineage"
+        for gate in closeout["operator_dashboard"]["gates"]
+    )
     assert closeout["policy"]["does_not_execute_agents"] is True
     assert "# Run Closeout" in closeout_markdown
+    assert "## Operator Dashboard" in closeout_markdown
+    assert "Config lineage" in closeout_markdown
     assert_matches_schema(run_dir / "run_closeout.json", "run_closeout")
     assert validate_run_closeout_file(
         payload_path=run_dir / "run_closeout.json",
@@ -14083,6 +14144,7 @@ def test_summary_markdown_is_written_for_single_and_iteration_runs(tmp_path: Pat
     assert "Champion Promotion Dry Run" in iteration_summary
     assert "Champion Promotion Approval" in iteration_summary
     assert "Config Application Dry Run" in iteration_summary
+    assert "Config Lineage" in iteration_summary
     assert "Candidate Leaderboard" in iteration_summary
     assert "Expected Change" in iteration_summary
     assert "Probe EV" in iteration_summary

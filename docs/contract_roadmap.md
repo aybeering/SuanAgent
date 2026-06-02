@@ -119,6 +119,7 @@ Implemented or allowed V0.5 components:
 105. A read-only `config_application_rollback_preview.json` and `config_application_rollback_preview.md` report pair that derives manual restore rows and next-run impact from a saved config application receipt and current config, without writing config, deleting memory, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 106. A guarded `config_application_restore_receipt.json` and `config_application_restore_receipt.md` report pair for the explicit restore-config-approved command, which restores config only when rollback-preview evidence, source receipt evidence, and current config digests still match, without deleting memory, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 107. A read-only `config_lineage.json` and `config_lineage.md` report pair that connects config candidates, operator reviews, dry-runs, application receipts, rollback previews, and restore receipts into one digest-checked run-level audit chain, without writing config, deleting memory, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
+108. A deterministic `operator_dashboard` section inside `run_closeout.json` and `run_closeout.md` that summarizes run status, artifact health, config lineage, champion review, promotion review, watchlist status, operator action items, and deterministic authority in one read-only operator view, without writing config, promoting champions, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 
 ## Contract Families
 
@@ -228,11 +229,12 @@ Codex CLI readiness contracts:
     can mark a scope healthy or unhealthy for operator inspection, but it cannot
     execute agents, run backtests, route candidates, apply patches, repair
     artifacts, or change strategy acceptance.
-14. Run closeout reports and research-brief focus hints are read-only operator
-    summaries. They can surface watchlist alerts, recommended next inspection
-    steps, suggested directions, and directions to avoid, but they cannot
-    execute agents, run backtests, route candidates, apply patches, or change
-    strategy acceptance.
+14. Run closeout reports, their operator dashboards, and research-brief focus
+    hints are read-only operator summaries. They can surface watchlist alerts,
+    config-lineage status, champion/promotion review status, recommended next
+    inspection steps, suggested directions, and directions to avoid, but they
+    cannot write config, promote champions, execute agents, run backtests, route
+    candidates, apply patches, or change strategy acceptance.
 15. Strategy search-space config is an advisory planning contract. It can name
     candidate direction tags, direction order, modifier hints, and a fallback
     direction for operator review and future agent input, but it cannot execute

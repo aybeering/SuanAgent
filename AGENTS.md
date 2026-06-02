@@ -108,6 +108,7 @@ Allowed components:
 57. A deterministic `codex_cli_readiness_summary.json` report that summarizes the full Codex CLI readiness chain into one read-only status page.
 58. A deterministic `codex_cli_readiness_pipeline.json` report that runs the read-only Codex CLI readiness chain from enablement through summary as one auditable command.
 59. A deterministic `codex_cli_operator_unlock_request.json` report that records explicit operator intent for future real Codex CLI execution review without executing Codex.
+60. A deterministic `codex_cli_execution_preflight.json` startup gate that blocks real Codex CLI execution unless a ready operator unlock request is already recorded.
 
 Still out of scope:
 
@@ -170,6 +171,7 @@ Current structure:
 │   ├── codex_cli_readiness_summary.schema.json
 │   ├── codex_cli_readiness_pipeline.schema.json
 │   ├── codex_cli_operator_unlock_request.schema.json
+│   ├── codex_cli_execution_preflight.schema.json
 │   ├── agent_execution.schema.json
 │   ├── agent_activation_preflight.schema.json
 │   ├── agent_execution_plan.schema.json
@@ -242,6 +244,7 @@ Current structure:
 │   ├── codex_cli_readiness_summary.py
 │   ├── codex_cli_readiness_pipeline.py
 │   ├── codex_cli_operator_unlock_request.py
+│   ├── codex_cli_execution_preflight.py
 │   ├── outcome_memory.py
 │   ├── policy_gate.py
 │   ├── proposal.py

@@ -27,6 +27,8 @@ ITERATION_RUN_REQUIRED_FILES = (
     "manifest.json",
     "summary.md",
     "candidate_leaderboard.json",
+    "codex_cli_execution_preflight.json",
+    "codex_cli_execution_preflight.md",
     "agent_activation_preflight.json",
     "agent_activation_preflight.md",
 )
@@ -176,6 +178,11 @@ def validate_run_artifacts(
         report=report,
     )
     validate_optional_codex_cli_replay_gate(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
+    validate_optional_codex_cli_execution_preflight(
         run_dir=run_dir,
         repo_root=repo_root,
         report=report,
@@ -2319,6 +2326,135 @@ def validate_optional_codex_cli_replay_gate(
                     continue
                 checked_files(report).append(str(artifact_path))
     markdown_path = run_dir / "codex_cli_replay_gate.md"
+    if markdown_path.exists():
+        checked_files(report).append(str(markdown_path))
+
+
+def validate_optional_codex_cli_execution_preflight(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate codex_cli_execution_preflight.json when a run has one."""
+    path = run_dir / "codex_cli_execution_preflight.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/codex_cli_execution_preflight.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"codex_cli_execution_preflight.json run_id does not match report: {path}",
+        )
+    blockers = payload.get("blocking_errors", [])
+    if not isinstance(blockers, list):
+        add_error(report, "codex_cli_execution_preflight.json blockers invalid")
+        return
+    ok = bool(payload.get("ok", False))
+    if ok and blockers:
+        add_error(report, "codex_cli_execution_preflight.json ok with blockers")
+    if not ok and not blockers:
+        add_error(report, "codex_cli_execution_preflight.json blocked without blockers")
+    profiles = payload.get("profiles", [])
+    if not isinstance(profiles, list) or not profiles:
+        add_error(report, "codex_cli_execution_preflight.json profiles empty or invalid")
+    else:
+        ready_count = 0
+        real_execute_count = 0
+        canary_exempt_count = 0
+        for profile in profiles:
+            if not isinstance(profile, dict):
+                add_error(report, "codex_cli_execution_preflight profile invalid")
+                continue
+            requires_unlock = bool(profile.get("requires_operator_unlock", False))
+            operator_ready = bool(profile.get("operator_unlock_ready", False))
+            canary_exempt = bool(profile.get("canary_exempt", False))
+            if requires_unlock:
+                real_execute_count += 1
+                request_record = profile.get("operator_unlock_request", {})
+                if isinstance(request_record, dict):
+                    validate_recorded_file_hash(
+                        record=request_record,
+                        repo_root=repo_root,
+                        report=report,
+                        label=(
+                            "codex_cli_execution_preflight operator request "
+                            f"{profile.get('profile_name', '')}"
+                        ),
+                    )
+                else:
+                    add_error(
+                        report,
+                        "codex_cli_execution_preflight operator request invalid",
+                    )
+                if operator_ready:
+                    ready_count += 1
+            elif operator_ready:
+                add_error(
+                    report,
+                    "codex_cli_execution_preflight non-real profile marked ready",
+                )
+            if canary_exempt:
+                canary_exempt_count += 1
+                if str(profile.get("executable", "")) != "agents/codex_cli_canary.py":
+                    add_error(
+                        report,
+                        "codex_cli_execution_preflight canary executable invalid",
+                    )
+            checks = profile.get("checks", {})
+            if not isinstance(checks, dict):
+                add_error(report, "codex_cli_execution_preflight checks invalid")
+        summary = payload.get("summary", {})
+        if isinstance(summary, dict):
+            if summary.get("real_codex_execute_profile_count") != real_execute_count:
+                add_error(
+                    report,
+                    "codex_cli_execution_preflight real execute count mismatch",
+                )
+            if summary.get("operator_unlock_ready_count") != ready_count:
+                add_error(
+                    report,
+                    "codex_cli_execution_preflight operator ready count mismatch",
+                )
+            if summary.get("canary_exempt_count") != canary_exempt_count:
+                add_error(
+                    report,
+                    "codex_cli_execution_preflight canary exempt count mismatch",
+                )
+        else:
+            add_error(report, "codex_cli_execution_preflight summary invalid")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "codex_cli_execution_preflight policy invalid")
+    else:
+        for key in (
+            "startup_gate_only",
+            "read_only",
+            "blocks_real_codex_without_operator_unlock",
+            "allows_checked_in_canary_fixture",
+            "does_not_execute_codex_cli",
+            "does_not_create_workspace",
+            "does_not_send_strategy_prompt",
+            "does_not_modify_config",
+            "does_not_select_candidate",
+            "does_not_apply_patches",
+            "does_not_change_acceptance",
+            "deterministic_code_keeps_acceptance_authority",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_execution_preflight policy false: {key}",
+                )
+    markdown_path = run_dir / "codex_cli_execution_preflight.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
 

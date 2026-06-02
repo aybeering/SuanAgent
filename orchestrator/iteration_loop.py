@@ -49,6 +49,9 @@ from orchestrator.config import (
     ProjectConfig,
     load_project_config,
 )
+from orchestrator.codex_cli_execution_preflight import (
+    write_codex_cli_execution_preflight,
+)
 from orchestrator.experiment_index import append_experiment_index
 from orchestrator.experiments import write_champion_comparison
 from orchestrator.failure_taxonomy import (
@@ -202,6 +205,11 @@ def run_iteration_loop(
             "ok": False,
             "blocking_error_count": 0,
         },
+        "codex_cli_execution_preflight": {
+            "path": "codex_cli_execution_preflight.json",
+            "ok": False,
+            "blocking_error_count": 0,
+        },
         "memory_filter_policy": {
             "failed_patch_threshold": active_config.memory_failed_patch_threshold,
             "failed_direction_threshold": active_config.memory_failed_direction_threshold,
@@ -228,6 +236,34 @@ def run_iteration_loop(
     try:
         ensure_git_repo(repo_root)
         assert_strategy_clean(repo_root, strategy_path)
+        codex_execution_preflight = write_codex_cli_execution_preflight(
+            output_path=run_dir / "codex_cli_execution_preflight.json",
+            markdown_path=run_dir / "codex_cli_execution_preflight.md",
+            run_dir=run_dir,
+            config=active_config,
+            repo_root=repo_root,
+        )
+        manifest["codex_cli_execution_preflight"] = {
+            "path": "codex_cli_execution_preflight.json",
+            "ok": bool(codex_execution_preflight.get("ok", False)),
+            "blocking_error_count": len(
+                codex_execution_preflight.get("blocking_errors", [])
+                if isinstance(
+                    codex_execution_preflight.get("blocking_errors", []),
+                    list,
+                )
+                else []
+            ),
+        }
+        if not bool(codex_execution_preflight.get("ok", False)):
+            raise ValueError(
+                "Codex CLI execution preflight failed: "
+                + "; ".join(
+                    str(error)
+                    for error in codex_execution_preflight.get("blocking_errors", [])
+                    if str(error)
+                )
+            )
         activation_path = write_agent_activation_preflight(
             output_path=run_dir / "agent_activation_preflight.json",
             markdown_path=run_dir / "agent_activation_preflight.md",

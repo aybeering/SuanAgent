@@ -70,6 +70,7 @@ jobs:
           python -m orchestrator.external_agent_sandbox_drill experiments/ci-codex-guarded
           test -f experiments/ci-codex-guarded/external_agent_sandbox_drill.json
           test -f experiments/ci-codex-guarded/external_agent_sandbox_drill.md
+          test -f experiments/ci-codex-guarded/codex_cli_execution_preflight.json
           test -f experiments/ci-codex-guarded/round_001/agent_executions/attempt_001_primary.json
           python -m orchestrator.experiments sandbox ci-codex-guarded > /tmp/codex_guarded_sandbox.json
           python - <<'PY'
@@ -77,6 +78,7 @@ jobs:
           audit = json.load(open("experiments/ci-codex-guarded/round_001/agent_executions/attempt_001_primary.json"))
           quarantine = json.load(open("experiments/ci-codex-guarded/round_001/agent_output_quarantine.json"))
           sandbox = json.load(open("/tmp/codex_guarded_sandbox.json"))
+          preflight = json.load(open("experiments/ci-codex-guarded/codex_cli_execution_preflight.json"))
           assert audit["schema_version"] == "agent_execution_v1"
           assert audit["runner_name"] == "codex_cli_guarded_adapter"
           assert audit["status"] == "disabled"
@@ -87,6 +89,10 @@ jobs:
           assert sandbox["schema_version"] == "external_agent_sandbox_drill_v1"
           assert sandbox["ok"] is True
           assert sandbox["slots"][0]["command"]["source"] == "agent_execution"
+          assert preflight["schema_version"] == "codex_cli_execution_preflight_v1"
+          assert preflight["ok"] is True
+          assert preflight["summary"]["real_codex_execute_profile_count"] == 0
+          assert preflight["policy"]["blocks_real_codex_without_operator_unlock"] is True
           PY
           python -m orchestrator.codex_cli_contract_fixture experiments/ci-codex-guarded/round_001
           test -f experiments/ci-codex-guarded/round_001/codex_cli_contract_fixture.json
@@ -191,6 +197,7 @@ jobs:
           python - <<'PY'
           import json
           gate = json.load(open("experiments/ci-codex-canary/codex_cli_canary_gate.json"))
+          preflight = json.load(open("experiments/ci-codex-canary/codex_cli_execution_preflight.json"))
           audit = json.load(open("experiments/ci-codex-canary/round_001/agent_executions/attempt_001_primary.json"))
           quarantine = json.load(open("experiments/ci-codex-canary/round_001/agent_output_quarantine.json"))
           decision = json.load(open("experiments/ci-codex-canary/round_001/decision.json"))
@@ -205,6 +212,10 @@ jobs:
           assert audit["command"][0] == "agents/codex_cli_canary.py"
           assert quarantine["release_to_apply"] is True
           assert decision["accepted"] is False
+          assert preflight["schema_version"] == "codex_cli_execution_preflight_v1"
+          assert preflight["ok"] is True
+          assert preflight["summary"]["canary_exempt_count"] == 1
+          assert preflight["profiles"][0]["canary_exempt"] is True
           PY
           python -m orchestrator.codex_cli_execution_unlock_gate experiments/ci-codex-guarded --config config/codex_cli_enable_candidate.json --canary-run-dir experiments/ci-codex-canary
           test -f experiments/ci-codex-guarded/codex_cli_execution_unlock_gate.json

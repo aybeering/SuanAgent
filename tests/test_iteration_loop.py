@@ -9,6 +9,8 @@ import difflib
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from agents.codex_cli_adapter import CodexCliModifier
 from agents.codex_dry_run_adapter import (
     build_codex_command,
@@ -103,6 +105,10 @@ from orchestrator.codex_cli_operator_unlock_request import (
     CODEX_CLI_OPERATOR_UNLOCK_REQUEST_SCHEMA_VERSION,
     REQUIRED_OPERATOR_CONFIRMATION_PHRASE,
     write_codex_cli_operator_unlock_request,
+)
+from orchestrator.codex_cli_execution_preflight import (
+    CODEX_CLI_EXECUTION_PREFLIGHT_SCHEMA_VERSION,
+    write_codex_cli_execution_preflight,
 )
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
@@ -5904,6 +5910,10 @@ print(json.dumps({
 """,
     )
     default = load_project_config(repo)
+    operator_request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / "operator_unlock_fixtures/codex_structured_fixture_request.json",
+    )
     config = replace(
         default,
         strategy_modifier="codex_cli",
@@ -5914,6 +5924,9 @@ print(json.dumps({
             "workspace_root": "workspaces",
             "execute": True,
             "timeout_seconds": 5,
+            "operator_unlock_request_path": str(
+                operator_request_path.relative_to(repo)
+            ),
         },
         memory_failed_patch_threshold=0,
         memory_failed_direction_threshold=99,
@@ -6820,6 +6833,22 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         requested_by="unit-test",
         confirmation_phrase=REQUIRED_OPERATOR_CONFIRMATION_PHRASE,
     )
+    preflight_config_payload = json.loads(config_path.read_text(encoding="utf-8"))
+    preflight_config_payload["codex_cli"]["operator_unlock_request_path"] = (
+        "experiments/codex-unlock-ready/codex_cli_operator_unlock_request.json"
+    )
+    preflight_config_path = repo / "config/codex_cli_unlock_preflight_ready.json"
+    preflight_config_path.write_text(
+        json.dumps(preflight_config_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    execution_preflight = write_codex_cli_execution_preflight(
+        output_path=run_dir / "codex_cli_execution_preflight_ready.json",
+        markdown_path=run_dir / "codex_cli_execution_preflight_ready.md",
+        run_dir=run_dir,
+        repo_root=repo,
+        config=load_project_config(repo, preflight_config_path),
+    )
     validation_report = validate_run_artifacts(
         run_id="codex-unlock-ready",
         experiments_dir=repo / "experiments",
@@ -6930,6 +6959,20 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     ] is False
     assert operator_request["policy"]["does_not_execute_codex_cli"] is True
     assert operator_request["policy"]["does_not_change_acceptance"] is True
+    assert execution_preflight["schema_version"] == (
+        CODEX_CLI_EXECUTION_PREFLIGHT_SCHEMA_VERSION
+    )
+    assert execution_preflight["ok"] is True
+    assert execution_preflight["blocking_errors"] == []
+    assert execution_preflight["summary"]["real_codex_execute_profile_count"] == 1
+    assert execution_preflight["summary"]["operator_unlock_ready_count"] == 1
+    assert execution_preflight["profiles"][0]["requires_operator_unlock"] is True
+    assert execution_preflight["profiles"][0]["operator_unlock_ready"] is True
+    assert execution_preflight["profiles"][0]["operator_unlock_request"]["exists"] is True
+    assert execution_preflight["policy"][
+        "blocks_real_codex_without_operator_unlock"
+    ] is True
+    assert execution_preflight["policy"]["does_not_execute_codex_cli"] is True
     assert_matches_schema(
         run_dir / "codex_cli_execution_unlock_gate.json",
         "codex_cli_execution_unlock_gate",
@@ -6957,6 +7000,10 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert_matches_schema(
         run_dir / "codex_cli_operator_unlock_request.json",
         "codex_cli_operator_unlock_request",
+    )
+    assert_matches_schema(
+        run_dir / "codex_cli_execution_preflight_ready.json",
+        "codex_cli_execution_preflight",
     )
     assert validation_report["ok"] is True
     assert cli_result.returncode == 0, cli_result.stderr
@@ -7098,6 +7145,46 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     )
 
 
+def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_enable_candidate.json")
+
+    with pytest.raises(ValueError, match="Codex CLI execution preflight failed"):
+        run_iteration_loop(
+            run_id="codex-execute-without-operator-request",
+            max_rounds=1,
+            repo_root=repo,
+            config=config,
+        )
+
+    run_dir = repo / "experiments/codex-execute-without-operator-request"
+    preflight_path = run_dir / "codex_cli_execution_preflight.json"
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+
+    assert manifest["status"] == "failed"
+    assert manifest["completed_rounds"] == 0
+    assert not (run_dir / "round_001").exists()
+    assert preflight["schema_version"] == CODEX_CLI_EXECUTION_PREFLIGHT_SCHEMA_VERSION
+    assert preflight["ok"] is False
+    assert preflight["summary"]["real_codex_execute_profile_count"] == 1
+    assert preflight["profiles"][0]["requires_operator_unlock"] is True
+    assert preflight["profiles"][0]["operator_unlock_ready"] is False
+    assert any(
+        "operator_unlock_request_path_missing" in error
+        for error in preflight["blocking_errors"]
+    )
+    assert preflight["policy"]["does_not_execute_codex_cli"] is True
+    assert preflight["policy"]["does_not_create_workspace"] is True
+    assert_matches_schema(
+        preflight_path,
+        "codex_cli_execution_preflight",
+    )
+    assert (run_dir / "codex_cli_execution_preflight.md").exists()
+
+
 def test_iteration_loop_rejects_codex_cli_workspace_mutation(
     tmp_path: Path,
 ) -> None:
@@ -7132,6 +7219,10 @@ print(json.dumps({
 """,
     )
     default = load_project_config(repo)
+    operator_request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / "operator_unlock_fixtures/codex_mutation_fixture_request.json",
+    )
     config = replace(
         default,
         strategy_modifier="codex_cli",
@@ -7142,6 +7233,9 @@ print(json.dumps({
             "workspace_root": "workspaces",
             "execute": True,
             "timeout_seconds": 5,
+            "operator_unlock_request_path": str(
+                operator_request_path.relative_to(repo)
+            ),
         },
         memory_failed_patch_threshold=0,
         memory_failed_direction_threshold=99,
@@ -8332,6 +8426,102 @@ def write_fake_command(tmp_path: Path, filename: str, content: str) -> Path:
     path = tmp_path / filename
     path.write_text(content, encoding="utf-8")
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
+    return path
+
+
+def write_operator_unlock_request_fixture(repo: Path, path: Path) -> Path:
+    """Write a ready operator request fixture for local fake Codex tests."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": CODEX_CLI_OPERATOR_UNLOCK_REQUEST_SCHEMA_VERSION,
+        "run_id": path.parent.name,
+        "run_dir": str(path.parent),
+        "ok": True,
+        "operator_request_ready": True,
+        "blocking_reasons": [],
+        "checks": {
+            "readiness_pipeline_exists": True,
+            "readiness_pipeline_ok": True,
+            "readiness_pipeline_completed": True,
+            "readiness_pipeline_final_ready": True,
+            "readiness_pipeline_hash_present": True,
+            "real_execution_dry_run_exists": True,
+            "real_execution_dry_run_ok": True,
+            "real_execution_dry_run_ready": True,
+            "execution_plan_present": True,
+            "command_present": True,
+            "target_file_is_current_strategy": True,
+            "allowed_mutation_paths_strategy_only": True,
+            "explicit_operator_request": True,
+            "requested_by_present": True,
+            "confirmation_phrase_matches": True,
+            "request_does_not_execute_codex_cli": True,
+            "request_does_not_create_workspace": True,
+            "request_does_not_send_strategy_prompt": True,
+            "request_does_not_apply_patches": True,
+            "request_does_not_change_acceptance": True,
+        },
+        "request": {
+            "requested": True,
+            "requested_by": "unit-test-fixture",
+            "request_scope": "real_codex_cli_execution_review",
+            "required_confirmation_phrase_sha256": "",
+            "provided_confirmation_phrase_sha256": "",
+            "confirmation_phrase_matches": True,
+        },
+        "source_pipeline": {
+            "path": "",
+            "final_ready": True,
+            "readiness_status": "ready_for_operator_review",
+            "blocking_reasons": [],
+            "file": {"exists": False, "path": "", "bytes": 0, "sha256": ""},
+        },
+        "source_real_execution_dry_run": {
+            "path": "",
+            "real_execution_dry_run_ready": True,
+            "blocking_reasons": [],
+            "file": {"exists": False, "path": "", "bytes": 0, "sha256": ""},
+        },
+        "planned_execution_review": {
+            "agent_name": "codex_cli",
+            "profile_name": "real_codex_execution",
+            "round_id": "codex_cli_real_execution",
+            "attempt_id": "attempt_001_real_execution",
+            "target_file": "strategies/current_strategy.py",
+            "allowed_mutation_paths": ["strategies/current_strategy.py"],
+            "workspace_path": "workspaces/unit-test/strategy_workspace",
+            "command": [
+                "codex",
+                "exec",
+                "--",
+                "Modify only strategies/current_strategy.py and return a patch.",
+            ],
+            "execution_enabled_by_this_artifact": False,
+        },
+        "policy": {
+            "operator_request_only": True,
+            "read_only": True,
+            "requires_readiness_pipeline": True,
+            "requires_pipeline_final_ready": True,
+            "requires_real_execution_dry_run_ready": True,
+            "requires_explicit_operator_request": True,
+            "requires_exact_confirmation_phrase": True,
+            "does_not_execute_codex_cli": True,
+            "does_not_create_workspace": True,
+            "does_not_send_strategy_prompt": True,
+            "does_not_modify_config": True,
+            "does_not_select_candidate": True,
+            "does_not_apply_patches": True,
+            "does_not_change_acceptance": True,
+            "allows_only_strategy_file_mutation": True,
+            "deterministic_code_keeps_acceptance_authority": True,
+        },
+    }
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    assert_matches_schema(path, "codex_cli_operator_unlock_request")
     return path
 
 

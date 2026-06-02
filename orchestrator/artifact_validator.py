@@ -37,6 +37,8 @@ ITERATION_RUN_REQUIRED_FILES = (
     "config_change_candidate.md",
     "operator_config_review.json",
     "operator_config_review.md",
+    "config_application_dry_run.json",
+    "config_application_dry_run.md",
     "codex_cli_execution_preflight.json",
     "codex_cli_execution_preflight.md",
     "agent_activation_preflight.json",
@@ -346,6 +348,11 @@ def validate_iteration_run(
         report=report,
     )
     validate_operator_config_review(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
+    validate_config_application_dry_run(
         run_dir=run_dir,
         repo_root=repo_root,
         report=report,
@@ -777,6 +784,143 @@ def validate_operator_config_review(
     ):
         if policy.get(key) is not True:
             add_error(report, f"operator_config_review.json policy false: {key}")
+
+
+def validate_config_application_dry_run(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate run-level config application dry-run artifact."""
+    path = run_dir / "config_application_dry_run.json"
+    md_path = run_dir / "config_application_dry_run.md"
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/config_application_dry_run.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"config_application_dry_run.json run_id does not match report: {path}",
+        )
+    review_source = payload.get("source_operator_review", {})
+    if not isinstance(review_source, dict):
+        add_error(report, "config_application_dry_run.json review source invalid")
+    else:
+        review_file = review_source.get("file", {})
+        if not isinstance(review_file, dict):
+            add_error(report, "config_application_dry_run.json review file invalid")
+        else:
+            validate_recorded_file_hash(
+                record=review_file,
+                repo_root=repo_root,
+                report=report,
+                label="config_application_dry_run review source",
+            )
+            if review_source.get("artifact_name") == "operator_config_review" and not str(
+                review_file.get("path", "")
+            ).endswith("operator_config_review.json"):
+                add_error(
+                    report,
+                    "config_application_dry_run source is not operator_config_review.json",
+                )
+    config_source = payload.get("source_config", {})
+    if not isinstance(config_source, dict):
+        add_error(report, "config_application_dry_run.json config source invalid")
+    else:
+        config_file = config_source.get("file", {})
+        if not isinstance(config_file, dict):
+            add_error(report, "config_application_dry_run.json config file invalid")
+        else:
+            validate_recorded_file_hash(
+                record=config_file,
+                repo_root=repo_root,
+                report=report,
+                label="config_application_dry_run config source",
+            )
+            if config_source.get("artifact_name") == "config" and not str(
+                config_file.get("path", "")
+            ).endswith(".json"):
+                add_error(
+                    report,
+                    "config_application_dry_run config source is not JSON",
+                )
+    planned_changes = payload.get("planned_changes", [])
+    if not isinstance(planned_changes, list):
+        add_error(report, "config_application_dry_run.json planned_changes invalid")
+        planned_changes = []
+    gate = payload.get("application_gate", {})
+    if not isinstance(gate, dict):
+        add_error(report, "config_application_dry_run.json gate invalid")
+    else:
+        approved_count = sum(
+            1
+            for change in planned_changes
+            if isinstance(change, dict) and change.get("review_decision") == "approved"
+        )
+        ready_count = sum(
+            1
+            for change in planned_changes
+            if isinstance(change, dict) and change.get("ready_for_manual_edit") is True
+        )
+        if int(gate.get("approved_change_count", -1)) != approved_count:
+            add_error(
+                report,
+                "config_application_dry_run.json approved_change_count mismatch",
+            )
+        if int(gate.get("ready_change_count", -1)) != ready_count:
+            add_error(
+                report,
+                "config_application_dry_run.json ready_change_count mismatch",
+            )
+        for key in (
+            "requires_operator_review_artifact",
+            "requires_approved_operator_review",
+            "requires_config_value_match",
+            "config_changes_must_be_manual",
+        ):
+            if gate.get(key) is not True:
+                add_error(
+                    report,
+                    f"config_application_dry_run.json gate false: {key}",
+                )
+    for index, change in enumerate(planned_changes, start=1):
+        if not isinstance(change, dict):
+            add_error(report, f"config_application_dry_run.json change {index} invalid")
+            continue
+        if change.get("applied") is not False:
+            add_error(report, f"config_application_dry_run.json change {index} applied")
+        if change.get("requires_manual_config_edit") is not True:
+            add_error(
+                report,
+                f"config_application_dry_run.json change {index} missing manual edit flag",
+            )
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "config_application_dry_run.json policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_write_config",
+        "does_not_delete_memory",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_route_candidates",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "dry_run_only",
+        "config_changes_still_require_manual_edit",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"config_application_dry_run.json policy false: {key}")
 
 
 def validate_round_candidate_quality_bindings(

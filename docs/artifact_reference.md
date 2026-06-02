@@ -112,6 +112,8 @@ experiments/<run_id>/
   config_change_candidate.md
   operator_config_review.json
   operator_config_review.md
+  config_application_dry_run.json
+  config_application_dry_run.md
   agent_result_stats.json
   candidate_challenger_report.json
   candidate_challenger_report.md
@@ -336,6 +338,10 @@ Replay artifacts:
   requires the configured confirmation phrase, rejection can be recorded without
   applying anything, and both paths remain audit-only: they never edit config,
   route candidates, apply patches, run backtests, or change acceptance.
+- `config_application_dry_run.json` and `config_application_dry_run.md` preview
+  whether approved config candidates still match the current config value and
+  are ready for a later manual edit. They remain dry-run only and never edit
+  config, route candidates, apply patches, run backtests, or change acceptance.
 - `experiment_scope_health.json` combines current artifact health,
   artifact-health history, and memory diagnostics for one `--created-at-from`
   scope. It is a read-only status page and marks the scope unhealthy if any

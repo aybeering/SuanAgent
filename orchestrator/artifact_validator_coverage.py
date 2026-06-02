@@ -51,6 +51,10 @@ KNOWN_ARTIFACT_NAMES = {
         "operator_config_review.json",
         "operator_config_review.md",
     ),
+    "config_application_dry_run": (
+        "config_application_dry_run.json",
+        "config_application_dry_run.md",
+    ),
     "experiment_scope_health": ("experiment_scope_health.json",),
     "run_closeout": ("run_closeout.json", "run_closeout.md"),
     "candidate_challenger_report": (
@@ -117,6 +121,10 @@ INSPECTION_COMMANDS = {
     "operator_config_review": (
         "python -m orchestrator.operator_config_review",
         "python -m orchestrator.experiments operator-config-review",
+    ),
+    "config_application_dry_run": (
+        "python -m orchestrator.config_application_dry_run",
+        "python -m orchestrator.experiments config-application-dry-run",
     ),
     "experiment_scope_health": (
         "python -m orchestrator.experiment_scope_health",

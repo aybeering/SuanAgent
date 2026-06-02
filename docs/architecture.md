@@ -145,6 +145,10 @@ proposed value, rationale, and risk notes.
 whether an operator approved or rejected the candidate. This creates an audit
 trail for human intent, but it still does not edit config files or change
 iteration behavior automatically.
+`config_application_dry_run.json` and `config_application_dry_run.md` preview
+whether an approved candidate still matches the current config value and is
+ready for a later manual edit. The dry run is intentionally read-only and does
+not apply config changes.
 
 ## Champion Registry
 

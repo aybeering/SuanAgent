@@ -49,6 +49,7 @@ from orchestrator.candidate_challenger_report import write_candidate_challenger_
 from orchestrator.candidate_quality_trace import write_candidate_quality_trace
 from orchestrator.champion_promotion_approval import write_champion_promotion_approval
 from orchestrator.champion_promotion_dry_run import write_champion_promotion_dry_run
+from orchestrator.config_application_dry_run import write_config_application_dry_run
 from orchestrator.config_change_candidate import write_config_change_candidate
 from orchestrator.config import (
     ProjectConfig,
@@ -292,6 +293,12 @@ def run_iteration_loop(
             "markdown_path": "operator_config_review.md",
             "status": "pending",
             "review_recorded": False,
+        },
+        "config_application_dry_run": {
+            "path": "config_application_dry_run.json",
+            "markdown_path": "config_application_dry_run.md",
+            "status": "pending",
+            "eligible_for_manual_application": False,
         },
         "champion_promotion_dry_run": {
             "path": "champion_promotion_dry_run.json",
@@ -667,6 +674,24 @@ def finalize_iteration_run(
         "markdown_path": "operator_config_review.md",
         "status": str(config_review.get("status", "")),
         "review_recorded": bool(config_review_intent.get("review_recorded", False)),
+    }
+    _, _, config_application = write_config_application_dry_run(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        experiments_dir=experiments_dir,
+    )
+    config_application_gate = (
+        config_application.get("application_gate", {})
+        if isinstance(config_application.get("application_gate", {}), dict)
+        else {}
+    )
+    manifest["config_application_dry_run"] = {
+        "path": "config_application_dry_run.json",
+        "markdown_path": "config_application_dry_run.md",
+        "status": str(config_application.get("status", "")),
+        "eligible_for_manual_application": bool(
+            config_application_gate.get("eligible_for_manual_application", False)
+        ),
     }
     write_iteration_summary(run_dir=run_dir, manifest=manifest)
     append_experiment_index(

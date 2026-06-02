@@ -123,6 +123,19 @@ def write_iteration_summary(
             f"- History: `{display_value(artifact_health_history.get('path'))}`"
         )
 
+    config_application = manifest.get("config_application_dry_run")
+    if isinstance(config_application, dict):
+        lines.extend(["", "## Config Application Dry Run", ""])
+        lines.append(f"- Status: `{display_value(config_application.get('status'))}`")
+        lines.append(
+            "- Eligible for manual application: "
+            f"`{display_value(config_application.get('eligible_for_manual_application'))}`"
+        )
+        lines.append(f"- Artifact: `{display_value(config_application.get('path'))}`")
+        lines.append(
+            f"- Markdown: `{display_value(config_application.get('markdown_path'))}`"
+        )
+
     challenger = manifest.get("candidate_challenger_report")
     if isinstance(challenger, dict):
         lines.extend(["", "## Candidate Challenger Report", ""])

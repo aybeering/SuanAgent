@@ -144,6 +144,12 @@ from orchestrator.config_change_candidate import (
     validate_config_change_candidate_file,
     write_config_change_candidate,
 )
+from orchestrator.config_application_dry_run import (
+    CONFIG_APPLICATION_DRY_RUN_SCHEMA_VERSION,
+    build_config_application_dry_run,
+    validate_config_application_dry_run_file,
+    write_config_application_dry_run,
+)
 from orchestrator.operator_config_review import (
     OPERATOR_CONFIG_REVIEW_SCHEMA_VERSION,
     REQUIRED_APPROVAL_PHRASE as CONFIG_REVIEW_APPROVAL_PHRASE,
@@ -236,6 +242,7 @@ from orchestrator.experiments import (
     agent_slot_health_report,
     candidate_leaderboard,
     candidate_quality_trace,
+    config_application_dry_run_report,
     config_change_candidate_report,
     compare_experiments,
     experiment_leaderboard,
@@ -1497,6 +1504,39 @@ def test_operator_config_review_records_intent_without_applying_config(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
+    dry_json_path, dry_md_path, dry_payload = write_config_application_dry_run(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+    )
+    dynamic_dry_payload = build_config_application_dry_run(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+    )
+    assert dry_payload["schema_version"] == CONFIG_APPLICATION_DRY_RUN_SCHEMA_VERSION
+    assert dry_payload["status"] == "no_approved_changes"
+    assert dry_payload["source_operator_review"]["from_artifact"] is True
+    assert dry_payload["source_operator_review"]["file"]["path"].endswith(
+        "operator_config_review.json"
+    )
+    assert dry_payload["application_gate"]["eligible_for_manual_application"] is False
+    assert "operator_review_not_recorded" in dry_payload["application_gate"][
+        "application_blockers"
+    ]
+    assert dry_payload["planned_changes"][0]["review_decision"] == "pending"
+    assert dry_payload["planned_changes"][0]["applied"] is False
+    assert dry_payload["planned_changes"][0]["requires_manual_config_edit"] is True
+    assert dry_payload["policy"]["does_not_write_config"] is True
+    assert dynamic_dry_payload["source_operator_review"]["from_artifact"] is True
+    assert "# Config Application Dry Run" in dry_md_path.read_text(encoding="utf-8")
+    assert_matches_schema_payload(dry_payload, "config_application_dry_run")
+    assert validate_config_application_dry_run_file(
+        payload_path=dry_json_path,
+        repo_root=repo,
+    ) == ()
 
     _, _, blocked_approval = write_operator_config_review(
         run_dir=run_dir,
@@ -1529,6 +1569,26 @@ def test_operator_config_review_records_intent_without_applying_config(
     assert approval["reviewed_changes"][0]["requires_manual_config_edit"] is True
     assert (repo / "config/default.json").read_text(encoding="utf-8") == config_before
     assert_matches_schema_payload(approval, "operator_config_review")
+    _, _, approved_dry_run = write_config_application_dry_run(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+    )
+    assert approved_dry_run["status"] == "ready_for_manual_application"
+    assert (
+        approved_dry_run["application_gate"]["eligible_for_manual_application"] is True
+    )
+    assert approved_dry_run["application_gate"]["application_blockers"] == []
+    assert approved_dry_run["application_gate"]["approved_change_count"] == 1
+    assert approved_dry_run["application_gate"]["ready_change_count"] == 1
+    assert approved_dry_run["planned_changes"][0]["review_decision"] == "approved"
+    assert approved_dry_run["planned_changes"][0]["value_matches_review"] is True
+    assert approved_dry_run["planned_changes"][0]["would_change_config"] is True
+    assert approved_dry_run["planned_changes"][0]["ready_for_manual_edit"] is True
+    assert approved_dry_run["planned_changes"][0]["applied"] is False
+    assert (repo / "config/default.json").read_text(encoding="utf-8") == config_before
+    assert_matches_schema_payload(approved_dry_run, "config_application_dry_run")
 
     _, _, rejection = write_operator_config_review(
         run_dir=run_dir,
@@ -1543,6 +1603,22 @@ def test_operator_config_review_records_intent_without_applying_config(
     assert rejection["reviewed_changes"][0]["review_decision"] == "rejected"
     assert (repo / "config/default.json").read_text(encoding="utf-8") == config_before
     assert_matches_schema_payload(rejection, "operator_config_review")
+    _, _, rejected_dry_run = write_config_application_dry_run(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+    )
+    assert rejected_dry_run["status"] == "no_approved_changes"
+    assert (
+        rejected_dry_run["application_gate"]["eligible_for_manual_application"] is False
+    )
+    assert "operator_review_not_approved" in rejected_dry_run["application_gate"][
+        "application_blockers"
+    ]
+    assert rejected_dry_run["planned_changes"][0]["review_decision"] == "rejected"
+    assert (repo / "config/default.json").read_text(encoding="utf-8") == config_before
+    assert_matches_schema_payload(rejected_dry_run, "config_application_dry_run")
 
 
 def test_agent_contract_runner_writes_disabled_audit(tmp_path: Path) -> None:
@@ -2473,6 +2549,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "config_change_candidate.md").exists()
     assert (run_dir / "operator_config_review.json").exists()
     assert (run_dir / "operator_config_review.md").exists()
+    assert (run_dir / "config_application_dry_run.json").exists()
+    assert (run_dir / "config_application_dry_run.md").exists()
     assert (run_dir / "agent_result_stats.json").exists()
     assert (run_dir / "agent_activation_preflight.json").exists()
     assert (run_dir / "agent_activation_preflight.md").exists()
@@ -2577,6 +2655,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     operator_config_review_markdown = (
         run_dir / "operator_config_review.md"
+    ).read_text(encoding="utf-8")
+    config_application_dry_run = json.loads(
+        (run_dir / "config_application_dry_run.json").read_text(encoding="utf-8")
+    )
+    config_application_markdown = (
+        run_dir / "config_application_dry_run.md"
     ).read_text(encoding="utf-8")
     agent_stats = json.loads(
         (run_dir / "agent_result_stats.json").read_text(encoding="utf-8")
@@ -2711,6 +2795,44 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert validate_operator_config_review_file(
         payload_path=run_dir / "operator_config_review.json",
+        repo_root=Path.cwd(),
+    ) == ()
+    assert manifest["config_application_dry_run"]["path"] == (
+        "config_application_dry_run.json"
+    )
+    assert manifest["config_application_dry_run"]["markdown_path"] == (
+        "config_application_dry_run.md"
+    )
+    assert config_application_dry_run["schema_version"] == (
+        CONFIG_APPLICATION_DRY_RUN_SCHEMA_VERSION
+    )
+    assert config_application_dry_run["source_operator_review"]["file"][
+        "path"
+    ].endswith("operator_config_review.json")
+    assert config_application_dry_run["source_config"]["file"]["path"].endswith(
+        "config/default.json"
+    )
+    assert config_application_dry_run["status"] == (
+        manifest["config_application_dry_run"]["status"]
+    )
+    assert config_application_dry_run["application_gate"][
+        "eligible_for_manual_application"
+    ] == manifest["config_application_dry_run"]["eligible_for_manual_application"]
+    assert config_application_dry_run["application_gate"][
+        "eligible_for_manual_application"
+    ] is False
+    assert "operator_review_not_recorded" in config_application_dry_run[
+        "application_gate"
+    ]["application_blockers"]
+    assert config_application_dry_run["policy"]["does_not_write_config"] is True
+    assert config_application_dry_run["policy"]["does_not_change_acceptance"] is True
+    assert "# Config Application Dry Run" in config_application_markdown
+    assert_matches_schema(
+        run_dir / "config_application_dry_run.json",
+        "config_application_dry_run",
+    )
+    assert validate_config_application_dry_run_file(
+        payload_path=run_dir / "config_application_dry_run.json",
         repo_root=Path.cwd(),
     ) == ()
     assert manifest["candidate_challenger_report"]["path"] == (
@@ -7036,6 +7158,37 @@ def test_artifact_validator_reports_operator_config_review_policy_violation(
     assert report["ok"] is False
     assert any(
         "operator_config_review.json policy false: does_not_write_config"
+        in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_config_application_policy_violation(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="config-application-policy-error",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/config-application-policy-error/config_application_dry_run.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["policy"]["does_not_write_config"] = False
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="config-application-policy-error",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "config_application_dry_run.json policy false: does_not_write_config"
         in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
@@ -13125,6 +13278,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         run_id="cli-candidates",
         experiments_dir=repo / "experiments",
     )
+    config_application = config_application_dry_run_report(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+    )
     result = subprocess.run(
         [
             sys.executable,
@@ -13232,6 +13390,21 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    config_application_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "config-application-dry-run",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     challenger_result = subprocess.run(
         [
             sys.executable,
@@ -13297,6 +13470,15 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         "config_change_candidate.json"
     )
     assert config_review["policy"]["does_not_write_config"] is True
+    assert config_application["from_artifact"] is True
+    assert (
+        config_application["schema_version"]
+        == CONFIG_APPLICATION_DRY_RUN_SCHEMA_VERSION
+    )
+    assert config_application["source_operator_review"]["file"]["path"].endswith(
+        "operator_config_review.json"
+    )
+    assert config_application["policy"]["does_not_write_config"] is True
     assert stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
     assert "avg_holdout_ev_delta" in stats["agents"][0]
     assert stats["round_replays"]["round_count"] == 1
@@ -13354,6 +13536,19 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         "config_change_candidate.json"
     )
     assert_matches_schema_payload(config_review_payload, "operator_config_review")
+    assert config_application_result.returncode == 0, config_application_result.stderr
+    config_application_payload = json.loads(config_application_result.stdout)
+    assert config_application_payload["schema_version"] == (
+        CONFIG_APPLICATION_DRY_RUN_SCHEMA_VERSION
+    )
+    assert config_application_payload["from_artifact"] is True
+    assert config_application_payload["source_operator_review"]["file"][
+        "path"
+    ].endswith("operator_config_review.json")
+    assert_matches_schema_payload(
+        config_application_payload,
+        "config_application_dry_run",
+    )
     assert challenger_result.returncode == 0, challenger_result.stderr
     challenger_payload = json.loads(challenger_result.stdout)
     assert challenger_payload["schema_version"] == CANDIDATE_CHALLENGER_SCHEMA_VERSION
@@ -13418,6 +13613,7 @@ def test_summary_markdown_is_written_for_single_and_iteration_runs(tmp_path: Pat
     assert "Candidate Challenger Report" in iteration_summary
     assert "Champion Promotion Dry Run" in iteration_summary
     assert "Champion Promotion Approval" in iteration_summary
+    assert "Config Application Dry Run" in iteration_summary
     assert "Candidate Leaderboard" in iteration_summary
     assert "Expected Change" in iteration_summary
     assert "Probe EV" in iteration_summary

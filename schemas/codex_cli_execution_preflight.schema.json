@@ -51,7 +51,19 @@
           "checks",
           "operator_unlock_request",
           "expected_execution"
-        ]
+        ],
+        "properties": {
+          "expected_execution": {
+            "type": "object",
+            "required": [
+              "target_file",
+              "workspace_root",
+              "workspace_prefix",
+              "command",
+              "command_sha256"
+            ]
+          }
+        }
       }
     },
     "summary": {

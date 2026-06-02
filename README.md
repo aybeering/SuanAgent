@@ -226,7 +226,9 @@ attempt keeps its own copy under `agent_attempts/attempt_xxx/`, so command
 execution and guard decisions can be inspected without replaying the agent.
 Execution audits include a stable `command_sha256`; for guarded Codex CLI
 attempts, artifact validation cross-checks that digest against the run-level
-startup preflight command for the same profile.
+startup preflight command for the same profile. The Codex startup preflight also
+requires any operator unlock request to point at the current run's workspace
+prefix, so a reviewed request cannot be reused across unrelated runs.
 The subprocess execution, output-file copy-back, mutation guard, and execution
 audit are handled by the shared `agent_contract_runner_v1` runner; the
 file-protocol adapter only prepares the isolated workspace and converts the

@@ -40,6 +40,7 @@ def build_codex_cli_execution_preflight(
         profile_execution_row(
             profile=profile,
             repo_root=repo_root,
+            run_id=run_dir.name,
         )
         for profile in profiles
     ]
@@ -117,6 +118,7 @@ def profile_execution_row(
     *,
     profile: dict[str, object],
     repo_root: Path,
+    run_id: str,
 ) -> dict[str, Any]:
     """Return preflight status for one agent profile."""
     profile_name = str(profile.get("name", ""))
@@ -153,6 +155,10 @@ def profile_execution_row(
     expected_command_sha256 = stable_digest(expected_command)
     planned_workspace_path = str(planned.get("workspace_path", ""))
     workspace_root = str(settings.get("workspace_root", "workspaces"))
+    expected_workspace_prefix = workspace_prefix(
+        workspace_root=workspace_root,
+        run_id=run_id,
+    )
     checks = {
         "profile_enabled": enabled,
         "adapter_is_codex_cli": adapter_name == "codex_cli",
@@ -171,12 +177,9 @@ def profile_execution_row(
             planned.get("command_sha256", "")
         )
         == expected_command_sha256,
-        "operator_request_workspace_root_matches_profile": (
-            bool(workspace_root)
-            and (
-                planned_workspace_path == workspace_root
-                or planned_workspace_path.startswith(workspace_root.rstrip("/") + "/")
-            )
+        "operator_request_workspace_prefix_matches_run": (
+            bool(expected_workspace_prefix)
+            and planned_workspace_path.startswith(expected_workspace_prefix)
         ),
         "operator_request_targets_current_strategy": str(
             planned.get("target_file", "")
@@ -218,6 +221,7 @@ def profile_execution_row(
         "expected_execution": {
             "target_file": TARGET_FILE,
             "workspace_root": workspace_root,
+            "workspace_prefix": expected_workspace_prefix,
             "command": expected_command,
             "command_sha256": expected_command_sha256,
         },
@@ -241,8 +245,8 @@ def operator_unlock_blockers(checks: dict[str, bool]) -> list[str]:
             "operator_request_command_sha256_mismatch",
         ),
         (
-            "operator_request_workspace_root_matches_profile",
-            "operator_request_workspace_root_mismatch",
+            "operator_request_workspace_prefix_matches_run",
+            "operator_request_workspace_prefix_mismatch",
         ),
         (
             "operator_request_targets_current_strategy",
@@ -266,6 +270,12 @@ def stable_digest(payload: object) -> str:
     """Return a stable digest for one JSON-compatible payload."""
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def workspace_prefix(*, workspace_root: str, run_id: str) -> str:
+    """Return the required run-scoped workspace prefix for real execution."""
+    root = workspace_root.rstrip("/")
+    return f"{root}/{run_id}/" if root and run_id else ""
 
 
 def codex_cli_execution_preflight_markdown(payload: dict[str, Any]) -> str:

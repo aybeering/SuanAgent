@@ -2503,7 +2503,7 @@ def validate_optional_codex_cli_execution_preflight(
                 for key in (
                     "operator_request_command_matches_profile",
                     "operator_request_command_sha256_matches_profile",
-                    "operator_request_workspace_root_matches_profile",
+                    "operator_request_workspace_prefix_matches_run",
                     "operator_request_targets_current_strategy",
                     "operator_request_allows_strategy_only",
                     "operator_request_does_not_execute_by_itself",
@@ -2529,6 +2529,11 @@ def validate_optional_codex_cli_execution_preflight(
                     add_error(
                         report,
                         "codex_cli_execution_preflight expected workspace root missing",
+                    )
+                if not str(expected.get("workspace_prefix", "")).strip():
+                    add_error(
+                        report,
+                        "codex_cli_execution_preflight expected workspace prefix missing",
                     )
                 if not isinstance(expected_command, list):
                     add_error(

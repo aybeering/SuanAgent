@@ -5918,6 +5918,7 @@ print(json.dumps({
     operator_request_path = write_operator_unlock_request_fixture(
         repo,
         repo / "operator_unlock_fixtures/codex_structured_fixture_request.json",
+        run_id="codex-structured-fixture",
         executable=str(fake_codex),
         model="structured-test",
         sandbox="workspace-write",
@@ -7106,10 +7107,11 @@ def test_codex_cli_execution_preflight_blocks_stale_operator_request(
     request_path = write_operator_unlock_request_fixture(
         repo,
         repo / "operator_unlock_fixtures/stale_request.json",
+        run_id="old-run",
         executable=str(fake_codex),
-        model="old-model",
+        model="new-model",
         sandbox="workspace-write",
-        workspace_root="old-workspaces",
+        workspace_root="new-workspaces",
     )
     default = load_project_config(repo)
     config = replace(
@@ -7137,18 +7139,12 @@ def test_codex_cli_execution_preflight_blocks_stale_operator_request(
     profile = preflight["profiles"][0]
     assert profile["operator_unlock_ready"] is False
     assert profile["checks"]["operator_unlock_request_ready"] is True
-    assert profile["checks"]["operator_request_command_matches_profile"] is False
+    assert profile["checks"]["operator_request_command_matches_profile"] is True
     assert profile["checks"][
         "operator_request_command_sha256_matches_profile"
-    ] is False
-    assert profile["checks"]["operator_request_workspace_root_matches_profile"] is False
-    assert "profile primary: operator_request_command_mismatch" in preflight[
-        "blocking_errors"
-    ]
-    assert "profile primary: operator_request_command_sha256_mismatch" in preflight[
-        "blocking_errors"
-    ]
-    assert "profile primary: operator_request_workspace_root_mismatch" in preflight[
+    ] is True
+    assert profile["checks"]["operator_request_workspace_prefix_matches_run"] is False
+    assert "profile primary: operator_request_workspace_prefix_mismatch" in preflight[
         "blocking_errors"
     ]
 
@@ -7350,6 +7346,7 @@ print(json.dumps({
     operator_request_path = write_operator_unlock_request_fixture(
         repo,
         repo / "operator_unlock_fixtures/codex_mutation_fixture_request.json",
+        run_id="codex-mutation-guard",
         executable=str(fake_codex),
         model="mutation-test",
         sandbox="workspace-write",
@@ -8565,6 +8562,7 @@ def write_operator_unlock_request_fixture(
     repo: Path,
     path: Path,
     *,
+    run_id: str,
     executable: str = "codex",
     model: str = "default",
     sandbox: str = "workspace-write",
@@ -8635,7 +8633,7 @@ def write_operator_unlock_request_fixture(
             "attempt_id": "attempt_001_real_execution",
             "target_file": "strategies/current_strategy.py",
             "allowed_mutation_paths": ["strategies/current_strategy.py"],
-            "workspace_path": f"{workspace_root}/unit-test/strategy_workspace",
+            "workspace_path": f"{workspace_root}/{run_id}/unit-test/strategy_workspace",
             "command": command,
             "command_sha256": stable_json_digest(command),
             "execution_enabled_by_this_artifact": False,

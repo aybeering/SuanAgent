@@ -834,6 +834,7 @@ def main() -> None:
     validate_parser.add_argument("--limit", type=int, default=10)
     validate_parser.add_argument("--all", action="store_true", dest="all_runs")
     validate_parser.add_argument("--run-id", action="append", dest="run_ids", default=[])
+    validate_parser.add_argument("--created-at-from", default="")
     validate_parser.add_argument("--strict", action="store_true")
 
     health_history_parser = subparsers.add_parser(
@@ -849,6 +850,7 @@ def main() -> None:
     )
     memory_diagnostics_parser.add_argument("--limit", type=int, default=20)
     memory_diagnostics_parser.add_argument("--history-path", type=Path)
+    memory_diagnostics_parser.add_argument("--created-at-from", default="")
 
     subparsers.add_parser("summary", help="Summarize experiment history.")
 
@@ -929,6 +931,7 @@ def main() -> None:
             limit=args.limit,
             all_runs=args.all_runs,
             run_ids=args.run_ids,
+            created_at_from=args.created_at_from,
         )
     elif args.command == "health-history":
         payload = build_run_artifact_health_history(
@@ -945,6 +948,7 @@ def main() -> None:
             history_path=args.history_path
             or args.experiments_dir / DEFAULT_HISTORY_FILENAME,
             limit=args.limit,
+            created_at_from=args.created_at_from,
         )
     else:
         payload = summarize_experiments(experiments_dir=args.experiments_dir)

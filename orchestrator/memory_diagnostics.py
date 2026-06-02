@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from orchestrator.experiment_index import read_experiment_index
 from orchestrator.outcome_memory import read_outcome_memory
 from orchestrator.run_artifact_health import (
     DEFAULT_HISTORY_FILENAME,
@@ -29,6 +30,7 @@ def build_memory_diagnostics(
     repo_root: Path = Path("."),
     history_path: Path | None = None,
     limit: int = 20,
+    created_at_from: str = "",
 ) -> dict[str, Any]:
     """Return deterministic read-only diagnostics for saved memory artifacts."""
     repo_root = repo_root.resolve()
@@ -42,9 +44,22 @@ def build_memory_diagnostics(
         record
         for record in read_outcome_memory(experiments_dir)
         if record.get("kind", "proposal_outcome") == "proposal_outcome"
+        and record_matches_created_at_filter(
+            record=record,
+            created_at_from=created_at_from,
+        )
     ]
     history_records, health_read_errors = read_history_records(active_history_path)
-    health_by_run = artifact_health_by_run(history_records)
+    created_at_by_run = index_created_at_by_run(experiments_dir)
+    health_by_run = {
+        run_id: row
+        for run_id, row in artifact_health_by_run(history_records).items()
+        if run_matches_created_at_filter(
+            run_id=run_id,
+            created_at_by_run=created_at_by_run,
+            created_at_from=created_at_from,
+        )
+    }
     outcome_run_ids = {
         str(record.get("run_id", ""))
         for record in outcome_records
@@ -94,6 +109,10 @@ def build_memory_diagnostics(
         "experiments_dir": str(experiments_dir),
         "memory_path": str(experiments_dir / "memory.jsonl"),
         "health_history_path": str(active_history_path),
+        "scope": {
+            "created_at_from": created_at_from,
+            "health_runs_without_index_created_at_excluded": bool(created_at_from),
+        },
         "ok": not health_read_errors,
         "read_errors": health_read_errors,
         "totals": {
@@ -157,6 +176,38 @@ def artifact_health_by_run(
                 if artifact_name not in row["artifact_names"]:
                     row["artifact_names"].append(artifact_name)
     return rows
+
+
+def index_created_at_by_run(experiments_dir: Path) -> dict[str, str]:
+    """Return indexed created_at timestamps by run id."""
+    return {
+        str(record.get("run_id", "")): str(record.get("created_at", ""))
+        for record in read_experiment_index(experiments_dir)
+        if record.get("run_id")
+    }
+
+
+def record_matches_created_at_filter(
+    *,
+    record: dict[str, Any],
+    created_at_from: str,
+) -> bool:
+    """Return whether a memory record is inside the requested time scope."""
+    if not created_at_from:
+        return True
+    return str(record.get("created_at", "")) >= created_at_from
+
+
+def run_matches_created_at_filter(
+    *,
+    run_id: str,
+    created_at_by_run: dict[str, str],
+    created_at_from: str,
+) -> bool:
+    """Return whether a run id is inside the requested indexed time scope."""
+    if not created_at_from:
+        return True
+    return created_at_by_run.get(run_id, "") >= created_at_from
 
 
 def aggregate_groups(
@@ -274,6 +325,7 @@ def write_memory_diagnostics(
     repo_root: Path = Path("."),
     history_path: Path | None = None,
     limit: int = 20,
+    created_at_from: str = "",
 ) -> dict[str, Any]:
     """Write a memory diagnostics report and validate its schema."""
     payload = build_memory_diagnostics(
@@ -281,6 +333,7 @@ def write_memory_diagnostics(
         repo_root=repo_root,
         history_path=history_path,
         limit=limit,
+        created_at_from=created_at_from,
     )
     output_path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
@@ -326,6 +379,11 @@ def main() -> None:
     )
     parser.add_argument("--history-path", type=Path)
     parser.add_argument("--limit", type=int, default=20)
+    parser.add_argument(
+        "--created-at-from",
+        default="",
+        help="Only inspect records created at or after this UTC timestamp.",
+    )
     parser.add_argument("--output", type=Path)
     parser.add_argument("--strict", action="store_true")
     args = parser.parse_args()
@@ -337,6 +395,7 @@ def main() -> None:
             repo_root=args.repo_root,
             history_path=args.history_path,
             limit=args.limit,
+            created_at_from=args.created_at_from,
         )
     else:
         payload = build_memory_diagnostics(
@@ -344,6 +403,7 @@ def main() -> None:
             repo_root=args.repo_root,
             history_path=args.history_path,
             limit=args.limit,
+            created_at_from=args.created_at_from,
         )
     print(json.dumps(payload, indent=2, sort_keys=True))
     if args.strict and not payload["ok"]:

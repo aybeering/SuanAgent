@@ -36,6 +36,7 @@
         "mode",
         "limit",
         "requested_run_ids",
+        "filters",
         "selected_run_ids"
       ],
       "properties": {
@@ -54,6 +55,21 @@
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "filters": {
+          "type": "object",
+          "required": [
+            "created_at_from",
+            "applied_to_explicit_run_ids"
+          ],
+          "properties": {
+            "created_at_from": {
+              "type": "string"
+            },
+            "applied_to_explicit_run_ids": {
+              "type": "boolean"
+            }
           }
         },
         "selected_run_ids": {

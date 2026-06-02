@@ -54,10 +54,12 @@ python -m orchestrator.agent_slot_health experiments/<run_id>
 python -m orchestrator.agent_output_intake experiments/<run_id>/round_001/agent_input.json experiments/<run_id>/round_001/demo_agent_output.json --output experiments/<run_id>/round_001/agent_validation.json
 python -m orchestrator.run_artifact_health --limit 10 --strict
 python -m orchestrator.run_artifact_health --all --record-history
+python -m orchestrator.run_artifact_health --all --created-at-from 2026-06-02T00:00:00Z --strict
 python -m orchestrator.run_artifact_health --history-summary
 python -m orchestrator.experiments validate --limit 10 --strict
 python -m orchestrator.experiments health-history
 python -m orchestrator.memory_diagnostics --strict
+python -m orchestrator.memory_diagnostics --created-at-from 2026-06-02T00:00:00Z --strict
 python -m orchestrator.artifact_validator_coverage --output artifact_validator_coverage.json --markdown artifact_validator_coverage.md
 python -m orchestrator.artifact_validator_coverage --strict
 python -m orchestrator.experiments coverage
@@ -232,13 +234,16 @@ Replay artifacts:
 - `agent_slot_health.json` summarizes slot readiness, audits, and replay state.
 - `run_artifact_health.json` batch-validates saved experiment run artifacts
   and reports per-run artifact health without rerunning simulations.
+  `--created-at-from` scopes indexed runs to a current contract era without
+  deleting older experiment directories.
 - `run_artifact_health_history.jsonl` appends compact health snapshots when
   explicitly requested, and `run_artifact_health_history_v1` summaries show
   repeated failing runs and artifact filenames.
 - `memory_diagnostics.json` cross-references proposal outcome memory with
   artifact-health history by run id, agent, profile, direction, and patch hash.
-  It is inspection-only and cannot execute agents, run backtests, route agents,
-  apply patches, or change acceptance.
+  `--created-at-from` applies the same current-contract scope to outcome memory
+  and indexed health runs. It is inspection-only and cannot execute agents, run
+  backtests, route agents, apply patches, or change acceptance.
 - `artifact_validator_coverage.json` reports schema, validator, documentation,
   test, and inspection/replay coverage for repository artifact contracts.
 

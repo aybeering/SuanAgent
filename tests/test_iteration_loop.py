@@ -479,6 +479,62 @@ def test_run_artifact_health_reports_recent_runs(tmp_path: Path) -> None:
     assert cli_payload["ok"] is True
 
 
+def test_run_artifact_health_filters_by_created_at(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(run_id="health-old-contract", repo_root=repo)
+    run_pipeline(run_id="health-current-contract", repo_root=repo)
+    index_path = repo / "experiments/index.jsonl"
+    records = [
+        json.loads(line)
+        for line in index_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    for record in records:
+        if record["run_id"] == "health-old-contract":
+            record["created_at"] = "2026-01-01T00:00:00Z"
+        if record["run_id"] == "health-current-contract":
+            record["created_at"] = "2026-01-02T00:00:00Z"
+    index_path.write_text(
+        "\n".join(json.dumps(record, sort_keys=True) for record in records) + "\n",
+        encoding="utf-8",
+    )
+
+    payload = build_run_artifact_health(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        all_runs=True,
+        created_at_from="2026-01-02T00:00:00Z",
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "validate",
+            "--all",
+            "--strict",
+            "--created-at-from",
+            "2026-01-02T00:00:00Z",
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert payload["schema_version"] == RUN_ARTIFACT_HEALTH_SCHEMA_VERSION
+    assert_matches_schema_payload(payload, "run_artifact_health")
+    assert payload["selection"]["filters"]["created_at_from"] == (
+        "2026-01-02T00:00:00Z"
+    )
+    assert payload["selection"]["selected_run_ids"] == ["health-current-contract"]
+    assert payload["totals"]["run_count"] == 1
+    assert cli_payload["selection"]["selected_run_ids"] == ["health-current-contract"]
+
+
 def test_run_artifact_health_strict_reports_invalid_runs(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     run_iteration_loop(
@@ -700,6 +756,13 @@ def test_memory_diagnostics_links_outcomes_to_artifact_health(
         history_path=history_path,
         limit=5,
     )
+    empty_scope_payload = build_memory_diagnostics(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        history_path=history_path,
+        created_at_from="9999-01-01T00:00:00Z",
+        limit=5,
+    )
     output_path = repo / "memory_diagnostics.json"
     written = write_memory_diagnostics(
         output_path=output_path,
@@ -722,6 +785,7 @@ def test_memory_diagnostics_links_outcomes_to_artifact_health(
 
     assert payload["schema_version"] == MEMORY_DIAGNOSTICS_SCHEMA_VERSION
     assert_matches_schema_payload(payload, "memory_diagnostics")
+    assert_matches_schema_payload(empty_scope_payload, "memory_diagnostics")
     assert payload["ok"] is True
     assert payload["totals"]["outcome_record_count"] == 1
     assert payload["totals"]["health_history_record_count"] == 2
@@ -742,6 +806,11 @@ def test_memory_diagnostics_links_outcomes_to_artifact_health(
     assert payload["recent_outcome_health_links"][0]["artifact_health_failed"] is True
     assert payload["policy"]["does_not_change_acceptance"] is True
     assert payload["policy"]["does_not_route_agents"] is True
+    assert empty_scope_payload["scope"]["created_at_from"] == (
+        "9999-01-01T00:00:00Z"
+    )
+    assert empty_scope_payload["totals"]["outcome_record_count"] == 0
+    assert empty_scope_payload["totals"]["failed_health_run_count"] == 0
     assert written["schema_version"] == MEMORY_DIAGNOSTICS_SCHEMA_VERSION
     assert validate_memory_diagnostics_file(
         payload_path=output_path,
@@ -784,6 +853,8 @@ def test_memory_diagnostics_cli_and_experiments_command(
             str(repo),
             "--history-path",
             str(history_path),
+            "--created-at-from",
+            "2026-01-01T00:00:00Z",
             "--output",
             str(repo / "memory_diagnostics.json"),
             "--strict",
@@ -803,6 +874,8 @@ def test_memory_diagnostics_cli_and_experiments_command(
             "memory-diagnostics",
             "--history-path",
             str(history_path),
+            "--created-at-from",
+            "2026-01-01T00:00:00Z",
         ],
         cwd=repo,
         check=True,
@@ -814,6 +887,8 @@ def test_memory_diagnostics_cli_and_experiments_command(
 
     assert direct_payload["schema_version"] == MEMORY_DIAGNOSTICS_SCHEMA_VERSION
     assert experiments_payload["schema_version"] == MEMORY_DIAGNOSTICS_SCHEMA_VERSION
+    assert direct_payload["scope"]["created_at_from"] == "2026-01-01T00:00:00Z"
+    assert experiments_payload["scope"]["created_at_from"] == "2026-01-01T00:00:00Z"
     assert direct_payload["policy"]["does_not_execute_agents"] is True
     assert experiments_payload["policy"]["does_not_run_backtests"] is True
     assert_matches_schema(repo / "memory_diagnostics.json", "memory_diagnostics")

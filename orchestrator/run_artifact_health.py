@@ -28,6 +28,7 @@ def build_run_artifact_health(
     limit: int = 10,
     all_runs: bool = False,
     run_ids: list[str] | None = None,
+    created_at_from: str = "",
 ) -> dict[str, Any]:
     """Return a deterministic health report for saved experiment artifacts."""
     repo_root = repo_root.resolve()
@@ -37,6 +38,7 @@ def build_run_artifact_health(
         limit=limit,
         all_runs=all_runs,
         run_ids=run_ids,
+        created_at_from=created_at_from,
     )
     reports = [
         validate_run_artifacts(
@@ -57,6 +59,10 @@ def build_run_artifact_health(
             "mode": selection_mode(run_ids=run_ids, all_runs=all_runs),
             "limit": max(limit, 0),
             "requested_run_ids": list(run_ids or []),
+            "filters": {
+                "created_at_from": created_at_from,
+                "applied_to_explicit_run_ids": False,
+            },
             "selected_run_ids": selected_run_ids,
         },
         "totals": totals,
@@ -79,18 +85,25 @@ def select_run_ids(
     limit: int,
     all_runs: bool,
     run_ids: list[str] | None,
+    created_at_from: str = "",
 ) -> list[str]:
     """Return stable run ids for batch validation."""
     if run_ids:
         return list(dict.fromkeys(run_ids))
 
     records = read_experiment_index(experiments_dir)
+    if created_at_from:
+        records = [
+            record
+            for record in records
+            if str(record.get("created_at", "")) >= created_at_from
+        ]
     indexed_ids = [
         str(record.get("run_id", ""))
         for record in records
         if isinstance(record.get("run_id"), str) and record.get("run_id")
     ]
-    if not indexed_ids:
+    if not indexed_ids and not created_at_from:
         indexed_ids = directory_run_ids(experiments_dir)
 
     if all_runs:
@@ -165,6 +178,7 @@ def write_run_artifact_health(
     limit: int = 10,
     all_runs: bool = False,
     run_ids: list[str] | None = None,
+    created_at_from: str = "",
 ) -> dict[str, Any]:
     """Write a batch run artifact health report."""
     payload = build_run_artifact_health(
@@ -173,6 +187,7 @@ def write_run_artifact_health(
         limit=limit,
         all_runs=all_runs,
         run_ids=run_ids,
+        created_at_from=created_at_from,
     )
     output_path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
@@ -445,6 +460,11 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--all", action="store_true", dest="all_runs")
     parser.add_argument("--run-id", action="append", dest="run_ids", default=[])
+    parser.add_argument(
+        "--created-at-from",
+        default="",
+        help="Only select indexed runs created at or after this UTC timestamp.",
+    )
     parser.add_argument("--output", type=Path)
     parser.add_argument("--record-history", action="store_true")
     parser.add_argument("--history-summary", action="store_true")
@@ -468,6 +488,7 @@ def main() -> None:
             limit=args.limit,
             all_runs=args.all_runs,
             run_ids=args.run_ids,
+            created_at_from=args.created_at_from,
         )
     else:
         payload = build_run_artifact_health(
@@ -476,6 +497,7 @@ def main() -> None:
             limit=args.limit,
             all_runs=args.all_runs,
             run_ids=args.run_ids,
+            created_at_from=args.created_at_from,
         )
     print(json.dumps(payload, indent=2, sort_keys=True))
     if args.record_history and not args.history_summary:

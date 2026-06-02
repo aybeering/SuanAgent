@@ -8,6 +8,7 @@
     "experiments_dir",
     "memory_path",
     "health_history_path",
+    "scope",
     "ok",
     "read_errors",
     "totals",
@@ -39,6 +40,21 @@
     "health_history_path": {
       "type": "string",
       "minLength": 1
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "created_at_from",
+        "health_runs_without_index_created_at_excluded"
+      ],
+      "properties": {
+        "created_at_from": {
+          "type": "string"
+        },
+        "health_runs_without_index_created_at_excluded": {
+          "type": "boolean"
+        }
+      }
     },
     "ok": {
       "type": "boolean"

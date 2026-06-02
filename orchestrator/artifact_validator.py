@@ -3714,16 +3714,18 @@ def validate_optional_codex_cli_execution_candidate(
     if not isinstance(source_snapshot, dict):
         add_error(report, "codex_cli_execution_candidate.json source_snapshot invalid")
     else:
-        snapshot_record = source_snapshot.get("file", {})
-        if isinstance(snapshot_record, dict):
-            validate_recorded_file_hash(
-                record=snapshot_record,
-                repo_root=repo_root,
-                report=report,
-                label="codex_cli_execution_candidate source_snapshot",
-            )
-        else:
-            add_error(report, "codex_cli_execution_candidate snapshot file invalid")
+        validate_source_artifact_provenance(
+            source=source_snapshot,
+            expected_path=run_dir / "codex_cli_execution_unlock_snapshot.json",
+            repo_root=repo_root,
+            report=report,
+            label="codex_cli_execution_candidate source_snapshot",
+            invalid_file_error="codex_cli_execution_candidate snapshot file invalid",
+            not_canonical_error=(
+                "codex_cli_execution_candidate source_snapshot "
+                "not canonical run artifact"
+            ),
+        )
     candidate_config = payload.get("candidate_config", {})
     if isinstance(candidate_config, dict):
         validate_recorded_file_hash(
@@ -3860,16 +3862,20 @@ def validate_optional_codex_cli_real_execution_dry_run(
             "codex_cli_real_execution_dry_run.json source_candidate invalid",
         )
     else:
-        candidate_record = source_candidate.get("file", {})
-        if isinstance(candidate_record, dict):
-            validate_recorded_file_hash(
-                record=candidate_record,
-                repo_root=repo_root,
-                report=report,
-                label="codex_cli_real_execution_dry_run source_candidate",
-            )
-        else:
-            add_error(report, "codex_cli_real_execution_dry_run candidate file invalid")
+        validate_source_artifact_provenance(
+            source=source_candidate,
+            expected_path=run_dir / "codex_cli_execution_candidate.json",
+            repo_root=repo_root,
+            report=report,
+            label="codex_cli_real_execution_dry_run source_candidate",
+            invalid_file_error=(
+                "codex_cli_real_execution_dry_run candidate file invalid"
+            ),
+            not_canonical_error=(
+                "codex_cli_real_execution_dry_run source_candidate "
+                "not canonical run artifact"
+            ),
+        )
     planned = payload.get("planned_execution", {})
     if not isinstance(planned, dict):
         add_error(report, "codex_cli_real_execution_dry_run.json planned invalid")

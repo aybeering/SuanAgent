@@ -7179,6 +7179,106 @@ def test_artifact_validator_reports_unlock_snapshot_source_gate_alias(
     )
 
 
+def test_artifact_validator_reports_execution_candidate_source_snapshot_alias(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/candidate-source-snapshot-alias"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    write_codex_cli_execution_unlock_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+        canary_run_dir=run_dir,
+    )
+    write_codex_cli_execution_unlock_snapshot(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
+    candidate_path = run_dir / "codex_cli_execution_candidate.json"
+    write_codex_cli_execution_candidate(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
+    alias_snapshot_path = run_dir / "alias_execution_unlock_snapshot.json"
+    shutil.copyfile(
+        run_dir / "codex_cli_execution_unlock_snapshot.json",
+        alias_snapshot_path,
+    )
+    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+    candidate["source_snapshot"]["path"] = str(alias_snapshot_path.relative_to(repo))
+    candidate["source_snapshot"]["file"] = file_record(alias_snapshot_path, repo)
+    candidate_path.write_text(
+        json.dumps(candidate, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="candidate-source-snapshot-alias",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_execution_candidate source_snapshot "
+        "not canonical run artifact" in str(error)
+        for error in validation_report["errors"]
+    )
+
+
+def test_artifact_validator_reports_real_dry_run_source_candidate_alias(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/dry-run-source-candidate-alias"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    write_codex_cli_execution_unlock_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+        canary_run_dir=run_dir,
+    )
+    write_codex_cli_execution_unlock_snapshot(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
+    write_codex_cli_execution_candidate(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
+    dry_run_path = run_dir / "codex_cli_real_execution_dry_run.json"
+    write_codex_cli_real_execution_dry_run(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
+    alias_candidate_path = run_dir / "alias_execution_candidate.json"
+    shutil.copyfile(
+        run_dir / "codex_cli_execution_candidate.json",
+        alias_candidate_path,
+    )
+    dry_run = json.loads(dry_run_path.read_text(encoding="utf-8"))
+    dry_run["source_candidate"]["path"] = str(alias_candidate_path.relative_to(repo))
+    dry_run["source_candidate"]["file"] = file_record(alias_candidate_path, repo)
+    dry_run_path.write_text(
+        json.dumps(dry_run, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="dry-run-source-candidate-alias",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_real_execution_dry_run source_candidate "
+        "not canonical run artifact" in str(error)
+        for error in validation_report["errors"]
+    )
+
+
 def test_codex_cli_execution_preflight_blocks_stale_operator_request(
     tmp_path: Path,
 ) -> None:
@@ -10179,12 +10279,39 @@ def write_operator_unlock_request_fixture(
     )
     support_dir = run_dir / "operator_unlock_fixture_support"
     support_dir.mkdir(parents=True, exist_ok=True)
-    source_candidate_path = support_dir / "codex_cli_execution_candidate.json"
-    source_candidate_path.write_text(
-        json.dumps({"ok": True, "execution_candidate_ready": True}, sort_keys=True)
-        + "\n",
-        encoding="utf-8",
-    )
+    if canonical_source_paths:
+        write_codex_cli_execution_unlock_gate(
+            run_dir=run_dir,
+            repo_root=repo,
+            config_path=repo / "config/codex_cli_enable_candidate.json",
+            canary_run_dir=run_dir,
+        )
+        write_codex_cli_execution_unlock_snapshot(
+            run_dir=run_dir,
+            repo_root=repo,
+        )
+        source_candidate_path = run_dir / "codex_cli_execution_candidate.json"
+        source_candidate_path.write_text(
+            json.dumps(
+                canonical_execution_candidate_fixture(
+                    repo=repo,
+                    run_dir=run_dir,
+                    planned_workspace_path=planned_workspace_path,
+                    command=command,
+                ),
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    else:
+        source_candidate_path = support_dir / "codex_cli_execution_candidate.json"
+        source_candidate_path.write_text(
+            json.dumps({"ok": True, "execution_candidate_ready": True}, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
     pipeline_payload = {
         "ok": True,
         "pipeline_completed": True,
@@ -10472,6 +10599,86 @@ def canonical_real_execution_dry_run_fixture(
             "read_only": True,
             "requires_execution_candidate": True,
             "requires_candidate_ready": True,
+            "does_not_execute_codex_cli": True,
+            "does_not_create_workspace": True,
+            "does_not_send_strategy_prompt": True,
+            "does_not_modify_config": True,
+            "does_not_select_candidate": True,
+            "does_not_apply_patches": True,
+            "does_not_change_acceptance": True,
+            "allows_only_strategy_file_mutation": True,
+            "deterministic_code_keeps_acceptance_authority": True,
+        },
+    }
+
+
+def canonical_execution_candidate_fixture(
+    *,
+    repo: Path,
+    run_dir: Path,
+    planned_workspace_path: str,
+    command: list[str],
+) -> dict[str, object]:
+    """Return a schema-valid execution candidate fixture for canonical requests."""
+    snapshot_path = run_dir / "codex_cli_execution_unlock_snapshot.json"
+    snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    config_path = repo / "config/codex_cli_enable_candidate.json"
+    return {
+        "schema_version": "codex_cli_execution_candidate_v1",
+        "run_id": run_dir.name,
+        "run_dir": str(run_dir),
+        "ok": True,
+        "execution_candidate_ready": True,
+        "blocking_reasons": [],
+        "checks": {
+            "snapshot_exists": True,
+            "snapshot_ok": True,
+            "snapshot_digest_present": True,
+            "snapshot_unlocked": True,
+            "snapshot_source_gate_hash_present": True,
+            "candidate_config_recorded": True,
+            "candidate_config_exists": True,
+            "candidate_config_sha256_matches_snapshot": True,
+            "config_binding_all_matched": True,
+            "strategy_modifier_is_codex_cli": True,
+            "execute_true_candidate": True,
+            "sandbox_workspace_write": True,
+            "workspace_root_declared": True,
+            "target_file_is_current_strategy": True,
+            "allowed_mutation_paths_strategy_only": True,
+            "command_targets_strategy_only": True,
+            "does_not_execute_codex_cli": True,
+            "does_not_create_workspace": True,
+            "does_not_apply_patches": True,
+            "does_not_change_acceptance": True,
+        },
+        "source_snapshot": {
+            "path": str(snapshot_path.relative_to(repo)),
+            "snapshot_digest": str(snapshot.get("snapshot_digest", "")),
+            "real_codex_execution_unlocked": True,
+            "blocking_reasons": [],
+            "file": file_record(snapshot_path, repo),
+        },
+        "candidate_config": file_record(config_path, repo),
+        "execution_plan": {
+            "agent_name": "codex_cli",
+            "profile_name": "real_codex_execution",
+            "round_id": "codex_cli_real_execution",
+            "attempt_id": "attempt_001_real_execution",
+            "target_file": "strategies/current_strategy.py",
+            "allowed_mutation_paths": ["strategies/current_strategy.py"],
+            "workspace_path": planned_workspace_path,
+            "command": command,
+            "timeout_seconds": 30,
+            "execution_enabled_by_this_artifact": False,
+            "codex_cli_execute_flag": True,
+        },
+        "policy": {
+            "candidate_only": True,
+            "read_only": True,
+            "requires_unlock_snapshot": True,
+            "requires_snapshot_unlocked": True,
+            "requires_candidate_config_hash_match": True,
             "does_not_execute_codex_cli": True,
             "does_not_create_workspace": True,
             "does_not_send_strategy_prompt": True,

@@ -11,6 +11,7 @@
     "status",
     "execution_enabled",
     "command",
+    "command_sha256",
     "cwd",
     "workspace_path",
     "agent_input_path",
@@ -69,6 +70,9 @@
       "items": {
         "type": "string"
       }
+    },
+    "command_sha256": {
+      "type": "string"
     },
     "cwd": {
       "type": "string"

@@ -509,11 +509,36 @@ def validate_round_dir(
             schema_path=repo_root / "schemas/agent_execution.schema.json",
             report=report,
         )
+        validate_agent_execution(
+            path=round_dir / "agent_execution.json",
+            run_dir=round_dir.parent,
+            repo_root=repo_root,
+            report=report,
+        )
     elif (round_dir / "agent_execution.json").exists():
         add_warning(report, f"unexpected agent_execution.json in {round_dir}")
         validate_contract_file(
             payload_path=round_dir / "agent_execution.json",
             schema_path=repo_root / "schemas/agent_execution.schema.json",
+            report=report,
+        )
+        validate_agent_execution(
+            path=round_dir / "agent_execution.json",
+            run_dir=round_dir.parent,
+            repo_root=repo_root,
+            report=report,
+        )
+    for execution_path in sorted((round_dir / "agent_executions").glob("*.json")):
+        checked_files(report).append(str(execution_path))
+        validate_contract_file(
+            payload_path=execution_path,
+            schema_path=repo_root / "schemas/agent_execution.schema.json",
+            report=report,
+        )
+        validate_agent_execution(
+            path=execution_path,
+            run_dir=round_dir.parent,
+            repo_root=repo_root,
             report=report,
         )
 
@@ -556,6 +581,62 @@ def validate_round_dir(
         proposal=proposal,
         report=report,
     )
+
+
+def validate_agent_execution(
+    *,
+    path: Path,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate one saved external agent execution audit."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    command = payload.get("command", [])
+    if not isinstance(command, list):
+        add_error(report, f"agent_execution command invalid: {path}")
+        return
+    expected_command_sha256 = stable_json_digest(command)
+    if payload.get("command_sha256") != expected_command_sha256:
+        add_error(report, f"agent_execution command sha256 mismatch: {path}")
+    if str(payload.get("runner_name", "")) != "codex_cli_guarded_adapter":
+        return
+    if str(payload.get("adapter_name", "")) != "codex_cli":
+        add_error(report, f"codex_cli agent_execution adapter invalid: {path}")
+    preflight_path = run_dir / "codex_cli_execution_preflight.json"
+    preflight = load_json_object(preflight_path, report)
+    if not isinstance(preflight, dict):
+        add_error(report, f"codex_cli agent_execution preflight missing: {path}")
+        return
+    profiles = preflight.get("profiles", [])
+    if not isinstance(profiles, list):
+        add_error(report, f"codex_cli execution preflight profiles invalid: {path}")
+        return
+    profile_name = str(payload.get("profile_name", ""))
+    matching_profiles = [
+        profile
+        for profile in profiles
+        if isinstance(profile, dict)
+        and str(profile.get("profile_name", "")) == profile_name
+        and str(profile.get("adapter_name", "")) == "codex_cli"
+    ]
+    if not matching_profiles:
+        add_error(report, f"codex_cli agent_execution preflight profile missing: {path}")
+        return
+    expected_execution = matching_profiles[0].get("expected_execution", {})
+    if not isinstance(expected_execution, dict):
+        add_error(report, f"codex_cli preflight expected execution invalid: {path}")
+        return
+    expected_command = expected_execution.get("command", [])
+    if command != expected_command:
+        add_error(report, f"codex_cli agent_execution command not preflight-bound: {path}")
+    if payload.get("command_sha256") != expected_execution.get("command_sha256"):
+        add_error(
+            report,
+            f"codex_cli agent_execution command sha256 not preflight-bound: {path}",
+        )
 
 
 def validate_optional_workspace_manifest(

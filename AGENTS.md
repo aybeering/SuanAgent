@@ -109,6 +109,7 @@ Allowed components:
 58. A deterministic `codex_cli_readiness_pipeline.json` report that runs the read-only Codex CLI readiness chain from enablement through summary as one auditable command.
 59. A deterministic `codex_cli_operator_unlock_request.json` report that records explicit operator intent and the reviewed Codex command digest for future real Codex CLI execution review without executing Codex.
 60. A deterministic `codex_cli_execution_preflight.json` startup gate that blocks real Codex CLI execution unless a ready operator unlock request is already recorded and still matches the current profile command and workspace root.
+61. Deterministic `agent_execution.json` command digest binding that lets artifact validation prove guarded Codex CLI attempts used the command reviewed by startup preflight.
 
 Still out of scope:
 
@@ -812,6 +813,7 @@ Add smoke tests that verify:
 28. Round replay can replay every saved planned attempt and validate the resulting `round_replay_v1` artifact.
 29. Experiment agent inspection reports round replay presence, counts, and per-attempt plan/manifest alignment.
 30. Agent slot health reports identify healthy, unreplayed, blocked, and audit-missing agent slots.
+31. Guarded Codex CLI `agent_execution.json` audits include command digests that artifact validation cross-checks against startup preflight.
 
 The project is complete only when these checks pass:
 

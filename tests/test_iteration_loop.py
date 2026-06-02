@@ -255,6 +255,7 @@ def test_agent_contract_runner_writes_disabled_audit(tmp_path: Path) -> None:
     assert audit["agent_name"] == "demo_agent"
     assert audit["status"] == "disabled"
     assert audit["execution_enabled"] is False
+    assert audit["command_sha256"] == stable_json_digest(["not-run"])
     assert audit["round_output_file"]["exists"] is False
     assert_matches_schema(audit_path, "agent_execution")
 
@@ -296,6 +297,9 @@ def test_agent_contract_runner_copies_allowed_output(tmp_path: Path) -> None:
     assert round_output.read_text(encoding="utf-8") == '{"ok": true}\n'
     assert audit["runner_name"] == AGENT_CONTRACT_RUNNER_NAME
     assert audit["status"] == "completed"
+    assert audit["command_sha256"] == stable_json_digest(
+        [sys.executable, "-c", script, str(workspace_output)]
+    )
     assert audit["output_file"]["exists"] is True
     assert audit["round_output_file"]["exists"] is True
     assert audit["mutation_guard"]["passed"] is True
@@ -5988,14 +5992,29 @@ print(json.dumps({
             round_dir / "agent_executions/attempt_001_primary.json"
         ).read_text(encoding="utf-8")
     )
+    preflight = json.loads(
+        (repo / "experiments/codex-structured-fixture/codex_cli_execution_preflight.json")
+        .read_text(encoding="utf-8")
+    )
+    validation_report = validate_run_artifacts(
+        run_id="codex-structured-fixture",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
     assert audit["runner_name"] == CODEX_CLI_GUARDED_RUNNER_NAME
     assert audit["status"] == "completed"
     assert audit["execution_enabled"] is True
+    assert audit["command_sha256"] == stable_json_digest(audit["command"])
+    assert audit["command"] == preflight["profiles"][0]["expected_execution"]["command"]
+    assert audit["command_sha256"] == preflight["profiles"][0]["expected_execution"][
+        "command_sha256"
+    ]
     assert audit["mutation_guard"]["passed"] is True
     assert_matches_schema(
         round_dir / "agent_executions/attempt_001_primary.json",
         "agent_execution",
     )
+    assert validation_report["ok"] is True
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
@@ -6049,6 +6068,9 @@ def test_codex_cli_canary_config_runs_controlled_execution_gate(
             round_dir / "agent_executions/attempt_001_primary.json"
         ).read_text(encoding="utf-8")
     )
+    preflight = json.loads(
+        (run_dir / "codex_cli_execution_preflight.json").read_text(encoding="utf-8")
+    )
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
 
     assert manifest["completed_rounds"] == 1
@@ -6063,6 +6085,11 @@ def test_codex_cli_canary_config_runs_controlled_execution_gate(
     assert audit["status"] == "completed"
     assert audit["execution_enabled"] is True
     assert audit["command"][0] == "agents/codex_cli_canary.py"
+    assert audit["command_sha256"] == stable_json_digest(audit["command"])
+    assert audit["command"] == preflight["profiles"][0]["expected_execution"]["command"]
+    assert audit["command_sha256"] == preflight["profiles"][0]["expected_execution"][
+        "command_sha256"
+    ]
     assert audit["returncode"] == 0
     assert audit["mutation_guard"]["passed"] is True
     assert decision["accepted"] is False
@@ -6090,6 +6117,43 @@ def test_codex_cli_canary_config_runs_controlled_execution_gate(
     assert cli_result.returncode == 0, cli_result.stderr
     assert cli_payload["schema_version"] == CODEX_CLI_CANARY_GATE_SCHEMA_VERSION
     assert cli_payload["controlled_execution_ready"] is True
+
+
+def test_artifact_validator_blocks_codex_execution_preflight_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_canary.json")
+    run_iteration_loop(
+        run_id="codex-execution-binding-mismatch",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    audit_path = (
+        repo
+        / "experiments/codex-execution-binding-mismatch/round_001"
+        / "agent_executions/attempt_001_primary.json"
+    )
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    audit["command"][3] = "tampered-model"
+    audit["command_sha256"] = stable_json_digest(audit["command"])
+    audit_path.write_text(
+        json.dumps(audit, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="codex-execution-binding-mismatch",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli agent_execution command not preflight-bound" in str(error)
+        for error in validation_report["errors"]
+    )
 
 
 def test_codex_cli_canary_gate_blocks_missing_execution(

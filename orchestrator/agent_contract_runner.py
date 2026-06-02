@@ -215,6 +215,7 @@ def write_agent_execution(
         "status": contract_result.status,
         "execution_enabled": contract_result.execution_enabled,
         "command": list(contract_result.command),
+        "command_sha256": stable_json_digest(list(contract_result.command)),
         "cwd": str(contract_result.cwd),
         "workspace_path": str(contract_result.workspace_path),
         "agent_input_path": str(contract_result.agent_input_path),
@@ -289,6 +290,12 @@ def file_summary(path: Path) -> dict[str, object]:
 def sha256_text(text: str) -> str:
     """Return a text SHA-256 digest."""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def stable_json_digest(payload: object) -> str:
+    """Return a stable digest for one JSON-compatible payload."""
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return sha256_text(encoded)
 
 
 def text_or_empty(value: str | bytes | None) -> str:

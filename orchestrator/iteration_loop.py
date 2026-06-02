@@ -1241,18 +1241,13 @@ def can_start_from_existing_operator_request_run_dir(
             continue
         raw_path = Path(request_path_text)
         request_path = raw_path if raw_path.is_absolute() else repo_root / raw_path
-        if request_path.exists() and path_inside_base(path=request_path, base=run_dir):
+        if (
+            request_path.exists()
+            and request_path.resolve()
+            == (run_dir / "codex_cli_operator_unlock_request.json").resolve()
+        ):
             return True
     return False
-
-
-def path_inside_base(*, path: Path, base: Path) -> bool:
-    """Return whether a path resolves inside a base directory."""
-    try:
-        path.resolve().relative_to(base.resolve())
-    except ValueError:
-        return False
-    return True
 
 
 def proposal_attempt_record(

@@ -202,6 +202,12 @@ def profile_execution_row(
             path=request_path,
             run_dir=run_dir,
         ),
+        "operator_unlock_request_path_is_canonical_run_artifact": (
+            path_is_canonical_operator_request(
+                path=request_path,
+                run_dir=run_dir,
+            )
+        ),
         "operator_unlock_request_contract_valid": operator_request_contract_valid(
             request_path=request_path,
             repo_root=repo_root,
@@ -348,6 +354,10 @@ def operator_unlock_blockers(checks: dict[str, bool]) -> list[str]:
         (
             "operator_unlock_request_path_is_run_artifact",
             "operator_unlock_request_path_not_run_artifact",
+        ),
+        (
+            "operator_unlock_request_path_is_canonical_run_artifact",
+            "operator_unlock_request_path_not_canonical_run_artifact",
         ),
         (
             "operator_unlock_request_contract_valid",
@@ -501,6 +511,13 @@ def path_is_inside_run_dir(*, path: Path | None, run_dir: Path) -> bool:
     except ValueError:
         return False
     return True
+
+
+def path_is_canonical_operator_request(*, path: Path | None, run_dir: Path) -> bool:
+    """Return whether a path is the canonical operator request artifact."""
+    if path is None:
+        return False
+    return path.resolve() == (run_dir / "codex_cli_operator_unlock_request.json").resolve()
 
 
 def source_dry_run_plan_matches_review(

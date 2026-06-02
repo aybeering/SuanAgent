@@ -2551,6 +2551,13 @@ def validate_optional_codex_cli_execution_preflight(
                             "codex_cli_execution_preflight operator request "
                             "outside run directory",
                         )
+                    canonical_path = run_dir / "codex_cli_operator_unlock_request.json"
+                    if request_path.resolve() != canonical_path.resolve():
+                        add_error(
+                            report,
+                            "codex_cli_execution_preflight operator request "
+                            "not canonical run artifact",
+                        )
                 else:
                     add_error(
                         report,
@@ -2578,6 +2585,7 @@ def validate_optional_codex_cli_execution_preflight(
                     "operator_unlock_request_contract_valid",
                     "operator_unlock_request_schema_version_matches",
                     "operator_unlock_request_path_is_run_artifact",
+                    "operator_unlock_request_path_is_canonical_run_artifact",
                     "operator_request_run_id_matches",
                     "operator_request_run_dir_matches_run",
                     "operator_request_scope_matches",

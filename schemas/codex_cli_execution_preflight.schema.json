@@ -93,6 +93,7 @@
               "operator_unlock_request_path_declared",
               "operator_unlock_request_exists",
               "operator_unlock_request_path_is_run_artifact",
+              "operator_unlock_request_path_is_canonical_run_artifact",
               "operator_unlock_request_contract_valid",
               "operator_unlock_request_schema_version_matches",
               "operator_unlock_request_ok",
@@ -143,6 +144,9 @@
                 "type": "boolean"
               },
               "operator_unlock_request_path_is_run_artifact": {
+                "type": "boolean"
+              },
+              "operator_unlock_request_path_is_canonical_run_artifact": {
                 "type": "boolean"
               },
               "operator_unlock_request_contract_valid": {

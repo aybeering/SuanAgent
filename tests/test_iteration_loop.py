@@ -7314,6 +7314,63 @@ def test_codex_cli_execution_preflight_blocks_external_operator_request_path(
     )
 
 
+def test_codex_cli_execution_preflight_blocks_noncanonical_operator_request_path(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_noncanonical_request_path.py",
+        "#!/usr/bin/env python3\nprint('{}')\n",
+    )
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / "experiments/noncanonical-request-path/operator_request.json",
+        run_id="noncanonical-request-path",
+        executable=str(fake_codex),
+        model="noncanonical-request-path-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "noncanonical-request-path-test",
+            "sandbox": "workspace-write",
+            "workspace_root": "workspaces",
+            "execute": True,
+            "operator_unlock_request_path": str(request_path.relative_to(repo)),
+        },
+    )
+
+    preflight = write_codex_cli_execution_preflight(
+        output_path=repo
+        / "experiments/noncanonical-request-path/codex_cli_execution_preflight.json",
+        markdown_path=repo
+        / "experiments/noncanonical-request-path/codex_cli_execution_preflight.md",
+        run_dir=repo / "experiments/noncanonical-request-path",
+        repo_root=repo,
+        config=config,
+    )
+
+    profile = preflight["profiles"][0]
+    assert preflight["ok"] is False
+    assert profile["checks"]["operator_unlock_request_exists"] is True
+    assert profile["checks"]["operator_unlock_request_path_is_run_artifact"] is True
+    assert (
+        profile["checks"]["operator_unlock_request_path_is_canonical_run_artifact"]
+        is False
+    )
+    assert profile["checks"]["operator_unlock_request_contract_valid"] is True
+    assert (
+        "profile primary: operator_unlock_request_path_not_canonical_run_artifact"
+        in preflight["blocking_errors"]
+    )
+
+
 def test_codex_cli_execution_preflight_blocks_operator_source_drift(
     tmp_path: Path,
 ) -> None:
@@ -8023,6 +8080,66 @@ def test_artifact_validator_reports_preflight_external_operator_request(
     )
 
 
+def test_artifact_validator_reports_preflight_noncanonical_operator_request(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "preflight-noncanonical-request-path"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_preflight_noncanonical_request.py",
+        "#!/usr/bin/env python3\nprint('{}')\n",
+    )
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / f"experiments/{run_id}/operator_request.json",
+        run_id=run_id,
+        executable=str(fake_codex),
+        model="preflight-noncanonical-request-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "preflight-noncanonical-request-test",
+            "sandbox": "workspace-write",
+            "workspace_root": "workspaces",
+            "execute": True,
+            "operator_unlock_request_path": str(request_path.relative_to(repo)),
+        },
+    )
+    run_dir = repo / "experiments" / run_id
+    write_codex_cli_execution_preflight(
+        output_path=run_dir / "codex_cli_execution_preflight.json",
+        markdown_path=run_dir / "codex_cli_execution_preflight.md",
+        run_dir=run_dir,
+        repo_root=repo,
+        config=config,
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_execution_preflight operator request not canonical run artifact"
+        in str(error)
+        for error in validation_report["errors"]
+    )
+
+
 def test_codex_cli_execution_preflight_schema_requires_evidence_contract(
     tmp_path: Path,
 ) -> None:
@@ -8321,6 +8438,48 @@ def test_iteration_loop_still_rejects_existing_run_dir_without_operator_request(
             run_id="existing-run-without-operator-request",
             max_rounds=1,
             repo_root=repo,
+        )
+
+
+def test_iteration_loop_rejects_existing_run_dir_with_noncanonical_operator_request(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_existing_noncanonical_request.py",
+        "#!/usr/bin/env python3\nprint('{}')\n",
+    )
+    run_id = "existing-run-with-noncanonical-operator-request"
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / f"experiments/{run_id}/operator_request.json",
+        run_id=run_id,
+        executable=str(fake_codex),
+        model="existing-noncanonical-request-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "existing-noncanonical-request-test",
+            "sandbox": "workspace-write",
+            "workspace_root": "workspaces",
+            "execute": True,
+            "operator_unlock_request_path": str(request_path.relative_to(repo)),
+        },
+    )
+
+    with pytest.raises(FileExistsError, match="Run directory already exists"):
+        run_iteration_loop(
+            run_id=run_id,
+            max_rounds=1,
+            repo_root=repo,
+            config=config,
         )
 
 

@@ -10556,6 +10556,18 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
 
     assert summary["total_runs"] == 2
     assert summary["by_kind"] == {"single_run": 1, "iteration_loop": 1}
+    assert summary["dashboard"]["schema_version"] == "experiment_summary_dashboard_v1"  # type: ignore[index]
+    assert summary["dashboard"]["latest_run"]["run_id"] == "iteration-rank"  # type: ignore[index]
+    assert summary["dashboard"]["latest_rejected_run"]["run_id"] == "single-rank"  # type: ignore[index]
+    assert summary["dashboard"]["latest_accepted_run"] is None  # type: ignore[index]
+    assert summary["dashboard"]["recent_limit"] == 5  # type: ignore[index]
+    assert len(summary["dashboard"]["recent_runs"]) == 2  # type: ignore[index]
+    assert summary["dashboard"]["recent_runs"][-1]["run_id"] == "iteration-rank"  # type: ignore[index]
+    assert summary["dashboard"]["recent_runs"][-1]["failure_code"] == "policy_ev_improvement_low"  # type: ignore[index]
+    assert summary["dashboard"]["recent_failure_codes"]["policy_ev_improvement_low"] == 1  # type: ignore[index]
+    assert summary["dashboard"]["top_recent_failure_code"] == "policy_ev_improvement_low"  # type: ignore[index]
+    assert summary["dashboard"]["champion_gap"]["status"] == "no_champion"  # type: ignore[index]
+    assert summary["dashboard"]["policy"]["does_not_run_backtests"] is True  # type: ignore[index]
     assert summary["champion_lineage"]["ok"] is True  # type: ignore[index]
     assert summary["champion_lineage"]["event_count"] == 0  # type: ignore[index]
     assert summary["champion_lineage"]["current_champion_run_id"] == ""  # type: ignore[index]
@@ -11304,6 +11316,12 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
     assert leaderboard_result.returncode == 0, leaderboard_result.stderr
     summary = json.loads(summary_result.stdout)
     assert summary["total_runs"] == 1
+    assert summary["dashboard"]["schema_version"] == "experiment_summary_dashboard_v1"
+    assert summary["dashboard"]["latest_run"]["run_id"] == "cli-summary"
+    assert summary["dashboard"]["latest_rejected_run"]["run_id"] == "cli-summary"
+    assert summary["dashboard"]["latest_accepted_run"] is None
+    assert summary["dashboard"]["top_recent_failure_code"] == "none"
+    assert summary["dashboard"]["policy"]["does_not_execute_agents"] is True
     assert summary["champion_lineage"]["event_count"] == 0
     assert summary["champion_lineage"]["policy"]["does_not_write_lineage_artifact"] is True
     assert json.loads(leaderboard_result.stdout)[0]["run_id"] == "cli-summary"
@@ -11599,6 +11617,11 @@ def test_experiments_cli_promote_approved_is_operator_path(
         "cli-approved-candidate"
     )
     assert summary["champion_lineage"]["lineage_artifact_exists"] is True
+    assert summary["dashboard"]["champion_gap"]["active"] is True
+    assert summary["dashboard"]["champion_gap"]["champion_run_id"] == (
+        "cli-approved-candidate"
+    )
+    assert "gap_to_champion" in summary["dashboard"]["champion_gap"]
 
 
 def test_experiments_cli_memory_work(tmp_path: Path) -> None:

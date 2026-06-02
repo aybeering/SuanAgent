@@ -636,6 +636,16 @@ jobs:
           python - <<'PY'
           import json
           summary = json.load(open("/tmp/experiment_summary.json"))
+          dashboard = summary["dashboard"]
+          assert dashboard["schema_version"] == "experiment_summary_dashboard_v1"
+          assert dashboard["latest_run"]["run_id"]
+          assert len(dashboard["recent_runs"]) <= dashboard["recent_limit"]
+          assert dashboard["top_recent_failure_code"]
+          assert dashboard["champion_gap"]["active"] is True
+          assert dashboard["champion_gap"]["champion_run_id"] == "ci-approved-candidate"
+          assert dashboard["policy"]["does_not_execute_agents"] is True
+          assert dashboard["policy"]["does_not_run_backtests"] is True
+          assert dashboard["policy"]["does_not_change_acceptance"] is True
           lineage = summary["champion_lineage"]
           assert lineage["schema_version"] == "champion_lineage_summary_v1"
           assert lineage["ok"] is True

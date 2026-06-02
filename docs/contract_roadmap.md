@@ -222,6 +222,12 @@ Codex CLI readiness contracts:
     change strategy acceptance. Compact lineage summaries may appear in
     experiment summary and champion inspection output, but only the explicit
     lineage command writes lineage artifacts.
+21. Experiment summary dashboards are read-only inspection payloads embedded in
+    `python -m orchestrator.experiments summary`. They can summarize latest
+    indexed runs, recent diagnosis rows, recent failure-code counts, and
+    best-run-to-champion gaps, but they cannot execute agents, run backtests,
+    route candidates, apply patches, promote champions, write artifacts, or
+    change strategy acceptance.
 
 ## Near-Term Development Order
 

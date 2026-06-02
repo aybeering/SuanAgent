@@ -135,6 +135,11 @@ promotion receipts, approval hashes, dry-run hashes, and metric deltas.
 `python -m orchestrator.experiments summary` and
 `python -m orchestrator.experiments champion` also include a compact read-only
 lineage summary without writing lineage artifacts.
+`python -m orchestrator.experiments summary` additionally embeds a compact
+dashboard with the latest indexed run, latest accepted and rejected runs, recent
+diagnosis rows, recent failure-code counts, and a best-run-to-champion gap. It
+is inspection-only and does not execute agents, run backtests, apply patches,
+promote champions, or change acceptance.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.

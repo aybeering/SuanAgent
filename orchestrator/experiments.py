@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -27,6 +28,8 @@ from orchestrator.run_diagnosis import diagnose_run
 
 
 CHAMPION_SCHEMA_VERSION = "champion_v1"
+SUMMARY_DASHBOARD_SCHEMA_VERSION = "experiment_summary_dashboard_v1"
+SUMMARY_DASHBOARD_RECENT_LIMIT = 5
 
 
 def list_experiments(
@@ -87,15 +90,253 @@ def summarize_experiments(
         by_status[status] = by_status.get(status, 0) + 1
 
     leaderboard = experiment_leaderboard(experiments_dir=experiments_dir, limit=1)
+    best_run = leaderboard[0] if leaderboard else None
     return {
         "total_runs": len(records),
         "by_kind": by_kind,
         "by_status": by_status,
-        "best_run": leaderboard[0] if leaderboard else None,
+        "best_run": best_run,
+        "dashboard": experiment_summary_dashboard(
+            records=records,
+            experiments_dir=experiments_dir,
+            best_run=best_run,
+        ),
         "champion_lineage": champion_lineage_summary(
             experiments_dir=experiments_dir,
         ),
     }
+
+
+def experiment_summary_dashboard(
+    *,
+    records: list[dict[str, object]],
+    experiments_dir: Path,
+    best_run: dict[str, object] | None,
+    recent_limit: int = SUMMARY_DASHBOARD_RECENT_LIMIT,
+) -> dict[str, object]:
+    """Return a compact read-only dashboard for experiment status."""
+    recent_records = records[-max(recent_limit, 0):] if recent_limit > 0 else []
+    recent_diagnoses = [
+        diagnose_record(record=record, experiments_dir=experiments_dir)
+        for record in recent_records
+    ]
+    failure_codes = recent_failure_code_counts(recent_diagnoses)
+    latest_run = compact_record_row(records[-1]) if records else None
+    latest_accepted = latest_record_with_status(records, status="accepted")
+    latest_rejected = latest_record_with_status(records, status="rejected")
+    return {
+        "schema_version": SUMMARY_DASHBOARD_SCHEMA_VERSION,
+        "total_runs": len(records),
+        "recent_limit": recent_limit,
+        "latest_run": latest_run,
+        "latest_accepted_run": latest_accepted,
+        "latest_rejected_run": latest_rejected,
+        "recent_runs": [
+            compact_diagnosis_row(diagnosis) for diagnosis in recent_diagnoses
+        ],
+        "recent_failure_codes": dict(sorted(failure_codes.items())),
+        "top_recent_failure_code": top_counter_key(failure_codes),
+        "champion_gap": champion_gap_summary(
+            experiments_dir=experiments_dir,
+            best_run=best_run,
+        ),
+        "policy": {
+            "inspection_only": True,
+            "reads_saved_artifacts_only": True,
+            "does_not_execute_agents": True,
+            "does_not_run_backtests": True,
+            "does_not_apply_patches": True,
+            "does_not_promote_champion": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+
+def diagnose_record(
+    *,
+    record: dict[str, object],
+    experiments_dir: Path,
+) -> dict[str, object]:
+    """Return diagnosis for one index record, with stable fallback fields."""
+    run_id = str(record.get("run_id", ""))
+    if not run_id:
+        return {
+            "run_id": "",
+            "kind": str(record.get("kind", "unknown")),
+            "status": "missing_run_id",
+            "artifact_ok": False,
+            "summary": "Index record is missing run_id.",
+            "failure_code": "missing_run_id",
+            "failure_stage": "index",
+        }
+    try:
+        diagnosis = diagnose_run(
+            run_id=run_id,
+            experiments_dir=experiments_dir,
+            repo_root=experiments_dir.parent,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        return {
+            "run_id": run_id,
+            "kind": str(record.get("kind", "unknown")),
+            "status": "diagnosis_failed",
+            "artifact_ok": False,
+            "summary": str(exc),
+            "failure_code": "diagnosis_failed",
+            "failure_stage": "inspection",
+        }
+    return diagnosis
+
+
+def latest_record_with_status(
+    records: list[dict[str, object]],
+    *,
+    status: str,
+) -> dict[str, object] | None:
+    """Return the latest compact index row with the requested status."""
+    for record in reversed(records):
+        if str(record.get("status", "")) == status:
+            return compact_record_row(record)
+    return None
+
+
+def compact_record_row(record: dict[str, object]) -> dict[str, object]:
+    """Return stable fields from one experiment index record."""
+    return {
+        "run_id": str(record.get("run_id", "")),
+        "kind": str(record.get("kind", "unknown")),
+        "status": str(record.get("status", "unknown")),
+        "created_at": str(record.get("created_at", "")),
+    }
+
+
+def compact_diagnosis_row(diagnosis: dict[str, object]) -> dict[str, object]:
+    """Return one compact dashboard row from a diagnosis payload."""
+    best_round = dict_payload(diagnosis.get("best_round", {}))
+    selected_candidates = list_payload(diagnosis.get("selected_candidates", []))
+    selected = selected_candidates[0] if selected_candidates else {}
+    return {
+        "run_id": str(diagnosis.get("run_id", "")),
+        "kind": str(diagnosis.get("kind", "unknown")),
+        "status": str(diagnosis.get("status", "unknown")),
+        "artifact_ok": bool(diagnosis.get("artifact_ok", False)),
+        "accepted": bool(diagnosis.get("accepted", False))
+        or str(diagnosis.get("status", "")) == "accepted",
+        "validation_ev_delta": dashboard_ev_delta(diagnosis, best_round),
+        "best_round": str(best_round.get("round_id", "")),
+        "accepted_round": diagnosis.get("accepted_round"),
+        "completed_rounds": int(diagnosis.get("completed_rounds", 0) or 0),
+        "stop_reason": str(diagnosis.get("stop_reason", "")),
+        "failure_code": diagnosis_failure_code(diagnosis),
+        "failure_stage": diagnosis_failure_stage(diagnosis),
+        "selected_direction_tag": str(selected.get("direction_tag", "")),
+        "summary": str(diagnosis.get("summary", "")),
+    }
+
+
+def dashboard_ev_delta(
+    diagnosis: dict[str, object],
+    best_round: dict[str, object],
+) -> float:
+    """Return the most comparable validation EV delta for a diagnosis."""
+    if best_round:
+        return round(float(best_round.get("validation_ev_delta", 0.0)), 6)
+    return round(float(diagnosis.get("validation_ev_delta", 0.0)), 6)
+
+
+def diagnosis_failure_code(diagnosis: dict[str, object]) -> str:
+    """Return the first stable failure code for a diagnosis."""
+    code = str(diagnosis.get("failure_code", ""))
+    if code:
+        return code
+    rounds = list_payload(diagnosis.get("rounds", []))
+    for row in reversed(rounds):
+        row_code = str(row.get("failure_code", ""))
+        if row_code and row_code != "none":
+            return row_code
+    return "none"
+
+
+def diagnosis_failure_stage(diagnosis: dict[str, object]) -> str:
+    """Return the first stable failure stage for a diagnosis."""
+    stage = str(diagnosis.get("failure_stage", ""))
+    if stage:
+        return stage
+    rounds = list_payload(diagnosis.get("rounds", []))
+    for row in reversed(rounds):
+        row_stage = str(row.get("failure_stage", ""))
+        if row_stage and row_stage != "none":
+            return row_stage
+    return "none"
+
+
+def recent_failure_code_counts(
+    diagnoses: list[dict[str, object]],
+) -> Counter[str]:
+    """Count non-success failure codes among recent diagnoses."""
+    counts: Counter[str] = Counter()
+    for diagnosis in diagnoses:
+        code = diagnosis_failure_code(diagnosis)
+        if code and code != "none":
+            counts[code] += 1
+    return counts
+
+
+def champion_gap_summary(
+    *,
+    experiments_dir: Path,
+    best_run: dict[str, object] | None,
+) -> dict[str, object]:
+    """Compare the current best indexed run against the champion registry."""
+    champion_file = champion_path(experiments_dir)
+    if not champion_file.exists():
+        return {
+            "active": False,
+            "status": "no_champion",
+            "champion_run_id": "",
+            "comparison_run_id": str(best_run.get("run_id", "")) if best_run else "",
+            "gap_to_champion": None,
+        }
+    champion = load_json(champion_file)
+    champion_run_id = str(champion.get("champion_run_id", ""))
+    champion_ev_delta = float(champion.get("validation_ev_delta", 0.0) or 0.0)
+    if not best_run:
+        return {
+            "active": False,
+            "status": "no_comparison_run",
+            "champion_run_id": champion_run_id,
+            "comparison_run_id": "",
+            "champion_validation_ev_delta": round(champion_ev_delta, 6),
+            "comparison_validation_ev_delta": None,
+            "gap_to_champion": None,
+        }
+    comparison_run_id = str(best_run.get("run_id", ""))
+    comparison_ev_delta = float(best_run.get("ev_delta", 0.0) or 0.0)
+    gap = round(comparison_ev_delta - champion_ev_delta, 6)
+    if comparison_run_id == champion_run_id:
+        status = "best_run_is_champion"
+    elif gap > 0:
+        status = "best_run_beats_champion"
+    elif gap < 0:
+        status = "best_run_trails_champion"
+    else:
+        status = "best_run_ties_champion"
+    return {
+        "active": True,
+        "status": status,
+        "champion_run_id": champion_run_id,
+        "comparison_run_id": comparison_run_id,
+        "champion_validation_ev_delta": round(champion_ev_delta, 6),
+        "comparison_validation_ev_delta": round(comparison_ev_delta, 6),
+        "gap_to_champion": gap,
+    }
+
+
+def top_counter_key(counter: Counter[str]) -> str:
+    """Return the highest-count key with stable tie-breaking."""
+    if not counter:
+        return "none"
+    return sorted(counter.items(), key=lambda item: (-item[1], item[0]))[0][0]
 
 
 def experiment_leaderboard(

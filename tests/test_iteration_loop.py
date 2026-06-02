@@ -2716,6 +2716,15 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert refresh["policy"]["does_not_execute_agents"] is True
     assert refresh["policy"]["does_not_change_acceptance"] is True
     assert refreshed["snapshot_freshness"]["ok"] is True
+    refreshed_blockers = refreshed["blockers"]
+    if refreshed_blockers:
+        assert refresh["operator_summary"]["primary_blocker"] == refreshed_blockers[0]
+        assert refresh["operator_summary"]["blocker_preview"] == refreshed_blockers[:5]
+        assert f"Primary blocker: `{refreshed_blockers[0]}`" in refresh_markdown
+        assert "## Current Blockers" in refresh_markdown
+    else:
+        assert refresh["operator_summary"]["primary_blocker"] == ""
+        assert refresh["operator_summary"]["blocker_preview"] == []
     assert validate_run_artifacts(
         run_id=run_id,
         experiments_dir=repo / "experiments",
@@ -2787,6 +2796,10 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
         f"cockpit {run_id} --markdown"
         in refresh["operator_summary"]["next_command"]
     )
+    assert "primary_blocker" in refresh["operator_summary"]
+    assert "blocker_preview" in refresh["operator_summary"]
+    assert "Primary blocker:" in refresh_markdown
+    assert "## Current Blockers" in refresh_markdown
     assert "Next command: `review_cockpit`" in refresh_markdown
     assert f"cockpit {run_id} --markdown" in refresh_markdown
     for row in refresh["refreshed_artifacts"]:

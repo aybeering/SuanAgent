@@ -1361,16 +1361,14 @@ def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, objec
     """Return the next operator-facing checkpoint after refreshing views."""
     commands = list_payload(cockpit.get("recommended_commands", []))
     next_command = commands[0] if commands else {}
-    blockers = list_payload(cockpit.get("blockers", []))
-    raw_blockers = cockpit.get("blockers", [])
-    blocker_count = (
-        len(raw_blockers) if isinstance(raw_blockers, list) else len(blockers)
-    )
+    blockers = string_payload(cockpit.get("blockers", []))
     return {
         "cockpit_status": str(cockpit.get("status", "")),
         "cockpit_ok": bool(cockpit.get("ok", False)),
         "primary_focus": str(cockpit.get("primary_focus", "")),
-        "blocker_count": blocker_count,
+        "blocker_count": len(blockers),
+        "primary_blocker": blockers[0] if blockers else "",
+        "blocker_preview": blockers[:5],
         "next_command_label": str(next_command.get("label", "")),
         "next_command": str(next_command.get("command", "")),
         "next_command_reason": str(next_command.get("reason", "")),
@@ -1400,6 +1398,7 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Cockpit status: `{operator_summary.get('cockpit_status', '')}`",
         f"- Primary focus: `{operator_summary.get('primary_focus', '')}`",
         f"- Blockers: `{operator_summary.get('blocker_count', 0)}`",
+        f"- Primary blocker: `{operator_summary.get('primary_blocker', '')}`",
         f"- Next command: `{operator_summary.get('next_command_label', '')}`",
         f"- Next command text: `{operator_summary.get('next_command', '')}`",
         "",
@@ -1428,6 +1427,12 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     for source in pre_stale_sources if isinstance(pre_stale_sources, list) else []:
         lines.append(f"- `{source}`")
     if not pre_stale_sources:
+        lines.append("- none")
+    blocker_preview = operator_summary.get("blocker_preview", [])
+    lines.extend(["", "## Current Blockers", ""])
+    for blocker in blocker_preview if isinstance(blocker_preview, list) else []:
+        lines.append(f"- `{blocker}`")
+    if not blocker_preview:
         lines.append("- none")
     stale_sources = freshness.get("stale_sources", [])
     lines.extend(["", "## Snapshot Freshness", ""])
@@ -2249,6 +2254,13 @@ def list_payload(value: object) -> list[dict[str, object]]:
     if not isinstance(value, list):
         return []
     return [row for row in value if isinstance(row, dict)]
+
+
+def string_payload(value: object) -> list[str]:
+    """Return string rows from a list payload."""
+    if not isinstance(value, list):
+        return []
+    return [str(row) for row in value]
 
 
 def load_json(path: Path) -> dict[str, object]:

@@ -186,7 +186,8 @@ change acceptance.
 Use `--markdown` for the same terminal-only receipt as a short operator summary
 when reviewing the stale sources that were fixed plus the refreshed paths and
 hash prefixes by eye. The summary also surfaces the refreshed cockpit status,
-primary focus, blocker count, and first recommended next command.
+primary focus, blocker count, primary blocker, blocker preview, and first
+recommended next command.
 
 Record operator review intent:
 

@@ -130,6 +130,7 @@
           "runner_name",
           "agent_name",
           "direction_tag",
+          "direction_intent_alignment",
           "status",
           "selected",
           "candidate_score",
@@ -164,6 +165,9 @@
           },
           "direction_tag": {
             "type": "string"
+          },
+          "direction_intent_alignment": {
+            "type": "object"
           },
           "status": {
             "type": "string"

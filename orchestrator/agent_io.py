@@ -346,6 +346,9 @@ def compact_attempts(attempts: list[dict[str, object]]) -> list[dict[str, object
                 "runner_name": attempt.get("runner_name", ""),
                 "agent_name": attempt.get("agent_name", ""),
                 "direction_tag": attempt.get("direction_tag", ""),
+                "direction_intent_alignment": attempt.get(
+                    "direction_intent_alignment", {}
+                ),
                 "status": attempt.get("status", ""),
                 "selected": bool(attempt.get("selected", False)),
                 "candidate_score": attempt.get("candidate_score", 0),

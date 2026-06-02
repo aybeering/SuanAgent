@@ -353,6 +353,8 @@ jobs:
           assert attempts[0]["supported_directions"]
           assert attempts[0]["direction_capability"]["schema_version"] == "direction_capability_v1"
           assert attempts[0]["direction_capability"]["ok"] is True
+          assert attempts[0]["direction_intent_alignment"]["schema_version"] == "direction_intent_alignment_v1"
+          assert attempts[0]["direction_intent_alignment"]["policy"]["audit_only"] is True
           leaderboard = json.load(open("experiments/ci-adaptive/candidate_leaderboard.json"))
           assert "failure_stage" in leaderboard[0]
           assert leaderboard[0]["quality_breakdown"]["schema_version"] == "candidate_quality_v1"
@@ -386,6 +388,7 @@ jobs:
           assert executor["execution_policy"]["max_candidates"] == 0
           assert executor["execution_policy"]["per_agent_timeout_seconds"] == 120
           assert executor["attempts"][0]["direction_capability"]["ok"] is True
+          assert executor["attempts"][0]["direction_intent_alignment"]["schema_version"] == "direction_intent_alignment_v1"
           workspace = json.load(open("experiments/ci-file-protocol-demo/round_001/workspace_manifest.json"))
           assert workspace["attempt_id"] == "attempt_001_primary"
           assert "attempt_001_primary" in workspace["workspace_path"]

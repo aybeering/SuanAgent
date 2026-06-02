@@ -72,6 +72,9 @@ def write_agent_attempts_manifest(
                 "adapter_name": attempt.get("adapter_name", ""),
                 "supported_directions": attempt.get("supported_directions", []),
                 "direction_capability": attempt.get("direction_capability", {}),
+                "direction_intent_alignment": attempt.get(
+                    "direction_intent_alignment", {}
+                ),
                 "runner_name": attempt.get("runner_name", ""),
                 "runner": attempt.get("runner", {}),
                 "agent_name": attempt.get("agent_name", ""),
@@ -174,6 +177,9 @@ def selection_rows(
                 "adapter_name": attempt.get("adapter_name", ""),
                 "supported_directions": attempt.get("supported_directions", []),
                 "direction_capability": attempt.get("direction_capability", {}),
+                "direction_intent_alignment": attempt.get(
+                    "direction_intent_alignment", {}
+                ),
                 "runner_name": attempt.get("runner_name", ""),
                 "runner": attempt.get("runner", {}),
                 "agent_name": attempt.get("agent_name", ""),
@@ -299,6 +305,7 @@ def attempt_output_payload(
         "adapter_name": attempt.get("adapter_name", ""),
         "supported_directions": attempt.get("supported_directions", []),
         "direction_capability": attempt.get("direction_capability", {}),
+        "direction_intent_alignment": attempt.get("direction_intent_alignment", {}),
         "runner_name": attempt.get("runner_name", ""),
         "runner": attempt.get("runner", {}),
         "agent_name": attempt.get("agent_name", ""),

@@ -248,7 +248,8 @@ Context and planning artifacts:
   profile's declared direction capability before any modifier runs.
 - `agent_routing_policy.json` explains deterministic candidate ranking,
   including whether each proposal direction matched the profile's declared
-  capability.
+  capability and whether it matched or auditably deviated from
+  `proposal_intent.json`.
 
 Role and readiness artifacts:
 

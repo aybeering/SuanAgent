@@ -93,6 +93,11 @@ that declaration only as a deterministic contract check after a proposal is
 normalized: a candidate whose `direction_tag` is outside its own declared
 capability is skipped and audited as `direction_not_supported`. This does not
 let the planner choose an agent and does not bypass the policy gate.
+Candidate artifacts also include `direction_intent_alignment`, which compares
+the proposal intent's recommended direction, the profile capability, and the
+actual proposal direction. It records whether a proposal matched or deviated
+from the recommendation and whether that deviation was allowed, but it is
+audit-only.
 The corresponding JSON Schema files are:
 
 ```text

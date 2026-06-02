@@ -2688,6 +2688,18 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_attempts["attempts"][0]["agent_role"] == "strategy_modifier"
     assert agent_attempts["attempts"][0]["adapter_name"] == "fixed_patch_stub"
     assert agent_attempts["attempts"][0]["runner_name"] == "in_process_modifier"
+    assert agent_attempts["attempts"][0]["direction_intent_alignment"][
+        "schema_version"
+    ] == "direction_intent_alignment_v1"
+    assert agent_attempts["attempts"][0]["direction_intent_alignment"][
+        "recommended_direction"
+    ] == "lower_min_edge"
+    assert agent_attempts["attempts"][0]["direction_intent_alignment"][
+        "proposal_matches_recommended_direction"
+    ] is True
+    assert agent_attempts["attempts"][0]["direction_intent_alignment"]["policy"][
+        "audit_only"
+    ] is True
     assert agent_attempts["attempts"][0]["failure_code"] == "policy_ev_improvement_low"
     assert agent_attempts["attempts"][0]["files"]
     assert_matches_schema(round_dir / "agent_selection_report.json", "agent_selection")
@@ -2702,6 +2714,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_selection["attempts"][0]["rank"] == 1
     assert agent_selection["attempts"][0]["failure_stage"] == "policy_gate"
     assert agent_selection["attempts"][0]["failure_code"] == "policy_ev_improvement_low"
+    assert agent_selection["attempts"][0]["direction_intent_alignment"][
+        "proposal_matches_recommended_direction"
+    ] is True
     assert agent_selection["attempts"][0]["score_reasons"]
     assert agent_selection["attempts"][0]["skip_reason"] == ""
     assert (
@@ -2763,6 +2778,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert attempt_output["selected"] is True
     assert attempt_output["proposal"]["patch_sha256"] == proposal["patch_sha256"]
     assert attempt_output["selection"]["skip_reason"] == ""
+    assert attempt_output["direction_intent_alignment"][
+        "proposal_matches_recommended_direction"
+    ] is True
     assert attempt_output["failure_code"] == "policy_ev_improvement_low"
     assert attempt_output["artifacts"]["agent_input"].endswith(
         "agent_attempts/attempt_001_primary/agent_input.json"
@@ -2780,6 +2798,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_output["attempts"][0]["agent_role"] == "strategy_modifier"
     assert agent_output["attempts"][0]["adapter_name"] == "fixed_patch_stub"
     assert agent_output["attempts"][0]["runner_name"] == "in_process_modifier"
+    assert agent_output["attempts"][0]["direction_intent_alignment"][
+        "recommended_direction"
+    ] == "lower_min_edge"
     assert "routing_prior" in agent_output["attempts"][0]
     assert agent_output["attempts"][0]["quality_breakdown"]["schema_version"] == (
         "candidate_quality_v1"
@@ -2850,6 +2871,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert agent_routing["candidates"][0]["selected"] is True
     assert agent_routing["candidates"][0]["agent_role"] == "strategy_modifier"
+    assert agent_routing["candidates"][0]["direction_intent_alignment"][
+        "proposal_matches_recommended_direction"
+    ] is True
     assert agent_routing["candidates"][0]["quality_breakdown"]["total_score"] == (
         selected_attempt["candidate_score"]
     )
@@ -2864,6 +2888,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_executor["attempts"][0]["profile_name"] == "primary"
     assert agent_executor["attempts"][0]["agent_role"] == "strategy_modifier"
     assert agent_executor["attempts"][0]["adapter_name"] == "fixed_patch_stub"
+    assert agent_executor["attempts"][0]["direction_intent_alignment"][
+        "proposal_matches_recommended_direction"
+    ] is True
     assert agent_executor["attempts"][0]["proposal"]["applicable"] is True
     assert agent_executor["attempts"][0]["artifacts"]["attempt_dir"].endswith(
         "agent_attempts/attempt_001_primary"
@@ -3555,16 +3582,35 @@ def test_iteration_loop_skips_profile_with_unsupported_direction(
     assert attempts[0]["direction_capability"]["proposal_direction_tag"] == (
         "lower_min_edge"
     )
+    assert attempts[0]["direction_intent_alignment"]["recommended_direction"] == (
+        "lower_min_edge"
+    )
+    assert attempts[0]["direction_intent_alignment"][
+        "profile_covers_recommended_direction"
+    ] is False
+    assert attempts[0]["direction_intent_alignment"][
+        "proposal_matches_recommended_direction"
+    ] is True
     assert attempts[0]["supported_directions"] == ["raise_min_edge"]
     assert attempts[1]["status"] == "selectable"
     assert attempts[1]["selected"] is True
     assert attempts[1]["direction_tag"] == "raise_min_edge"
     assert attempts[1]["direction_capability"]["ok"] is True
+    assert attempts[1]["direction_intent_alignment"][
+        "proposal_deviates_from_recommended"
+    ] is True
+    assert attempts[1]["direction_intent_alignment"]["deviation_allowed"] is True
+    assert "proposal uses supported non-recommended direction" in attempts[1][
+        "direction_intent_alignment"
+    ]["reason"]
     assert selection["attempts"][0]["skip_reason"].startswith(
         "profile does not support proposal direction lower_min_edge"
     )
     assert routing["candidates"][0]["eligible"] is False
     assert routing["candidates"][0]["direction_capability"]["ok"] is False
+    assert routing["candidates"][0]["direction_intent_alignment"][
+        "profile_covers_recommended_direction"
+    ] is False
     assert routing["candidates"][1]["selected"] is True
     assert execution_plan["attempts"][0]["direction_capability"][
         "supported_directions"

@@ -48,6 +48,7 @@
           "adapter_name",
           "supported_directions",
           "direction_capability",
+          "direction_intent_alignment",
           "runner_name",
           "runner",
           "agent_name",
@@ -91,6 +92,9 @@
             }
           },
           "direction_capability": {
+            "type": "object"
+          },
+          "direction_intent_alignment": {
             "type": "object"
           },
           "runner_name": {

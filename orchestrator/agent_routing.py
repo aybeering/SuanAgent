@@ -109,6 +109,9 @@ def routing_candidates(
                 "direction_capability": dict_or_empty(
                     attempt.get("direction_capability", {})
                 ),
+                "direction_intent_alignment": dict_or_empty(
+                    attempt.get("direction_intent_alignment", {})
+                ),
                 "runner_name": str(attempt.get("runner_name", "")),
                 "runner": dict_or_empty(attempt.get("runner", {})),
                 "agent_name": str(attempt.get("agent_name", "")),

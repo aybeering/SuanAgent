@@ -882,6 +882,7 @@ def run_round(
         probe_data_path=probe_data_path,
         probe_metrics_before=probe_metrics_before,
         round_dir=round_dir,
+        proposal_intent_path=intent_path,
     )
     proposal_fallback_used = selected_attempt["role"] != "primary"
     proposal_fallback_reason = (
@@ -1434,6 +1435,7 @@ def proposal_attempt_record(
     agent_role: str,
     supported_directions: list[str],
     direction_capability: dict[str, object],
+    direction_intent_alignment: dict[str, object],
     runner_capability: dict[str, object],
     proposal: StrategyProposal,
     memory_filter_reason: str,
@@ -1478,6 +1480,7 @@ def proposal_attempt_record(
         "adapter_name": adapter_name,
         "supported_directions": supported_directions,
         "direction_capability": direction_capability,
+        "direction_intent_alignment": direction_intent_alignment,
         "direction_capability_reason": str(direction_capability.get("reason", "")),
         "runner": runner_capability,
         "runner_name": str(runner_capability.get("runner_name", "")),
@@ -1553,8 +1556,10 @@ def select_proposal_candidate(
     probe_data_path: Path,
     probe_metrics_before: dict[str, float | int],
     round_dir: Path,
+    proposal_intent_path: Path,
 ) -> tuple[StrategyProposal, str, list[dict[str, object]], dict[str, object], str]:
     """Return the highest-scored proposal that passes cheap deterministic filters."""
+    proposal_intent = load_json_object(proposal_intent_path)
     agent_queue = build_agent_queue(
         primary_modifier=modifier,
         fallback_modifiers=fallback_modifiers,
@@ -1630,6 +1635,12 @@ def select_proposal_candidate(
             supported_directions=supported_directions,
             proposal_direction_tag=proposal.direction_tag,
             strategy_search_space=strategy_search_space,
+        )
+        direction_intent_alignment_payload = direction_intent_alignment_for_proposal(
+            proposal_intent=proposal_intent,
+            proposal_direction_tag=proposal.direction_tag,
+            supported_directions=supported_directions,
+            direction_capability=direction_capability_payload,
         )
         direction_capability_reason = str(
             direction_capability_payload.get("reason", "")
@@ -1724,6 +1735,7 @@ def select_proposal_candidate(
                 agent_role=agent_role,
                 supported_directions=list(supported_directions),
                 direction_capability=direction_capability_payload,
+                direction_intent_alignment=direction_intent_alignment_payload,
                 runner_capability=runner_capability,
                 proposal=proposal,
                 memory_filter_reason=memory_reason,
@@ -1855,6 +1867,107 @@ def direction_capability_for_proposal(
     }
 
 
+def direction_intent_alignment_for_proposal(
+    *,
+    proposal_intent: dict[str, object],
+    proposal_direction_tag: str,
+    supported_directions: tuple[str, ...],
+    direction_capability: dict[str, object],
+) -> dict[str, object]:
+    """Return audit-only alignment between planner intent, profile, and proposal."""
+    recommended_direction = str(proposal_intent.get("recommended_direction", ""))
+    avoid_directions = string_list(proposal_intent.get("avoid_directions", []))
+    normalized_supported = tuple(
+        str(direction) for direction in supported_directions if str(direction)
+    )
+    wildcard = "*" in normalized_supported
+    profile_covers_recommended = bool(recommended_direction) and (
+        wildcard or recommended_direction in normalized_supported
+    )
+    proposal_matches_recommended = (
+        bool(recommended_direction)
+        and proposal_direction_tag == recommended_direction
+    )
+    proposal_avoids_blocked = proposal_direction_tag not in avoid_directions
+    proposal_supported = bool(direction_capability.get("ok", False))
+    deviation = bool(
+        recommended_direction
+        and proposal_direction_tag
+        and proposal_direction_tag != recommended_direction
+    )
+    deviation_allowed = bool(
+        deviation and proposal_supported and proposal_avoids_blocked
+    )
+    reason = direction_intent_alignment_reason(
+        recommended_direction=recommended_direction,
+        proposal_direction_tag=proposal_direction_tag,
+        proposal_supported=proposal_supported,
+        proposal_matches_recommended=proposal_matches_recommended,
+        proposal_avoids_blocked=proposal_avoids_blocked,
+        profile_covers_recommended=profile_covers_recommended,
+        deviation=deviation,
+        deviation_allowed=deviation_allowed,
+    )
+    return {
+        "schema_version": "direction_intent_alignment_v1",
+        "recommended_direction": recommended_direction,
+        "avoid_directions": avoid_directions,
+        "proposal_direction_tag": proposal_direction_tag,
+        "supported_directions": list(normalized_supported),
+        "profile_covers_recommended_direction": profile_covers_recommended,
+        "proposal_matches_recommended_direction": proposal_matches_recommended,
+        "proposal_avoids_blocked_direction": proposal_avoids_blocked,
+        "proposal_supported_by_profile": proposal_supported,
+        "proposal_deviates_from_recommended": deviation,
+        "deviation_allowed": deviation_allowed,
+        "reason": reason,
+        "policy": {
+            "audit_only": True,
+            "does_not_route_candidates": True,
+            "does_not_change_acceptance": True,
+            "acceptance_still_requires_policy_gate": True,
+        },
+    }
+
+
+def direction_intent_alignment_reason(
+    *,
+    recommended_direction: str,
+    proposal_direction_tag: str,
+    proposal_supported: bool,
+    proposal_matches_recommended: bool,
+    proposal_avoids_blocked: bool,
+    profile_covers_recommended: bool,
+    deviation: bool,
+    deviation_allowed: bool,
+) -> str:
+    """Return stable explanatory text for direction-intent alignment."""
+    if not recommended_direction:
+        return "proposal intent has no recommended direction"
+    if not proposal_direction_tag:
+        return "proposal direction_tag is empty"
+    if not proposal_supported:
+        return "proposal direction is outside profile capability"
+    if not proposal_avoids_blocked:
+        return f"proposal uses avoided direction {proposal_direction_tag}"
+    if proposal_matches_recommended:
+        return "proposal matches recommended direction"
+    if deviation and deviation_allowed:
+        if not profile_covers_recommended:
+            return (
+                "profile does not cover recommended direction "
+                f"{recommended_direction}; proposal uses supported "
+                f"non-recommended direction {proposal_direction_tag}"
+            )
+        return (
+            "proposal uses supported non-recommended direction "
+            f"{proposal_direction_tag}"
+        )
+    if not profile_covers_recommended:
+        return f"profile does not cover recommended direction {recommended_direction}"
+    return "proposal direction alignment is informational"
+
+
 def strategy_search_space_direction_order(
     strategy_search_space: dict[str, object],
 ) -> tuple[str, ...]:
@@ -1863,6 +1976,22 @@ def strategy_search_space_direction_order(
     if isinstance(raw_order, list | tuple):
         return tuple(str(direction) for direction in raw_order if str(direction))
     return ()
+
+
+def load_json_object(path: Path) -> dict[str, object]:
+    """Load a JSON object when an optional artifact exists."""
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def string_list(value: object) -> list[str]:
+    """Return stable string list metadata."""
+    return [str(item) for item in value] if isinstance(value, list | tuple) else []
 
 
 def proposal_candidate_status(

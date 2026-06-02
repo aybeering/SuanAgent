@@ -2202,6 +2202,11 @@ def validate_agent_executor_report(
             artifact_name="agent_executor_report.json",
             report=report,
         )
+        validate_direction_intent_alignment_row(
+            row=row,
+            artifact_name="agent_executor_report.json",
+            report=report,
+        )
         artifacts = row.get("artifacts", {})
         if not isinstance(artifacts, dict):
             add_error(report, "agent_executor_report.json artifacts is non-object")
@@ -2267,6 +2272,11 @@ def validate_agent_routing_policy(
             artifact_name="agent_routing_policy.json",
             report=report,
         )
+        validate_direction_intent_alignment_row(
+            row=row,
+            artifact_name="agent_routing_policy.json",
+            report=report,
+        )
         artifacts = row.get("artifacts", {})
         if not isinstance(artifacts, dict):
             add_error(report, "agent_routing_policy.json artifacts is non-object")
@@ -2328,6 +2338,11 @@ def validate_agent_selection_report(
             artifact_name="agent_selection_report.json",
             report=report,
         )
+        validate_direction_intent_alignment_row(
+            row=row,
+            artifact_name="agent_selection_report.json",
+            report=report,
+        )
         attempt_dir = resolve_path(Path(str(row.get("attempt_dir", ""))), repo_root)
         if not attempt_dir.exists() or not attempt_dir.is_dir():
             add_error(report, f"selection attempt_dir does not exist: {attempt_dir}")
@@ -2372,6 +2387,51 @@ def validate_direction_capability_row(
         )
     if status == "selectable" and not capability_ok:
         add_error(report, f"{artifact_name} selectable row has failed capability")
+
+
+def validate_direction_intent_alignment_row(
+    *,
+    row: dict[str, object],
+    artifact_name: str,
+    report: dict[str, object],
+) -> None:
+    """Validate audit-only planner/profile/proposal direction alignment."""
+    alignment = row.get("direction_intent_alignment", {})
+    if not isinstance(alignment, dict):
+        add_error(report, f"{artifact_name} direction_intent_alignment must be object")
+        return
+    if alignment.get("schema_version") != "direction_intent_alignment_v1":
+        add_error(report, f"{artifact_name} direction_intent_alignment schema mismatch")
+    policy = alignment.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, f"{artifact_name} direction_intent_alignment policy invalid")
+    else:
+        for key in (
+            "audit_only",
+            "does_not_route_candidates",
+            "does_not_change_acceptance",
+            "acceptance_still_requires_policy_gate",
+        ):
+            if policy.get(key) is not True:
+                add_error(
+                    report,
+                    f"{artifact_name} direction_intent_alignment policy false: {key}",
+                )
+    proposal_direction = str(row.get("direction_tag", ""))
+    if str(alignment.get("proposal_direction_tag", "")) != proposal_direction:
+        add_error(
+            report,
+            f"{artifact_name} direction_intent_alignment proposal direction mismatch",
+        )
+    recommended = str(alignment.get("recommended_direction", ""))
+    matches = bool(alignment.get("proposal_matches_recommended_direction", False))
+    deviates = bool(alignment.get("proposal_deviates_from_recommended", False))
+    if recommended and proposal_direction == recommended and not matches:
+        add_error(report, f"{artifact_name} alignment should mark recommendation match")
+    if recommended and proposal_direction != recommended and matches:
+        add_error(report, f"{artifact_name} alignment incorrectly marks match")
+    if matches and deviates:
+        add_error(report, f"{artifact_name} alignment cannot both match and deviate")
 
 
 def validate_required_files(

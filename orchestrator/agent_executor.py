@@ -235,6 +235,9 @@ def executor_attempt_row(
         "direction_capability": dict_or_empty(
             attempt.get("direction_capability", {})
         ),
+        "direction_intent_alignment": dict_or_empty(
+            attempt.get("direction_intent_alignment", {})
+        ),
         "runner": dict_or_empty(attempt.get("runner", {})),
         "agent_name": str(attempt.get("agent_name", "")),
         "direction_tag": str(attempt.get("direction_tag", "")),

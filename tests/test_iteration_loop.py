@@ -2463,6 +2463,17 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
 
     assert refresh["schema_version"] == "operator_view_refresh_v1"
     assert str(refresh["config_path"]).endswith("config/codex_cli_guarded.json")
+    assert refresh["config_source"] == "run_metadata"
+    assert refresh["config_path_exists"] is True
+    assert refresh["config_record"]["source"] == "run_metadata"
+    assert refresh["config_record"]["relative_path"] == "config/codex_cli_guarded.json"
+    assert refresh["config_record"]["metadata_relative_path"] == (
+        f"experiments/{run_id}/run_metadata.json"
+    )
+    assert refresh["config_record"]["metadata_exists"] is True
+    assert refresh["config_sha256"] == hashlib.sha256(
+        (repo / "config/codex_cli_guarded.json").read_bytes()
+    ).hexdigest()
     assert preflight["schema_version"] == "codex_cli_execution_preflight_v1"
     assert preflight["summary"]["real_codex_execute_profile_count"] == 0
     assert diff["schema_version"] == "codex_cli_execution_readiness_diff_v1"
@@ -2476,6 +2487,27 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
         experiments_dir=repo / "experiments",
         repo_root=repo,
     )["ok"] is True
+
+    override_refresh = refresh_operator_views_command(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+    )
+    override_diff = json.loads(
+        (run_dir / "codex_cli_execution_readiness_diff.json").read_text(
+            encoding="utf-8",
+        )
+    )
+
+    assert override_refresh["config_source"] == "explicit_override"
+    assert str(override_refresh["config_path"]).endswith("config/default.json")
+    assert override_refresh["config_record"]["relative_path"] == "config/default.json"
+    assert override_refresh["config_sha256"] == hashlib.sha256(
+        (repo / "config/default.json").read_bytes()
+    ).hexdigest()
+    assert override_diff["current_expected_execution"]["source_config"][
+        "path"
+    ].endswith("config/default.json")
 
 
 def test_config_application_receipt_applies_only_from_approved_dry_run(

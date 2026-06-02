@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from collections import Counter
 from datetime import UTC, datetime
@@ -1243,11 +1244,18 @@ def refresh_operator_views(
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
     repo_root = experiments_dir.parent
-    active_config_path = config_path or inferred_run_config_path(
+    active_config_path, config_source = refresh_config_path(
+        config_path=config_path,
         run_dir=run_dir,
         repo_root=repo_root,
     )
     active_config = load_project_config(repo_root, active_config_path)
+    config_record = refresh_config_record(
+        active_config_path,
+        repo_root=repo_root,
+        source=config_source,
+        metadata_path=run_dir / "run_metadata.json",
+    )
     refreshed: list[dict[str, object]] = []
     for artifact_name, writer in (
         (
@@ -1314,6 +1322,10 @@ def refresh_operator_views(
         "run_id": run_id,
         "run_dir": str(run_dir),
         "config_path": str(active_config_path),
+        "config_source": config_source,
+        "config_path_exists": bool(config_record["exists"]),
+        "config_sha256": str(config_record["sha256"]),
+        "config_record": config_record,
         "refreshed_count": len(refreshed),
         "refreshed_artifacts": refreshed,
         "cockpit_snapshot_freshness": cockpit.get("snapshot_freshness", {}),
@@ -1335,13 +1347,65 @@ def refresh_operator_views(
 
 def inferred_run_config_path(*, run_dir: Path, repo_root: Path) -> Path:
     """Return the config path recorded for a run, falling back to default."""
+    return refresh_config_path(
+        config_path=None,
+        run_dir=run_dir,
+        repo_root=repo_root,
+    )[0]
+
+
+def refresh_config_path(
+    *,
+    config_path: Path | None,
+    run_dir: Path,
+    repo_root: Path,
+) -> tuple[Path, str]:
+    """Return the effective refresh config path and provenance source."""
+    if config_path is not None:
+        active_path = (
+            config_path if config_path.is_absolute() else repo_root / config_path
+        )
+        return active_path, "explicit_override"
     metadata_path = run_dir / "run_metadata.json"
     if metadata_path.exists():
         metadata = load_json(metadata_path)
         path_text = str(metadata.get("config_path", ""))
         if path_text:
-            return Path(path_text)
-    return repo_root / "config/default.json"
+            path = Path(path_text)
+            active_path = path if path.is_absolute() else repo_root / path
+            return active_path, "run_metadata"
+    return repo_root / "config/default.json", "default_fallback"
+
+
+def refresh_config_record(
+    path: Path,
+    *,
+    repo_root: Path,
+    source: str,
+    metadata_path: Path,
+) -> dict[str, object]:
+    """Return the config file record used by the refresh command."""
+    exists = path.exists()
+    data = path.read_bytes() if exists and path.is_file() else b""
+    return {
+        "source": source,
+        "path": str(path),
+        "relative_path": repo_relative_path(path, repo_root),
+        "exists": exists,
+        "bytes": len(data),
+        "sha256": hashlib.sha256(data).hexdigest() if data else "",
+        "metadata_path": str(metadata_path),
+        "metadata_relative_path": repo_relative_path(metadata_path, repo_root),
+        "metadata_exists": metadata_path.exists(),
+    }
+
+
+def repo_relative_path(path: Path, repo_root: Path) -> str:
+    """Return a repository-relative path when possible."""
+    try:
+        return str(path.resolve().relative_to(repo_root.resolve()))
+    except ValueError:
+        return str(path)
 
 
 def operator_unlock_checklist_report(

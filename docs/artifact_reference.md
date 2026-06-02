@@ -314,9 +314,10 @@ explicit convenience command that rewrites the existing read-only operator
 action dashboard, Codex CLI execution preflight, operator unlock checklist,
 Codex CLI execution readiness diff, and operator cockpit in dependency order.
 It uses the run's recorded config path unless `--config` is provided, returns a
-terminal-only `operator_view_refresh_v1` receipt, and still does not execute
-commands, execute Codex, run agents, run backtests, write config, promote
-champions, apply patches, route agents, or change acceptance.
+terminal-only `operator_view_refresh_v1` receipt with config source, path,
+existence, and SHA-256 fields, and still does not execute commands, execute
+Codex, run agents, run backtests, write config, promote champions, apply
+patches, route agents, or change acceptance.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.

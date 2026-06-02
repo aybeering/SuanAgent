@@ -1151,6 +1151,7 @@ jobs:
           PY
           python -m orchestrator.experiments refresh-operator-views ci-adaptive > /tmp/operator_view_refresh.json
           python - <<'PY'
+          import hashlib
           import json
           refresh = json.load(open("/tmp/operator_view_refresh.json"))
           dashboard = json.load(open("experiments/ci-adaptive/operator_action_dashboard.json"))
@@ -1172,6 +1173,13 @@ jobs:
           assert refresh["policy"]["does_not_execute_codex_cli"] is True
           assert refresh["policy"]["does_not_run_backtests"] is True
           assert refresh["policy"]["does_not_change_acceptance"] is True
+          assert refresh["config_source"] == "run_metadata"
+          assert refresh["config_path_exists"] is True
+          assert refresh["config_record"]["relative_path"] == "config/adaptive_stub.json"
+          assert refresh["config_record"]["metadata_relative_path"] == "experiments/ci-adaptive/run_metadata.json"
+          assert refresh["config_sha256"] == hashlib.sha256(
+              open("config/adaptive_stub.json", "rb").read()
+          ).hexdigest()
           assert dashboard["schema_version"] == "operator_action_dashboard_v1"
           assert checklist["schema_version"] == "operator_unlock_checklist_v1"
           assert checklist["navigation"]["policy"]["does_not_execute_commands"] is True

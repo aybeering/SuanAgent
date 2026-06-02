@@ -59,7 +59,8 @@ action execution receipts, read-only operator action audit artifacts, read-only
 operator action dashboard artifacts, read-only operator unlock checklist
 artifacts, read-only Codex CLI unlock runbook artifacts, read-only operator
 cockpit artifacts, read-only Codex CLI execution readiness diff artifacts, and
-Codex CLI readiness evidence.
+Codex CLI readiness evidence, plus schema-validated terminal-only operator view
+refresh receipts.
 
 Still out of scope:
 

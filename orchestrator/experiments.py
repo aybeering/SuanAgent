@@ -77,11 +77,13 @@ from orchestrator.run_artifact_health import (
 )
 from orchestrator.run_closeout import build_run_closeout
 from orchestrator.run_diagnosis import diagnose_run
+from orchestrator.schema_validation import load_schema, validate_json_payload
 
 
 CHAMPION_SCHEMA_VERSION = "champion_v1"
 SUMMARY_DASHBOARD_SCHEMA_VERSION = "experiment_summary_dashboard_v1"
 SUMMARY_DASHBOARD_RECENT_LIMIT = 5
+OPERATOR_VIEW_REFRESH_SCHEMA_PATH = Path("schemas/operator_view_refresh.schema.json")
 
 
 def list_experiments(
@@ -1360,7 +1362,7 @@ def refresh_operator_views(
         post_refresh_freshness=post_refresh_freshness,
         policy_summary=policy_summary,
     )
-    return {
+    payload = {
         "schema_version": "operator_view_refresh_v1",
         "run_id": run_id,
         "run_dir": str(run_dir),
@@ -1380,6 +1382,12 @@ def refresh_operator_views(
         "policy": policy,
         "policy_summary": policy_summary,
     }
+    errors = validate_operator_view_refresh_payload(payload, repo_root=repo_root)
+    if errors:
+        raise ValueError(
+            "operator view refresh failed schema validation: " + "; ".join(errors)
+        )
+    return payload
 
 
 def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, object]:
@@ -1522,6 +1530,16 @@ def operator_view_refresh_policy_summary(
         "false_count": len(false_keys),
         "false_keys": false_keys,
     }
+
+
+def validate_operator_view_refresh_payload(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate an in-memory operator view refresh receipt payload."""
+    schema = load_schema(repo_root / OPERATOR_VIEW_REFRESH_SCHEMA_PATH)
+    return validate_json_payload(payload=payload, schema=schema)
 
 
 def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:

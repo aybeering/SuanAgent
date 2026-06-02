@@ -1,0 +1,418 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Operator View Refresh Receipt",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "config_path",
+    "config_source",
+    "config_path_exists",
+    "config_sha256",
+    "config_record",
+    "pre_refresh_snapshot_freshness",
+    "refreshed_count",
+    "refreshed_artifacts",
+    "operator_summary",
+    "blocker_delta",
+    "refresh_effect",
+    "review_summary",
+    "cockpit_snapshot_freshness",
+    "policy",
+    "policy_summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "operator_view_refresh_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "config_path": {
+      "type": "string"
+    },
+    "config_source": {
+      "type": "string",
+      "enum": [
+        "explicit_override",
+        "run_metadata"
+      ]
+    },
+    "config_path_exists": {
+      "type": "boolean"
+    },
+    "config_sha256": {
+      "type": "string"
+    },
+    "config_record": {
+      "$ref": "#/$defs/file_record"
+    },
+    "pre_refresh_snapshot_freshness": {
+      "$ref": "#/$defs/snapshot_freshness"
+    },
+    "refreshed_count": {
+      "type": "integer"
+    },
+    "refreshed_artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/refreshed_artifact"
+      }
+    },
+    "operator_summary": {
+      "$ref": "#/$defs/operator_summary"
+    },
+    "blocker_delta": {
+      "$ref": "#/$defs/blocker_delta"
+    },
+    "refresh_effect": {
+      "$ref": "#/$defs/refresh_effect"
+    },
+    "review_summary": {
+      "$ref": "#/$defs/review_summary"
+    },
+    "cockpit_snapshot_freshness": {
+      "$ref": "#/$defs/snapshot_freshness"
+    },
+    "policy": {
+      "$ref": "#/$defs/boolean_map"
+    },
+    "policy_summary": {
+      "$ref": "#/$defs/policy_summary"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "boolean_map": {
+      "type": "object"
+    },
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "file_record": {
+      "type": "object",
+      "required": [
+        "path",
+        "relative_path",
+        "exists",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "relative_path": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      }
+    },
+    "snapshot_freshness": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "ok",
+        "stale_count",
+        "stale_sources",
+        "recommended_command"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "operator_cockpit_snapshot_freshness_v1"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "fresh",
+            "stale",
+            "stale_sources"
+          ]
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "stale_count": {
+          "type": "integer"
+        },
+        "stale_sources": {
+          "type": "array"
+        },
+        "recommended_command": {
+          "type": "string"
+        }
+      }
+    },
+    "refreshed_artifact": {
+      "type": "object",
+      "required": [
+        "artifact_name",
+        "json_path",
+        "markdown_path",
+        "json_file",
+        "markdown_file",
+        "schema_version"
+      ],
+      "properties": {
+        "artifact_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "json_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "markdown_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "json_file": {
+          "$ref": "#/$defs/file_record"
+        },
+        "markdown_file": {
+          "$ref": "#/$defs/file_record"
+        },
+        "schema_version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "operator_summary": {
+      "type": "object",
+      "required": [
+        "cockpit_status",
+        "cockpit_ok",
+        "primary_focus",
+        "blocker_count",
+        "primary_blocker",
+        "blocker_preview",
+        "next_command_label",
+        "next_command",
+        "next_command_reason"
+      ],
+      "properties": {
+        "cockpit_status": {
+          "type": "string"
+        },
+        "cockpit_ok": {
+          "type": "boolean"
+        },
+        "primary_focus": {
+          "type": "string"
+        },
+        "blocker_count": {
+          "type": "integer"
+        },
+        "primary_blocker": {
+          "type": "string"
+        },
+        "blocker_preview": {
+          "$ref": "#/$defs/string_array"
+        },
+        "next_command_label": {
+          "type": "string"
+        },
+        "next_command": {
+          "type": "string"
+        },
+        "next_command_reason": {
+          "type": "string"
+        }
+      }
+    },
+    "blocker_delta": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "before_count",
+        "after_count",
+        "changed",
+        "added_count",
+        "removed_count",
+        "persisted_count",
+        "added_blockers",
+        "removed_blockers",
+        "persisted_blocker_preview"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "operator_view_refresh_blocker_delta_v1"
+          ]
+        },
+        "before_count": {
+          "type": "integer"
+        },
+        "after_count": {
+          "type": "integer"
+        },
+        "changed": {
+          "type": "boolean"
+        },
+        "added_count": {
+          "type": "integer"
+        },
+        "removed_count": {
+          "type": "integer"
+        },
+        "persisted_count": {
+          "type": "integer"
+        },
+        "added_blockers": {
+          "$ref": "#/$defs/string_array"
+        },
+        "removed_blockers": {
+          "$ref": "#/$defs/string_array"
+        },
+        "persisted_blocker_preview": {
+          "$ref": "#/$defs/string_array"
+        }
+      }
+    },
+    "refresh_effect": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "summary",
+        "stale_sources_fixed",
+        "blockers_changed",
+        "safety_policy_ok",
+        "operator_review_required",
+        "post_blocker_count"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "operator_view_refresh_effect_v1"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "safety_policy_attention",
+            "refresh_incomplete",
+            "stale_sources_fixed_blockers_changed",
+            "stale_sources_fixed",
+            "blockers_changed",
+            "refreshed_no_changes"
+          ]
+        },
+        "summary": {
+          "type": "string"
+        },
+        "stale_sources_fixed": {
+          "type": "boolean"
+        },
+        "blockers_changed": {
+          "type": "boolean"
+        },
+        "safety_policy_ok": {
+          "type": "boolean"
+        },
+        "operator_review_required": {
+          "type": "boolean"
+        },
+        "post_blocker_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "review_summary": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "required",
+        "primary_reason",
+        "reason_count",
+        "reason_codes",
+        "primary_blocker",
+        "post_blocker_count",
+        "next_command_label",
+        "next_command",
+        "next_command_reason"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "operator_view_refresh_review_summary_v1"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "primary_reason": {
+          "type": "string"
+        },
+        "reason_count": {
+          "type": "integer"
+        },
+        "reason_codes": {
+          "$ref": "#/$defs/string_array"
+        },
+        "primary_blocker": {
+          "type": "string"
+        },
+        "post_blocker_count": {
+          "type": "integer"
+        },
+        "next_command_label": {
+          "type": "string"
+        },
+        "next_command": {
+          "type": "string"
+        },
+        "next_command_reason": {
+          "type": "string"
+        }
+      }
+    },
+    "policy_summary": {
+      "type": "object",
+      "required": [
+        "ok",
+        "true_count",
+        "false_count",
+        "false_keys"
+      ],
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "true_count": {
+          "type": "integer"
+        },
+        "false_count": {
+          "type": "integer"
+        },
+        "false_keys": {
+          "$ref": "#/$defs/string_array"
+        }
+      }
+    }
+  }
+}

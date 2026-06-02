@@ -199,6 +199,9 @@ INSPECTION_COMMANDS = {
         "python -m orchestrator.operator_cockpit",
         "python -m orchestrator.experiments cockpit",
     ),
+    "operator_view_refresh": (
+        "python -m orchestrator.experiments refresh-operator-views",
+    ),
     "config_application_dry_run": (
         "python -m orchestrator.config_application_dry_run",
         "python -m orchestrator.experiments config-application-dry-run",
@@ -305,6 +308,7 @@ def build_artifact_validator_coverage(*, repo_root: Path = Path(".")) -> dict[st
             read_text(repo_root / "orchestrator/memory_diagnostics.py"),
             read_text(repo_root / "orchestrator/experiment_scope_health.py"),
             read_text(repo_root / "orchestrator/run_closeout.py"),
+            read_text(repo_root / "orchestrator/experiments.py"),
         )
     )
     docs_text = read_paths(paths=DOC_PATHS, repo_root=repo_root)

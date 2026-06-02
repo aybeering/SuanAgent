@@ -359,6 +359,7 @@ from orchestrator.experiments import (
     show_experiment,
     show_champion,
     summarize_experiments,
+    validate_operator_view_refresh_payload,
     external_agent_sandbox_report,
 )
 from orchestrator.external_agent_sandbox_drill import (
@@ -2697,6 +2698,7 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     )
 
     assert refresh["schema_version"] == "operator_view_refresh_v1"
+    assert validate_operator_view_refresh_payload(refresh, repo_root=repo) == ()
     assert refresh["refreshed_count"] == 5
     assert refresh["pre_refresh_snapshot_freshness"]["ok"] is False
     assert refresh["pre_refresh_snapshot_freshness"]["status"] == "stale_sources"
@@ -2816,6 +2818,7 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     )
 
     assert refresh["schema_version"] == "operator_view_refresh_v1"
+    assert validate_operator_view_refresh_payload(refresh, repo_root=repo) == ()
     assert str(refresh["config_path"]).endswith("config/codex_cli_guarded.json")
     assert refresh["config_source"] == "run_metadata"
     assert refresh["config_path_exists"] is True
@@ -3029,6 +3032,94 @@ def test_operator_view_refresh_review_summary_prioritizes_safety() -> None:
         "next_command": "python -m orchestrator.experiments cockpit run --markdown",
         "next_command_reason": "Review this read-only cockpit.",
     }
+
+
+def test_operator_view_refresh_payload_schema_rejects_missing_review_summary(
+    tmp_path: Path,
+) -> None:
+    schema_dir = tmp_path / "schemas"
+    schema_dir.mkdir()
+    shutil.copyfile(
+        Path(__file__).resolve().parents[1] / "schemas/operator_view_refresh.schema.json",
+        schema_dir / "operator_view_refresh.schema.json",
+    )
+    payload = {
+        "schema_version": "operator_view_refresh_v1",
+        "run_id": "run",
+        "run_dir": "experiments/run",
+        "config_path": "config/default.json",
+        "config_source": "run_metadata",
+        "config_path_exists": True,
+        "config_sha256": "abc",
+        "config_record": {
+            "path": "config/default.json",
+            "relative_path": "config/default.json",
+            "exists": True,
+            "sha256": "abc",
+        },
+        "pre_refresh_snapshot_freshness": {
+            "schema_version": "operator_cockpit_snapshot_freshness_v1",
+            "status": "fresh",
+            "ok": True,
+            "stale_count": 0,
+            "stale_sources": [],
+            "recommended_command": "python -m orchestrator.experiments refresh-operator-views run",
+        },
+        "refreshed_count": 0,
+        "refreshed_artifacts": [],
+        "operator_summary": {
+            "cockpit_status": "ready_for_review",
+            "cockpit_ok": True,
+            "primary_focus": "review",
+            "blocker_count": 0,
+            "primary_blocker": "",
+            "blocker_preview": [],
+            "next_command_label": "review_cockpit",
+            "next_command": "python -m orchestrator.experiments cockpit run --markdown",
+            "next_command_reason": "Review this read-only cockpit.",
+        },
+        "blocker_delta": {
+            "schema_version": "operator_view_refresh_blocker_delta_v1",
+            "before_count": 0,
+            "after_count": 0,
+            "changed": False,
+            "added_count": 0,
+            "removed_count": 0,
+            "persisted_count": 0,
+            "added_blockers": [],
+            "removed_blockers": [],
+            "persisted_blocker_preview": [],
+        },
+        "refresh_effect": {
+            "schema_version": "operator_view_refresh_effect_v1",
+            "status": "refreshed_no_changes",
+            "summary": "Refresh completed with no stale-source or blocker changes.",
+            "stale_sources_fixed": False,
+            "blockers_changed": False,
+            "safety_policy_ok": True,
+            "operator_review_required": False,
+            "post_blocker_count": 0,
+        },
+        "cockpit_snapshot_freshness": {
+            "schema_version": "operator_cockpit_snapshot_freshness_v1",
+            "status": "fresh",
+            "ok": True,
+            "stale_count": 0,
+            "stale_sources": [],
+            "recommended_command": "python -m orchestrator.experiments refresh-operator-views run",
+        },
+        "policy": {"does_not_execute_agents": True},
+        "policy_summary": {
+            "ok": True,
+            "true_count": 1,
+            "false_count": 0,
+            "false_keys": [],
+        },
+    }
+
+    errors = validate_operator_view_refresh_payload(payload, repo_root=tmp_path)
+
+    assert "$: missing required property review_summary" in errors
 
 
 def test_config_application_receipt_applies_only_from_approved_dry_run(

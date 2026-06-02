@@ -239,9 +239,11 @@ Proposal and intake artifacts:
 Context and planning artifacts:
 
 - `agent_context.md` and `agent_context.json` summarize prior rounds, outcome
-  memory, candidate traces, champion context, and recent research briefs.
+  memory, candidate traces, champion context, recent research briefs, and the
+  configured strategy search space.
 - `proposal_intent.json` and `proposal_intent.md` convert context into
-  deterministic planner guidance.
+  deterministic planner guidance using the configured strategy search-space
+  direction order and fallback direction.
 - `agent_execution_plan.json` records the planned candidate queue before any
   modifier runs.
 - `agent_routing_policy.json` explains deterministic candidate ranking.
@@ -291,7 +293,8 @@ Replay artifacts:
 - `research_brief.json` and `research_brief.md` summarize the completed
   iteration run, selected candidates, champion comparison context, deterministic
   observations, next questions, a run-local watchlist, and a recommended
-  experiment focus. The focus can suggest or avoid proposal directions for the
+  experiment focus. The focus uses the saved `strategy_search_space` direction
+  order and fallback direction to suggest or avoid proposal directions for the
   next deterministic loop, but it is advisory only and cannot route agents or
   change acceptance.
 - `run_closeout.json` and `run_closeout.md` summarize the completed iteration

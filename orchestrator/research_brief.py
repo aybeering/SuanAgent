@@ -79,6 +79,9 @@ def build_research_brief(
         "candidate_selection": manifest.get("candidate_selection", {})
         if isinstance(manifest, dict)
         else {},
+        "strategy_search_space": manifest.get("strategy_search_space", {})
+        if isinstance(manifest, dict)
+        else {},
         "watchlist_summary": {},
         "recommended_experiment_focus": {},
         "observations": [],
@@ -300,6 +303,7 @@ def recommended_experiment_focus(payload: dict[str, object]) -> dict[str, object
             *list_of_dicts(payload.get("top_candidates", [])),
         ]
     )
+    search_space = dict_payload(payload.get("strategy_search_space", {}))
     champion = dict_payload(payload.get("champion_comparison", {}))
 
     primary_focus = "review_promotion_path"
@@ -313,7 +317,10 @@ def recommended_experiment_focus(payload: dict[str, object]) -> dict[str, object
     elif "repeated_proposal_stop" in codes:
         primary_focus = "switch_modifier_direction"
         avoid_directions = selected_directions
-        suggested_directions = alternative_directions(avoid_directions)
+        suggested_directions = alternative_directions(
+            avoid_directions=avoid_directions,
+            search_space=search_space,
+        )
         rationale.append("The last run stopped after repeating a rejected patch.")
     elif (
         champion.get("exists")
@@ -321,12 +328,18 @@ def recommended_experiment_focus(payload: dict[str, object]) -> dict[str, object
     ):
         primary_focus = "close_champion_ev_gap"
         avoid_directions = selected_directions[:1]
-        suggested_directions = alternative_directions(avoid_directions)
+        suggested_directions = alternative_directions(
+            avoid_directions=avoid_directions,
+            search_space=search_space,
+        )
         rationale.append("The candidate did not beat the current champion.")
     elif not payload.get("accepted_round"):
         primary_focus = "analyze_rejection_reasons"
         avoid_directions = selected_directions[:1]
-        suggested_directions = alternative_directions(avoid_directions)
+        suggested_directions = alternative_directions(
+            avoid_directions=avoid_directions,
+            search_space=search_space,
+        )
         rationale.append("No candidate passed deterministic acceptance gates.")
     else:
         suggested_directions = selected_directions[:1]
@@ -339,6 +352,7 @@ def recommended_experiment_focus(payload: dict[str, object]) -> dict[str, object
         "avoid_directions": avoid_directions,
         "rationale": rationale,
         "source_watchlist_status": watchlist.get("status", "unknown"),
+        "source_search_space_schema": search_space.get("schema_version", ""),
         "policy": {
             "advisory_only": True,
             "does_not_route_agents": True,
@@ -357,13 +371,37 @@ def candidate_directions(rows: list[dict[str, Any]]) -> list[str]:
     return directions
 
 
-def alternative_directions(avoid_directions: list[str]) -> list[str]:
+def alternative_directions(
+    *,
+    avoid_directions: list[str],
+    search_space: dict[str, Any],
+) -> list[str]:
     """Return deterministic alternate modifier directions."""
-    candidates = ["reduce_stake", "lower_min_edge", "raise_min_edge"]
+    candidates = configured_direction_order(search_space)
     directions = [
         direction for direction in candidates if direction not in avoid_directions
     ]
-    return directions or ["new_modifier_profile"]
+    return directions or [configured_fallback_direction(search_space)]
+
+
+def configured_direction_order(search_space: dict[str, Any]) -> list[str]:
+    """Return configured direction order or the V0.5 default order."""
+    order = string_list(search_space.get("direction_order", []))
+    if order:
+        return order
+    rows = list_of_dicts(search_space.get("directions", []))
+    row_order = [
+        str(row.get("direction_tag", ""))
+        for row in rows
+        if str(row.get("direction_tag", ""))
+    ]
+    return row_order or ["reduce_stake", "lower_min_edge", "raise_min_edge"]
+
+
+def configured_fallback_direction(search_space: dict[str, Any]) -> str:
+    """Return configured fallback direction when known directions are exhausted."""
+    fallback = str(search_space.get("fallback_direction", ""))
+    return fallback or "new_modifier_profile"
 
 
 def research_alert(
@@ -427,6 +465,7 @@ def render_research_brief_markdown(payload: dict[str, object]) -> str:
 
     watchlist = dict_payload(payload.get("watchlist_summary", {}))
     focus = dict_payload(payload.get("recommended_experiment_focus", {}))
+    search_space = dict_payload(payload.get("strategy_search_space", {}))
     lines.extend(["", "## Watchlist", ""])
     lines.append(
         f"- Status: `{watchlist.get('status', 'unknown')}` "
@@ -454,6 +493,15 @@ def render_research_brief_markdown(payload: dict[str, object]) -> str:
     )
     for item in string_list(focus.get("rationale", [])):
         lines.append(f"- {item}")
+
+    lines.extend(["", "## Strategy Search Space", ""])
+    lines.extend(
+        [
+            "- Direction order: "
+            f"`{', '.join(configured_direction_order(search_space)) or 'none'}`",
+            f"- Fallback direction: `{configured_fallback_direction(search_space)}`",
+        ]
+    )
 
     champion = dict_payload(payload.get("champion_comparison", {}))
     lines.extend(["", "## Champion Comparison", ""])

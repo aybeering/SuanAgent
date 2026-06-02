@@ -201,6 +201,7 @@ from orchestrator.run_closeout import (
     validate_run_closeout_file,
 )
 from orchestrator.run_diagnosis import diagnose_run
+from orchestrator.proposal_intent import build_proposal_intent
 from orchestrator.preflight import run_preflight
 from orchestrator.schema_validation import validate_json_file, validate_json_payload
 from orchestrator.experiments import (
@@ -1318,6 +1319,18 @@ def test_default_config_loads_dataset_splits() -> None:
     assert config.executor["max_candidates"] == 0
     assert config.executor["per_agent_timeout_seconds"] == 120
     assert config.executor["allow_disabled_adapters"] is True
+    assert config.strategy_search_space["schema_version"] == (
+        "strategy_search_space_v1"
+    )
+    assert config.strategy_search_space["direction_order"] == [
+        "lower_min_edge",
+        "reduce_stake",
+        "raise_min_edge",
+    ]
+    assert config.strategy_search_space["fallback_direction"] == (
+        "new_modifier_profile"
+    )
+    assert config.strategy_search_space["policy"]["does_not_route_agents"] is True
     assert config.agent_profiles == ()
     assert [role["role_name"] for role in config.agent_roles] == [
         "strategy_modifier",
@@ -1671,6 +1684,24 @@ def test_preflight_rejects_negative_candidate_selection_cap(tmp_path: Path) -> N
 
     assert result.ok is False
     assert any("candidate_selection.probe_ev_cap" in error for error in result.errors)
+
+
+def test_preflight_rejects_strategy_search_space_authority(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_path = repo / "config/bad_strategy_search_space.json"
+    config = json.loads((repo / "config/default.json").read_text())
+    config["strategy_search_space"]["policy"]["does_not_route_agents"] = False
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    result = run_preflight(repo_root=repo, config_path=config_path)
+
+    assert result.ok is False
+    assert any(
+        "strategy_search_space.policy.does_not_route_agents must be true" in error
+        for error in result.errors
+    )
 
 
 def test_preflight_rejects_negative_routing_prior_penalty(tmp_path: Path) -> None:
@@ -2514,6 +2545,17 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert agent_input["input_bundle_dir"].endswith("agent_input_bundle")
     assert agent_input["output_bundle_dir"].endswith("agent_output_bundle")
+    assert agent_input["strategy_search_space"]["schema_version"] == (
+        "strategy_search_space_v1"
+    )
+    assert agent_input["strategy_search_space"]["direction_order"] == [
+        "lower_min_edge",
+        "reduce_stake",
+        "raise_min_edge",
+    ]
+    assert agent_input["strategy_search_space"]["policy"][
+        "does_not_change_acceptance"
+    ] is True
     assert agent_input["agent_roles"][0]["role_name"] == "strategy_modifier"
     assert agent_input["agent_roles"][0]["decision_authority"] == "proposal_only"
     assert agent_input["agent_roles"][1]["execution_mode"] == "stub_contract"
@@ -2998,6 +3040,12 @@ def test_iteration_loop_writes_research_brief(tmp_path: Path) -> None:
     assert brief["recommended_experiment_focus"]["primary_focus"] == (
         "analyze_rejection_reasons"
     )
+    assert brief["strategy_search_space"]["schema_version"] == (
+        "strategy_search_space_v1"
+    )
+    assert brief["recommended_experiment_focus"]["source_search_space_schema"] == (
+        "strategy_search_space_v1"
+    )
     assert brief["recommended_experiment_focus"]["policy"]["does_not_route_agents"] is True
     assert brief["next_questions"]
     assert "# Research Brief" in markdown
@@ -3075,6 +3123,11 @@ def test_iteration_loop_writes_research_brief(tmp_path: Path) -> None:
     assert context_payload["schema_version"] == "agent_context_v1"
     assert context_payload["current_round_id"] == "round_001"
     assert context_payload["target_file"] == "strategies/current_strategy.py"
+    assert context_payload["strategy_search_space"]["direction_order"] == [
+        "lower_min_edge",
+        "reduce_stake",
+        "raise_min_edge",
+    ]
     assert context_payload["prior_rounds"] == []
 
 
@@ -4172,13 +4225,91 @@ def test_adaptive_stub_uses_recent_research_brief_without_memory(
     assert "reduce_stake" in context_payload["recent_research_briefs"][0][
         "recommended_suggested_directions"
     ]
+    assert context_payload["strategy_search_space"]["fallback_direction"] == (
+        "new_modifier_profile"
+    )
     assert intent["recommended_direction"] == "reduce_stake"
     assert intent["avoid_directions"] == ["lower_min_edge"]
+    assert intent["strategy_search_space"]["direction_order"] == [
+        "lower_min_edge",
+        "reduce_stake",
+        "raise_min_edge",
+    ]
+    assert intent["strategy_search_space"]["fallback_direction"] == (
+        "new_modifier_profile"
+    )
     assert any("lower_min_edge appears" in item for item in intent["evidence"])
     assert_matches_schema(round_dir / "proposal_intent.json", "proposal_intent")
     assert proposal["direction_tag"] == "reduce_stake"
     assert "STAKE = 8.0" in proposal["patch_diff"]
     assert "recent research briefs flagged lower_min_edge" in proposal["summary"]
+
+
+def test_proposal_intent_uses_configured_strategy_search_space(
+    tmp_path: Path,
+) -> None:
+    context_path = tmp_path / "agent_context.md"
+    context_path.write_text("# Agent Context\n", encoding="utf-8")
+    context_path.with_suffix(".json").write_text(
+        json.dumps(
+            {
+                "run_id": "search-space-intent",
+                "current_round_id": "round_002",
+                "target_file": "strategies/current_strategy.py",
+                "prior_rounds": [
+                    {
+                        "direction_tag": "lower_min_edge",
+                        "accepted": False,
+                    }
+                ],
+                "recent_research_briefs": [],
+                "global_outcome_memory": [],
+                "champion": {},
+                "strategy_search_space": {
+                    "schema_version": "strategy_search_space_v1",
+                    "directions": [
+                        {
+                            "direction_tag": "lower_min_edge",
+                            "description": "default failed",
+                            "preferred_after": [],
+                            "avoid_after": [],
+                            "modifier_hint": "fixed_patch_stub",
+                        },
+                        {
+                            "direction_tag": "custom_probe",
+                            "description": "custom config direction",
+                            "preferred_after": [],
+                            "avoid_after": [],
+                            "modifier_hint": "codex_cli",
+                        },
+                    ],
+                    "direction_order": ["lower_min_edge", "custom_probe"],
+                    "fallback_direction": "operator_defined_profile",
+                    "policy": {
+                        "advisory_only": True,
+                        "does_not_route_agents": True,
+                        "does_not_change_acceptance": True,
+                    },
+                },
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+    intent = build_proposal_intent(context_path=context_path)
+
+    assert intent["recommended_direction"] == "custom_probe"
+    assert intent["avoid_directions"] == ["lower_min_edge"]
+    assert intent["strategy_search_space"]["direction_order"] == [
+        "lower_min_edge",
+        "custom_probe",
+    ]
+    assert intent["strategy_search_space"]["fallback_direction"] == (
+        "operator_defined_profile"
+    )
+    assert_matches_schema_payload(intent, "proposal_intent")
 
 
 def test_codex_dry_run_adapter_records_non_applicable_proposal(tmp_path: Path) -> None:
@@ -6384,6 +6515,37 @@ def test_artifact_validator_reports_research_brief_focus_policy_violation(
     assert report["ok"] is False
     assert any(
         "research_brief.json focus policy false: does_not_route_agents" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_agent_input_search_space_policy_violation(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-agent-input-search-error",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/artifact-agent-input-search-error/round_001/agent_input.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["strategy_search_space"]["policy"]["does_not_change_acceptance"] = False
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="artifact-agent-input-search-error",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "agent_input.json strategy_search_space policy false: does_not_change_acceptance"
+        in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 

@@ -32,6 +32,47 @@ DEFAULT_EXECUTOR = {
     "per_agent_timeout_seconds": 120,
     "allow_disabled_adapters": True,
 }
+DEFAULT_STRATEGY_SEARCH_SPACE = {
+    "schema_version": "strategy_search_space_v1",
+    "directions": [
+        {
+            "direction_tag": "lower_min_edge",
+            "description": "Lower the minimum edge threshold to explore more trades.",
+            "preferred_after": [],
+            "avoid_after": [
+                "repeated_proposal_stop",
+                "patch_memory_rejected",
+            ],
+            "modifier_hint": "fixed_patch_stub",
+        },
+        {
+            "direction_tag": "reduce_stake",
+            "description": "Reduce stake size to test risk and drawdown sensitivity.",
+            "preferred_after": [
+                "lower_min_edge_failed",
+                "repeated_proposal_stop",
+            ],
+            "avoid_after": [],
+            "modifier_hint": "adaptive_stub",
+        },
+        {
+            "direction_tag": "raise_min_edge",
+            "description": "Raise the minimum edge threshold to test selectivity.",
+            "preferred_after": [
+                "reduce_stake_failed",
+                "candidate_did_not_beat_champion",
+            ],
+            "avoid_after": [],
+            "modifier_hint": "conservative_stub",
+        },
+    ],
+    "fallback_direction": "new_modifier_profile",
+    "policy": {
+        "advisory_only": True,
+        "does_not_route_agents": True,
+        "does_not_change_acceptance": True,
+    },
+}
 AGENT_CONTRACT_RUNNER_NAME = "agent_contract_runner_v1"
 CODEX_CLI_GUARDED_RUNNER_NAME = "codex_cli_guarded_adapter"
 IN_PROCESS_RUNNER_NAME = "in_process_modifier"
@@ -180,6 +221,7 @@ class ProjectConfig:
     explore_bonus: int = 0
     candidate_selection: dict[str, float | int] = field(default_factory=dict)
     executor: dict[str, object] = field(default_factory=dict)
+    strategy_search_space: dict[str, object] = field(default_factory=dict)
     agent_profiles: tuple[dict[str, object], ...] = ()
     agent_roles: tuple[dict[str, object], ...] = ()
 
@@ -217,6 +259,9 @@ def load_project_config(
         {},
     )
     executor = DEFAULT_EXECUTOR | raw.get("executor", {})
+    strategy_search_space = normalize_strategy_search_space(
+        raw.get("strategy_search_space", {}),
+    )
     fallback_names = fallback_modifier_names(memory_filter)
     agent_profiles = normalize_agent_profiles(raw=raw)
     agent_roles = normalize_agent_roles(raw=raw)
@@ -264,6 +309,7 @@ def load_project_config(
             str(key): value for key, value in candidate_selection.items()
         },
         executor={str(key): value for key, value in executor.items()},
+        strategy_search_space=strategy_search_space,
         agent_profiles=agent_profiles,
         agent_roles=agent_roles,
     )
@@ -289,6 +335,70 @@ def fallback_modifier_names(memory_filter: object) -> tuple[str, ...]:
         if name and name not in names:
             names.append(name)
     return tuple(names)
+
+
+def normalize_strategy_search_space(raw_search_space: object) -> dict[str, object]:
+    """Return a deterministic strategy-search-space contract from config."""
+    raw_payload = raw_search_space if isinstance(raw_search_space, dict) else {}
+    default_directions = list(DEFAULT_STRATEGY_SEARCH_SPACE["directions"])
+    configured = raw_payload.get("directions", default_directions)
+    raw_directions = configured if isinstance(configured, list) else default_directions
+    directions = normalize_strategy_directions(raw_directions)
+    if not directions:
+        directions = normalize_strategy_directions(default_directions)
+    policy = raw_payload.get("policy", DEFAULT_STRATEGY_SEARCH_SPACE["policy"])
+    return {
+        "schema_version": str(
+            raw_payload.get(
+                "schema_version",
+                DEFAULT_STRATEGY_SEARCH_SPACE["schema_version"],
+            )
+        ),
+        "directions": directions,
+        "direction_order": [row["direction_tag"] for row in directions],
+        "fallback_direction": str(
+            raw_payload.get(
+                "fallback_direction",
+                DEFAULT_STRATEGY_SEARCH_SPACE["fallback_direction"],
+            )
+        ),
+        "policy": normalize_search_space_policy(policy),
+    }
+
+
+def normalize_strategy_directions(raw_directions: list[object]) -> list[dict[str, object]]:
+    """Return stable direction rows with unique direction tags."""
+    rows: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for raw_direction in raw_directions:
+        if not isinstance(raw_direction, dict):
+            continue
+        direction_tag = str(raw_direction.get("direction_tag", ""))
+        if not direction_tag or direction_tag in seen:
+            continue
+        seen.add(direction_tag)
+        rows.append(
+            {
+                "direction_tag": direction_tag,
+                "description": str(raw_direction.get("description", "")),
+                "preferred_after": string_list(raw_direction.get("preferred_after", [])),
+                "avoid_after": string_list(raw_direction.get("avoid_after", [])),
+                "modifier_hint": str(raw_direction.get("modifier_hint", "")),
+            }
+        )
+    return rows
+
+
+def normalize_search_space_policy(raw_policy: object) -> dict[str, bool]:
+    """Return advisory-only policy metadata for strategy search space."""
+    policy = raw_policy if isinstance(raw_policy, dict) else {}
+    return {
+        "advisory_only": bool(policy.get("advisory_only", True)),
+        "does_not_route_agents": bool(policy.get("does_not_route_agents", True)),
+        "does_not_change_acceptance": bool(
+            policy.get("does_not_change_acceptance", True)
+        ),
+    }
 
 
 def modifier_settings_for(raw: dict[str, object], modifier_name: str) -> dict[str, object]:

@@ -20,6 +20,7 @@
     "top_candidates",
     "champion_comparison",
     "candidate_selection",
+    "strategy_search_space",
     "watchlist_summary",
     "recommended_experiment_focus",
     "observations",
@@ -98,6 +99,9 @@
       "type": "object"
     },
     "candidate_selection": {
+      "type": "object"
+    },
+    "strategy_search_space": {
       "type": "object"
     },
     "watchlist_summary": {
@@ -216,6 +220,7 @@
         "avoid_directions",
         "rationale",
         "source_watchlist_status",
+        "source_search_space_schema",
         "policy"
       ],
       "properties": {
@@ -247,6 +252,9 @@
           }
         },
         "source_watchlist_status": {
+          "type": "string"
+        },
+        "source_search_space_schema": {
           "type": "string"
         },
         "policy": {

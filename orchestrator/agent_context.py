@@ -24,12 +24,14 @@ def write_agent_context(
     current_round_id: str,
     output_path: Path,
     memory_path: Path | None = None,
+    strategy_search_space: dict[str, object] | None = None,
 ) -> Path:
     """Write markdown and JSON context for the next strategy proposal."""
     payload = build_agent_context_payload(
         run_dir=run_dir,
         current_round_id=current_round_id,
         memory_path=memory_path,
+        strategy_search_space=strategy_search_space,
     )
     output_path.write_text(build_agent_context_markdown(payload), encoding="utf-8")
     output_path.with_suffix(".json").write_text(
@@ -44,6 +46,7 @@ def build_agent_context_payload(
     run_dir: Path,
     current_round_id: str,
     memory_path: Path | None = None,
+    strategy_search_space: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Return a structured context payload from prior round artifacts."""
     prior_rounds = prior_round_summaries(
@@ -61,6 +64,7 @@ def build_agent_context_payload(
         "current_round_id": current_round_id,
         "target_file": TARGET_FILE,
         "policy_notes": list(POLICY_NOTES),
+        "strategy_search_space": strategy_search_space or {},
         "champion": champion_context(run_dir=run_dir),
         "previous_champion_comparison": previous_champion_comparison(
             run_dir=run_dir,
@@ -101,6 +105,7 @@ def build_agent_context_markdown(payload: dict[str, object]) -> str:
     memory_records = list_of_dicts(payload.get("global_outcome_memory", []))
     candidate_rows = list_of_dicts(payload.get("candidate_search_trace", []))
     research_briefs = list_of_dicts(payload.get("recent_research_briefs", []))
+    search_space = dict_payload(payload.get("strategy_search_space", {}))
     champion = dict_payload(payload.get("champion", {}))
     champion_comparison = dict_payload(
         payload.get("previous_champion_comparison", {}),
@@ -117,6 +122,19 @@ def build_agent_context_markdown(payload: dict[str, object]) -> str:
         "- Structured JSON: `agent_context.json`",
     ]
     lines.extend(f"- {note}" for note in policy_notes)
+    lines.extend(["", "## Strategy Search Space", ""])
+    direction_rows = list_of_dicts(search_space.get("directions", []))
+    if not direction_rows:
+        lines.append("No strategy search-space config was provided.")
+    else:
+        lines.extend(
+            [
+                "| Direction | Modifier | Description |",
+                "| --- | --- | --- |",
+            ]
+        )
+        for direction in direction_rows:
+            lines.append(strategy_direction_row(direction))
     lines.extend([
         "",
         "## Prior Rounds",
@@ -378,6 +396,15 @@ def prior_round_row(payload: dict[str, object]) -> str:
         f"| {delta_cell(payload, 'holdout_ev_before', 'holdout_ev_after')} "
         f"| {escape_cell(str(payload.get('direction_tag', '')) or 'none')} "
         f"| {escape_cell(reason_text or 'none')} |"
+    )
+
+
+def strategy_direction_row(payload: dict[str, object]) -> str:
+    """Format one configured strategy search direction row."""
+    return (
+        f"| {escape_cell(str(payload.get('direction_tag', '')))} "
+        f"| {escape_cell(str(payload.get('modifier_hint', '')) or 'none')} "
+        f"| {escape_cell(str(payload.get('description', '')) or 'none')} |"
     )
 
 

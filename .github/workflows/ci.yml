@@ -398,6 +398,8 @@ jobs:
           payload = json.load(open("experiments/ci-adaptive/round_001/proposal_intent.json"))
           assert payload["schema_version"] == "proposal_intent_v1"
           assert payload["recommended_direction"]
+          assert payload["strategy_search_space"]["direction_order"]
+          assert payload["strategy_search_space"]["fallback_direction"]
           PY
 
       - name: Replay demo agent input
@@ -535,7 +537,9 @@ jobs:
           assert payload["top_candidates"]
           assert payload["watchlist_summary"]["schema_version"] == "research_watchlist_v1"
           assert payload["watchlist_summary"]["policy"]["does_not_change_acceptance"] is True
+          assert payload["strategy_search_space"]["schema_version"] == "strategy_search_space_v1"
           assert payload["recommended_experiment_focus"]["schema_version"] == "recommended_experiment_focus_v1"
+          assert payload["recommended_experiment_focus"]["source_search_space_schema"] == "strategy_search_space_v1"
           assert payload["recommended_experiment_focus"]["policy"]["does_not_route_agents"] is True
           assert scope["schema_version"] == "experiment_scope_health_v1"
           assert scope["ok"] is True

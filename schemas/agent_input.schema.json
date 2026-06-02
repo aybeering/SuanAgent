@@ -17,6 +17,7 @@
     "metrics_before",
     "policy",
     "candidate_selection",
+    "strategy_search_space",
     "agent_roles",
     "agent_profiles",
     "active_agent",
@@ -181,6 +182,88 @@
     },
     "candidate_selection": {
       "type": "object"
+    },
+    "strategy_search_space": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "directions",
+        "direction_order",
+        "fallback_direction",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "strategy_search_space_v1"
+          ]
+        },
+        "directions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "direction_tag",
+              "description",
+              "preferred_after",
+              "avoid_after",
+              "modifier_hint"
+            ],
+            "properties": {
+              "direction_tag": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "preferred_after": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "avoid_after": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "modifier_hint": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "direction_order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fallback_direction": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "object",
+          "required": [
+            "advisory_only",
+            "does_not_route_agents",
+            "does_not_change_acceptance"
+          ],
+          "properties": {
+            "advisory_only": {
+              "type": "boolean"
+            },
+            "does_not_route_agents": {
+              "type": "boolean"
+            },
+            "does_not_change_acceptance": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
     },
     "agent_roles": {
       "type": "array",

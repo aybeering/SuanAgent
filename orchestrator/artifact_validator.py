@@ -407,6 +407,10 @@ def validate_round_dir(
         schema_path=repo_root / "schemas/agent_input.schema.json",
         report=report,
     )
+    validate_agent_input_search_space(
+        path=round_dir / "agent_input.json",
+        report=report,
+    )
     validate_contract_file(
         payload_path=round_dir / "agent_output_quarantine.json",
         schema_path=repo_root / "schemas/agent_output_quarantine.schema.json",
@@ -725,6 +729,31 @@ def validate_agent_execution(
             report,
             f"codex_cli agent_execution command sha256 not preflight-bound: {path}",
         )
+
+
+def validate_agent_input_search_space(*, path: Path, report: dict[str, object]) -> None:
+    """Validate saved agent input strategy-search-space authority policy."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    search_space = payload.get("strategy_search_space", {})
+    if not isinstance(search_space, dict):
+        add_error(report, f"agent_input.json strategy_search_space invalid: {path}")
+        return
+    directions = search_space.get("directions", [])
+    if not isinstance(directions, list) or not directions:
+        add_error(report, f"agent_input.json strategy_search_space directions empty: {path}")
+    policy = search_space.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, f"agent_input.json strategy_search_space policy invalid: {path}")
+        return
+    for key in (
+        "advisory_only",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"agent_input.json strategy_search_space policy false: {key}")
 
 
 def validate_optional_workspace_manifest(
@@ -1740,6 +1769,10 @@ def validate_agent_attempts_manifest(
                 validate_contract_file(
                     payload_path=attempt_input,
                     schema_path=repo_root / "schemas/agent_input.schema.json",
+                    report=report,
+                )
+                validate_agent_input_search_space(
+                    path=attempt_input,
                     report=report,
                 )
             else:
@@ -5061,6 +5094,24 @@ def validate_optional_research_brief(
         return
     if payload.get("run_id") != report.get("run_id"):
         add_error(report, f"research_brief.json run_id does not match report: {path}")
+    search_space = payload.get("strategy_search_space", {})
+    if not isinstance(search_space, dict):
+        add_error(report, "research_brief.json strategy_search_space invalid")
+    else:
+        policy = search_space.get("policy", {})
+        if not isinstance(policy, dict):
+            add_error(report, "research_brief.json strategy_search_space policy invalid")
+        else:
+            for key in (
+                "advisory_only",
+                "does_not_route_agents",
+                "does_not_change_acceptance",
+            ):
+                if policy.get(key) is not True:
+                    add_error(
+                        report,
+                        f"research_brief.json strategy_search_space policy false: {key}",
+                    )
     watchlist = payload.get("watchlist_summary", {})
     if not isinstance(watchlist, dict):
         add_error(report, "research_brief.json watchlist_summary invalid")

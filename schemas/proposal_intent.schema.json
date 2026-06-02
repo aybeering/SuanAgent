@@ -13,6 +13,7 @@
     "evidence",
     "constraints",
     "source_artifacts",
+    "strategy_search_space",
     "champion_gap"
   ],
   "properties": {
@@ -57,6 +58,32 @@
     },
     "source_artifacts": {
       "type": "object"
+    },
+    "strategy_search_space": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "direction_order",
+        "fallback_direction",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string"
+        },
+        "direction_order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fallback_direction": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "object"
+        }
+      }
     },
     "champion_gap": {
       "type": "object"

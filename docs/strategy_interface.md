@@ -84,6 +84,10 @@ agent_output.json  # schema_version: agent_io_output_v1
 
 Future CLI or SDK-backed agents should treat `agent_input.json` as the structured
 input contract and `agent_output.json` as the audited selected-output contract.
+`agent_input.json` includes an advisory `strategy_search_space` block with
+direction tags, direction order, modifier hints, and a fallback direction; this
+block guides proposal generation only and cannot route agents or decide
+acceptance.
 The corresponding JSON Schema files are:
 
 ```text

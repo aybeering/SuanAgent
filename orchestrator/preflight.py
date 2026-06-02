@@ -124,6 +124,7 @@ def validate_config(
     if config.explore_bonus < 0:
         errors.append("exploration.explore_bonus must be non-negative")
     validate_candidate_selection(config, errors)
+    validate_strategy_search_space(config, errors)
     validate_executor(config, errors)
     validate_agent_roles(config, errors)
     validate_agent_profiles(config, errors)
@@ -192,6 +193,46 @@ def validate_candidate_selection(config: ProjectConfig, errors: list[str]) -> No
     for key in non_negative_keys:
         if float(config.candidate_selection.get(key, 0.0)) < 0.0:
             errors.append(f"candidate_selection.{key} must be non-negative")
+
+
+def validate_strategy_search_space(config: ProjectConfig, errors: list[str]) -> None:
+    """Validate advisory strategy search-space config."""
+    search_space = config.strategy_search_space
+    if search_space.get("schema_version") != "strategy_search_space_v1":
+        errors.append("strategy_search_space.schema_version must be strategy_search_space_v1")
+    directions = search_space.get("directions", [])
+    if not isinstance(directions, list) or not directions:
+        errors.append("strategy_search_space.directions must be non-empty")
+        return
+    seen: set[str] = set()
+    for index, direction in enumerate(directions, start=1):
+        if not isinstance(direction, dict):
+            errors.append(f"strategy_search_space.directions[{index}] must be object")
+            continue
+        direction_tag = str(direction.get("direction_tag", ""))
+        if not direction_tag:
+            errors.append(
+                f"strategy_search_space.directions[{index}].direction_tag must be non-empty"
+            )
+        if direction_tag in seen:
+            errors.append(
+                f"strategy_search_space.directions[{index}].direction_tag must be unique: {direction_tag}"
+            )
+        seen.add(direction_tag)
+    fallback = str(search_space.get("fallback_direction", ""))
+    if not fallback:
+        errors.append("strategy_search_space.fallback_direction must be non-empty")
+    policy = search_space.get("policy", {})
+    if not isinstance(policy, dict):
+        errors.append("strategy_search_space.policy must be object")
+        return
+    for key in (
+        "advisory_only",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            errors.append(f"strategy_search_space.policy.{key} must be true")
 
 
 def validate_executor(config: ProjectConfig, errors: list[str]) -> None:

@@ -55,6 +55,47 @@
     "probe_ev_cap": 25,
     "probe_trade_count_cap": 5
   },
+  "strategy_search_space": {
+    "schema_version": "strategy_search_space_v1",
+    "directions": [
+      {
+        "direction_tag": "lower_min_edge",
+        "description": "Lower the minimum edge threshold to explore more trades.",
+        "preferred_after": [],
+        "avoid_after": [
+          "repeated_proposal_stop",
+          "patch_memory_rejected"
+        ],
+        "modifier_hint": "fixed_patch_stub"
+      },
+      {
+        "direction_tag": "reduce_stake",
+        "description": "Reduce stake size to test risk and drawdown sensitivity.",
+        "preferred_after": [
+          "lower_min_edge_failed",
+          "repeated_proposal_stop"
+        ],
+        "avoid_after": [],
+        "modifier_hint": "adaptive_stub"
+      },
+      {
+        "direction_tag": "raise_min_edge",
+        "description": "Raise the minimum edge threshold to test selectivity.",
+        "preferred_after": [
+          "reduce_stake_failed",
+          "candidate_did_not_beat_champion"
+        ],
+        "avoid_after": [],
+        "modifier_hint": "conservative_stub"
+      }
+    ],
+    "fallback_direction": "new_modifier_profile",
+    "policy": {
+      "advisory_only": true,
+      "does_not_route_agents": true,
+      "does_not_change_acceptance": true
+    }
+  },
   "codex_cli": {
     "executable": "codex",
     "model": "default",

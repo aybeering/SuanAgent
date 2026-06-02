@@ -286,6 +286,7 @@ def run_iteration_loop(
             "explore_bonus": active_config.explore_bonus,
         },
         "candidate_selection": active_config.candidate_selection,
+        "strategy_search_space": active_config.strategy_search_space,
         "executor_policy": active_config.executor,
         "holdout_policy": active_config.holdout_policy,
         "stop_reason": None,
@@ -410,6 +411,7 @@ def run_iteration_loop(
                     min_probe_ev_delta=active_config.min_probe_ev_delta,
                     min_validation_ev_delta=active_config.min_validation_ev_delta,
                     candidate_selection=active_config.candidate_selection,
+                    strategy_search_space=active_config.strategy_search_space,
                     executor_config=active_config.executor,
                 )
                 manifest["completed_rounds"] = round_index
@@ -690,6 +692,7 @@ def run_round(
     min_probe_ev_delta: float,
     min_validation_ev_delta: float,
     candidate_selection: dict[str, float | int],
+    strategy_search_space: dict[str, object],
     executor_config: dict[str, object],
 ) -> dict[str, object]:
     """Run one proposal/apply/evaluate round."""
@@ -734,6 +737,7 @@ def run_round(
         current_round_id=round_id,
         output_path=round_dir / "agent_context.md",
         memory_path=round_dir.parent.parent / "memory.jsonl",
+        strategy_search_space=strategy_search_space,
     )
     intent_path = write_proposal_intent(
         context_path=context_path,
@@ -832,6 +836,7 @@ def run_round(
         policy_rules=policy_rules,
         holdout_policy_rules=holdout_policy_rules,
         candidate_selection=candidate_selection,
+        strategy_search_space=strategy_search_space,
         primary_modifier=modifier_name(modifier),
         fallback_modifiers=tuple(
             modifier_name(fallback_modifier)

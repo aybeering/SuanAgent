@@ -31,6 +31,10 @@ CODEX_CLI_EXECUTION_PREFLIGHT_SCHEMA_VERSION = "codex_cli_execution_preflight_v1
 CANARY_EXECUTABLE = "agents/codex_cli_canary.py"
 TARGET_FILE = "strategies/current_strategy.py"
 REQUEST_SCOPE = "real_codex_cli_execution_review"
+EXPECTED_AGENT_NAME = "codex_cli"
+EXPECTED_PROFILE_NAME = "real_codex_execution"
+EXPECTED_ROUND_ID = "codex_cli_real_execution"
+EXPECTED_ATTEMPT_ID = "attempt_001_real_execution"
 
 
 def build_codex_cli_execution_preflight(
@@ -240,6 +244,14 @@ def profile_execution_row(
             record=source_dry_run_file,
             repo_root=repo_root,
         ),
+        "operator_request_agent_name_matches": str(planned.get("agent_name", ""))
+        == EXPECTED_AGENT_NAME,
+        "operator_request_profile_name_matches": str(planned.get("profile_name", ""))
+        == EXPECTED_PROFILE_NAME,
+        "operator_request_round_id_matches": str(planned.get("round_id", ""))
+        == EXPECTED_ROUND_ID,
+        "operator_request_attempt_id_matches": str(planned.get("attempt_id", ""))
+        == EXPECTED_ATTEMPT_ID,
         "operator_request_command_matches_profile": planned_command == expected_command,
         "operator_request_command_sha256_matches_profile": str(
             planned.get("command_sha256", "")
@@ -288,6 +300,10 @@ def profile_execution_row(
         ),
         "expected_execution": {
             "target_file": TARGET_FILE,
+            "agent_name": EXPECTED_AGENT_NAME,
+            "profile_name": EXPECTED_PROFILE_NAME,
+            "round_id": EXPECTED_ROUND_ID,
+            "attempt_id": EXPECTED_ATTEMPT_ID,
             "workspace_root": workspace_root,
             "workspace_prefix": expected_workspace_prefix,
             "command": expected_command,
@@ -350,6 +366,22 @@ def operator_unlock_blockers(checks: dict[str, bool]) -> list[str]:
         (
             "operator_request_source_dry_run_path_matches_record",
             "operator_request_source_dry_run_path_mismatch",
+        ),
+        (
+            "operator_request_agent_name_matches",
+            "operator_request_agent_name_mismatch",
+        ),
+        (
+            "operator_request_profile_name_matches",
+            "operator_request_profile_name_mismatch",
+        ),
+        (
+            "operator_request_round_id_matches",
+            "operator_request_round_id_mismatch",
+        ),
+        (
+            "operator_request_attempt_id_matches",
+            "operator_request_attempt_id_mismatch",
         ),
         (
             "operator_request_command_matches_profile",

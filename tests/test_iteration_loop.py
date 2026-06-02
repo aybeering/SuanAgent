@@ -7386,6 +7386,81 @@ def test_codex_cli_execution_preflight_blocks_operator_source_path_drift(
     )
 
 
+def test_codex_cli_execution_preflight_blocks_operator_execution_identity_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_execution_identity_drift.py",
+        "#!/usr/bin/env python3\nprint('{}')\n",
+    )
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / "operator_unlock_fixtures/execution_identity_drift_request.json",
+        run_id="execution-identity-drift",
+        executable=str(fake_codex),
+        model="execution-identity-drift-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request["planned_execution_review"]["agent_name"] = "file_protocol_agent"
+    request["planned_execution_review"]["profile_name"] = "other_profile"
+    request["planned_execution_review"]["round_id"] = "round_001"
+    request["planned_execution_review"]["attempt_id"] = "attempt_999"
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "execution-identity-drift-test",
+            "sandbox": "workspace-write",
+            "workspace_root": "workspaces",
+            "execute": True,
+            "operator_unlock_request_path": str(request_path.relative_to(repo)),
+        },
+    )
+
+    preflight = write_codex_cli_execution_preflight(
+        output_path=repo
+        / "experiments/execution-identity-drift/codex_cli_execution_preflight.json",
+        markdown_path=repo
+        / "experiments/execution-identity-drift/codex_cli_execution_preflight.md",
+        run_dir=repo / "experiments/execution-identity-drift",
+        repo_root=repo,
+        config=config,
+    )
+
+    profile = preflight["profiles"][0]
+    assert preflight["ok"] is False
+    assert profile["checks"]["operator_unlock_request_contract_valid"] is True
+    assert profile["checks"]["operator_unlock_request_ready"] is True
+    assert profile["checks"]["operator_request_command_matches_profile"] is True
+    assert profile["checks"]["operator_request_workspace_prefix_matches_run"] is True
+    assert profile["checks"]["operator_request_agent_name_matches"] is False
+    assert profile["checks"]["operator_request_profile_name_matches"] is False
+    assert profile["checks"]["operator_request_round_id_matches"] is False
+    assert profile["checks"]["operator_request_attempt_id_matches"] is False
+    assert "profile primary: operator_request_agent_name_mismatch" in preflight[
+        "blocking_errors"
+    ]
+    assert "profile primary: operator_request_profile_name_mismatch" in preflight[
+        "blocking_errors"
+    ]
+    assert "profile primary: operator_request_round_id_mismatch" in preflight[
+        "blocking_errors"
+    ]
+    assert "profile primary: operator_request_attempt_id_mismatch" in preflight[
+        "blocking_errors"
+    ]
+
+
 def test_codex_cli_execution_preflight_blocks_operator_intent_drift(
     tmp_path: Path,
 ) -> None:
@@ -7567,6 +7642,37 @@ def test_artifact_validator_reports_operator_run_dir_mismatch(
     assert validation_report["ok"] is False
     assert any(
         "codex_cli_operator_unlock_request.json run_dir does not match report"
+        in str(error)
+        for error in validation_report["errors"]
+    )
+
+
+def test_artifact_validator_reports_operator_planned_identity_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/operator-planned-identity-drift"
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        run_dir / "codex_cli_operator_unlock_request.json",
+        run_id="operator-planned-identity-drift",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request["planned_execution_review"]["profile_name"] = "primary"
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="operator-planned-identity-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_operator_unlock_request.json planned profile_name mismatch"
         in str(error)
         for error in validation_report["errors"]
     )

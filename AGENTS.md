@@ -116,6 +116,7 @@ Allowed components:
 65. Startup preflight contract validation for the full operator unlock request file before real Codex CLI execution can be unlocked.
 66. Startup preflight and artifact validation path binding for operator unlock source evidence files, so reviewed readiness evidence paths cannot drift independently from their recorded file hashes.
 67. Startup preflight and artifact validation binding for operator unlock run identity, including `run_id` and `run_dir`, so reviewed requests cannot be reused across iteration runs.
+68. Startup preflight and artifact validation binding for operator unlock planned execution identity, including agent name, profile name, round id, and attempt id.
 
 Still out of scope:
 

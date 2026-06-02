@@ -2515,6 +2515,10 @@ def validate_optional_codex_cli_execution_preflight(
                     "operator_request_source_pipeline_path_matches_record",
                     "operator_request_source_dry_run_hash_matches",
                     "operator_request_source_dry_run_path_matches_record",
+                    "operator_request_agent_name_matches",
+                    "operator_request_profile_name_matches",
+                    "operator_request_round_id_matches",
+                    "operator_request_attempt_id_matches",
                     "operator_request_command_matches_profile",
                     "operator_request_command_sha256_matches_profile",
                     "operator_request_workspace_prefix_matches_run",
@@ -4225,6 +4229,19 @@ def validate_optional_codex_cli_operator_unlock_request(
             "codex_cli_operator_unlock_request.json planned execution invalid",
         )
     else:
+        expected_identity = {
+            "agent_name": "codex_cli",
+            "profile_name": "real_codex_execution",
+            "round_id": "codex_cli_real_execution",
+            "attempt_id": "attempt_001_real_execution",
+        }
+        for key, expected in expected_identity.items():
+            if str(planned.get(key, "")) != expected:
+                add_error(
+                    report,
+                    "codex_cli_operator_unlock_request.json planned "
+                    f"{key} mismatch",
+                )
         if planned.get("allowed_mutation_paths", []) != [
             "strategies/current_strategy.py"
         ]:

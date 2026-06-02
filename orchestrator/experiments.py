@@ -15,6 +15,7 @@ from orchestrator.experiment_index import read_experiment_index, recent_experime
 from orchestrator.external_agent_sandbox_drill import (
     build_external_agent_sandbox_drill,
 )
+from orchestrator.memory_diagnostics import build_memory_diagnostics
 from orchestrator.outcome_memory import recent_outcomes
 from orchestrator.run_artifact_health import (
     DEFAULT_HISTORY_FILENAME,
@@ -842,6 +843,13 @@ def main() -> None:
     health_history_parser.add_argument("--limit", type=int, default=10)
     health_history_parser.add_argument("--history-path", type=Path)
 
+    memory_diagnostics_parser = subparsers.add_parser(
+        "memory-diagnostics",
+        help="Inspect proposal memory against artifact health history.",
+    )
+    memory_diagnostics_parser.add_argument("--limit", type=int, default=20)
+    memory_diagnostics_parser.add_argument("--history-path", type=Path)
+
     subparsers.add_parser("summary", help="Summarize experiment history.")
 
     args = parser.parse_args()
@@ -924,6 +932,14 @@ def main() -> None:
         )
     elif args.command == "health-history":
         payload = build_run_artifact_health_history(
+            experiments_dir=args.experiments_dir,
+            repo_root=args.experiments_dir.parent,
+            history_path=args.history_path
+            or args.experiments_dir / DEFAULT_HISTORY_FILENAME,
+            limit=args.limit,
+        )
+    elif args.command == "memory-diagnostics":
+        payload = build_memory_diagnostics(
             experiments_dir=args.experiments_dir,
             repo_root=args.experiments_dir.parent,
             history_path=args.history_path

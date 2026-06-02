@@ -37,6 +37,7 @@ KNOWN_ARTIFACT_NAMES = {
     "workspace_manifest": ("workspace_manifest.json",),
     "attempt_output": ("attempt_output.json",),
     "run_artifact_health_history": ("run_artifact_health_history.jsonl",),
+    "memory_diagnostics": ("memory_diagnostics.json",),
 }
 
 INSPECTION_COMMANDS = {
@@ -57,6 +58,10 @@ INSPECTION_COMMANDS = {
     "run_artifact_health_history": (
         "python -m orchestrator.run_artifact_health --history-summary",
         "python -m orchestrator.experiments health-history",
+    ),
+    "memory_diagnostics": (
+        "python -m orchestrator.memory_diagnostics",
+        "python -m orchestrator.experiments memory-diagnostics",
     ),
     "champion": ("python -m orchestrator.experiments champion",),
     "champion_comparison": ("python -m orchestrator.experiments compare",),
@@ -104,6 +109,7 @@ def build_artifact_validator_coverage(*, repo_root: Path = Path(".")) -> dict[st
             read_text(repo_root / "orchestrator/artifact_validator.py"),
             read_text(repo_root / "orchestrator/artifact_validator_coverage.py"),
             read_text(repo_root / "orchestrator/run_artifact_health.py"),
+            read_text(repo_root / "orchestrator/memory_diagnostics.py"),
         )
     )
     docs_text = read_paths(paths=DOC_PATHS, repo_root=repo_root)

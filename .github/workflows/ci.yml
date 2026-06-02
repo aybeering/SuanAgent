@@ -529,11 +529,15 @@ jobs:
           python -m orchestrator.experiments validate --all --strict
           python -m orchestrator.run_artifact_health --history-summary > /tmp/run_artifact_health_history.json
           python -m orchestrator.experiments health-history > /tmp/experiment_health_history.json
+          python -m orchestrator.memory_diagnostics --strict > /tmp/memory_diagnostics.json
+          python -m orchestrator.experiments memory-diagnostics > /tmp/experiment_memory_diagnostics.json
           python - <<'PY'
           import json
           health = json.load(open("/tmp/run_artifact_health.json"))
           history = json.load(open("/tmp/run_artifact_health_history.json"))
           experiment_history = json.load(open("/tmp/experiment_health_history.json"))
+          diagnostics = json.load(open("/tmp/memory_diagnostics.json"))
+          experiment_diagnostics = json.load(open("/tmp/experiment_memory_diagnostics.json"))
           assert health["schema_version"] == "run_artifact_health_v1"
           assert health["ok"] is True
           assert health["totals"]["failed_count"] == 0
@@ -543,4 +547,9 @@ jobs:
           assert history["record_count"] == 1
           assert history["totals"]["records_with_failures"] == 0
           assert experiment_history["schema_version"] == "run_artifact_health_history_v1"
+          assert diagnostics["schema_version"] == "memory_diagnostics_v1"
+          assert diagnostics["ok"] is True
+          assert diagnostics["policy"]["does_not_change_acceptance"] is True
+          assert diagnostics["policy"]["does_not_route_agents"] is True
+          assert experiment_diagnostics["schema_version"] == "memory_diagnostics_v1"
           PY

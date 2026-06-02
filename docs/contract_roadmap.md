@@ -87,6 +87,7 @@ Implemented or allowed V0.5 components:
 73. A deterministic `artifact_validator_coverage.json` report that audits whether each repository-local artifact schema has validator coverage, documentation references, tests, and inspection or replay support.
 74. A deterministic `run_artifact_health.json` report that batch-validates saved experiment run artifacts without rerunning backtests or calling agents.
 75. A deterministic `run_artifact_health_history.jsonl` memory layer and `run_artifact_health_history_v1` summary that track repeated artifact-health failures across saved inspection runs.
+76. A deterministic `memory_diagnostics.json` report that cross-references proposal outcome memory with artifact-health history by run id, agent, profile, direction, and patch hash without routing agents or changing acceptance.
 
 ## Contract Families
 
@@ -123,6 +124,7 @@ Agent-slot contracts:
   `schemas/artifact_validator_coverage.schema.json`
 - Batch run artifact health: `schemas/run_artifact_health.schema.json` and
   `schemas/run_artifact_health_history.schema.json`
+- Memory diagnostics: `schemas/memory_diagnostics.schema.json`
 
 Codex CLI readiness contracts:
 
@@ -162,6 +164,10 @@ Codex CLI readiness contracts:
    not rerun simulations, invoke agents, apply patches, or change acceptance.
 10. Artifact health history is append-only local memory. It can guide future
     maintenance priorities, but it cannot route agents or decide acceptance.
+11. Memory diagnostics are read-only. They may reveal recurring proposal,
+    direction, profile, or patch correlations with artifact-health failures,
+    but they cannot execute agents, run backtests, route candidates, apply
+    patches, or change acceptance.
 
 ## Near-Term Development Order
 

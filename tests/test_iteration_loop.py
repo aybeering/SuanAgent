@@ -148,6 +148,12 @@ from orchestrator.run_artifact_health import (
     validate_run_artifact_health_history_file,
     write_run_artifact_health,
 )
+from orchestrator.memory_diagnostics import (
+    SCHEMA_VERSION as MEMORY_DIAGNOSTICS_SCHEMA_VERSION,
+    build_memory_diagnostics,
+    validate_memory_diagnostics_file,
+    write_memory_diagnostics,
+)
 from orchestrator.config import (
     ProjectConfig,
     load_project_config,
@@ -651,6 +657,169 @@ def test_run_artifact_health_history_cli_records_and_validates(
         payload_path=summary_path,
         repo_root=repo,
     ) == ()
+
+
+def test_memory_diagnostics_links_outcomes_to_artifact_health(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    history_path = repo / "experiments/run_artifact_health_history.jsonl"
+    run_iteration_loop(
+        run_id="diagnostics-outcome-bad",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_pipeline(run_id="diagnostics-unmatched-bad", repo_root=repo)
+    (repo / "experiments/diagnostics-outcome-bad/round_001/agent_input.json").unlink()
+    (repo / "experiments/diagnostics-unmatched-bad/report_before.md").unlink()
+
+    matched_health = build_run_artifact_health(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        run_ids=["diagnostics-outcome-bad"],
+    )
+    unmatched_health = build_run_artifact_health(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        run_ids=["diagnostics-unmatched-bad"],
+    )
+    append_run_artifact_health_history(
+        payload=matched_health,
+        history_path=history_path,
+        recorded_at="2026-01-01T00:00:00Z",
+    )
+    append_run_artifact_health_history(
+        payload=unmatched_health,
+        history_path=history_path,
+        recorded_at="2026-01-01T00:01:00Z",
+    )
+
+    payload = build_memory_diagnostics(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        history_path=history_path,
+        limit=5,
+    )
+    output_path = repo / "memory_diagnostics.json"
+    written = write_memory_diagnostics(
+        output_path=output_path,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        history_path=history_path,
+        limit=5,
+    )
+
+    direction_rows = {
+        str(row["key"]): row
+        for row in payload["groups"]["by_direction"]
+        if isinstance(row, dict)
+    }
+    profile_rows = {
+        str(row["key"]): row
+        for row in payload["groups"]["by_profile"]
+        if isinstance(row, dict)
+    }
+
+    assert payload["schema_version"] == MEMORY_DIAGNOSTICS_SCHEMA_VERSION
+    assert_matches_schema_payload(payload, "memory_diagnostics")
+    assert payload["ok"] is True
+    assert payload["totals"]["outcome_record_count"] == 1
+    assert payload["totals"]["health_history_record_count"] == 2
+    assert payload["totals"]["matched_failed_health_run_count"] == 1
+    assert payload["totals"]["unmatched_failed_health_run_count"] == 1
+    assert payload["matched_failed_run_ids"] == ["diagnostics-outcome-bad"]
+    assert payload["unmatched_failed_health_run_ids"] == [
+        "diagnostics-unmatched-bad"
+    ]
+    assert direction_rows["lower_min_edge"]["record_count"] == 1
+    assert direction_rows["lower_min_edge"][
+        "artifact_failed_run_observation_count"
+    ] == 1
+    assert "agent_input.json" in direction_rows["lower_min_edge"][
+        "artifact_failure_names"
+    ]
+    assert profile_rows["unknown_profile"]["record_count"] == 1
+    assert payload["recent_outcome_health_links"][0]["artifact_health_failed"] is True
+    assert payload["policy"]["does_not_change_acceptance"] is True
+    assert payload["policy"]["does_not_route_agents"] is True
+    assert written["schema_version"] == MEMORY_DIAGNOSTICS_SCHEMA_VERSION
+    assert validate_memory_diagnostics_file(
+        payload_path=output_path,
+        repo_root=repo,
+    ) == ()
+
+
+def test_memory_diagnostics_cli_and_experiments_command(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    history_path = repo / "experiments/run_artifact_health_history.jsonl"
+    run_iteration_loop(
+        run_id="diagnostics-cli",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    health = build_run_artifact_health(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        run_ids=["diagnostics-cli"],
+    )
+    append_run_artifact_health_history(
+        payload=health,
+        history_path=history_path,
+        recorded_at="2026-01-01T00:00:00Z",
+    )
+    strategy_before = (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+    direct_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.memory_diagnostics",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "--repo-root",
+            str(repo),
+            "--history-path",
+            str(history_path),
+            "--output",
+            str(repo / "memory_diagnostics.json"),
+            "--strict",
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    experiments_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "memory-diagnostics",
+            "--history-path",
+            str(history_path),
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    direct_payload = json.loads(direct_result.stdout)
+    experiments_payload = json.loads(experiments_result.stdout)
+
+    assert direct_payload["schema_version"] == MEMORY_DIAGNOSTICS_SCHEMA_VERSION
+    assert experiments_payload["schema_version"] == MEMORY_DIAGNOSTICS_SCHEMA_VERSION
+    assert direct_payload["policy"]["does_not_execute_agents"] is True
+    assert experiments_payload["policy"]["does_not_run_backtests"] is True
+    assert_matches_schema(repo / "memory_diagnostics.json", "memory_diagnostics")
+    assert (
+        repo / "strategies/current_strategy.py"
+    ).read_text(encoding="utf-8") == strategy_before
 
 
 def test_agent_contract_runner_writes_disabled_audit(tmp_path: Path) -> None:

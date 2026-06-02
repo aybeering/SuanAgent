@@ -33,6 +33,7 @@ python -m orchestrator.experiments show <run_id>
 python -m orchestrator.experiments summary
 python -m orchestrator.experiments leaderboard --limit 5
 python -m orchestrator.experiments memory --limit 5
+python -m orchestrator.experiments memory-diagnostics
 python -m orchestrator.experiments diagnose <run_id>
 python -m orchestrator.experiments agents <run_id>
 python -m orchestrator.experiments slots <run_id>
@@ -56,6 +57,7 @@ python -m orchestrator.run_artifact_health --all --record-history
 python -m orchestrator.run_artifact_health --history-summary
 python -m orchestrator.experiments validate --limit 10 --strict
 python -m orchestrator.experiments health-history
+python -m orchestrator.memory_diagnostics --strict
 python -m orchestrator.artifact_validator_coverage --output artifact_validator_coverage.json --markdown artifact_validator_coverage.md
 python -m orchestrator.artifact_validator_coverage --strict
 python -m orchestrator.experiments coverage
@@ -233,6 +235,10 @@ Replay artifacts:
 - `run_artifact_health_history.jsonl` appends compact health snapshots when
   explicitly requested, and `run_artifact_health_history_v1` summaries show
   repeated failing runs and artifact filenames.
+- `memory_diagnostics.json` cross-references proposal outcome memory with
+  artifact-health history by run id, agent, profile, direction, and patch hash.
+  It is inspection-only and cannot execute agents, run backtests, route agents,
+  apply patches, or change acceptance.
 - `artifact_validator_coverage.json` reports schema, validator, documentation,
   test, and inspection/replay coverage for repository artifact contracts.
 

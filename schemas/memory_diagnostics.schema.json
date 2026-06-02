@@ -1,0 +1,289 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Memory Diagnostics",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "repo_root",
+    "experiments_dir",
+    "memory_path",
+    "health_history_path",
+    "ok",
+    "read_errors",
+    "totals",
+    "matched_failed_run_ids",
+    "unmatched_failed_health_run_ids",
+    "groups",
+    "recent_outcome_health_links",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "memory_diagnostics_v1"
+      ]
+    },
+    "repo_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "experiments_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "memory_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "health_history_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "read_errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "totals": {
+      "type": "object",
+      "required": [
+        "outcome_record_count",
+        "health_history_record_count",
+        "outcome_run_count",
+        "failed_health_run_count",
+        "matched_failed_health_run_count",
+        "unmatched_failed_health_run_count",
+        "read_error_count"
+      ],
+      "properties": {
+        "outcome_record_count": {
+          "type": "integer"
+        },
+        "health_history_record_count": {
+          "type": "integer"
+        },
+        "outcome_run_count": {
+          "type": "integer"
+        },
+        "failed_health_run_count": {
+          "type": "integer"
+        },
+        "matched_failed_health_run_count": {
+          "type": "integer"
+        },
+        "unmatched_failed_health_run_count": {
+          "type": "integer"
+        },
+        "read_error_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "matched_failed_run_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unmatched_failed_health_run_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "groups": {
+      "type": "object",
+      "required": [
+        "by_agent",
+        "by_profile",
+        "by_direction",
+        "by_patch"
+      ],
+      "properties": {
+        "by_agent": {
+          "$ref": "#/$defs/group_rows"
+        },
+        "by_profile": {
+          "$ref": "#/$defs/group_rows"
+        },
+        "by_direction": {
+          "$ref": "#/$defs/group_rows"
+        },
+        "by_patch": {
+          "$ref": "#/$defs/group_rows"
+        }
+      }
+    },
+    "recent_outcome_health_links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "run_id",
+          "round_id",
+          "agent_name",
+          "profile_name",
+          "direction_tag",
+          "patch_sha256",
+          "accepted",
+          "validation_ev_delta",
+          "artifact_health_failed",
+          "artifact_failure_count",
+          "artifact_error_count",
+          "artifact_failure_names"
+        ],
+        "properties": {
+          "run_id": {
+            "type": "string"
+          },
+          "round_id": {
+            "type": "string"
+          },
+          "agent_name": {
+            "type": "string"
+          },
+          "profile_name": {
+            "type": "string"
+          },
+          "direction_tag": {
+            "type": "string"
+          },
+          "patch_sha256": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "validation_ev_delta": {
+            "type": "number"
+          },
+          "artifact_health_failed": {
+            "type": "boolean"
+          },
+          "artifact_failure_count": {
+            "type": "integer"
+          },
+          "artifact_error_count": {
+            "type": "integer"
+          },
+          "artifact_failure_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_outcome_memory_only",
+        "reads_artifact_health_history_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "does_not_route_agents",
+        "strict_mode_required_for_nonzero_exit"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_outcome_memory_only": {
+          "type": "boolean"
+        },
+        "reads_artifact_health_history_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "does_not_route_agents": {
+          "type": "boolean"
+        },
+        "strict_mode_required_for_nonzero_exit": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "group_rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "key",
+          "record_count",
+          "accepted_count",
+          "rejected_count",
+          "applicable_count",
+          "repeat_patch_count",
+          "artifact_failed_run_observation_count",
+          "artifact_failed_run_ids",
+          "artifact_failure_names",
+          "avg_validation_ev_delta",
+          "accept_rate"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "record_count": {
+            "type": "integer"
+          },
+          "accepted_count": {
+            "type": "integer"
+          },
+          "rejected_count": {
+            "type": "integer"
+          },
+          "applicable_count": {
+            "type": "integer"
+          },
+          "repeat_patch_count": {
+            "type": "integer"
+          },
+          "artifact_failed_run_observation_count": {
+            "type": "integer"
+          },
+          "artifact_failed_run_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "artifact_failure_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "avg_validation_ev_delta": {
+            "type": "number"
+          },
+          "accept_rate": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  }
+}

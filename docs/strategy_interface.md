@@ -104,6 +104,8 @@ audit replay can detect input/output drift without changing candidate replay,
 patch application, or acceptance.
 The round-level `agent_output.json` records the same summary as well, binding
 the selected-output contract back to the planner context in `agent_input.json`.
+`agent_validation.json` records the same summary while checking contract shape,
+patch target, and git-apply viability.
 `agent_output_quarantine.json` preserves the same summary before patch
 application, so pre-apply audits can detect context drift without changing the
 quarantine release rules.

@@ -508,6 +508,11 @@ def validate_round_dir(
         schema_path=repo_root / "schemas/agent_validation.schema.json",
         report=report,
     )
+    validate_agent_validation(
+        path=round_dir / "agent_validation.json",
+        repo_root=repo_root,
+        report=report,
+    )
     validate_contract_file(
         payload_path=round_dir / "agent_executor_report.json",
         schema_path=repo_root / "schemas/agent_executor.schema.json",
@@ -1097,6 +1102,38 @@ def validate_agent_output_quarantine(
     ):
         if not bool(policy.get(key, False)):
             add_error(report, f"agent_output_quarantine policy false: {key}")
+
+
+def validate_agent_validation(
+    *,
+    path: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate agent validation report context bindings."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    validate_proposal_intent_summary_contract(
+        summary=payload.get("proposal_intent_summary", {}),
+        artifact_name="agent_validation.json",
+        report=report,
+    )
+    agent_input_path = resolve_path(
+        Path(str(payload.get("agent_input_path", ""))),
+        repo_root,
+    )
+    if not agent_input_path.exists() or not agent_input_path.is_file():
+        add_error(
+            report,
+            f"agent_validation agent_input artifact missing: {agent_input_path}",
+        )
+        return
+    agent_input = load_json_object(agent_input_path, report)
+    if agent_input is not None and agent_input.get(
+        "proposal_intent_summary", {}
+    ) != payload.get("proposal_intent_summary", {}):
+        add_error(report, "agent_validation proposal intent summary drift")
 
 
 def validate_quarantine_intent_summary_bindings(

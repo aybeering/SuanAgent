@@ -230,8 +230,8 @@ Proposal and intake artifacts:
 - `raw_agent_output.txt` preserves the exact modifier output.
 - `agent_output.json` stores normalized selected proposal data and the
   proposal intent summary used by the round-level agent input.
-- `agent_validation.json` records contract, patch-target, and `git apply`
-  checks.
+- `agent_validation.json` records contract, patch-target, `git apply` checks,
+  and the proposal intent summary used by the validated agent input.
 - `agent_output_quarantine.json` records whether selected output is held or
   released before git apply, including the same proposal intent summary used by
   `agent_output.json`.

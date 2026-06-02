@@ -2892,6 +2892,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_validation["schema_version"] == AGENT_VALIDATION_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_validation.json", "agent_validation")
     assert agent_validation["ok"] is True
+    assert agent_validation["proposal_intent_summary"] == (
+        agent_input["proposal_intent_summary"]
+    )
+    assert agent_validation["proposal_intent_summary"] == (
+        agent_output["proposal_intent_summary"]
+    )
     assert agent_validation["failure_code"] == "none"
     assert agent_validation["reason_codes"] == []
     assert agent_validation["checks"]["contract_valid"] is True
@@ -2912,6 +2918,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert agent_output_quarantine["proposal_intent_summary"] == (
         agent_input["proposal_intent_summary"]
+    )
+    assert agent_output_quarantine["proposal_intent_summary"] == (
+        agent_validation["proposal_intent_summary"]
     )
     assert agent_output_quarantine["selected_attempt"]["adapter_name"] == (
         "fixed_patch_stub"
@@ -6382,6 +6391,37 @@ def test_artifact_validator_reports_agent_output_intent_summary_drift(
     assert report["ok"] is False
     assert any(
         "agent_output proposal intent summary drift" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_agent_validation_intent_summary_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-agent-validation-intent-drift",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/artifact-agent-validation-intent-drift/round_001"
+        / "agent_validation.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["proposal_intent_summary"]["recommended_direction"] = "drifted_direction"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="artifact-agent-validation-intent-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "agent_validation proposal intent summary drift" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 

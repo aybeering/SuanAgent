@@ -74,6 +74,9 @@ def validate_agent_proposal(
     agent_input = load_json_object(agent_input_path)
     expected_target = Path(str(agent_input["target_file"]))
     expected_round_index = int(agent_input["round_index"])
+    proposal_intent_summary = dict_or_empty(
+        agent_input.get("proposal_intent_summary", {})
+    )
     normalized_proposal = proposal_with_patch_hash(proposal)
     contract_errors = validate_proposal_contract(
         proposal=normalized_proposal,
@@ -105,6 +108,7 @@ def validate_agent_proposal(
         "warnings": [],
         "agent_input_path": str(agent_input_path),
         "agent_output_path": str(agent_output_path or ""),
+        "proposal_intent_summary": proposal_intent_summary,
         "expected_target_file": str(expected_target),
         "expected_round_index": expected_round_index,
         "proposal_protocol_version": normalized_proposal.protocol_version,
@@ -234,6 +238,11 @@ def write_optional_json(path: Path | None, payload: object) -> None:
 def string_value(value: object) -> str:
     """Return a string value for JSON metadata."""
     return value if isinstance(value, str) else ""
+
+
+def dict_or_empty(value: object) -> dict[str, object]:
+    """Return a JSON object value or an empty object."""
+    return value if isinstance(value, dict) else {}
 
 
 def string_mapping(value: object) -> dict[str, str]:

@@ -93,9 +93,13 @@ jobs:
           PY
           python -m orchestrator.operator_unlock_checklist experiments/ci-codex-startup-block
           python - <<'PY'
+          from pathlib import Path
           import shutil
 
           shutil.rmtree("experiments/ci-codex-startup-block")
+          Path("experiments/run_artifact_health_history.jsonl").unlink(
+              missing_ok=True,
+          )
           PY
 
       - name: Run Codex CLI canary iteration

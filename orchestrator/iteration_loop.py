@@ -46,6 +46,7 @@ from orchestrator.agent_role_readiness import write_agent_role_readiness
 from orchestrator.agent_roles import write_agent_role_contracts
 from orchestrator.analysis_stub import write_analysis_notes
 from orchestrator.candidate_challenger_report import write_candidate_challenger_report
+from orchestrator.champion_promotion_approval import write_champion_promotion_approval
 from orchestrator.champion_promotion_dry_run import write_champion_promotion_dry_run
 from orchestrator.config import (
     ProjectConfig,
@@ -260,6 +261,13 @@ def run_iteration_loop(
             "markdown_path": "champion_promotion_dry_run.md",
             "ok": False,
             "status": "pending",
+        },
+        "champion_promotion_approval": {
+            "path": "champion_promotion_approval.json",
+            "markdown_path": "champion_promotion_approval.md",
+            "ok": False,
+            "status": "pending",
+            "approval_recorded": False,
         },
         "memory_filter_policy": {
             "failed_patch_threshold": active_config.memory_failed_patch_threshold,
@@ -565,6 +573,22 @@ def finalize_iteration_run(
         "would_promote": bool(
             promotion_payload.get("dry_run_decision", {}).get("would_promote", False)
             if isinstance(promotion_payload.get("dry_run_decision", {}), dict)
+            else False
+        ),
+    }
+    _, _, approval_payload = write_champion_promotion_approval(
+        run_dir=run_dir,
+        repo_root=repo_root,
+    )
+    approval_intent = approval_payload.get("operator_intent", {})
+    manifest["champion_promotion_approval"] = {
+        "path": "champion_promotion_approval.json",
+        "markdown_path": "champion_promotion_approval.md",
+        "ok": bool(approval_payload.get("ok", False)),
+        "status": str(approval_payload.get("status", "unknown")),
+        "approval_recorded": bool(
+            approval_intent.get("approval_recorded", False)
+            if isinstance(approval_intent, dict)
             else False
         ),
     }

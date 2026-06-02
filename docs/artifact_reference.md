@@ -105,6 +105,8 @@ experiments/<run_id>/
   candidate_challenger_report.md
   champion_promotion_dry_run.json
   champion_promotion_dry_run.md
+  champion_promotion_approval.json
+  champion_promotion_approval.md
   research_brief.json
   research_brief.md
   experiment_scope_health.json
@@ -286,6 +288,11 @@ Replay artifacts:
   `champion.json`, append `champion_history.jsonl`, execute agents, run
   backtests, apply patches, route agents, or change acceptance. Actual
   promotion still requires the explicit `experiments promote` command.
+- `champion_promotion_approval.json` and `champion_promotion_approval.md`
+  record operator review intent, required confirmation phrase hashes, reviewed
+  promote command digests, and source evidence hashes. They do not execute the
+  promote command, write `champion.json`, append `champion_history.jsonl`, run
+  agents, run backtests, apply patches, route agents, or change acceptance.
 - `artifact_validator_coverage.json` reports schema, validator, documentation,
   test, and inspection/replay coverage for repository artifact contracts.
 

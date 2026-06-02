@@ -94,6 +94,7 @@ Implemented or allowed V0.5 components:
 80. Deterministic candidate quality breakdown fields that decompose proposal prefilter scores into named components and carry selected validation and holdout signals across leaderboard, routing, selection, brief, and closeout artifacts without changing final acceptance authority.
 81. A deterministic `candidate_challenger_report.json` and `candidate_challenger_report.md` report pair that compares saved candidate rows with the current champion registry, including validation gap and holdout stability flags, without promoting champions, routing agents, running backtests, applying patches, or changing acceptance.
 82. A deterministic `champion_promotion_dry_run.json` and `champion_promotion_dry_run.md` report pair that previews whether a completed run would satisfy the existing deterministic champion promotion comparison, without writing `champion.json`, appending champion history, running agents, running backtests, routing agents, applying patches, or changing acceptance.
+83. A deterministic `champion_promotion_approval.json` and `champion_promotion_approval.md` report pair that records operator review intent, required confirmation phrase hashes, reviewed promote command digests, and source evidence hashes without executing promotion, writing champion registry files, appending champion history, running agents, running backtests, routing agents, applying patches, or changing acceptance.
 
 ## Contract Families
 
@@ -135,6 +136,7 @@ Agent-slot contracts:
 - Run closeout: `schemas/run_closeout.schema.json`
 - Candidate challenger report: `schemas/candidate_challenger_report.schema.json`
 - Champion promotion dry-run: `schemas/champion_promotion_dry_run.schema.json`
+- Champion promotion approval: `schemas/champion_promotion_approval.schema.json`
 
 Codex CLI readiness contracts:
 
@@ -200,6 +202,10 @@ Codex CLI readiness contracts:
     operator review, but they cannot write champion registry files, append
     champion history, route candidates, apply patches, run backtests, or change
     strategy acceptance.
+18. Champion promotion approval artifacts record operator intent and reviewed
+    command digests only. They cannot execute promotion, write champion
+    registry files, append champion history, route candidates, apply patches,
+    run backtests, or change strategy acceptance.
 
 ## Near-Term Development Order
 

@@ -147,6 +147,20 @@ def write_iteration_summary(
             f"- Markdown: `{display_value(promotion_dry_run.get('markdown_path'))}`"
         )
 
+    promotion_approval = manifest.get("champion_promotion_approval")
+    if isinstance(promotion_approval, dict):
+        lines.extend(["", "## Champion Promotion Approval", ""])
+        lines.append(f"- Status: `{display_value(promotion_approval.get('status'))}`")
+        lines.append(f"- OK: `{display_value(promotion_approval.get('ok'))}`")
+        lines.append(
+            "- Approval recorded: "
+            f"`{display_value(promotion_approval.get('approval_recorded'))}`"
+        )
+        lines.append(f"- Artifact: `{display_value(promotion_approval.get('path'))}`")
+        lines.append(
+            f"- Markdown: `{display_value(promotion_approval.get('markdown_path'))}`"
+        )
+
     run_closeout = manifest.get("run_closeout")
     if isinstance(run_closeout, dict):
         lines.extend(["", "## Run Closeout", ""])

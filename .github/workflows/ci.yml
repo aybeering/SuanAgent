@@ -367,6 +367,11 @@ jobs:
           assert promotion["ok"] is True
           assert promotion["dry_run_decision"]["would_promote"] is False
           assert promotion["policy"]["does_not_write_champion_registry"] is True
+          approval = json.load(open("experiments/ci-adaptive/champion_promotion_approval.json"))
+          assert approval["schema_version"] == "champion_promotion_approval_v1"
+          assert approval["ok"] is True
+          assert approval["operator_intent"]["approval_recorded"] is False
+          assert approval["policy"]["does_not_execute_promote_command"] is True
           stats = json.load(open("experiments/ci-adaptive/agent_result_stats.json"))
           assert stats["schema_version"] == "agent_result_stats_v1"
           assert stats["agents"]
@@ -511,6 +516,8 @@ jobs:
           test -f experiments/ci-adaptive/candidate_challenger_report.md
           test -f experiments/ci-adaptive/champion_promotion_dry_run.json
           test -f experiments/ci-adaptive/champion_promotion_dry_run.md
+          test -f experiments/ci-adaptive/champion_promotion_approval.json
+          test -f experiments/ci-adaptive/champion_promotion_approval.md
           test -f experiments/ci-adaptive/run_closeout.json
           test -f experiments/ci-adaptive/run_closeout.md
           python - <<'PY'
@@ -519,6 +526,7 @@ jobs:
           scope = json.load(open("experiments/ci-adaptive/experiment_scope_health.json"))
           challenger = json.load(open("experiments/ci-adaptive/candidate_challenger_report.json"))
           promotion = json.load(open("experiments/ci-adaptive/champion_promotion_dry_run.json"))
+          approval = json.load(open("experiments/ci-adaptive/champion_promotion_approval.json"))
           closeout = json.load(open("experiments/ci-adaptive/run_closeout.json"))
           manifest = json.load(open("experiments/ci-adaptive/manifest.json"))
           summary = open("experiments/ci-adaptive/summary.md").read()
@@ -535,6 +543,8 @@ jobs:
           assert challenger["policy"]["does_not_change_acceptance"] is True
           assert promotion["schema_version"] == "champion_promotion_dry_run_v1"
           assert promotion["policy"]["requires_explicit_promote_command"] is True
+          assert approval["schema_version"] == "champion_promotion_approval_v1"
+          assert approval["policy"]["approval_does_not_promote"] is True
           assert closeout["schema_version"] == "run_closeout_v1"
           assert closeout["ok"] is True
           assert closeout["decision_record"]["final_acceptance_authority"] == "deterministic_code"
@@ -543,6 +553,7 @@ jobs:
           assert "Artifact Health History" in summary
           assert "Candidate Challenger Report" in summary
           assert "Champion Promotion Dry Run" in summary
+          assert "Champion Promotion Approval" in summary
           assert "Run Closeout" in summary
           PY
 

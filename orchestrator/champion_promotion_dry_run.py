@@ -61,7 +61,9 @@ def build_champion_promotion_dry_run(
     run_dir = resolve_path(run_dir, repo_root)
     experiments_dir = resolve_path(experiments_dir, repo_root)
     run_id = run_dir.name
-    manifest = load_json_object(run_dir / "manifest.json")
+    run_record = load_json_object(run_dir / "manifest.json") or load_json_object(
+        run_dir / "decision.json"
+    )
     diagnosis = diagnose_run(
         run_id=run_id,
         experiments_dir=experiments_dir,
@@ -86,13 +88,13 @@ def build_champion_promotion_dry_run(
         and not blocking_reasons
     )
     status = dry_run_status(
-        manifest_present=bool(manifest),
+        manifest_present=bool(run_record),
         champion=champion,
         comparison=comparison,
         would_promote=would_promote,
         blocking_reasons=blocking_reasons,
     )
-    ok = bool(manifest and diagnosis)
+    ok = bool(run_record and diagnosis)
     payload: dict[str, object] = {
         "schema_version": CHAMPION_PROMOTION_DRY_RUN_SCHEMA_VERSION,
         "run_id": run_id,
@@ -101,7 +103,7 @@ def build_champion_promotion_dry_run(
         "status": status,
         "ok": ok,
         "checks": {
-            "manifest_present": bool(manifest),
+            "manifest_present": bool(run_record),
             "diagnosis_present": bool(diagnosis),
             "champion_present": bool(champion.get("exists", False)),
             "candidate_is_current_champion": bool(

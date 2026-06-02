@@ -173,6 +173,11 @@ from orchestrator.champion_promotion_dry_run import (
     CHAMPION_PROMOTION_DRY_RUN_SCHEMA_VERSION,
     validate_champion_promotion_dry_run_file,
 )
+from orchestrator.champion_promotion_approval import (
+    CHAMPION_PROMOTION_APPROVAL_SCHEMA_VERSION,
+    REQUIRED_CONFIRMATION_PHRASE as CHAMPION_PROMOTION_CONFIRMATION_PHRASE,
+    validate_champion_promotion_approval_file,
+)
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
 from orchestrator.iteration_loop import run_iteration_loop
 from orchestrator.outcome_memory import (
@@ -1973,6 +1978,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "candidate_challenger_report.md").exists()
     assert (run_dir / "champion_promotion_dry_run.json").exists()
     assert (run_dir / "champion_promotion_dry_run.md").exists()
+    assert (run_dir / "champion_promotion_approval.json").exists()
+    assert (run_dir / "champion_promotion_approval.md").exists()
     assert (run_dir / "run_closeout.json").exists()
     assert (run_dir / "run_closeout.md").exists()
     assert (repo / "experiments/run_artifact_health_history.jsonl").exists()
@@ -2054,6 +2061,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     promotion_markdown = (run_dir / "champion_promotion_dry_run.md").read_text(
         encoding="utf-8"
     )
+    approval = json.loads(
+        (run_dir / "champion_promotion_approval.json").read_text(encoding="utf-8")
+    )
+    approval_markdown = (run_dir / "champion_promotion_approval.md").read_text(
+        encoding="utf-8"
+    )
     closeout = json.loads((run_dir / "run_closeout.json").read_text(encoding="utf-8"))
     closeout_markdown = (run_dir / "run_closeout.md").read_text(encoding="utf-8")
     history_records = [
@@ -2118,6 +2131,35 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert validate_champion_promotion_dry_run_file(
         payload_path=run_dir / "champion_promotion_dry_run.json",
+        repo_root=Path.cwd(),
+    ) == ()
+    assert manifest["champion_promotion_approval"]["path"] == (
+        "champion_promotion_approval.json"
+    )
+    assert manifest["champion_promotion_approval"]["markdown_path"] == (
+        "champion_promotion_approval.md"
+    )
+    assert manifest["champion_promotion_approval"]["ok"] is True
+    assert manifest["champion_promotion_approval"]["status"] == "approval_blocked"
+    assert manifest["champion_promotion_approval"]["approval_recorded"] is False
+    assert approval["schema_version"] == CHAMPION_PROMOTION_APPROVAL_SCHEMA_VERSION
+    assert approval["ok"] is True
+    assert approval["status"] == "approval_blocked"
+    assert approval["operator_intent"]["approval_recorded"] is False
+    assert approval["approval_gate"]["eligible_for_approval"] is False
+    assert (
+        "dry_run_does_not_recommend_promotion"
+        in approval["approval_gate"]["approval_blockers"]
+    )
+    assert approval["policy"]["does_not_execute_promote_command"] is True
+    assert approval["policy"]["approval_does_not_promote"] is True
+    assert "# Champion Promotion Approval" in approval_markdown
+    assert_matches_schema(
+        run_dir / "champion_promotion_approval.json",
+        "champion_promotion_approval",
+    )
+    assert validate_champion_promotion_approval_file(
+        payload_path=run_dir / "champion_promotion_approval.json",
         repo_root=Path.cwd(),
     ) == ()
     assert manifest["run_closeout"]["path"] == "run_closeout.json"
@@ -2964,6 +3006,14 @@ def test_iteration_loop_writes_research_brief(tmp_path: Path) -> None:
         for path in report["checked_files"]  # type: ignore[union-attr]
     )
     assert any(
+        path.endswith("champion_promotion_approval.json")
+        for path in report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
+        path.endswith("champion_promotion_approval.md")
+        for path in report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
         path.endswith("run_closeout.json")
         for path in report["checked_files"]  # type: ignore[union-attr]
     )
@@ -2981,6 +3031,8 @@ def test_iteration_loop_writes_research_brief(tmp_path: Path) -> None:
     assert "candidate_challenger_report.json" in summary_text
     assert "Champion Promotion Dry Run" in summary_text
     assert "champion_promotion_dry_run.json" in summary_text
+    assert "Champion Promotion Approval" in summary_text
+    assert "champion_promotion_approval.json" in summary_text
     assert "Run Closeout" in summary_text
     assert "run_closeout.json" in summary_text
     assert "round_001" in summary_text
@@ -10635,6 +10687,111 @@ def test_champion_registry_refuses_non_promoted_candidate(tmp_path: Path) -> Non
     assert not (repo / "experiments/champion.json").exists()
 
 
+def test_champion_promotion_approval_records_operator_intent_without_promoting(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(
+        run_id="approval-base",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    run_pipeline(
+        run_id="approval-champion",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    make_run_accepted_with_ev_lift(
+        repo=repo,
+        run_id="approval-champion",
+        ev_lift=0.3,
+    )
+    promote_champion(
+        base_run_id="approval-base",
+        candidate_run_id="approval-champion",
+        experiments_dir=repo / "experiments",
+    )
+    run_pipeline(
+        run_id="approval-candidate",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    make_run_accepted_with_ev_lift(
+        repo=repo,
+        run_id="approval-candidate",
+        ev_lift=0.6,
+    )
+    before_champion = json.loads(
+        (repo / "experiments/champion.json").read_text(encoding="utf-8")
+    )
+
+    dry_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.champion_promotion_dry_run",
+            "experiments/approval-candidate",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    approval_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.champion_promotion_approval",
+            "experiments/approval-candidate",
+            "--approve",
+            "--operator-id",
+            "test-operator",
+            "--confirmation-phrase",
+            CHAMPION_PROMOTION_CONFIRMATION_PHRASE,
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    after_champion = json.loads(
+        (repo / "experiments/champion.json").read_text(encoding="utf-8")
+    )
+    approval = json.loads(approval_result.stdout)
+
+    assert dry_result.returncode == 0, dry_result.stderr
+    dry_payload = json.loads(dry_result.stdout)
+    assert dry_payload["status"] == "promotion_recommended"
+    assert dry_payload["dry_run_decision"]["would_promote"] is True
+    assert approval_result.returncode == 0, approval_result.stderr
+    assert approval["schema_version"] == CHAMPION_PROMOTION_APPROVAL_SCHEMA_VERSION
+    assert approval["status"] == "approval_recorded"
+    assert approval["operator_intent"]["operator_id"] == "test-operator"
+    assert approval["operator_intent"]["approval_recorded"] is True
+    assert approval["operator_intent"]["confirmation_phrase_matches"] is True
+    assert approval["approval_gate"]["eligible_for_approval"] is True
+    assert approval["approval_gate"]["approval_blockers"] == []
+    assert approval["reviewed_command"]["command"].endswith(
+        "approval-champion approval-candidate"
+    )
+    assert approval["policy"]["does_not_execute_promote_command"] is True
+    assert approval["policy"]["approval_does_not_promote"] is True
+    assert before_champion == after_champion
+    assert after_champion["champion_run_id"] == "approval-champion"
+    assert_matches_schema(
+        repo / "experiments/approval-candidate/champion_promotion_approval.json",
+        "champion_promotion_approval",
+    )
+    assert validate_champion_promotion_approval_file(
+        payload_path=repo
+        / "experiments/approval-candidate/champion_promotion_approval.json",
+        repo_root=repo,
+    ) == ()
+
+
 def test_iteration_loop_writes_champion_comparison_when_champion_exists(
     tmp_path: Path,
 ) -> None:
@@ -10674,10 +10831,14 @@ def test_iteration_loop_writes_champion_comparison_when_champion_exists(
     promotion_path = (
         repo / "experiments/auto-challenger/champion_promotion_dry_run.json"
     )
+    approval_path = (
+        repo / "experiments/auto-challenger/champion_promotion_approval.json"
+    )
     brief_path = repo / "experiments/auto-challenger/research_brief.json"
     comparison = json.loads(comparison_path.read_text(encoding="utf-8"))
     challenger = json.loads(challenger_path.read_text(encoding="utf-8"))
     promotion = json.loads(promotion_path.read_text(encoding="utf-8"))
+    approval = json.loads(approval_path.read_text(encoding="utf-8"))
     brief = json.loads(brief_path.read_text(encoding="utf-8"))
     markdown = (repo / "experiments/auto-challenger/research_brief.md").read_text(
         encoding="utf-8"
@@ -10718,12 +10879,19 @@ def test_iteration_loop_writes_champion_comparison_when_champion_exists(
     )
     assert promotion["policy"]["does_not_write_champion_registry"] is True
     assert promotion["policy"]["does_not_append_champion_history"] is True
+    assert approval["schema_version"] == CHAMPION_PROMOTION_APPROVAL_SCHEMA_VERSION
+    assert approval["status"] == "approval_blocked"
+    assert approval["operator_intent"]["approval_recorded"] is False
+    assert approval["approval_gate"]["eligible_for_approval"] is False
+    assert approval["reviewed_command"]["command"] == ""
+    assert approval["policy"]["does_not_execute_promote_command"] is True
     assert brief["champion_comparison"]["exists"] is True
     assert brief["champion_comparison"]["champion_run_id"] == "auto-champion-current"
     assert "## Champion Comparison" in markdown
     assert_matches_schema(comparison_path, "champion_comparison")
     assert_matches_schema(challenger_path, "candidate_challenger_report")
     assert_matches_schema(promotion_path, "champion_promotion_dry_run")
+    assert_matches_schema(approval_path, "champion_promotion_approval")
     assert_matches_schema(brief_path, "research_brief")
     assert report["ok"] is True
     assert any(
@@ -10736,6 +10904,10 @@ def test_iteration_loop_writes_champion_comparison_when_champion_exists(
     )
     assert any(
         path.endswith("champion_promotion_dry_run.json")
+        for path in report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
+        path.endswith("champion_promotion_approval.json")
         for path in report["checked_files"]  # type: ignore[union-attr]
     )
 
@@ -11131,6 +11303,18 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    approval_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.champion_promotion_approval",
+            "experiments/cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
     assert rows
     assert rows[0]["run_id"] == "cli-candidates"
@@ -11185,6 +11369,16 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         payload_path=repo / "experiments/cli-candidates/champion_promotion_dry_run.json",
         repo_root=repo,
     ) == ()
+    assert approval_result.returncode == 0, approval_result.stderr
+    approval_payload = json.loads(approval_result.stdout)
+    assert approval_payload["schema_version"] == CHAMPION_PROMOTION_APPROVAL_SCHEMA_VERSION
+    assert approval_payload["status"] == "approval_blocked"
+    assert approval_payload["operator_intent"]["approval_recorded"] is False
+    assert approval_payload["policy"]["approval_does_not_promote"] is True
+    assert validate_champion_promotion_approval_file(
+        payload_path=repo / "experiments/cli-candidates/champion_promotion_approval.json",
+        repo_root=repo,
+    ) == ()
 
 
 def test_summary_markdown_is_written_for_single_and_iteration_runs(tmp_path: Path) -> None:
@@ -11216,6 +11410,7 @@ def test_summary_markdown_is_written_for_single_and_iteration_runs(tmp_path: Pat
     assert "Proposal Quality" in iteration_summary
     assert "Candidate Challenger Report" in iteration_summary
     assert "Champion Promotion Dry Run" in iteration_summary
+    assert "Champion Promotion Approval" in iteration_summary
     assert "Candidate Leaderboard" in iteration_summary
     assert "Expected Change" in iteration_summary
     assert "Probe EV" in iteration_summary

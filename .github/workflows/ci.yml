@@ -146,6 +146,23 @@ jobs:
           assert approval["checks"]["confirmation_phrase_matches"] is True
           assert approval["policy"]["does_not_execute_codex_cli"] is True
           PY
+          python -m orchestrator.codex_cli_real_preflight experiments/ci-codex-guarded --config config/codex_cli_enable_candidate.json
+          test -f experiments/ci-codex-guarded/codex_cli_real_preflight.json
+          test -f experiments/ci-codex-guarded/codex_cli_real_preflight.md
+          python - <<'PY'
+          import json
+          preflight = json.load(open("experiments/ci-codex-guarded/codex_cli_real_preflight.json"))
+          assert preflight["schema_version"] == "codex_cli_real_preflight_v1"
+          assert preflight["ok"] is True
+          assert preflight["policy"]["does_not_execute_strategy_modification"] is True
+          assert preflight["policy"]["does_not_send_strategy_prompt"] is True
+          assert preflight["version_probe"]["status"] in {"missing", "completed", "failed", "timeout"}
+          if preflight["real_codex_cli_ready"]:
+              assert preflight["blocking_reasons"] == []
+              assert preflight["checks"]["version_probe_returncode_zero"] is True
+          else:
+              assert preflight["blocking_reasons"]
+          PY
           python -m orchestrator.codex_cli_canary_gate experiments/ci-codex-canary --config config/codex_cli_canary.json
           test -f experiments/ci-codex-canary/codex_cli_canary_gate.json
           test -f experiments/ci-codex-canary/codex_cli_canary_gate.md

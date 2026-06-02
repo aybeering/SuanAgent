@@ -127,6 +127,8 @@ def validate_run_artifacts(
             report=report,
         )
         validate_json_object(path=run_dir / "decision.json", report=report)
+    elif (run_dir / "codex_cli_real_preflight.json").exists():
+        report["kind"] = "codex_cli_real_preflight"
     else:
         add_error(report, "run has neither manifest.json nor decision.json")
 
@@ -173,6 +175,11 @@ def validate_run_artifacts(
         report=report,
     )
     validate_optional_codex_cli_canary_gate(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
+    validate_optional_codex_cli_real_preflight(
         run_dir=run_dir,
         repo_root=repo_root,
         report=report,
@@ -2596,6 +2603,128 @@ def validate_optional_codex_cli_canary_gate(
             elif artifact_path.exists():
                 checked_files(report).append(str(artifact_path))
     markdown_path = run_dir / "codex_cli_canary_gate.md"
+    if markdown_path.exists():
+        checked_files(report).append(str(markdown_path))
+
+
+def validate_optional_codex_cli_real_preflight(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate codex_cli_real_preflight.json when a run has one."""
+    path = run_dir / "codex_cli_real_preflight.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/codex_cli_real_preflight.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"codex_cli_real_preflight.json run_id does not match report: {path}",
+        )
+    blockers = payload.get("blocking_reasons", [])
+    if not isinstance(blockers, list):
+        add_error(report, "codex_cli_real_preflight.json blocking_reasons invalid")
+        return
+    ready = bool(payload.get("real_codex_cli_ready", False))
+    if ready and blockers:
+        add_error(report, "codex_cli_real_preflight.json ready with blockers")
+    if not ready and not blockers:
+        add_error(report, "codex_cli_real_preflight.json blocked without reason")
+    checks = payload.get("checks", {})
+    if not isinstance(checks, dict):
+        add_error(report, "codex_cli_real_preflight.json checks invalid")
+    else:
+        if not bool(checks.get("does_not_execute_strategy_modification", False)):
+            add_error(
+                report,
+                "codex_cli_real_preflight.json executed strategy modification",
+            )
+        if ready:
+            for key, value in checks.items():
+                if not bool(value):
+                    add_error(
+                        report,
+                        f"codex_cli_real_preflight.json check false: {key}",
+                    )
+    if bool(payload.get("ok", False)) is not True:
+        add_error(report, "codex_cli_real_preflight.json ok false")
+    executable = payload.get("executable", {})
+    if not isinstance(executable, dict):
+        add_error(report, "codex_cli_real_preflight.json executable invalid")
+    version_probe = payload.get("version_probe", {})
+    if not isinstance(version_probe, dict):
+        add_error(report, "codex_cli_real_preflight.json version_probe invalid")
+    else:
+        status = str(version_probe.get("status", ""))
+        if status not in {"missing", "completed", "failed", "timeout"}:
+            add_error(
+                report,
+                f"codex_cli_real_preflight.json invalid version status: {status}",
+            )
+        command = version_probe.get("command", [])
+        if ready:
+            if not isinstance(command, list) or "--version" not in command:
+                add_error(
+                    report,
+                    "codex_cli_real_preflight.json ready without version command",
+                )
+            if version_probe.get("returncode") != 0:
+                add_error(
+                    report,
+                    "codex_cli_real_preflight.json ready with nonzero version probe",
+                )
+        if isinstance(command, list) and any(
+            "current_strategy.py" in str(part) for part in command
+        ):
+            add_error(
+                report,
+                "codex_cli_real_preflight.json version command targets strategy",
+            )
+    command_template = payload.get("command_template", [])
+    if not isinstance(command_template, list):
+        add_error(report, "codex_cli_real_preflight.json command_template invalid")
+    elif "exec" not in command_template or "--sandbox" not in command_template:
+        add_error(report, "codex_cli_real_preflight.json command_template incomplete")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "codex_cli_real_preflight.json policy invalid")
+    else:
+        for key in (
+            "preflight_only",
+            "does_not_execute_strategy_modification",
+            "does_not_send_strategy_prompt",
+            "does_not_create_agent_workspace",
+            "does_not_modify_config",
+            "does_not_select_candidate",
+            "does_not_apply_patches",
+            "does_not_change_acceptance",
+            "version_probe_only",
+            "deterministic_code_keeps_acceptance_authority",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(report, f"codex_cli_real_preflight.json policy false: {key}")
+    artifacts = payload.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        add_error(report, "codex_cli_real_preflight.json artifacts invalid")
+    else:
+        for key, record in artifacts.items():
+            if not isinstance(record, dict):
+                add_error(report, f"codex_cli_real_preflight artifact invalid: {key}")
+                continue
+            artifact_path = resolve_path(Path(str(record.get("path", ""))), repo_root)
+            if artifact_path.exists():
+                checked_files(report).append(str(artifact_path))
+    markdown_path = run_dir / "codex_cli_real_preflight.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
 

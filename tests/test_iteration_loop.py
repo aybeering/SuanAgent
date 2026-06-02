@@ -66,6 +66,10 @@ from orchestrator.codex_cli_canary_gate import (
     CODEX_CLI_CANARY_GATE_SCHEMA_VERSION,
     write_codex_cli_canary_gate,
 )
+from orchestrator.codex_cli_real_preflight import (
+    CODEX_CLI_REAL_PREFLIGHT_SCHEMA_VERSION,
+    write_codex_cli_real_preflight,
+)
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.agent_slot_readiness_gate import (
@@ -6085,6 +6089,150 @@ def test_codex_cli_canary_gate_blocks_missing_execution(
     assert_matches_schema(
         run_dir / "codex_cli_canary_gate.json",
         "codex_cli_canary_gate",
+    )
+
+
+def test_codex_cli_real_preflight_detects_fake_version_probe(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_real_codex.py",
+        """#!/usr/bin/env python3
+import sys
+if sys.argv[1:] == ['--version']:
+    print('codex-cli 1.2.3-test')
+    raise SystemExit(0)
+print('unexpected args', sys.argv[1:], file=sys.stderr)
+raise SystemExit(9)
+""",
+    )
+    config_payload = json.loads(
+        (repo / "config/codex_cli_enable_candidate.json").read_text(encoding="utf-8")
+    )
+    config_payload["codex_cli"]["executable"] = str(fake_codex)
+    config_path = repo / "config/codex_cli_real_preflight_fixture.json"
+    config_path.write_text(
+        json.dumps(config_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    run_dir = repo / "experiments/codex-real-preflight"
+    run_dir.mkdir(parents=True)
+
+    preflight = write_codex_cli_real_preflight(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        timeout_seconds=5,
+    )
+    validation_report = validate_run_artifacts(
+        run_id="codex-real-preflight",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_real_preflight",
+            "experiments/codex-real-preflight",
+            "--config",
+            "config/codex_cli_real_preflight_fixture.json",
+            "--timeout-seconds",
+            "5",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert preflight["schema_version"] == CODEX_CLI_REAL_PREFLIGHT_SCHEMA_VERSION
+    assert preflight["ok"] is True
+    assert preflight["real_codex_cli_ready"] is True
+    assert preflight["blocking_reasons"] == []
+    assert preflight["checks"]["version_probe_completed"] is True
+    assert preflight["checks"]["version_probe_returncode_zero"] is True
+    assert preflight["checks"]["does_not_execute_strategy_modification"] is True
+    assert preflight["version_probe"]["command"] == [str(fake_codex), "--version"]
+    assert "codex-cli 1.2.3-test" in preflight["version_probe"]["stdout"]["preview"]
+    assert "current_strategy.py" not in " ".join(preflight["version_probe"]["command"])
+    assert preflight["policy"]["does_not_send_strategy_prompt"] is True
+    assert_matches_schema(
+        run_dir / "codex_cli_real_preflight.json",
+        "codex_cli_real_preflight",
+    )
+    assert (run_dir / "codex_cli_real_preflight.md").exists()
+    assert validation_report["ok"] is True
+    assert cli_result.returncode == 0, cli_result.stderr
+    assert cli_payload["schema_version"] == CODEX_CLI_REAL_PREFLIGHT_SCHEMA_VERSION
+    assert cli_payload["real_codex_cli_ready"] is True
+
+
+def test_codex_cli_real_preflight_blocks_missing_executable(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_payload = json.loads(
+        (repo / "config/codex_cli_enable_candidate.json").read_text(encoding="utf-8")
+    )
+    config_payload["codex_cli"]["executable"] = "definitely-missing-codex-cli"
+    config_path = repo / "config/codex_cli_real_preflight_missing.json"
+    config_path.write_text(
+        json.dumps(config_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    run_dir = repo / "experiments/codex-real-preflight-missing"
+    run_dir.mkdir(parents=True)
+
+    preflight = write_codex_cli_real_preflight(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        timeout_seconds=5,
+    )
+    validation_report = validate_run_artifacts(
+        run_id="codex-real-preflight-missing",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_real_preflight",
+            "experiments/codex-real-preflight-missing",
+            "--config",
+            "config/codex_cli_real_preflight_missing.json",
+            "--timeout-seconds",
+            "5",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert preflight["schema_version"] == CODEX_CLI_REAL_PREFLIGHT_SCHEMA_VERSION
+    assert preflight["ok"] is True
+    assert preflight["real_codex_cli_ready"] is False
+    assert "codex_executable_not_found" in preflight["blocking_reasons"]
+    assert "version_probe_not_completed" in preflight["blocking_reasons"]
+    assert "version_probe_returncode_not_zero" in preflight["blocking_reasons"]
+    assert preflight["checks"]["executable_found"] is False
+    assert preflight["version_probe"]["status"] == "missing"
+    assert preflight["version_probe"]["command"] == []
+    assert preflight["policy"]["does_not_execute_strategy_modification"] is True
+    assert validation_report["ok"] is True
+    assert cli_result.returncode == 0, cli_result.stderr
+    assert cli_payload["ok"] is True
+    assert cli_payload["real_codex_cli_ready"] is False
+    assert_matches_schema(
+        run_dir / "codex_cli_real_preflight.json",
+        "codex_cli_real_preflight",
     )
 
 

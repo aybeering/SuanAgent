@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Codex CLI Real Preflight",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "config_path",
+    "ok",
+    "real_codex_cli_ready",
+    "blocking_reasons",
+    "checks",
+    "config",
+    "executable",
+    "version_probe",
+    "command_template",
+    "artifacts",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "codex_cli_real_preflight_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "config_path": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "real_codex_cli_ready": {
+      "type": "boolean"
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "checks": {
+      "type": "object",
+      "required": [
+        "config_exists",
+        "strategy_modifier_is_codex_cli",
+        "execute_true_candidate",
+        "executable_declared",
+        "executable_found",
+        "executable_not_checked_in_canary",
+        "sandbox_workspace_write",
+        "workspace_root_declared",
+        "timeout_positive",
+        "version_probe_completed",
+        "version_probe_returncode_zero",
+        "command_template_has_exec",
+        "command_template_has_sandbox",
+        "does_not_execute_strategy_modification"
+      ]
+    },
+    "config": {
+      "type": "object",
+      "required": [
+        "strategy_modifier",
+        "codex_cli"
+      ]
+    },
+    "executable": {
+      "type": "object",
+      "required": [
+        "declared",
+        "resolved_path",
+        "found",
+        "is_checked_in_canary"
+      ]
+    },
+    "version_probe": {
+      "type": "object",
+      "required": [
+        "status",
+        "command",
+        "timeout_seconds",
+        "returncode",
+        "timed_out",
+        "stdout",
+        "stderr"
+      ]
+    },
+    "command_template": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": [
+        "candidate_config"
+      ]
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "preflight_only",
+        "does_not_execute_strategy_modification",
+        "does_not_send_strategy_prompt",
+        "does_not_create_agent_workspace",
+        "does_not_modify_config",
+        "does_not_select_candidate",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "version_probe_only",
+        "deterministic_code_keeps_acceptance_authority"
+      ]
+    }
+  }
+}

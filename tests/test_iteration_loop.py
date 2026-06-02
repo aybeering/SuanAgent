@@ -127,7 +127,10 @@ from orchestrator.agent_slot_health import (
 )
 from orchestrator.attempt_replay import replay_attempt
 from orchestrator.round_replay import ROUND_REPLAY_SCHEMA_VERSION, replay_round
-from orchestrator.artifact_validator import validate_run_artifacts
+from orchestrator.artifact_validator import (
+    snapshot_digest_from_payload,
+    validate_run_artifacts,
+)
 from orchestrator.config import (
     ProjectConfig,
     load_project_config,
@@ -7124,6 +7127,55 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         "codex_cli_execution_unlock_snapshot evidence codex_cli_real_preflight sha256 mismatch"
         in str(error)
         for error in tampered_validation_report["errors"]
+    )
+
+
+def test_artifact_validator_reports_unlock_snapshot_source_gate_alias(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/snapshot-source-gate-alias"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    write_codex_cli_execution_unlock_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+        canary_run_dir=run_dir,
+    )
+    snapshot_path = run_dir / "codex_cli_execution_unlock_snapshot.json"
+    write_codex_cli_execution_unlock_snapshot(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
+    alias_gate_path = run_dir / "alias_execution_unlock_gate.json"
+    shutil.copyfile(
+        run_dir / "codex_cli_execution_unlock_gate.json",
+        alias_gate_path,
+    )
+    snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    snapshot["source_gate_path"] = str(alias_gate_path.relative_to(repo))
+    snapshot["source_gate"] = file_record(alias_gate_path, repo)
+    snapshot["snapshot_digest"] = snapshot_digest_from_payload(snapshot)
+    snapshot_path.write_text(
+        json.dumps(snapshot, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="snapshot-source-gate-alias",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_execution_unlock_snapshot source_gate "
+        "not canonical run artifact" in str(error)
+        for error in validation_report["errors"]
+    )
+    assert not any(
+        "codex_cli_execution_unlock_snapshot.json digest mismatch" in str(error)
+        for error in validation_report["errors"]
     )
 
 

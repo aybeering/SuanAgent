@@ -3577,6 +3577,23 @@ def validate_optional_codex_cli_execution_unlock_snapshot(
             report=report,
             label="codex_cli_execution_unlock_snapshot source_gate",
         )
+        validate_declared_record_path(
+            declared_path=str(payload.get("source_gate_path", "")),
+            record=source_gate,
+            repo_root=repo_root,
+            report=report,
+            label="codex_cli_execution_unlock_snapshot source_gate",
+        )
+        if not artifact_path_matches_file(
+            path_text=str(payload.get("source_gate_path", "")),
+            expected_path=run_dir / "codex_cli_execution_unlock_gate.json",
+            repo_root=repo_root,
+        ):
+            add_error(
+                report,
+                "codex_cli_execution_unlock_snapshot source_gate "
+                "not canonical run artifact",
+            )
     expected_digest = snapshot_digest_from_payload(payload)
     if str(payload.get("snapshot_digest", "")) != expected_digest:
         add_error(report, "codex_cli_execution_unlock_snapshot.json digest mismatch")

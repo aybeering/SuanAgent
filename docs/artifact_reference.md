@@ -74,6 +74,7 @@ python -m orchestrator.experiments execution-readiness-diff <run_id> --markdown
 python -m orchestrator.operator_cockpit experiments/<run_id>
 python -m orchestrator.experiments cockpit <run_id>
 python -m orchestrator.experiments cockpit <run_id> --markdown
+python -m orchestrator.experiments refresh-operator-views <run_id>
 ```
 
 Replay and validation:
@@ -308,6 +309,14 @@ a transient `snapshot_freshness` section that compares recorded source hashes
 with the current source files and names stale sources that require an explicit
 cockpit refresh. This freshness section is read-only inspection metadata and is
 not stored in `operator_cockpit.json`.
+`python -m orchestrator.experiments refresh-operator-views <run_id>` is an
+explicit convenience command that rewrites the existing read-only operator
+action dashboard, Codex CLI execution preflight, operator unlock checklist,
+Codex CLI execution readiness diff, and operator cockpit in dependency order.
+It uses the run's recorded config path unless `--config` is provided, returns a
+terminal-only `operator_view_refresh_v1` receipt, and still does not execute
+commands, execute Codex, run agents, run backtests, write config, promote
+champions, apply patches, route agents, or change acceptance.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.

@@ -78,11 +78,15 @@ are visible without executing Codex. The checklist also includes blocking
 navigation with related artifact paths and explicit command hints for the
 operator to run manually. The cockpit inspection command also reports whether
 the saved cockpit source hashes are stale, so operators can refresh the cockpit
-after updating readiness artifacts. If a real Codex execute=true startup preflight is
-blocked, the failed run still writes the checklist, execution readiness diff,
-and summary navigation. The Codex CLI unlock runbook turns the same evidence
-chain into an ordered read-only operator guide; it lists the required artifacts
-and command hints but does not execute commands or unlock Codex. The execution
+after updating readiness artifacts. `python -m orchestrator.experiments
+refresh-operator-views <run_id>` refreshes the read-only operator dashboard,
+Codex CLI preflight, unlock checklist, readiness diff, and cockpit in
+dependency order without executing agents or changing acceptance. If a real
+Codex execute=true startup preflight is blocked, the failed run still writes
+the checklist, execution readiness diff, and summary navigation. The Codex CLI
+unlock runbook turns the same evidence chain into an ordered read-only operator
+guide; it lists the required artifacts and command hints but does not execute
+commands or unlock Codex. The execution
 readiness diff compares the current config-derived command, workspace, mutation
 boundary, dry-run plan, and operator-reviewed request so missing evidence or
 drift is visible in both the diff and cockpit before any real Codex execution is

@@ -344,6 +344,7 @@ from orchestrator.experiments import (
     operator_unlock_checklist_report,
     operator_run_review,
     promote_champion,
+    refresh_operator_views as refresh_operator_views_command,
     render_operator_run_review_markdown,
     show_experiment,
     show_champion,
@@ -2389,7 +2390,9 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
         "codex_cli_execution_readiness_diff"
     ]
     assert "## Snapshot Freshness" in stale_markdown
-    assert "operator_cockpit" in stale["snapshot_freshness"]["recommended_command"]
+    assert "refresh-operator-views" in stale["snapshot_freshness"][
+        "recommended_command"
+    ]
     stale_validation = validate_run_artifacts(
         run_id=run_id,
         experiments_dir=repo / "experiments",
@@ -2399,6 +2402,36 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert "operator_cockpit codex_cli_execution_readiness_diff sha256 mismatch" in (
         stale_validation["errors"]
     )
+
+    refresh = refresh_operator_views_command(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+    )
+    refreshed = operator_cockpit_report(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+    )
+
+    assert refresh["schema_version"] == "operator_view_refresh_v1"
+    assert refresh["refreshed_count"] == 5
+    assert [
+        row["artifact_name"] for row in refresh["refreshed_artifacts"]
+    ] == [
+        "operator_action_dashboard",
+        "codex_cli_execution_preflight",
+        "operator_unlock_checklist",
+        "codex_cli_execution_readiness_diff",
+        "operator_cockpit",
+    ]
+    assert refresh["cockpit_snapshot_freshness"]["ok"] is True
+    assert refresh["policy"]["does_not_execute_agents"] is True
+    assert refresh["policy"]["does_not_change_acceptance"] is True
+    assert refreshed["snapshot_freshness"]["ok"] is True
+    assert validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )["ok"] is True
 
 
 def test_config_application_receipt_applies_only_from_approved_dry_run(

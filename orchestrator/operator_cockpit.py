@@ -144,8 +144,8 @@ def cockpit_snapshot_freshness(
         "stale_sources": [str(row.get("artifact_name", "")) for row in stale_rows],
         "rows": rows,
         "recommended_command": (
-            "python -m orchestrator.operator_cockpit "
-            f"{relative_path(Path(str(payload.get('run_dir', ''))), repo_root)}"
+            "python -m orchestrator.experiments refresh-operator-views "
+            f"{str(payload.get('run_id', ''))}"
         ),
         "policy": {
             "inspection_only": True,

@@ -34,15 +34,18 @@ from orchestrator.operator_action_audit import (
 from orchestrator.operator_action_dashboard import (
     build_operator_action_dashboard,
     render_operator_action_dashboard_markdown,
+    write_operator_action_dashboard,
 )
 from orchestrator.operator_cockpit import (
     annotate_snapshot_freshness,
     build_operator_cockpit,
     render_operator_cockpit_markdown,
+    write_operator_cockpit,
 )
 from orchestrator.operator_unlock_checklist import (
     build_operator_unlock_checklist,
     render_operator_unlock_checklist_markdown,
+    write_operator_unlock_checklist,
 )
 from orchestrator.codex_cli_unlock_runbook import (
     build_codex_cli_unlock_runbook,
@@ -51,7 +54,12 @@ from orchestrator.codex_cli_unlock_runbook import (
 from orchestrator.codex_cli_execution_readiness_diff import (
     build_codex_cli_execution_readiness_diff,
     render_codex_cli_execution_readiness_diff_markdown,
+    write_codex_cli_execution_readiness_diff,
 )
+from orchestrator.codex_cli_execution_preflight import (
+    write_codex_cli_execution_preflight,
+)
+from orchestrator.config import load_project_config
 from orchestrator.operator_action_executor import (
     render_receipt_markdown as render_operator_action_execution_markdown,
 )
@@ -1223,6 +1231,119 @@ def operator_cockpit_report(
     )
 
 
+def refresh_operator_views(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+    config_path: Path | None = None,
+) -> dict[str, object]:
+    """Refresh source-hash-bound operator views in deterministic order."""
+    experiments_dir = experiments_dir.resolve()
+    run_dir = experiments_dir / run_id
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    repo_root = experiments_dir.parent
+    active_config_path = config_path or inferred_run_config_path(
+        run_dir=run_dir,
+        repo_root=repo_root,
+    )
+    active_config = load_project_config(repo_root, active_config_path)
+    refreshed: list[dict[str, object]] = []
+    for artifact_name, writer in (
+        (
+            "operator_action_dashboard",
+            lambda: write_operator_action_dashboard(
+                run_dir=run_dir,
+                experiments_dir=experiments_dir,
+                repo_root=repo_root,
+            ),
+        ),
+        (
+            "codex_cli_execution_preflight",
+            lambda: (
+                run_dir / "codex_cli_execution_preflight.json",
+                run_dir / "codex_cli_execution_preflight.md",
+                write_codex_cli_execution_preflight(
+                    output_path=run_dir / "codex_cli_execution_preflight.json",
+                    markdown_path=run_dir / "codex_cli_execution_preflight.md",
+                    run_dir=run_dir,
+                    config=active_config,
+                    repo_root=repo_root,
+                ),
+            ),
+        ),
+        (
+            "operator_unlock_checklist",
+            lambda: write_operator_unlock_checklist(
+                run_dir=run_dir,
+                repo_root=repo_root,
+            ),
+        ),
+        (
+            "codex_cli_execution_readiness_diff",
+            lambda: write_codex_cli_execution_readiness_diff(
+                run_dir=run_dir,
+                repo_root=repo_root,
+                config_path=active_config_path,
+            ),
+        ),
+        (
+            "operator_cockpit",
+            lambda: write_operator_cockpit(
+                run_dir=run_dir,
+                experiments_dir=experiments_dir,
+                repo_root=repo_root,
+            ),
+        ),
+    ):
+        json_path, md_path, payload = writer()
+        refreshed.append(
+            {
+                "artifact_name": artifact_name,
+                "json_path": str(json_path),
+                "markdown_path": str(md_path),
+                "schema_version": str(payload.get("schema_version", "")),
+            }
+        )
+    cockpit = operator_cockpit_report(
+        run_id=run_id,
+        experiments_dir=experiments_dir,
+    )
+    return {
+        "schema_version": "operator_view_refresh_v1",
+        "run_id": run_id,
+        "run_dir": str(run_dir),
+        "config_path": str(active_config_path),
+        "refreshed_count": len(refreshed),
+        "refreshed_artifacts": refreshed,
+        "cockpit_snapshot_freshness": cockpit.get("snapshot_freshness", {}),
+        "policy": {
+            "writes_existing_read_only_operator_artifacts": True,
+            "does_not_record_approval": True,
+            "does_not_execute_commands": True,
+            "does_not_execute_codex_cli": True,
+            "does_not_execute_agents": True,
+            "does_not_run_backtests": True,
+            "does_not_write_config": True,
+            "does_not_promote_champion": True,
+            "does_not_apply_patches": True,
+            "does_not_route_agents": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+
+def inferred_run_config_path(*, run_dir: Path, repo_root: Path) -> Path:
+    """Return the config path recorded for a run, falling back to default."""
+    metadata_path = run_dir / "run_metadata.json"
+    if metadata_path.exists():
+        metadata = load_json(metadata_path)
+        path_text = str(metadata.get("config_path", ""))
+        if path_text:
+            return Path(path_text)
+    return repo_root / "config/default.json"
+
+
 def operator_unlock_checklist_report(
     *,
     run_id: str,
@@ -1997,6 +2118,18 @@ def main() -> None:
         help="Render the operator cockpit as markdown.",
     )
 
+    refresh_views_parser = subparsers.add_parser(
+        "refresh-operator-views",
+        help="Refresh source-hash-bound read-only operator views in safe order.",
+    )
+    refresh_views_parser.add_argument("run_id")
+    refresh_views_parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="Config path used for the Codex CLI execution readiness diff.",
+    )
+
     unlock_checklist_parser = subparsers.add_parser(
         "unlock-checklist",
         help="Show the read-only operator unlock checklist for one iteration run.",
@@ -2341,6 +2474,12 @@ def main() -> None:
         if args.markdown:
             print(render_operator_cockpit_markdown(payload), end="")
             return
+    elif args.command == "refresh-operator-views":
+        payload = refresh_operator_views(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
+            config_path=args.config,
+        )
     elif args.command == "unlock-checklist":
         payload = operator_unlock_checklist_report(
             experiments_dir=args.experiments_dir,

@@ -65,8 +65,9 @@ jobs:
               text=True,
               check=False,
           )
-          assert result.returncode != 0
-          assert "Codex CLI execution preflight failed" in result.stderr
+          combined_output = result.stdout + "\n" + result.stderr
+          assert result.returncode != 0, combined_output
+          assert "Codex CLI execution preflight failed" in combined_output, combined_output
 
           run_dir = "experiments/ci-codex-startup-block"
           manifest = json.load(open(f"{run_dir}/manifest.json"))
@@ -77,9 +78,9 @@ jobs:
           assert manifest["status"] == "failed"
           assert manifest["completed_rounds"] == 0
           assert manifest["operator_unlock_checklist"]["status"] == "blocked"
-          assert manifest["operator_unlock_checklist"]["navigation_blocking_count"] == 8
-          assert manifest["operator_unlock_checklist"]["primary_blocker"] == "primary:operator_unlock_request"
-          assert manifest["operator_unlock_checklist"]["command_hint_count"] == 4
+          assert manifest["operator_unlock_checklist"]["navigation_blocking_count"] == 8, manifest["operator_unlock_checklist"]
+          assert manifest["operator_unlock_checklist"]["primary_blocker"] == "primary:operator_unlock_request", manifest["operator_unlock_checklist"]
+          assert manifest["operator_unlock_checklist"]["command_hint_count"] == 4, manifest["operator_unlock_checklist"]
           assert checklist["navigation"]["blocking_count"] == 8
           assert checklist["navigation"]["blocking_items"][0]["related_artifacts"][0]["artifact_id"] == "codex_cli_operator_unlock_request"
           assert checklist["navigation"]["commands"][0]["executes_codex_cli"] is False

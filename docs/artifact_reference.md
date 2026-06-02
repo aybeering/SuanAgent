@@ -132,6 +132,9 @@ experiments/champion_lineage.md
 `champion_lineage.json` and `champion_lineage.md` are written by the lineage
 inspection command and summarize champion history, current champion identity,
 promotion receipts, approval hashes, dry-run hashes, and metric deltas.
+`python -m orchestrator.experiments summary` and
+`python -m orchestrator.experiments champion` also include a compact read-only
+lineage summary without writing lineage artifacts.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.
@@ -309,7 +312,10 @@ Replay artifacts:
 - `champion_lineage.json` and `champion_lineage.md` are read-only global
   experiment reports that connect `champion.json`, `champion_history.jsonl`,
   promotion receipts, approval artifacts, dry-run reports, and comparison
-  metric deltas into one inspectable champion evolution chain.
+  metric deltas into one inspectable champion evolution chain. The experiment
+  `summary` and `champion` inspection commands expose the same chain as compact
+  embedded JSON fields for quick status checks, but only the `lineage` command
+  writes `champion_lineage.json` and `champion_lineage.md`.
 - `python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>`
   remains available as a legacy deterministic helper for tests and fixtures,
   but operator-facing promotion should use `promote-approved` with a recorded

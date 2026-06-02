@@ -219,7 +219,9 @@ Codex CLI readiness contracts:
     can summarize champion history, receipts, approvals, dry-runs, and metric
     deltas, but they cannot promote champions, route candidates, run backtests,
     apply patches, write champion registry files, append champion history, or
-    change strategy acceptance.
+    change strategy acceptance. Compact lineage summaries may appear in
+    experiment summary and champion inspection output, but only the explicit
+    lineage command writes lineage artifacts.
 
 ## Near-Term Development Order
 

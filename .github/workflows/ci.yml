@@ -631,7 +631,21 @@ jobs:
           PY
 
       - name: Summarize local experiments
-        run: python -m orchestrator.experiments summary
+        run: |
+          python -m orchestrator.experiments summary > /tmp/experiment_summary.json
+          python - <<'PY'
+          import json
+          summary = json.load(open("/tmp/experiment_summary.json"))
+          lineage = summary["champion_lineage"]
+          assert lineage["schema_version"] == "champion_lineage_summary_v1"
+          assert lineage["ok"] is True
+          assert lineage["current_champion_run_id"] == "ci-approved-candidate"
+          assert lineage["event_count"] == 2
+          assert lineage["approved_receipt_count"] == 1
+          assert lineage["legacy_direct_count"] == 1
+          assert lineage["latest_promotion_source"] == "approved_receipt"
+          assert lineage["policy"]["does_not_write_lineage_artifact"] is True
+          PY
 
       - name: Inspect proposal memory
         run: python -m orchestrator.experiments memory --limit 5

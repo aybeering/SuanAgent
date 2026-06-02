@@ -10556,6 +10556,10 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
 
     assert summary["total_runs"] == 2
     assert summary["by_kind"] == {"single_run": 1, "iteration_loop": 1}
+    assert summary["champion_lineage"]["ok"] is True  # type: ignore[index]
+    assert summary["champion_lineage"]["event_count"] == 0  # type: ignore[index]
+    assert summary["champion_lineage"]["current_champion_run_id"] == ""  # type: ignore[index]
+    assert summary["champion_lineage"]["lineage_artifact_exists"] is False  # type: ignore[index]
     assert len(leaderboard) == 2
     assert all("ev_delta" in row for row in leaderboard)
 
@@ -10659,6 +10663,9 @@ def test_champion_registry_promotes_recommended_candidate(tmp_path: Path) -> Non
     assert champion["exists"] is True
     assert result["champion"]["champion_run_id"] == "champion-candidate"  # type: ignore[index]
     assert result["champion"]["comparison"]["recommendation"] == "promote_candidate"  # type: ignore[index]
+    assert champion["lineage_summary"]["event_count"] == 1  # type: ignore[index]
+    assert champion["lineage_summary"]["latest_promotion_source"] == "legacy_direct"  # type: ignore[index]
+    assert champion["lineage_summary"]["current_champion_run_id"] == "champion-candidate"  # type: ignore[index]
     assert (repo / "experiments/champion.json").exists()
     assert (repo / "experiments/champion_history.jsonl").exists()
     assert_matches_schema(repo / "experiments/champion.json", "champion")
@@ -10693,6 +10700,7 @@ def test_champion_registry_refuses_non_promoted_candidate(tmp_path: Path) -> Non
     assert result["promoted"] is False
     assert result["comparison"]["recommendation"] == "keep_base"  # type: ignore[index]
     assert champion["exists"] is False
+    assert champion["lineage_summary"]["event_count"] == 0  # type: ignore[index]
     assert not (repo / "experiments/champion.json").exists()
 
 
@@ -10948,6 +10956,11 @@ def test_champion_promote_approved_requires_recorded_approval(
     assert receipt["policy"]["writes_only_champion_registry_and_history"] is True
     assert receipt["policy"]["does_not_execute_agents"] is True
     assert champion["champion_run_id"] == "receipt-candidate"
+    champion_status = show_champion(experiments_dir=repo / "experiments")
+    assert champion_status["lineage_summary"]["event_count"] == 2  # type: ignore[index]
+    assert champion_status["lineage_summary"]["approved_receipt_count"] == 1  # type: ignore[index]
+    assert champion_status["lineage_summary"]["legacy_direct_count"] == 1  # type: ignore[index]
+    assert champion_status["lineage_summary"]["latest_champion_run_id"] == "receipt-candidate"  # type: ignore[index]
     assert receipt_path.exists()
     assert receipt_md.exists()
     assert_matches_schema(receipt_path, "champion_promotion_receipt")
@@ -11289,7 +11302,10 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
 
     assert summary_result.returncode == 0, summary_result.stderr
     assert leaderboard_result.returncode == 0, leaderboard_result.stderr
-    assert json.loads(summary_result.stdout)["total_runs"] == 1
+    summary = json.loads(summary_result.stdout)
+    assert summary["total_runs"] == 1
+    assert summary["champion_lineage"]["event_count"] == 0
+    assert summary["champion_lineage"]["policy"]["does_not_write_lineage_artifact"] is True
     assert json.loads(leaderboard_result.stdout)[0]["run_id"] == "cli-summary"
 
 
@@ -11408,6 +11424,9 @@ def test_experiments_cli_legacy_direct_promote_remains_available(
     champion = json.loads(champion_result.stdout)
     assert champion["exists"] is True
     assert champion["champion"]["champion_run_id"] == "cli-champion-candidate"
+    assert champion["lineage_summary"]["event_count"] == 1
+    assert champion["lineage_summary"]["latest_promotion_source"] == "legacy_direct"
+    assert champion["lineage_summary"]["current_champion_matches_last_history"] is True
 
     help_result = subprocess.run(
         [
@@ -11527,6 +11546,9 @@ def test_experiments_cli_promote_approved_is_operator_path(
     assert receipt["promoted"] is True
     assert receipt["evidence_checks"]["blockers"] == []
     assert champion["champion"]["champion_run_id"] == "cli-approved-candidate"
+    assert champion["lineage_summary"]["event_count"] == 2
+    assert champion["lineage_summary"]["approved_receipt_count"] == 1
+    assert champion["lineage_summary"]["latest_promotion_source"] == "approved_receipt"
 
     lineage_result = subprocess.run(
         [
@@ -11553,6 +11575,30 @@ def test_experiments_cli_promote_approved_is_operator_path(
     assert (repo / "experiments/champion_lineage.json").exists()
     assert (repo / "experiments/champion_lineage.md").exists()
     assert_matches_schema(repo / "experiments/champion_lineage.json", "champion_lineage")
+
+    summary_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "summary",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert summary_result.returncode == 0, summary_result.stderr
+    summary = json.loads(summary_result.stdout)
+    assert summary["champion_lineage"]["event_count"] == 2
+    assert summary["champion_lineage"]["approved_receipt_count"] == 1
+    assert summary["champion_lineage"]["legacy_direct_count"] == 1
+    assert summary["champion_lineage"]["current_champion_run_id"] == (
+        "cli-approved-candidate"
+    )
+    assert summary["champion_lineage"]["lineage_artifact_exists"] is True
 
 
 def test_experiments_cli_memory_work(tmp_path: Path) -> None:

@@ -92,6 +92,9 @@ def summarize_experiments(
         "by_kind": by_kind,
         "by_status": by_status,
         "best_run": leaderboard[0] if leaderboard else None,
+        "champion_lineage": champion_lineage_summary(
+            experiments_dir=experiments_dir,
+        ),
     }
 
 
@@ -360,17 +363,87 @@ def show_champion(
 ) -> dict[str, object]:
     """Return the current champion registry, or an empty status."""
     path = champion_path(experiments_dir)
+    lineage = champion_lineage_summary(experiments_dir=experiments_dir)
     if not path.exists():
         return {
             "exists": False,
             "schema_version": CHAMPION_SCHEMA_VERSION,
             "champion_path": str(path),
+            "lineage_summary": lineage,
         }
     payload = load_json(path)
     return {
         "exists": True,
         "champion_path": str(path),
         "champion": payload,
+        "lineage_summary": lineage,
+    }
+
+
+def champion_lineage_summary(
+    *,
+    experiments_dir: Path = Path("experiments"),
+) -> dict[str, object]:
+    """Return a compact read-only champion lineage summary."""
+    from orchestrator.champion_lineage import build_champion_lineage
+
+    payload = build_champion_lineage(
+        experiments_dir=experiments_dir,
+        repo_root=experiments_dir.parent,
+    )
+    current = dict_payload(payload.get("current_champion", {}))
+    history = dict_payload(payload.get("history", {}))
+    checks = dict_payload(payload.get("checks", {}))
+    lineage = list_payload(payload.get("lineage", []))
+    latest = lineage[-1] if lineage else {}
+    approved_receipt_count = sum(
+        1
+        for row in lineage
+        if str(row.get("promotion_source", "")) == "approved_receipt"
+    )
+    legacy_direct_count = sum(
+        1
+        for row in lineage
+        if str(row.get("promotion_source", "")) == "legacy_direct"
+    )
+    resolved_experiments_dir = Path(
+        str(payload.get("experiments_dir", experiments_dir))
+    )
+    json_path = resolved_experiments_dir / "champion_lineage.json"
+    markdown_path = resolved_experiments_dir / "champion_lineage.md"
+    return {
+        "schema_version": "champion_lineage_summary_v1",
+        "ok": bool(payload.get("ok", False)),
+        "current_champion_exists": bool(current.get("exists", False)),
+        "current_champion_run_id": str(current.get("champion_run_id", "")),
+        "last_history_champion_run_id": str(
+            checks.get("last_history_champion_run_id", "")
+        ),
+        "current_champion_matches_last_history": bool(
+            checks.get("current_champion_matches_last_history", False)
+        ),
+        "event_count": int(history.get("event_count", 0)),
+        "parse_error_count": int(history.get("parse_error_count", 0)),
+        "approved_receipt_count": approved_receipt_count,
+        "legacy_direct_count": legacy_direct_count,
+        "latest_promotion_source": str(latest.get("promotion_source", "")),
+        "latest_champion_run_id": str(latest.get("champion_run_id", "")),
+        "latest_promoted_from_run_id": str(latest.get("promoted_from_run_id", "")),
+        "latest_validation_ev_delta": latest.get("validation_ev_delta"),
+        "history_path": str(
+            history.get("path", champion_history_path(resolved_experiments_dir))
+        ),
+        "lineage_artifact_path": str(json_path),
+        "lineage_markdown_path": str(markdown_path),
+        "lineage_artifact_exists": json_path.exists(),
+        "lineage_markdown_exists": markdown_path.exists(),
+        "policy": {
+            "inspection_only": True,
+            "reads_saved_artifacts_only": True,
+            "does_not_write_lineage_artifact": True,
+            "does_not_promote_champion": True,
+            "does_not_change_acceptance": True,
+        },
     }
 
 
@@ -732,6 +805,18 @@ def experiment_score(
         "created_at": record.get("created_at"),
         "ev_delta": 0.0,
     }
+
+
+def dict_payload(value: object) -> dict[str, object]:
+    """Return a dict payload, or an empty dict for malformed values."""
+    return value if isinstance(value, dict) else {}
+
+
+def list_payload(value: object) -> list[dict[str, object]]:
+    """Return object rows from a list payload."""
+    if not isinstance(value, list):
+        return []
+    return [row for row in value if isinstance(row, dict)]
 
 
 def load_json(path: Path) -> dict[str, object]:

@@ -20,6 +20,8 @@
     "top_candidates",
     "champion_comparison",
     "candidate_selection",
+    "watchlist_summary",
+    "recommended_experiment_focus",
     "observations",
     "next_questions"
   ],
@@ -97,6 +99,176 @@
     },
     "candidate_selection": {
       "type": "object"
+    },
+    "watchlist_summary": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "alert_count",
+        "severity_counts",
+        "alerts",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "research_watchlist_v1"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "clean",
+            "informational",
+            "attention",
+            "critical"
+          ]
+        },
+        "alert_count": {
+          "type": "integer"
+        },
+        "severity_counts": {
+          "type": "object",
+          "required": [
+            "critical",
+            "warning",
+            "info"
+          ],
+          "properties": {
+            "critical": {
+              "type": "integer"
+            },
+            "warning": {
+              "type": "integer"
+            },
+            "info": {
+              "type": "integer"
+            }
+          }
+        },
+        "alerts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "severity",
+              "code",
+              "detail",
+              "run_id"
+            ],
+            "properties": {
+              "severity": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string"
+              },
+              "run_id": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "policy": {
+          "type": "object",
+          "required": [
+            "inspection_only",
+            "reads_saved_artifacts_only",
+            "does_not_execute_agents",
+            "does_not_run_backtests",
+            "does_not_apply_patches",
+            "does_not_change_acceptance"
+          ],
+          "properties": {
+            "inspection_only": {
+              "type": "boolean"
+            },
+            "reads_saved_artifacts_only": {
+              "type": "boolean"
+            },
+            "does_not_execute_agents": {
+              "type": "boolean"
+            },
+            "does_not_run_backtests": {
+              "type": "boolean"
+            },
+            "does_not_apply_patches": {
+              "type": "boolean"
+            },
+            "does_not_change_acceptance": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "recommended_experiment_focus": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "primary_focus",
+        "suggested_directions",
+        "avoid_directions",
+        "rationale",
+        "source_watchlist_status",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "recommended_experiment_focus_v1"
+          ]
+        },
+        "primary_focus": {
+          "type": "string"
+        },
+        "suggested_directions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "avoid_directions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rationale": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_watchlist_status": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "object",
+          "required": [
+            "advisory_only",
+            "does_not_route_agents",
+            "does_not_change_acceptance"
+          ],
+          "properties": {
+            "advisory_only": {
+              "type": "boolean"
+            },
+            "does_not_route_agents": {
+              "type": "boolean"
+            },
+            "does_not_change_acceptance": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
     },
     "observations": {
       "type": "array",

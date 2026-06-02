@@ -533,6 +533,10 @@ jobs:
           assert payload["schema_version"] == "research_brief_v1"
           assert payload["run_id"] == "ci-adaptive"
           assert payload["top_candidates"]
+          assert payload["watchlist_summary"]["schema_version"] == "research_watchlist_v1"
+          assert payload["watchlist_summary"]["policy"]["does_not_change_acceptance"] is True
+          assert payload["recommended_experiment_focus"]["schema_version"] == "recommended_experiment_focus_v1"
+          assert payload["recommended_experiment_focus"]["policy"]["does_not_route_agents"] is True
           assert scope["schema_version"] == "experiment_scope_health_v1"
           assert scope["ok"] is True
           assert manifest["artifact_health_history"]["recorded"] is True
@@ -547,6 +551,8 @@ jobs:
           assert approval["policy"]["approval_does_not_promote"] is True
           assert closeout["schema_version"] == "run_closeout_v1"
           assert closeout["ok"] is True
+          assert closeout["summary"]["research_primary_focus"]
+          assert closeout["summary"]["research_watchlist_alert_count"] >= 0
           assert closeout["decision_record"]["final_acceptance_authority"] == "deterministic_code"
           assert closeout["policy"]["does_not_execute_agents"] is True
           assert "Experiment Scope Health" in summary

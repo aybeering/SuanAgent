@@ -2181,6 +2181,14 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert closeout["summary"]["scope_health_ok"] is True
     assert closeout["summary"]["artifact_health_history_recorded"] is True
     assert closeout["summary"]["candidate_count"] >= 1
+    assert closeout["summary"]["research_watchlist_status"] in (
+        "clean",
+        "informational",
+        "attention",
+        "critical",
+    )
+    assert closeout["summary"]["research_watchlist_alert_count"] >= 0
+    assert closeout["summary"]["research_primary_focus"]
     assert closeout["selected_candidates"][0]["quality_breakdown"]["schema_version"] == (
         "candidate_quality_v1"
     )
@@ -2981,8 +2989,20 @@ def test_iteration_loop_writes_research_brief(tmp_path: Path) -> None:
     assert brief["artifact_error_count"] == 0
     assert brief["top_candidates"]
     assert brief["selected_candidates"]
+    assert brief["watchlist_summary"]["schema_version"] == "research_watchlist_v1"
+    assert brief["watchlist_summary"]["status"] == "informational"
+    assert brief["watchlist_summary"]["policy"]["does_not_change_acceptance"] is True
+    assert brief["recommended_experiment_focus"]["schema_version"] == (
+        "recommended_experiment_focus_v1"
+    )
+    assert brief["recommended_experiment_focus"]["primary_focus"] == (
+        "analyze_rejection_reasons"
+    )
+    assert brief["recommended_experiment_focus"]["policy"]["does_not_route_agents"] is True
     assert brief["next_questions"]
     assert "# Research Brief" in markdown
+    assert "## Watchlist" in markdown
+    assert "## Recommended Focus" in markdown
     assert "## Top Candidates" in markdown
     assert_matches_schema(brief_path, "research_brief")
     assert report["ok"] is True
@@ -3202,11 +3222,26 @@ def test_iteration_loop_stops_on_repeated_proposal_by_default(tmp_path: Path) ->
     proposal = json.loads(
         (run_dir / "round_002/proposal.json").read_text(encoding="utf-8")
     )
+    brief = json.loads((run_dir / "research_brief.json").read_text(encoding="utf-8"))
+    closeout = json.loads((run_dir / "run_closeout.json").read_text(encoding="utf-8"))
     summary_text = (run_dir / "summary.md").read_text(encoding="utf-8")
 
     assert saved_manifest["status"] == "stopped_repeated_proposal"
     assert saved_manifest["stop_reason"] == "round_002 repeated patch from round_001"
     assert proposal["is_repeat_patch"] is True
+    assert brief["watchlist_summary"]["schema_version"] == "research_watchlist_v1"
+    assert brief["watchlist_summary"]["status"] == "attention"
+    assert brief["watchlist_summary"]["alerts"][0]["code"] == "repeated_proposal_stop"
+    assert brief["recommended_experiment_focus"]["primary_focus"] == (
+        "switch_modifier_direction"
+    )
+    assert "lower_min_edge" in brief["recommended_experiment_focus"]["avoid_directions"]
+    assert "reduce_stake" in brief["recommended_experiment_focus"][
+        "suggested_directions"
+    ]
+    assert closeout["summary"]["research_watchlist_status"] == "attention"
+    assert closeout["summary"]["research_primary_focus"] == "switch_modifier_direction"
+    assert "avoid lower_min_edge" in closeout["recommended_next_actions"][0]
     context_text = (run_dir / "round_002/agent_context.md").read_text(
         encoding="utf-8"
     )
@@ -4128,6 +4163,15 @@ def test_adaptive_stub_uses_recent_research_brief_without_memory(
     assert context_payload["global_outcome_memory"] == []
     assert context_payload["recent_research_briefs"][0]["run_id"] == "brief-signal-source"
     assert context_payload["recent_research_briefs"][0]["top_direction_tag"] == "lower_min_edge"
+    assert context_payload["recent_research_briefs"][0]["recommended_primary_focus"] == (
+        "analyze_rejection_reasons"
+    )
+    assert "lower_min_edge" in context_payload["recent_research_briefs"][0][
+        "recommended_avoid_directions"
+    ]
+    assert "reduce_stake" in context_payload["recent_research_briefs"][0][
+        "recommended_suggested_directions"
+    ]
     assert intent["recommended_direction"] == "reduce_stake"
     assert intent["avoid_directions"] == ["lower_min_edge"]
     assert any("lower_min_edge appears" in item for item in intent["evidence"])
@@ -6313,6 +6357,33 @@ def test_artifact_validator_reports_research_brief_run_id_mismatch(
     assert report["ok"] is False
     assert any(
         "research_brief.json run_id does not match" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_research_brief_focus_policy_violation(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-brief-focus-error",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = repo / "experiments/artifact-brief-focus-error/research_brief.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["recommended_experiment_focus"]["policy"]["does_not_route_agents"] = False
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="artifact-brief-focus-error",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "research_brief.json focus policy false: does_not_route_agents" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 

@@ -288,11 +288,17 @@ Replay artifacts:
   failure observations, or memory-linked failed health runs. The iteration loop
   writes it automatically at run completion using the run's startup timestamp
   as the current-contract scope boundary.
+- `research_brief.json` and `research_brief.md` summarize the completed
+  iteration run, selected candidates, champion comparison context, deterministic
+  observations, next questions, a run-local watchlist, and a recommended
+  experiment focus. The focus can suggest or avoid proposal directions for the
+  next deterministic loop, but it is advisory only and cannot route agents or
+  change acceptance.
 - `run_closeout.json` and `run_closeout.md` summarize the completed iteration
   run for operator review. They read saved artifacts only, record deterministic
-  acceptance authority, selected candidates, health status, and recommended
-  next actions, and cannot execute agents, run backtests, apply patches, route
-  agents, or change acceptance.
+  acceptance authority, selected candidates, health status, research watchlist
+  status, research focus, and recommended next actions, and cannot execute
+  agents, run backtests, apply patches, route agents, or change acceptance.
 - `candidate_leaderboard.json` records every proposal attempt with stable
   quality metadata. `quality_breakdown` decomposes the pre-backtest candidate
   score into named components, and selected rows also record validation and

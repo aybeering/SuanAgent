@@ -64,7 +64,10 @@
         "candidate_count",
         "selected_candidate_count",
         "research_brief_present",
-        "research_brief_artifact_ok"
+        "research_brief_artifact_ok",
+        "research_watchlist_status",
+        "research_watchlist_alert_count",
+        "research_primary_focus"
       ],
       "properties": {
         "completed_rounds": {
@@ -111,6 +114,15 @@
         },
         "research_brief_artifact_ok": {
           "type": "boolean"
+        },
+        "research_watchlist_status": {
+          "type": "string"
+        },
+        "research_watchlist_alert_count": {
+          "type": "integer"
+        },
+        "research_primary_focus": {
+          "type": "string"
         }
       }
     },

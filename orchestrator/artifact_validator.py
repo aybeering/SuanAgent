@@ -5061,6 +5061,39 @@ def validate_optional_research_brief(
         return
     if payload.get("run_id") != report.get("run_id"):
         add_error(report, f"research_brief.json run_id does not match report: {path}")
+    watchlist = payload.get("watchlist_summary", {})
+    if not isinstance(watchlist, dict):
+        add_error(report, "research_brief.json watchlist_summary invalid")
+    else:
+        policy = watchlist.get("policy", {})
+        if not isinstance(policy, dict):
+            add_error(report, "research_brief.json watchlist policy invalid")
+        else:
+            for key in (
+                "inspection_only",
+                "reads_saved_artifacts_only",
+                "does_not_execute_agents",
+                "does_not_run_backtests",
+                "does_not_apply_patches",
+                "does_not_change_acceptance",
+            ):
+                if policy.get(key) is not True:
+                    add_error(report, f"research_brief.json watchlist policy false: {key}")
+    focus = payload.get("recommended_experiment_focus", {})
+    if not isinstance(focus, dict):
+        add_error(report, "research_brief.json recommended_experiment_focus invalid")
+    else:
+        policy = focus.get("policy", {})
+        if not isinstance(policy, dict):
+            add_error(report, "research_brief.json focus policy invalid")
+        else:
+            for key in (
+                "advisory_only",
+                "does_not_route_agents",
+                "does_not_change_acceptance",
+            ):
+                if policy.get(key) is not True:
+                    add_error(report, f"research_brief.json focus policy false: {key}")
 
 
 def validate_optional_agent_result_stats(

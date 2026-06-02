@@ -191,9 +191,11 @@ Codex CLI readiness contracts:
     can mark a scope healthy or unhealthy for operator inspection, but it cannot
     execute agents, run backtests, route candidates, apply patches, repair
     artifacts, or change strategy acceptance.
-14. Run closeout reports are read-only operator summaries. They can recommend
-    next inspection steps, but they cannot execute agents, run backtests, route
-    candidates, apply patches, or change strategy acceptance.
+14. Run closeout reports and research-brief focus hints are read-only operator
+    summaries. They can surface watchlist alerts, recommended next inspection
+    steps, suggested directions, and directions to avoid, but they cannot
+    execute agents, run backtests, route candidates, apply patches, or change
+    strategy acceptance.
 15. Candidate quality breakdowns explain proposal ranking only. They can expose
     score components and post-evaluation signals, but they cannot override the
     deterministic policy gate or holdout veto.

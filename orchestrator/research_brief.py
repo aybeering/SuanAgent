@@ -79,9 +79,13 @@ def build_research_brief(
         "candidate_selection": manifest.get("candidate_selection", {})
         if isinstance(manifest, dict)
         else {},
+        "watchlist_summary": {},
+        "recommended_experiment_focus": {},
         "observations": [],
         "next_questions": [],
     }
+    payload["watchlist_summary"] = research_watchlist_summary(payload)
+    payload["recommended_experiment_focus"] = recommended_experiment_focus(payload)
     payload["observations"] = research_observations(payload)
     payload["next_questions"] = research_next_questions(payload)
     return payload
@@ -135,6 +139,8 @@ def compact_champion_comparison(payload: dict[str, Any]) -> dict[str, object]:
 def research_observations(payload: dict[str, object]) -> list[str]:
     """Return deterministic research observations from a brief payload."""
     observations: list[str] = []
+    watchlist = dict_payload(payload.get("watchlist_summary", {}))
+    focus = dict_payload(payload.get("recommended_experiment_focus", {}))
     if not payload.get("artifact_ok", False):
         observations.append("Artifact validation failed; inspect artifact_errors first.")
     status = str(payload.get("status", "unknown"))
@@ -164,14 +170,37 @@ def research_observations(payload: dict[str, object]) -> list[str]:
             f"{top.get('round_id', '')}/{top.get('role', '')} scored "
             f"{top.get('candidate_score', 0)} with status {top.get('status', '')}."
         )
+    if watchlist:
+        observations.append(
+            "Research watchlist status: "
+            f"{watchlist.get('status', 'unknown')} "
+            f"({int(watchlist.get('alert_count', 0) or 0)} alert(s))."
+        )
+    if focus:
+        observations.append(
+            "Recommended experiment focus: "
+            f"{focus.get('primary_focus', 'unknown')}."
+        )
     return observations
 
 
 def research_next_questions(payload: dict[str, object]) -> list[str]:
     """Return deterministic next research questions."""
     questions: list[str] = []
+    focus = dict_payload(payload.get("recommended_experiment_focus", {}))
+    primary_focus = str(focus.get("primary_focus", ""))
+    if primary_focus == "switch_modifier_direction":
+        questions.append("Which deterministic modifier direction avoids the repeated patch?")
+    elif primary_focus == "repair_artifact_pipeline":
+        questions.append("Which artifact health issue should be fixed before more iterations?")
+    elif primary_focus == "close_champion_ev_gap":
+        questions.append("Which proposal direction can close the champion EV gap?")
     champion = dict_payload(payload.get("champion_comparison", {}))
-    if champion.get("exists") and champion.get("recommendation") != "promote_candidate":
+    if (
+        champion.get("exists")
+        and champion.get("recommendation") != "promote_candidate"
+        and "Which proposal direction can close the champion EV gap?" not in questions
+    ):
         questions.append("Which proposal direction can close the champion EV gap?")
     if not payload.get("accepted_round"):
         questions.append("Which rejection reason appears most often among selected candidates?")
@@ -180,6 +209,199 @@ def research_next_questions(payload: dict[str, object]) -> list[str]:
     if not questions:
         questions.append("Should the accepted strategy be promoted after an explicit compare?")
     return questions
+
+
+def research_watchlist_summary(payload: dict[str, object]) -> dict[str, object]:
+    """Return run-local deterministic watchlist signals for research review."""
+    alerts: list[dict[str, object]] = []
+    run_id = str(payload.get("run_id", ""))
+    if not bool(payload.get("artifact_ok", False)):
+        alerts.append(
+            research_alert(
+                severity="critical",
+                code="artifact_validation_failed",
+                detail=(
+                    f"{int(payload.get('artifact_error_count', 0) or 0)} artifact "
+                    "validation error(s) were recorded."
+                ),
+                run_id=run_id,
+            )
+        )
+
+    status = str(payload.get("status", "unknown"))
+    stop_reason = str(payload.get("stop_reason") or "")
+    if status == "stopped_repeated_proposal":
+        alerts.append(
+            research_alert(
+                severity="warning",
+                code="repeated_proposal_stop",
+                detail=stop_reason or "The run stopped after a repeated proposal.",
+                run_id=run_id,
+            )
+        )
+    elif status == "stopped_max_rounds":
+        alerts.append(
+            research_alert(
+                severity="info",
+                code="max_rounds_without_acceptance",
+                detail="The run reached max rounds without an accepted candidate.",
+                run_id=run_id,
+            )
+        )
+
+    if not payload.get("accepted_round"):
+        alerts.append(
+            research_alert(
+                severity="info",
+                code="no_accepted_candidate",
+                detail="No round was accepted by deterministic gates.",
+                run_id=run_id,
+            )
+        )
+
+    champion = dict_payload(payload.get("champion_comparison", {}))
+    if champion.get("exists") and champion.get("recommendation") != "promote_candidate":
+        alerts.append(
+            research_alert(
+                severity="warning",
+                code="candidate_did_not_beat_champion",
+                detail=str(champion.get("summary", "Candidate did not beat champion.")),
+                run_id=run_id,
+            )
+        )
+
+    return {
+        "schema_version": "research_watchlist_v1",
+        "status": research_watchlist_status(alerts),
+        "alert_count": len(alerts),
+        "severity_counts": research_severity_counts(alerts),
+        "alerts": alerts,
+        "policy": {
+            "inspection_only": True,
+            "reads_saved_artifacts_only": True,
+            "does_not_execute_agents": True,
+            "does_not_run_backtests": True,
+            "does_not_apply_patches": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+
+def recommended_experiment_focus(payload: dict[str, object]) -> dict[str, object]:
+    """Translate research watchlist signals into deterministic next-loop focus."""
+    watchlist = dict_payload(payload.get("watchlist_summary", {}))
+    codes = {
+        str(alert.get("code", ""))
+        for alert in list_of_dicts(watchlist.get("alerts", []))
+    }
+    selected_directions = candidate_directions(
+        [
+            *list_of_dicts(payload.get("selected_candidates", [])),
+            *list_of_dicts(payload.get("top_candidates", [])),
+        ]
+    )
+    champion = dict_payload(payload.get("champion_comparison", {}))
+
+    primary_focus = "review_promotion_path"
+    suggested_directions: list[str] = []
+    avoid_directions: list[str] = []
+    rationale: list[str] = []
+
+    if "artifact_validation_failed" in codes:
+        primary_focus = "repair_artifact_pipeline"
+        rationale.append("Artifact validation must be healthy before strategy iteration.")
+    elif "repeated_proposal_stop" in codes:
+        primary_focus = "switch_modifier_direction"
+        avoid_directions = selected_directions
+        suggested_directions = alternative_directions(avoid_directions)
+        rationale.append("The last run stopped after repeating a rejected patch.")
+    elif (
+        champion.get("exists")
+        and champion.get("recommendation") != "promote_candidate"
+    ):
+        primary_focus = "close_champion_ev_gap"
+        avoid_directions = selected_directions[:1]
+        suggested_directions = alternative_directions(avoid_directions)
+        rationale.append("The candidate did not beat the current champion.")
+    elif not payload.get("accepted_round"):
+        primary_focus = "analyze_rejection_reasons"
+        avoid_directions = selected_directions[:1]
+        suggested_directions = alternative_directions(avoid_directions)
+        rationale.append("No candidate passed deterministic acceptance gates.")
+    else:
+        suggested_directions = selected_directions[:1]
+        rationale.append("An accepted candidate exists; review promotion before reuse.")
+
+    return {
+        "schema_version": "recommended_experiment_focus_v1",
+        "primary_focus": primary_focus,
+        "suggested_directions": suggested_directions,
+        "avoid_directions": avoid_directions,
+        "rationale": rationale,
+        "source_watchlist_status": watchlist.get("status", "unknown"),
+        "policy": {
+            "advisory_only": True,
+            "does_not_route_agents": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+
+def candidate_directions(rows: list[dict[str, Any]]) -> list[str]:
+    """Return stable unique direction tags from candidate rows."""
+    directions: list[str] = []
+    for row in rows:
+        direction = str(row.get("direction_tag", ""))
+        if direction and direction not in directions:
+            directions.append(direction)
+    return directions
+
+
+def alternative_directions(avoid_directions: list[str]) -> list[str]:
+    """Return deterministic alternate modifier directions."""
+    candidates = ["reduce_stake", "lower_min_edge", "raise_min_edge"]
+    directions = [
+        direction for direction in candidates if direction not in avoid_directions
+    ]
+    return directions or ["new_modifier_profile"]
+
+
+def research_alert(
+    *,
+    severity: str,
+    code: str,
+    detail: str,
+    run_id: str,
+) -> dict[str, object]:
+    """Return one stable research watchlist alert."""
+    return {
+        "severity": severity,
+        "code": code,
+        "detail": detail,
+        "run_id": run_id,
+    }
+
+
+def research_watchlist_status(alerts: list[dict[str, object]]) -> str:
+    """Return compact status from research alert severities."""
+    severities = {str(alert.get("severity", "")) for alert in alerts}
+    if "critical" in severities:
+        return "critical"
+    if "warning" in severities:
+        return "attention"
+    if alerts:
+        return "informational"
+    return "clean"
+
+
+def research_severity_counts(alerts: list[dict[str, object]]) -> dict[str, int]:
+    """Return stable research alert severity counts."""
+    counts = {severity: 0 for severity in ("critical", "warning", "info")}
+    for alert in alerts:
+        severity = str(alert.get("severity", ""))
+        if severity in counts:
+            counts[severity] += 1
+    return counts
 
 
 def render_research_brief_markdown(payload: dict[str, object]) -> str:
@@ -202,6 +424,36 @@ def render_research_brief_markdown(payload: dict[str, object]) -> str:
         "",
     ]
     lines.extend(f"- {observation}" for observation in payload.get("observations", []))
+
+    watchlist = dict_payload(payload.get("watchlist_summary", {}))
+    focus = dict_payload(payload.get("recommended_experiment_focus", {}))
+    lines.extend(["", "## Watchlist", ""])
+    lines.append(
+        f"- Status: `{watchlist.get('status', 'unknown')}` "
+        f"({watchlist.get('alert_count', 0)} alert(s))"
+    )
+    alerts = list_of_dicts(watchlist.get("alerts", []))
+    if not alerts:
+        lines.append("- No watchlist alerts.")
+    else:
+        lines.extend(
+            f"- `{alert.get('severity', '')}` `{alert.get('code', '')}`: "
+            f"{alert.get('detail', '')}"
+            for alert in alerts
+        )
+
+    lines.extend(["", "## Recommended Focus", ""])
+    lines.extend(
+        [
+            f"- Primary focus: `{focus.get('primary_focus', 'unknown')}`",
+            "- Suggested directions: "
+            f"`{', '.join(string_list(focus.get('suggested_directions', []))) or 'none'}`",
+            "- Avoid directions: "
+            f"`{', '.join(string_list(focus.get('avoid_directions', []))) or 'none'}`",
+        ]
+    )
+    for item in string_list(focus.get("rationale", [])):
+        lines.append(f"- {item}")
 
     champion = dict_payload(payload.get("champion_comparison", {}))
     lines.extend(["", "## Champion Comparison", ""])
@@ -287,6 +539,13 @@ def list_of_dicts(value: object) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
     return [item for item in value if isinstance(item, dict)]
+
+
+def string_list(value: object) -> list[str]:
+    """Return stringified items from a list-like value."""
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value]
 
 
 def dict_payload(value: object) -> dict[str, Any]:

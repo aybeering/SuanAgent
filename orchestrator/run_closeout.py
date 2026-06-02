@@ -63,6 +63,8 @@ def build_run_closeout(
     ]
     top_candidates = [compact_candidate(row) for row in candidates[:5]]
     artifact_history = object_field(manifest, "artifact_health_history")
+    research_focus = object_field(research_brief, "recommended_experiment_focus")
+    research_watchlist = object_field(research_brief, "watchlist_summary")
     run_id = str(manifest.get("run_id", run_dir.name))
     closeout_ok = closeout_checks_pass(
         manifest=manifest,
@@ -93,6 +95,15 @@ def build_run_closeout(
             "selected_candidate_count": len(selected_candidates),
             "research_brief_present": bool(research_brief),
             "research_brief_artifact_ok": bool(research_brief.get("artifact_ok", False)),
+            "research_watchlist_status": str(
+                research_watchlist.get("status", "unknown")
+            ),
+            "research_watchlist_alert_count": int(
+                research_watchlist.get("alert_count", 0) or 0
+            ),
+            "research_primary_focus": str(
+                research_focus.get("primary_focus", "unknown")
+            ),
         },
         "artifacts": artifact_rows(run_dir=run_dir, experiments_dir=experiments_dir),
         "selected_candidates": selected_candidates,
@@ -108,6 +119,7 @@ def build_run_closeout(
             closeout_ok=closeout_ok,
             manifest=manifest,
             scope_health=scope_health,
+            research_focus=research_focus,
             selected_candidates=selected_candidates,
         ),
         "policy": {
@@ -213,11 +225,32 @@ def recommended_next_actions(
     closeout_ok: bool,
     manifest: dict[str, Any],
     scope_health: dict[str, Any],
+    research_focus: dict[str, Any],
     selected_candidates: list[dict[str, object]],
 ) -> list[str]:
     """Return deterministic next-step hints for operator review."""
     if not closeout_ok:
         return ["Inspect run_closeout.json and experiment_scope_health.json before reuse."]
+    primary_focus = str(research_focus.get("primary_focus", ""))
+    avoid = string_list(research_focus.get("avoid_directions", []))
+    suggested = string_list(research_focus.get("suggested_directions", []))
+    if primary_focus == "repair_artifact_pipeline":
+        return ["Fix artifact health before starting another iteration."]
+    if primary_focus == "switch_modifier_direction":
+        avoid_text = ", ".join(avoid) if avoid else "the repeated direction"
+        suggested_text = ", ".join(suggested) if suggested else "a different profile"
+        return [
+            "Start the next deterministic iteration with "
+            f"{suggested_text}; avoid {avoid_text}."
+        ]
+    if primary_focus == "close_champion_ev_gap":
+        suggested_text = ", ".join(suggested) if suggested else "a fresh direction"
+        return [
+            "Prioritize a candidate direction that can close the champion EV gap; "
+            f"next deterministic probe: {suggested_text}."
+        ]
+    if primary_focus == "analyze_rejection_reasons":
+        return ["Review selected candidate rejection reasons before reusing the same modifier."]
     status = str(manifest.get("status", "unknown"))
     if status == "accepted":
         return ["Review accepted strategy commit before promoting or reusing it."]
@@ -250,6 +283,9 @@ def render_run_closeout_markdown(payload: dict[str, object]) -> str:
         f"- Artifact history recorded: `{summary.get('artifact_health_history_recorded')}`",
         f"- Candidate count: `{summary.get('candidate_count', 0)}`",
         f"- Selected candidates: `{summary.get('selected_candidate_count', 0)}`",
+        f"- Research watchlist: `{summary.get('research_watchlist_status', 'unknown')}` "
+        f"({summary.get('research_watchlist_alert_count', 0)} alert(s))",
+        f"- Research focus: `{summary.get('research_primary_focus', 'unknown')}`",
         "",
         "## Next Actions",
         "",

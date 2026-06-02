@@ -475,6 +475,8 @@ def compact_research_brief(
 ) -> dict[str, object]:
     """Return the small research-brief shape exposed to modifier agents."""
     champion = dict_payload(payload.get("champion_comparison", {}))
+    watchlist = dict_payload(payload.get("watchlist_summary", {}))
+    focus = dict_payload(payload.get("recommended_experiment_focus", {}))
     top_candidates = list_of_dicts(payload.get("top_candidates", []))
     selected_candidates = list_of_dicts(payload.get("selected_candidates", []))
     top_candidate = top_candidates[0] if top_candidates else {}
@@ -492,6 +494,11 @@ def compact_research_brief(
         "top_candidate_score": top_candidate.get("candidate_score", 0),
         "selected_direction_tag": selected_candidate.get("direction_tag", ""),
         "champion_recommendation": champion.get("recommendation", ""),
+        "watchlist_status": watchlist.get("status", ""),
+        "watchlist_alert_count": watchlist.get("alert_count", 0),
+        "recommended_primary_focus": focus.get("primary_focus", ""),
+        "recommended_avoid_directions": focus.get("avoid_directions", []),
+        "recommended_suggested_directions": focus.get("suggested_directions", []),
         "observations": payload.get("observations", []),
         "next_questions": payload.get("next_questions", []),
     }

@@ -44,6 +44,10 @@ jobs:
 
       - name: Verify blocked real Codex startup checklist
         run: |
+          mkdir -p /tmp/codex-startup-check
+          printf '#!/bin/sh\nprintf "codex startup check stub\\n"\n' > /tmp/codex-startup-check/codex
+          chmod +x /tmp/codex-startup-check/codex
+          export PATH="/tmp/codex-startup-check:$PATH"
           python - <<'PY'
           import json
           import subprocess

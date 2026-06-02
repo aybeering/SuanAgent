@@ -178,6 +178,10 @@ from orchestrator.champion_promotion_approval import (
     REQUIRED_CONFIRMATION_PHRASE as CHAMPION_PROMOTION_CONFIRMATION_PHRASE,
     validate_champion_promotion_approval_file,
 )
+from orchestrator.champion_promotion_executor import (
+    CHAMPION_PROMOTION_RECEIPT_SCHEMA_VERSION,
+    validate_champion_promotion_receipt_file,
+)
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
 from orchestrator.iteration_loop import run_iteration_loop
 from orchestrator.outcome_memory import (
@@ -10775,7 +10779,9 @@ def test_champion_promotion_approval_records_operator_intent_without_promoting(
     assert approval["approval_gate"]["eligible_for_approval"] is True
     assert approval["approval_gate"]["approval_blockers"] == []
     assert approval["reviewed_command"]["command"].endswith(
-        "approval-champion approval-candidate"
+        "promote-approved approval-candidate "
+        "--approval-path "
+        f"{repo}/experiments/approval-candidate/champion_promotion_approval.json"
     )
     assert approval["policy"]["does_not_execute_promote_command"] is True
     assert approval["policy"]["approval_does_not_promote"] is True
@@ -10790,6 +10796,170 @@ def test_champion_promotion_approval_records_operator_intent_without_promoting(
         / "experiments/approval-candidate/champion_promotion_approval.json",
         repo_root=repo,
     ) == ()
+
+
+def test_champion_promote_approved_requires_recorded_approval(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(
+        run_id="receipt-base",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    run_pipeline(
+        run_id="receipt-champion",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    make_run_accepted_with_ev_lift(
+        repo=repo,
+        run_id="receipt-champion",
+        ev_lift=0.3,
+    )
+    promote_champion(
+        base_run_id="receipt-base",
+        candidate_run_id="receipt-champion",
+        experiments_dir=repo / "experiments",
+    )
+    run_pipeline(
+        run_id="receipt-candidate",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    make_run_accepted_with_ev_lift(
+        repo=repo,
+        run_id="receipt-candidate",
+        ev_lift=0.6,
+    )
+
+    blocked_dry = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.champion_promotion_dry_run",
+            "experiments/receipt-candidate",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    blocked_approval = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.champion_promotion_approval",
+            "experiments/receipt-candidate",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    blocked_promote = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "promote-approved",
+            "receipt-candidate",
+            "--approval-path",
+            "experiments/receipt-candidate/champion_promotion_approval.json",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert blocked_dry.returncode == 0, blocked_dry.stderr
+    assert blocked_approval.returncode == 0, blocked_approval.stderr
+    assert blocked_promote.returncode == 1
+    blocked_receipt = json.loads(blocked_promote.stdout)
+    assert blocked_receipt["schema_version"] == CHAMPION_PROMOTION_RECEIPT_SCHEMA_VERSION
+    assert blocked_receipt["status"] == "blocked"
+    assert blocked_receipt["promoted"] is False
+    assert "approval_not_recorded" in blocked_receipt["evidence_checks"]["blockers"]
+    assert "operator_approval_not_recorded" in blocked_receipt["evidence_checks"][
+        "blockers"
+    ]
+    assert show_champion(experiments_dir=repo / "experiments")["champion"][
+        "champion_run_id"
+    ] == "receipt-champion"
+
+    approval_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.champion_promotion_approval",
+            "experiments/receipt-candidate",
+            "--approve",
+            "--operator-id",
+            "test-operator",
+            "--confirmation-phrase",
+            CHAMPION_PROMOTION_CONFIRMATION_PHRASE,
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    promote_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "promote-approved",
+            "receipt-candidate",
+            "--approval-path",
+            "experiments/receipt-candidate/champion_promotion_approval.json",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert approval_result.returncode == 0, approval_result.stderr
+    assert promote_result.returncode == 0, promote_result.stderr
+    approval = json.loads(approval_result.stdout)
+    receipt = json.loads(promote_result.stdout)
+    champion = show_champion(experiments_dir=repo / "experiments")["champion"]
+    receipt_path = repo / "experiments/receipt-candidate/champion_promotion_receipt.json"
+    receipt_md = repo / "experiments/receipt-candidate/champion_promotion_receipt.md"
+
+    assert approval["status"] == "approval_recorded"
+    assert receipt["schema_version"] == CHAMPION_PROMOTION_RECEIPT_SCHEMA_VERSION
+    assert receipt["status"] == "promoted"
+    assert receipt["promoted"] is True
+    assert receipt["base_run_id"] == "receipt-champion"
+    assert receipt["evidence_checks"]["ok"] is True
+    assert receipt["evidence_checks"]["blockers"] == []
+    assert receipt["policy"]["requires_approval_artifact"] is True
+    assert receipt["policy"]["writes_only_champion_registry_and_history"] is True
+    assert receipt["policy"]["does_not_execute_agents"] is True
+    assert champion["champion_run_id"] == "receipt-candidate"
+    assert receipt_path.exists()
+    assert receipt_md.exists()
+    assert_matches_schema(receipt_path, "champion_promotion_receipt")
+    assert validate_champion_promotion_receipt_file(
+        payload_path=receipt_path,
+        repo_root=repo,
+    ) == ()
+    artifact_report = validate_run_artifacts(
+        run_id="receipt-candidate",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert artifact_report["ok"] is True
+    assert any(
+        path.endswith("champion_promotion_receipt.json")
+        for path in artifact_report["checked_files"]
+    )
 
 
 def test_iteration_loop_writes_champion_comparison_when_champion_exists(

@@ -187,6 +187,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_champion_promotion_receipt(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_optional_run_closeout(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -2512,6 +2517,61 @@ def validate_optional_champion_promotion_approval(
     ):
         if policy.get(key) is not True:
             add_error(report, f"champion_promotion_approval.json policy false: {key}")
+
+
+def validate_optional_champion_promotion_receipt(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate champion_promotion_receipt.json when a run has one."""
+    path = run_dir / "champion_promotion_receipt.json"
+    md_path = run_dir / "champion_promotion_receipt.md"
+    if not path.exists():
+        if md_path.exists():
+            add_error(report, "champion_promotion_receipt.md exists without JSON")
+        return
+    checked_files(report).append(str(path))
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    else:
+        add_error(report, "champion_promotion_receipt.json missing markdown pair")
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/champion_promotion_receipt.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("candidate_run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"champion_promotion_receipt.json run_id does not match report: {path}",
+        )
+    if not bool(payload.get("ok", False)):
+        add_error(report, f"champion_promotion_receipt.json ok false: {path}")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "champion_promotion_receipt.json policy invalid")
+        return
+    for key in (
+        "requires_approval_artifact",
+        "requires_approval_recorded",
+        "requires_command_digest_match",
+        "requires_source_dry_run_digest_match",
+        "requires_current_champion_match",
+        "requires_current_comparison_recommendation",
+        "writes_only_champion_registry_and_history",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"champion_promotion_receipt.json policy false: {key}")
 
 
 def validate_optional_champion_comparison(

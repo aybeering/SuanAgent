@@ -822,6 +822,14 @@ def main() -> None:
     promote_parser.add_argument("candidate_run_id")
     promote_parser.add_argument("--min-ev-delta", type=float, default=0.0)
 
+    promote_approved_parser = subparsers.add_parser(
+        "promote-approved",
+        help="Promote a candidate only from recorded approval evidence.",
+    )
+    promote_approved_parser.add_argument("candidate_run_id")
+    promote_approved_parser.add_argument("--approval-path", type=Path, required=True)
+    promote_approved_parser.add_argument("--min-ev-delta", type=float, default=0.0)
+
     diagnose_parser = subparsers.add_parser(
         "diagnose",
         help="Diagnose one run with artifact health and round outcomes.",
@@ -930,6 +938,18 @@ def main() -> None:
             candidate_run_id=args.candidate_run_id,
             min_ev_delta=args.min_ev_delta,
         )
+    elif args.command == "promote-approved":
+        from orchestrator.champion_promotion_executor import (
+            promote_champion_with_approval,
+        )
+
+        payload = promote_champion_with_approval(
+            experiments_dir=args.experiments_dir,
+            repo_root=args.experiments_dir.parent,
+            candidate_run_id=args.candidate_run_id,
+            approval_path=args.approval_path,
+            min_ev_delta=args.min_ev_delta,
+        )
     elif args.command == "diagnose":
         payload = diagnose_run(
             experiments_dir=args.experiments_dir,
@@ -974,6 +994,8 @@ def main() -> None:
     else:
         payload = summarize_experiments(experiments_dir=args.experiments_dir)
     print(json.dumps(payload, indent=2, sort_keys=True))
+    if args.command == "promote-approved" and not payload.get("promoted", False):
+        raise SystemExit(1)
     if args.command == "validate" and args.strict and not payload.get("ok", False):
         raise SystemExit(1)
     if args.command == "scope-health" and args.strict and not payload.get("ok", False):

@@ -40,6 +40,7 @@ python -m orchestrator.experiments slots <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
 python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>
+python -m orchestrator.experiments promote-approved <candidate_run_id> --approval-path experiments/<run_id>/champion_promotion_approval.json
 ```
 
 Replay and validation:
@@ -107,6 +108,8 @@ experiments/<run_id>/
   champion_promotion_dry_run.md
   champion_promotion_approval.json
   champion_promotion_approval.md
+  champion_promotion_receipt.json  # after guarded champion promotion
+  champion_promotion_receipt.md    # after guarded champion promotion
   research_brief.json
   research_brief.md
   experiment_scope_health.json
@@ -287,12 +290,17 @@ Replay artifacts:
   promotion comparison against the current champion. They never write
   `champion.json`, append `champion_history.jsonl`, execute agents, run
   backtests, apply patches, route agents, or change acceptance. Actual
-  promotion still requires the explicit `experiments promote` command.
+  guarded promotion uses the explicit `experiments promote-approved` command.
 - `champion_promotion_approval.json` and `champion_promotion_approval.md`
   record operator review intent, required confirmation phrase hashes, reviewed
   promote command digests, and source evidence hashes. They do not execute the
   promote command, write `champion.json`, append `champion_history.jsonl`, run
   agents, run backtests, apply patches, route agents, or change acceptance.
+- `champion_promotion_receipt.json` and `champion_promotion_receipt.md` record
+  the result of the guarded promote-approved command. The command writes
+  `champion.json` and appends `champion_history.jsonl` only when the approval
+  artifact, reviewed command digest, dry-run digest, current champion identity,
+  and current deterministic comparison still match.
 - `artifact_validator_coverage.json` reports schema, validator, documentation,
   test, and inspection/replay coverage for repository artifact contracts.
 

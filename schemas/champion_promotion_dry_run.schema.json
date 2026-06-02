@@ -264,6 +264,8 @@
       "required": [
         "eligible",
         "would_promote",
+        "base_run_id",
+        "candidate_run_id",
         "blocking_reasons",
         "promotion_command",
         "evidence_paths"
@@ -274,6 +276,12 @@
         },
         "would_promote": {
           "type": "boolean"
+        },
+        "base_run_id": {
+          "type": "string"
+        },
+        "candidate_run_id": {
+          "type": "string"
         },
         "blocking_reasons": {
           "type": "array",

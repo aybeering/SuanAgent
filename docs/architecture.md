@@ -129,6 +129,8 @@ to avoid repeating weak search directions.
 ## Champion Registry
 
 Experiment comparison and promotion commands are deterministic. A candidate can
-be promoted only when comparison rules recommend `promote_candidate`. Promotion
-writes `experiments/champion.json` and appends
-`experiments/champion_history.jsonl`.
+be promoted through the guarded `promote-approved` path only when comparison
+rules recommend `promote_candidate`, operator approval is recorded, reviewed
+command and source dry-run digests still match, and the current champion has
+not drifted. Successful promotion writes `experiments/champion.json` and
+appends `experiments/champion_history.jsonl`.

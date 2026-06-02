@@ -52,6 +52,10 @@ KNOWN_ARTIFACT_NAMES = {
         "champion_promotion_approval.json",
         "champion_promotion_approval.md",
     ),
+    "champion_promotion_receipt": (
+        "champion_promotion_receipt.json",
+        "champion_promotion_receipt.md",
+    ),
 }
 
 INSPECTION_COMMANDS = {
@@ -90,6 +94,10 @@ INSPECTION_COMMANDS = {
     ),
     "champion_promotion_approval": (
         "python -m orchestrator.champion_promotion_approval",
+    ),
+    "champion_promotion_receipt": (
+        "python -m orchestrator.experiments promote-approved",
+        "python -m orchestrator.champion_promotion_executor",
     ),
     "champion": ("python -m orchestrator.experiments champion",),
     "champion_comparison": ("python -m orchestrator.experiments compare",),

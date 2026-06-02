@@ -122,7 +122,7 @@ def build_champion_promotion_approval(
             "promotion_authority": str(
                 dry_policy.get(
                     "promotion_authority",
-                    "python -m orchestrator.experiments promote",
+                    "python -m orchestrator.experiments promote-approved",
                 )
             ),
             "source_dry_run_path": str(dry_run_path),

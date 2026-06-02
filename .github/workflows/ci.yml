@@ -567,6 +567,20 @@ jobs:
 
       - name: Inspect champion registry
         run: |
+          if python -m orchestrator.experiments promote-approved ci-adaptive --approval-path experiments/ci-adaptive/champion_promotion_approval.json > /tmp/blocked_promote_approved.json; then
+            echo "promote-approved unexpectedly succeeded without recorded approval"
+            exit 1
+          fi
+          python - <<'PY'
+          import json
+          payload = json.load(open("/tmp/blocked_promote_approved.json"))
+          assert payload["schema_version"] == "champion_promotion_receipt_v1"
+          assert payload["status"] == "blocked"
+          assert payload["promoted"] is False
+          assert "approval_not_recorded" in payload["evidence_checks"]["blockers"]
+          assert payload["policy"]["requires_approval_artifact"] is True
+          assert payload["policy"]["does_not_execute_agents"] is True
+          PY
           python -m orchestrator.experiments promote ci-dry ci-adaptive
           python -m orchestrator.experiments champion
 

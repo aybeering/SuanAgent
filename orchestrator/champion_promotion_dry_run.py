@@ -122,8 +122,11 @@ def build_champion_promotion_dry_run(
         "dry_run_decision": {
             "eligible": would_promote,
             "would_promote": would_promote,
+            "base_run_id": str(comparison.get("base_run_id", "")),
+            "candidate_run_id": run_id,
             "blocking_reasons": blocking_reasons,
             "promotion_command": promotion_command(
+                run_dir=run_dir,
                 champion_run_id=str(champion.get("champion_run_id", "")),
                 candidate_run_id=run_id,
                 recommended=would_promote,
@@ -150,7 +153,7 @@ def build_champion_promotion_dry_run(
             "does_not_append_champion_history": True,
             "does_not_change_acceptance": True,
             "requires_explicit_promote_command": True,
-            "promotion_authority": "python -m orchestrator.experiments promote",
+            "promotion_authority": "python -m orchestrator.experiments promote-approved",
         },
     }
     return payload
@@ -300,18 +303,31 @@ def compact_candidate(diagnosis: dict[str, object]) -> dict[str, object]:
     }
 
 
+def approved_promotion_command(
+    *,
+    candidate_run_id: str,
+    approval_path: Path,
+) -> str:
+    """Return the guarded champion promotion command for an approved candidate."""
+    return (
+        "python -m orchestrator.experiments promote-approved "
+        f"{candidate_run_id} --approval-path {approval_path}"
+    )
+
+
 def promotion_command(
     *,
+    run_dir: Path,
     champion_run_id: str,
     candidate_run_id: str,
     recommended: bool,
 ) -> str:
-    """Return explicit command text only when the dry-run recommends promotion."""
+    """Return explicit guarded command text only when promotion is recommended."""
     if not recommended or not champion_run_id:
         return ""
-    return (
-        "python -m orchestrator.experiments promote "
-        f"{champion_run_id} {candidate_run_id}"
+    return approved_promotion_command(
+        candidate_run_id=candidate_run_id,
+        approval_path=run_dir / "champion_promotion_approval.json",
     )
 
 

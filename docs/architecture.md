@@ -218,6 +218,14 @@ expected evidence artifacts, report each step as missing, blocked, or ready,
 and show command hints without executing those commands. The runbook is
 read-only: it cannot record operator approval, execute Codex, create
 workspaces, apply patches, route agents, or change acceptance.
+`codex_cli_execution_readiness_diff.json` and
+`codex_cli_execution_readiness_diff.md` provide the companion drift audit. They
+compare the current candidate config-derived command, command digest, workspace
+path, strategy-only mutation boundary, startup preflight expectation, execution
+candidate, real-execution dry-run, and operator-reviewed request. The report is
+inspection-only: it can show missing evidence or drift, but it cannot record
+approval, execute commands, execute Codex, create workspaces, modify config,
+route agents, apply patches, or change acceptance.
 `operator_cockpit.json` and `operator_cockpit.md` are the broader operator
 entrypoint. They collect the run closeout, config lineage, operator action
 dashboard, Codex CLI execution preflight, standalone operator unlock checklist,

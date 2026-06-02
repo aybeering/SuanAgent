@@ -151,6 +151,20 @@ request artifacts into a manual review guide. It only reads saved artifacts and
 prints command hints; it does not execute Codex, record approval, create
 workspaces, apply patches, or change acceptance.
 
+Generate the read-only execution readiness drift audit:
+
+```bash
+python -m orchestrator.codex_cli_execution_readiness_diff experiments/guarded-demo --config config/codex_cli_enable_candidate.json
+python -m orchestrator.experiments execution-readiness-diff guarded-demo --markdown
+```
+
+The diff compares the current config-derived command, command digest, workspace
+path, mutation boundary, startup preflight expectation, execution candidate,
+real-execution dry-run, and operator request. It reports `matched`, `missing`,
+or `drift` rows only; it does not execute commands, execute Codex, record
+approval, create workspaces, modify config, apply patches, or change
+acceptance.
+
 Record operator review intent:
 
 ```bash

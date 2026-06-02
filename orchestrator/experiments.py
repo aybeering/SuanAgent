@@ -47,6 +47,10 @@ from orchestrator.codex_cli_unlock_runbook import (
     build_codex_cli_unlock_runbook,
     render_codex_cli_unlock_runbook_markdown,
 )
+from orchestrator.codex_cli_execution_readiness_diff import (
+    build_codex_cli_execution_readiness_diff,
+    render_codex_cli_execution_readiness_diff_markdown,
+)
 from orchestrator.operator_action_executor import (
     render_receipt_markdown as render_operator_action_execution_markdown,
 )
@@ -1256,6 +1260,30 @@ def codex_cli_unlock_runbook_report(
     return payload
 
 
+def codex_cli_execution_readiness_diff_report(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+    config_path: Path = Path("config/codex_cli_enable_candidate.json"),
+) -> dict[str, object]:
+    """Return the saved or derived Codex CLI execution readiness diff."""
+    run_dir = experiments_dir / run_id
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    diff_path = run_dir / "codex_cli_execution_readiness_diff.json"
+    if diff_path.exists():
+        payload = load_json(diff_path)
+        payload["from_artifact"] = True
+        return payload
+    payload = build_codex_cli_execution_readiness_diff(
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+        config_path=config_path,
+    )
+    payload["from_artifact"] = False
+    return payload
+
+
 def agent_slot_health_report(
     *,
     run_id: str,
@@ -1984,6 +2012,23 @@ def main() -> None:
         help="Render the Codex CLI unlock runbook as markdown.",
     )
 
+    execution_diff_parser = subparsers.add_parser(
+        "execution-readiness-diff",
+        help="Show the read-only Codex CLI execution readiness drift audit.",
+    )
+    execution_diff_parser.add_argument("run_id")
+    execution_diff_parser.add_argument(
+        "--config",
+        type=Path,
+        default=Path("config/codex_cli_enable_candidate.json"),
+        help="Candidate config used to compute the current execution boundary.",
+    )
+    execution_diff_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the Codex CLI execution readiness diff as markdown.",
+    )
+
     action_plan_parser = subparsers.add_parser(
         "action-plan",
         help="Show read-only operator action candidates for one iteration run.",
@@ -2304,6 +2349,15 @@ def main() -> None:
         )
         if args.markdown:
             print(render_codex_cli_unlock_runbook_markdown(payload), end="")
+            return
+    elif args.command == "execution-readiness-diff":
+        payload = codex_cli_execution_readiness_diff_report(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
+            config_path=args.config,
+        )
+        if args.markdown:
+            print(render_codex_cli_execution_readiness_diff_markdown(payload), end="")
             return
     elif args.command == "action-plan":
         payload = operator_action_plan_report(

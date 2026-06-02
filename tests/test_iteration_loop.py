@@ -119,6 +119,12 @@ from orchestrator.codex_cli_unlock_runbook import (
     validate_codex_cli_unlock_runbook_file,
     write_codex_cli_unlock_runbook,
 )
+from orchestrator.codex_cli_execution_readiness_diff import (
+    CODEX_CLI_EXECUTION_READINESS_DIFF_SCHEMA_VERSION,
+    render_codex_cli_execution_readiness_diff_markdown,
+    validate_codex_cli_execution_readiness_diff_file,
+    write_codex_cli_execution_readiness_diff,
+)
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.agent_slot_readiness_gate import (
@@ -334,6 +340,7 @@ from orchestrator.experiments import (
     operator_action_plan_report,
     operator_cockpit_report,
     codex_cli_unlock_runbook_report,
+    codex_cli_execution_readiness_diff_report,
     operator_unlock_checklist_report,
     operator_run_review,
     promote_champion,
@@ -13031,6 +13038,65 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
     ) == ()
 
 
+def test_codex_cli_execution_readiness_diff_reports_missing_startup_evidence(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_enable_candidate.json")
+
+    with pytest.raises(ValueError, match="Codex CLI execution preflight failed"):
+        run_iteration_loop(
+            run_id="codex-execution-diff-startup-block",
+            max_rounds=1,
+            repo_root=repo,
+            config=config,
+        )
+
+    run_dir = repo / "experiments/codex-execution-diff-startup-block"
+    json_path, md_path, diff = write_codex_cli_execution_readiness_diff(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+    )
+    markdown = md_path.read_text(encoding="utf-8")
+    report = codex_cli_execution_readiness_diff_report(
+        run_id="codex-execution-diff-startup-block",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+    )
+
+    assert json_path.exists()
+    assert md_path.exists()
+    assert diff["schema_version"] == (
+        CODEX_CLI_EXECUTION_READINESS_DIFF_SCHEMA_VERSION
+    )
+    assert diff["status"] == "missing_evidence"
+    assert diff["ready"] is False
+    assert diff["summary"]["preflight_ok"] is False
+    assert diff["summary"]["missing_artifact_count"] >= 3
+    assert "codex_cli_execution_candidate" in diff["summary"]["missing_artifacts"]
+    assert "codex_cli_operator_unlock_request" in diff["summary"]["missing_artifacts"]
+    assert any(
+        reason.startswith("missing_artifact:")
+        for reason in diff["blocking_reasons"]
+    )
+    assert diff["policy"]["does_not_execute_codex_cli"] is True
+    assert diff["policy"]["startup_preflight_keeps_execution_authority"] is True
+    assert "# Codex CLI Execution Readiness Diff" in markdown
+    assert report["from_artifact"] is True
+    assert report["schema_version"] == (
+        CODEX_CLI_EXECUTION_READINESS_DIFF_SCHEMA_VERSION
+    )
+    assert render_codex_cli_execution_readiness_diff_markdown(report).startswith(
+        "# Codex CLI Execution Readiness Diff"
+    )
+    assert_matches_schema(json_path, "codex_cli_execution_readiness_diff")
+    assert validate_codex_cli_execution_readiness_diff_file(
+        payload_path=json_path,
+        repo_root=repo,
+    ) == ()
+
+
 def test_iteration_loop_still_rejects_existing_run_dir_without_operator_request(
     tmp_path: Path,
 ) -> None:
@@ -14738,6 +14804,19 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     unlock_runbook_markdown = render_codex_cli_unlock_runbook_markdown(
         unlock_runbook
     )
+    write_codex_cli_execution_readiness_diff(
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+    )
+    execution_diff = codex_cli_execution_readiness_diff_report(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+    )
+    execution_diff_markdown = render_codex_cli_execution_readiness_diff_markdown(
+        execution_diff
+    )
     write_operator_cockpit(
         run_dir=repo / "experiments/cli-candidates",
         experiments_dir=repo / "experiments",
@@ -15024,6 +15103,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "--experiments-dir",
             "experiments",
             "unlock-runbook",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    execution_diff_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "execution-readiness-diff",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    execution_diff_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "execution-readiness-diff",
             "cli-candidates",
             "--markdown",
         ],
@@ -15576,6 +15686,30 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         unlock_runbook_markdown_result.stderr
     )
     assert "# Codex CLI Unlock Runbook" in unlock_runbook_markdown_result.stdout
+    assert execution_diff["schema_version"] == (
+        CODEX_CLI_EXECUTION_READINESS_DIFF_SCHEMA_VERSION
+    )
+    assert execution_diff["from_artifact"] is True
+    assert execution_diff["status"] == "missing_evidence"
+    assert execution_diff["summary"]["comparison_count"] >= 5
+    assert execution_diff["policy"]["does_not_execute_codex_cli"] is True
+    assert "# Codex CLI Execution Readiness Diff" in execution_diff_markdown
+    assert execution_diff_result.returncode == 0, execution_diff_result.stderr
+    execution_diff_payload = json.loads(execution_diff_result.stdout)
+    assert execution_diff_payload["schema_version"] == (
+        CODEX_CLI_EXECUTION_READINESS_DIFF_SCHEMA_VERSION
+    )
+    assert execution_diff_payload["from_artifact"] is True
+    assert_matches_schema_payload(
+        execution_diff_payload,
+        "codex_cli_execution_readiness_diff",
+    )
+    assert execution_diff_markdown_result.returncode == 0, (
+        execution_diff_markdown_result.stderr
+    )
+    assert "# Codex CLI Execution Readiness Diff" in (
+        execution_diff_markdown_result.stdout
+    )
     assert cockpit_result.returncode == 0, cockpit_result.stderr
     cockpit_payload = json.loads(cockpit_result.stdout)
     assert cockpit_payload["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION

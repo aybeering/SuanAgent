@@ -65,6 +65,7 @@ python -m orchestrator.experiments action-audit <run_id> --markdown
 python -m orchestrator.experiments action-dashboard <run_id> --markdown
 python -m orchestrator.experiments unlock-checklist <run_id> --markdown
 python -m orchestrator.experiments unlock-runbook <run_id> --markdown
+python -m orchestrator.experiments execution-readiness-diff <run_id> --markdown
 python -m orchestrator.experiments cockpit <run_id> --markdown
 ```
 
@@ -78,7 +79,10 @@ the operator to run manually. If a real Codex execute=true startup preflight is
 blocked, the failed run still writes the checklist and summary navigation. The
 Codex CLI unlock runbook turns the same evidence chain into an ordered
 read-only operator guide; it lists the required artifacts and command hints but
-does not execute commands or unlock Codex.
+does not execute commands or unlock Codex. The execution readiness diff compares
+the current config-derived command, workspace, mutation boundary, dry-run plan,
+and operator-reviewed request so drift is visible before any real Codex
+execution is considered.
 
 More commands and artifact details live in `docs/artifact_reference.md`.
 

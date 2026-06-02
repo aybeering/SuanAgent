@@ -1,0 +1,421 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Codex CLI Execution Readiness Diff",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "status",
+    "ready",
+    "summary",
+    "source_artifacts",
+    "current_expected_execution",
+    "reviewed_execution",
+    "candidate_execution",
+    "dry_run_execution",
+    "preflight_expected_execution",
+    "comparisons",
+    "blocking_reasons",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "codex_cli_execution_readiness_diff_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "missing_evidence",
+        "drift_detected",
+        "blocked",
+        "ready"
+      ]
+    },
+    "ready": {
+      "type": "boolean"
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "comparison_count",
+        "matched_count",
+        "drift_count",
+        "missing_comparison_count",
+        "missing_artifact_count",
+        "missing_artifacts",
+        "drift_comparisons",
+        "missing_comparisons",
+        "preflight_ok",
+        "operator_request_ready"
+      ],
+      "properties": {
+        "comparison_count": {
+          "type": "integer"
+        },
+        "matched_count": {
+          "type": "integer"
+        },
+        "drift_count": {
+          "type": "integer"
+        },
+        "missing_comparison_count": {
+          "type": "integer"
+        },
+        "missing_artifact_count": {
+          "type": "integer"
+        },
+        "missing_artifacts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "drift_comparisons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missing_comparisons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preflight_ok": {
+          "type": "boolean"
+        },
+        "operator_request_ready": {
+          "type": "boolean"
+        }
+      }
+    },
+    "source_artifacts": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/source_artifact"
+      }
+    },
+    "current_expected_execution": {
+      "$ref": "#/$defs/current_expected_execution"
+    },
+    "reviewed_execution": {
+      "$ref": "#/$defs/execution_plan"
+    },
+    "candidate_execution": {
+      "$ref": "#/$defs/execution_plan"
+    },
+    "dry_run_execution": {
+      "$ref": "#/$defs/execution_plan"
+    },
+    "preflight_expected_execution": {
+      "$ref": "#/$defs/execution_plan"
+    },
+    "comparisons": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/comparison"
+      }
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "read_only",
+        "diff_only",
+        "does_not_execute_commands",
+        "does_not_execute_codex_cli",
+        "does_not_record_operator_approval",
+        "does_not_create_workspace",
+        "does_not_send_strategy_prompt",
+        "does_not_modify_config",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+        "startup_preflight_keeps_execution_authority"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "read_only": {
+          "type": "boolean"
+        },
+        "diff_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_commands": {
+          "type": "boolean"
+        },
+        "does_not_execute_codex_cli": {
+          "type": "boolean"
+        },
+        "does_not_record_operator_approval": {
+          "type": "boolean"
+        },
+        "does_not_create_workspace": {
+          "type": "boolean"
+        },
+        "does_not_send_strategy_prompt": {
+          "type": "boolean"
+        },
+        "does_not_modify_config": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_route_agents": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "startup_preflight_keeps_execution_authority": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "source_artifact": {
+      "type": "object",
+      "required": [
+        "artifact_id",
+        "required_for_ready_diff",
+        "file"
+      ],
+      "properties": {
+        "artifact_id": {
+          "type": "string"
+        },
+        "required_for_ready_diff": {
+          "type": "boolean"
+        },
+        "file": {
+          "$ref": "#/$defs/file_record"
+        }
+      }
+    },
+    "file_record": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "byte_count": {
+          "type": "integer"
+        },
+        "bytes": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true
+    },
+    "current_expected_execution": {
+      "type": "object",
+      "required": [
+        "source_config",
+        "agent_name",
+        "profile_name",
+        "round_id",
+        "attempt_id",
+        "target_file",
+        "allowed_mutation_paths",
+        "workspace_root",
+        "workspace_prefix",
+        "workspace_path",
+        "command",
+        "command_sha256",
+        "execute",
+        "sandbox",
+        "timeout_seconds"
+      ],
+      "properties": {
+        "source_config": {
+          "$ref": "#/$defs/file_record"
+        },
+        "agent_name": {
+          "type": "string"
+        },
+        "profile_name": {
+          "type": "string"
+        },
+        "round_id": {
+          "type": "string"
+        },
+        "attempt_id": {
+          "type": "string"
+        },
+        "target_file": {
+          "type": "string"
+        },
+        "allowed_mutation_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "workspace_root": {
+          "type": "string"
+        },
+        "workspace_prefix": {
+          "type": "string"
+        },
+        "workspace_path": {
+          "type": "string"
+        },
+        "command": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "command_sha256": {
+          "type": "string"
+        },
+        "execute": {
+          "type": "boolean"
+        },
+        "sandbox": {
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "type": "integer"
+        }
+      }
+    },
+    "execution_plan": {
+      "type": "object",
+      "required": [
+        "agent_name",
+        "profile_name",
+        "round_id",
+        "attempt_id",
+        "target_file",
+        "allowed_mutation_paths",
+        "workspace_path",
+        "command"
+      ],
+      "properties": {
+        "agent_name": {
+          "type": "string"
+        },
+        "profile_name": {
+          "type": "string"
+        },
+        "round_id": {
+          "type": "string"
+        },
+        "attempt_id": {
+          "type": "string"
+        },
+        "target_file": {
+          "type": "string"
+        },
+        "allowed_mutation_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "workspace_path": {
+          "type": "string"
+        },
+        "command": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "command_sha256": {
+          "type": "string"
+        },
+        "execution_enabled_by_this_artifact": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    },
+    "comparison": {
+      "type": "object",
+      "required": [
+        "comparison_id",
+        "label",
+        "status",
+        "left_name",
+        "right_name",
+        "left_sha256",
+        "right_sha256",
+        "left_value",
+        "right_value",
+        "missing_sides"
+      ],
+      "properties": {
+        "comparison_id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "matched",
+            "drift",
+            "missing"
+          ]
+        },
+        "left_name": {
+          "type": "string"
+        },
+        "right_name": {
+          "type": "string"
+        },
+        "left_sha256": {
+          "type": "string"
+        },
+        "right_sha256": {
+          "type": "string"
+        },
+        "left_value": true,
+        "right_value": true,
+        "missing_sides": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

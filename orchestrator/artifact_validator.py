@@ -361,6 +361,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_codex_cli_execution_readiness_diff(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     report["ok"] = not report["errors"]
     return report
 
@@ -7833,6 +7838,205 @@ def validate_optional_codex_cli_unlock_runbook(
                 add_error(
                     report,
                     f"codex_cli_unlock_runbook.json policy false: {key}",
+                )
+
+def validate_optional_codex_cli_execution_readiness_diff(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate codex_cli_execution_readiness_diff.json when present."""
+    path = run_dir / "codex_cli_execution_readiness_diff.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    md_path = run_dir / "codex_cli_execution_readiness_diff.md"
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    else:
+        add_error(report, "codex_cli_execution_readiness_diff.md missing")
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root
+        / "schemas/codex_cli_execution_readiness_diff.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(report, "codex_cli_execution_readiness_diff.json run_id mismatch")
+    if not artifact_path_matches_run_dir(
+        path_text=str(payload.get("run_dir", "")),
+        run_dir=run_dir,
+        repo_root=repo_root,
+    ):
+        add_error(report, "codex_cli_execution_readiness_diff.json run_dir mismatch")
+    status = str(payload.get("status", ""))
+    ready = bool(payload.get("ready", False))
+    if ready and status != "ready":
+        add_error(report, "codex_cli_execution_readiness_diff.json ready/status mismatch")
+    if status == "ready" and not ready:
+        add_error(report, "codex_cli_execution_readiness_diff.json status ready false")
+    if status not in {"missing_evidence", "drift_detected", "blocked", "ready"}:
+        add_error(report, "codex_cli_execution_readiness_diff.json status invalid")
+    sources = payload.get("source_artifacts", {})
+    missing_artifacts: list[str] = []
+    if not isinstance(sources, dict):
+        add_error(report, "codex_cli_execution_readiness_diff.json sources invalid")
+    else:
+        for artifact_id, artifact in sources.items():
+            if not isinstance(artifact, dict):
+                add_error(
+                    report,
+                    "codex_cli_execution_readiness_diff.json source row invalid",
+                )
+                continue
+            source_file = artifact.get("file", {})
+            if not isinstance(source_file, dict):
+                add_error(
+                    report,
+                    "codex_cli_execution_readiness_diff.json source file invalid",
+                )
+                continue
+            if source_file.get("exists") is True:
+                validate_recorded_file_hash(
+                    record=source_file,
+                    repo_root=repo_root,
+                    report=report,
+                    label=(
+                        "codex_cli_execution_readiness_diff "
+                        f"{artifact_id}"
+                    ),
+                )
+            elif bool(artifact.get("required_for_ready_diff", False)):
+                missing_artifacts.append(str(artifact_id))
+    comparisons = payload.get("comparisons", [])
+    matched_count = 0
+    drift_count = 0
+    missing_count = 0
+    drift_ids: list[str] = []
+    missing_ids: list[str] = []
+    if not isinstance(comparisons, list):
+        add_error(report, "codex_cli_execution_readiness_diff.json comparisons invalid")
+        comparisons = []
+    for comparison in comparisons:
+        if not isinstance(comparison, dict):
+            add_error(
+                report,
+                "codex_cli_execution_readiness_diff.json comparison row invalid",
+            )
+            continue
+        row_status = str(comparison.get("status", ""))
+        comparison_id = str(comparison.get("comparison_id", ""))
+        if row_status == "matched":
+            matched_count += 1
+        elif row_status == "drift":
+            drift_count += 1
+            drift_ids.append(comparison_id)
+        elif row_status == "missing":
+            missing_count += 1
+            missing_ids.append(comparison_id)
+        else:
+            add_error(
+                report,
+                "codex_cli_execution_readiness_diff.json comparison status invalid",
+            )
+        missing_sides = comparison.get("missing_sides", [])
+        if row_status == "missing" and not missing_sides:
+            add_error(
+                report,
+                "codex_cli_execution_readiness_diff.json missing row lacks side",
+            )
+        if row_status != "missing" and missing_sides:
+            add_error(
+                report,
+                "codex_cli_execution_readiness_diff.json non-missing row has side",
+            )
+    summary = payload.get("summary", {})
+    if not isinstance(summary, dict):
+        add_error(report, "codex_cli_execution_readiness_diff.json summary invalid")
+    else:
+        if int(summary.get("comparison_count", -1)) != len(comparisons):
+            add_error(
+                report,
+                "codex_cli_execution_readiness_diff.json comparison count mismatch",
+            )
+        if int(summary.get("matched_count", -1)) != matched_count:
+            add_error(
+                report,
+                "codex_cli_execution_readiness_diff.json matched count mismatch",
+            )
+        if int(summary.get("drift_count", -1)) != drift_count:
+            add_error(
+                report,
+                "codex_cli_execution_readiness_diff.json drift count mismatch",
+            )
+        if int(summary.get("missing_comparison_count", -1)) != missing_count:
+            add_error(
+                report,
+                "codex_cli_execution_readiness_diff.json missing count mismatch",
+            )
+        if int(summary.get("missing_artifact_count", -1)) != len(missing_artifacts):
+            add_error(
+                report,
+                "codex_cli_execution_readiness_diff.json missing artifact mismatch",
+            )
+        if sorted(string_list(summary.get("missing_artifacts", []))) != sorted(
+            missing_artifacts
+        ):
+            add_error(
+                report,
+                "codex_cli_execution_readiness_diff.json missing artifact list mismatch",
+            )
+        if sorted(string_list(summary.get("drift_comparisons", []))) != sorted(
+            drift_ids
+        ):
+            add_error(
+                report,
+                "codex_cli_execution_readiness_diff.json drift list mismatch",
+            )
+        if sorted(string_list(summary.get("missing_comparisons", []))) != sorted(
+            missing_ids
+        ):
+            add_error(
+                report,
+                "codex_cli_execution_readiness_diff.json missing list mismatch",
+            )
+    blockers = payload.get("blocking_reasons", [])
+    if not isinstance(blockers, list):
+        add_error(report, "codex_cli_execution_readiness_diff.json blockers invalid")
+    elif status == "ready" and blockers:
+        add_error(report, "codex_cli_execution_readiness_diff.json ready with blockers")
+    elif status != "ready" and not blockers:
+        add_error(
+            report,
+            "codex_cli_execution_readiness_diff.json blocked without blockers",
+        )
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "codex_cli_execution_readiness_diff.json policy invalid")
+    else:
+        for key in (
+            "inspection_only",
+            "read_only",
+            "diff_only",
+            "does_not_execute_commands",
+            "does_not_execute_codex_cli",
+            "does_not_record_operator_approval",
+            "does_not_create_workspace",
+            "does_not_send_strategy_prompt",
+            "does_not_modify_config",
+            "does_not_apply_patches",
+            "does_not_route_agents",
+            "does_not_change_acceptance",
+            "startup_preflight_keeps_execution_authority",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_execution_readiness_diff.json policy false: {key}",
                 )
 
 

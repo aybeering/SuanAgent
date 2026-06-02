@@ -79,6 +79,10 @@ KNOWN_ARTIFACT_NAMES = {
         "codex_cli_unlock_runbook.json",
         "codex_cli_unlock_runbook.md",
     ),
+    "codex_cli_execution_readiness_diff": (
+        "codex_cli_execution_readiness_diff.json",
+        "codex_cli_execution_readiness_diff.md",
+    ),
     "operator_cockpit": (
         "operator_cockpit.json",
         "operator_cockpit.md",
@@ -278,6 +282,10 @@ INSPECTION_COMMANDS = {
     "codex_cli_unlock_runbook": (
         "python -m orchestrator.codex_cli_unlock_runbook",
         "python -m orchestrator.experiments unlock-runbook",
+    ),
+    "codex_cli_execution_readiness_diff": (
+        "python -m orchestrator.codex_cli_execution_readiness_diff",
+        "python -m orchestrator.experiments execution-readiness-diff",
     ),
     "codex_cli_execution_preflight": (
         "python -m orchestrator.codex_cli_execution_preflight",

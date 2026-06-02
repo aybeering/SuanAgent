@@ -68,6 +68,9 @@ python -m orchestrator.experiments unlock-checklist <run_id> --markdown
 python -m orchestrator.codex_cli_unlock_runbook experiments/<run_id>
 python -m orchestrator.experiments unlock-runbook <run_id>
 python -m orchestrator.experiments unlock-runbook <run_id> --markdown
+python -m orchestrator.codex_cli_execution_readiness_diff experiments/<run_id>
+python -m orchestrator.experiments execution-readiness-diff <run_id>
+python -m orchestrator.experiments execution-readiness-diff <run_id> --markdown
 python -m orchestrator.operator_cockpit experiments/<run_id>
 python -m orchestrator.experiments cockpit <run_id>
 python -m orchestrator.experiments cockpit <run_id> --markdown
@@ -179,6 +182,8 @@ experiments/<run_id>/
   operator_unlock_checklist.md
   codex_cli_unlock_runbook.json  # after optional unlock runbook command
   codex_cli_unlock_runbook.md    # after optional unlock runbook command
+  codex_cli_execution_readiness_diff.json  # after optional readiness diff command
+  codex_cli_execution_readiness_diff.md    # after optional readiness diff command
   operator_cockpit.json
   operator_cockpit.md
 ```
@@ -271,6 +276,15 @@ the required evidence artifacts, readiness fields, status, and command hints,
 but every command still requires explicit operator invocation. It cannot record
 approval, execute commands, execute Codex, create workspaces, route agents,
 apply patches, or change acceptance.
+`codex_cli_execution_readiness_diff.json` and
+`codex_cli_execution_readiness_diff.md` compare the current config-derived real
+Codex command, command digest, workspace path, target file, mutation allowlist,
+startup preflight expectation, execution candidate, real-execution dry-run, and
+operator request evidence. The report marks each comparison as `matched`,
+`missing`, or `drift` and summarizes whether evidence is missing or has drifted.
+It is read-only and cannot record approval, execute commands, execute Codex,
+create workspaces, modify config, route agents, apply patches, or change
+acceptance.
 `operator_cockpit.json` and `operator_cockpit.md` collect the run closeout,
 config lineage, operator action dashboard, Codex CLI execution preflight,
 standalone operator unlock checklist, candidate challenger report,

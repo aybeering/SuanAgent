@@ -107,6 +107,21 @@ jobs:
           assert all(command["executes_codex_cli"] is False for command in runbook["operator_commands"])
           assert "# Codex CLI Unlock Runbook" in markdown
           PY
+          python -m orchestrator.codex_cli_execution_readiness_diff experiments/ci-codex-startup-block
+          test -f experiments/ci-codex-startup-block/codex_cli_execution_readiness_diff.json
+          test -f experiments/ci-codex-startup-block/codex_cli_execution_readiness_diff.md
+          python - <<'PY'
+          import json
+
+          diff = json.load(open("experiments/ci-codex-startup-block/codex_cli_execution_readiness_diff.json"))
+          markdown = open("experiments/ci-codex-startup-block/codex_cli_execution_readiness_diff.md").read()
+          assert diff["schema_version"] == "codex_cli_execution_readiness_diff_v1"
+          assert diff["status"] == "missing_evidence"
+          assert diff["ready"] is False
+          assert diff["summary"]["preflight_ok"] is False
+          assert diff["policy"]["does_not_execute_codex_cli"] is True
+          assert "# Codex CLI Execution Readiness Diff" in markdown
+          PY
           python - <<'PY'
           import json
           from pathlib import Path
@@ -443,6 +458,20 @@ jobs:
           assert request["policy"]["operator_request_only"] is True
           assert request["policy"]["does_not_execute_codex_cli"] is True
           assert request["policy"]["does_not_change_acceptance"] is True
+          PY
+          python -m orchestrator.codex_cli_execution_readiness_diff experiments/ci-codex-guarded --config config/codex_cli_enable_candidate.json
+          test -f experiments/ci-codex-guarded/codex_cli_execution_readiness_diff.json
+          test -f experiments/ci-codex-guarded/codex_cli_execution_readiness_diff.md
+          python - <<'PY'
+          import json
+
+          diff = json.load(open("experiments/ci-codex-guarded/codex_cli_execution_readiness_diff.json"))
+          assert diff["schema_version"] == "codex_cli_execution_readiness_diff_v1"
+          assert diff["status"] in {"blocked", "missing_evidence", "drift_detected"}
+          assert diff["summary"]["comparison_count"] >= 5
+          assert diff["summary"]["missing_artifact_count"] == 0
+          assert diff["policy"]["startup_preflight_keeps_execution_authority"] is True
+          assert diff["policy"]["does_not_execute_codex_cli"] is True
           PY
           python -m orchestrator.artifact_validator ci-codex-guarded
           python -m orchestrator.artifact_validator ci-codex-canary
@@ -867,6 +896,21 @@ jobs:
           assert runbook["policy"]["does_not_execute_codex_cli"] is True
           assert all(command["requires_explicit_operator_invocation"] is True for command in runbook["operator_commands"])
           assert "# Codex CLI Unlock Runbook" in markdown
+          PY
+          python -m orchestrator.codex_cli_execution_readiness_diff experiments/ci-adaptive
+          test -f experiments/ci-adaptive/codex_cli_execution_readiness_diff.json
+          test -f experiments/ci-adaptive/codex_cli_execution_readiness_diff.md
+          python -m orchestrator.experiments execution-readiness-diff ci-adaptive > /tmp/codex_cli_execution_readiness_diff.json
+          python -m orchestrator.experiments execution-readiness-diff ci-adaptive --markdown > /tmp/codex_cli_execution_readiness_diff.md
+          python - <<'PY'
+          import json
+          diff = json.load(open("/tmp/codex_cli_execution_readiness_diff.json"))
+          markdown = open("/tmp/codex_cli_execution_readiness_diff.md").read()
+          assert diff["schema_version"] == "codex_cli_execution_readiness_diff_v1"
+          assert diff["from_artifact"] is True
+          assert diff["status"] == "missing_evidence"
+          assert diff["policy"]["does_not_execute_codex_cli"] is True
+          assert "# Codex CLI Execution Readiness Diff" in markdown
           PY
           python -m orchestrator.operator_cockpit experiments/ci-adaptive
           test -f experiments/ci-adaptive/operator_cockpit.json

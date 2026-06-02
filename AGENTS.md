@@ -58,7 +58,8 @@ plans, read-only operator action approval receipts, guarded read-only operator
 action execution receipts, read-only operator action audit artifacts, read-only
 operator action dashboard artifacts, read-only operator unlock checklist
 artifacts, read-only Codex CLI unlock runbook artifacts, read-only operator
-cockpit artifacts, and Codex CLI readiness evidence.
+cockpit artifacts, read-only Codex CLI execution readiness diff artifacts, and
+Codex CLI readiness evidence.
 
 Still out of scope:
 
@@ -209,6 +210,11 @@ counts, and grouped checklist status, but it must not unlock Codex or execute
 agents. Cockpit artifacts must remain read-only and must not record approval,
 execute commands, write config, promote champions, run agents, run backtests,
 apply patches, route agents, or change acceptance.
+Codex CLI execution readiness diff artifacts may compare the current candidate
+config, startup preflight expected execution, execution candidate, real dry-run,
+and operator request evidence for drift. They must remain read-only and must
+not record approval, execute commands, execute Codex, create workspaces, modify
+config, run agents, apply patches, route agents, or change acceptance.
 The iteration loop writes the final operator action dashboard and cockpit
 during closeout, along with the standalone operator unlock checklist. Explicit
 commands may refresh them after later operator artifacts are written.

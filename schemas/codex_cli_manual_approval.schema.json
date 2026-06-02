@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Codex CLI Manual Approval",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "config_path",
+    "ok",
+    "manual_approval_granted",
+    "ready_for_controlled_codex_cli_execution",
+    "blocking_reasons",
+    "checks",
+    "approval",
+    "artifacts",
+    "enablement_gate",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "codex_cli_manual_approval_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "config_path": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "manual_approval_granted": {
+      "type": "boolean"
+    },
+    "ready_for_controlled_codex_cli_execution": {
+      "type": "boolean"
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "checks": {
+      "type": "object",
+      "required": [
+        "config_exists",
+        "enablement_gate_present",
+        "enablement_gate_ok",
+        "enablement_gate_permitted",
+        "gate_config_matches_candidate",
+        "candidate_execute_true",
+        "candidate_only_declared",
+        "manual_confirmation_required",
+        "explicit_approval",
+        "approved_by_present",
+        "confirmation_phrase_matches"
+      ]
+    },
+    "approval": {
+      "type": "object",
+      "required": [
+        "approved",
+        "approved_by",
+        "approval_scope",
+        "required_confirmation_phrase_sha256",
+        "provided_confirmation_phrase_sha256",
+        "confirmation_phrase_matches"
+      ]
+    },
+    "artifacts": {
+      "type": "object",
+      "required": [
+        "codex_cli_enablement_gate",
+        "candidate_config"
+      ]
+    },
+    "enablement_gate": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "ok",
+        "permitted_to_enable",
+        "config_path"
+      ]
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "approval_only",
+        "does_not_execute_codex_cli",
+        "does_not_modify_config",
+        "does_not_select_candidate",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "requires_enablement_gate",
+        "requires_explicit_approval_flag",
+        "requires_exact_confirmation_phrase",
+        "deterministic_code_keeps_acceptance_authority"
+      ],
+      "properties": {
+        "approval_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_codex_cli": {
+          "type": "boolean"
+        },
+        "does_not_modify_config": {
+          "type": "boolean"
+        },
+        "does_not_select_candidate": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "requires_enablement_gate": {
+          "type": "boolean"
+        },
+        "requires_explicit_approval_flag": {
+          "type": "boolean"
+        },
+        "requires_exact_confirmation_phrase": {
+          "type": "boolean"
+        },
+        "deterministic_code_keeps_acceptance_authority": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

@@ -129,6 +129,20 @@ jobs:
           assert enablement["checks"]["replay_gate_ready"] is True
           assert enablement["config"]["enablement"]["manual_confirmation_required"] is True
           PY
+          python -m orchestrator.codex_cli_manual_approval experiments/ci-codex-guarded --config config/codex_cli_enable_candidate.json --approved --approved-by ci-approval-fixture --confirmation-phrase "I approve this Codex CLI candidate for manual enablement"
+          test -f experiments/ci-codex-guarded/codex_cli_manual_approval.json
+          test -f experiments/ci-codex-guarded/codex_cli_manual_approval.md
+          python - <<'PY'
+          import json
+          approval = json.load(open("experiments/ci-codex-guarded/codex_cli_manual_approval.json"))
+          assert approval["schema_version"] == "codex_cli_manual_approval_v1"
+          assert approval["ok"] is True
+          assert approval["manual_approval_granted"] is True
+          assert approval["ready_for_controlled_codex_cli_execution"] is True
+          assert approval["checks"]["enablement_gate_ok"] is True
+          assert approval["checks"]["confirmation_phrase_matches"] is True
+          assert approval["policy"]["does_not_execute_codex_cli"] is True
+          PY
           python -m orchestrator.artifact_validator ci-codex-guarded
           python -m orchestrator.artifact_validator ci-adaptive
           python -m orchestrator.artifact_validator ci-file-protocol-demo

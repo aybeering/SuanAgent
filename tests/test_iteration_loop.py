@@ -57,6 +57,11 @@ from orchestrator.codex_cli_enablement_gate import (
     CODEX_CLI_ENABLEMENT_GATE_SCHEMA_VERSION,
     write_codex_cli_enablement_gate,
 )
+from orchestrator.codex_cli_manual_approval import (
+    CODEX_CLI_MANUAL_APPROVAL_SCHEMA_VERSION,
+    REQUIRED_CONFIRMATION_PHRASE,
+    write_codex_cli_manual_approval,
+)
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.agent_slot_readiness_gate import (
@@ -5619,6 +5624,149 @@ def test_codex_cli_enablement_gate_blocks_without_replay_gate(
     assert_matches_schema(
         run_dir / "codex_cli_enablement_gate.json",
         "codex_cli_enablement_gate",
+    )
+
+
+def test_codex_cli_manual_approval_grants_after_enablement_gate(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-manual-approval",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/codex-manual-approval"
+    round_dir = run_dir / "round_001"
+    replay_round(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_contract_fixture(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_replay_gate(run_dir=run_dir, repo_root=repo)
+    write_codex_cli_enablement_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+    )
+
+    approval = write_codex_cli_manual_approval(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+        approved=True,
+        approved_by="test-operator",
+        confirmation_phrase=REQUIRED_CONFIRMATION_PHRASE,
+    )
+    validation_report = validate_run_artifacts(
+        run_id="codex-manual-approval",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_manual_approval",
+            "experiments/codex-manual-approval",
+            "--config",
+            "config/codex_cli_enable_candidate.json",
+            "--approved",
+            "--approved-by",
+            "test-operator",
+            "--confirmation-phrase",
+            REQUIRED_CONFIRMATION_PHRASE,
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert approval["schema_version"] == CODEX_CLI_MANUAL_APPROVAL_SCHEMA_VERSION
+    assert approval["ok"] is True
+    assert approval["manual_approval_granted"] is True
+    assert approval["ready_for_controlled_codex_cli_execution"] is True
+    assert approval["blocking_reasons"] == []
+    assert approval["checks"]["enablement_gate_ok"] is True
+    assert approval["checks"]["enablement_gate_permitted"] is True
+    assert approval["checks"]["confirmation_phrase_matches"] is True
+    assert approval["approval"]["approved_by"] == "test-operator"
+    assert approval["policy"]["does_not_execute_codex_cli"] is True
+    assert_matches_schema(
+        run_dir / "codex_cli_manual_approval.json",
+        "codex_cli_manual_approval",
+    )
+    assert (run_dir / "codex_cli_manual_approval.md").exists()
+    assert validation_report["ok"] is True
+    assert cli_result.returncode == 0, cli_result.stderr
+    assert cli_payload["schema_version"] == CODEX_CLI_MANUAL_APPROVAL_SCHEMA_VERSION
+    assert cli_payload["manual_approval_granted"] is True
+
+
+def test_codex_cli_manual_approval_blocks_bad_confirmation(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-manual-approval-bad-confirmation",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/codex-manual-approval-bad-confirmation"
+    round_dir = run_dir / "round_001"
+    replay_round(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_contract_fixture(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_replay_gate(run_dir=run_dir, repo_root=repo)
+    write_codex_cli_enablement_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+    )
+
+    approval = write_codex_cli_manual_approval(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+        approved=True,
+        approved_by="test-operator",
+        confirmation_phrase="approve",
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_manual_approval",
+            "experiments/codex-manual-approval-bad-confirmation",
+            "--config",
+            "config/codex_cli_enable_candidate.json",
+            "--approved",
+            "--approved-by",
+            "test-operator",
+            "--confirmation-phrase",
+            "approve",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert approval["schema_version"] == CODEX_CLI_MANUAL_APPROVAL_SCHEMA_VERSION
+    assert approval["ok"] is False
+    assert approval["manual_approval_granted"] is False
+    assert approval["ready_for_controlled_codex_cli_execution"] is False
+    assert "confirmation_phrase_mismatch" in approval["blocking_reasons"]
+    assert approval["checks"]["enablement_gate_ok"] is True
+    assert approval["checks"]["confirmation_phrase_matches"] is False
+    assert cli_result.returncode == 1
+    assert cli_payload["manual_approval_granted"] is False
+    assert_matches_schema(
+        run_dir / "codex_cli_manual_approval.json",
+        "codex_cli_manual_approval",
     )
 
 

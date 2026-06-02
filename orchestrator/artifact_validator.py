@@ -167,6 +167,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_codex_cli_manual_approval(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     report["ok"] = not report["errors"]
     return report
 
@@ -2333,6 +2338,120 @@ def validate_optional_codex_cli_enablement_gate(
             elif artifact_path.exists():
                 checked_files(report).append(str(artifact_path))
     markdown_path = run_dir / "codex_cli_enablement_gate.md"
+    if markdown_path.exists():
+        checked_files(report).append(str(markdown_path))
+
+
+def validate_optional_codex_cli_manual_approval(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate codex_cli_manual_approval.json when a run has one."""
+    path = run_dir / "codex_cli_manual_approval.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/codex_cli_manual_approval.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"codex_cli_manual_approval.json run_id does not match report: {path}",
+        )
+    blockers = payload.get("blocking_reasons", [])
+    if not isinstance(blockers, list):
+        add_error(report, "codex_cli_manual_approval.json blocking_reasons invalid")
+        return
+    granted = bool(payload.get("manual_approval_granted", False))
+    if bool(payload.get("ok", False)) != granted:
+        add_error(report, "codex_cli_manual_approval.json ok/granted mismatch")
+    if bool(payload.get("ready_for_controlled_codex_cli_execution", False)) != granted:
+        add_error(report, "codex_cli_manual_approval.json ready/granted mismatch")
+    if granted and blockers:
+        add_error(report, "codex_cli_manual_approval.json granted with blockers")
+    if not granted and not blockers:
+        add_error(report, "codex_cli_manual_approval.json blocked without reason")
+    checks = payload.get("checks", {})
+    if not isinstance(checks, dict):
+        add_error(report, "codex_cli_manual_approval.json checks invalid")
+    elif granted:
+        for key, value in checks.items():
+            if not bool(value):
+                add_error(report, f"codex_cli_manual_approval.json check false: {key}")
+    approval = payload.get("approval", {})
+    if not isinstance(approval, dict):
+        add_error(report, "codex_cli_manual_approval.json approval invalid")
+    elif granted:
+        if not bool(approval.get("approved", False)):
+            add_error(report, "codex_cli_manual_approval.json approved false")
+        if not str(approval.get("approved_by", "")).strip():
+            add_error(report, "codex_cli_manual_approval.json approved_by missing")
+        if not bool(approval.get("confirmation_phrase_matches", False)):
+            add_error(
+                report,
+                "codex_cli_manual_approval.json confirmation phrase mismatch",
+            )
+    enablement_gate = payload.get("enablement_gate", {})
+    if not isinstance(enablement_gate, dict):
+        add_error(report, "codex_cli_manual_approval.json enablement_gate invalid")
+    elif granted:
+        if not bool(enablement_gate.get("ok", False)):
+            add_error(report, "codex_cli_manual_approval.json enablement gate not ok")
+        if not bool(enablement_gate.get("permitted_to_enable", False)):
+            add_error(
+                report,
+                "codex_cli_manual_approval.json enablement gate not permitted",
+            )
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "codex_cli_manual_approval.json policy invalid")
+    else:
+        for key in (
+            "approval_only",
+            "does_not_execute_codex_cli",
+            "does_not_modify_config",
+            "does_not_select_candidate",
+            "does_not_apply_patches",
+            "does_not_change_acceptance",
+            "requires_enablement_gate",
+            "requires_explicit_approval_flag",
+            "requires_exact_confirmation_phrase",
+            "deterministic_code_keeps_acceptance_authority",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_manual_approval.json policy false: {key}",
+                )
+    artifacts = payload.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        add_error(report, "codex_cli_manual_approval.json artifacts invalid")
+    else:
+        for key in ("codex_cli_enablement_gate", "candidate_config"):
+            record = artifacts.get(key, {})
+            if not isinstance(record, dict):
+                add_error(
+                    report,
+                    f"codex_cli_manual_approval artifact invalid: {key}",
+                )
+                continue
+            artifact_path = resolve_path(Path(str(record.get("path", ""))), repo_root)
+            if granted and not artifact_path.exists():
+                add_error(
+                    report,
+                    f"codex_cli_manual_approval artifact missing: {key}={artifact_path}",
+                )
+            elif artifact_path.exists():
+                checked_files(report).append(str(artifact_path))
+    markdown_path = run_dir / "codex_cli_manual_approval.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
 

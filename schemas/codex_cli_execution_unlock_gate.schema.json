@@ -14,6 +14,7 @@
     "checks",
     "config",
     "gate_status",
+    "config_binding",
     "artifacts",
     "policy"
   ],
@@ -52,6 +53,7 @@
       "type": "object",
       "required": [
         "config_exists",
+        "candidate_config_sha256_present",
         "strategy_modifier_is_codex_cli",
         "execute_true_candidate",
         "replay_gate_exists",
@@ -60,20 +62,25 @@
         "enablement_gate_exists",
         "enablement_gate_ok",
         "enablement_permitted",
+        "enablement_candidate_config_matches",
         "manual_approval_exists",
         "manual_approval_ok",
         "manual_approval_granted",
         "manual_approval_ready",
+        "manual_approval_candidate_config_matches",
         "canary_gate_exists",
         "canary_gate_ok",
         "canary_controlled_execution_ready",
         "real_preflight_exists",
         "real_preflight_ok",
         "real_codex_cli_ready",
+        "real_preflight_candidate_config_matches",
         "dry_invocation_guard_exists",
         "dry_invocation_guard_ok",
         "dry_invocation_ready",
         "dry_invocation_executed",
+        "dry_invocation_candidate_config_matches",
+        "candidate_config_binding_consistent",
         "does_not_execute_codex_cli",
         "does_not_apply_patches",
         "does_not_change_acceptance",
@@ -96,6 +103,18 @@
         "codex_cli_canary_gate",
         "codex_cli_real_preflight",
         "codex_cli_dry_invocation_guard"
+      ]
+    },
+    "config_binding": {
+      "type": "object",
+      "required": [
+        "expected_config_path",
+        "expected_config_sha256",
+        "gates",
+        "matched_gate_names",
+        "missing_gate_names",
+        "mismatched_gate_names",
+        "all_matched"
       ]
     },
     "artifacts": {
@@ -127,6 +146,7 @@
         "requires_controlled_canary",
         "requires_real_preflight",
         "requires_successful_dry_invocation",
+        "requires_candidate_config_hash_binding",
         "deterministic_code_keeps_acceptance_authority"
       ]
     }

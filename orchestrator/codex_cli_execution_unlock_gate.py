@@ -73,8 +73,20 @@ def build_codex_cli_execution_unlock_gate(
     dry_invocation_guard = load_json_object(
         run_dir / "codex_cli_dry_invocation_guard.json"
     )
+    config_binding = candidate_config_binding(
+        expected_record=artifacts["candidate_config"],
+        gate_payloads={
+            "codex_cli_enablement_gate": enablement_gate,
+            "codex_cli_manual_approval": manual_approval,
+            "codex_cli_real_preflight": real_preflight,
+            "codex_cli_dry_invocation_guard": dry_invocation_guard,
+        },
+    )
     checks = {
         "config_exists": config_path.exists() and config_path.is_file(),
+        "candidate_config_sha256_present": bool(
+            artifacts["candidate_config"].get("sha256", "")
+        ),
         "strategy_modifier_is_codex_cli": str(config.get("strategy_modifier", ""))
         == "codex_cli",
         "execute_true_candidate": bool(codex_cli.get("execute", False)),
@@ -86,6 +98,10 @@ def build_codex_cli_execution_unlock_gate(
         ),
         "enablement_gate_ok": bool(enablement_gate.get("ok", False)),
         "enablement_permitted": bool(enablement_gate.get("permitted_to_enable", False)),
+        "enablement_candidate_config_matches": gate_binding_matches(
+            config_binding,
+            "codex_cli_enablement_gate",
+        ),
         "manual_approval_exists": bool(
             artifacts["codex_cli_manual_approval"]["exists"]
         ),
@@ -96,6 +112,10 @@ def build_codex_cli_execution_unlock_gate(
         "manual_approval_ready": bool(
             manual_approval.get("ready_for_controlled_codex_cli_execution", False)
         ),
+        "manual_approval_candidate_config_matches": gate_binding_matches(
+            config_binding,
+            "codex_cli_manual_approval",
+        ),
         "canary_gate_exists": bool(artifacts["codex_cli_canary_gate"]["exists"]),
         "canary_gate_ok": bool(canary_gate.get("ok", False)),
         "canary_controlled_execution_ready": bool(
@@ -104,6 +124,10 @@ def build_codex_cli_execution_unlock_gate(
         "real_preflight_exists": bool(artifacts["codex_cli_real_preflight"]["exists"]),
         "real_preflight_ok": bool(real_preflight.get("ok", False)),
         "real_codex_cli_ready": bool(real_preflight.get("real_codex_cli_ready", False)),
+        "real_preflight_candidate_config_matches": gate_binding_matches(
+            config_binding,
+            "codex_cli_real_preflight",
+        ),
         "dry_invocation_guard_exists": bool(
             artifacts["codex_cli_dry_invocation_guard"]["exists"]
         ),
@@ -114,6 +138,11 @@ def build_codex_cli_execution_unlock_gate(
         "dry_invocation_executed": bool(
             dry_invocation_guard.get("execution_requested", False)
         ),
+        "dry_invocation_candidate_config_matches": gate_binding_matches(
+            config_binding,
+            "codex_cli_dry_invocation_guard",
+        ),
+        "candidate_config_binding_consistent": bool(config_binding["all_matched"]),
         "does_not_execute_codex_cli": True,
         "does_not_apply_patches": True,
         "does_not_change_acceptance": True,
@@ -168,6 +197,7 @@ def build_codex_cli_execution_unlock_gate(
                 "dry_invocation_ready",
             ),
         },
+        "config_binding": config_binding,
         "artifacts": artifacts,
         "policy": {
             "unlock_gate_only": True,
@@ -184,6 +214,7 @@ def build_codex_cli_execution_unlock_gate(
             "requires_controlled_canary": True,
             "requires_real_preflight": True,
             "requires_successful_dry_invocation": True,
+            "requires_candidate_config_hash_binding": True,
             "deterministic_code_keeps_acceptance_authority": True,
         },
     }
@@ -227,11 +258,64 @@ def gate_summary(payload: dict[str, Any], ready_key: str) -> dict[str, Any]:
     }
 
 
+def candidate_config_binding(
+    *,
+    expected_record: dict[str, object],
+    gate_payloads: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Return sha256 binding evidence for candidate-config-bearing gates."""
+    expected_path = str(expected_record.get("path", ""))
+    expected_sha256 = str(expected_record.get("sha256", ""))
+    gates: dict[str, dict[str, Any]] = {}
+    for gate_name, payload in gate_payloads.items():
+        artifacts = object_value(payload.get("artifacts", {}))
+        record = object_value(artifacts.get("candidate_config", {}))
+        path = str(record.get("path", ""))
+        sha256 = str(record.get("sha256", ""))
+        exists = bool(record.get("exists", False))
+        gates[gate_name] = {
+            "exists": exists,
+            "path": path,
+            "sha256": sha256,
+            "matches_expected_path": exists and path == expected_path,
+            "matches_expected_sha256": exists
+            and bool(expected_sha256)
+            and sha256 == expected_sha256,
+            "matches_expected": exists
+            and path == expected_path
+            and bool(expected_sha256)
+            and sha256 == expected_sha256,
+        }
+    matched = [name for name, gate in gates.items() if gate["matches_expected"]]
+    missing = [name for name, gate in gates.items() if not gate["exists"]]
+    mismatched = [
+        name
+        for name, gate in gates.items()
+        if gate["exists"] and not gate["matches_expected"]
+    ]
+    return {
+        "expected_config_path": expected_path,
+        "expected_config_sha256": expected_sha256,
+        "gates": gates,
+        "matched_gate_names": matched,
+        "missing_gate_names": missing,
+        "mismatched_gate_names": mismatched,
+        "all_matched": bool(expected_sha256) and not missing and not mismatched,
+    }
+
+
+def gate_binding_matches(binding: dict[str, Any], gate_name: str) -> bool:
+    """Return whether one upstream gate is bound to the expected candidate config."""
+    gate = object_value(object_value(binding.get("gates", {})).get(gate_name, {}))
+    return bool(gate.get("matches_expected", False))
+
+
 def unlock_blockers(checks: dict[str, bool]) -> list[str]:
     """Return stable blocker codes for real Codex CLI execution unlock."""
     blockers: list[str] = []
     for key, code in (
         ("config_exists", "config_missing"),
+        ("candidate_config_sha256_present", "candidate_config_sha256_missing"),
         ("strategy_modifier_is_codex_cli", "strategy_modifier_not_codex_cli"),
         ("execute_true_candidate", "execute_not_true_candidate"),
         ("replay_gate_exists", "replay_gate_missing"),
@@ -240,10 +324,18 @@ def unlock_blockers(checks: dict[str, bool]) -> list[str]:
         ("enablement_gate_exists", "enablement_gate_missing"),
         ("enablement_gate_ok", "enablement_gate_not_ok"),
         ("enablement_permitted", "enablement_not_permitted"),
+        (
+            "enablement_candidate_config_matches",
+            "enablement_candidate_config_mismatch",
+        ),
         ("manual_approval_exists", "manual_approval_missing"),
         ("manual_approval_ok", "manual_approval_not_ok"),
         ("manual_approval_granted", "manual_approval_not_granted"),
         ("manual_approval_ready", "manual_approval_not_ready"),
+        (
+            "manual_approval_candidate_config_matches",
+            "manual_approval_candidate_config_mismatch",
+        ),
         ("canary_gate_exists", "canary_gate_missing"),
         ("canary_gate_ok", "canary_gate_not_ok"),
         (
@@ -253,10 +345,19 @@ def unlock_blockers(checks: dict[str, bool]) -> list[str]:
         ("real_preflight_exists", "real_preflight_missing"),
         ("real_preflight_ok", "real_preflight_not_ok"),
         ("real_codex_cli_ready", "real_codex_cli_not_ready"),
+        (
+            "real_preflight_candidate_config_matches",
+            "real_preflight_candidate_config_mismatch",
+        ),
         ("dry_invocation_guard_exists", "dry_invocation_guard_missing"),
         ("dry_invocation_guard_ok", "dry_invocation_guard_not_ok"),
         ("dry_invocation_ready", "dry_invocation_not_ready"),
         ("dry_invocation_executed", "dry_invocation_not_executed"),
+        (
+            "dry_invocation_candidate_config_matches",
+            "dry_invocation_candidate_config_mismatch",
+        ),
+        ("candidate_config_binding_consistent", "candidate_config_binding_mismatch"),
         ("does_not_execute_codex_cli", "unlock_gate_executed_codex_cli"),
         ("does_not_apply_patches", "unlock_gate_applied_patch"),
         ("does_not_change_acceptance", "unlock_gate_changed_acceptance"),

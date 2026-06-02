@@ -219,9 +219,12 @@ jobs:
           assert "dry_invocation_not_ready" in gate["blocking_reasons"]
           assert "dry_invocation_not_executed" in gate["blocking_reasons"]
           assert gate["checks"]["canary_controlled_execution_ready"] is True
+          assert gate["checks"]["candidate_config_binding_consistent"] is True
           assert gate["checks"]["does_not_execute_codex_cli"] is True
+          assert gate["config_binding"]["all_matched"] is True
           assert gate["policy"]["read_only"] is True
           assert gate["policy"]["does_not_apply_patches"] is True
+          assert gate["policy"]["requires_candidate_config_hash_binding"] is True
           PY
           python -m orchestrator.artifact_validator ci-codex-guarded
           python -m orchestrator.artifact_validator ci-codex-canary

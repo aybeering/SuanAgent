@@ -3002,6 +3002,59 @@ def validate_optional_codex_cli_execution_unlock_gate(
                     report,
                     f"codex_cli_execution_unlock_gate.json gate_status not ready: {key}",
                 )
+    config_binding = payload.get("config_binding", {})
+    if not isinstance(config_binding, dict):
+        add_error(report, "codex_cli_execution_unlock_gate.json config_binding invalid")
+    else:
+        expected_sha256 = str(config_binding.get("expected_config_sha256", ""))
+        gates = config_binding.get("gates", {})
+        missing = config_binding.get("missing_gate_names", [])
+        mismatched = config_binding.get("mismatched_gate_names", [])
+        all_matched = bool(config_binding.get("all_matched", False))
+        if not expected_sha256:
+            add_error(
+                report,
+                "codex_cli_execution_unlock_gate.json expected config sha256 missing",
+            )
+        if not isinstance(gates, dict):
+            add_error(
+                report,
+                "codex_cli_execution_unlock_gate.json binding gates invalid",
+            )
+        else:
+            for key in (
+                "codex_cli_enablement_gate",
+                "codex_cli_manual_approval",
+                "codex_cli_real_preflight",
+                "codex_cli_dry_invocation_guard",
+            ):
+                binding = gates.get(key, {})
+                if not isinstance(binding, dict):
+                    add_error(
+                        report,
+                        f"codex_cli_execution_unlock_gate.json binding invalid: {key}",
+                    )
+                    continue
+                if unlocked and not bool(binding.get("matches_expected", False)):
+                    add_error(
+                        report,
+                        f"codex_cli_execution_unlock_gate.json binding mismatch: {key}",
+                    )
+        if not isinstance(missing, list):
+            add_error(
+                report,
+                "codex_cli_execution_unlock_gate.json binding missing invalid",
+            )
+        if not isinstance(mismatched, list):
+            add_error(
+                report,
+                "codex_cli_execution_unlock_gate.json binding mismatched invalid",
+            )
+        if unlocked and not all_matched:
+            add_error(
+                report,
+                "codex_cli_execution_unlock_gate.json unlocked with config mismatch",
+            )
     policy = payload.get("policy", {})
     if not isinstance(policy, dict):
         add_error(report, "codex_cli_execution_unlock_gate.json policy invalid")
@@ -3021,6 +3074,7 @@ def validate_optional_codex_cli_execution_unlock_gate(
             "requires_controlled_canary",
             "requires_real_preflight",
             "requires_successful_dry_invocation",
+            "requires_candidate_config_hash_binding",
             "deterministic_code_keeps_acceptance_authority",
         ):
             if not bool(policy.get(key, False)):

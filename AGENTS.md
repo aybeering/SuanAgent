@@ -101,7 +101,7 @@ Allowed components:
 50. A deterministic `codex_cli_canary_gate.json` report that validates a checked-in local Codex CLI canary executable through the guarded execution path without running real Codex.
 51. A deterministic `codex_cli_real_preflight.json` report that probes real Codex CLI availability with `--version` only, without sending strategy prompts or modifying files.
 52. A deterministic `codex_cli_dry_invocation_guard.json` report that can optionally run a harmless Codex CLI prompt in an isolated workspace with an empty mutation allowlist.
-53. A deterministic `codex_cli_execution_unlock_gate.json` report that aggregates replay, enablement, manual approval, canary, real preflight, and dry-invocation evidence before real Codex execution can be considered unlocked.
+53. A deterministic `codex_cli_execution_unlock_gate.json` report that aggregates replay, enablement, manual approval, canary, real preflight, and dry-invocation evidence, including candidate config sha256 binding, before real Codex execution can be considered unlocked.
 
 Still out of scope:
 

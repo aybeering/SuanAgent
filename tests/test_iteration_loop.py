@@ -6523,9 +6523,12 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
     assert "dry_invocation_not_ready" in gate["blocking_reasons"]
     assert "dry_invocation_not_executed" in gate["blocking_reasons"]
     assert gate["checks"]["canary_controlled_execution_ready"] is True
+    assert gate["checks"]["candidate_config_binding_consistent"] is True
     assert gate["checks"]["does_not_execute_codex_cli"] is True
+    assert gate["config_binding"]["all_matched"] is True
     assert gate["policy"]["read_only"] is True
     assert gate["policy"]["does_not_apply_patches"] is True
+    assert gate["policy"]["requires_candidate_config_hash_binding"] is True
     assert_matches_schema(
         run_dir / "codex_cli_execution_unlock_gate.json",
         "codex_cli_execution_unlock_gate",
@@ -6658,8 +6661,11 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert all(gate["checks"].values())
     assert gate["gate_status"]["codex_cli_replay_gate"]["ready"] is True
     assert gate["gate_status"]["codex_cli_dry_invocation_guard"]["ready"] is True
+    assert gate["config_binding"]["all_matched"] is True
+    assert gate["config_binding"]["mismatched_gate_names"] == []
     assert gate["policy"]["does_not_execute_codex_cli"] is True
     assert gate["policy"]["requires_successful_dry_invocation"] is True
+    assert gate["policy"]["requires_candidate_config_hash_binding"] is True
     assert_matches_schema(
         run_dir / "codex_cli_execution_unlock_gate.json",
         "codex_cli_execution_unlock_gate",
@@ -6667,6 +6673,126 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert validation_report["ok"] is True
     assert cli_result.returncode == 0, cli_result.stderr
     assert cli_payload["real_codex_execution_unlocked"] is True
+
+
+def test_codex_cli_execution_unlock_gate_blocks_candidate_config_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_unlock_mismatch.py",
+        f"""#!/usr/bin/env python3
+import sys
+if sys.argv[1:] == ['--version']:
+    print('codex-cli 1.2.3-test')
+    raise SystemExit(0)
+sys.stdin.read()
+print("{DRY_INVOCATION_EXPECTED_TEXT}")
+""",
+    )
+    config_a = json.loads(
+        (repo / "config/codex_cli_enable_candidate.json").read_text(encoding="utf-8")
+    )
+    config_a["codex_cli"]["executable"] = str(fake_codex)
+    config_a["codex_cli"]["timeout_seconds"] = 5
+    config_a_path = repo / "config/codex_cli_unlock_config_a.json"
+    config_a_path.write_text(
+        json.dumps(config_a, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    config_b = dict(config_a)
+    config_b["codex_cli"] = dict(config_a["codex_cli"])
+    config_b["codex_cli"]["model"] = "different-candidate-config"
+    config_b_path = repo / "config/codex_cli_unlock_config_b.json"
+    config_b_path.write_text(
+        json.dumps(config_b, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    guarded_config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-unlock-mismatch",
+        max_rounds=1,
+        repo_root=repo,
+        config=guarded_config,
+    )
+    run_dir = repo / "experiments/codex-unlock-mismatch"
+    round_dir = run_dir / "round_001"
+    replay_round(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_contract_fixture(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_replay_gate(run_dir=run_dir, repo_root=repo)
+    write_codex_cli_enablement_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_a_path,
+    )
+    write_codex_cli_manual_approval(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_a_path,
+        approved=True,
+        approved_by="unit-test",
+        confirmation_phrase=REQUIRED_CONFIRMATION_PHRASE,
+    )
+    write_codex_cli_real_preflight(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_b_path,
+        timeout_seconds=5,
+    )
+    write_codex_cli_dry_invocation_guard(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_b_path,
+        execute=True,
+        timeout_seconds=5,
+    )
+    canary_config = load_project_config(repo, repo / "config/codex_cli_canary.json")
+    run_iteration_loop(
+        run_id="codex-unlock-mismatch-canary",
+        max_rounds=1,
+        repo_root=repo,
+        config=canary_config,
+    )
+    canary_run_dir = repo / "experiments/codex-unlock-mismatch-canary"
+    write_codex_cli_canary_gate(
+        run_dir=canary_run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_canary.json",
+    )
+
+    gate = write_codex_cli_execution_unlock_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_a_path,
+        canary_run_dir=canary_run_dir,
+    )
+    validation_report = validate_run_artifacts(
+        run_id="codex-unlock-mismatch",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert gate["schema_version"] == CODEX_CLI_EXECUTION_UNLOCK_GATE_SCHEMA_VERSION
+    assert gate["ok"] is True
+    assert gate["real_codex_execution_unlocked"] is False
+    assert "real_preflight_candidate_config_mismatch" in gate["blocking_reasons"]
+    assert "dry_invocation_candidate_config_mismatch" in gate["blocking_reasons"]
+    assert "candidate_config_binding_mismatch" in gate["blocking_reasons"]
+    assert gate["checks"]["enablement_candidate_config_matches"] is True
+    assert gate["checks"]["manual_approval_candidate_config_matches"] is True
+    assert gate["checks"]["real_preflight_candidate_config_matches"] is False
+    assert gate["checks"]["dry_invocation_candidate_config_matches"] is False
+    assert gate["config_binding"]["all_matched"] is False
+    assert gate["config_binding"]["mismatched_gate_names"] == [
+        "codex_cli_real_preflight",
+        "codex_cli_dry_invocation_guard",
+    ]
+    assert validation_report["ok"] is True
+    assert_matches_schema(
+        run_dir / "codex_cli_execution_unlock_gate.json",
+        "codex_cli_execution_unlock_gate",
+    )
 
 
 def test_iteration_loop_rejects_codex_cli_workspace_mutation(

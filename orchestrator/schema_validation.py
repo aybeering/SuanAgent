@@ -31,7 +31,13 @@ def validate_json_payload(
 ) -> tuple[str, ...]:
     """Return validation errors for the supported JSON Schema subset."""
     errors: list[str] = []
-    validate_node(value=payload, schema=schema, path="$", errors=errors)
+    validate_node(
+        value=payload,
+        schema=schema,
+        path="$",
+        errors=errors,
+        root_schema=schema,
+    )
     return tuple(errors)
 
 
@@ -41,8 +47,24 @@ def validate_node(
     schema: dict[str, Any],
     path: str,
     errors: list[str],
+    root_schema: dict[str, Any],
 ) -> None:
     """Validate a JSON value against a schema node."""
+    ref = schema.get("$ref")
+    if isinstance(ref, str):
+        resolved = resolve_local_ref(root_schema=root_schema, ref=ref)
+        if not isinstance(resolved, dict):
+            errors.append(f"{path}: unsupported or unresolved schema ref {ref!r}")
+            return
+        validate_node(
+            value=value,
+            schema=resolved,
+            path=path,
+            errors=errors,
+            root_schema=root_schema,
+        )
+        return
+
     expected_type = schema.get("type")
     if expected_type is not None and not matches_type(value, expected_type):
         errors.append(f"{path}: expected {type_label(expected_type)}, got {json_type(value)}")
@@ -58,9 +80,21 @@ def validate_node(
             errors.append(f"{path}: expected string length >= {min_length}")
 
     if isinstance(value, dict):
-        validate_object(value=value, schema=schema, path=path, errors=errors)
+        validate_object(
+            value=value,
+            schema=schema,
+            path=path,
+            errors=errors,
+            root_schema=root_schema,
+        )
     elif isinstance(value, list):
-        validate_array(value=value, schema=schema, path=path, errors=errors)
+        validate_array(
+            value=value,
+            schema=schema,
+            path=path,
+            errors=errors,
+            root_schema=root_schema,
+        )
 
 
 def validate_object(
@@ -69,6 +103,7 @@ def validate_object(
     schema: dict[str, Any],
     path: str,
     errors: list[str],
+    root_schema: dict[str, Any],
 ) -> None:
     """Validate object-specific schema keywords."""
     required = schema.get("required", [])
@@ -86,6 +121,7 @@ def validate_object(
                     schema=property_schema,
                     path=f"{path}.{key}",
                     errors=errors,
+                    root_schema=root_schema,
                 )
 
     if schema.get("additionalProperties") is False and isinstance(properties, dict):
@@ -100,6 +136,7 @@ def validate_array(
     schema: dict[str, Any],
     path: str,
     errors: list[str],
+    root_schema: dict[str, Any],
 ) -> None:
     """Validate array-specific schema keywords."""
     min_items = schema.get("minItems")
@@ -114,7 +151,21 @@ def validate_array(
                 schema=item_schema,
                 path=f"{path}[{index}]",
                 errors=errors,
+                root_schema=root_schema,
             )
+
+
+def resolve_local_ref(*, root_schema: dict[str, Any], ref: str) -> Any:
+    """Resolve the small local JSON pointer subset used by repository schemas."""
+    if not ref.startswith("#/"):
+        return None
+    current: Any = root_schema
+    for raw_part in ref[2:].split("/"):
+        part = raw_part.replace("~1", "/").replace("~0", "~")
+        if not isinstance(current, dict) or part not in current:
+            return None
+        current = current[part]
+    return current
 
 
 def matches_type(value: Any, expected_type: object) -> bool:

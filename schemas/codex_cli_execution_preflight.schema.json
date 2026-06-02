@@ -53,6 +53,111 @@
           "expected_execution"
         ],
         "properties": {
+          "profile_name": {
+            "type": "string"
+          },
+          "adapter_name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "execute": {
+            "type": "boolean"
+          },
+          "executable": {
+            "type": "string"
+          },
+          "requires_operator_unlock": {
+            "type": "boolean"
+          },
+          "canary_exempt": {
+            "type": "boolean"
+          },
+          "operator_unlock_ready": {
+            "type": "boolean"
+          },
+          "blocking_errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "checks": {
+            "type": "object",
+            "required": [
+              "profile_enabled",
+              "adapter_is_codex_cli",
+              "execute_true",
+              "canary_exempt",
+              "operator_unlock_request_path_declared",
+              "operator_unlock_request_exists",
+              "operator_unlock_request_ok",
+              "operator_unlock_request_ready",
+              "operator_request_source_pipeline_hash_matches",
+              "operator_request_source_dry_run_hash_matches",
+              "operator_request_command_matches_profile",
+              "operator_request_command_sha256_matches_profile",
+              "operator_request_workspace_prefix_matches_run",
+              "operator_request_targets_current_strategy",
+              "operator_request_allows_strategy_only",
+              "operator_request_does_not_execute_by_itself"
+            ],
+            "properties": {
+              "profile_enabled": {
+                "type": "boolean"
+              },
+              "adapter_is_codex_cli": {
+                "type": "boolean"
+              },
+              "execute_true": {
+                "type": "boolean"
+              },
+              "canary_exempt": {
+                "type": "boolean"
+              },
+              "operator_unlock_request_path_declared": {
+                "type": "boolean"
+              },
+              "operator_unlock_request_exists": {
+                "type": "boolean"
+              },
+              "operator_unlock_request_ok": {
+                "type": "boolean"
+              },
+              "operator_unlock_request_ready": {
+                "type": "boolean"
+              },
+              "operator_request_source_pipeline_hash_matches": {
+                "type": "boolean"
+              },
+              "operator_request_source_dry_run_hash_matches": {
+                "type": "boolean"
+              },
+              "operator_request_command_matches_profile": {
+                "type": "boolean"
+              },
+              "operator_request_command_sha256_matches_profile": {
+                "type": "boolean"
+              },
+              "operator_request_workspace_prefix_matches_run": {
+                "type": "boolean"
+              },
+              "operator_request_targets_current_strategy": {
+                "type": "boolean"
+              },
+              "operator_request_allows_strategy_only": {
+                "type": "boolean"
+              },
+              "operator_request_does_not_execute_by_itself": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "operator_unlock_request": {
+            "$ref": "#/$defs/file_record"
+          },
           "expected_execution": {
             "type": "object",
             "required": [
@@ -61,9 +166,31 @@
               "workspace_prefix",
               "command",
               "command_sha256"
-            ]
+            ],
+            "properties": {
+              "target_file": {
+                "type": "string"
+              },
+              "workspace_root": {
+                "type": "string"
+              },
+              "workspace_prefix": {
+                "type": "string"
+              },
+              "command": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "command_sha256": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       }
     },
     "summary": {
@@ -74,7 +201,28 @@
         "real_codex_execute_profiles",
         "operator_unlock_ready_count",
         "canary_exempt_count"
-      ]
+      ],
+      "properties": {
+        "profile_count": {
+          "type": "integer"
+        },
+        "real_codex_execute_profile_count": {
+          "type": "integer"
+        },
+        "real_codex_execute_profiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "operator_unlock_ready_count": {
+          "type": "integer"
+        },
+        "canary_exempt_count": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
     },
     "policy": {
       "type": "object",
@@ -91,7 +239,73 @@
         "does_not_apply_patches",
         "does_not_change_acceptance",
         "deterministic_code_keeps_acceptance_authority"
-      ]
+      ],
+      "properties": {
+        "startup_gate_only": {
+          "type": "boolean"
+        },
+        "read_only": {
+          "type": "boolean"
+        },
+        "blocks_real_codex_without_operator_unlock": {
+          "type": "boolean"
+        },
+        "allows_checked_in_canary_fixture": {
+          "type": "boolean"
+        },
+        "does_not_execute_codex_cli": {
+          "type": "boolean"
+        },
+        "does_not_create_workspace": {
+          "type": "boolean"
+        },
+        "does_not_send_strategy_prompt": {
+          "type": "boolean"
+        },
+        "does_not_modify_config": {
+          "type": "boolean"
+        },
+        "does_not_select_candidate": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "deterministic_code_keeps_acceptance_authority": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "file_record": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

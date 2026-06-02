@@ -220,6 +220,35 @@ def assert_matches_schema_payload(payload: object, schema_name: str) -> None:
     assert validate_json_payload(payload=payload, schema=schema) == ()
 
 
+def test_schema_validator_resolves_local_defs_refs() -> None:
+    schema = {
+        "type": "object",
+        "required": ["record"],
+        "properties": {
+            "record": {
+                "$ref": "#/$defs/record",
+            },
+        },
+        "$defs": {
+            "record": {
+                "type": "object",
+                "required": ["ok"],
+                "properties": {
+                    "ok": {
+                        "type": "boolean",
+                    },
+                },
+                "additionalProperties": False,
+            },
+        },
+    }
+
+    assert validate_json_payload(payload={"record": {"ok": True}}, schema=schema) == ()
+    errors = validate_json_payload(payload={"record": {"ok": "yes"}}, schema=schema)
+
+    assert "$.record.ok: expected boolean, got string" in errors
+
+
 def test_agent_contract_runner_writes_disabled_audit(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     round_dir = tmp_path / "round"
@@ -7208,6 +7237,71 @@ def test_codex_cli_execution_preflight_blocks_operator_source_drift(
     assert (
         "profile primary: operator_request_source_pipeline_hash_mismatch"
         in preflight["blocking_errors"]
+    )
+
+
+def test_codex_cli_execution_preflight_schema_requires_evidence_contract(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_preflight_schema.py",
+        "#!/usr/bin/env python3\nprint('{}')\n",
+    )
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / "operator_unlock_fixtures/schema_request.json",
+        run_id="preflight-schema",
+        executable=str(fake_codex),
+        model="schema-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "schema-test",
+            "sandbox": "workspace-write",
+            "workspace_root": "workspaces",
+            "execute": True,
+            "operator_unlock_request_path": str(request_path.relative_to(repo)),
+        },
+    )
+    preflight = write_codex_cli_execution_preflight(
+        output_path=repo / "experiments/preflight-schema/codex_cli_execution_preflight.json",
+        markdown_path=repo / "experiments/preflight-schema/codex_cli_execution_preflight.md",
+        run_dir=repo / "experiments/preflight-schema",
+        repo_root=repo,
+        config=config,
+    )
+    schema = json.loads(
+        (
+            Path.cwd() / "schemas/codex_cli_execution_preflight.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert validate_json_payload(payload=preflight, schema=schema) == ()
+
+    missing_check = json.loads(json.dumps(preflight))
+    del missing_check["profiles"][0]["checks"][
+        "operator_request_source_pipeline_hash_matches"
+    ]
+    missing_errors = validate_json_payload(payload=missing_check, schema=schema)
+    assert (
+        "$.profiles[0].checks: missing required property "
+        "operator_request_source_pipeline_hash_matches"
+    ) in missing_errors
+
+    bad_file_record = json.loads(json.dumps(preflight))
+    bad_file_record["profiles"][0]["operator_unlock_request"]["bytes"] = "bad"
+    file_record_errors = validate_json_payload(payload=bad_file_record, schema=schema)
+    assert (
+        "$.profiles[0].operator_unlock_request.bytes: expected integer, got string"
+        in file_record_errors
     )
 
 

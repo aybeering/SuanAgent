@@ -206,6 +206,23 @@ jobs:
           assert quarantine["release_to_apply"] is True
           assert decision["accepted"] is False
           PY
+          python -m orchestrator.codex_cli_execution_unlock_gate experiments/ci-codex-guarded --config config/codex_cli_enable_candidate.json --canary-run-dir experiments/ci-codex-canary
+          test -f experiments/ci-codex-guarded/codex_cli_execution_unlock_gate.json
+          test -f experiments/ci-codex-guarded/codex_cli_execution_unlock_gate.md
+          python - <<'PY'
+          import json
+          gate = json.load(open("experiments/ci-codex-guarded/codex_cli_execution_unlock_gate.json"))
+          assert gate["schema_version"] == "codex_cli_execution_unlock_gate_v1"
+          assert gate["ok"] is True
+          assert gate["real_codex_execution_unlocked"] is False
+          assert gate["blocking_reasons"]
+          assert "dry_invocation_not_ready" in gate["blocking_reasons"]
+          assert "dry_invocation_not_executed" in gate["blocking_reasons"]
+          assert gate["checks"]["canary_controlled_execution_ready"] is True
+          assert gate["checks"]["does_not_execute_codex_cli"] is True
+          assert gate["policy"]["read_only"] is True
+          assert gate["policy"]["does_not_apply_patches"] is True
+          PY
           python -m orchestrator.artifact_validator ci-codex-guarded
           python -m orchestrator.artifact_validator ci-codex-canary
           python -m orchestrator.artifact_validator ci-adaptive

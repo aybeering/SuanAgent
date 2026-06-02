@@ -127,6 +127,8 @@ def validate_run_artifacts(
             report=report,
         )
         validate_json_object(path=run_dir / "decision.json", report=report)
+    elif (run_dir / "codex_cli_execution_unlock_gate.json").exists():
+        report["kind"] = "codex_cli_execution_unlock_gate"
     elif (run_dir / "codex_cli_real_preflight.json").exists():
         report["kind"] = "codex_cli_real_preflight"
     elif (run_dir / "codex_cli_dry_invocation_guard.json").exists():
@@ -187,6 +189,11 @@ def validate_run_artifacts(
         report=report,
     )
     validate_optional_codex_cli_dry_invocation_guard(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
+    validate_optional_codex_cli_execution_unlock_gate(
         run_dir=run_dir,
         repo_root=repo_root,
         report=report,
@@ -2907,6 +2914,140 @@ def validate_optional_codex_cli_dry_invocation_guard(
                     f"codex_cli_dry_invocation artifact missing: {key}={artifact_path}",
                 )
     markdown_path = run_dir / "codex_cli_dry_invocation_guard.md"
+    if markdown_path.exists():
+        checked_files(report).append(str(markdown_path))
+
+
+def validate_optional_codex_cli_execution_unlock_gate(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate codex_cli_execution_unlock_gate.json when a run has one."""
+    path = run_dir / "codex_cli_execution_unlock_gate.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/codex_cli_execution_unlock_gate.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"codex_cli_execution_unlock_gate.json run_id does not match report: {path}",
+        )
+    if bool(payload.get("ok", False)) is not True:
+        add_error(report, "codex_cli_execution_unlock_gate.json ok false")
+    blockers = payload.get("blocking_reasons", [])
+    if not isinstance(blockers, list):
+        add_error(
+            report,
+            "codex_cli_execution_unlock_gate.json blocking_reasons invalid",
+        )
+        return
+    unlocked = bool(payload.get("real_codex_execution_unlocked", False))
+    if unlocked and blockers:
+        add_error(report, "codex_cli_execution_unlock_gate.json unlocked with blockers")
+    if not unlocked and not blockers:
+        add_error(report, "codex_cli_execution_unlock_gate.json locked without reason")
+    checks = payload.get("checks", {})
+    if not isinstance(checks, dict):
+        add_error(report, "codex_cli_execution_unlock_gate.json checks invalid")
+    else:
+        for key in (
+            "does_not_execute_codex_cli",
+            "does_not_apply_patches",
+            "does_not_change_acceptance",
+            "deterministic_code_keeps_acceptance_authority",
+        ):
+            if not bool(checks.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_execution_unlock_gate.json safety check false: {key}",
+                )
+        if unlocked:
+            for key, value in checks.items():
+                if not bool(value):
+                    add_error(
+                        report,
+                        f"codex_cli_execution_unlock_gate.json check false: {key}",
+                    )
+    gate_status = payload.get("gate_status", {})
+    if not isinstance(gate_status, dict):
+        add_error(report, "codex_cli_execution_unlock_gate.json gate_status invalid")
+    else:
+        for key in (
+            "codex_cli_replay_gate",
+            "codex_cli_enablement_gate",
+            "codex_cli_manual_approval",
+            "codex_cli_canary_gate",
+            "codex_cli_real_preflight",
+            "codex_cli_dry_invocation_guard",
+        ):
+            status = gate_status.get(key, {})
+            if not isinstance(status, dict):
+                add_error(
+                    report,
+                    f"codex_cli_execution_unlock_gate.json gate_status invalid: {key}",
+                )
+                continue
+            if unlocked and not bool(status.get("ready", False)):
+                add_error(
+                    report,
+                    f"codex_cli_execution_unlock_gate.json gate_status not ready: {key}",
+                )
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "codex_cli_execution_unlock_gate.json policy invalid")
+    else:
+        for key in (
+            "unlock_gate_only",
+            "read_only",
+            "does_not_execute_codex_cli",
+            "does_not_send_strategy_prompt",
+            "does_not_modify_config",
+            "does_not_select_candidate",
+            "does_not_apply_patches",
+            "does_not_change_acceptance",
+            "requires_replay_gate",
+            "requires_enablement_gate",
+            "requires_manual_approval",
+            "requires_controlled_canary",
+            "requires_real_preflight",
+            "requires_successful_dry_invocation",
+            "deterministic_code_keeps_acceptance_authority",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_execution_unlock_gate.json policy false: {key}",
+                )
+    artifacts = payload.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        add_error(report, "codex_cli_execution_unlock_gate.json artifacts invalid")
+    else:
+        for key, record in artifacts.items():
+            if not isinstance(record, dict):
+                add_error(
+                    report,
+                    f"codex_cli_execution_unlock_gate artifact invalid: {key}",
+                )
+                continue
+            artifact_path = resolve_path(Path(str(record.get("path", ""))), repo_root)
+            if artifact_path.exists():
+                checked_files(report).append(str(artifact_path))
+            elif unlocked:
+                add_error(
+                    report,
+                    f"codex_cli_execution_unlock_gate artifact missing: {key}={artifact_path}",
+                )
+    markdown_path = run_dir / "codex_cli_execution_unlock_gate.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
 

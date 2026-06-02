@@ -75,6 +75,10 @@ from orchestrator.codex_cli_dry_invocation_guard import (
     DRY_INVOCATION_EXPECTED_TEXT,
     write_codex_cli_dry_invocation_guard,
 )
+from orchestrator.codex_cli_execution_unlock_gate import (
+    CODEX_CLI_EXECUTION_UNLOCK_GATE_SCHEMA_VERSION,
+    write_codex_cli_execution_unlock_gate,
+)
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.agent_slot_readiness_gate import (
@@ -6416,6 +6420,253 @@ def test_codex_cli_dry_invocation_guard_defaults_to_disabled(
         run_dir / "codex_cli_dry_invocation_guard.json",
         "codex_cli_dry_invocation_guard",
     )
+
+
+def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    guarded_config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-unlock-locked",
+        max_rounds=1,
+        repo_root=repo,
+        config=guarded_config,
+    )
+    run_dir = repo / "experiments/codex-unlock-locked"
+    round_dir = run_dir / "round_001"
+    replay_round(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_contract_fixture(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_replay_gate(run_dir=run_dir, repo_root=repo)
+    config_payload = json.loads(
+        (repo / "config/codex_cli_enable_candidate.json").read_text(encoding="utf-8")
+    )
+    config_payload["codex_cli"]["executable"] = "definitely-missing-codex-cli"
+    config_path = repo / "config/codex_cli_unlock_locked.json"
+    config_path.write_text(
+        json.dumps(config_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    write_codex_cli_enablement_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+    )
+    write_codex_cli_manual_approval(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        approved=True,
+        approved_by="unit-test",
+        confirmation_phrase=REQUIRED_CONFIRMATION_PHRASE,
+    )
+    write_codex_cli_real_preflight(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        timeout_seconds=5,
+    )
+    write_codex_cli_dry_invocation_guard(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        execute=False,
+        timeout_seconds=5,
+    )
+    canary_config = load_project_config(repo, repo / "config/codex_cli_canary.json")
+    run_iteration_loop(
+        run_id="codex-unlock-canary",
+        max_rounds=1,
+        repo_root=repo,
+        config=canary_config,
+    )
+    canary_run_dir = repo / "experiments/codex-unlock-canary"
+    write_codex_cli_canary_gate(
+        run_dir=canary_run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_canary.json",
+    )
+
+    gate = write_codex_cli_execution_unlock_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        canary_run_dir=canary_run_dir,
+    )
+    validation_report = validate_run_artifacts(
+        run_id="codex-unlock-locked",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_execution_unlock_gate",
+            "experiments/codex-unlock-locked",
+            "--config",
+            "config/codex_cli_unlock_locked.json",
+            "--canary-run-dir",
+            "experiments/codex-unlock-canary",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert gate["schema_version"] == CODEX_CLI_EXECUTION_UNLOCK_GATE_SCHEMA_VERSION
+    assert gate["ok"] is True
+    assert gate["real_codex_execution_unlocked"] is False
+    assert "real_codex_cli_not_ready" in gate["blocking_reasons"]
+    assert "dry_invocation_not_ready" in gate["blocking_reasons"]
+    assert "dry_invocation_not_executed" in gate["blocking_reasons"]
+    assert gate["checks"]["canary_controlled_execution_ready"] is True
+    assert gate["checks"]["does_not_execute_codex_cli"] is True
+    assert gate["policy"]["read_only"] is True
+    assert gate["policy"]["does_not_apply_patches"] is True
+    assert_matches_schema(
+        run_dir / "codex_cli_execution_unlock_gate.json",
+        "codex_cli_execution_unlock_gate",
+    )
+    assert (run_dir / "codex_cli_execution_unlock_gate.md").exists()
+    assert validation_report["ok"] is True
+    assert cli_result.returncode == 0, cli_result.stderr
+    assert cli_payload["schema_version"] == CODEX_CLI_EXECUTION_UNLOCK_GATE_SCHEMA_VERSION
+    assert cli_payload["real_codex_execution_unlocked"] is False
+
+
+def test_codex_cli_execution_unlock_gate_unlocks_after_all_evidence(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_unlock.py",
+        f"""#!/usr/bin/env python3
+import sys
+if sys.argv[1:] == ['--version']:
+    print('codex-cli 1.2.3-test')
+    raise SystemExit(0)
+prompt = sys.stdin.read()
+args = " ".join(sys.argv[1:])
+assert "current_strategy.py" not in prompt
+assert "strategies/" not in prompt
+assert "patch" not in prompt
+assert "current_strategy.py" not in args
+assert "strategies/" not in args
+assert "patch" not in args
+print("{DRY_INVOCATION_EXPECTED_TEXT}")
+""",
+    )
+    config_payload = json.loads(
+        (repo / "config/codex_cli_enable_candidate.json").read_text(encoding="utf-8")
+    )
+    config_payload["codex_cli"]["executable"] = str(fake_codex)
+    config_payload["codex_cli"]["timeout_seconds"] = 5
+    config_path = repo / "config/codex_cli_unlock_fixture.json"
+    config_path.write_text(
+        json.dumps(config_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    guarded_config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-unlock-ready",
+        max_rounds=1,
+        repo_root=repo,
+        config=guarded_config,
+    )
+    run_dir = repo / "experiments/codex-unlock-ready"
+    round_dir = run_dir / "round_001"
+    replay_round(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_contract_fixture(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_replay_gate(run_dir=run_dir, repo_root=repo)
+    write_codex_cli_enablement_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+    )
+    write_codex_cli_manual_approval(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        approved=True,
+        approved_by="unit-test",
+        confirmation_phrase=REQUIRED_CONFIRMATION_PHRASE,
+    )
+    write_codex_cli_real_preflight(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        timeout_seconds=5,
+    )
+    write_codex_cli_dry_invocation_guard(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        execute=True,
+        timeout_seconds=5,
+    )
+    canary_config = load_project_config(repo, repo / "config/codex_cli_canary.json")
+    run_iteration_loop(
+        run_id="codex-unlock-ready-canary",
+        max_rounds=1,
+        repo_root=repo,
+        config=canary_config,
+    )
+    canary_run_dir = repo / "experiments/codex-unlock-ready-canary"
+    write_codex_cli_canary_gate(
+        run_dir=canary_run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_canary.json",
+    )
+
+    gate = write_codex_cli_execution_unlock_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        canary_run_dir=canary_run_dir,
+    )
+    validation_report = validate_run_artifacts(
+        run_id="codex-unlock-ready",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_execution_unlock_gate",
+            "experiments/codex-unlock-ready",
+            "--config",
+            "config/codex_cli_unlock_fixture.json",
+            "--canary-run-dir",
+            "experiments/codex-unlock-ready-canary",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert gate["schema_version"] == CODEX_CLI_EXECUTION_UNLOCK_GATE_SCHEMA_VERSION
+    assert gate["ok"] is True
+    assert gate["real_codex_execution_unlocked"] is True
+    assert gate["blocking_reasons"] == []
+    assert all(gate["checks"].values())
+    assert gate["gate_status"]["codex_cli_replay_gate"]["ready"] is True
+    assert gate["gate_status"]["codex_cli_dry_invocation_guard"]["ready"] is True
+    assert gate["policy"]["does_not_execute_codex_cli"] is True
+    assert gate["policy"]["requires_successful_dry_invocation"] is True
+    assert_matches_schema(
+        run_dir / "codex_cli_execution_unlock_gate.json",
+        "codex_cli_execution_unlock_gate",
+    )
+    assert validation_report["ok"] is True
+    assert cli_result.returncode == 0, cli_result.stderr
+    assert cli_payload["real_codex_execution_unlocked"] is True
 
 
 def test_iteration_loop_rejects_codex_cli_workspace_mutation(

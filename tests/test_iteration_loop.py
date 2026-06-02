@@ -274,6 +274,13 @@ from orchestrator.operator_action_executor import (
     render_receipt_markdown as render_operator_action_execution_markdown,
     validate_operator_action_execution_receipt_file,
 )
+from orchestrator.operator_action_audit import (
+    OPERATOR_ACTION_AUDIT_SCHEMA_VERSION,
+    build_operator_action_audit,
+    render_operator_action_audit_markdown,
+    validate_operator_action_audit_file,
+    write_operator_action_audit,
+)
 from orchestrator.run_diagnosis import diagnose_run
 from orchestrator.proposal_intent import build_proposal_intent
 from orchestrator.preflight import run_preflight
@@ -293,6 +300,7 @@ from orchestrator.experiments import (
     memory_scope_recommendation_report,
     operator_config_review_report,
     operator_action_approval_report,
+    operator_action_audit_report,
     operator_action_execution_report,
     operator_action_plan_report,
     operator_run_review,
@@ -1889,6 +1897,108 @@ def test_operator_action_execution_receipt_runs_only_approved_read_only_commands
     assert (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     ) == strategy_before
+
+
+def test_operator_action_audit_tracks_plan_approval_execution_chain(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "operator-action-audit"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / f"experiments/{run_id}"
+    plan = json.loads((run_dir / "operator_action_plan.json").read_text("utf-8"))
+    action, read_only_command = next(
+        (action, command)
+        for action in plan["actions"]
+        for command in action["command_candidates"]
+        if command.get("writes_repository") is False
+        and command.get("promotes_champion") is False
+        and command.get("runs_backtests") is False
+        and command_is_allowlisted(parse_command(command["command"]))
+    )
+
+    json_path, md_path, pending = write_operator_action_audit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert pending["schema_version"] == OPERATOR_ACTION_AUDIT_SCHEMA_VERSION
+    assert pending["status"] == "pending_approval"
+    assert pending["ok"] is True
+    assert pending["summary"]["approval_present"] is False
+    assert pending["summary"]["execution_present"] is False
+    assert pending["source_artifacts"]["action_plan"]["from_artifact"] is True
+    assert pending["policy"]["does_not_execute_commands"] is True
+    assert "# Operator Action Audit" in md_path.read_text(encoding="utf-8")
+    assert_matches_schema_payload(pending, "operator_action_audit")
+    assert validate_operator_action_audit_file(
+        payload_path=json_path,
+        repo_root=repo,
+    ) == ()
+
+    approval_path, _, _ = write_operator_action_approval(
+        run_dir=run_dir,
+        repo_root=repo,
+        operator_id="test-operator",
+        action_id=action["action_id"],
+        command_label=read_only_command["label"],
+        explicit_approval=True,
+        confirmation_phrase=OPERATOR_ACTION_CONFIRMATION_PHRASE,
+    )
+    _, _, ready = write_operator_action_audit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert ready["status"] == "ready_for_execution"
+    assert ready["summary"]["approval_recorded"] is True
+    assert ready["selected_action"]["exists_in_plan"] is True
+    assert ready["selected_command"]["label"] == read_only_command["label"]
+    assert ready["selected_command"]["digest_matches_plan"] is True
+    assert ready["execution_record"]["present"] is False
+
+    execute_operator_action_with_approval(
+        run_id=run_id,
+        approval_path=approval_path,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        timeout_seconds=10,
+    )
+    json_path, _, completed = write_operator_action_audit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    markdown = render_operator_action_audit_markdown(completed)
+    built = build_operator_action_audit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert completed["status"] == "execution_completed"
+    assert completed["ok"] is True
+    assert completed["summary"]["chain_ok"] is True
+    assert completed["chain_checks"]["consistency_errors"] == []
+    assert completed["execution_record"]["executed"] is True
+    assert completed["source_artifacts"]["action_approval"]["file"]["exists"] is True
+    assert completed["source_artifacts"]["execution_receipt"]["file"]["exists"] is True
+    assert "# Operator Action Audit" in markdown
+    assert built["status"] == "execution_completed"
+    assert_matches_schema_payload(completed, "operator_action_audit")
+    assert validate_operator_action_audit_file(
+        payload_path=json_path,
+        repo_root=repo,
+    ) == ()
+    assert validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )["ok"] is True
 
 
 def test_config_application_receipt_applies_only_from_approved_dry_run(
@@ -14001,6 +14111,16 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     action_execution_markdown = render_operator_action_execution_markdown(
         action_execution
     )
+    write_operator_action_audit(
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    action_audit = operator_action_audit_report(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+    )
+    action_audit_markdown = render_operator_action_audit_markdown(action_audit)
     result = subprocess.run(
         [
             sys.executable,
@@ -14153,6 +14273,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "--experiments-dir",
             "experiments",
             "action-execution",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    action_audit_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-audit",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    action_audit_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-audit",
             "cli-candidates",
             "--markdown",
         ],
@@ -14490,6 +14641,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert action_execution["command_execution"]["returncode"] == 0
     assert action_execution["mutation_guard"]["ok"] is True
     assert "# Operator Action Execution Receipt" in action_execution_markdown
+    assert action_audit["from_artifact"] is True
+    assert action_audit["schema_version"] == OPERATOR_ACTION_AUDIT_SCHEMA_VERSION
+    assert action_audit["status"] == "execution_completed"
+    assert action_audit["summary"]["chain_ok"] is True
+    assert action_audit["chain_checks"]["consistency_errors"] == []
+    assert action_audit["policy"]["does_not_execute_commands"] is True
+    assert "# Operator Action Audit" in action_audit_markdown
     assert stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
     assert "avg_holdout_ev_delta" in stats["agents"][0]
     assert stats["round_replays"]["round_count"] == 1
@@ -14568,6 +14726,16 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "# Operator Action Execution Receipt" in (
         action_execution_markdown_result.stdout
     )
+    assert action_audit_result.returncode == 0, action_audit_result.stderr
+    action_audit_payload = json.loads(action_audit_result.stdout)
+    assert action_audit_payload["schema_version"] == OPERATOR_ACTION_AUDIT_SCHEMA_VERSION
+    assert action_audit_payload["from_artifact"] is True
+    assert action_audit_payload["status"] == "execution_completed"
+    assert_matches_schema_payload(action_audit_payload, "operator_action_audit")
+    assert action_audit_markdown_result.returncode == 0, (
+        action_audit_markdown_result.stderr
+    )
+    assert "# Operator Action Audit" in action_audit_markdown_result.stdout
     assert stats_result.returncode == 0, stats_result.stderr
     stats_payload = json.loads(stats_result.stdout)
     assert stats_payload["schema_version"] == "agent_result_stats_v1"

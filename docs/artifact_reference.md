@@ -56,6 +56,9 @@ python -m orchestrator.operator_action_approval experiments/<run_id> --action-id
 python -m orchestrator.operator_action_executor <run_id> --approval-path experiments/<run_id>/operator_action_approval.json
 python -m orchestrator.experiments action-execution <run_id>
 python -m orchestrator.experiments action-execution <run_id> --markdown
+python -m orchestrator.operator_action_audit experiments/<run_id>
+python -m orchestrator.experiments action-audit <run_id>
+python -m orchestrator.experiments action-audit <run_id> --markdown
 ```
 
 Replay and validation:
@@ -156,6 +159,8 @@ experiments/<run_id>/
   operator_action_approval.md    # after explicit operator approval command
   operator_action_execution_receipt.json  # after guarded read-only action execution
   operator_action_execution_receipt.md    # after guarded read-only action execution
+  operator_action_audit.json  # after optional operator action audit command
+  operator_action_audit.md    # after optional operator action audit command
 ```
 
 It also updates append-only experiment indexes:
@@ -210,6 +215,12 @@ artifact, validates the selected command digest, blocks commands that write
 repository state, promote champions, run backtests, execute agents, route
 agents, apply patches, or change acceptance, records stdout/stderr hashes, and
 checks tracked workspace mutation before writing the receipt.
+`operator_action_audit.json` and `operator_action_audit.md` connect the saved
+action plan, approval, and execution receipt into one digest-checked read-only
+chain. `python -m orchestrator.experiments action-audit <run_id>` and
+`action-audit --markdown` expose the saved or derived audit without executing
+commands, writing config, promoting champions, running agents, running
+backtests, applying patches, routing agents, or changing acceptance.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.
@@ -454,6 +465,10 @@ Replay artifacts:
   record stdout/stderr hashes, and check tracked workspace mutation. They block
   commands that write repository state, promote champions, run backtests,
   execute agents, apply patches, route agents, or change acceptance.
+- `operator_action_audit.json` and `operator_action_audit.md` summarize the
+  action plan, approval, and execution receipt chain. They validate source
+  artifact schema state, source file hashes, selected command consistency, and
+  next recommended operator step while remaining read-only.
 - `candidate_leaderboard.json` records every proposal attempt with stable
   quality metadata. `quality_breakdown` decomposes the pre-backtest candidate
   score into named components, selected rows also record validation and

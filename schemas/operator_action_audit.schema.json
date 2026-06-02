@@ -1,0 +1,429 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Operator Action Audit",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "status",
+    "ok",
+    "source_artifacts",
+    "summary",
+    "selected_action",
+    "selected_command",
+    "approval_record",
+    "execution_record",
+    "chain_checks",
+    "recommended_next_actions",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "operator_action_audit_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "missing_action_plan",
+        "pending_approval",
+        "approval_blocked",
+        "ready_for_execution",
+        "execution_completed",
+        "execution_blocked",
+        "execution_failed",
+        "chain_inconsistent"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "source_artifacts": {
+      "type": "object",
+      "required": [
+        "action_plan",
+        "action_approval",
+        "execution_receipt"
+      ],
+      "properties": {
+        "action_plan": {
+          "$ref": "#/$defs/source_artifact"
+        },
+        "action_approval": {
+          "$ref": "#/$defs/source_artifact"
+        },
+        "execution_receipt": {
+          "$ref": "#/$defs/source_artifact"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "action_count",
+        "command_candidate_count",
+        "approval_present",
+        "approval_status",
+        "approval_recorded",
+        "execution_present",
+        "execution_status",
+        "execution_completed",
+        "chain_ok",
+        "consistency_error_count"
+      ],
+      "properties": {
+        "action_count": {
+          "type": "integer"
+        },
+        "command_candidate_count": {
+          "type": "integer"
+        },
+        "approval_present": {
+          "type": "boolean"
+        },
+        "approval_status": {
+          "type": "string"
+        },
+        "approval_recorded": {
+          "type": "boolean"
+        },
+        "execution_present": {
+          "type": "boolean"
+        },
+        "execution_status": {
+          "type": "string"
+        },
+        "execution_completed": {
+          "type": "boolean"
+        },
+        "chain_ok": {
+          "type": "boolean"
+        },
+        "consistency_error_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "selected_action": {
+      "type": "object",
+      "required": [
+        "action_id",
+        "action_type",
+        "status",
+        "source_text",
+        "exists_in_plan"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string"
+        },
+        "action_type": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "source_text": {
+          "type": "string"
+        },
+        "exists_in_plan": {
+          "type": "boolean"
+        }
+      }
+    },
+    "selected_command": {
+      "type": "object",
+      "required": [
+        "label",
+        "command",
+        "command_sha256",
+        "expected_artifact",
+        "writes_repository",
+        "promotes_champion",
+        "runs_backtests",
+        "exists_in_plan",
+        "digest_matches_plan"
+      ],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "command_sha256": {
+          "type": "string"
+        },
+        "expected_artifact": {
+          "type": "string"
+        },
+        "writes_repository": {
+          "type": "boolean"
+        },
+        "promotes_champion": {
+          "type": "boolean"
+        },
+        "runs_backtests": {
+          "type": "boolean"
+        },
+        "exists_in_plan": {
+          "type": "boolean"
+        },
+        "digest_matches_plan": {
+          "type": "boolean"
+        }
+      }
+    },
+    "approval_record": {
+      "type": "object",
+      "required": [
+        "present",
+        "status",
+        "approval_recorded",
+        "operator_id",
+        "target_action_id",
+        "target_command_label",
+        "confirmation_phrase_matches"
+      ],
+      "properties": {
+        "present": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string"
+        },
+        "approval_recorded": {
+          "type": "boolean"
+        },
+        "operator_id": {
+          "type": "string"
+        },
+        "target_action_id": {
+          "type": "string"
+        },
+        "target_command_label": {
+          "type": "string"
+        },
+        "confirmation_phrase_matches": {
+          "type": "boolean"
+        }
+      }
+    },
+    "execution_record": {
+      "type": "object",
+      "required": [
+        "present",
+        "status",
+        "ok",
+        "executed",
+        "returncode",
+        "stdout_sha256",
+        "stderr_sha256",
+        "tracked_status_unchanged"
+      ],
+      "properties": {
+        "present": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "executed": {
+          "type": "boolean"
+        },
+        "returncode": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "stdout_sha256": {
+          "type": "string"
+        },
+        "stderr_sha256": {
+          "type": "string"
+        },
+        "tracked_status_unchanged": {
+          "type": "boolean"
+        }
+      }
+    },
+    "chain_checks": {
+      "type": "object",
+      "required": [
+        "ok",
+        "plan_schema_errors",
+        "approval_schema_errors",
+        "execution_schema_errors",
+        "consistency_errors",
+        "plan_sha256",
+        "approval_sha256",
+        "execution_sha256",
+        "approval_source_plan_sha256",
+        "execution_source_approval_sha256"
+      ],
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "plan_schema_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "approval_schema_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "execution_schema_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "consistency_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "plan_sha256": {
+          "type": "string"
+        },
+        "approval_sha256": {
+          "type": "string"
+        },
+        "execution_sha256": {
+          "type": "string"
+        },
+        "approval_source_plan_sha256": {
+          "type": "string"
+        },
+        "execution_source_approval_sha256": {
+          "type": "string"
+        }
+      }
+    },
+    "recommended_next_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_commands",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_saved_artifacts_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_commands": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_write_config": {
+          "type": "boolean"
+        },
+        "does_not_promote_champion": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_route_agents": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "source_artifact": {
+      "type": "object",
+      "required": [
+        "artifact_name",
+        "from_artifact",
+        "file",
+        "schema_errors"
+      ],
+      "properties": {
+        "artifact_name": {
+          "type": "string"
+        },
+        "from_artifact": {
+          "type": "boolean"
+        },
+        "file": {
+          "$ref": "#/$defs/file_record"
+        },
+        "schema_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "file_record": {
+      "type": "object",
+      "required": [
+        "path",
+        "exists",
+        "sha256",
+        "byte_count"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "byte_count": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

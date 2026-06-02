@@ -687,6 +687,24 @@ jobs:
           assert receipt["policy"]["blocks_backtest_commands"] is True
           assert "# Operator Action Execution Receipt" in markdown
           PY
+          python -m orchestrator.operator_action_audit experiments/ci-adaptive
+          test -f experiments/ci-adaptive/operator_action_audit.json
+          test -f experiments/ci-adaptive/operator_action_audit.md
+          python -m orchestrator.experiments action-audit ci-adaptive > /tmp/operator_action_audit.json
+          python -m orchestrator.experiments action-audit ci-adaptive --markdown > /tmp/operator_action_audit.md
+          python - <<'PY'
+          import json
+          audit = json.load(open("/tmp/operator_action_audit.json"))
+          markdown = open("/tmp/operator_action_audit.md").read()
+          assert audit["schema_version"] == "operator_action_audit_v1"
+          assert audit["from_artifact"] is True
+          assert audit["status"] == "execution_completed"
+          assert audit["summary"]["chain_ok"] is True
+          assert audit["chain_checks"]["consistency_errors"] == []
+          assert audit["policy"]["does_not_execute_commands"] is True
+          assert "# Operator Action Audit" in markdown
+          PY
+          python -m orchestrator.artifact_validator ci-adaptive
 
       - name: Diagnose iteration runs
         run: |

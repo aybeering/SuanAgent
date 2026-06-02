@@ -129,6 +129,8 @@ def validate_run_artifacts(
         validate_json_object(path=run_dir / "decision.json", report=report)
     elif (run_dir / "codex_cli_real_preflight.json").exists():
         report["kind"] = "codex_cli_real_preflight"
+    elif (run_dir / "codex_cli_dry_invocation_guard.json").exists():
+        report["kind"] = "codex_cli_dry_invocation_guard"
     else:
         add_error(report, "run has neither manifest.json nor decision.json")
 
@@ -180,6 +182,11 @@ def validate_run_artifacts(
         report=report,
     )
     validate_optional_codex_cli_real_preflight(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
+    validate_optional_codex_cli_dry_invocation_guard(
         run_dir=run_dir,
         repo_root=repo_root,
         report=report,
@@ -2725,6 +2732,181 @@ def validate_optional_codex_cli_real_preflight(
             if artifact_path.exists():
                 checked_files(report).append(str(artifact_path))
     markdown_path = run_dir / "codex_cli_real_preflight.md"
+    if markdown_path.exists():
+        checked_files(report).append(str(markdown_path))
+
+
+def validate_optional_codex_cli_dry_invocation_guard(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate codex_cli_dry_invocation_guard.json when a run has one."""
+    path = run_dir / "codex_cli_dry_invocation_guard.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/codex_cli_dry_invocation_guard.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"codex_cli_dry_invocation_guard.json run_id does not match report: {path}",
+        )
+    blockers = payload.get("blocking_reasons", [])
+    if not isinstance(blockers, list):
+        add_error(report, "codex_cli_dry_invocation_guard.json blocking_reasons invalid")
+        return
+    ready = bool(payload.get("dry_invocation_ready", False))
+    execution_requested = bool(payload.get("execution_requested", False))
+    if ready and blockers:
+        add_error(report, "codex_cli_dry_invocation_guard.json ready with blockers")
+    if not ready and execution_requested and not blockers:
+        add_error(report, "codex_cli_dry_invocation_guard.json blocked without reason")
+    if bool(payload.get("ok", False)) is not True:
+        add_error(report, "codex_cli_dry_invocation_guard.json ok false")
+    checks = payload.get("checks", {})
+    if not isinstance(checks, dict):
+        add_error(report, "codex_cli_dry_invocation_guard.json checks invalid")
+    else:
+        for key in (
+            "prompt_is_harmless",
+            "command_is_harmless",
+            "does_not_apply_patches",
+            "does_not_change_acceptance",
+        ):
+            if not bool(checks.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_dry_invocation_guard.json safety check false: {key}",
+                )
+        if ready:
+            for key, value in checks.items():
+                if not bool(value):
+                    add_error(
+                        report,
+                        f"codex_cli_dry_invocation_guard.json check false: {key}",
+                    )
+    dry_invocation = payload.get("dry_invocation", {})
+    if not isinstance(dry_invocation, dict):
+        add_error(report, "codex_cli_dry_invocation_guard.json dry_invocation invalid")
+    else:
+        command = dry_invocation.get("command", [])
+        if not isinstance(command, list):
+            add_error(report, "codex_cli_dry_invocation_guard.json command invalid")
+        else:
+            command_text = " ".join(str(part) for part in command)
+            for forbidden in ("current_strategy.py", "strategies/", "patch"):
+                if forbidden in command_text:
+                    add_error(
+                        report,
+                        f"codex_cli_dry_invocation_guard.json command contains {forbidden}",
+                    )
+            if "SUANAGENT_DRY_INVOCATION_OK" not in command_text:
+                add_error(
+                    report,
+                    "codex_cli_dry_invocation_guard.json command missing expected text",
+                )
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "codex_cli_dry_invocation_guard.json policy invalid")
+    else:
+        for key in (
+            "guard_only",
+            "harmless_prompt_only",
+            "does_not_reference_strategy_file",
+            "does_not_apply_patches",
+            "does_not_select_candidate",
+            "does_not_change_acceptance",
+            "requires_empty_mutation_allowlist",
+            "requires_workspace_mutation_guard",
+            "deterministic_code_keeps_acceptance_authority",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_dry_invocation_guard.json policy false: {key}",
+                )
+    artifacts = payload.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        add_error(report, "codex_cli_dry_invocation_guard.json artifacts invalid")
+    else:
+        execution_record = artifacts.get("execution_audit", {})
+        execution_path: Path | None = None
+        if isinstance(execution_record, dict):
+            execution_path = resolve_path(
+                Path(str(execution_record.get("path", ""))),
+                repo_root,
+            )
+            if execution_path.exists():
+                checked_files(report).append(str(execution_path))
+                validate_contract_file(
+                    payload_path=execution_path,
+                    schema_path=repo_root / "schemas/agent_execution.schema.json",
+                    report=report,
+                )
+                execution = validate_json_object(path=execution_path, report=report)
+                if execution is not None:
+                    if execution.get("runner_name") != "codex_cli_guarded_adapter":
+                        add_error(
+                            report,
+                            "codex_cli_dry_invocation execution runner invalid",
+                        )
+                    if execution.get("adapter_name") != "codex_cli_dry_invocation":
+                        add_error(
+                            report,
+                            "codex_cli_dry_invocation execution adapter invalid",
+                        )
+                    if execution.get("allowed_mutation_paths") != []:
+                        add_error(
+                            report,
+                            "codex_cli_dry_invocation allowed mutation paths not empty",
+                        )
+                    mutation_guard = execution.get("mutation_guard", {})
+                    if not isinstance(mutation_guard, dict) or not bool(
+                        mutation_guard.get("passed", False)
+                    ):
+                        add_error(
+                            report,
+                            "codex_cli_dry_invocation mutation guard failed",
+                        )
+            elif ready:
+                add_error(
+                    report,
+                    f"codex_cli_dry_invocation execution missing: {execution_path}",
+                )
+        for key, record in artifacts.items():
+            if key == "workspace":
+                if isinstance(record, dict) and bool(record.get("exists", False)):
+                    workspace_path = resolve_path(Path(str(record.get("path", ""))), repo_root)
+                    if not workspace_path.exists() and ready:
+                        add_error(
+                            report,
+                            f"codex_cli_dry_invocation workspace missing: {workspace_path}",
+                        )
+                continue
+            if not isinstance(record, dict):
+                add_error(
+                    report,
+                    f"codex_cli_dry_invocation artifact invalid: {key}",
+                )
+                continue
+            artifact_path = resolve_path(Path(str(record.get("path", ""))), repo_root)
+            if artifact_path.exists():
+                checked_files(report).append(str(artifact_path))
+            elif ready:
+                add_error(
+                    report,
+                    f"codex_cli_dry_invocation artifact missing: {key}={artifact_path}",
+                )
+    markdown_path = run_dir / "codex_cli_dry_invocation_guard.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
 

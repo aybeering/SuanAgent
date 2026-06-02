@@ -100,6 +100,7 @@ Allowed components:
 49. A deterministic `codex_cli_manual_approval.json` report that records explicit approval for a passing enablement gate without executing Codex.
 50. A deterministic `codex_cli_canary_gate.json` report that validates a checked-in local Codex CLI canary executable through the guarded execution path without running real Codex.
 51. A deterministic `codex_cli_real_preflight.json` report that probes real Codex CLI availability with `--version` only, without sending strategy prompts or modifying files.
+52. A deterministic `codex_cli_dry_invocation_guard.json` report that can optionally run a harmless Codex CLI prompt in an isolated workspace with an empty mutation allowlist.
 
 Still out of scope:
 
@@ -154,6 +155,7 @@ Current structure:
 │   ├── codex_cli_manual_approval.schema.json
 │   ├── codex_cli_canary_gate.schema.json
 │   ├── codex_cli_real_preflight.schema.json
+│   ├── codex_cli_dry_invocation_guard.schema.json
 │   ├── agent_execution.schema.json
 │   ├── agent_activation_preflight.schema.json
 │   ├── agent_execution_plan.schema.json
@@ -218,6 +220,7 @@ Current structure:
 │   ├── codex_cli_manual_approval.py
 │   ├── codex_cli_canary_gate.py
 │   ├── codex_cli_real_preflight.py
+│   ├── codex_cli_dry_invocation_guard.py
 │   ├── outcome_memory.py
 │   ├── policy_gate.py
 │   ├── proposal.py

@@ -70,6 +70,11 @@ from orchestrator.codex_cli_real_preflight import (
     CODEX_CLI_REAL_PREFLIGHT_SCHEMA_VERSION,
     write_codex_cli_real_preflight,
 )
+from orchestrator.codex_cli_dry_invocation_guard import (
+    CODEX_CLI_DRY_INVOCATION_GUARD_SCHEMA_VERSION,
+    DRY_INVOCATION_EXPECTED_TEXT,
+    write_codex_cli_dry_invocation_guard,
+)
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.agent_slot_readiness_gate import (
@@ -6233,6 +6238,183 @@ def test_codex_cli_real_preflight_blocks_missing_executable(
     assert_matches_schema(
         run_dir / "codex_cli_real_preflight.json",
         "codex_cli_real_preflight",
+    )
+
+
+def test_codex_cli_dry_invocation_guard_executes_fake_harmless_prompt(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_dry_invocation.py",
+        f"""#!/usr/bin/env python3
+import sys
+prompt = sys.stdin.read()
+args = " ".join(sys.argv[1:])
+assert "current_strategy.py" not in prompt
+assert "strategies/" not in prompt
+assert "patch" not in prompt
+assert "current_strategy.py" not in args
+assert "strategies/" not in args
+assert "patch" not in args
+print("{DRY_INVOCATION_EXPECTED_TEXT}")
+""",
+    )
+    config_payload = json.loads(
+        (repo / "config/codex_cli_enable_candidate.json").read_text(encoding="utf-8")
+    )
+    config_payload["codex_cli"]["executable"] = str(fake_codex)
+    config_path = repo / "config/codex_cli_dry_invocation_fixture.json"
+    config_path.write_text(
+        json.dumps(config_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    run_dir = repo / "experiments/codex-dry-invocation"
+
+    guard = write_codex_cli_dry_invocation_guard(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        execute=True,
+        timeout_seconds=5,
+    )
+    validation_report = validate_run_artifacts(
+        run_id="codex-dry-invocation",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_dry_invocation_guard",
+            "experiments/codex-dry-invocation",
+            "--config",
+            "config/codex_cli_dry_invocation_fixture.json",
+            "--execute",
+            "--timeout-seconds",
+            "5",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+    audit = json.loads(
+        (run_dir / "codex_cli_dry_invocation_execution.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert guard["schema_version"] == CODEX_CLI_DRY_INVOCATION_GUARD_SCHEMA_VERSION
+    assert guard["ok"] is True
+    assert guard["dry_invocation_ready"] is True
+    assert guard["execution_requested"] is True
+    assert guard["blocking_reasons"] == []
+    assert guard["checks"]["prompt_is_harmless"] is True
+    assert guard["checks"]["command_is_harmless"] is True
+    assert guard["checks"]["stdout_contains_expected_text"] is True
+    assert guard["checks"]["mutation_guard_passed"] is True
+    assert guard["checks"]["no_allowed_mutation_paths"] is True
+    command_text = " ".join(guard["dry_invocation"]["command"])
+    assert "current_strategy.py" not in command_text
+    assert "strategies/" not in command_text
+    assert "patch" not in command_text
+    assert audit["runner_name"] == CODEX_CLI_GUARDED_RUNNER_NAME
+    assert audit["adapter_name"] == "codex_cli_dry_invocation"
+    assert audit["status"] == "completed"
+    assert audit["execution_enabled"] is True
+    assert audit["returncode"] == 0
+    assert audit["allowed_mutation_paths"] == []
+    assert audit["mutation_guard"]["passed"] is True
+    assert DRY_INVOCATION_EXPECTED_TEXT in audit["stdout"]["preview"]
+    assert_matches_schema(
+        run_dir / "codex_cli_dry_invocation_guard.json",
+        "codex_cli_dry_invocation_guard",
+    )
+    assert_matches_schema(
+        run_dir / "codex_cli_dry_invocation_execution.json",
+        "agent_execution",
+    )
+    assert (run_dir / "codex_cli_dry_invocation_guard.md").exists()
+    assert validation_report["ok"] is True
+    assert cli_result.returncode == 0, cli_result.stderr
+    assert cli_payload["schema_version"] == CODEX_CLI_DRY_INVOCATION_GUARD_SCHEMA_VERSION
+    assert cli_payload["dry_invocation_ready"] is True
+
+
+def test_codex_cli_dry_invocation_guard_defaults_to_disabled(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_payload = json.loads(
+        (repo / "config/codex_cli_enable_candidate.json").read_text(encoding="utf-8")
+    )
+    config_payload["codex_cli"]["executable"] = "definitely-missing-codex-cli"
+    config_path = repo / "config/codex_cli_dry_invocation_disabled.json"
+    config_path.write_text(
+        json.dumps(config_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    run_dir = repo / "experiments/codex-dry-invocation-disabled"
+
+    guard = write_codex_cli_dry_invocation_guard(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        execute=False,
+        timeout_seconds=5,
+    )
+    validation_report = validate_run_artifacts(
+        run_id="codex-dry-invocation-disabled",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_dry_invocation_guard",
+            "experiments/codex-dry-invocation-disabled",
+            "--config",
+            "config/codex_cli_dry_invocation_disabled.json",
+            "--timeout-seconds",
+            "5",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+    audit = json.loads(
+        (run_dir / "codex_cli_dry_invocation_execution.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert guard["schema_version"] == CODEX_CLI_DRY_INVOCATION_GUARD_SCHEMA_VERSION
+    assert guard["ok"] is True
+    assert guard["execution_requested"] is False
+    assert guard["dry_invocation_ready"] is False
+    assert "execution_disabled" in guard["blocking_reasons"]
+    assert "codex_executable_not_found" in guard["blocking_reasons"]
+    assert guard["checks"]["prompt_is_harmless"] is True
+    assert guard["checks"]["command_is_harmless"] is True
+    assert guard["checks"]["does_not_apply_patches"] is True
+    assert audit["status"] == "disabled"
+    assert audit["execution_enabled"] is False
+    assert audit["allowed_mutation_paths"] == []
+    assert audit["mutation_guard"]["passed"] is True
+    assert validation_report["ok"] is True
+    assert cli_result.returncode == 0, cli_result.stderr
+    assert cli_payload["ok"] is True
+    assert cli_payload["dry_invocation_ready"] is False
+    assert_matches_schema(
+        run_dir / "codex_cli_dry_invocation_guard.json",
+        "codex_cli_dry_invocation_guard",
     )
 
 

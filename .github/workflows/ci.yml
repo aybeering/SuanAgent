@@ -163,6 +163,28 @@ jobs:
           else:
               assert preflight["blocking_reasons"]
           PY
+          python -m orchestrator.codex_cli_dry_invocation_guard experiments/ci-codex-guarded --config config/codex_cli_enable_candidate.json
+          test -f experiments/ci-codex-guarded/codex_cli_dry_invocation_guard.json
+          test -f experiments/ci-codex-guarded/codex_cli_dry_invocation_guard.md
+          test -f experiments/ci-codex-guarded/codex_cli_dry_invocation_execution.json
+          python - <<'PY'
+          import json
+          guard = json.load(open("experiments/ci-codex-guarded/codex_cli_dry_invocation_guard.json"))
+          audit = json.load(open("experiments/ci-codex-guarded/codex_cli_dry_invocation_execution.json"))
+          assert guard["schema_version"] == "codex_cli_dry_invocation_guard_v1"
+          assert guard["ok"] is True
+          assert guard["execution_requested"] is False
+          assert guard["dry_invocation_ready"] is False
+          assert "execution_disabled" in guard["blocking_reasons"]
+          assert guard["checks"]["prompt_is_harmless"] is True
+          assert guard["checks"]["command_is_harmless"] is True
+          assert guard["policy"]["does_not_apply_patches"] is True
+          assert audit["schema_version"] == "agent_execution_v1"
+          assert audit["runner_name"] == "codex_cli_guarded_adapter"
+          assert audit["status"] == "disabled"
+          assert audit["allowed_mutation_paths"] == []
+          assert audit["mutation_guard"]["passed"] is True
+          PY
           python -m orchestrator.codex_cli_canary_gate experiments/ci-codex-canary --config config/codex_cli_canary.json
           test -f experiments/ci-codex-canary/codex_cli_canary_gate.json
           test -f experiments/ci-codex-canary/codex_cli_canary_gate.md

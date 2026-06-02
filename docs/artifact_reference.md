@@ -314,9 +314,11 @@ and scope-health status into a single read-only operator page. The Codex CLI
 panels expose startup preflight status, real-execution profile counts,
 operator-unlock readiness counts, preflight blockers, grouped checklist status,
 and readiness diff missing/drift counts, but they do not unlock or execute
-Codex. The iteration loop writes the final cockpit after the dashboard,
-standalone checklist, and readiness diff so source hashes bind to the final
-closeout artifacts;
+Codex. The operator-action panel surfaces dashboard failure reasons as cockpit
+action failure reasons and `operator_action:<code>` blockers so action-chain
+breaks are visible from the top page. The iteration loop writes the final
+cockpit after the dashboard, standalone checklist, and readiness diff so source
+hashes bind to the final closeout artifacts;
 `python -m orchestrator.experiments cockpit <run_id>` and `cockpit --markdown`
 expose panel rows, blockers, primary focus, and command hints without recording
 approval, executing commands, writing config, promoting champions, running
@@ -626,8 +628,9 @@ Replay artifacts:
   one read-only cockpit. The iteration loop writes them after the action
   dashboard, and the explicit command can refresh source hashes after later
   operator inspection artifacts. They list panels, blockers, primary focus,
-  Codex unlock checklist visibility, failed evidence groups, and command hints
-  while preserving deterministic acceptance authority. Artifact validation
+  surfaced action failure reasons, Codex unlock checklist visibility, failed
+  evidence groups, and command hints while preserving deterministic acceptance
+  authority. Artifact validation
   rejects unknown cockpit command labels, unexpected write targets, unsafe shell
   control tokens, and a missing first `review_cockpit` command.
 - `candidate_leaderboard.json` records every proposal attempt with stable

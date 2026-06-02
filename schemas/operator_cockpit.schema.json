@@ -12,6 +12,7 @@
     "source_artifacts",
     "summary",
     "panels",
+    "action_failure_reasons",
     "blockers",
     "codex_unlock_checklist",
     "recommended_commands",
@@ -107,6 +108,8 @@
         "action_status",
         "action_current_step",
         "action_safe_command_count",
+        "action_failure_reason_count",
+        "action_first_failure_stage",
         "challenger_status",
         "promotion_status",
         "promotion_would_promote",
@@ -147,6 +150,12 @@
         },
         "action_safe_command_count": {
           "type": "integer"
+        },
+        "action_failure_reason_count": {
+          "type": "integer"
+        },
+        "action_first_failure_stage": {
+          "type": "string"
         },
         "challenger_status": {
           "type": "string"
@@ -205,6 +214,12 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/panel"
+      }
+    },
+    "action_failure_reasons": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/failure_reason"
       }
     },
     "blockers": {
@@ -405,6 +420,29 @@
           "type": "string"
         },
         "writes_artifact": {
+          "type": "string"
+        }
+      }
+    },
+    "failure_reason": {
+      "type": "object",
+      "required": [
+        "stage",
+        "code",
+        "severity",
+        "detail"
+      ],
+      "properties": {
+        "stage": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "detail": {
           "type": "string"
         }
       }

@@ -187,6 +187,7 @@ def build_operator_cockpit(
         experiments_dir=experiments_dir,
         repo_root=repo_root,
     )
+    action_failure_reasons = cockpit_action_failure_reasons(action_dashboard)
     scope_health = load_json_object(run_dir / "experiment_scope_health.json")
     summary = cockpit_summary(
         closeout=closeout,
@@ -231,6 +232,7 @@ def build_operator_cockpit(
         "source_artifacts": source_artifacts(run_dir=run_dir, repo_root=repo_root),
         "summary": summary,
         "panels": panels,
+        "action_failure_reasons": action_failure_reasons,
         "blockers": blockers,
         "codex_unlock_checklist": codex_unlock_checklist,
         "recommended_commands": recommended_commands(
@@ -347,6 +349,12 @@ def cockpit_summary(
         "action_current_step": str(action_dashboard.get("current_step", "")),
         "action_safe_command_count": int(
             action_summary.get("safe_command_count", 0) or 0
+        ),
+        "action_failure_reason_count": int(
+            action_summary.get("failure_reason_count", 0) or 0
+        ),
+        "action_first_failure_stage": str(
+            action_summary.get("first_failure_stage", "none")
         ),
         "challenger_status": str(challenger.get("status", "missing")),
         "promotion_status": str(promotion.get("status", "missing")),
@@ -547,6 +555,11 @@ def cockpit_blockers(
     blockers: list[str] = []
     if config_lineage and config_lineage.get("ok") is not True:
         blockers.append("config_lineage_not_ok")
+    blockers.extend(
+        f"operator_action:{reason.get('code', '')}"
+        for reason in cockpit_action_failure_reasons(action_dashboard)
+        if reason.get("code")
+    )
     blockers.extend(string_rows(action_dashboard.get("blockers", [])))
     blockers.extend(
         f"codex_cli_preflight:{blocker}"
@@ -576,6 +589,23 @@ def cockpit_blockers(
     if scope_health and scope_health.get("ok") is not True:
         blockers.append("scope_health_not_ok")
     return unique_strings(blockers)
+
+
+def cockpit_action_failure_reasons(
+    action_dashboard: dict[str, Any],
+) -> list[dict[str, object]]:
+    """Return action-chain failure reasons surfaced by the action dashboard."""
+    rows: list[dict[str, object]] = []
+    for reason in list_of_dicts(action_dashboard.get("failure_reasons", [])):
+        rows.append(
+            {
+                "stage": str(reason.get("stage", "")),
+                "code": str(reason.get("code", "")),
+                "severity": str(reason.get("severity", "")),
+                "detail": str(reason.get("detail", "")),
+            }
+        )
+    return rows
 
 
 def source_artifacts(*, run_dir: Path, repo_root: Path) -> dict[str, object]:
@@ -842,6 +872,18 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
     lines.extend(["", "## Blockers", ""])
     blockers = string_rows(payload.get("blockers", []))
     lines.extend([f"- `{blocker}`" for blocker in blockers] or ["- none"])
+    lines.extend(["", "## Action Failure Reasons", ""])
+    action_reasons = list_of_dicts(payload.get("action_failure_reasons", []))
+    lines.extend(
+        [
+            (
+                f"- `{reason.get('stage', '')}` / `{reason.get('code', '')}`: "
+                f"{reason.get('detail', '')}"
+            )
+            for reason in action_reasons
+        ]
+        or ["- none"]
+    )
     lines.extend(["", "## Recommended Commands", ""])
     for command in list_of_dicts(payload.get("recommended_commands", [])):
         lines.append(f"- `{command.get('label', '')}`: `{command.get('command', '')}`")

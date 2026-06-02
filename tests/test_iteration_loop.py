@@ -2437,6 +2437,9 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["summary"]["run_status"] == "stopped_max_rounds"
     assert cockpit["summary"]["action_status"] == "pending_approval"
     assert cockpit["summary"]["action_safe_command_count"] >= 1
+    assert cockpit["summary"]["action_failure_reason_count"] == 0
+    assert cockpit["summary"]["action_first_failure_stage"] == "none"
+    assert cockpit["action_failure_reasons"] == []
     assert cockpit["summary"]["config_lineage_status"] == "partial"
     assert cockpit["source_artifacts"]["run_closeout"]["file"]["exists"] is True
     assert cockpit["source_artifacts"]["operator_action_dashboard"]["file"][
@@ -2527,6 +2530,66 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
         experiments_dir=repo / "experiments",
         repo_root=repo,
     )["ok"] is True
+
+    dashboard_path = run_dir / "operator_action_dashboard.json"
+    action_dashboard = json.loads(dashboard_path.read_text(encoding="utf-8"))
+    action_dashboard["status"] = "needs_chain_repair"
+    action_dashboard["ok"] = False
+    action_dashboard["current_step"] = "repair_action_chain"
+    action_dashboard["primary_prompt"] = (
+        "Regenerate or repair inconsistent action artifacts."
+    )
+    action_dashboard["summary"]["chain_ok"] = False
+    action_dashboard["summary"]["failure_reason_count"] = 1
+    action_dashboard["summary"]["first_failure_stage"] = "execution_receipt"
+    action_dashboard["summary"]["blocker_count"] = 1
+    action_dashboard["failure_reasons"] = [
+        {
+            "stage": "execution_receipt",
+            "code": "execution_command_digest_mismatch",
+            "severity": "error",
+            "detail": "execution_command_digest_mismatch",
+        }
+    ]
+    action_dashboard["blockers"] = ["execution_command_digest_mismatch"]
+    dashboard_path.write_text(
+        json.dumps(action_dashboard, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    json_path, _, cockpit_with_action_break = write_operator_cockpit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    cockpit_break_markdown = render_operator_cockpit_markdown(
+        cockpit_with_action_break
+    )
+    assert cockpit_with_action_break["status"] == "needs_operator_review"
+    assert cockpit_with_action_break["primary_focus"] == "inspect_blockers"
+    assert cockpit_with_action_break["summary"]["action_status"] == (
+        "needs_chain_repair"
+    )
+    assert cockpit_with_action_break["summary"]["action_failure_reason_count"] == 1
+    assert cockpit_with_action_break["summary"]["action_first_failure_stage"] == (
+        "execution_receipt"
+    )
+    assert cockpit_with_action_break["action_failure_reasons"] == [
+        {
+            "stage": "execution_receipt",
+            "code": "execution_command_digest_mismatch",
+            "severity": "error",
+            "detail": "execution_command_digest_mismatch",
+        }
+    ]
+    assert "operator_action:execution_command_digest_mismatch" in (
+        cockpit_with_action_break["blockers"]
+    )
+    assert "## Action Failure Reasons" in cockpit_break_markdown
+    assert_matches_schema_payload(cockpit_with_action_break, "operator_cockpit")
+    assert validate_operator_cockpit_file(
+        payload_path=json_path,
+        repo_root=repo,
+    ) == ()
 
     tampered_cockpit = json.loads(json_path.read_text(encoding="utf-8"))
     tampered_cockpit["recommended_commands"][0]["command"] = (

@@ -239,6 +239,14 @@ def write_iteration_summary(
             "- Primary focus: "
             f"`{display_value(cockpit.get('primary_focus'))}`"
         )
+        lines.append(
+            "- Codex unlock: "
+            f"`{display_value(cockpit.get('codex_unlock_status'))}`"
+        )
+        lines.append(
+            "- Codex unlock failed items: "
+            f"`{display_value(cockpit.get('codex_unlock_failed_count'))}`"
+        )
         lines.append(f"- Artifact: `{display_value(cockpit.get('path'))}`")
         lines.append(
             f"- Markdown: `{display_value(cockpit.get('markdown_path'))}`"

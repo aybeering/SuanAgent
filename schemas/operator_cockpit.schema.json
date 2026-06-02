@@ -13,6 +13,7 @@
     "summary",
     "panels",
     "blockers",
+    "codex_unlock_checklist",
     "recommended_commands",
     "authority",
     "policy"
@@ -183,6 +184,9 @@
       "items": {
         "type": "string"
       }
+    },
+    "codex_unlock_checklist": {
+      "$ref": "#/$defs/codex_unlock_checklist"
     },
     "recommended_commands": {
       "type": "array",
@@ -373,6 +377,133 @@
           "type": "string"
         },
         "writes_artifact": {
+          "type": "string"
+        }
+      }
+    },
+    "codex_unlock_checklist": {
+      "type": "object",
+      "required": [
+        "status",
+        "ready",
+        "item_count",
+        "passed_count",
+        "failed_count",
+        "next_step",
+        "items",
+        "authority"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "missing_preflight",
+            "not_requested",
+            "canary_exempt",
+            "blocked",
+            "ready"
+          ]
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "item_count": {
+          "type": "integer"
+        },
+        "passed_count": {
+          "type": "integer"
+        },
+        "failed_count": {
+          "type": "integer"
+        },
+        "next_step": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/codex_unlock_checklist_item"
+          }
+        },
+        "authority": {
+          "type": "object",
+          "required": [
+            "checklist_can_unlock_codex",
+            "checklist_can_execute_codex",
+            "checklist_can_create_workspace",
+            "checklist_can_apply_patches",
+            "checklist_can_change_acceptance"
+          ],
+          "properties": {
+            "checklist_can_unlock_codex": {
+              "type": "boolean"
+            },
+            "checklist_can_execute_codex": {
+              "type": "boolean"
+            },
+            "checklist_can_create_workspace": {
+              "type": "boolean"
+            },
+            "checklist_can_apply_patches": {
+              "type": "boolean"
+            },
+            "checklist_can_change_acceptance": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "codex_unlock_checklist_item": {
+      "type": "object",
+      "required": [
+        "check_id",
+        "profile_name",
+        "label",
+        "status",
+        "required",
+        "passed_check_count",
+        "total_check_count",
+        "failed_checks",
+        "evidence",
+        "next_step"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string"
+        },
+        "profile_name": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "passed",
+            "failed"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "passed_check_count": {
+          "type": "integer"
+        },
+        "total_check_count": {
+          "type": "integer"
+        },
+        "failed_checks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "next_step": {
           "type": "string"
         }
       }

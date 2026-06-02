@@ -290,6 +290,7 @@ from orchestrator.operator_action_dashboard import (
 )
 from orchestrator.operator_cockpit import (
     OPERATOR_COCKPIT_SCHEMA_VERSION,
+    build_codex_unlock_checklist,
     build_operator_cockpit,
     render_operator_cockpit_markdown,
     validate_operator_cockpit_file,
@@ -2216,6 +2217,12 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["summary"]["codex_preflight_ok"] is True
     assert cockpit["summary"]["codex_real_execute_profile_count"] == 0
     assert cockpit["summary"]["codex_preflight_blocker_count"] == 0
+    assert cockpit["codex_unlock_checklist"]["status"] == "not_requested"
+    assert cockpit["codex_unlock_checklist"]["ready"] is False
+    assert cockpit["codex_unlock_checklist"]["item_count"] == 0
+    assert cockpit["codex_unlock_checklist"]["authority"][
+        "checklist_can_execute_codex"
+    ] is False
     assert len(cockpit["panels"]) >= 7
     assert any(row["panel_id"] == "operator_action" for row in cockpit["panels"])
     assert any(row["panel_id"] == "codex_cli_unlock" for row in cockpit["panels"])
@@ -3631,6 +3638,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     ).read_text(encoding="utf-8")
     cockpit = json.loads((run_dir / "operator_cockpit.json").read_text("utf-8"))
     cockpit_markdown = (run_dir / "operator_cockpit.md").read_text(encoding="utf-8")
+    summary_markdown = (run_dir / "summary.md").read_text(encoding="utf-8")
     history_records = [
         json.loads(line)
         for line in (repo / "experiments/run_artifact_health_history.jsonl")
@@ -4018,6 +4026,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert manifest["operator_cockpit"]["ok"] is True
     assert manifest["operator_cockpit"]["status"] == cockpit["status"]
     assert manifest["operator_cockpit"]["primary_focus"] == cockpit["primary_focus"]
+    assert manifest["operator_cockpit"]["codex_unlock_status"] == "not_requested"
+    assert manifest["operator_cockpit"]["codex_unlock_failed_count"] == 0
     assert cockpit["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION
     assert cockpit["ok"] is True
     assert cockpit["source_artifacts"]["operator_action_dashboard"]["file"][
@@ -4031,10 +4041,13 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "no_real_execution_profiles"
     )
     assert cockpit["summary"]["codex_preflight_ok"] is True
+    assert cockpit["codex_unlock_checklist"]["status"] == "not_requested"
+    assert cockpit["codex_unlock_checklist"]["item_count"] == 0
     assert any(row["panel_id"] == "codex_cli_unlock" for row in cockpit["panels"])
     assert cockpit["policy"]["does_not_execute_commands"] is True
     assert cockpit["policy"]["does_not_change_acceptance"] is True
     assert "# Operator Cockpit" in cockpit_markdown
+    assert "Codex unlock" in summary_markdown
     assert_matches_schema(run_dir / "operator_cockpit.json", "operator_cockpit")
     assert validate_operator_cockpit_file(
         payload_path=run_dir / "operator_cockpit.json",
@@ -10894,6 +10907,16 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert execution_preflight["profiles"][0]["requires_operator_unlock"] is True
     assert execution_preflight["profiles"][0]["operator_unlock_ready"] is True
     assert execution_preflight["profiles"][0]["operator_unlock_request"]["exists"] is True
+    ready_checklist = build_codex_unlock_checklist(
+        codex_preflight=execution_preflight,
+    )
+    assert ready_checklist["status"] == "ready"
+    assert ready_checklist["ready"] is True
+    assert ready_checklist["item_count"] == 8
+    assert ready_checklist["passed_count"] == 8
+    assert ready_checklist["failed_count"] == 0
+    assert all(item["status"] == "passed" for item in ready_checklist["items"])
+    assert ready_checklist["authority"]["checklist_can_execute_codex"] is False
     assert execution_preflight["policy"][
         "blocks_real_codex_without_operator_unlock"
     ] is True
@@ -12751,6 +12774,17 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
         "operator_unlock_request_path_missing" in error
         for error in preflight["blocking_errors"]
     )
+    blocked_checklist = build_codex_unlock_checklist(codex_preflight=preflight)
+    assert blocked_checklist["status"] == "blocked"
+    assert blocked_checklist["ready"] is False
+    assert blocked_checklist["item_count"] == 8
+    assert blocked_checklist["failed_count"] >= 1
+    assert any(
+        item["check_id"].endswith(":operator_unlock_request")
+        and item["status"] == "failed"
+        for item in blocked_checklist["items"]
+    )
+    assert blocked_checklist["authority"]["checklist_can_unlock_codex"] is False
     assert preflight["policy"]["does_not_execute_codex_cli"] is True
     assert preflight["policy"]["does_not_create_workspace"] is True
     assert_matches_schema(
@@ -15064,6 +15098,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         "no_real_execution_profiles"
     )
     assert cockpit["summary"]["codex_preflight_ok"] is True
+    assert cockpit["codex_unlock_checklist"]["status"] == "not_requested"
     assert cockpit["authority"]["cockpit_can_execute_commands"] is False
     assert cockpit["authority"]["cockpit_can_promote_champion"] is False
     assert cockpit["policy"]["does_not_change_acceptance"] is True
@@ -15179,6 +15214,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert cockpit_payload["from_artifact"] is True
     assert cockpit_payload["summary"]["action_status"] == "execution_completed"
     assert cockpit_payload["summary"]["codex_preflight_ok"] is True
+    assert cockpit_payload["codex_unlock_checklist"]["status"] == "not_requested"
     assert any(
         row["panel_id"] == "codex_cli_unlock"
         for row in cockpit_payload["panels"]

@@ -4367,6 +4367,7 @@ def validate_optional_operator_cockpit(
         add_error(report, "operator_cockpit.json codex preflight not ok")
     if not isinstance(summary.get("codex_preflight_status", ""), str):
         add_error(report, "operator_cockpit.json codex preflight status invalid")
+    validate_operator_cockpit_unlock_checklist(payload=payload, report=report)
 
     authority = payload.get("authority", {})
     if not isinstance(authority, dict):
@@ -4401,6 +4402,59 @@ def validate_optional_operator_cockpit(
     ):
         if policy.get(key) is not True:
             add_error(report, f"operator_cockpit.json policy false: {key}")
+
+
+def validate_operator_cockpit_unlock_checklist(
+    *,
+    payload: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate the Codex unlock checklist embedded in operator_cockpit.json."""
+    checklist = payload.get("codex_unlock_checklist", {})
+    if not isinstance(checklist, dict):
+        add_error(report, "operator_cockpit codex unlock checklist invalid")
+        return
+    items = checklist.get("items", [])
+    if not isinstance(items, list):
+        add_error(report, "operator_cockpit codex unlock checklist items invalid")
+        items = []
+    item_rows = [item for item in items if isinstance(item, dict)]
+    if len(item_rows) != len(items):
+        add_error(report, "operator_cockpit codex unlock checklist item invalid")
+    passed_count = sum(1 for item in item_rows if item.get("status") == "passed")
+    failed_count = sum(1 for item in item_rows if item.get("status") == "failed")
+    if checklist.get("item_count") != len(item_rows):
+        add_error(report, "operator_cockpit codex unlock checklist count mismatch")
+    if checklist.get("passed_count") != passed_count:
+        add_error(report, "operator_cockpit codex unlock checklist passed mismatch")
+    if checklist.get("failed_count") != failed_count:
+        add_error(report, "operator_cockpit codex unlock checklist failed mismatch")
+    if bool(checklist.get("ready", False)) and failed_count:
+        add_error(report, "operator_cockpit codex unlock checklist ready with failures")
+    for item in item_rows:
+        failed_checks = item.get("failed_checks", [])
+        if not isinstance(failed_checks, list):
+            add_error(report, "operator_cockpit codex unlock failed checks invalid")
+            failed_checks = []
+        if item.get("status") == "passed" and failed_checks:
+            add_error(report, "operator_cockpit codex unlock passed item has failures")
+        if item.get("status") == "failed" and not failed_checks:
+            add_error(report, "operator_cockpit codex unlock failed item lacks failures")
+        if item.get("required") is not True:
+            add_error(report, "operator_cockpit codex unlock item not required")
+    authority = checklist.get("authority", {})
+    if not isinstance(authority, dict):
+        add_error(report, "operator_cockpit codex unlock authority invalid")
+        return
+    for key in (
+        "checklist_can_unlock_codex",
+        "checklist_can_execute_codex",
+        "checklist_can_create_workspace",
+        "checklist_can_apply_patches",
+        "checklist_can_change_acceptance",
+    ):
+        if authority.get(key) is not False:
+            add_error(report, f"operator_cockpit codex unlock authority true: {key}")
 
 
 def validate_optional_candidate_challenger_report(

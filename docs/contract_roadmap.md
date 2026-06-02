@@ -340,6 +340,12 @@ Codex CLI readiness contracts:
     profile counts, operator-unlock-ready counts, and startup blockers, but
     they cannot record unlock approval, execute Codex, run agents, create
     workspaces, apply patches, route candidates, or change strategy acceptance.
+34. Operator cockpit unlock visibility also includes a grouped
+    `codex_unlock_checklist` derived from startup preflight checks. It may
+    classify operator request, intent, source evidence, execution identity,
+    command digest, workspace boundary, mutation boundary, and non-executing
+    request evidence as passed or failed, but it remains read-only and cannot
+    unlock Codex or execute anything.
 
 ## Near-Term Development Order
 

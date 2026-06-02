@@ -206,8 +206,9 @@ entrypoint. They collect the run closeout, config lineage, operator action
 dashboard, Codex CLI execution preflight, challenger comparison,
 champion-promotion review, promotion approval, and scope-health status into one
 read-only page with panel rows and command hints. The Codex CLI panel exposes
-unlock blockers and readiness counts without unlocking or executing Codex. The
-cockpit is an inspection artifact only; it cannot record approvals,
+unlock blockers, readiness counts, and a grouped evidence checklist without
+unlocking or executing Codex. The cockpit is an inspection artifact only; it
+cannot record approvals,
 execute commands, write config, promote champions, run agents, run backtests,
 route agents, apply patches, or change acceptance. The iteration loop writes
 the final cockpit after the dashboard so source hashes bind to the completed

@@ -281,6 +281,8 @@ def run_iteration_loop(
             "ok": False,
             "status": "pending",
             "primary_focus": "",
+            "codex_unlock_status": "pending",
+            "codex_unlock_failed_count": 0,
         },
         "candidate_challenger_report": {
             "path": "candidate_challenger_report.json",
@@ -924,12 +926,21 @@ def finalize_iteration_run(
         experiments_dir=experiments_dir,
         repo_root=repo_root,
     )
+    codex_unlock_checklist = cockpit_payload.get("codex_unlock_checklist", {})
+    if not isinstance(codex_unlock_checklist, dict):
+        codex_unlock_checklist = {}
     manifest["operator_cockpit"] = {
         "path": "operator_cockpit.json",
         "markdown_path": "operator_cockpit.md",
         "ok": bool(cockpit_payload.get("ok", False)),
         "status": str(cockpit_payload.get("status", "unknown")),
         "primary_focus": str(cockpit_payload.get("primary_focus", "")),
+        "codex_unlock_status": str(
+            codex_unlock_checklist.get("status", "unknown")
+        ),
+        "codex_unlock_failed_count": int(
+            codex_unlock_checklist.get("failed_count", 0) or 0
+        ),
     }
     write_json(run_dir / "manifest.json", manifest)
     write_iteration_summary(run_dir=run_dir, manifest=manifest)

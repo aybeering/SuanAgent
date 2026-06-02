@@ -7,6 +7,7 @@
     "repo_root",
     "experiments_dir",
     "history_path",
+    "scope",
     "ok",
     "record_count",
     "read_errors",
@@ -34,6 +35,21 @@
     "history_path": {
       "type": "string",
       "minLength": 1
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "created_at_from",
+        "failed_runs_without_index_created_at_excluded"
+      ],
+      "properties": {
+        "created_at_from": {
+          "type": "string"
+        },
+        "failed_runs_without_index_created_at_excluded": {
+          "type": "boolean"
+        }
+      }
     },
     "ok": {
       "type": "boolean"

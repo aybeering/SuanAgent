@@ -843,6 +843,7 @@ def main() -> None:
     )
     health_history_parser.add_argument("--limit", type=int, default=10)
     health_history_parser.add_argument("--history-path", type=Path)
+    health_history_parser.add_argument("--created-at-from", default="")
 
     memory_diagnostics_parser = subparsers.add_parser(
         "memory-diagnostics",
@@ -940,6 +941,7 @@ def main() -> None:
             history_path=args.history_path
             or args.experiments_dir / DEFAULT_HISTORY_FILENAME,
             limit=args.limit,
+            created_at_from=args.created_at_from,
         )
     elif args.command == "memory-diagnostics":
         payload = build_memory_diagnostics(

@@ -56,6 +56,7 @@ python -m orchestrator.run_artifact_health --limit 10 --strict
 python -m orchestrator.run_artifact_health --all --record-history
 python -m orchestrator.run_artifact_health --all --created-at-from 2026-06-02T00:00:00Z --strict
 python -m orchestrator.run_artifact_health --history-summary
+python -m orchestrator.run_artifact_health --history-summary --created-at-from 2026-06-02T00:00:00Z
 python -m orchestrator.experiments validate --limit 10 --strict
 python -m orchestrator.experiments health-history
 python -m orchestrator.memory_diagnostics --strict
@@ -238,7 +239,9 @@ Replay artifacts:
   deleting older experiment directories.
 - `run_artifact_health_history.jsonl` appends compact health snapshots when
   explicitly requested, and `run_artifact_health_history_v1` summaries show
-  repeated failing runs and artifact filenames.
+  repeated failing runs and artifact filenames. The same `--created-at-from`
+  scope can exclude legacy failed runs from the summary without rewriting
+  history.
 - `memory_diagnostics.json` cross-references proposal outcome memory with
   artifact-health history by run id, agent, profile, direction, and patch hash.
   `--created-at-from` applies the same current-contract scope to outcome memory

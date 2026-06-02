@@ -254,6 +254,7 @@ def build_run_artifact_health_history(
     repo_root: Path = Path("."),
     history_path: Path | None = None,
     limit: int = 10,
+    created_at_from: str = "",
 ) -> dict[str, Any]:
     """Return aggregate trends from artifact-health history records."""
     repo_root = repo_root.resolve()
@@ -264,12 +265,21 @@ def build_run_artifact_health_history(
         else experiments_dir / DEFAULT_HISTORY_FILENAME
     )
     records, read_errors = read_history_records(active_history_path)
+    created_at_by_run = index_created_at_by_run(experiments_dir)
     artifact_counts: dict[str, dict[str, Any]] = {}
     run_counts: dict[str, dict[str, Any]] = {}
     recent_records = records[-max(limit, 0) :]
+    scoped_failed_runs_by_record = [
+        scoped_failed_runs_from_record(
+            record=record,
+            created_at_by_run=created_at_by_run,
+            created_at_from=created_at_from,
+        )
+        for record in records
+    ]
 
-    for record in records:
-        for failed_run in failed_runs_from_record(record):
+    for scoped_failed_runs in scoped_failed_runs_by_record:
+        for failed_run in scoped_failed_runs:
             run_id = str(failed_run.get("run_id", ""))
             run_entry = run_counts.setdefault(
                 run_id,
@@ -304,16 +314,21 @@ def build_run_artifact_health_history(
         "repo_root": str(repo_root),
         "experiments_dir": str(experiments_dir),
         "history_path": str(active_history_path),
+        "scope": {
+            "created_at_from": created_at_from,
+            "failed_runs_without_index_created_at_excluded": bool(created_at_from),
+        },
         "ok": not read_errors,
         "record_count": len(records),
         "read_errors": read_errors,
         "totals": {
             "record_count": len(records),
             "records_with_failures": sum(
-                1 for record in records if not bool(record.get("ok", False))
+                1 for scoped_failed_runs in scoped_failed_runs_by_record if scoped_failed_runs
             ),
             "failed_run_observation_count": sum(
-                len(failed_runs_from_record(record)) for record in records
+                len(scoped_failed_runs)
+                for scoped_failed_runs in scoped_failed_runs_by_record
             ),
             "artifact_failure_count": sum(
                 int(row["failure_count"]) for row in artifact_counts.values()
@@ -325,7 +340,14 @@ def build_run_artifact_health_history(
             artifact_counts.values(),
             key_name="artifact_name",
         ),
-        "recent_records": [history_record_summary(record) for record in recent_records],
+        "recent_records": [
+            history_record_summary(
+                record,
+                created_at_by_run=created_at_by_run,
+                created_at_from=created_at_from,
+            )
+            for record in recent_records
+        ],
         "policy": {
             "inspection_only": True,
             "reads_history_only": True,
@@ -366,20 +388,89 @@ def failed_runs_from_record(record: dict[str, Any]) -> list[dict[str, Any]]:
     return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
 
 
-def history_record_summary(record: dict[str, Any]) -> dict[str, Any]:
-    """Return a compact summary for one history record."""
+def scoped_failed_runs_from_record(
+    *,
+    record: dict[str, Any],
+    created_at_by_run: dict[str, str],
+    created_at_from: str,
+) -> list[dict[str, Any]]:
+    """Return failed run rows inside the requested indexed time scope."""
     failed_runs = failed_runs_from_record(record)
+    if not created_at_from:
+        return failed_runs
+    return [
+        row
+        for row in failed_runs
+        if created_at_by_run.get(str(row.get("run_id", "")), "") >= created_at_from
+    ]
+
+
+def scoped_run_ids(
+    *,
+    run_ids: list[str],
+    created_at_by_run: dict[str, str],
+    created_at_from: str,
+) -> list[str]:
+    """Return selected run ids inside the requested indexed time scope."""
+    if not created_at_from:
+        return run_ids
+    return [
+        run_id
+        for run_id in run_ids
+        if created_at_by_run.get(run_id, "") >= created_at_from
+    ]
+
+
+def index_created_at_by_run(experiments_dir: Path) -> dict[str, str]:
+    """Return indexed created_at timestamps by run id."""
+    return {
+        str(record.get("run_id", "")): str(record.get("created_at", ""))
+        for record in read_experiment_index(experiments_dir)
+        if record.get("run_id")
+    }
+
+
+def history_record_summary(
+    record: dict[str, Any],
+    *,
+    created_at_by_run: dict[str, str] | None = None,
+    created_at_from: str = "",
+) -> dict[str, Any]:
+    """Return a compact summary for one history record."""
+    active_created_at_by_run = created_at_by_run or {}
+    failed_runs = scoped_failed_runs_from_record(
+        record=record,
+        created_at_by_run=active_created_at_by_run,
+        created_at_from=created_at_from,
+    )
     totals = record.get("totals", {})
     totals_data = totals if isinstance(totals, dict) else {}
     selection = record.get("selection", {})
     selection_data = selection if isinstance(selection, dict) else {}
+    selected_run_ids = scoped_run_ids(
+        run_ids=string_list(selection_data.get("selected_run_ids", [])),
+        created_at_by_run=active_created_at_by_run,
+        created_at_from=created_at_from,
+    )
     return {
         "recorded_at": str(record.get("recorded_at", "")),
-        "ok": bool(record.get("ok", False)),
-        "run_count": int(totals_data.get("run_count", 0) or 0),
-        "failed_count": int(totals_data.get("failed_count", 0) or 0),
-        "error_count": int(totals_data.get("error_count", 0) or 0),
-        "selected_run_ids": string_list(selection_data.get("selected_run_ids", [])),
+        "ok": not failed_runs and not bool(record.get("read_error", False)),
+        "run_count": (
+            len(selected_run_ids)
+            if created_at_from
+            else int(totals_data.get("run_count", 0) or 0)
+        ),
+        "failed_count": (
+            len(failed_runs)
+            if created_at_from
+            else int(totals_data.get("failed_count", 0) or 0)
+        ),
+        "error_count": (
+            sum(int(row.get("error_count", 0) or 0) for row in failed_runs)
+            if created_at_from
+            else int(totals_data.get("error_count", 0) or 0)
+        ),
+        "selected_run_ids": selected_run_ids,
         "failed_run_ids": [str(row.get("run_id", "")) for row in failed_runs],
     }
 
@@ -479,6 +570,7 @@ def main() -> None:
             repo_root=args.repo_root,
             history_path=history_path,
             limit=args.limit,
+            created_at_from=args.created_at_from,
         )
     elif args.output is not None:
         payload = write_run_artifact_health(

@@ -651,6 +651,84 @@ def test_run_artifact_health_history_summarizes_failures(tmp_path: Path) -> None
     assert cli_summary["artifact_failures"][0]["artifact_name"] == "agent_input.json"
 
 
+def test_run_artifact_health_history_filters_by_created_at(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    history_path = repo / "experiments/run_artifact_health_history.jsonl"
+    run_iteration_loop(run_id="history-old-bad", max_rounds=1, repo_root=repo)
+    run_iteration_loop(run_id="history-current-bad", max_rounds=1, repo_root=repo)
+    (repo / "experiments/history-old-bad/round_001/agent_input.json").unlink()
+    (
+        repo / "experiments/history-current-bad/round_001/agent_input.json"
+    ).unlink()
+    index_path = repo / "experiments/index.jsonl"
+    records = [
+        json.loads(line)
+        for line in index_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    for record in records:
+        if record["run_id"] == "history-old-bad":
+            record["created_at"] = "2026-01-01T00:00:00Z"
+        if record["run_id"] == "history-current-bad":
+            record["created_at"] = "2026-01-02T00:00:00Z"
+    index_path.write_text(
+        "\n".join(json.dumps(record, sort_keys=True) for record in records) + "\n",
+        encoding="utf-8",
+    )
+
+    for run_id in ("history-old-bad", "history-current-bad"):
+        health = build_run_artifact_health(
+            experiments_dir=repo / "experiments",
+            repo_root=repo,
+            run_ids=[run_id],
+        )
+        append_run_artifact_health_history(
+            payload=health,
+            history_path=history_path,
+            recorded_at="2026-01-01T00:00:00Z",
+        )
+
+    unscoped = build_run_artifact_health_history(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        history_path=history_path,
+    )
+    scoped = build_run_artifact_health_history(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        history_path=history_path,
+        created_at_from="2026-01-02T00:00:00Z",
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "health-history",
+            "--history-path",
+            str(history_path),
+            "--created-at-from",
+            "2026-01-02T00:00:00Z",
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    cli_scoped = json.loads(cli_result.stdout)
+
+    assert_matches_schema_payload(scoped, "run_artifact_health_history")
+    assert unscoped["totals"]["failed_run_observation_count"] == 2
+    assert scoped["scope"]["created_at_from"] == "2026-01-02T00:00:00Z"
+    assert scoped["totals"]["failed_run_observation_count"] == 1
+    assert scoped["run_failures"][0]["run_id"] == "history-current-bad"
+    assert scoped["recent_records"][0]["failed_run_ids"] == []
+    assert scoped["recent_records"][1]["failed_run_ids"] == ["history-current-bad"]
+    assert cli_scoped["run_failures"][0]["run_id"] == "history-current-bad"
+
+
 def test_run_artifact_health_history_cli_records_and_validates(
     tmp_path: Path,
 ) -> None:

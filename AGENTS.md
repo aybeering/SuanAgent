@@ -112,6 +112,7 @@ Allowed components:
 61. Deterministic `agent_execution.json` command digest binding that lets artifact validation prove guarded Codex CLI attempts used the command reviewed by startup preflight.
 62. Strict local JSON schema validation, including repository-local `$defs` references, for Codex CLI execution preflight evidence contracts.
 63. Strict `codex_cli_operator_unlock_request.json` evidence contracts that type-check operator intent, source artifact file records, planned command review, and read-only safety policy.
+64. Startup preflight binding for operator unlock intent fields, including request scope, explicit request flag, operator id, and required confirmation phrase hashes.
 
 Still out of scope:
 

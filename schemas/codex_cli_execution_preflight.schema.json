@@ -92,8 +92,15 @@
               "canary_exempt",
               "operator_unlock_request_path_declared",
               "operator_unlock_request_exists",
+              "operator_unlock_request_schema_version_matches",
               "operator_unlock_request_ok",
               "operator_unlock_request_ready",
+              "operator_request_scope_matches",
+              "operator_request_explicitly_requested",
+              "operator_request_requested_by_present",
+              "operator_request_confirmation_phrase_matches",
+              "operator_request_required_confirmation_hash_matches",
+              "operator_request_provided_confirmation_hash_matches",
               "operator_request_source_pipeline_hash_matches",
               "operator_request_source_dry_run_hash_matches",
               "operator_request_command_matches_profile",
@@ -122,10 +129,31 @@
               "operator_unlock_request_exists": {
                 "type": "boolean"
               },
+              "operator_unlock_request_schema_version_matches": {
+                "type": "boolean"
+              },
               "operator_unlock_request_ok": {
                 "type": "boolean"
               },
               "operator_unlock_request_ready": {
+                "type": "boolean"
+              },
+              "operator_request_scope_matches": {
+                "type": "boolean"
+              },
+              "operator_request_explicitly_requested": {
+                "type": "boolean"
+              },
+              "operator_request_requested_by_present": {
+                "type": "boolean"
+              },
+              "operator_request_confirmation_phrase_matches": {
+                "type": "boolean"
+              },
+              "operator_request_required_confirmation_hash_matches": {
+                "type": "boolean"
+              },
+              "operator_request_provided_confirmation_hash_matches": {
                 "type": "boolean"
               },
               "operator_request_source_pipeline_hash_matches": {

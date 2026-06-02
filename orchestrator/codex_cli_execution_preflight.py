@@ -18,12 +18,17 @@ from orchestrator.codex_cli_dry_invocation_guard import (
     string_list,
     write_json,
 )
+from orchestrator.codex_cli_operator_unlock_request import (
+    CODEX_CLI_OPERATOR_UNLOCK_REQUEST_SCHEMA_VERSION,
+    REQUIRED_OPERATOR_CONFIRMATION_PHRASE,
+)
 from orchestrator.config import ProjectConfig, load_project_config
 
 
 CODEX_CLI_EXECUTION_PREFLIGHT_SCHEMA_VERSION = "codex_cli_execution_preflight_v1"
 CANARY_EXECUTABLE = "agents/codex_cli_canary.py"
 TARGET_FILE = "strategies/current_strategy.py"
+REQUEST_SCOPE = "real_codex_cli_execution_review"
 
 
 def build_codex_cli_execution_preflight(
@@ -143,6 +148,7 @@ def profile_execution_row(
         else None
     )
     request = load_json_object(request_path) if request_path is not None else {}
+    operator_intent = object_value(request.get("request", {}))
     planned = object_value(request.get("planned_execution_review", {}))
     source_pipeline = object_value(request.get("source_pipeline", {}))
     source_dry_run = object_value(request.get("source_real_execution_dry_run", {}))
@@ -163,6 +169,7 @@ def profile_execution_row(
         workspace_root=workspace_root,
         run_id=run_id,
     )
+    expected_confirmation_hash = sha256_text(REQUIRED_OPERATOR_CONFIRMATION_PHRASE)
     checks = {
         "profile_enabled": enabled,
         "adapter_is_codex_cli": adapter_name == "codex_cli",
@@ -172,10 +179,35 @@ def profile_execution_row(
         "operator_unlock_request_exists": bool(
             request_path is not None and request_path.exists() and request_path.is_file()
         ),
+        "operator_unlock_request_schema_version_matches": str(
+            request.get("schema_version", "")
+        )
+        == CODEX_CLI_OPERATOR_UNLOCK_REQUEST_SCHEMA_VERSION,
         "operator_unlock_request_ok": bool(request.get("ok", False)),
         "operator_unlock_request_ready": bool(
             request.get("operator_request_ready", False)
         ),
+        "operator_request_scope_matches": str(
+            operator_intent.get("request_scope", "")
+        )
+        == REQUEST_SCOPE,
+        "operator_request_explicitly_requested": bool(
+            operator_intent.get("requested", False)
+        ),
+        "operator_request_requested_by_present": bool(
+            str(operator_intent.get("requested_by", "")).strip()
+        ),
+        "operator_request_confirmation_phrase_matches": bool(
+            operator_intent.get("confirmation_phrase_matches", False)
+        ),
+        "operator_request_required_confirmation_hash_matches": str(
+            operator_intent.get("required_confirmation_phrase_sha256", "")
+        )
+        == expected_confirmation_hash,
+        "operator_request_provided_confirmation_hash_matches": str(
+            operator_intent.get("provided_confirmation_phrase_sha256", "")
+        )
+        == expected_confirmation_hash,
         "operator_request_source_pipeline_hash_matches": recorded_file_matches(
             record=source_pipeline_file,
             repo_root=repo_root,
@@ -246,8 +278,30 @@ def operator_unlock_blockers(checks: dict[str, bool]) -> list[str]:
     for key, code in (
         ("operator_unlock_request_path_declared", "operator_unlock_request_path_missing"),
         ("operator_unlock_request_exists", "operator_unlock_request_missing"),
+        (
+            "operator_unlock_request_schema_version_matches",
+            "operator_unlock_request_schema_version_mismatch",
+        ),
         ("operator_unlock_request_ok", "operator_unlock_request_not_ok"),
         ("operator_unlock_request_ready", "operator_unlock_request_not_ready"),
+        ("operator_request_scope_matches", "operator_request_scope_mismatch"),
+        (
+            "operator_request_explicitly_requested",
+            "operator_request_not_explicitly_requested",
+        ),
+        ("operator_request_requested_by_present", "operator_request_requested_by_missing"),
+        (
+            "operator_request_confirmation_phrase_matches",
+            "operator_request_confirmation_phrase_mismatch",
+        ),
+        (
+            "operator_request_required_confirmation_hash_matches",
+            "operator_request_required_confirmation_hash_mismatch",
+        ),
+        (
+            "operator_request_provided_confirmation_hash_matches",
+            "operator_request_provided_confirmation_hash_mismatch",
+        ),
         (
             "operator_request_source_pipeline_hash_matches",
             "operator_request_source_pipeline_hash_mismatch",
@@ -290,6 +344,11 @@ def stable_digest(payload: object) -> str:
     """Return a stable digest for one JSON-compatible payload."""
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def sha256_text(text: str) -> str:
+    """Return the SHA-256 hex digest for one UTF-8 text value."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def workspace_prefix(*, workspace_root: str, run_id: str) -> str:

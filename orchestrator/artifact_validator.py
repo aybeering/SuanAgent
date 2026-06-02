@@ -2501,6 +2501,13 @@ def validate_optional_codex_cli_execution_preflight(
                 add_error(report, "codex_cli_execution_preflight checks invalid")
             elif requires_unlock and operator_ready:
                 for key in (
+                    "operator_unlock_request_schema_version_matches",
+                    "operator_request_scope_matches",
+                    "operator_request_explicitly_requested",
+                    "operator_request_requested_by_present",
+                    "operator_request_confirmation_phrase_matches",
+                    "operator_request_required_confirmation_hash_matches",
+                    "operator_request_provided_confirmation_hash_matches",
                     "operator_request_source_pipeline_hash_matches",
                     "operator_request_source_dry_run_hash_matches",
                     "operator_request_command_matches_profile",

@@ -77,6 +77,7 @@ from orchestrator.codex_cli_dry_invocation_guard import (
     CODEX_CLI_DRY_INVOCATION_GUARD_SCHEMA_VERSION,
     DRY_INVOCATION_EXPECTED_TEXT,
     file_record,
+    sha256_text,
     write_codex_cli_dry_invocation_guard,
 )
 from orchestrator.codex_cli_execution_unlock_gate import (
@@ -7169,6 +7170,17 @@ def test_codex_cli_execution_preflight_blocks_stale_operator_request(
     profile = preflight["profiles"][0]
     assert profile["operator_unlock_ready"] is False
     assert profile["checks"]["operator_unlock_request_ready"] is True
+    assert profile["checks"]["operator_unlock_request_schema_version_matches"] is True
+    assert profile["checks"]["operator_request_scope_matches"] is True
+    assert profile["checks"]["operator_request_explicitly_requested"] is True
+    assert profile["checks"]["operator_request_requested_by_present"] is True
+    assert profile["checks"]["operator_request_confirmation_phrase_matches"] is True
+    assert profile["checks"][
+        "operator_request_required_confirmation_hash_matches"
+    ] is True
+    assert profile["checks"][
+        "operator_request_provided_confirmation_hash_matches"
+    ] is True
     assert profile["checks"]["operator_request_source_pipeline_hash_matches"] is True
     assert profile["checks"]["operator_request_source_dry_run_hash_matches"] is True
     assert profile["checks"]["operator_request_command_matches_profile"] is True
@@ -7236,6 +7248,66 @@ def test_codex_cli_execution_preflight_blocks_operator_source_drift(
     assert profile["checks"]["operator_request_source_dry_run_hash_matches"] is True
     assert (
         "profile primary: operator_request_source_pipeline_hash_mismatch"
+        in preflight["blocking_errors"]
+    )
+
+
+def test_codex_cli_execution_preflight_blocks_operator_intent_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_intent_drift.py",
+        "#!/usr/bin/env python3\nprint('{}')\n",
+    )
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / "operator_unlock_fixtures/intent_drift_request.json",
+        run_id="intent-drift",
+        executable=str(fake_codex),
+        model="intent-drift-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request["request"]["request_scope"] = "natural_language_override"
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "intent-drift-test",
+            "sandbox": "workspace-write",
+            "workspace_root": "workspaces",
+            "execute": True,
+            "operator_unlock_request_path": str(request_path.relative_to(repo)),
+        },
+    )
+
+    preflight = write_codex_cli_execution_preflight(
+        output_path=repo / "experiments/intent-drift/codex_cli_execution_preflight.json",
+        markdown_path=repo / "experiments/intent-drift/codex_cli_execution_preflight.md",
+        run_dir=repo / "experiments/intent-drift",
+        repo_root=repo,
+        config=config,
+    )
+
+    profile = preflight["profiles"][0]
+    assert preflight["ok"] is False
+    assert profile["checks"]["operator_unlock_request_ready"] is True
+    assert profile["checks"]["operator_request_command_matches_profile"] is True
+    assert profile["checks"]["operator_request_workspace_prefix_matches_run"] is True
+    assert profile["checks"]["operator_request_source_pipeline_hash_matches"] is True
+    assert profile["checks"]["operator_request_source_dry_run_hash_matches"] is True
+    assert profile["checks"]["operator_request_scope_matches"] is False
+    assert (
+        "profile primary: operator_request_scope_mismatch"
         in preflight["blocking_errors"]
     )
 
@@ -8857,8 +8929,12 @@ def write_operator_unlock_request_fixture(
             "requested": True,
             "requested_by": "unit-test-fixture",
             "request_scope": "real_codex_cli_execution_review",
-            "required_confirmation_phrase_sha256": "",
-            "provided_confirmation_phrase_sha256": "",
+            "required_confirmation_phrase_sha256": sha256_text(
+                REQUIRED_OPERATOR_CONFIRMATION_PHRASE
+            ),
+            "provided_confirmation_phrase_sha256": sha256_text(
+                REQUIRED_OPERATOR_CONFIRMATION_PHRASE
+            ),
             "confirmation_phrase_matches": True,
         },
         "source_pipeline": {

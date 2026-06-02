@@ -162,6 +162,13 @@ def profile_execution_row(
     source_dry_run = object_value(request.get("source_real_execution_dry_run", {}))
     source_pipeline_file = object_value(source_pipeline.get("file", {}))
     source_dry_run_file = object_value(source_dry_run.get("file", {}))
+    source_dry_run_payload = load_recorded_json(
+        record=source_dry_run_file,
+        repo_root=repo_root,
+    )
+    source_dry_run_plan = object_value(
+        source_dry_run_payload.get("planned_execution", {})
+    )
     allowed_mutation_paths = string_list(planned.get("allowed_mutation_paths", []))
     expected_command = build_codex_command(
         executable=executable,
@@ -247,6 +254,13 @@ def profile_execution_row(
             declared_path=str(source_dry_run.get("path", "")),
             record=source_dry_run_file,
             repo_root=repo_root,
+        ),
+        "operator_request_source_dry_run_plan_present": bool(source_dry_run_plan),
+        "operator_request_source_dry_run_plan_matches_review": (
+            source_dry_run_plan_matches_review(
+                source_plan=source_dry_run_plan,
+                reviewed_plan=planned,
+            )
         ),
         "operator_request_agent_name_matches": str(planned.get("agent_name", ""))
         == EXPECTED_AGENT_NAME,
@@ -377,6 +391,14 @@ def operator_unlock_blockers(checks: dict[str, bool]) -> list[str]:
             "operator_request_source_dry_run_path_mismatch",
         ),
         (
+            "operator_request_source_dry_run_plan_present",
+            "operator_request_source_dry_run_plan_missing",
+        ),
+        (
+            "operator_request_source_dry_run_plan_matches_review",
+            "operator_request_source_dry_run_plan_mismatch",
+        ),
+        (
             "operator_request_agent_name_matches",
             "operator_request_agent_name_mismatch",
         ),
@@ -451,6 +473,40 @@ def real_execution_workspace_path(*, workspace_root: str, run_id: str) -> str:
     return (
         f"{root}/{run_id}/{EXPECTED_ROUND_ID}/{EXPECTED_PROFILE_NAME}/"
         f"{EXPECTED_ATTEMPT_ID}/strategy_workspace"
+    )
+
+
+def load_recorded_json(*, record: dict[str, Any], repo_root: Path) -> dict[str, Any]:
+    """Load a JSON artifact from its recorded file path."""
+    path_text = str(record.get("path", ""))
+    if not path_text:
+        return {}
+    return load_json_object(resolve_path(Path(path_text), repo_root))
+
+
+def source_dry_run_plan_matches_review(
+    *,
+    source_plan: dict[str, Any],
+    reviewed_plan: dict[str, Any],
+) -> bool:
+    """Return whether the operator-reviewed plan matches its dry-run source."""
+    if not source_plan or not reviewed_plan:
+        return False
+    for key in (
+        "agent_name",
+        "profile_name",
+        "round_id",
+        "attempt_id",
+        "target_file",
+        "workspace_path",
+    ):
+        if str(source_plan.get(key, "")) != str(reviewed_plan.get(key, "")):
+            return False
+    return (
+        string_list(source_plan.get("allowed_mutation_paths", []))
+        == string_list(reviewed_plan.get("allowed_mutation_paths", []))
+        and string_list(source_plan.get("command", []))
+        == string_list(reviewed_plan.get("command", []))
     )
 
 

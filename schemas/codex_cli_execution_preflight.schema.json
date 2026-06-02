@@ -108,6 +108,8 @@
               "operator_request_source_pipeline_path_matches_record",
               "operator_request_source_dry_run_hash_matches",
               "operator_request_source_dry_run_path_matches_record",
+              "operator_request_source_dry_run_plan_present",
+              "operator_request_source_dry_run_plan_matches_review",
               "operator_request_agent_name_matches",
               "operator_request_profile_name_matches",
               "operator_request_round_id_matches",
@@ -185,6 +187,12 @@
                 "type": "boolean"
               },
               "operator_request_source_dry_run_path_matches_record": {
+                "type": "boolean"
+              },
+              "operator_request_source_dry_run_plan_present": {
+                "type": "boolean"
+              },
+              "operator_request_source_dry_run_plan_matches_review": {
                 "type": "boolean"
               },
               "operator_request_agent_name_matches": {

@@ -1557,6 +1557,61 @@ def int_value(value: object) -> int:
     return value if isinstance(value, int) else 0
 
 
+def dict_value(value: object) -> dict[str, Any]:
+    """Return a dict value or an empty dict."""
+    return value if isinstance(value, dict) else {}
+
+
+def string_values(value: object) -> list[str]:
+    """Return a stable list of string values from a JSON value."""
+    if isinstance(value, str):
+        return [value] if value else []
+    if not isinstance(value, list | tuple):
+        return []
+    return [str(item) for item in value if str(item)]
+
+
+def load_recorded_json_object(
+    *,
+    record: dict[str, Any],
+    repo_root: Path,
+    report: dict[str, object],
+    label: str,
+) -> dict[str, Any] | None:
+    """Load a JSON artifact from a recorded file path."""
+    path_text = str(record.get("path", ""))
+    if not path_text:
+        add_error(report, f"{label} recorded path missing")
+        return None
+    return load_json_object(resolve_path(Path(path_text), repo_root), report)
+
+
+def source_plan_matches_operator_review(
+    *,
+    source_plan: dict[str, Any],
+    reviewed_plan: dict[str, Any],
+) -> bool:
+    """Return whether an operator review matches its source dry-run plan."""
+    if not source_plan or not reviewed_plan:
+        return False
+    for key in (
+        "agent_name",
+        "profile_name",
+        "round_id",
+        "attempt_id",
+        "target_file",
+        "workspace_path",
+    ):
+        if str(source_plan.get(key, "")) != str(reviewed_plan.get(key, "")):
+            return False
+    return (
+        string_values(source_plan.get("allowed_mutation_paths", []))
+        == string_values(reviewed_plan.get("allowed_mutation_paths", []))
+        and string_values(source_plan.get("command", []))
+        == string_values(reviewed_plan.get("command", []))
+    )
+
+
 def validate_agent_attempts_manifest(
     *,
     path: Path,
@@ -2515,6 +2570,8 @@ def validate_optional_codex_cli_execution_preflight(
                     "operator_request_source_pipeline_path_matches_record",
                     "operator_request_source_dry_run_hash_matches",
                     "operator_request_source_dry_run_path_matches_record",
+                    "operator_request_source_dry_run_plan_present",
+                    "operator_request_source_dry_run_plan_matches_review",
                     "operator_request_agent_name_matches",
                     "operator_request_profile_name_matches",
                     "operator_request_round_id_matches",
@@ -4195,6 +4252,7 @@ def validate_optional_codex_cli_operator_unlock_request(
     else:
         add_error(report, "codex_cli_operator_unlock_request.json source_pipeline invalid")
     source_dry_run = payload.get("source_real_execution_dry_run", {})
+    source_dry_run_plan: dict[str, Any] = {}
     if isinstance(source_dry_run, dict):
         dry_run_record = source_dry_run.get("file", {})
         if isinstance(dry_run_record, dict):
@@ -4211,6 +4269,16 @@ def validate_optional_codex_cli_operator_unlock_request(
                 report=report,
                 label="codex_cli_operator_unlock_request source_dry_run",
             )
+            dry_run_payload = load_recorded_json_object(
+                record=dry_run_record,
+                repo_root=repo_root,
+                report=report,
+                label="codex_cli_operator_unlock_request source_dry_run",
+            )
+            if isinstance(dry_run_payload, dict):
+                source_dry_run_plan = dict_value(
+                    dry_run_payload.get("planned_execution", {})
+                )
         else:
             add_error(
                 report,
@@ -4248,6 +4316,19 @@ def validate_optional_codex_cli_operator_unlock_request(
                     "codex_cli_operator_unlock_request.json planned "
                     f"{key} mismatch",
                 )
+        if not source_dry_run_plan:
+            add_error(
+                report,
+                "codex_cli_operator_unlock_request.json source dry-run plan missing",
+            )
+        elif not source_plan_matches_operator_review(
+            source_plan=source_dry_run_plan,
+            reviewed_plan=planned,
+        ):
+            add_error(
+                report,
+                "codex_cli_operator_unlock_request.json source dry-run plan mismatch",
+            )
         expected_workspace_suffix = (
             f"{run_dir.name}/codex_cli_real_execution/real_codex_execution/"
             "attempt_001_real_execution/strategy_workspace"

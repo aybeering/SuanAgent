@@ -7386,6 +7386,88 @@ def test_codex_cli_execution_preflight_blocks_operator_source_path_drift(
     )
 
 
+def test_codex_cli_execution_preflight_blocks_operator_source_plan_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_source_plan_drift.py",
+        "#!/usr/bin/env python3\nprint('{}')\n",
+    )
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / "operator_unlock_fixtures/source_plan_drift_request.json",
+        run_id="source-plan-drift",
+        executable=str(fake_codex),
+        model="source-plan-drift-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    source_dry_run_path = repo / request["source_real_execution_dry_run"]["file"][
+        "path"
+    ]
+    source_dry_run = json.loads(source_dry_run_path.read_text(encoding="utf-8"))
+    source_dry_run["planned_execution"]["workspace_path"] = (
+        "workspaces/source-plan-drift/codex_cli_real_execution/"
+        "real_codex_execution/attempt_999_real_execution/strategy_workspace"
+    )
+    source_dry_run_path.write_text(
+        json.dumps(source_dry_run, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    request["source_real_execution_dry_run"]["file"] = file_record(
+        source_dry_run_path,
+        repo,
+    )
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "source-plan-drift-test",
+            "sandbox": "workspace-write",
+            "workspace_root": "workspaces",
+            "execute": True,
+            "operator_unlock_request_path": str(request_path.relative_to(repo)),
+        },
+    )
+
+    preflight = write_codex_cli_execution_preflight(
+        output_path=repo
+        / "experiments/source-plan-drift/codex_cli_execution_preflight.json",
+        markdown_path=repo
+        / "experiments/source-plan-drift/codex_cli_execution_preflight.md",
+        run_dir=repo / "experiments/source-plan-drift",
+        repo_root=repo,
+        config=config,
+    )
+
+    profile = preflight["profiles"][0]
+    assert preflight["ok"] is False
+    assert profile["checks"]["operator_request_source_dry_run_hash_matches"] is True
+    assert (
+        profile["checks"]["operator_request_source_dry_run_path_matches_record"]
+        is True
+    )
+    assert profile["checks"]["operator_request_source_dry_run_plan_present"] is True
+    assert (
+        profile["checks"]["operator_request_source_dry_run_plan_matches_review"]
+        is False
+    )
+    assert profile["checks"]["operator_request_workspace_path_matches_expected"] is True
+    assert (
+        "profile primary: operator_request_source_dry_run_plan_mismatch"
+        in preflight["blocking_errors"]
+    )
+
+
 def test_codex_cli_execution_preflight_blocks_operator_execution_identity_drift(
     tmp_path: Path,
 ) -> None:
@@ -7777,6 +7859,49 @@ def test_artifact_validator_reports_operator_planned_workspace_path_mismatch(
     assert validation_report["ok"] is False
     assert any(
         "codex_cli_operator_unlock_request.json planned workspace_path mismatch"
+        in str(error)
+        for error in validation_report["errors"]
+    )
+
+
+def test_artifact_validator_reports_operator_source_plan_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/operator-source-plan-drift"
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        run_dir / "codex_cli_operator_unlock_request.json",
+        run_id="operator-source-plan-drift",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    source_dry_run_path = repo / request["source_real_execution_dry_run"]["file"][
+        "path"
+    ]
+    source_dry_run = json.loads(source_dry_run_path.read_text(encoding="utf-8"))
+    source_dry_run["planned_execution"]["round_id"] = "codex_cli_shadow_execution"
+    source_dry_run_path.write_text(
+        json.dumps(source_dry_run, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    request["source_real_execution_dry_run"]["file"] = file_record(
+        source_dry_run_path,
+        repo,
+    )
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="operator-source-plan-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_operator_unlock_request.json source dry-run plan mismatch"
         in str(error)
         for error in validation_report["errors"]
     )
@@ -9332,6 +9457,16 @@ def write_operator_unlock_request_fixture(
     run_dir = repo / "experiments" / run_id
     source_pipeline_path = path.parent / f"{path.stem}_readiness_pipeline.json"
     source_dry_run_path = path.parent / f"{path.stem}_real_execution_dry_run.json"
+    command = build_codex_command(
+        executable=executable,
+        model=model,
+        sandbox=sandbox,
+        target_file="strategies/current_strategy.py",
+    )
+    planned_workspace_path = (
+        f"{workspace_root}/{run_id}/codex_cli_real_execution/"
+        "real_codex_execution/attempt_001_real_execution/strategy_workspace"
+    )
     source_pipeline_path.write_text(
         json.dumps(
             {
@@ -9352,7 +9487,15 @@ def write_operator_unlock_request_fixture(
                 "ok": True,
                 "real_execution_dry_run_ready": True,
                 "planned_execution": {
+                    "agent_name": "codex_cli",
+                    "profile_name": "real_codex_execution",
+                    "round_id": "codex_cli_real_execution",
+                    "attempt_id": "attempt_001_real_execution",
                     "target_file": "strategies/current_strategy.py",
+                    "allowed_mutation_paths": ["strategies/current_strategy.py"],
+                    "workspace_path": planned_workspace_path,
+                    "command": command,
+                    "timeout_seconds": 30,
                 },
             },
             indent=2,
@@ -9360,12 +9503,6 @@ def write_operator_unlock_request_fixture(
         )
         + "\n",
         encoding="utf-8",
-    )
-    command = build_codex_command(
-        executable=executable,
-        model=model,
-        sandbox=sandbox,
-        target_file="strategies/current_strategy.py",
     )
     payload = {
         "schema_version": CODEX_CLI_OPERATOR_UNLOCK_REQUEST_SCHEMA_VERSION,
@@ -9428,10 +9565,7 @@ def write_operator_unlock_request_fixture(
             "attempt_id": "attempt_001_real_execution",
             "target_file": "strategies/current_strategy.py",
             "allowed_mutation_paths": ["strategies/current_strategy.py"],
-            "workspace_path": (
-                f"{workspace_root}/{run_id}/codex_cli_real_execution/"
-                "real_codex_execution/attempt_001_real_execution/strategy_workspace"
-            ),
+            "workspace_path": planned_workspace_path,
             "command": command,
             "command_sha256": stable_json_digest(command),
             "execution_enabled_by_this_artifact": False,

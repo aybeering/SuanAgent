@@ -11295,6 +11295,21 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
         text=True,
         check=False,
     )
+    markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "summary",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     leaderboard_result = subprocess.run(
         [
             sys.executable,
@@ -11313,6 +11328,7 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
     )
 
     assert summary_result.returncode == 0, summary_result.stderr
+    assert markdown_result.returncode == 0, markdown_result.stderr
     assert leaderboard_result.returncode == 0, leaderboard_result.stderr
     summary = json.loads(summary_result.stdout)
     assert summary["total_runs"] == 1
@@ -11324,6 +11340,11 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
     assert summary["dashboard"]["policy"]["does_not_execute_agents"] is True
     assert summary["champion_lineage"]["event_count"] == 0
     assert summary["champion_lineage"]["policy"]["does_not_write_lineage_artifact"] is True
+    assert "# Experiment Summary" in markdown_result.stdout
+    assert "## Recent Runs" in markdown_result.stdout
+    assert "## Champion Lineage" in markdown_result.stdout
+    assert "Executes agents: `False`" in markdown_result.stdout
+    assert "cli-summary" in markdown_result.stdout
     assert json.loads(leaderboard_result.stdout)[0]["run_id"] == "cli-summary"
 
 

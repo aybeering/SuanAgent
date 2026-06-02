@@ -227,7 +227,8 @@ Codex CLI readiness contracts:
     indexed runs, recent diagnosis rows, recent failure-code counts, and
     best-run-to-champion gaps, but they cannot execute agents, run backtests,
     route candidates, apply patches, promote champions, write artifacts, or
-    change strategy acceptance.
+    change strategy acceptance. The optional `summary --markdown` mode renders
+    the same payload for terminal inspection without writing artifacts.
 
 ## Near-Term Development Order
 

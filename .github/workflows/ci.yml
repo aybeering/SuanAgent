@@ -656,6 +656,11 @@ jobs:
           assert lineage["latest_promotion_source"] == "approved_receipt"
           assert lineage["policy"]["does_not_write_lineage_artifact"] is True
           PY
+          python -m orchestrator.experiments summary --markdown > /tmp/experiment_summary.md
+          grep -q "# Experiment Summary" /tmp/experiment_summary.md
+          grep -q "## Recent Runs" /tmp/experiment_summary.md
+          grep -q "## Champion Lineage" /tmp/experiment_summary.md
+          grep -q 'Executes agents: `False`' /tmp/experiment_summary.md
 
       - name: Inspect proposal memory
         run: python -m orchestrator.experiments memory --limit 5

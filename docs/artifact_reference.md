@@ -31,6 +31,7 @@ Experiment inspection:
 python -m orchestrator.experiments list --limit 5
 python -m orchestrator.experiments show <run_id>
 python -m orchestrator.experiments summary
+python -m orchestrator.experiments summary --markdown
 python -m orchestrator.experiments leaderboard --limit 5
 python -m orchestrator.experiments memory --limit 5
 python -m orchestrator.experiments memory-diagnostics
@@ -140,6 +141,9 @@ dashboard with the latest indexed run, latest accepted and rejected runs, recent
 diagnosis rows, recent failure-code counts, and a best-run-to-champion gap. It
 is inspection-only and does not execute agents, run backtests, apply patches,
 promote champions, or change acceptance.
+`python -m orchestrator.experiments summary --markdown` renders the same
+summary payload as a compact terminal-friendly Markdown report without writing
+artifacts.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.

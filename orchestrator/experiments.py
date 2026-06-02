@@ -339,6 +339,127 @@ def top_counter_key(counter: Counter[str]) -> str:
     return sorted(counter.items(), key=lambda item: (-item[1], item[0]))[0][0]
 
 
+def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
+    """Render the experiment summary dashboard as compact markdown."""
+    dashboard = dict_payload(payload.get("dashboard", {}))
+    lineage = dict_payload(payload.get("champion_lineage", {}))
+    by_kind = dict_payload(payload.get("by_kind", {}))
+    by_status = dict_payload(payload.get("by_status", {}))
+    best_run = dict_payload(payload.get("best_run", {}))
+    champion_gap = dict_payload(dashboard.get("champion_gap", {}))
+    latest_run = dict_payload(dashboard.get("latest_run", {}))
+    latest_accepted = dict_payload(dashboard.get("latest_accepted_run", {}))
+    latest_rejected = dict_payload(dashboard.get("latest_rejected_run", {}))
+    recent_runs = list_payload(dashboard.get("recent_runs", []))
+    failure_counts = dict_payload(dashboard.get("recent_failure_codes", {}))
+    lines = [
+        "# Experiment Summary",
+        "",
+        f"- Total runs: `{payload.get('total_runs', 0)}`",
+        f"- Latest run: `{latest_run.get('run_id', 'none') or 'none'}` "
+        f"({latest_run.get('status', 'unknown') or 'unknown'})",
+        f"- Latest accepted: `{latest_accepted.get('run_id', 'none') or 'none'}`",
+        f"- Latest rejected: `{latest_rejected.get('run_id', 'none') or 'none'}`",
+        f"- Best run: `{best_run.get('run_id', 'none') or 'none'}` "
+        f"({number_text(best_run.get('ev_delta'))} validation EV delta)",
+        f"- Champion: `{lineage.get('current_champion_run_id', '') or 'none'}`",
+        f"- Champion gap: `{champion_gap.get('status', 'unknown')}` "
+        f"({number_text(champion_gap.get('gap_to_champion'))})",
+        f"- Top recent failure: `{dashboard.get('top_recent_failure_code', 'none')}`",
+        "",
+        "## Counts",
+        "",
+        "| Kind | Count |",
+        "| --- | ---: |",
+    ]
+    lines.extend(counter_markdown_rows(by_kind))
+    lines.extend(
+        [
+            "",
+            "| Status | Count |",
+            "| --- | ---: |",
+        ]
+    )
+    lines.extend(counter_markdown_rows(by_status))
+    lines.extend(
+        [
+            "",
+            "## Recent Failure Codes",
+            "",
+            "| Failure Code | Count |",
+            "| --- | ---: |",
+        ]
+    )
+    lines.extend(counter_markdown_rows(failure_counts))
+    lines.extend(
+        [
+            "",
+            "## Recent Runs",
+            "",
+            "| Run | Kind | Status | EV Delta | Failure |",
+            "| --- | --- | --- | ---: | --- |",
+        ]
+    )
+    if not recent_runs:
+        lines.append("| none |  |  |  |  |")
+    else:
+        for row in recent_runs:
+            lines.append(
+                "| "
+                f"`{markdown_cell(row.get('run_id', ''))}` | "
+                f"{markdown_cell(row.get('kind', ''))} | "
+                f"{markdown_cell(row.get('status', ''))} | "
+                f"{number_text(row.get('validation_ev_delta'))} | "
+                f"`{markdown_cell(row.get('failure_code', 'none'))}` |"
+            )
+    lines.extend(
+        [
+            "",
+            "## Champion Lineage",
+            "",
+            f"- OK: `{lineage.get('ok', False)}`",
+            f"- History events: `{lineage.get('event_count', 0)}`",
+            f"- Approved receipts: `{lineage.get('approved_receipt_count', 0)}`",
+            f"- Legacy direct promotions: `{lineage.get('legacy_direct_count', 0)}`",
+            f"- Latest promotion source: `{lineage.get('latest_promotion_source', '') or 'none'}`",
+            "",
+            "## Policy",
+            "",
+            "- Inspection only: `True`",
+            "- Executes agents: `False`",
+            "- Runs backtests: `False`",
+            "- Applies patches: `False`",
+            "- Changes acceptance: `False`",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def counter_markdown_rows(payload: dict[str, object]) -> list[str]:
+    """Return stable markdown rows for a string-to-count payload."""
+    if not payload:
+        return ["| none | 0 |"]
+    return [
+        f"| `{markdown_cell(key)}` | {int(value)} |"
+        for key, value in sorted(payload.items())
+    ]
+
+
+def number_text(value: object) -> str:
+    """Return compact markdown text for optional numeric values."""
+    if value is None:
+        return "n/a"
+    try:
+        return f"{float(value):.6f}"
+    except (TypeError, ValueError):
+        return markdown_cell(value)
+
+
+def markdown_cell(value: object) -> str:
+    """Escape markdown table cell text."""
+    return str(value).replace("|", "\\|").replace("\n", " ")
+
+
 def experiment_leaderboard(
     *,
     experiments_dir: Path = Path("experiments"),
@@ -1205,7 +1326,15 @@ def main() -> None:
     scope_health_parser.add_argument("--created-at-from", default="")
     scope_health_parser.add_argument("--strict", action="store_true")
 
-    subparsers.add_parser("summary", help="Summarize experiment history.")
+    summary_parser = subparsers.add_parser(
+        "summary",
+        help="Summarize experiment history.",
+    )
+    summary_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the summary dashboard as markdown.",
+    )
 
     args = parser.parse_args()
     if args.command == "list":
@@ -1334,6 +1463,9 @@ def main() -> None:
         )
     else:
         payload = summarize_experiments(experiments_dir=args.experiments_dir)
+        if args.markdown:
+            print(render_experiment_summary_markdown(payload), end="")
+            return
     print(json.dumps(payload, indent=2, sort_keys=True))
     if args.command == "promote-approved" and not payload.get("promoted", False):
         raise SystemExit(1)

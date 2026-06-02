@@ -51,6 +51,8 @@ python -m orchestrator.attempt_replay experiments/<run_id>/round_001/agent_attem
 python -m orchestrator.round_replay experiments/<run_id>/round_001
 python -m orchestrator.agent_slot_health experiments/<run_id>
 python -m orchestrator.agent_output_intake experiments/<run_id>/round_001/agent_input.json experiments/<run_id>/round_001/demo_agent_output.json --output experiments/<run_id>/round_001/agent_validation.json
+python -m orchestrator.run_artifact_health --limit 10 --strict
+python -m orchestrator.experiments validate --limit 10 --strict
 python -m orchestrator.artifact_validator_coverage --output artifact_validator_coverage.json --markdown artifact_validator_coverage.md
 python -m orchestrator.artifact_validator_coverage --strict
 python -m orchestrator.experiments coverage
@@ -223,6 +225,8 @@ Replay artifacts:
   patch, selection explanation, validation status, and optional execution audit.
 - `round_replay.json` validates all saved planned attempts for a round.
 - `agent_slot_health.json` summarizes slot readiness, audits, and replay state.
+- `run_artifact_health.json` batch-validates saved experiment run artifacts
+  and reports per-run artifact health without rerunning simulations.
 - `artifact_validator_coverage.json` reports schema, validator, documentation,
   test, and inspection/replay coverage for repository artifact contracts.
 

@@ -138,6 +138,12 @@ from orchestrator.artifact_validator_coverage import (
     validate_coverage_payload_file,
     write_coverage_report,
 )
+from orchestrator.run_artifact_health import (
+    SCHEMA_VERSION as RUN_ARTIFACT_HEALTH_SCHEMA_VERSION,
+    build_run_artifact_health,
+    validate_run_artifact_health_file,
+    write_run_artifact_health,
+)
 from orchestrator.config import (
     ProjectConfig,
     load_project_config,
@@ -394,6 +400,117 @@ def test_experiments_coverage_command_reports_artifact_contracts(tmp_path: Path)
     assert payload["schema_version"] == ARTIFACT_VALIDATOR_COVERAGE_SCHEMA_VERSION
     assert payload["policy"]["inspection_only"] is True
     assert_matches_schema_payload(payload, "artifact_validator_coverage")
+
+
+def test_run_artifact_health_reports_recent_runs(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(run_id="health-single", repo_root=repo)
+    run_iteration_loop(
+        run_id="health-iteration",
+        max_rounds=1,
+        repo_root=repo,
+    )
+
+    payload = build_run_artifact_health(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        limit=10,
+    )
+    rows = {
+        str(row["run_id"]): row
+        for row in payload["runs"]
+        if isinstance(row, dict)
+    }
+    output_path = repo / "run_artifact_health.json"
+    written = write_run_artifact_health(
+        output_path=output_path,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        limit=10,
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "validate",
+            "--limit",
+            "10",
+            "--strict",
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert payload["schema_version"] == RUN_ARTIFACT_HEALTH_SCHEMA_VERSION
+    assert_matches_schema_payload(payload, "run_artifact_health")
+    assert payload["ok"] is True
+    assert payload["selection"]["mode"] == "recent"
+    assert payload["selection"]["selected_run_ids"] == [
+        "health-single",
+        "health-iteration",
+    ]
+    assert payload["totals"]["run_count"] == 2
+    assert payload["totals"]["ok_count"] == 2
+    assert payload["totals"]["failed_count"] == 0
+    assert rows["health-single"]["kind"] == "single_run"
+    assert rows["health-iteration"]["kind"] == "iteration_loop"
+    assert written["schema_version"] == RUN_ARTIFACT_HEALTH_SCHEMA_VERSION
+    assert validate_run_artifact_health_file(
+        payload_path=output_path,
+        repo_root=repo,
+    ) == ()
+    assert cli_payload["schema_version"] == RUN_ARTIFACT_HEALTH_SCHEMA_VERSION
+    assert cli_payload["ok"] is True
+
+
+def test_run_artifact_health_strict_reports_invalid_runs(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="health-invalid",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    missing_path = repo / "experiments/health-invalid/round_001/agent_input.json"
+    missing_path.unlink()
+
+    payload = build_run_artifact_health(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        run_ids=["health-invalid"],
+    )
+    strict_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.run_artifact_health",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "--repo-root",
+            str(repo),
+            "--run-id",
+            "health-invalid",
+            "--strict",
+        ],
+        cwd=repo,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert payload["schema_version"] == RUN_ARTIFACT_HEALTH_SCHEMA_VERSION
+    assert_matches_schema_payload(payload, "run_artifact_health")
+    assert payload["ok"] is False
+    assert payload["totals"]["failed_count"] == 1
+    assert payload["runs"][0]["error_count"] > 0
+    assert strict_result.returncode == 1
+    strict_payload = json.loads(strict_result.stdout)
+    assert strict_payload["ok"] is False
 
 
 def test_agent_contract_runner_writes_disabled_audit(tmp_path: Path) -> None:

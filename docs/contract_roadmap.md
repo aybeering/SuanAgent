@@ -85,6 +85,7 @@ Implemented or allowed V0.5 components:
 71. Operator request generation, startup preflight, and artifact validation binding that requires real Codex operator unlock requests to be written and stored as the canonical `codex_cli_operator_unlock_request.json` artifact inside the current run directory.
 72. A narrow iteration-loop startup exception that permits an existing run directory only when it contains the configured canonical real Codex operator unlock request artifact; ordinary or non-canonical existing run directories remain blocked.
 73. A deterministic `artifact_validator_coverage.json` report that audits whether each repository-local artifact schema has validator coverage, documentation references, tests, and inspection or replay support.
+74. A deterministic `run_artifact_health.json` report that batch-validates saved experiment run artifacts without rerunning backtests or calling agents.
 
 ## Contract Families
 
@@ -119,6 +120,7 @@ Agent-slot contracts:
   `schemas/agent_slot_readiness_gate.schema.json`
 - Artifact contract coverage:
   `schemas/artifact_validator_coverage.schema.json`
+- Batch run artifact health: `schemas/run_artifact_health.schema.json`
 
 Codex CLI readiness contracts:
 
@@ -154,6 +156,8 @@ Codex CLI readiness contracts:
 8. Artifact coverage reports are inspection-only. They can identify missing
    validators, docs, tests, and inspection commands, but they do not validate
    run artifacts or change strategy acceptance.
+9. Batch run artifact health reports inspect saved run artifacts only. They do
+   not rerun simulations, invoke agents, apply patches, or change acceptance.
 
 ## Near-Term Development Order
 

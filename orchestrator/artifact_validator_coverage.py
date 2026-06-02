@@ -49,6 +49,10 @@ INSPECTION_COMMANDS = {
     "round_replay": ("python -m orchestrator.round_replay",),
     "agent_validation": ("python -m orchestrator.agent_output_intake",),
     "agent_result_stats": ("python -m orchestrator.experiments agents",),
+    "run_artifact_health": (
+        "python -m orchestrator.run_artifact_health",
+        "python -m orchestrator.experiments validate",
+    ),
     "champion": ("python -m orchestrator.experiments champion",),
     "champion_comparison": ("python -m orchestrator.experiments compare",),
     "codex_cli_replay_gate": ("python -m orchestrator.codex_cli_replay_gate",),
@@ -94,6 +98,7 @@ def build_artifact_validator_coverage(*, repo_root: Path = Path(".")) -> dict[st
         (
             read_text(repo_root / "orchestrator/artifact_validator.py"),
             read_text(repo_root / "orchestrator/artifact_validator_coverage.py"),
+            read_text(repo_root / "orchestrator/run_artifact_health.py"),
         )
     )
     docs_text = read_paths(paths=DOC_PATHS, repo_root=repo_root)

@@ -522,3 +522,16 @@ jobs:
 
       - name: Inspect agent result stats
         run: python -m orchestrator.experiments agents ci-adaptive
+
+      - name: Validate saved run artifact health
+        run: |
+          python -m orchestrator.run_artifact_health --all --strict > /tmp/run_artifact_health.json
+          python -m orchestrator.experiments validate --all --strict
+          python - <<'PY'
+          import json
+          health = json.load(open("/tmp/run_artifact_health.json"))
+          assert health["schema_version"] == "run_artifact_health_v1"
+          assert health["ok"] is True
+          assert health["totals"]["failed_count"] == 0
+          assert health["totals"]["run_count"] >= 6
+          PY

@@ -16,6 +16,7 @@ from orchestrator.external_agent_sandbox_drill import (
     build_external_agent_sandbox_drill,
 )
 from orchestrator.outcome_memory import recent_outcomes
+from orchestrator.run_artifact_health import build_run_artifact_health
 from orchestrator.run_diagnosis import diagnose_run
 
 
@@ -821,6 +822,15 @@ def main() -> None:
     )
     diagnose_parser.add_argument("run_id")
 
+    validate_parser = subparsers.add_parser(
+        "validate",
+        help="Batch-validate saved experiment run artifacts.",
+    )
+    validate_parser.add_argument("--limit", type=int, default=10)
+    validate_parser.add_argument("--all", action="store_true", dest="all_runs")
+    validate_parser.add_argument("--run-id", action="append", dest="run_ids", default=[])
+    validate_parser.add_argument("--strict", action="store_true")
+
     subparsers.add_parser("summary", help="Summarize experiment history.")
 
     args = parser.parse_args()
@@ -893,9 +903,19 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )
+    elif args.command == "validate":
+        payload = build_run_artifact_health(
+            experiments_dir=args.experiments_dir,
+            repo_root=args.experiments_dir.parent,
+            limit=args.limit,
+            all_runs=args.all_runs,
+            run_ids=args.run_ids,
+        )
     else:
         payload = summarize_experiments(experiments_dir=args.experiments_dir)
     print(json.dumps(payload, indent=2, sort_keys=True))
+    if args.command == "validate" and args.strict and not payload.get("ok", False):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

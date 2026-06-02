@@ -2687,6 +2687,7 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
         run_id=run_id,
         experiments_dir=repo / "experiments",
     )
+    refresh_markdown = render_operator_view_refresh_markdown(refresh)
     refreshed = operator_cockpit_report(
         run_id=run_id,
         experiments_dir=repo / "experiments",
@@ -2694,6 +2695,14 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
 
     assert refresh["schema_version"] == "operator_view_refresh_v1"
     assert refresh["refreshed_count"] == 5
+    assert refresh["pre_refresh_snapshot_freshness"]["ok"] is False
+    assert refresh["pre_refresh_snapshot_freshness"]["status"] == "stale_sources"
+    assert refresh["pre_refresh_snapshot_freshness"]["stale_sources"] == [
+        "codex_cli_execution_readiness_diff"
+    ]
+    assert "Pre-refresh freshness: `stale_sources`" in refresh_markdown
+    assert "Pre-refresh stale sources: `1`" in refresh_markdown
+    assert "`codex_cli_execution_readiness_diff`" in refresh_markdown
     assert [
         row["artifact_name"] for row in refresh["refreshed_artifacts"]
     ] == [
@@ -2760,7 +2769,12 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     assert "Refreshed artifacts: `5`" in refresh_markdown
     assert "Config source: `run_metadata`" in refresh_markdown
     assert "config/codex_cli_guarded.json" in refresh_markdown
+    assert "Pre-refresh freshness: `fresh`" in refresh_markdown
+    assert "Pre-refresh stale sources: `0`" in refresh_markdown
+    assert "## Before Refresh" in refresh_markdown
     assert "Cockpit freshness: `fresh`" in refresh_markdown
+    assert refresh["pre_refresh_snapshot_freshness"]["ok"] is True
+    assert refresh["pre_refresh_snapshot_freshness"]["stale_count"] == 0
     assert refresh["operator_summary"]["cockpit_status"] in {
         "needs_operator_review",
         "ready_for_review",

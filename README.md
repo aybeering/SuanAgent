@@ -81,7 +81,9 @@ the saved cockpit source hashes are stale, so operators can refresh the cockpit
 after updating readiness artifacts. `python -m orchestrator.experiments
 refresh-operator-views <run_id>` refreshes the read-only operator dashboard,
 Codex CLI preflight, unlock checklist, readiness diff, and cockpit in
-dependency order without executing agents or changing acceptance. If a real
+dependency order without executing agents or changing acceptance. Its
+terminal-only receipt records both pre-refresh stale source evidence and the
+post-refresh cockpit freshness summary. If a real
 Codex execute=true startup preflight is blocked, the failed run still writes
 the checklist, execution readiness diff, and summary navigation. The Codex CLI
 unlock runbook turns the same evidence chain into an ordered read-only operator

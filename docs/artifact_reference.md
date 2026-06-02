@@ -338,14 +338,16 @@ action dashboard, Codex CLI execution preflight, operator unlock checklist,
 Codex CLI execution readiness diff, and operator cockpit in dependency order.
 It uses the run's recorded config path unless `--config` is provided, returns a
 terminal-only `operator_view_refresh_v1` receipt with config source, path,
-existence, SHA-256 fields, and per-artifact JSON/Markdown output hashes, and
-still does not execute commands, execute Codex, run agents, run backtests, write
-config, promote champions, apply patches, route agents, or change acceptance.
+existence, SHA-256 fields, pre-refresh cockpit stale-source evidence,
+post-refresh cockpit freshness, and per-artifact JSON/Markdown output hashes,
+and still does not execute commands, execute Codex, run agents, run backtests,
+write config, promote champions, apply patches, route agents, or change
+acceptance.
 Add `--markdown` to render the same terminal-only receipt as a compact operator
-summary with refreshed artifact paths, hash prefixes, config provenance, and
-snapshot freshness. The receipt also includes a derived operator summary from
-the refreshed cockpit: cockpit status, primary focus, blocker count, and the
-first recommended next command.
+summary with refreshed artifact paths, hash prefixes, config provenance,
+pre-refresh stale sources, and post-refresh snapshot freshness. The receipt
+also includes a derived operator summary from the refreshed cockpit: cockpit
+status, primary focus, blocker count, and the first recommended next command.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.

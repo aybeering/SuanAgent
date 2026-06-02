@@ -1256,6 +1256,13 @@ def refresh_operator_views(
         source=config_source,
         metadata_path=run_dir / "run_metadata.json",
     )
+    pre_refresh_cockpit = operator_cockpit_report(
+        run_id=run_id,
+        experiments_dir=experiments_dir,
+    )
+    pre_refresh_freshness = dict_payload(
+        pre_refresh_cockpit.get("snapshot_freshness", {})
+    )
     refreshed: list[dict[str, object]] = []
     for artifact_name, writer in (
         (
@@ -1329,6 +1336,7 @@ def refresh_operator_views(
         "config_path_exists": bool(config_record["exists"]),
         "config_sha256": str(config_record["sha256"]),
         "config_record": config_record,
+        "pre_refresh_snapshot_freshness": pre_refresh_freshness,
         "refreshed_count": len(refreshed),
         "refreshed_artifacts": refreshed,
         "operator_summary": operator_summary,
@@ -1372,6 +1380,7 @@ def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, objec
 def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     """Render the operator-view refresh receipt as a compact markdown summary."""
     config_record = dict_payload(payload.get("config_record", {}))
+    pre_freshness = dict_payload(payload.get("pre_refresh_snapshot_freshness", {}))
     freshness = dict_payload(payload.get("cockpit_snapshot_freshness", {}))
     operator_summary = dict_payload(payload.get("operator_summary", {}))
     policy = dict_payload(payload.get("policy", {}))
@@ -1384,6 +1393,8 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Config path: `{config_record.get('relative_path', payload.get('config_path', ''))}`",
         f"- Config exists: `{payload.get('config_path_exists', False)}`",
         f"- Config sha256: `{str(payload.get('config_sha256', ''))[:12]}`",
+        f"- Pre-refresh freshness: `{pre_freshness.get('status', '')}`",
+        f"- Pre-refresh stale sources: `{pre_freshness.get('stale_count', 0)}`",
         f"- Cockpit freshness: `{freshness.get('status', '')}`",
         f"- Freshness ok: `{freshness.get('ok', False)}`",
         f"- Cockpit status: `{operator_summary.get('cockpit_status', '')}`",
@@ -1410,6 +1421,14 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         )
     if not list_payload(payload.get("refreshed_artifacts", [])):
         lines.append("| none |  |  |  |  |")
+    pre_stale_sources = pre_freshness.get("stale_sources", [])
+    lines.extend(["", "## Before Refresh", ""])
+    lines.append(f"- Status: `{pre_freshness.get('status', '')}`")
+    lines.append(f"- Stale sources: `{pre_freshness.get('stale_count', 0)}`")
+    for source in pre_stale_sources if isinstance(pre_stale_sources, list) else []:
+        lines.append(f"- `{source}`")
+    if not pre_stale_sources:
+        lines.append("- none")
     stale_sources = freshness.get("stale_sources", [])
     lines.extend(["", "## Snapshot Freshness", ""])
     lines.append(f"- Stale sources: `{freshness.get('stale_count', 0)}`")

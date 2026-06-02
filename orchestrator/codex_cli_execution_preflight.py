@@ -23,6 +23,7 @@ from orchestrator.codex_cli_operator_unlock_request import (
     REQUIRED_OPERATOR_CONFIRMATION_PHRASE,
 )
 from orchestrator.config import ProjectConfig, load_project_config
+from orchestrator.schema_validation import validate_json_file
 
 
 CODEX_CLI_EXECUTION_PREFLIGHT_SCHEMA_VERSION = "codex_cli_execution_preflight_v1"
@@ -179,6 +180,10 @@ def profile_execution_row(
         "operator_unlock_request_exists": bool(
             request_path is not None and request_path.exists() and request_path.is_file()
         ),
+        "operator_unlock_request_contract_valid": operator_request_contract_valid(
+            request_path=request_path,
+            repo_root=repo_root,
+        ),
         "operator_unlock_request_schema_version_matches": str(
             request.get("schema_version", "")
         )
@@ -279,6 +284,10 @@ def operator_unlock_blockers(checks: dict[str, bool]) -> list[str]:
         ("operator_unlock_request_path_declared", "operator_unlock_request_path_missing"),
         ("operator_unlock_request_exists", "operator_unlock_request_missing"),
         (
+            "operator_unlock_request_contract_valid",
+            "operator_unlock_request_contract_invalid",
+        ),
+        (
             "operator_unlock_request_schema_version_matches",
             "operator_unlock_request_schema_version_mismatch",
         ),
@@ -369,6 +378,20 @@ def recorded_file_matches(*, record: dict[str, Any], repo_root: Path) -> bool:
     if not path.exists() or not path.is_file():
         return False
     return str(file_record(path, repo_root).get("sha256", "")) == expected_sha256
+
+
+def operator_request_contract_valid(
+    *,
+    request_path: Path | None,
+    repo_root: Path,
+) -> bool:
+    """Return whether an operator request matches its local JSON contract."""
+    if request_path is None or not request_path.exists() or not request_path.is_file():
+        return False
+    schema_path = repo_root / "schemas/codex_cli_operator_unlock_request.schema.json"
+    if not schema_path.exists() or not schema_path.is_file():
+        return False
+    return validate_json_file(payload_path=request_path, schema_path=schema_path) == ()
 
 
 def codex_cli_execution_preflight_markdown(payload: dict[str, Any]) -> str:

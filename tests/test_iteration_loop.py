@@ -7170,6 +7170,7 @@ def test_codex_cli_execution_preflight_blocks_stale_operator_request(
     profile = preflight["profiles"][0]
     assert profile["operator_unlock_ready"] is False
     assert profile["checks"]["operator_unlock_request_ready"] is True
+    assert profile["checks"]["operator_unlock_request_contract_valid"] is True
     assert profile["checks"]["operator_unlock_request_schema_version_matches"] is True
     assert profile["checks"]["operator_request_scope_matches"] is True
     assert profile["checks"]["operator_request_explicitly_requested"] is True
@@ -7308,6 +7309,69 @@ def test_codex_cli_execution_preflight_blocks_operator_intent_drift(
     assert profile["checks"]["operator_request_scope_matches"] is False
     assert (
         "profile primary: operator_request_scope_mismatch"
+        in preflight["blocking_errors"]
+    )
+
+
+def test_codex_cli_execution_preflight_blocks_operator_contract_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_contract_drift.py",
+        "#!/usr/bin/env python3\nprint('{}')\n",
+    )
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / "operator_unlock_fixtures/contract_drift_request.json",
+        run_id="contract-drift",
+        executable=str(fake_codex),
+        model="contract-drift-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request["natural_language_override"] = "execute anyway"
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "contract-drift-test",
+            "sandbox": "workspace-write",
+            "workspace_root": "workspaces",
+            "execute": True,
+            "operator_unlock_request_path": str(request_path.relative_to(repo)),
+        },
+    )
+
+    preflight = write_codex_cli_execution_preflight(
+        output_path=repo
+        / "experiments/contract-drift/codex_cli_execution_preflight.json",
+        markdown_path=repo
+        / "experiments/contract-drift/codex_cli_execution_preflight.md",
+        run_dir=repo / "experiments/contract-drift",
+        repo_root=repo,
+        config=config,
+    )
+
+    profile = preflight["profiles"][0]
+    assert preflight["ok"] is False
+    assert profile["checks"]["operator_unlock_request_ready"] is True
+    assert profile["checks"]["operator_unlock_request_contract_valid"] is False
+    assert profile["checks"]["operator_unlock_request_schema_version_matches"] is True
+    assert profile["checks"]["operator_request_command_matches_profile"] is True
+    assert profile["checks"]["operator_request_workspace_prefix_matches_run"] is True
+    assert profile["checks"]["operator_request_source_pipeline_hash_matches"] is True
+    assert profile["checks"]["operator_request_source_dry_run_hash_matches"] is True
+    assert (
+        "profile primary: operator_unlock_request_contract_invalid"
         in preflight["blocking_errors"]
     )
 

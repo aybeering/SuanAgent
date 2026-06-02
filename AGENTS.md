@@ -113,6 +113,7 @@ Allowed components:
 62. Strict local JSON schema validation, including repository-local `$defs` references, for Codex CLI execution preflight evidence contracts.
 63. Strict `codex_cli_operator_unlock_request.json` evidence contracts that type-check operator intent, source artifact file records, planned command review, and read-only safety policy.
 64. Startup preflight binding for operator unlock intent fields, including request scope, explicit request flag, operator id, and required confirmation phrase hashes.
+65. Startup preflight contract validation for the full operator unlock request file before real Codex CLI execution can be unlocked.
 
 Still out of scope:
 

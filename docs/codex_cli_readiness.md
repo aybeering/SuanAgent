@@ -48,6 +48,13 @@ The pipeline can summarize these artifacts, but it must not execute Codex,
 create a real execution workspace, send a strategy prompt, apply patches, or
 change acceptance.
 
+`codex_cli_readiness_summary.json` records a schema-validated
+`consistency_checks` section. These checks bind the expected readiness stage
+order, missing-stage list, blocked-stage list, aggregate blocking reasons, final
+stage ready flag, and human-facing readiness status to the same saved evidence.
+The summary remains read-only and cannot unlock Codex, apply patches, or change
+acceptance.
+
 ## Canonical Source Binding
 
 Codex readiness artifacts are validated as a source chain, not as isolated JSON

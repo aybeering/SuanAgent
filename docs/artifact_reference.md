@@ -65,6 +65,7 @@ python -m orchestrator.experiments action-dashboard <run_id> --markdown
 python -m orchestrator.operator_unlock_checklist experiments/<run_id>
 python -m orchestrator.experiments unlock-checklist <run_id>
 python -m orchestrator.experiments unlock-checklist <run_id> --markdown
+python -m orchestrator.codex_cli_readiness_summary experiments/<run_id>
 python -m orchestrator.codex_cli_unlock_runbook experiments/<run_id>
 python -m orchestrator.experiments unlock-runbook <run_id>
 python -m orchestrator.experiments unlock-runbook <run_id> --markdown
@@ -181,6 +182,8 @@ experiments/<run_id>/
   operator_action_dashboard.md
   operator_unlock_checklist.json
   operator_unlock_checklist.md
+  codex_cli_readiness_summary.json  # after optional readiness summary command
+  codex_cli_readiness_summary.md    # after optional readiness summary command
   codex_cli_unlock_runbook.json  # after optional unlock runbook command
   codex_cli_unlock_runbook.md    # after optional unlock runbook command
   codex_cli_execution_readiness_diff.json

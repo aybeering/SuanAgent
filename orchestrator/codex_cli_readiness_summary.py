@@ -87,17 +87,26 @@ def build_codex_cli_readiness_summary(
     final_stage = stages[-1]
     final_ready = bool(final_stage["ready"])
     readiness_status = "ready_for_operator_review" if final_ready else "blocked"
+    consistency_checks = readiness_summary_consistency_checks(
+        stages=stages,
+        missing_stages=missing,
+        blocked_stages=blocked,
+        aggregate_blocking_reasons=aggregate_blockers,
+        final_ready=final_ready,
+        readiness_status=readiness_status,
+    )
     return {
         "schema_version": CODEX_CLI_READINESS_SUMMARY_SCHEMA_VERSION,
         "run_id": run_dir.name,
         "run_dir": str(run_dir),
-        "ok": True,
+        "ok": not consistency_checks["blocking_reasons"],
         "readiness_status": readiness_status,
         "final_ready": final_ready,
         "missing_stages": missing,
         "blocked_stages": blocked,
         "aggregate_blocking_reasons": aggregate_blockers,
         "stages": stages,
+        "consistency_checks": consistency_checks,
         "policy": {
             "summary_only": True,
             "read_only": True,
@@ -174,6 +183,65 @@ def stage_artifact_overrides(*, run_dir: Path, repo_root: Path) -> dict[str, Pat
     return {"codex_cli_canary_gate": resolve_path(Path(canary_path), repo_root)}
 
 
+def readiness_summary_consistency_checks(
+    *,
+    stages: list[dict[str, Any]],
+    missing_stages: list[str],
+    blocked_stages: list[str],
+    aggregate_blocking_reasons: list[str],
+    final_ready: bool,
+    readiness_status: str,
+) -> dict[str, Any]:
+    """Return deterministic self-checks for readiness summary fields."""
+    expected_stages = [stage_name for stage_name, *_rest in STAGE_DEFINITIONS]
+    actual_stages = [str(stage.get("stage", "")) for stage in stages]
+    derived_missing = [
+        str(stage.get("stage", ""))
+        for stage in stages
+        if not bool(object_value(stage.get("artifact", {})).get("exists", False))
+    ]
+    derived_blocked = [
+        str(stage.get("stage", ""))
+        for stage in stages
+        if bool(object_value(stage.get("artifact", {})).get("exists", False))
+        and not bool(stage.get("ready", False))
+    ]
+    derived_aggregate = aggregate_stage_blockers(stages)
+    final_stage = stages[-1] if stages else {}
+    checks = {
+        "stage_count_matches_expected": len(stages) == len(STAGE_DEFINITIONS),
+        "stage_order_matches_expected": actual_stages == expected_stages,
+        "missing_stages_match_artifact_existence": (
+            string_list(missing_stages) == derived_missing
+        ),
+        "blocked_stages_match_ready_state": (
+            string_list(blocked_stages) == derived_blocked
+        ),
+        "aggregate_blocking_reasons_match_stages": (
+            string_list(aggregate_blocking_reasons) == derived_aggregate
+        ),
+        "final_ready_matches_final_stage": (
+            bool(final_ready) == bool(final_stage.get("ready", False))
+        ),
+        "readiness_status_matches_final_ready": readiness_status
+        == ("ready_for_operator_review" if final_ready else "blocked"),
+    }
+    blocking_reasons = [
+        f"readiness_summary_consistency:{name}"
+        for name, passed in checks.items()
+        if not passed
+    ]
+    return {
+        "expected_stages": expected_stages,
+        "actual_stages": actual_stages,
+        "derived_missing_stages": derived_missing,
+        "derived_blocked_stages": derived_blocked,
+        "derived_aggregate_blocking_reasons": derived_aggregate,
+        "checks": checks,
+        "blocking_reasons": blocking_reasons,
+    }
+
+
 def aggregate_stage_blockers(stages: list[dict[str, Any]]) -> list[str]:
     """Return stable deduplicated blocking reason strings."""
     blockers: list[str] = []
@@ -212,6 +280,13 @@ def codex_cli_readiness_summary_markdown(payload: dict[str, Any]) -> str:
     lines.extend(f"- {reason}" for reason in blockers)
     if not blockers:
         lines.append("- none")
+    consistency = object_value(payload.get("consistency_checks", {}))
+    consistency_blockers = string_list(consistency.get("blocking_reasons", []))
+    lines.extend(["", "## Consistency Checks"])
+    if consistency_blockers:
+        lines.extend(f"- {reason}" for reason in consistency_blockers)
+    else:
+        lines.append("- passed")
     lines.extend(
         [
             "",

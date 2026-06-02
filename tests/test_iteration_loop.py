@@ -11597,6 +11597,14 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         == "codex_cli_real_execution_dry_run:execution_candidate_not_ready"
         for reason in readiness["aggregate_blocking_reasons"]
     )
+    assert readiness["consistency_checks"]["blocking_reasons"] == []
+    assert all(readiness["consistency_checks"]["checks"].values())
+    assert readiness["consistency_checks"]["actual_stages"] == (
+        readiness["consistency_checks"]["expected_stages"]
+    )
+    assert readiness["consistency_checks"]["derived_blocked_stages"] == (
+        readiness["blocked_stages"]
+    )
     assert pipeline["schema_version"] == CODEX_CLI_READINESS_PIPELINE_SCHEMA_VERSION
     assert pipeline["ok"] is True
     assert pipeline["pipeline_completed"] is True
@@ -11653,6 +11661,18 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         run_dir / "codex_cli_readiness_pipeline.json",
         "codex_cli_readiness_pipeline",
     )
+    invalid_readiness = json.loads(json.dumps(readiness))
+    del invalid_readiness["consistency_checks"]
+    readiness_schema = json.loads(
+        (Path.cwd() / "schemas/codex_cli_readiness_summary.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    readiness_errors = validate_json_payload(
+        payload=invalid_readiness,
+        schema=readiness_schema,
+    )
+    assert "$: missing required property consistency_checks" in readiness_errors
     invalid_pipeline = json.loads(json.dumps(pipeline))
     del invalid_pipeline["consistency_checks"]
     pipeline_schema = json.loads(
@@ -11905,6 +11925,13 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert readiness["aggregate_blocking_reasons"] == []
     assert readiness["stages"][-1]["stage"] == "codex_cli_real_execution_dry_run"
     assert readiness["stages"][-1]["ready"] is True
+    assert readiness["consistency_checks"]["blocking_reasons"] == []
+    assert all(readiness["consistency_checks"]["checks"].values())
+    assert readiness["consistency_checks"]["actual_stages"] == (
+        readiness["consistency_checks"]["expected_stages"]
+    )
+    assert readiness["consistency_checks"]["derived_blocked_stages"] == []
+    assert readiness["consistency_checks"]["derived_aggregate_blocking_reasons"] == []
     assert pipeline["schema_version"] == CODEX_CLI_READINESS_PIPELINE_SCHEMA_VERSION
     assert pipeline["ok"] is True
     assert pipeline["pipeline_completed"] is True

@@ -13,6 +13,7 @@
     "blocked_stages",
     "aggregate_blocking_reasons",
     "stages",
+    "consistency_checks",
     "policy"
   ],
   "properties": {
@@ -23,10 +24,12 @@
       ]
     },
     "run_id": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "run_dir": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "ok": {
       "type": "boolean"
@@ -42,37 +45,167 @@
       "type": "boolean"
     },
     "missing_stages": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "$ref": "#/$defs/string_array"
     },
     "blocked_stages": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "$ref": "#/$defs/string_array"
     },
     "aggregate_blocking_reasons": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "$ref": "#/$defs/string_array"
     },
     "stages": {
       "type": "array",
+      "minItems": 1,
       "items": {
-        "type": "object",
-        "required": [
-          "stage",
-          "schema_version",
-          "artifact",
-          "ok",
-          "ready_key",
-          "ready",
-          "blocking_reasons"
-        ]
+        "$ref": "#/$defs/readiness_stage"
       }
+    },
+    "consistency_checks": {
+      "$ref": "#/$defs/consistency_checks"
+    },
+    "policy": {
+      "$ref": "#/$defs/policy"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "file_record": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "readiness_stage": {
+      "type": "object",
+      "required": [
+        "stage",
+        "schema_version",
+        "artifact",
+        "ok",
+        "ready_key",
+        "ready",
+        "blocking_reasons"
+      ],
+      "properties": {
+        "stage": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema_version": {
+          "type": "string"
+        },
+        "artifact": {
+          "$ref": "#/$defs/file_record"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "ready_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "blocking_reasons": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    },
+    "consistency_checks": {
+      "type": "object",
+      "required": [
+        "expected_stages",
+        "actual_stages",
+        "derived_missing_stages",
+        "derived_blocked_stages",
+        "derived_aggregate_blocking_reasons",
+        "checks",
+        "blocking_reasons"
+      ],
+      "properties": {
+        "expected_stages": {
+          "$ref": "#/$defs/string_array"
+        },
+        "actual_stages": {
+          "$ref": "#/$defs/string_array"
+        },
+        "derived_missing_stages": {
+          "$ref": "#/$defs/string_array"
+        },
+        "derived_blocked_stages": {
+          "$ref": "#/$defs/string_array"
+        },
+        "derived_aggregate_blocking_reasons": {
+          "$ref": "#/$defs/string_array"
+        },
+        "checks": {
+          "type": "object",
+          "required": [
+            "stage_count_matches_expected",
+            "stage_order_matches_expected",
+            "missing_stages_match_artifact_existence",
+            "blocked_stages_match_ready_state",
+            "aggregate_blocking_reasons_match_stages",
+            "final_ready_matches_final_stage",
+            "readiness_status_matches_final_ready"
+          ],
+          "properties": {
+            "stage_count_matches_expected": {
+              "type": "boolean"
+            },
+            "stage_order_matches_expected": {
+              "type": "boolean"
+            },
+            "missing_stages_match_artifact_existence": {
+              "type": "boolean"
+            },
+            "blocked_stages_match_ready_state": {
+              "type": "boolean"
+            },
+            "aggregate_blocking_reasons_match_stages": {
+              "type": "boolean"
+            },
+            "final_ready_matches_final_stage": {
+              "type": "boolean"
+            },
+            "readiness_status_matches_final_ready": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "blocking_reasons": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
     },
     "policy": {
       "type": "object",
@@ -87,7 +220,40 @@
         "does_not_apply_patches",
         "does_not_change_acceptance",
         "deterministic_code_keeps_acceptance_authority"
-      ]
+      ],
+      "properties": {
+        "summary_only": {
+          "type": "boolean"
+        },
+        "read_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_codex_cli": {
+          "type": "boolean"
+        },
+        "does_not_create_workspace": {
+          "type": "boolean"
+        },
+        "does_not_send_strategy_prompt": {
+          "type": "boolean"
+        },
+        "does_not_modify_config": {
+          "type": "boolean"
+        },
+        "does_not_select_candidate": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "deterministic_code_keeps_acceptance_authority": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

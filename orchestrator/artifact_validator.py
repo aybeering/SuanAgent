@@ -7679,6 +7679,26 @@ def validate_optional_codex_cli_readiness_summary(
             and bool(final_stage.get("ready", False)) != final_ready
         ):
             add_error(report, "codex_cli_readiness_summary.json final stage mismatch")
+    consistency = payload.get("consistency_checks", {})
+    if not isinstance(consistency, dict):
+        add_error(report, "codex_cli_readiness_summary.json consistency invalid")
+    else:
+        consistency_blockers = consistency.get("blocking_reasons", [])
+        if not isinstance(consistency_blockers, list):
+            add_error(
+                report,
+                "codex_cli_readiness_summary.json consistency blockers invalid",
+            )
+        elif consistency_blockers:
+            add_error(report, "codex_cli_readiness_summary.json consistency failed")
+        checks = consistency.get("checks", {})
+        if not isinstance(checks, dict):
+            add_error(
+                report,
+                "codex_cli_readiness_summary.json consistency checks invalid",
+            )
+        elif any(not bool(passed) for passed in checks.values()):
+            add_error(report, "codex_cli_readiness_summary.json consistency check false")
     policy = payload.get("policy", {})
     if not isinstance(policy, dict):
         add_error(report, "codex_cli_readiness_summary.json policy invalid")

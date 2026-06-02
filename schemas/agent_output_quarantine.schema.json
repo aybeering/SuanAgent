@@ -8,6 +8,7 @@
     "round_id",
     "round_index",
     "round_dir",
+    "proposal_intent_summary",
     "quarantine_status",
     "release_to_apply",
     "blocking_reasons",
@@ -35,6 +36,9 @@
     },
     "round_dir": {
       "type": "string"
+    },
+    "proposal_intent_summary": {
+      "$ref": "#/$defs/proposal_intent_summary"
     },
     "quarantine_status": {
       "type": "string",
@@ -126,6 +130,151 @@
         },
         "deterministic_policy_gate_keeps_acceptance_authority": {
           "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "proposal_intent_summary": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "source_schema_version",
+        "recommended_direction",
+        "avoid_directions",
+        "reason",
+        "evidence",
+        "trace_schema_version",
+        "selection_reason_code",
+        "selected_direction",
+        "fallback_direction",
+        "exhausted_known_directions",
+        "candidate_order",
+        "candidate_rows",
+        "avoid_source_summary",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "proposal_intent_summary_v1"
+          ]
+        },
+        "source_schema_version": {
+          "type": "string"
+        },
+        "recommended_direction": {
+          "type": "string"
+        },
+        "avoid_directions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "trace_schema_version": {
+          "type": "string"
+        },
+        "selection_reason_code": {
+          "type": "string"
+        },
+        "selected_direction": {
+          "type": "string"
+        },
+        "fallback_direction": {
+          "type": "string"
+        },
+        "exhausted_known_directions": {
+          "type": "boolean"
+        },
+        "candidate_order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "candidate_rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "direction_tag",
+              "rank",
+              "selected",
+              "in_avoid_directions",
+              "avoid_sources",
+              "reason",
+              "modifier_hint"
+            ],
+            "properties": {
+              "direction_tag": {
+                "type": "string"
+              },
+              "rank": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "selected": {
+                "type": "boolean"
+              },
+              "in_avoid_directions": {
+                "type": "boolean"
+              },
+              "avoid_sources": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reason": {
+                "type": "string"
+              },
+              "modifier_hint": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "avoid_source_summary": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "type": "object",
+          "required": [
+            "advisory_only",
+            "does_not_route_agents",
+            "does_not_change_acceptance"
+          ],
+          "properties": {
+            "advisory_only": {
+              "type": "boolean",
+              "const": true
+            },
+            "does_not_route_agents": {
+              "type": "boolean",
+              "const": true
+            },
+            "does_not_change_acceptance": {
+              "type": "boolean",
+              "const": true
+            }
+          }
         }
       }
     }

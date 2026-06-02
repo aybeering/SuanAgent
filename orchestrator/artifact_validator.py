@@ -1057,10 +1057,19 @@ def validate_agent_output_quarantine(
     report: dict[str, object],
 ) -> None:
     """Validate the pre-apply quarantine report for one selected output."""
-    del repo_root
     payload = validate_json_object(path=path, report=report)
     if payload is None:
         return
+    validate_proposal_intent_summary_contract(
+        summary=payload.get("proposal_intent_summary", {}),
+        artifact_name="agent_output_quarantine.json",
+        report=report,
+    )
+    validate_quarantine_intent_summary_bindings(
+        payload=payload,
+        repo_root=repo_root,
+        report=report,
+    )
     release_to_apply = bool(payload.get("release_to_apply", False))
     status = str(payload.get("quarantine_status", ""))
     blockers = payload.get("blocking_reasons", [])
@@ -1088,6 +1097,46 @@ def validate_agent_output_quarantine(
     ):
         if not bool(policy.get(key, False)):
             add_error(report, f"agent_output_quarantine policy false: {key}")
+
+
+def validate_quarantine_intent_summary_bindings(
+    *,
+    payload: dict[str, Any],
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate quarantine summary matches selected output and agent input."""
+    artifacts = payload.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        add_error(report, "agent_output_quarantine artifacts invalid")
+        return
+    summary = payload.get("proposal_intent_summary", {})
+    for artifact_key, error_text in (
+        ("agent_output", "agent_output_quarantine proposal intent summary drift"),
+        (
+            "agent_input",
+            "agent_output_quarantine proposal intent summary input drift",
+        ),
+    ):
+        record = artifacts.get(artifact_key, {})
+        if not isinstance(record, dict):
+            add_error(
+                report,
+                f"agent_output_quarantine artifact record invalid: {artifact_key}",
+            )
+            continue
+        artifact_path = resolve_path(Path(str(record.get("path", ""))), repo_root)
+        if not artifact_path.exists() or not artifact_path.is_file():
+            add_error(
+                report,
+                f"agent_output_quarantine artifact missing: {artifact_key}={artifact_path}",
+            )
+            continue
+        artifact_payload = load_json_object(artifact_path, report)
+        if artifact_payload is not None and artifact_payload.get(
+            "proposal_intent_summary", {}
+        ) != summary:
+            add_error(report, error_text)
 
 
 def validate_agent_activation_preflight(

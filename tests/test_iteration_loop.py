@@ -2907,6 +2907,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_output_quarantine["release_to_apply"] is True
     assert agent_output_quarantine["quarantine_status"] == "released"
     assert agent_output_quarantine["blocking_reasons"] == []
+    assert agent_output_quarantine["proposal_intent_summary"] == (
+        agent_output["proposal_intent_summary"]
+    )
+    assert agent_output_quarantine["proposal_intent_summary"] == (
+        agent_input["proposal_intent_summary"]
+    )
     assert agent_output_quarantine["selected_attempt"]["adapter_name"] == (
         "fixed_patch_stub"
     )
@@ -2915,6 +2921,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         proposal["patch_sha256"]
     )
     assert agent_output_quarantine["agent_validation"]["ok"] is True
+    assert agent_output_quarantine["artifacts"]["agent_input"]["path"].endswith(
+        "agent_input.json"
+    )
     assert agent_output_quarantine["policy"]["quarantine_before_git_apply"] is True
     assert (
         agent_output_quarantine["policy"][
@@ -6373,6 +6382,37 @@ def test_artifact_validator_reports_agent_output_intent_summary_drift(
     assert report["ok"] is False
     assert any(
         "agent_output proposal intent summary drift" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_quarantine_intent_summary_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-quarantine-intent-drift",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/artifact-quarantine-intent-drift/round_001"
+        / "agent_output_quarantine.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["proposal_intent_summary"]["recommended_direction"] = "drifted_direction"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="artifact-quarantine-intent-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "agent_output_quarantine proposal intent summary drift" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 

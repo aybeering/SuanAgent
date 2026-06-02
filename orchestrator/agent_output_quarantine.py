@@ -72,6 +72,10 @@ def agent_output_quarantine_payload(
     proposal_applicable = bool(getattr(proposal, "applicable", False))
     validation_ok = bool(agent_validation.get("ok", False))
     checks = dict_or_empty(agent_validation.get("checks", {}))
+    agent_output = load_json_object(round_dir / "agent_output.json")
+    proposal_intent_summary = dict_or_empty(
+        agent_output.get("proposal_intent_summary", {})
+    )
     blocking_reasons = quarantine_blocking_reasons(
         proposal_applicable=proposal_applicable,
         validation_ok=validation_ok,
@@ -86,6 +90,7 @@ def agent_output_quarantine_payload(
         "round_id": round_id,
         "round_index": round_index,
         "round_dir": relative_path(round_dir, repo_root),
+        "proposal_intent_summary": proposal_intent_summary,
         "quarantine_status": quarantine_status(
             proposal_applicable=proposal_applicable,
             release_to_apply=release_to_apply,
@@ -122,6 +127,7 @@ def agent_output_quarantine_payload(
             "errors": string_list(agent_validation.get("errors", [])),
         },
         "artifacts": {
+            "agent_input": file_record(round_dir / "agent_input.json", repo_root),
             "raw_agent_output": file_record(raw_agent_output_path, repo_root),
             "patch": file_record(patch_path, repo_root),
             "proposal": file_record(round_dir / "proposal.json", repo_root),
@@ -197,6 +203,17 @@ def file_record(path: Path, repo_root: Path) -> dict[str, object]:
         "bytes": len(data),
         "sha256": hashlib.sha256(data).hexdigest(),
     }
+
+
+def load_json_object(path: Path) -> dict[str, object]:
+    """Load an optional JSON object artifact."""
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
 
 
 def agent_output_quarantine_markdown(payload: dict[str, object]) -> str:

@@ -233,7 +233,8 @@ Proposal and intake artifacts:
 - `agent_validation.json` records contract, patch-target, and `git apply`
   checks.
 - `agent_output_quarantine.json` records whether selected output is held or
-  released before git apply.
+  released before git apply, including the same proposal intent summary used by
+  `agent_output.json`.
 - `proposal.json` is the auditable proposal used by the loop.
 - `patch.diff` is the validated strategy patch.
 

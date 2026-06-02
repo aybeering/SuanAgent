@@ -88,6 +88,10 @@ input contract and `agent_output.json` as the audited selected-output contract.
 direction tags, direction order, modifier hints, and a fallback direction; this
 block guides proposal generation only and cannot route agents or decide
 acceptance.
+`proposal_intent.json` includes a `direction_decision_trace` that explains the
+planner's candidate order, selected direction, and avoid-source codes. Future
+agents may use it as context, but it cannot score candidates, route profiles,
+apply patches, or decide acceptance.
 Agent profiles may separately declare `supported_directions`. The executor uses
 that declaration only as a deterministic contract check after a proposal is
 normalized: a candidate whose `direction_tag` is outside its own declared

@@ -43,36 +43,26 @@ def build_proposal_intent(*, context_path: Path) -> dict[str, object]:
     champion = dict_payload(context.get("champion", {}))
     search_space = dict_payload(context.get("strategy_search_space", {}))
     direction_candidates = search_space_directions(search_space)
+    fallback_direction = search_space_fallback(search_space)
 
-    avoid_directions = sorted(
-        {
-            str(row.get("direction_tag", ""))
-            for row in [*prior_rounds, *memory_records]
-            if str(row.get("direction_tag", "")) and not bool(row.get("accepted", False))
-        }
-        | {
-            str(row.get("top_direction_tag", "") or row.get("selected_direction_tag", ""))
-            for row in recent_briefs
-            if recent_brief_failed(row)
-        }
-        | {
-            direction
-            for row in recent_briefs
-            for direction in string_list(row.get("recommended_avoid_directions", []))
-            if recent_brief_failed(row)
-        }
+    avoid_audit = build_avoid_direction_audit(
+        prior_rounds=prior_rounds,
+        memory_records=memory_records,
+        recent_briefs=recent_briefs,
     )
-    avoid_directions = [direction for direction in avoid_directions if direction]
+    avoid_directions = sorted(avoid_audit.keys())
 
     recommended_direction = DEFAULT_DIRECTION
+    selection_reason_code = "default_probe"
     reason = "No prior weak direction was found; start with the default threshold probe."
     evidence = []
     if DEFAULT_DIRECTION in avoid_directions:
         recommended_direction = choose_recommended_direction(
             avoid_directions=avoid_directions,
             direction_candidates=direction_candidates,
-            fallback_direction=search_space_fallback(search_space),
+            fallback_direction=fallback_direction,
         )
+        selection_reason_code = "default_direction_avoided"
         reason = (
             "Recent context shows lower_min_edge was weak; probe a different "
             "strategy dimension."
@@ -85,16 +75,18 @@ def build_proposal_intent(*, context_path: Path) -> dict[str, object]:
         recommended_direction = choose_recommended_direction(
             avoid_directions=avoid_directions,
             direction_candidates=direction_candidates,
-            fallback_direction=search_space_fallback(search_space),
+            fallback_direction=fallback_direction,
         )
+        selection_reason_code = "research_brief_switch_modifier_direction"
         reason = "Recent research brief recommends switching modifier direction."
         evidence.append("recent research focus recommends switching direction")
     elif prior_rounds:
         recommended_direction = choose_recommended_direction(
             avoid_directions=avoid_directions,
             direction_candidates=direction_candidates,
-            fallback_direction=search_space_fallback(search_space),
+            fallback_direction=fallback_direction,
         )
+        selection_reason_code = "same_run_history"
         reason = "Same-run history exists; avoid repeating the first probe dimension."
         evidence.append("same-run prior rounds exist")
 
@@ -120,6 +112,15 @@ def build_proposal_intent(*, context_path: Path) -> dict[str, object]:
             "acceptance is decided only by deterministic policy gates",
             "return a proposal_v1-compatible patch",
         ],
+        "direction_decision_trace": build_direction_decision_trace(
+            recommended_direction=recommended_direction,
+            selection_reason_code=selection_reason_code,
+            avoid_directions=avoid_directions,
+            avoid_audit=avoid_audit,
+            direction_candidates=direction_candidates,
+            fallback_direction=fallback_direction,
+            search_space=search_space,
+        ),
         "source_artifacts": {
             "agent_context_json": str(context_path.with_suffix(".json")),
             "agent_context_markdown": str(context_path),
@@ -127,7 +128,7 @@ def build_proposal_intent(*, context_path: Path) -> dict[str, object]:
         "strategy_search_space": {
             "schema_version": search_space.get("schema_version", ""),
             "direction_order": direction_candidates,
-            "fallback_direction": search_space_fallback(search_space),
+            "fallback_direction": fallback_direction,
             "policy": search_space.get("policy", {}),
         },
         "champion_gap": {
@@ -145,6 +146,8 @@ def render_proposal_intent_markdown(payload: dict[str, object]) -> str:
     constraints = [str(item) for item in payload.get("constraints", [])]
     avoid = [str(item) for item in payload.get("avoid_directions", [])]
     search_space = dict_payload(payload.get("strategy_search_space", {}))
+    decision_trace = dict_payload(payload.get("direction_decision_trace", {}))
+    trace_rows = list_of_dicts(decision_trace.get("candidate_rows", []))
     lines = [
         "# Proposal Intent",
         "",
@@ -167,8 +170,29 @@ def render_proposal_intent_markdown(payload: dict[str, object]) -> str:
             "- Direction order: "
             f"`{', '.join(string_list(search_space.get('direction_order', []))) or 'none'}`",
             f"- Fallback direction: `{search_space.get('fallback_direction', 'none')}`",
+            "",
+            "## Direction Decision Trace",
+            "",
+            f"- Trace schema: `{decision_trace.get('schema_version', '')}`",
+            f"- Selection reason code: `{decision_trace.get('selection_reason_code', '')}`",
         ]
     )
+    if trace_rows:
+        lines.extend(
+            [
+                "",
+                "| Direction | Selected | Avoided | Reason |",
+                "| --- | --- | --- | --- |",
+            ]
+        )
+        for row in trace_rows:
+            lines.append(
+                "| "
+                f"`{row.get('direction_tag', '')}` | "
+                f"{bool(row.get('selected', False))} | "
+                f"{bool(row.get('in_avoid_directions', False))} | "
+                f"{row.get('reason', '')} |"
+            )
     lines.extend(["", "## Constraints", ""])
     lines.extend(f"- {item}" for item in constraints)
     return "\n".join(lines).rstrip() + "\n"
@@ -193,6 +217,129 @@ def choose_recommended_direction(
         if direction not in avoid_directions:
             return direction
     return fallback_direction
+
+
+def build_avoid_direction_audit(
+    *,
+    prior_rounds: list[dict[str, Any]],
+    memory_records: list[dict[str, Any]],
+    recent_briefs: list[dict[str, Any]],
+) -> dict[str, list[str]]:
+    """Return source codes that put each direction on the avoid list."""
+    audit: dict[str, set[str]] = {}
+    for row in prior_rounds:
+        direction = str(row.get("direction_tag", ""))
+        if direction and not bool(row.get("accepted", False)):
+            audit.setdefault(direction, set()).add("same_run_rejected_round")
+    for row in memory_records:
+        direction = str(row.get("direction_tag", ""))
+        if direction and not bool(row.get("accepted", False)):
+            audit.setdefault(direction, set()).add("global_outcome_memory_rejection")
+    for row in recent_briefs:
+        if not recent_brief_failed(row):
+            continue
+        selected_direction = str(
+            row.get("top_direction_tag", "") or row.get("selected_direction_tag", "")
+        )
+        if selected_direction:
+            audit.setdefault(selected_direction, set()).add(
+                "failed_research_brief_top_direction"
+            )
+        for direction in string_list(row.get("recommended_avoid_directions", [])):
+            if direction:
+                audit.setdefault(direction, set()).add(
+                    "failed_research_brief_avoid_direction"
+                )
+    return {direction: sorted(sources) for direction, sources in sorted(audit.items())}
+
+
+def build_direction_decision_trace(
+    *,
+    recommended_direction: str,
+    selection_reason_code: str,
+    avoid_directions: list[str],
+    avoid_audit: dict[str, list[str]],
+    direction_candidates: list[str],
+    fallback_direction: str,
+    search_space: dict[str, Any],
+) -> dict[str, object]:
+    """Return auditable planner trace without changing routing authority."""
+    candidate_rows = [
+        direction_candidate_row(
+            direction=direction,
+            rank=index + 1,
+            recommended_direction=recommended_direction,
+            avoid_directions=avoid_directions,
+            avoid_audit=avoid_audit,
+            search_space=search_space,
+        )
+        for index, direction in enumerate(direction_candidates)
+    ]
+    exhausted_known_directions = (
+        bool(direction_candidates)
+        and recommended_direction == fallback_direction
+        and all(direction in avoid_directions for direction in direction_candidates)
+    )
+    return {
+        "schema_version": "direction_decision_trace_v1",
+        "selected_direction": recommended_direction,
+        "selection_reason_code": selection_reason_code,
+        "default_direction": DEFAULT_DIRECTION,
+        "fallback_direction": fallback_direction,
+        "candidate_order": direction_candidates,
+        "candidate_rows": candidate_rows,
+        "avoid_source_summary": {
+            direction: avoid_audit.get(direction, []) for direction in avoid_directions
+        },
+        "exhausted_known_directions": exhausted_known_directions,
+        "policy": {
+            "advisory_only": True,
+            "does_not_route_agents": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+
+def direction_candidate_row(
+    *,
+    direction: str,
+    rank: int,
+    recommended_direction: str,
+    avoid_directions: list[str],
+    avoid_audit: dict[str, list[str]],
+    search_space: dict[str, Any],
+) -> dict[str, object]:
+    """Return one deterministic row in the planner direction trace."""
+    direction_meta = search_space_direction_meta(search_space, direction)
+    avoided = direction in avoid_directions
+    selected = direction == recommended_direction
+    if selected:
+        reason = "selected first non-avoided candidate"
+    elif avoided:
+        reason = "skipped because prior evidence marked direction to avoid"
+    else:
+        reason = "available but ranked after selected direction"
+    return {
+        "direction_tag": direction,
+        "rank": rank,
+        "selected": selected,
+        "in_avoid_directions": avoided,
+        "avoid_sources": avoid_audit.get(direction, []),
+        "reason": reason,
+        "description": str(direction_meta.get("description", "")),
+        "modifier_hint": str(direction_meta.get("modifier_hint", "")),
+    }
+
+
+def search_space_direction_meta(
+    search_space: dict[str, Any],
+    direction: str,
+) -> dict[str, Any]:
+    """Return configured metadata for one direction if present."""
+    for row in list_of_dicts(search_space.get("directions", [])):
+        if str(row.get("direction_tag", "")) == direction:
+            return row
+    return {}
 
 
 def search_space_directions(search_space: dict[str, Any]) -> list[str]:

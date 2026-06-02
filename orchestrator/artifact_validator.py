@@ -402,6 +402,10 @@ def validate_round_dir(
         schema_path=repo_root / "schemas/proposal_intent.schema.json",
         report=report,
     )
+    validate_proposal_intent_trace(
+        path=round_dir / "proposal_intent.json",
+        report=report,
+    )
     validate_contract_file(
         payload_path=round_dir / "agent_input.json",
         schema_path=repo_root / "schemas/agent_input.schema.json",
@@ -766,6 +770,52 @@ def validate_agent_input_search_space(*, path: Path, report: dict[str, object]) 
     ):
         if policy.get(key) is not True:
             add_error(report, f"agent_input.json strategy_search_space policy false: {key}")
+
+
+def validate_proposal_intent_trace(*, path: Path, report: dict[str, object]) -> None:
+    """Validate planner direction-decision trace authority and consistency."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    trace = payload.get("direction_decision_trace", {})
+    if not isinstance(trace, dict):
+        add_error(report, f"proposal_intent.json direction_decision_trace invalid: {path}")
+        return
+    if trace.get("schema_version") != "direction_decision_trace_v1":
+        add_error(report, "proposal_intent.json direction_decision_trace schema mismatch")
+    recommended = str(payload.get("recommended_direction", ""))
+    if str(trace.get("selected_direction", "")) != recommended:
+        add_error(report, "proposal_intent.json direction trace selected direction mismatch")
+    candidate_order = trace.get("candidate_order", [])
+    candidate_rows = trace.get("candidate_rows", [])
+    if not isinstance(candidate_order, list) or not isinstance(candidate_rows, list):
+        add_error(report, "proposal_intent.json direction trace candidates invalid")
+        return
+    row_directions: list[str] = []
+    selected_rows = 0
+    for index, row in enumerate(candidate_rows, start=1):
+        if not isinstance(row, dict):
+            add_error(report, f"proposal_intent.json direction trace row invalid: {index}")
+            continue
+        row_directions.append(str(row.get("direction_tag", "")))
+        if row.get("rank") != index:
+            add_error(report, f"proposal_intent.json direction trace rank mismatch: {index}")
+        selected = bool(row.get("selected", False))
+        if selected:
+            selected_rows += 1
+            if str(row.get("direction_tag", "")) != recommended:
+                add_error(report, "proposal_intent.json direction trace selected row mismatch")
+    if row_directions != [str(direction) for direction in candidate_order]:
+        add_error(report, "proposal_intent.json direction trace order mismatch")
+    if recommended in row_directions and selected_rows != 1:
+        add_error(report, "proposal_intent.json direction trace selected row count invalid")
+    policy = trace.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "proposal_intent.json direction trace policy invalid")
+        return
+    for key in ("advisory_only", "does_not_route_agents", "does_not_change_acceptance"):
+        if policy.get(key) is not True:
+            add_error(report, f"proposal_intent.json direction trace policy false: {key}")
 
 
 def validate_agent_input_profile_directions(

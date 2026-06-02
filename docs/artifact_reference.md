@@ -243,7 +243,9 @@ Context and planning artifacts:
   configured strategy search space.
 - `proposal_intent.json` and `proposal_intent.md` convert context into
   deterministic planner guidance using the configured strategy search-space
-  direction order and fallback direction.
+  direction order and fallback direction. They also include a
+  `direction_decision_trace` that records candidate order, selected direction,
+  avoid-source codes, and advisory-only authority policy.
 - `agent_execution_plan.json` records the planned candidate queue and each
   profile's declared direction capability before any modifier runs.
 - `agent_routing_policy.json` explains deterministic candidate ranking,

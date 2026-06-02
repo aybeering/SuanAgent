@@ -2430,6 +2430,17 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert_matches_schema(run_dir / "research_brief.json", "research_brief")
     assert intent["schema_version"] == "proposal_intent_v1"
     assert intent["recommended_direction"] == "lower_min_edge"
+    assert intent["direction_decision_trace"]["schema_version"] == (
+        "direction_decision_trace_v1"
+    )
+    assert intent["direction_decision_trace"]["selected_direction"] == (
+        "lower_min_edge"
+    )
+    assert intent["direction_decision_trace"]["selection_reason_code"] == (
+        "default_probe"
+    )
+    assert intent["direction_decision_trace"]["policy"]["advisory_only"] is True
+    assert intent["direction_decision_trace"]["policy"]["does_not_route_agents"] is True
     assert_matches_schema(round_dir / "proposal_intent.json", "proposal_intent")
     assert role_contracts["schema_version"] == AGENT_ROLE_CONTRACTS_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_role_contracts.json", "agent_role_contracts")
@@ -4406,6 +4417,23 @@ def test_adaptive_stub_uses_recent_research_brief_without_memory(
     )
     assert intent["recommended_direction"] == "reduce_stake"
     assert intent["avoid_directions"] == ["lower_min_edge"]
+    assert intent["direction_decision_trace"]["selected_direction"] == "reduce_stake"
+    assert intent["direction_decision_trace"]["selection_reason_code"] == (
+        "default_direction_avoided"
+    )
+    assert intent["direction_decision_trace"]["avoid_source_summary"][
+        "lower_min_edge"
+    ] == [
+        "failed_research_brief_avoid_direction",
+        "failed_research_brief_top_direction",
+    ]
+    assert intent["direction_decision_trace"]["candidate_rows"][0][
+        "direction_tag"
+    ] == "lower_min_edge"
+    assert intent["direction_decision_trace"]["candidate_rows"][0][
+        "in_avoid_directions"
+    ] is True
+    assert intent["direction_decision_trace"]["candidate_rows"][1]["selected"] is True
     assert intent["strategy_search_space"]["direction_order"] == [
         "lower_min_edge",
         "reduce_stake",
@@ -4478,6 +4506,20 @@ def test_proposal_intent_uses_configured_strategy_search_space(
 
     assert intent["recommended_direction"] == "custom_probe"
     assert intent["avoid_directions"] == ["lower_min_edge"]
+    assert intent["direction_decision_trace"]["selected_direction"] == "custom_probe"
+    assert intent["direction_decision_trace"]["candidate_order"] == [
+        "lower_min_edge",
+        "custom_probe",
+    ]
+    assert intent["direction_decision_trace"]["candidate_rows"][0][
+        "modifier_hint"
+    ] == "fixed_patch_stub"
+    assert intent["direction_decision_trace"]["candidate_rows"][1][
+        "modifier_hint"
+    ] == "codex_cli"
+    assert intent["direction_decision_trace"]["policy"][
+        "does_not_change_acceptance"
+    ] is True
     assert intent["strategy_search_space"]["direction_order"] == [
         "lower_min_edge",
         "custom_probe",

@@ -8254,6 +8254,19 @@ def test_codex_cli_operator_unlock_request_schema_requires_evidence_contract(
         in file_record_errors
     )
 
+    missing_canonical_check = json.loads(json.dumps(request))
+    del missing_canonical_check["checks"][
+        "readiness_pipeline_path_is_canonical_run_artifact"
+    ]
+    canonical_check_errors = validate_json_payload(
+        payload=missing_canonical_check,
+        schema=schema,
+    )
+    assert (
+        "$.checks: missing required property "
+        "readiness_pipeline_path_is_canonical_run_artifact"
+    ) in canonical_check_errors
+
     unexpected_check = json.loads(json.dumps(request))
     unexpected_check["checks"]["natural_language_override"] = True
     unexpected_errors = validate_json_payload(
@@ -9983,11 +9996,13 @@ def write_operator_unlock_request_fixture(
         "blocking_reasons": [],
         "checks": {
             "readiness_pipeline_exists": True,
+            "readiness_pipeline_path_is_canonical_run_artifact": True,
             "readiness_pipeline_ok": True,
             "readiness_pipeline_completed": True,
             "readiness_pipeline_final_ready": True,
             "readiness_pipeline_hash_present": True,
             "real_execution_dry_run_exists": True,
+            "real_execution_dry_run_path_is_canonical_run_artifact": True,
             "real_execution_dry_run_ok": True,
             "real_execution_dry_run_ready": True,
             "execution_plan_present": True,

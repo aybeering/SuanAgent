@@ -64,6 +64,10 @@ def build_codex_cli_operator_unlock_request(
     command = string_list(planned_execution.get("command", []))
     checks = {
         "readiness_pipeline_exists": pipeline_path.exists() and pipeline_path.is_file(),
+        "readiness_pipeline_path_is_canonical_run_artifact": path_is_canonical_artifact(
+            path=pipeline_path,
+            expected_path=run_dir / "codex_cli_readiness_pipeline.json",
+        ),
         "readiness_pipeline_ok": bool(pipeline.get("ok", False)),
         "readiness_pipeline_completed": bool(
             pipeline.get("pipeline_completed", False)
@@ -73,6 +77,12 @@ def build_codex_cli_operator_unlock_request(
             file_record(pipeline_path, repo_root).get("sha256", "")
         ),
         "real_execution_dry_run_exists": dry_run_path.exists() and dry_run_path.is_file(),
+        "real_execution_dry_run_path_is_canonical_run_artifact": (
+            path_is_canonical_artifact(
+                path=dry_run_path,
+                expected_path=run_dir / "codex_cli_real_execution_dry_run.json",
+            )
+        ),
         "real_execution_dry_run_ok": bool(dry_run.get("ok", False)),
         "real_execution_dry_run_ready": bool(
             dry_run.get("real_execution_dry_run_ready", False)
@@ -255,16 +265,29 @@ def ensure_canonical_operator_unlock_source_paths(
         )
 
 
+def path_is_canonical_artifact(*, path: Path, expected_path: Path) -> bool:
+    """Return whether a path resolves to the expected artifact path."""
+    return path.resolve() == expected_path.resolve()
+
+
 def request_blockers(checks: dict[str, bool]) -> list[str]:
     """Return stable blocker codes for an operator unlock request."""
     blockers: list[str] = []
     for key, code in (
         ("readiness_pipeline_exists", "readiness_pipeline_missing"),
+        (
+            "readiness_pipeline_path_is_canonical_run_artifact",
+            "readiness_pipeline_path_not_canonical_run_artifact",
+        ),
         ("readiness_pipeline_ok", "readiness_pipeline_not_ok"),
         ("readiness_pipeline_completed", "readiness_pipeline_incomplete"),
         ("readiness_pipeline_final_ready", "readiness_pipeline_not_final_ready"),
         ("readiness_pipeline_hash_present", "readiness_pipeline_hash_missing"),
         ("real_execution_dry_run_exists", "real_execution_dry_run_missing"),
+        (
+            "real_execution_dry_run_path_is_canonical_run_artifact",
+            "real_execution_dry_run_path_not_canonical_run_artifact",
+        ),
         ("real_execution_dry_run_ok", "real_execution_dry_run_not_ok"),
         ("real_execution_dry_run_ready", "real_execution_dry_run_not_ready"),
         ("execution_plan_present", "execution_plan_missing"),

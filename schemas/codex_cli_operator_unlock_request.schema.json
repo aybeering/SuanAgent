@@ -45,11 +45,13 @@
       "type": "object",
       "required": [
         "readiness_pipeline_exists",
+        "readiness_pipeline_path_is_canonical_run_artifact",
         "readiness_pipeline_ok",
         "readiness_pipeline_completed",
         "readiness_pipeline_final_ready",
         "readiness_pipeline_hash_present",
         "real_execution_dry_run_exists",
+        "real_execution_dry_run_path_is_canonical_run_artifact",
         "real_execution_dry_run_ok",
         "real_execution_dry_run_ready",
         "execution_plan_present",
@@ -69,6 +71,9 @@
         "readiness_pipeline_exists": {
           "type": "boolean"
         },
+        "readiness_pipeline_path_is_canonical_run_artifact": {
+          "type": "boolean"
+        },
         "readiness_pipeline_ok": {
           "type": "boolean"
         },
@@ -82,6 +87,9 @@
           "type": "boolean"
         },
         "real_execution_dry_run_exists": {
+          "type": "boolean"
+        },
+        "real_execution_dry_run_path_is_canonical_run_artifact": {
           "type": "boolean"
         },
         "real_execution_dry_run_ok": {

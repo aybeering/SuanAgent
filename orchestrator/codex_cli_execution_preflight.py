@@ -144,6 +144,10 @@ def profile_execution_row(
     )
     request = load_json_object(request_path) if request_path is not None else {}
     planned = object_value(request.get("planned_execution_review", {}))
+    source_pipeline = object_value(request.get("source_pipeline", {}))
+    source_dry_run = object_value(request.get("source_real_execution_dry_run", {}))
+    source_pipeline_file = object_value(source_pipeline.get("file", {}))
+    source_dry_run_file = object_value(source_dry_run.get("file", {}))
     allowed_mutation_paths = string_list(planned.get("allowed_mutation_paths", []))
     expected_command = build_codex_command(
         executable=executable,
@@ -171,6 +175,14 @@ def profile_execution_row(
         "operator_unlock_request_ok": bool(request.get("ok", False)),
         "operator_unlock_request_ready": bool(
             request.get("operator_request_ready", False)
+        ),
+        "operator_request_source_pipeline_hash_matches": recorded_file_matches(
+            record=source_pipeline_file,
+            repo_root=repo_root,
+        ),
+        "operator_request_source_dry_run_hash_matches": recorded_file_matches(
+            record=source_dry_run_file,
+            repo_root=repo_root,
         ),
         "operator_request_command_matches_profile": planned_command == expected_command,
         "operator_request_command_sha256_matches_profile": str(
@@ -237,6 +249,14 @@ def operator_unlock_blockers(checks: dict[str, bool]) -> list[str]:
         ("operator_unlock_request_ok", "operator_unlock_request_not_ok"),
         ("operator_unlock_request_ready", "operator_unlock_request_not_ready"),
         (
+            "operator_request_source_pipeline_hash_matches",
+            "operator_request_source_pipeline_hash_mismatch",
+        ),
+        (
+            "operator_request_source_dry_run_hash_matches",
+            "operator_request_source_dry_run_hash_mismatch",
+        ),
+        (
             "operator_request_command_matches_profile",
             "operator_request_command_mismatch",
         ),
@@ -276,6 +296,20 @@ def workspace_prefix(*, workspace_root: str, run_id: str) -> str:
     """Return the required run-scoped workspace prefix for real execution."""
     root = workspace_root.rstrip("/")
     return f"{root}/{run_id}/" if root and run_id else ""
+
+
+def recorded_file_matches(*, record: dict[str, Any], repo_root: Path) -> bool:
+    """Return whether a recorded file hash still matches the current file."""
+    if not bool(record.get("exists", False)):
+        return False
+    path_text = str(record.get("path", ""))
+    expected_sha256 = str(record.get("sha256", ""))
+    if not path_text or not expected_sha256:
+        return False
+    path = resolve_path(Path(path_text), repo_root)
+    if not path.exists() or not path.is_file():
+        return False
+    return str(file_record(path, repo_root).get("sha256", "")) == expected_sha256
 
 
 def codex_cli_execution_preflight_markdown(payload: dict[str, Any]) -> str:

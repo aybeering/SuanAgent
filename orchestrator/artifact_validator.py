@@ -2510,7 +2510,9 @@ def validate_optional_codex_cli_execution_preflight(
                     "operator_request_required_confirmation_hash_matches",
                     "operator_request_provided_confirmation_hash_matches",
                     "operator_request_source_pipeline_hash_matches",
+                    "operator_request_source_pipeline_path_matches_record",
                     "operator_request_source_dry_run_hash_matches",
+                    "operator_request_source_dry_run_path_matches_record",
                     "operator_request_command_matches_profile",
                     "operator_request_command_sha256_matches_profile",
                     "operator_request_workspace_prefix_matches_run",
@@ -4152,6 +4154,13 @@ def validate_optional_codex_cli_operator_unlock_request(
                 report=report,
                 label="codex_cli_operator_unlock_request source_pipeline",
             )
+            validate_declared_record_path(
+                declared_path=str(source_pipeline.get("path", "")),
+                record=pipeline_record,
+                repo_root=repo_root,
+                report=report,
+                label="codex_cli_operator_unlock_request source_pipeline",
+            )
         else:
             add_error(
                 report,
@@ -4169,6 +4178,13 @@ def validate_optional_codex_cli_operator_unlock_request(
         dry_run_record = source_dry_run.get("file", {})
         if isinstance(dry_run_record, dict):
             validate_recorded_file_hash(
+                record=dry_run_record,
+                repo_root=repo_root,
+                report=report,
+                label="codex_cli_operator_unlock_request source_dry_run",
+            )
+            validate_declared_record_path(
+                declared_path=str(source_dry_run.get("path", "")),
                 record=dry_run_record,
                 repo_root=repo_root,
                 report=report,
@@ -4316,6 +4332,24 @@ def validate_recorded_file_hash(
         add_error(report, f"{label} sha256 mismatch")
 
 
+def validate_declared_record_path(
+    *,
+    declared_path: str,
+    record: dict[str, object],
+    repo_root: Path,
+    report: dict[str, object],
+    label: str,
+) -> None:
+    """Validate that an artifact path field matches its file record path."""
+    recorded_path = str(record.get("path", ""))
+    if not declared_path or not recorded_path:
+        add_error(report, f"{label} path binding missing")
+        return
+    normalized_path = normalize_repo_path(declared_path, repo_root)
+    if normalized_path != recorded_path:
+        add_error(report, f"{label} path mismatch")
+
+
 def validate_optional_research_brief(
     *,
     run_dir: Path,
@@ -4442,6 +4476,15 @@ def round_ids_from_manifest(manifest: dict[str, Any]) -> list[str]:
 def resolve_path(path: Path, repo_root: Path) -> Path:
     """Resolve paths relative to the repository root."""
     return path if path.is_absolute() else repo_root / path
+
+
+def normalize_repo_path(path_text: str, repo_root: Path) -> str:
+    """Return a stable repository-relative path when possible."""
+    path = resolve_path(Path(path_text), repo_root)
+    try:
+        return path.resolve().relative_to(repo_root.resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
 
 
 def checked_files(report: dict[str, object]) -> list[str]:

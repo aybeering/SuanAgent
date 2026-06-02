@@ -103,7 +103,9 @@
               "operator_request_required_confirmation_hash_matches",
               "operator_request_provided_confirmation_hash_matches",
               "operator_request_source_pipeline_hash_matches",
+              "operator_request_source_pipeline_path_matches_record",
               "operator_request_source_dry_run_hash_matches",
+              "operator_request_source_dry_run_path_matches_record",
               "operator_request_command_matches_profile",
               "operator_request_command_sha256_matches_profile",
               "operator_request_workspace_prefix_matches_run",
@@ -163,7 +165,13 @@
               "operator_request_source_pipeline_hash_matches": {
                 "type": "boolean"
               },
+              "operator_request_source_pipeline_path_matches_record": {
+                "type": "boolean"
+              },
               "operator_request_source_dry_run_hash_matches": {
+                "type": "boolean"
+              },
+              "operator_request_source_dry_run_path_matches_record": {
                 "type": "boolean"
               },
               "operator_request_command_matches_profile": {

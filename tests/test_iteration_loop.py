@@ -7253,6 +7253,75 @@ def test_codex_cli_execution_preflight_blocks_operator_source_drift(
     )
 
 
+def test_codex_cli_execution_preflight_blocks_operator_source_path_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_source_path_drift.py",
+        "#!/usr/bin/env python3\nprint('{}')\n",
+    )
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / "operator_unlock_fixtures/source_path_drift_request.json",
+        run_id="source-path-drift",
+        executable=str(fake_codex),
+        model="source-path-drift-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request["source_pipeline"]["path"] = (
+        "operator_unlock_fixtures/unreviewed_readiness_pipeline.json"
+    )
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "source-path-drift-test",
+            "sandbox": "workspace-write",
+            "workspace_root": "workspaces",
+            "execute": True,
+            "operator_unlock_request_path": str(request_path.relative_to(repo)),
+        },
+    )
+
+    preflight = write_codex_cli_execution_preflight(
+        output_path=repo
+        / "experiments/source-path-drift/codex_cli_execution_preflight.json",
+        markdown_path=repo
+        / "experiments/source-path-drift/codex_cli_execution_preflight.md",
+        run_dir=repo / "experiments/source-path-drift",
+        repo_root=repo,
+        config=config,
+    )
+
+    profile = preflight["profiles"][0]
+    assert preflight["ok"] is False
+    assert profile["checks"]["operator_unlock_request_contract_valid"] is True
+    assert profile["checks"]["operator_unlock_request_ready"] is True
+    assert profile["checks"]["operator_request_source_pipeline_hash_matches"] is True
+    assert (
+        profile["checks"]["operator_request_source_pipeline_path_matches_record"]
+        is False
+    )
+    assert (
+        profile["checks"]["operator_request_source_dry_run_path_matches_record"]
+        is True
+    )
+    assert (
+        "profile primary: operator_request_source_pipeline_path_mismatch"
+        in preflight["blocking_errors"]
+    )
+
+
 def test_codex_cli_execution_preflight_blocks_operator_intent_drift(
     tmp_path: Path,
 ) -> None:
@@ -7373,6 +7442,38 @@ def test_codex_cli_execution_preflight_blocks_operator_contract_drift(
     assert (
         "profile primary: operator_unlock_request_contract_invalid"
         in preflight["blocking_errors"]
+    )
+
+
+def test_artifact_validator_reports_operator_source_path_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/operator-path-drift"
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        run_dir / "codex_cli_operator_unlock_request.json",
+        run_id="operator-path-drift",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request["source_real_execution_dry_run"]["path"] = (
+        "experiments/operator-path-drift/unreviewed_real_execution_dry_run.json"
+    )
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="operator-path-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_operator_unlock_request source_dry_run path mismatch" in str(error)
+        for error in validation_report["errors"]
     )
 
 

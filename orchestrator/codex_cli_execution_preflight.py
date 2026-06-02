@@ -14,6 +14,7 @@ from orchestrator.codex_cli_dry_invocation_guard import (
     file_record,
     load_json_object,
     object_value,
+    relative_path,
     resolve_path,
     string_list,
     write_json,
@@ -217,7 +218,17 @@ def profile_execution_row(
             record=source_pipeline_file,
             repo_root=repo_root,
         ),
+        "operator_request_source_pipeline_path_matches_record": recorded_path_matches(
+            declared_path=str(source_pipeline.get("path", "")),
+            record=source_pipeline_file,
+            repo_root=repo_root,
+        ),
         "operator_request_source_dry_run_hash_matches": recorded_file_matches(
+            record=source_dry_run_file,
+            repo_root=repo_root,
+        ),
+        "operator_request_source_dry_run_path_matches_record": recorded_path_matches(
+            declared_path=str(source_dry_run.get("path", "")),
             record=source_dry_run_file,
             repo_root=repo_root,
         ),
@@ -316,8 +327,16 @@ def operator_unlock_blockers(checks: dict[str, bool]) -> list[str]:
             "operator_request_source_pipeline_hash_mismatch",
         ),
         (
+            "operator_request_source_pipeline_path_matches_record",
+            "operator_request_source_pipeline_path_mismatch",
+        ),
+        (
             "operator_request_source_dry_run_hash_matches",
             "operator_request_source_dry_run_hash_mismatch",
+        ),
+        (
+            "operator_request_source_dry_run_path_matches_record",
+            "operator_request_source_dry_run_path_mismatch",
         ),
         (
             "operator_request_command_matches_profile",
@@ -378,6 +397,22 @@ def recorded_file_matches(*, record: dict[str, Any], repo_root: Path) -> bool:
     if not path.exists() or not path.is_file():
         return False
     return str(file_record(path, repo_root).get("sha256", "")) == expected_sha256
+
+
+def recorded_path_matches(
+    *,
+    declared_path: str,
+    record: dict[str, Any],
+    repo_root: Path,
+) -> bool:
+    """Return whether a declared artifact path matches its file record path."""
+    if not declared_path:
+        return False
+    recorded_path = str(record.get("path", ""))
+    if not recorded_path:
+        return False
+    normalized = relative_path(resolve_path(Path(declared_path), repo_root), repo_root)
+    return normalized == recorded_path
 
 
 def operator_request_contract_valid(

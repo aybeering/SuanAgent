@@ -12,6 +12,7 @@ from orchestrator.agent_result_stats import build_agent_result_stats
 from orchestrator.agent_slot_readiness_gate import build_agent_slot_readiness_gate
 from orchestrator.agent_slot_health import build_agent_slot_health
 from orchestrator.artifact_validator_coverage import build_artifact_validator_coverage
+from orchestrator.candidate_quality_trace import build_candidate_quality_trace
 from orchestrator.experiment_index import read_experiment_index, recent_experiments
 from orchestrator.external_agent_sandbox_drill import (
     build_external_agent_sandbox_drill,
@@ -691,6 +692,28 @@ def agent_result_stats(
     payload = build_agent_result_stats(run_dir=run_dir)
     payload["from_artifact"] = False
     payload["round_replays"] = round_replay_summary(run_dir=run_dir)
+    return payload
+
+
+def candidate_quality_trace(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+) -> dict[str, object]:
+    """Return candidate quality trace for one iteration run."""
+    run_dir = experiments_dir / run_id
+    path = run_dir / "candidate_quality_trace.json"
+    if path.exists():
+        payload = load_json(path)
+        payload["from_artifact"] = True
+        return payload
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    payload = build_candidate_quality_trace(
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+    )
+    payload["from_artifact"] = False
     return payload
 
 
@@ -1403,6 +1426,12 @@ def main() -> None:
     )
     agents_parser.add_argument("run_id")
 
+    quality_trace_parser = subparsers.add_parser(
+        "quality-trace",
+        help="Show candidate quality trace for one iteration run.",
+    )
+    quality_trace_parser.add_argument("run_id")
+
     slots_parser = subparsers.add_parser(
         "slots",
         help="Show agent slot health across one iteration run.",
@@ -1540,6 +1569,11 @@ def main() -> None:
         )
     elif args.command == "agents":
         payload = agent_result_stats(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
+        )
+    elif args.command == "quality-trace":
+        payload = candidate_quality_trace(
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )

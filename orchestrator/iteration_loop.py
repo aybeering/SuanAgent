@@ -46,6 +46,7 @@ from orchestrator.agent_role_readiness import write_agent_role_readiness
 from orchestrator.agent_roles import write_agent_role_contracts
 from orchestrator.analysis_stub import write_analysis_notes
 from orchestrator.candidate_challenger_report import write_candidate_challenger_report
+from orchestrator.candidate_quality_trace import write_candidate_quality_trace
 from orchestrator.champion_promotion_approval import write_champion_promotion_approval
 from orchestrator.champion_promotion_dry_run import write_champion_promotion_dry_run
 from orchestrator.config import (
@@ -256,6 +257,12 @@ def run_iteration_loop(
             "ok": False,
             "status": "pending",
         },
+        "candidate_quality_trace": {
+            "path": "candidate_quality_trace.json",
+            "markdown_path": "candidate_quality_trace.md",
+            "ok": False,
+            "candidate_count": 0,
+        },
         "champion_promotion_dry_run": {
             "path": "champion_promotion_dry_run.json",
             "markdown_path": "champion_promotion_dry_run.md",
@@ -417,7 +424,7 @@ def run_iteration_loop(
                 manifest["completed_rounds"] = round_index
                 manifest["rounds"].append(round_summary)  # type: ignore[union-attr]
                 write_json(run_dir / "manifest.json", manifest)
-                write_candidate_leaderboard(run_dir)
+                write_candidate_leaderboard(run_dir=run_dir, repo_root=repo_root)
 
                 if round_summary["accepted"]:
                     manifest["status"] = "accepted"
@@ -525,7 +532,21 @@ def finalize_iteration_run(
 ) -> None:
     """Write run-level final artifacts after an iteration loop reaches a stop."""
     write_json(run_dir / "manifest.json", manifest)
-    write_candidate_leaderboard(run_dir)
+    write_candidate_leaderboard(run_dir=run_dir, repo_root=repo_root)
+    quality_trace = json.loads(
+        (run_dir / "candidate_quality_trace.json").read_text(encoding="utf-8")
+    )
+    quality_summary = (
+        quality_trace.get("summary", {})
+        if isinstance(quality_trace.get("summary", {}), dict)
+        else {}
+    )
+    manifest["candidate_quality_trace"] = {
+        "path": "candidate_quality_trace.json",
+        "markdown_path": "candidate_quality_trace.md",
+        "ok": bool(quality_trace.get("schema_version") == "candidate_quality_trace_v1"),
+        "candidate_count": int(quality_summary.get("candidate_count", 0) or 0),
+    }
     write_iteration_summary(run_dir=run_dir, manifest=manifest)
     append_experiment_index(
         experiments_dir=experiments_dir,
@@ -1331,11 +1352,16 @@ def round_improved(
     return probe_delta > min_probe_ev_delta or validation_delta > min_validation_ev_delta
 
 
-def write_candidate_leaderboard(run_dir: Path) -> list[dict[str, object]]:
+def write_candidate_leaderboard(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+) -> list[dict[str, object]]:
     """Write a run-level candidate leaderboard from round attempts."""
     rows = candidate_leaderboard_rows(run_dir)
     write_json(run_dir / "candidate_leaderboard.json", rows)
     write_agent_result_stats(run_dir)
+    write_candidate_quality_trace(run_dir=run_dir, repo_root=repo_root)
     return rows
 
 

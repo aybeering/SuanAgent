@@ -27,6 +27,8 @@ ITERATION_RUN_REQUIRED_FILES = (
     "manifest.json",
     "summary.md",
     "candidate_leaderboard.json",
+    "candidate_quality_trace.json",
+    "candidate_quality_trace.md",
     "codex_cli_execution_preflight.json",
     "codex_cli_execution_preflight.md",
     "agent_activation_preflight.json",
@@ -315,6 +317,11 @@ def validate_iteration_run(
         rows=candidate_rows,
         report=report,
     )
+    validate_candidate_quality_trace(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_contract_file(
         payload_path=run_dir / "agent_activation_preflight.json",
         schema_path=repo_root / "schemas/agent_activation_preflight.schema.json",
@@ -404,6 +411,66 @@ def validate_candidate_quality_row(
     if not isinstance(policy, dict):
         add_error(report, f"{label} quality policy invalid")
     return quality
+
+
+def validate_candidate_quality_trace(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate run-level candidate quality trace artifact."""
+    path = run_dir / "candidate_quality_trace.json"
+    md_path = run_dir / "candidate_quality_trace.md"
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/candidate_quality_trace.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(report, f"candidate_quality_trace.json run_id does not match report: {path}")
+    source = payload.get("source", {})
+    if not isinstance(source, dict):
+        add_error(report, "candidate_quality_trace.json source invalid")
+    else:
+        validate_recorded_file_hash(
+            record=source,
+            repo_root=repo_root,
+            report=report,
+            label="candidate_quality_trace source",
+        )
+        if not str(source.get("path", "")).endswith("candidate_leaderboard.json"):
+            add_error(report, "candidate_quality_trace source is not candidate_leaderboard.json")
+    candidates = payload.get("candidates", [])
+    if not isinstance(candidates, list):
+        add_error(report, "candidate_quality_trace.json candidates invalid")
+        candidates = []
+    summary = payload.get("summary", {})
+    if not isinstance(summary, dict):
+        add_error(report, "candidate_quality_trace.json summary invalid")
+    elif int(summary.get("candidate_count", -1) or -1) != len(candidates):
+        add_error(report, "candidate_quality_trace.json candidate_count mismatch")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "candidate_quality_trace.json policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_route_candidates",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "proposal_attempts_remain_round_source_of_truth",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"candidate_quality_trace.json policy false: {key}")
 
 
 def validate_round_candidate_quality_bindings(

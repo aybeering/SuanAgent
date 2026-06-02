@@ -108,6 +108,7 @@ Implemented or allowed V0.5 components:
 94. Deterministic `proposal_intent_summary` binding inside `agent_validation.json`, proving raw-output contract validation ran against the same planner context in `agent_input.json` without changing validation pass/fail rules, git apply checks, quarantine release rules, patch application, or acceptance.
 95. Deterministic candidate quality breakdown bindings inside executor, attempt manifest, attempt output, selection, routing, agent output, leaderboard, brief, and closeout artifacts, proving candidate score explanations remain auditable across the saved candidate trace without changing queue order, scoring rules, patch application, or acceptance.
 96. Deterministic cross-artifact candidate quality consistency checks that bind each `attempt_id` in executor, attempt manifest, attempt output, selection, routing, agent output, and leaderboard artifacts back to `proposal_attempts.json`, without executing agents, rerunning backtests, applying patches, or changing acceptance.
+97. A deterministic `candidate_quality_trace.json` and `candidate_quality_trace.md` report pair that summarizes saved candidate score components, probe/validation/holdout signals, selected attempts, patch families, and failure codes from `candidate_leaderboard.json` without executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 
 ## Contract Families
 
@@ -147,6 +148,7 @@ Agent-slot contracts:
 - Memory diagnostics: `schemas/memory_diagnostics.schema.json`
 - Experiment scope health: `schemas/experiment_scope_health.schema.json`
 - Run closeout: `schemas/run_closeout.schema.json`
+- Candidate quality trace: `schemas/candidate_quality_trace.schema.json`
 - Candidate challenger report: `schemas/candidate_challenger_report.schema.json`
 - Champion promotion dry-run: `schemas/champion_promotion_dry_run.schema.json`
 - Champion promotion approval: `schemas/champion_promotion_approval.schema.json`

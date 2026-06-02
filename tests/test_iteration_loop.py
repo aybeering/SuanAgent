@@ -209,6 +209,7 @@ from orchestrator.experiments import (
     agent_slot_readiness_report,
     agent_slot_health_report,
     candidate_leaderboard,
+    candidate_quality_trace,
     compare_experiments,
     experiment_leaderboard,
     list_experiments,
@@ -2051,6 +2052,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     ):
         assert (round_dir / filename).exists()
     assert (run_dir / "candidate_leaderboard.json").exists()
+    assert (run_dir / "candidate_quality_trace.json").exists()
+    assert (run_dir / "candidate_quality_trace.md").exists()
     assert (run_dir / "agent_result_stats.json").exists()
     assert (run_dir / "agent_activation_preflight.json").exists()
     assert (run_dir / "agent_activation_preflight.md").exists()
@@ -2126,6 +2129,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     leaderboard = json.loads(
         (run_dir / "candidate_leaderboard.json").read_text(encoding="utf-8")
     )
+    quality_trace = json.loads(
+        (run_dir / "candidate_quality_trace.json").read_text(encoding="utf-8")
+    )
+    quality_trace_markdown = (run_dir / "candidate_quality_trace.md").read_text(
+        encoding="utf-8"
+    )
     agent_stats = json.loads(
         (run_dir / "agent_result_stats.json").read_text(encoding="utf-8")
     )
@@ -2160,6 +2169,26 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         if line.strip()
     ]
     selected_attempt = next(attempt for attempt in attempts if attempt["selected"])
+    assert manifest["candidate_quality_trace"]["path"] == "candidate_quality_trace.json"
+    assert manifest["candidate_quality_trace"]["markdown_path"] == (
+        "candidate_quality_trace.md"
+    )
+    assert manifest["candidate_quality_trace"]["ok"] is True
+    assert manifest["candidate_quality_trace"]["candidate_count"] == len(leaderboard)
+    assert quality_trace["schema_version"] == "candidate_quality_trace_v1"
+    assert quality_trace["summary"]["candidate_count"] == len(leaderboard)
+    assert quality_trace["summary"]["selected_attempt_ids"]
+    assert quality_trace["source"]["path"].endswith("candidate_leaderboard.json")
+    assert quality_trace["candidates"][0]["attempt_id"] == leaderboard[0]["attempt_id"]
+    assert quality_trace["candidates"][0]["quality_breakdown"] == (
+        leaderboard[0]["quality_breakdown"]
+    )
+    assert quality_trace["policy"]["does_not_change_acceptance"] is True
+    assert "# Candidate Quality Trace" in quality_trace_markdown
+    assert_matches_schema(
+        run_dir / "candidate_quality_trace.json",
+        "candidate_quality_trace",
+    )
     assert manifest["candidate_challenger_report"]["path"] == (
         "candidate_challenger_report.json"
     )
@@ -6363,6 +6392,34 @@ def test_artifact_validator_reports_missing_required_round_file(
     assert report["ok"] is False
     assert any(
         "missing required artifact" in error and "agent_input.json" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_candidate_quality_trace_policy_violation(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="quality-trace-policy-error",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = repo / "experiments/quality-trace-policy-error/candidate_quality_trace.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["policy"]["does_not_change_acceptance"] = False
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="quality-trace-policy-error",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "candidate_quality_trace.json policy false: does_not_change_acceptance"
+        in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 
@@ -12431,6 +12488,10 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         run_id="cli-candidates",
         experiments_dir=repo / "experiments",
     )
+    trace = candidate_quality_trace(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+    )
     result = subprocess.run(
         [
             sys.executable,
@@ -12456,6 +12517,21 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "--experiments-dir",
             "experiments",
             "agents",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    trace_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "quality-trace",
             "cli-candidates",
         ],
         cwd=repo,
@@ -12507,6 +12583,10 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert rows[0]["holdout_ev_delta"] is not None
     assert stats["from_artifact"] is True
     assert stats["totals"]["attempt_count"] == len(rows)
+    assert trace["from_artifact"] is True
+    assert trace["schema_version"] == "candidate_quality_trace_v1"
+    assert trace["summary"]["candidate_count"] == len(rows)
+    assert trace["candidates"][0]["quality_breakdown"] == rows[0]["quality_breakdown"]
     assert stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
     assert "avg_holdout_ev_delta" in stats["agents"][0]
     assert stats["round_replays"]["round_count"] == 1
@@ -12531,6 +12611,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert stats_payload["round_replays"]["rounds"][0]["attempts"][0][
         "replay_path"
     ].endswith("attempt_replay.json")
+    assert trace_result.returncode == 0, trace_result.stderr
+    trace_payload = json.loads(trace_result.stdout)
+    assert trace_payload["schema_version"] == "candidate_quality_trace_v1"
+    assert trace_payload["from_artifact"] is True
+    assert trace_payload["summary"]["candidate_count"] == len(rows)
     assert challenger_result.returncode == 0, challenger_result.stderr
     challenger_payload = json.loads(challenger_result.stdout)
     assert challenger_payload["schema_version"] == CANDIDATE_CHALLENGER_SCHEMA_VERSION

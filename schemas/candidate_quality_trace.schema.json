@@ -1,0 +1,313 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Candidate Quality Trace",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "source",
+    "summary",
+    "rounds",
+    "candidates",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "candidate_quality_trace_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "candidate_count",
+        "round_count",
+        "selected_count",
+        "selectable_count",
+        "accepted_count",
+        "top_failure_code",
+        "top_quality_component",
+        "selected_attempt_ids",
+        "selected_directions",
+        "policy_note"
+      ],
+      "properties": {
+        "candidate_count": {
+          "type": "integer"
+        },
+        "round_count": {
+          "type": "integer"
+        },
+        "selected_count": {
+          "type": "integer"
+        },
+        "selectable_count": {
+          "type": "integer"
+        },
+        "accepted_count": {
+          "type": "integer"
+        },
+        "top_failure_code": {
+          "type": "string"
+        },
+        "top_quality_component": {
+          "type": "string"
+        },
+        "selected_attempt_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "selected_directions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "policy_note": {
+          "type": "string"
+        }
+      }
+    },
+    "rounds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "round_id",
+          "candidate_count",
+          "selected_attempt_id",
+          "selected_direction_tag",
+          "top_attempt_id",
+          "top_score",
+          "top_failure_code",
+          "selected_validation_ev_delta",
+          "selected_holdout_ev_delta"
+        ],
+        "properties": {
+          "round_id": {
+            "type": "string"
+          },
+          "candidate_count": {
+            "type": "integer"
+          },
+          "selected_attempt_id": {
+            "type": "string"
+          },
+          "selected_direction_tag": {
+            "type": "string"
+          },
+          "top_attempt_id": {
+            "type": "string"
+          },
+          "top_score": {
+            "type": "number"
+          },
+          "top_failure_code": {
+            "type": "string"
+          },
+          "selected_validation_ev_delta": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "selected_holdout_ev_delta": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "run_id",
+          "round_id",
+          "attempt_id",
+          "attempt_index",
+          "role",
+          "profile_name",
+          "adapter_name",
+          "runner_name",
+          "agent_name",
+          "direction_tag",
+          "selected",
+          "status",
+          "candidate_score",
+          "score_reasons",
+          "quality_breakdown",
+          "score_components",
+          "signals",
+          "failure",
+          "patch",
+          "selection",
+          "guards"
+        ],
+        "properties": {
+          "run_id": {
+            "type": "string"
+          },
+          "round_id": {
+            "type": "string"
+          },
+          "attempt_id": {
+            "type": "string"
+          },
+          "attempt_index": {
+            "type": "integer"
+          },
+          "role": {
+            "type": "string"
+          },
+          "profile_name": {
+            "type": "string"
+          },
+          "adapter_name": {
+            "type": "string"
+          },
+          "runner_name": {
+            "type": "string"
+          },
+          "agent_name": {
+            "type": "string"
+          },
+          "direction_tag": {
+            "type": "string"
+          },
+          "selected": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "candidate_score": {
+            "type": "number"
+          },
+          "score_reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "quality_breakdown": {
+            "type": "object"
+          },
+          "score_components": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "score_delta",
+                "reason"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "score_delta": {
+                  "type": "number"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "signals": {
+            "type": "object"
+          },
+          "failure": {
+            "type": "object"
+          },
+          "patch": {
+            "type": "object"
+          },
+          "selection": {
+            "type": "object"
+          },
+          "guards": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_route_candidates",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "proposal_attempts_remain_round_source_of_truth"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_saved_artifacts_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_route_candidates": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "proposal_attempts_remain_round_source_of_truth": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

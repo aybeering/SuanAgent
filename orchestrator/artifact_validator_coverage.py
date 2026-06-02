@@ -44,6 +44,10 @@ KNOWN_ARTIFACT_NAMES = {
         "candidate_challenger_report.json",
         "candidate_challenger_report.md",
     ),
+    "candidate_quality_trace": (
+        "candidate_quality_trace.json",
+        "candidate_quality_trace.md",
+    ),
     "champion_promotion_dry_run": (
         "champion_promotion_dry_run.json",
         "champion_promotion_dry_run.md",
@@ -92,6 +96,10 @@ INSPECTION_COMMANDS = {
     "run_closeout": ("python -m orchestrator.run_closeout",),
     "candidate_challenger_report": (
         "python -m orchestrator.candidate_challenger_report",
+    ),
+    "candidate_quality_trace": (
+        "python -m orchestrator.candidate_quality_trace",
+        "python -m orchestrator.experiments quality-trace",
     ),
     "champion_promotion_dry_run": (
         "python -m orchestrator.champion_promotion_dry_run",

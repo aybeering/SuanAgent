@@ -74,6 +74,9 @@ def build_operator_cockpit(
     promotion = load_json_object(run_dir / "champion_promotion_dry_run.json")
     approval = load_json_object(run_dir / "champion_promotion_approval.json")
     codex_preflight = load_json_object(run_dir / "codex_cli_execution_preflight.json")
+    codex_readiness_diff = load_json_object(
+        run_dir / "codex_cli_execution_readiness_diff.json"
+    )
     codex_unlock_checklist = load_or_build_unlock_checklist(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -92,6 +95,7 @@ def build_operator_cockpit(
         promotion=promotion,
         approval=approval,
         codex_preflight=codex_preflight,
+        codex_readiness_diff=codex_readiness_diff,
         action_dashboard=action_dashboard,
         scope_health=scope_health,
     )
@@ -103,6 +107,7 @@ def build_operator_cockpit(
         promotion=promotion,
         approval=approval,
         codex_preflight=codex_preflight,
+        codex_readiness_diff=codex_readiness_diff,
         action_dashboard=action_dashboard,
         scope_health=scope_health,
     )
@@ -110,6 +115,7 @@ def build_operator_cockpit(
         config_lineage=config_lineage,
         action_dashboard=action_dashboard,
         codex_preflight=codex_preflight,
+        codex_readiness_diff=codex_readiness_diff,
         promotion=promotion,
         approval=approval,
         scope_health=scope_health,
@@ -218,6 +224,7 @@ def cockpit_summary(
     promotion: dict[str, Any],
     approval: dict[str, Any],
     codex_preflight: dict[str, Any],
+    codex_readiness_diff: dict[str, Any],
     action_dashboard: dict[str, Any],
     scope_health: dict[str, Any],
 ) -> dict[str, object]:
@@ -225,6 +232,7 @@ def cockpit_summary(
     closeout_summary = object_field(closeout, "summary")
     action_summary = object_field(action_dashboard, "summary")
     codex_summary = object_field(codex_preflight, "summary")
+    diff_summary = object_field(codex_readiness_diff, "summary")
     codex_blockers = string_rows(codex_preflight.get("blocking_errors", []))
     return {
         "run_status": str(closeout.get("status", "unknown")),
@@ -261,6 +269,21 @@ def cockpit_summary(
             codex_summary.get("operator_unlock_ready_count", 0) or 0
         ),
         "codex_preflight_blocker_count": len(codex_blockers),
+        "codex_readiness_diff_status": str(
+            codex_readiness_diff.get("status", "missing")
+        ),
+        "codex_readiness_diff_ready": bool(
+            codex_readiness_diff.get("ready", False)
+        ),
+        "codex_readiness_diff_matched_count": int(
+            diff_summary.get("matched_count", 0) or 0
+        ),
+        "codex_readiness_diff_drift_count": int(
+            diff_summary.get("drift_count", 0) or 0
+        ),
+        "codex_readiness_diff_missing_count": int(
+            diff_summary.get("missing_comparison_count", 0) or 0
+        ),
     }
 
 
@@ -301,6 +324,7 @@ def cockpit_panels(
     promotion: dict[str, Any],
     approval: dict[str, Any],
     codex_preflight: dict[str, Any],
+    codex_readiness_diff: dict[str, Any],
     action_dashboard: dict[str, Any],
     scope_health: dict[str, Any],
 ) -> list[dict[str, object]]:
@@ -344,6 +368,14 @@ def cockpit_panels(
                 preflight=codex_preflight,
                 blockers=preflight_blockers,
             ),
+        ),
+        panel(
+            panel_id="codex_cli_readiness_diff",
+            title="Codex CLI Readiness Diff",
+            status=str(codex_readiness_diff.get("status", "missing")),
+            ok=bool(codex_readiness_diff.get("ready", False)),
+            artifact_path=run_dir / "codex_cli_execution_readiness_diff.json",
+            next_step=codex_readiness_diff_next_step(codex_readiness_diff),
         ),
         panel(
             panel_id="champion_review",
@@ -406,6 +438,7 @@ def cockpit_blockers(
     config_lineage: dict[str, Any],
     action_dashboard: dict[str, Any],
     codex_preflight: dict[str, Any],
+    codex_readiness_diff: dict[str, Any],
     promotion: dict[str, Any],
     approval: dict[str, Any],
     scope_health: dict[str, Any],
@@ -419,6 +452,21 @@ def cockpit_blockers(
         f"codex_cli_preflight:{blocker}"
         for blocker in string_rows(codex_preflight.get("blocking_errors", []))
     )
+    codex_summary = object_field(codex_preflight, "summary")
+    real_codex_profile_count = int(
+        codex_summary.get("real_codex_execute_profile_count", 0) or 0
+    )
+    if (
+        real_codex_profile_count > 0
+        and codex_readiness_diff
+        and codex_readiness_diff.get("ready") is not True
+    ):
+        blockers.extend(
+            f"codex_cli_readiness_diff:{blocker}"
+            for blocker in string_rows(
+                codex_readiness_diff.get("blocking_reasons", [])
+            )
+        )
     blockers.extend(
         string_rows(object_field(promotion, "promotion_gate").get("blockers", []))
     )
@@ -448,6 +496,10 @@ def source_artifacts(*, run_dir: Path, repo_root: Path) -> dict[str, object]:
         "codex_cli_execution_preflight": (
             run_dir / "codex_cli_execution_preflight.json",
             "schemas/codex_cli_execution_preflight.schema.json",
+        ),
+        "codex_cli_execution_readiness_diff": (
+            run_dir / "codex_cli_execution_readiness_diff.json",
+            "schemas/codex_cli_execution_readiness_diff.schema.json",
         ),
         "operator_unlock_checklist": (
             run_dir / "operator_unlock_checklist.json",
@@ -532,6 +584,15 @@ def recommended_commands(
             ),
             reason="Inspect startup blockers before any real Codex CLI execution.",
             writes_artifact="codex_cli_execution_preflight.json",
+        ),
+        command_hint(
+            label="review_codex_cli_readiness_diff",
+            command=(
+                "python -m orchestrator.experiments "
+                f"execution-readiness-diff {run_id} --markdown"
+            ),
+            reason="Inspect current-vs-reviewed Codex CLI execution evidence.",
+            writes_artifact="",
         ),
     ]
     if not (run_dir / "operator_action_dashboard.json").exists():
@@ -618,6 +679,20 @@ def codex_preflight_next_step(
     return "review operator unlock evidence before any real Codex execution"
 
 
+def codex_readiness_diff_next_step(payload: dict[str, Any]) -> str:
+    """Return the next operator-facing step for the Codex CLI readiness diff."""
+    if not payload:
+        return "write Codex CLI execution readiness diff before real execution review"
+    status = str(payload.get("status", "missing"))
+    if status == "ready":
+        return "review startup preflight authority before real execution"
+    if status == "drift_detected":
+        return "regenerate reviewed Codex CLI evidence before real execution"
+    if status == "missing_evidence":
+        return "generate missing Codex CLI readiness artifacts before review"
+    return "inspect Codex CLI readiness blockers before real execution"
+
+
 def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
     """Render an operator cockpit as markdown."""
     summary = object_field(payload, "summary")
@@ -632,6 +707,7 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         f"- Config lineage: `{summary.get('config_lineage_status', '')}`",
         f"- Action: `{summary.get('action_status', '')}`",
         f"- Codex CLI preflight: `{summary.get('codex_preflight_status', '')}`",
+        f"- Codex CLI readiness diff: `{summary.get('codex_readiness_diff_status', '')}`",
         f"- Promotion: `{summary.get('promotion_status', '')}`",
         "",
         "## Panels",

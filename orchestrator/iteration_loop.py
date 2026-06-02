@@ -60,6 +60,9 @@ from orchestrator.config import (
 from orchestrator.codex_cli_execution_preflight import (
     write_codex_cli_execution_preflight,
 )
+from orchestrator.codex_cli_execution_readiness_diff import (
+    write_codex_cli_execution_readiness_diff,
+)
 from orchestrator.experiment_index import append_experiment_index
 from orchestrator.experiment_scope_health import write_experiment_scope_health
 from orchestrator.experiments import write_champion_comparison
@@ -240,6 +243,16 @@ def run_iteration_loop(
             "path": "codex_cli_execution_preflight.json",
             "ok": False,
             "blocking_error_count": 0,
+        },
+        "codex_cli_execution_readiness_diff": {
+            "path": "codex_cli_execution_readiness_diff.json",
+            "markdown_path": "codex_cli_execution_readiness_diff.md",
+            "ready": False,
+            "status": "pending",
+            "matched_count": 0,
+            "drift_count": 0,
+            "missing_artifact_count": 0,
+            "missing_comparison_count": 0,
         },
         "experiment_scope_health": {
             "path": "experiment_scope_health.json",
@@ -530,6 +543,7 @@ def run_iteration_loop(
                         experiments_dir=active_experiments_dir,
                         repo_root=repo_root,
                         config_path=config_path or repo_root / DEFAULT_CONFIG_PATH,
+                        config_payload=codex_execution_config_payload(active_config),
                         scope_health_created_at_from=scope_health_created_at_from,
                         write_research=True,
                     )
@@ -555,6 +569,7 @@ def run_iteration_loop(
                         experiments_dir=active_experiments_dir,
                         repo_root=repo_root,
                         config_path=config_path or repo_root / DEFAULT_CONFIG_PATH,
+                        config_payload=codex_execution_config_payload(active_config),
                         scope_health_created_at_from=scope_health_created_at_from,
                         write_research=True,
                     )
@@ -577,6 +592,7 @@ def run_iteration_loop(
                         experiments_dir=active_experiments_dir,
                         repo_root=repo_root,
                         config_path=config_path or repo_root / DEFAULT_CONFIG_PATH,
+                        config_payload=codex_execution_config_payload(active_config),
                         scope_health_created_at_from=scope_health_created_at_from,
                         write_research=True,
                     )
@@ -592,6 +608,7 @@ def run_iteration_loop(
             experiments_dir=active_experiments_dir,
             repo_root=repo_root,
             config_path=config_path or repo_root / DEFAULT_CONFIG_PATH,
+            config_payload=codex_execution_config_payload(active_config),
             scope_health_created_at_from=scope_health_created_at_from,
             write_research=True,
         )
@@ -606,6 +623,7 @@ def run_iteration_loop(
             experiments_dir=active_experiments_dir,
             repo_root=repo_root,
             config_path=config_path or repo_root / DEFAULT_CONFIG_PATH,
+            config_payload=codex_execution_config_payload(active_config),
             scope_health_created_at_from=scope_health_created_at_from,
             write_research=False,
         )
@@ -620,6 +638,7 @@ def finalize_iteration_run(
     experiments_dir: Path,
     repo_root: Path,
     config_path: Path,
+    config_payload: dict[str, object] | None,
     scope_health_created_at_from: str,
     write_research: bool,
 ) -> None:
@@ -941,6 +960,17 @@ def finalize_iteration_run(
     )
     write_json(run_dir / "manifest.json", manifest)
     write_iteration_summary(run_dir=run_dir, manifest=manifest)
+    _, _, execution_diff_payload = write_codex_cli_execution_readiness_diff(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        config_path=config_path,
+        config_payload=config_payload,
+    )
+    manifest["codex_cli_execution_readiness_diff"] = (
+        codex_execution_readiness_diff_manifest_row(execution_diff_payload)
+    )
+    write_json(run_dir / "manifest.json", manifest)
+    write_iteration_summary(run_dir=run_dir, manifest=manifest)
     _, _, cockpit_payload = write_operator_cockpit(
         run_dir=run_dir,
         experiments_dir=experiments_dir,
@@ -964,6 +994,41 @@ def finalize_iteration_run(
     }
     write_json(run_dir / "manifest.json", manifest)
     write_iteration_summary(run_dir=run_dir, manifest=manifest)
+
+
+def codex_execution_readiness_diff_manifest_row(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    """Return compact manifest metadata for the Codex CLI readiness diff."""
+    summary = (
+        payload.get("summary", {})
+        if isinstance(payload.get("summary", {}), dict)
+        else {}
+    )
+    return {
+        "path": "codex_cli_execution_readiness_diff.json",
+        "markdown_path": "codex_cli_execution_readiness_diff.md",
+        "ready": bool(payload.get("ready", False)),
+        "status": str(payload.get("status", "unknown")),
+        "matched_count": int(summary.get("matched_count", 0) or 0),
+        "drift_count": int(summary.get("drift_count", 0) or 0),
+        "missing_artifact_count": int(
+            summary.get("missing_artifact_count", 0) or 0
+        ),
+        "missing_comparison_count": int(
+            summary.get("missing_comparison_count", 0) or 0
+        ),
+    }
+
+
+def codex_execution_config_payload(config: ProjectConfig) -> dict[str, object] | None:
+    """Return the run's effective Codex config when only a config object was supplied."""
+    if not config.strategy_modifier.startswith("codex"):
+        return None
+    return {
+        "strategy_modifier": config.strategy_modifier,
+        "codex_cli": dict(config.modifier_settings),
+    }
 
 
 def operator_unlock_manifest_row(payload: dict[str, object]) -> dict[str, object]:

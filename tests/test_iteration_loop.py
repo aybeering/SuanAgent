@@ -2251,6 +2251,9 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["source_artifacts"]["codex_cli_execution_preflight"]["file"][
         "exists"
     ] is True
+    assert cockpit["source_artifacts"]["codex_cli_execution_readiness_diff"]["file"][
+        "exists"
+    ] is True
     assert cockpit["source_artifacts"]["operator_unlock_checklist"]["file"][
         "path"
     ].endswith("operator_unlock_checklist.json")
@@ -2284,6 +2287,8 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["summary"]["codex_preflight_ok"] is True
     assert cockpit["summary"]["codex_real_execute_profile_count"] == 0
     assert cockpit["summary"]["codex_preflight_blocker_count"] == 0
+    assert cockpit["summary"]["codex_readiness_diff_status"] == "missing_evidence"
+    assert cockpit["summary"]["codex_readiness_diff_ready"] is False
     assert cockpit["codex_unlock_checklist"]["status"] == "not_requested"
     assert cockpit["codex_unlock_checklist"]["ready"] is False
     assert cockpit["codex_unlock_checklist"]["item_count"] == 0
@@ -2293,7 +2298,15 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert len(cockpit["panels"]) >= 7
     assert any(row["panel_id"] == "operator_action" for row in cockpit["panels"])
     assert any(row["panel_id"] == "codex_cli_unlock" for row in cockpit["panels"])
+    assert any(
+        row["panel_id"] == "codex_cli_readiness_diff"
+        for row in cockpit["panels"]
+    )
     assert any(row["label"] == "review_cockpit" for row in cockpit["recommended_commands"])
+    assert any(
+        row["label"] == "review_codex_cli_readiness_diff"
+        for row in cockpit["recommended_commands"]
+    )
     assert any(
         row["label"] == "review_codex_cli_preflight"
         for row in cockpit["recommended_commands"]
@@ -3567,6 +3580,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "operator_action_dashboard.md").exists()
     assert (run_dir / "operator_unlock_checklist.json").exists()
     assert (run_dir / "operator_unlock_checklist.md").exists()
+    assert (run_dir / "codex_cli_execution_readiness_diff.json").exists()
+    assert (run_dir / "codex_cli_execution_readiness_diff.md").exists()
     assert (run_dir / "operator_cockpit.json").exists()
     assert (run_dir / "operator_cockpit.md").exists()
     assert (repo / "experiments/run_artifact_health_history.jsonl").exists()
@@ -3716,6 +3731,14 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     unlock_checklist_markdown = (run_dir / "operator_unlock_checklist.md").read_text(
         encoding="utf-8"
     )
+    execution_diff = json.loads(
+        (run_dir / "codex_cli_execution_readiness_diff.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    execution_diff_markdown = (
+        run_dir / "codex_cli_execution_readiness_diff.md"
+    ).read_text(encoding="utf-8")
     cockpit = json.loads((run_dir / "operator_cockpit.json").read_text("utf-8"))
     cockpit_markdown = (run_dir / "operator_cockpit.md").read_text(encoding="utf-8")
     summary_markdown = (run_dir / "summary.md").read_text(encoding="utf-8")
@@ -4139,6 +4162,35 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         payload_path=run_dir / "operator_unlock_checklist.json",
         repo_root=Path.cwd(),
     ) == ()
+    assert manifest["codex_cli_execution_readiness_diff"]["path"] == (
+        "codex_cli_execution_readiness_diff.json"
+    )
+    assert manifest["codex_cli_execution_readiness_diff"]["markdown_path"] == (
+        "codex_cli_execution_readiness_diff.md"
+    )
+    assert manifest["codex_cli_execution_readiness_diff"]["status"] == (
+        execution_diff["status"]
+    )
+    assert manifest["codex_cli_execution_readiness_diff"]["ready"] is False
+    assert manifest["codex_cli_execution_readiness_diff"]["drift_count"] == (
+        execution_diff["summary"]["drift_count"]
+    )
+    assert execution_diff["schema_version"] == (
+        CODEX_CLI_EXECUTION_READINESS_DIFF_SCHEMA_VERSION
+    )
+    assert execution_diff["status"] == "missing_evidence"
+    assert execution_diff["ready"] is False
+    assert execution_diff["summary"]["missing_comparison_count"] >= 1
+    assert execution_diff["policy"]["does_not_execute_codex_cli"] is True
+    assert "# Codex CLI Execution Readiness Diff" in execution_diff_markdown
+    assert_matches_schema(
+        run_dir / "codex_cli_execution_readiness_diff.json",
+        "codex_cli_execution_readiness_diff",
+    )
+    assert validate_codex_cli_execution_readiness_diff_file(
+        payload_path=run_dir / "codex_cli_execution_readiness_diff.json",
+        repo_root=Path.cwd(),
+    ) == ()
     assert manifest["operator_cockpit"]["path"] == "operator_cockpit.json"
     assert manifest["operator_cockpit"]["markdown_path"] == "operator_cockpit.md"
     assert manifest["operator_cockpit"]["ok"] is True
@@ -4154,6 +4206,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert cockpit["source_artifacts"]["codex_cli_execution_preflight"]["file"][
         "path"
     ].endswith("codex_cli_execution_preflight.json")
+    assert cockpit["source_artifacts"]["codex_cli_execution_readiness_diff"]["file"][
+        "path"
+    ].endswith("codex_cli_execution_readiness_diff.json")
     assert cockpit["source_artifacts"]["operator_unlock_checklist"]["file"][
         "path"
     ].endswith("operator_unlock_checklist.json")
@@ -4165,9 +4220,19 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "no_real_execution_profiles"
     )
     assert cockpit["summary"]["codex_preflight_ok"] is True
+    assert cockpit["summary"]["codex_readiness_diff_status"] == (
+        execution_diff["status"]
+    )
+    assert cockpit["summary"]["codex_readiness_diff_missing_count"] == (
+        execution_diff["summary"]["missing_comparison_count"]
+    )
     assert cockpit["codex_unlock_checklist"]["status"] == "not_requested"
     assert cockpit["codex_unlock_checklist"]["item_count"] == 0
     assert any(row["panel_id"] == "codex_cli_unlock" for row in cockpit["panels"])
+    assert any(
+        row["panel_id"] == "codex_cli_readiness_diff"
+        for row in cockpit["panels"]
+    )
     assert cockpit["policy"]["does_not_execute_commands"] is True
     assert cockpit["policy"]["does_not_change_acceptance"] is True
     assert "# Operator Cockpit" in cockpit_markdown
@@ -12886,10 +12951,15 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
     run_dir = repo / "experiments/codex-execute-without-operator-request"
     preflight_path = run_dir / "codex_cli_execution_preflight.json"
     checklist_path = run_dir / "operator_unlock_checklist.json"
+    execution_diff_path = run_dir / "codex_cli_execution_readiness_diff.json"
     manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
     preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
     full_checklist = json.loads(checklist_path.read_text(encoding="utf-8"))
+    execution_diff = json.loads(execution_diff_path.read_text(encoding="utf-8"))
     markdown = (run_dir / "operator_unlock_checklist.md").read_text(encoding="utf-8")
+    execution_diff_markdown = (
+        run_dir / "codex_cli_execution_readiness_diff.md"
+    ).read_text(encoding="utf-8")
     summary_markdown = (run_dir / "summary.md").read_text(encoding="utf-8")
 
     assert manifest["status"] == "failed"
@@ -12897,6 +12967,8 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
     assert not (run_dir / "round_001").exists()
     assert checklist_path.exists()
     assert (run_dir / "operator_unlock_checklist.md").exists()
+    assert execution_diff_path.exists()
+    assert (run_dir / "codex_cli_execution_readiness_diff.md").exists()
     assert manifest["operator_unlock_checklist"]["status"] == "blocked"
     assert manifest["operator_unlock_checklist"]["ready"] is False
     assert manifest["operator_unlock_checklist"]["failed_count"] == 8
@@ -12905,6 +12977,13 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
         "primary:operator_unlock_request"
     )
     assert manifest["operator_unlock_checklist"]["command_hint_count"] >= 1
+    assert manifest["codex_cli_execution_readiness_diff"]["status"] == (
+        "missing_evidence"
+    )
+    assert manifest["codex_cli_execution_readiness_diff"]["ready"] is False
+    assert manifest["codex_cli_execution_readiness_diff"][
+        "missing_artifact_count"
+    ] >= 3
     assert preflight["schema_version"] == CODEX_CLI_EXECUTION_PREFLIGHT_SCHEMA_VERSION
     assert preflight["ok"] is False
     assert preflight["summary"]["real_codex_execute_profile_count"] == 1
@@ -12975,6 +13054,26 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
         "codex_cli_execution_preflight",
     )
     assert (run_dir / "codex_cli_execution_preflight.md").exists()
+    assert execution_diff["schema_version"] == (
+        CODEX_CLI_EXECUTION_READINESS_DIFF_SCHEMA_VERSION
+    )
+    assert execution_diff["status"] == "missing_evidence"
+    assert execution_diff["ready"] is False
+    assert execution_diff["summary"]["preflight_ok"] is False
+    assert "codex_cli_operator_unlock_request" in execution_diff["summary"][
+        "missing_artifacts"
+    ]
+    assert execution_diff["current_expected_execution"]["config_object_provided"] is True
+    assert execution_diff["policy"]["does_not_execute_codex_cli"] is True
+    assert "# Codex CLI Execution Readiness Diff" in execution_diff_markdown
+    assert_matches_schema(
+        execution_diff_path,
+        "codex_cli_execution_readiness_diff",
+    )
+    assert validate_codex_cli_execution_readiness_diff_file(
+        payload_path=execution_diff_path,
+        repo_root=repo,
+    ) == ()
 
 
 def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(

@@ -163,7 +163,11 @@ path, mutation boundary, startup preflight expectation, execution candidate,
 real-execution dry-run, and operator request. It reports `matched`, `missing`,
 or `drift` rows only; it does not execute commands, execute Codex, record
 approval, create workspaces, modify config, apply patches, or change
-acceptance.
+acceptance. Completed iteration runs now write this diff automatically during
+closeout, and failed execute=true startup preflight runs write it before
+returning the deterministic startup error. The operator cockpit includes a
+read-only readiness diff panel so missing evidence or drift is visible from the
+main operator page.
 
 Record operator review intent:
 

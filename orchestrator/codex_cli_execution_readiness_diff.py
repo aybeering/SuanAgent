@@ -41,6 +41,7 @@ def write_codex_cli_execution_readiness_diff(
     run_dir: Path,
     repo_root: Path = Path("."),
     config_path: Path = Path("config/codex_cli_enable_candidate.json"),
+    config_payload: dict[str, Any] | None = None,
 ) -> tuple[Path, Path, dict[str, object]]:
     """Write JSON and markdown read-only execution readiness diff artifacts."""
     repo_root = repo_root.resolve()
@@ -49,6 +50,7 @@ def write_codex_cli_execution_readiness_diff(
         run_dir=run_dir,
         repo_root=repo_root,
         config_path=config_path,
+        config_payload=config_payload,
     )
     json_path = run_dir / "codex_cli_execution_readiness_diff.json"
     md_path = run_dir / "codex_cli_execution_readiness_diff.md"
@@ -74,12 +76,13 @@ def build_codex_cli_execution_readiness_diff(
     run_dir: Path,
     repo_root: Path = Path("."),
     config_path: Path = Path("config/codex_cli_enable_candidate.json"),
+    config_payload: dict[str, Any] | None = None,
 ) -> dict[str, object]:
     """Return a deterministic read-only drift audit for real Codex execution."""
     repo_root = repo_root.resolve()
     run_dir = resolve_path(run_dir, repo_root)
     config_path = resolve_path(config_path, repo_root)
-    config = load_json_object(config_path)
+    config = config_payload if config_payload is not None else load_json_object(config_path)
     preflight = load_json_object(run_dir / "codex_cli_execution_preflight.json")
     candidate = load_json_object(run_dir / "codex_cli_execution_candidate.json")
     dry_run = load_json_object(run_dir / "codex_cli_real_execution_dry_run.json")
@@ -91,6 +94,7 @@ def build_codex_cli_execution_readiness_diff(
         config_path=config_path,
         run_dir=run_dir,
         repo_root=repo_root,
+        config_object_provided=config_payload is not None,
     )
     reviewed = object_value(operator_request.get("planned_execution_review", {}))
     dry_plan = object_value(dry_run.get("planned_execution", {}))
@@ -157,6 +161,7 @@ def current_expected_execution(
     config_path: Path,
     run_dir: Path,
     repo_root: Path,
+    config_object_provided: bool = False,
 ) -> dict[str, object]:
     """Return the current execution boundary derived from config."""
     codex_cli = object_value(config.get("codex_cli", {}))
@@ -176,6 +181,7 @@ def current_expected_execution(
     )
     return {
         "source_config": file_record(config_path, repo_root),
+        "config_object_provided": config_object_provided,
         "agent_name": EXPECTED_AGENT_NAME,
         "profile_name": EXPECTED_PROFILE_NAME,
         "round_id": EXPECTED_ROUND_ID,

@@ -215,9 +215,14 @@ config, startup preflight expected execution, execution candidate, real dry-run,
 and operator request evidence for drift. They must remain read-only and must
 not record approval, execute commands, execute Codex, create workspaces, modify
 config, run agents, apply patches, route agents, or change acceptance.
+The iteration loop should write this diff during closeout and during failed
+real Codex execute=true startup preflight runs. Operator cockpit artifacts may
+include a dedicated readiness-diff panel and summary counters, but still must
+not unlock or execute Codex.
 The iteration loop writes the final operator action dashboard and cockpit
-during closeout, along with the standalone operator unlock checklist. Explicit
-commands may refresh them after later operator artifacts are written.
+during closeout, along with the standalone operator unlock checklist and Codex
+CLI execution readiness diff. Explicit commands may refresh them after later
+operator artifacts are written.
 
 ## Strategy Policy
 

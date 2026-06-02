@@ -56,6 +56,7 @@
         "config_lineage",
         "operator_action_dashboard",
         "codex_cli_execution_preflight",
+        "codex_cli_execution_readiness_diff",
         "operator_unlock_checklist",
         "candidate_challenger_report",
         "champion_promotion_dry_run",
@@ -73,6 +74,9 @@
           "$ref": "#/$defs/source_artifact"
         },
         "codex_cli_execution_preflight": {
+          "$ref": "#/$defs/source_artifact"
+        },
+        "codex_cli_execution_readiness_diff": {
           "$ref": "#/$defs/source_artifact"
         },
         "operator_unlock_checklist": {
@@ -112,7 +116,12 @@
         "codex_preflight_ok",
         "codex_real_execute_profile_count",
         "codex_operator_unlock_ready_count",
-        "codex_preflight_blocker_count"
+        "codex_preflight_blocker_count",
+        "codex_readiness_diff_status",
+        "codex_readiness_diff_ready",
+        "codex_readiness_diff_matched_count",
+        "codex_readiness_diff_drift_count",
+        "codex_readiness_diff_missing_count"
       ],
       "properties": {
         "run_status": {
@@ -173,6 +182,21 @@
           "type": "integer"
         },
         "codex_preflight_blocker_count": {
+          "type": "integer"
+        },
+        "codex_readiness_diff_status": {
+          "type": "string"
+        },
+        "codex_readiness_diff_ready": {
+          "type": "boolean"
+        },
+        "codex_readiness_diff_matched_count": {
+          "type": "integer"
+        },
+        "codex_readiness_diff_drift_count": {
+          "type": "integer"
+        },
+        "codex_readiness_diff_missing_count": {
           "type": "integer"
         }
       }

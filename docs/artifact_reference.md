@@ -182,8 +182,8 @@ experiments/<run_id>/
   operator_unlock_checklist.md
   codex_cli_unlock_runbook.json  # after optional unlock runbook command
   codex_cli_unlock_runbook.md    # after optional unlock runbook command
-  codex_cli_execution_readiness_diff.json  # after optional readiness diff command
-  codex_cli_execution_readiness_diff.md    # after optional readiness diff command
+  codex_cli_execution_readiness_diff.json
+  codex_cli_execution_readiness_diff.md
   operator_cockpit.json
   operator_cockpit.md
 ```
@@ -284,16 +284,21 @@ operator request evidence. The report marks each comparison as `matched`,
 `missing`, or `drift` and summarizes whether evidence is missing or has drifted.
 It is read-only and cannot record approval, execute commands, execute Codex,
 create workspaces, modify config, route agents, apply patches, or change
-acceptance.
+acceptance. The iteration loop writes it automatically during closeout,
+including no-round startup failures caused by blocked real Codex execute=true
+preflight checks; explicit commands can refresh it after later operator
+evidence artifacts are written.
 `operator_cockpit.json` and `operator_cockpit.md` collect the run closeout,
 config lineage, operator action dashboard, Codex CLI execution preflight,
-standalone operator unlock checklist, candidate challenger report,
-champion-promotion dry-run, promotion approval, and scope-health status into a
-single read-only operator page. The Codex CLI panel exposes startup preflight
-status, real-execution profile counts, operator-unlock readiness counts,
-preflight blockers, and the grouped checklist status, but it does not unlock or
-execute Codex. The iteration loop writes the final cockpit after the dashboard
-and standalone checklist so source hashes bind to the final closeout artifacts;
+standalone operator unlock checklist, Codex CLI execution readiness diff,
+candidate challenger report, champion-promotion dry-run, promotion approval,
+and scope-health status into a single read-only operator page. The Codex CLI
+panels expose startup preflight status, real-execution profile counts,
+operator-unlock readiness counts, preflight blockers, grouped checklist status,
+and readiness diff missing/drift counts, but they do not unlock or execute
+Codex. The iteration loop writes the final cockpit after the dashboard,
+standalone checklist, and readiness diff so source hashes bind to the final
+closeout artifacts;
 `python -m orchestrator.experiments cockpit <run_id>` and `cockpit --markdown`
 expose panel rows, blockers, primary focus, and command hints without recording
 approval, executing commands, writing config, promoting champions, running

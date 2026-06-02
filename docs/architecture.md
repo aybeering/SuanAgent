@@ -226,13 +226,17 @@ candidate, real-execution dry-run, and operator-reviewed request. The report is
 inspection-only: it can show missing evidence or drift, but it cannot record
 approval, execute commands, execute Codex, create workspaces, modify config,
 route agents, apply patches, or change acceptance.
+The iteration loop writes this diff during closeout, including failed
+execute=true startup-preflight runs that stop before any round starts, so the
+saved run always has a read-only current-vs-reviewed Codex evidence view.
 `operator_cockpit.json` and `operator_cockpit.md` are the broader operator
 entrypoint. They collect the run closeout, config lineage, operator action
 dashboard, Codex CLI execution preflight, standalone operator unlock checklist,
-challenger comparison, champion-promotion review, promotion approval, and
-scope-health status into one read-only page with panel rows and command hints.
-The Codex CLI panel exposes unlock blockers, readiness counts, and grouped
-checklist status without unlocking or executing Codex. The cockpit is an
+Codex CLI execution readiness diff, challenger comparison,
+champion-promotion review, promotion approval, and scope-health status into one
+read-only page with panel rows and command hints. The Codex CLI panels expose
+unlock blockers, readiness counts, grouped checklist status, and readiness diff
+missing/drift counts without unlocking or executing Codex. The cockpit is an
 inspection artifact only; it
 cannot record approvals,
 execute commands, write config, promote champions, run agents, run backtests,

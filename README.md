@@ -69,20 +69,22 @@ python -m orchestrator.experiments execution-readiness-diff <run_id> --markdown
 python -m orchestrator.experiments cockpit <run_id> --markdown
 ```
 
-`iteration_loop` writes the final action dashboard and cockpit during closeout;
-the inspection commands can also refresh or render those read-only views after
-later operator artifacts are written. The standalone operator unlock checklist
-and cockpit include Codex CLI startup preflight evidence as read-only views so
-evidence gaps are visible without executing Codex. The checklist also includes
-blocking navigation with related artifact paths and explicit command hints for
-the operator to run manually. If a real Codex execute=true startup preflight is
-blocked, the failed run still writes the checklist and summary navigation. The
-Codex CLI unlock runbook turns the same evidence chain into an ordered
-read-only operator guide; it lists the required artifacts and command hints but
-does not execute commands or unlock Codex. The execution readiness diff compares
-the current config-derived command, workspace, mutation boundary, dry-run plan,
-and operator-reviewed request so drift is visible before any real Codex
-execution is considered.
+`iteration_loop` writes the final action dashboard, operator unlock checklist,
+Codex CLI execution readiness diff, and cockpit during closeout; the inspection
+commands can also refresh or render those read-only views after later operator
+artifacts are written. The standalone operator unlock checklist and cockpit
+include Codex CLI startup preflight evidence as read-only views so evidence gaps
+are visible without executing Codex. The checklist also includes blocking
+navigation with related artifact paths and explicit command hints for the
+operator to run manually. If a real Codex execute=true startup preflight is
+blocked, the failed run still writes the checklist, execution readiness diff,
+and summary navigation. The Codex CLI unlock runbook turns the same evidence
+chain into an ordered read-only operator guide; it lists the required artifacts
+and command hints but does not execute commands or unlock Codex. The execution
+readiness diff compares the current config-derived command, workspace, mutation
+boundary, dry-run plan, and operator-reviewed request so missing evidence or
+drift is visible in both the diff and cockpit before any real Codex execution is
+considered.
 
 More commands and artifact details live in `docs/artifact_reference.md`.
 

@@ -4511,6 +4511,10 @@ def validate_optional_operator_cockpit(
         ("config_lineage", "config_lineage.json"),
         ("operator_action_dashboard", "operator_action_dashboard.json"),
         ("codex_cli_execution_preflight", "codex_cli_execution_preflight.json"),
+        (
+            "codex_cli_execution_readiness_diff",
+            "codex_cli_execution_readiness_diff.json",
+        ),
         ("operator_unlock_checklist", "operator_unlock_checklist.json"),
         ("candidate_challenger_report", "candidate_challenger_report.json"),
         ("champion_promotion_dry_run", "champion_promotion_dry_run.json"),
@@ -4552,6 +4556,10 @@ def validate_optional_operator_cockpit(
         add_error(report, "operator_cockpit.json codex preflight not ok")
     if not isinstance(summary.get("codex_preflight_status", ""), str):
         add_error(report, "operator_cockpit.json codex preflight status invalid")
+    if not isinstance(summary.get("codex_readiness_diff_status", ""), str):
+        add_error(report, "operator_cockpit.json codex readiness diff status invalid")
+    if not isinstance(summary.get("codex_readiness_diff_ready", False), bool):
+        add_error(report, "operator_cockpit.json codex readiness diff ready invalid")
     validate_operator_cockpit_unlock_checklist(payload=payload, report=report)
 
     authority = payload.get("authority", {})

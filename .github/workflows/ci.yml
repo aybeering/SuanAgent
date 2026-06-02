@@ -76,7 +76,9 @@ jobs:
           run_dir = "experiments/ci-codex-startup-block"
           manifest = json.load(open(f"{run_dir}/manifest.json"))
           checklist = json.load(open(f"{run_dir}/operator_unlock_checklist.json"))
+          diff = json.load(open(f"{run_dir}/codex_cli_execution_readiness_diff.json"))
           markdown = open(f"{run_dir}/operator_unlock_checklist.md").read()
+          diff_markdown = open(f"{run_dir}/codex_cli_execution_readiness_diff.md").read()
           summary = open(f"{run_dir}/summary.md").read()
 
           assert manifest["status"] == "failed"
@@ -85,10 +87,20 @@ jobs:
           assert manifest["operator_unlock_checklist"]["navigation_blocking_count"] == 8, manifest["operator_unlock_checklist"]
           assert manifest["operator_unlock_checklist"]["primary_blocker"] == "primary:operator_unlock_request", manifest["operator_unlock_checklist"]
           assert manifest["operator_unlock_checklist"]["command_hint_count"] == 4, manifest["operator_unlock_checklist"]
+          assert manifest["codex_cli_execution_readiness_diff"]["status"] == "missing_evidence", manifest["codex_cli_execution_readiness_diff"]
+          assert manifest["codex_cli_execution_readiness_diff"]["ready"] is False, manifest["codex_cli_execution_readiness_diff"]
+          assert manifest["codex_cli_execution_readiness_diff"]["missing_artifact_count"] >= 3, manifest["codex_cli_execution_readiness_diff"]
           assert checklist["navigation"]["blocking_count"] == 8
           assert checklist["navigation"]["blocking_items"][0]["related_artifacts"][0]["artifact_id"] == "codex_cli_operator_unlock_request"
           assert checklist["navigation"]["commands"][0]["executes_codex_cli"] is False
+          assert diff["schema_version"] == "codex_cli_execution_readiness_diff_v1"
+          assert diff["status"] == "missing_evidence"
+          assert diff["ready"] is False
+          assert diff["summary"]["preflight_ok"] is False
+          assert diff["current_expected_execution"]["config_object_provided"] is False
+          assert diff["policy"]["does_not_execute_codex_cli"] is True
           assert "## Blocking Navigation" in markdown
+          assert "# Codex CLI Execution Readiness Diff" in diff_markdown
           assert "Primary blocker: `primary:operator_unlock_request`" in summary
           PY
           python -m orchestrator.operator_unlock_checklist experiments/ci-codex-startup-block
@@ -107,7 +119,6 @@ jobs:
           assert all(command["executes_codex_cli"] is False for command in runbook["operator_commands"])
           assert "# Codex CLI Unlock Runbook" in markdown
           PY
-          python -m orchestrator.codex_cli_execution_readiness_diff experiments/ci-codex-startup-block
           test -f experiments/ci-codex-startup-block/codex_cli_execution_readiness_diff.json
           test -f experiments/ci-codex-startup-block/codex_cli_execution_readiness_diff.md
           python - <<'PY'

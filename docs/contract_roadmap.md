@@ -106,6 +106,7 @@ Implemented or allowed V0.5 components:
 92. Deterministic `proposal_intent_summary` binding inside round-level `agent_output.json`, proving the selected-output contract matches the planner context in round-level `agent_input.json` without changing routing, scoring, patch application, or acceptance.
 93. Deterministic `proposal_intent_summary` binding inside `agent_output_quarantine.json`, proving the pre-apply quarantine report matches both `agent_output.json` and `agent_input.json` planner context without changing quarantine release rules, patch application, or acceptance.
 94. Deterministic `proposal_intent_summary` binding inside `agent_validation.json`, proving raw-output contract validation ran against the same planner context in `agent_input.json` without changing validation pass/fail rules, git apply checks, quarantine release rules, patch application, or acceptance.
+95. Deterministic candidate quality breakdown bindings inside executor, attempt manifest, attempt output, selection, routing, agent output, leaderboard, brief, and closeout artifacts, proving candidate score explanations remain auditable across the saved candidate trace without changing queue order, scoring rules, patch application, or acceptance.
 
 ## Contract Families
 
@@ -247,9 +248,11 @@ Codex CLI readiness contracts:
     They can prove validation/input consistency, but they cannot change
     validation pass/fail rules, git apply checks, quarantine release rules,
     patch application, or acceptance.
-25. Candidate quality breakdowns explain proposal ranking only. They can expose
-    score components and post-evaluation signals, but they cannot override the
-    deterministic policy gate or holdout veto.
+25. Candidate quality breakdowns explain proposal ranking only. They bind the
+    same score total and component metadata across executor, attempt, selection,
+    routing, output, leaderboard, brief, and closeout artifacts, but they cannot
+    change queue order, override the deterministic policy gate, or bypass the
+    holdout veto.
 26. Candidate challenger reports are read-only comparison summaries. They can
     highlight validation gaps and holdout stability against the current
     champion, but they cannot promote champions, route candidates, apply

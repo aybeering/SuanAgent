@@ -260,6 +260,11 @@ Context and planning artifacts:
   including whether each proposal direction matched the profile's declared
   capability and whether it matched or auditably deviated from
   `proposal_intent.json`.
+- `agent_executor_report.json`, `agent_attempts_manifest.json`,
+  `attempt_output.json`, `agent_selection_report.json`, `agent_routing_policy.json`,
+  `agent_output.json`, and `candidate_leaderboard.json` all carry the candidate
+  score and `quality_breakdown` so the saved trace can prove why a candidate was
+  selected without giving those artifacts final acceptance authority.
 
 Role and readiness artifacts:
 
@@ -318,9 +323,11 @@ Replay artifacts:
   agents, run backtests, apply patches, route agents, or change acceptance.
 - `candidate_leaderboard.json` records every proposal attempt with stable
   quality metadata. `quality_breakdown` decomposes the pre-backtest candidate
-  score into named components, and selected rows also record validation and
-  holdout EV deltas. These fields explain candidate routing only; final
-  acceptance remains controlled by deterministic policy and holdout gates.
+  score into named components, selected rows also record validation and
+  holdout EV deltas, and artifact validation checks that each saved
+  `quality_breakdown.total_score` matches the candidate score. These fields
+  explain candidate routing only; final acceptance remains controlled by
+  deterministic policy and holdout gates.
 - `candidate_challenger_report.json` and `candidate_challenger_report.md`
   compare saved candidate rows with the current champion registry when one
   exists. They expose validation gap, holdout stability flags, and top

@@ -138,6 +138,7 @@
           "status",
           "selected",
           "candidate_score",
+          "quality_breakdown",
           "failure_stage",
           "failure_code",
           "failure_message",

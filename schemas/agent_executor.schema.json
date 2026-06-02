@@ -91,6 +91,8 @@
           "status",
           "selected",
           "candidate_score",
+          "score_reasons",
+          "quality_breakdown",
           "failure_stage",
           "failure_code",
           "validation_status",
@@ -148,6 +150,15 @@
           },
           "candidate_score": {
             "type": "number"
+          },
+          "score_reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "quality_breakdown": {
+            "type": "object"
           },
           "failure_stage": {
             "type": "string"

@@ -82,6 +82,8 @@ def write_agent_attempts_manifest(
                 "status": attempt.get("status", ""),
                 "selected": bool(attempt.get("selected", False)),
                 "candidate_score": attempt.get("candidate_score", 0),
+                "score_reasons": attempt.get("score_reasons", []),
+                "quality_breakdown": attempt.get("quality_breakdown", {}),
                 "failure_stage": attempt.get("failure_stage", "none"),
                 "failure_code": attempt.get("failure_code", "none"),
                 "failure_message": attempt.get("failure_message", ""),

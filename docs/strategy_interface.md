@@ -119,6 +119,11 @@ the proposal intent's recommended direction, the profile capability, and the
 actual proposal direction. It records whether a proposal matched or deviated
 from the recommendation and whether that deviation was allowed, but it is
 audit-only.
+Candidate artifacts also carry `candidate_score`, `score_reasons`, and
+`quality_breakdown` across executor, attempt, selection, routing, selected
+output, and leaderboard views. These fields explain deterministic candidate
+ranking and are validated for score consistency, but final strategy acceptance
+still comes only from the policy gate and holdout gate.
 The corresponding JSON Schema files are:
 
 ```text

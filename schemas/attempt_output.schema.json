@@ -146,6 +146,7 @@
         "selection_reason",
         "skip_reason",
         "score_reasons",
+        "quality_breakdown",
         "blocking_reasons"
       ],
       "properties": {

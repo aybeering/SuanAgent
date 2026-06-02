@@ -352,20 +352,16 @@ def validate_candidate_leaderboard_quality(
         if not isinstance(row, dict):
             add_error(report, f"candidate_leaderboard row {index} is not an object")
             continue
-        quality = row.get("quality_breakdown", {})
-        if not isinstance(quality, dict):
-            add_error(report, f"candidate_leaderboard row {index} quality invalid")
+        quality = validate_candidate_quality_row(
+            row=row,
+            artifact_name="candidate_leaderboard",
+            row_label=str(index),
+            report=report,
+        )
+        if quality is None:
             continue
-        if quality.get("schema_version") != "candidate_quality_v1":
-            add_error(report, f"candidate_leaderboard row {index} quality schema invalid")
-        if quality.get("total_score") != row.get("candidate_score"):
-            add_error(report, f"candidate_leaderboard row {index} quality score mismatch")
-        components = quality.get("components", [])
-        if not isinstance(components, list):
-            add_error(report, f"candidate_leaderboard row {index} quality components invalid")
         signals = quality.get("signals", {})
         if not isinstance(signals, dict):
-            add_error(report, f"candidate_leaderboard row {index} quality signals invalid")
             continue
         if row.get("selected") is True:
             for key in ("validation_ev_delta", "holdout_ev_delta"):
@@ -379,6 +375,35 @@ def validate_candidate_leaderboard_quality(
                         report,
                         f"candidate_leaderboard selected row {index} signal mismatch: {key}",
                     )
+
+
+def validate_candidate_quality_row(
+    *,
+    row: dict[str, object],
+    artifact_name: str,
+    row_label: str,
+    report: dict[str, object],
+) -> dict[str, object] | None:
+    """Validate deterministic candidate score breakdown metadata."""
+    quality = row.get("quality_breakdown", {})
+    label = f"{artifact_name} row {row_label}"
+    if not isinstance(quality, dict):
+        add_error(report, f"{label} quality invalid")
+        return None
+    if quality.get("schema_version") != "candidate_quality_v1":
+        add_error(report, f"{label} quality schema invalid")
+    if quality.get("total_score") != row.get("candidate_score"):
+        add_error(report, f"{label} quality score mismatch")
+    components = quality.get("components", [])
+    if not isinstance(components, list):
+        add_error(report, f"{label} quality components invalid")
+    signals = quality.get("signals", {})
+    if not isinstance(signals, dict):
+        add_error(report, f"{label} quality signals invalid")
+    policy = quality.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, f"{label} quality policy invalid")
+    return quality
 
 
 def validate_round_dir(
@@ -1053,6 +1078,20 @@ def validate_agent_output(
         "proposal_intent_summary", {}
     ) != payload.get("proposal_intent_summary", {}):
         add_error(report, "agent_output proposal intent summary drift")
+    attempts = payload.get("attempts", [])
+    if not isinstance(attempts, list) or not attempts:
+        add_error(report, "agent_output.json attempts is empty or invalid")
+        return
+    for index, row in enumerate(attempts, start=1):
+        if not isinstance(row, dict):
+            add_error(report, "agent_output.json attempts contains non-object")
+            continue
+        validate_candidate_quality_row(
+            row=row,
+            artifact_name="agent_output.json",
+            row_label=str(index),
+            report=report,
+        )
 
 
 def validate_agent_output_quarantine(
@@ -2140,6 +2179,13 @@ def validate_agent_attempts_manifest(
         if not isinstance(row, dict):
             add_error(report, "agent_attempts_manifest.json attempts contains non-object")
             continue
+        attempt_id = str(row.get("attempt_id", ""))
+        validate_candidate_quality_row(
+            row=row,
+            artifact_name="agent_attempts_manifest.json",
+            row_label=attempt_id,
+            report=report,
+        )
         attempt_dir = resolve_path(Path(str(row.get("attempt_dir", ""))), repo_root)
         if not attempt_dir.exists() or not attempt_dir.is_dir():
             add_error(report, f"attempt_dir does not exist: {attempt_dir}")
@@ -2439,6 +2485,19 @@ def validate_attempt_output_artifacts(
         artifact_name="attempt_output.json",
         report=report,
     )
+    selection = payload.get("selection", {})
+    quality_breakdown = (
+        selection.get("quality_breakdown", {}) if isinstance(selection, dict) else {}
+    )
+    validate_candidate_quality_row(
+        row={
+            "candidate_score": payload.get("candidate_score", 0),
+            "quality_breakdown": quality_breakdown,
+        },
+        artifact_name="attempt_output.json",
+        row_label=str(payload.get("attempt_id", "")),
+        report=report,
+    )
     required = (
         "attempt",
         "agent_input",
@@ -2506,6 +2565,12 @@ def validate_agent_executor_report(
             continue
         if bool(row.get("selected", False)):
             selected_rows += 1
+        validate_candidate_quality_row(
+            row=row,
+            artifact_name="agent_executor_report.json",
+            row_label=str(row.get("attempt_id", "")),
+            report=report,
+        )
         agent_role = str(row.get("agent_role", ""))
         if not agent_role:
             add_error(report, "agent_executor_report.json attempt missing agent_role")
@@ -2576,6 +2641,12 @@ def validate_agent_routing_policy(
                     report,
                     "agent_routing_policy.json selected_agent_role does not match selected row",
                 )
+        validate_candidate_quality_row(
+            row=row,
+            artifact_name="agent_routing_policy.json",
+            row_label=str(row.get("attempt_id", "")),
+            report=report,
+        )
         agent_role = str(row.get("agent_role", ""))
         if not agent_role:
             add_error(report, "agent_routing_policy.json candidate missing agent_role")
@@ -2650,6 +2721,12 @@ def validate_agent_selection_report(
             continue
         if bool(row.get("selected", False)):
             selected_rows += 1
+        validate_candidate_quality_row(
+            row=row,
+            artifact_name="agent_selection_report.json",
+            row_label=str(row.get("attempt_id", "")),
+            report=report,
+        )
         validate_direction_capability_row(
             row=row,
             artifact_name="agent_selection_report.json",

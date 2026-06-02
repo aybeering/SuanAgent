@@ -2761,6 +2761,13 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_attempts["attempts"][0]["direction_intent_alignment"]["policy"][
         "audit_only"
     ] is True
+    assert agent_attempts["attempts"][0]["score_reasons"]
+    assert agent_attempts["attempts"][0]["quality_breakdown"]["schema_version"] == (
+        "candidate_quality_v1"
+    )
+    assert agent_attempts["attempts"][0]["quality_breakdown"]["total_score"] == (
+        agent_attempts["attempts"][0]["candidate_score"]
+    )
     assert agent_attempts["attempts"][0]["failure_code"] == "policy_ev_improvement_low"
     assert agent_attempts["attempts"][0]["files"]
     assert_matches_schema(round_dir / "agent_selection_report.json", "agent_selection")
@@ -2779,6 +2786,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "proposal_matches_recommended_direction"
     ] is True
     assert agent_selection["attempts"][0]["score_reasons"]
+    assert agent_selection["attempts"][0]["quality_breakdown"]["total_score"] == (
+        agent_selection["attempts"][0]["candidate_score"]
+    )
     assert agent_selection["attempts"][0]["skip_reason"] == ""
     assert (
         round_dir / "agent_attempts/attempt_001_primary/selection.json"
@@ -2842,6 +2852,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert attempt_output["selected"] is True
     assert attempt_output["proposal"]["patch_sha256"] == proposal["patch_sha256"]
     assert attempt_output["selection"]["skip_reason"] == ""
+    assert attempt_output["selection"]["quality_breakdown"]["total_score"] == (
+        attempt_output["candidate_score"]
+    )
     assert attempt_output["proposal_intent_summary"] == (
         attempt_agent_input["proposal_intent_summary"]
     )
@@ -2985,6 +2998,13 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_executor["attempts"][0]["direction_intent_alignment"][
         "proposal_matches_recommended_direction"
     ] is True
+    assert agent_executor["attempts"][0]["score_reasons"]
+    assert agent_executor["attempts"][0]["quality_breakdown"]["schema_version"] == (
+        "candidate_quality_v1"
+    )
+    assert agent_executor["attempts"][0]["quality_breakdown"]["total_score"] == (
+        agent_executor["attempts"][0]["candidate_score"]
+    )
     assert agent_executor["attempts"][0]["proposal"]["applicable"] is True
     assert agent_executor["attempts"][0]["artifacts"]["attempt_dir"].endswith(
         "agent_attempts/attempt_001_primary"
@@ -6422,6 +6442,38 @@ def test_artifact_validator_reports_agent_validation_intent_summary_drift(
     assert report["ok"] is False
     assert any(
         "agent_validation proposal intent summary drift" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_candidate_quality_score_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-candidate-quality-drift",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/artifact-candidate-quality-drift/round_001"
+        / "agent_executor_report.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["attempts"][0]["quality_breakdown"]["total_score"] = -999
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="artifact-candidate-quality-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "agent_executor_report.json row attempt_001_primary quality score mismatch"
+        in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 

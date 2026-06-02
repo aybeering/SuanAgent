@@ -244,6 +244,8 @@ def executor_attempt_row(
         "status": str(attempt.get("status", "")),
         "selected": bool(attempt.get("selected", False)),
         "candidate_score": attempt.get("candidate_score", 0),
+        "score_reasons": list_or_empty(attempt.get("score_reasons", [])),
+        "quality_breakdown": dict_or_empty(attempt.get("quality_breakdown", {})),
         "failure_stage": str(attempt.get("failure_stage", "none")),
         "failure_code": str(attempt.get("failure_code", "none")),
         "validation_status": str(attempt.get("validation_status", "")),

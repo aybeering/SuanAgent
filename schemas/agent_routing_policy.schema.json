@@ -99,6 +99,7 @@
           "selected",
           "rank",
           "candidate_score",
+          "quality_breakdown",
           "score_reasons",
           "blocking_reasons",
           "selection_reason",

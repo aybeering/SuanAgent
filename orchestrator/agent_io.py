@@ -433,6 +433,8 @@ def compact_attempts(attempts: list[dict[str, object]]) -> list[dict[str, object
     for attempt in attempts:
         rows.append(
             {
+                "attempt_id": attempt.get("attempt_id", ""),
+                "attempt_index": attempt.get("attempt_index", len(rows) + 1),
                 "role": attempt.get("role", ""),
                 "agent_role": attempt.get("agent_role", ""),
                 "profile_name": attempt.get("profile_name", ""),
@@ -447,6 +449,7 @@ def compact_attempts(attempts: list[dict[str, object]]) -> list[dict[str, object
                 "status": attempt.get("status", ""),
                 "selected": bool(attempt.get("selected", False)),
                 "candidate_score": attempt.get("candidate_score", 0),
+                "score_reasons": attempt.get("score_reasons", []),
                 "quality_breakdown": attempt.get("quality_breakdown", {}),
                 "failure_stage": attempt.get("failure_stage", "none"),
                 "failure_code": attempt.get("failure_code", "none"),

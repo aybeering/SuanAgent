@@ -1056,6 +1056,43 @@ def run_round(
         holdout_metrics_after=holdout_metrics_after,
     )
     write_json(round_dir / "proposal_attempts.json", proposal_attempts)
+    selected_attempt = selected_attempt_by_patch(
+        attempts=proposal_attempts,
+        patch_sha256=proposal.patch_sha256,
+    )
+    write_agent_output(
+        output_path=round_dir / "agent_output.json",
+        run_id=run_id,
+        round_id=round_id,
+        round_index=round_index,
+        repo_root=repo_root,
+        round_dir=round_dir,
+        proposal=proposal,
+        proposal_attempts=proposal_attempts,
+        selected_attempt=selected_attempt,
+    )
+    agent_output_quarantine = write_agent_output_quarantine(
+        output_path=round_dir / "agent_output_quarantine.json",
+        markdown_path=round_dir / "agent_output_quarantine.md",
+        repo_root=repo_root,
+        round_dir=round_dir,
+        run_id=run_id,
+        round_id=round_id,
+        round_index=round_index,
+        proposal=proposal,
+        selected_attempt=selected_attempt,
+        agent_validation=agent_validation,
+        raw_agent_output_path=raw_agent_output_path,
+        patch_path=round_dir / "patch.diff",
+    )
+    write_agent_bundle_manifest(
+        round_dir=round_dir,
+        repo_root=repo_root,
+        run_id=run_id,
+        round_id=round_id,
+        round_index=round_index,
+        agent_name=proposal.agent_name,
+    )
     write_agent_selection_report(
         round_dir=round_dir,
         repo_root=repo_root,
@@ -1221,6 +1258,23 @@ def attach_validation_result_to_attempts(
     return attempts
 
 
+def selected_attempt_by_patch(
+    *,
+    attempts: list[dict[str, object]],
+    patch_sha256: str,
+) -> dict[str, object]:
+    """Return the selected attempt after validation metadata is attached."""
+    for attempt in attempts:
+        if bool(attempt.get("selected", False)) and str(
+            attempt.get("patch_sha256", "")
+        ) == patch_sha256:
+            return attempt
+    for attempt in attempts:
+        if bool(attempt.get("selected", False)):
+            return attempt
+    return attempts[-1] if attempts else {}
+
+
 def index_record(manifest: dict[str, object]) -> dict[str, object]:
     """Build a compact JSONL index record for an iteration run."""
     return {
@@ -1302,6 +1356,7 @@ def candidate_leaderboard_rows(run_dir: Path) -> list[dict[str, object]]:
                 {
                     "run_id": run_dir.name,
                     "round_id": round_dir.name,
+                    "attempt_id": attempt.get("attempt_id", ""),
                     "attempt_index": attempt_index,
                     "role": attempt.get("role", ""),
                     "profile_name": attempt.get("profile_name", ""),

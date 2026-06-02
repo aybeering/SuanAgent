@@ -406,6 +406,172 @@ def validate_candidate_quality_row(
     return quality
 
 
+def validate_round_candidate_quality_bindings(
+    *,
+    round_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate candidate quality metadata is identical across round artifacts."""
+    reference_rows = list_of_dicts(load_json_list(round_dir / "proposal_attempts.json"))
+    reference = candidate_quality_rows_by_attempt_id(
+        rows=reference_rows,
+        artifact_name="proposal_attempts.json",
+        report=report,
+    )
+    if not reference:
+        return
+
+    source_rows_by_artifact: list[tuple[str, list[dict[str, object]]]] = [
+        (
+            "agent_executor_report.json",
+            list_of_dicts(
+                object_value(
+                    load_json_object(round_dir / "agent_executor_report.json", report)
+                ).get("attempts", [])
+            ),
+        ),
+        (
+            "agent_attempts_manifest.json",
+            list_of_dicts(
+                object_value(
+                    load_json_object(round_dir / "agent_attempts_manifest.json", report)
+                ).get("attempts", [])
+            ),
+        ),
+        (
+            "agent_selection_report.json",
+            list_of_dicts(
+                object_value(
+                    load_json_object(round_dir / "agent_selection_report.json", report)
+                ).get("attempts", [])
+            ),
+        ),
+        (
+            "agent_routing_policy.json",
+            list_of_dicts(
+                object_value(
+                    load_json_object(round_dir / "agent_routing_policy.json", report)
+                ).get("candidates", [])
+            ),
+        ),
+        (
+            "agent_output.json",
+            list_of_dicts(
+                object_value(
+                    load_json_object(round_dir / "agent_output.json", report)
+                ).get("attempts", [])
+            ),
+        ),
+        (
+            "candidate_leaderboard.json",
+            leaderboard_rows_for_round(round_dir=round_dir),
+        ),
+        (
+            "attempt_output.json",
+            attempt_output_quality_rows(round_dir=round_dir, report=report),
+        ),
+    ]
+    for artifact_name, rows in source_rows_by_artifact:
+        validate_candidate_quality_source_binding(
+            artifact_name=artifact_name,
+            rows=rows,
+            reference=reference,
+            report=report,
+        )
+
+
+def candidate_quality_rows_by_attempt_id(
+    *,
+    rows: list[dict[str, object]],
+    artifact_name: str,
+    report: dict[str, object],
+) -> dict[str, dict[str, object]]:
+    """Return candidate quality signatures keyed by attempt id."""
+    result: dict[str, dict[str, object]] = {}
+    for row in rows:
+        attempt_id = str(row.get("attempt_id", ""))
+        if not attempt_id:
+            add_error(report, f"{artifact_name} candidate quality row missing attempt_id")
+            continue
+        if attempt_id in result:
+            add_error(
+                report,
+                f"{artifact_name} duplicate candidate quality row: {attempt_id}",
+            )
+            continue
+        result[attempt_id] = candidate_quality_signature(row)
+    return result
+
+
+def validate_candidate_quality_source_binding(
+    *,
+    artifact_name: str,
+    rows: list[dict[str, object]],
+    reference: dict[str, dict[str, object]],
+    report: dict[str, object],
+) -> None:
+    """Validate one artifact's candidate quality rows match proposal attempts."""
+    observed = candidate_quality_rows_by_attempt_id(
+        rows=rows,
+        artifact_name=artifact_name,
+        report=report,
+    )
+    if not observed:
+        return
+    for attempt_id in sorted(reference):
+        if attempt_id not in observed:
+            add_error(report, f"{artifact_name} missing quality row: {attempt_id}")
+            continue
+        if observed[attempt_id] != reference[attempt_id]:
+            add_error(
+                report,
+                f"{artifact_name} quality binding mismatch: {attempt_id}",
+            )
+    for attempt_id in sorted(set(observed) - set(reference)):
+        add_error(report, f"{artifact_name} unexpected quality row: {attempt_id}")
+
+
+def candidate_quality_signature(row: dict[str, object]) -> dict[str, object]:
+    """Return the quality fields that must remain stable across artifacts."""
+    return {
+        "candidate_score": row.get("candidate_score", 0),
+        "score_reasons": list_value(row.get("score_reasons", [])),
+        "quality_breakdown": object_value(row.get("quality_breakdown", {})),
+    }
+
+
+def leaderboard_rows_for_round(*, round_dir: Path) -> list[dict[str, object]]:
+    """Return candidate leaderboard rows for one round."""
+    rows = list_of_dicts(load_json_list(round_dir.parent / "candidate_leaderboard.json"))
+    return [row for row in rows if str(row.get("round_id", "")) == round_dir.name]
+
+
+def attempt_output_quality_rows(
+    *,
+    round_dir: Path,
+    report: dict[str, object],
+) -> list[dict[str, object]]:
+    """Return normalized quality rows from attempt_output.json files."""
+    rows: list[dict[str, object]] = []
+    for path in sorted((round_dir / "agent_attempts").glob("*/attempt_output.json")):
+        payload = load_json_object(path, report)
+        if payload is None:
+            continue
+        selection = object_value(payload.get("selection", {}))
+        rows.append(
+            {
+                "attempt_id": str(payload.get("attempt_id", "")),
+                "candidate_score": payload.get("candidate_score", 0),
+                "score_reasons": list_value(selection.get("score_reasons", [])),
+                "quality_breakdown": object_value(
+                    selection.get("quality_breakdown", {})
+                ),
+            }
+        )
+    return rows
+
+
 def validate_round_dir(
     *,
     round_dir: Path,
@@ -705,6 +871,11 @@ def validate_round_dir(
         payload_name="proposal_attempts.json",
         attempts=proposal_attempts,
         role_names=role_names,
+        report=report,
+    )
+    validate_round_candidate_quality_bindings(
+        round_dir=round_dir,
+        repo_root=repo_root,
         report=report,
     )
     validate_optional_workspace_manifest(
@@ -5790,6 +5961,17 @@ def validate_json_list(*, path: Path, report: dict[str, object]) -> list[Any] | 
     return payload
 
 
+def load_json_list(path: Path) -> list[Any]:
+    """Load a JSON list artifact without mutating the validation report."""
+    if not path.exists():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    return payload if isinstance(payload, list) else []
+
+
 def load_json_object(path: Path, report: dict[str, object]) -> dict[str, Any] | None:
     """Load a JSON object artifact."""
     if not path.exists():
@@ -5803,6 +5985,23 @@ def load_json_object(path: Path, report: dict[str, object]) -> dict[str, Any] | 
         add_error(report, f"JSON artifact must be an object: {path}")
         return None
     return payload
+
+
+def object_value(value: object) -> dict[str, object]:
+    """Return a JSON object value or an empty object."""
+    return value if isinstance(value, dict) else {}
+
+
+def list_value(value: object) -> list[object]:
+    """Return a JSON list value or an empty list."""
+    return list(value) if isinstance(value, list | tuple) else []
+
+
+def list_of_dicts(value: object) -> list[dict[str, object]]:
+    """Return only object rows from a JSON list-like value."""
+    if not isinstance(value, list | tuple):
+        return []
+    return [row for row in value if isinstance(row, dict)]
 
 
 def round_ids_from_manifest(manifest: dict[str, Any]) -> list[str]:

@@ -122,8 +122,9 @@ audit-only.
 Candidate artifacts also carry `candidate_score`, `score_reasons`, and
 `quality_breakdown` across executor, attempt, selection, routing, selected
 output, and leaderboard views. These fields explain deterministic candidate
-ranking and are validated for score consistency, but final strategy acceptance
-still comes only from the policy gate and holdout gate.
+ranking and are validated for score consistency. The artifact validator also
+binds each row by `attempt_id` back to `proposal_attempts.json`, but final
+strategy acceptance still comes only from the policy gate and holdout gate.
 The corresponding JSON Schema files are:
 
 ```text

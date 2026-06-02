@@ -2883,6 +2883,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_output["selected_agent_role"] == "strategy_modifier"
     assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
     assert agent_output["attempt_count"] == len(attempts)
+    assert agent_output["attempts"][0]["attempt_id"] == "attempt_001_primary"
+    assert agent_output["attempts"][0]["attempt_index"] == 1
     assert agent_output["attempts"][0]["profile_name"] == "primary"
     assert agent_output["attempts"][0]["agent_role"] == "strategy_modifier"
     assert agent_output["attempts"][0]["adapter_name"] == "fixed_patch_stub"
@@ -2893,6 +2895,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert "routing_prior" in agent_output["attempts"][0]
     assert agent_output["attempts"][0]["quality_breakdown"]["schema_version"] == (
         "candidate_quality_v1"
+    )
+    assert agent_output["attempts"][0]["score_reasons"] == (
+        selected_attempt["score_reasons"]
+    )
+    assert agent_output["attempts"][0]["quality_breakdown"] == (
+        selected_attempt["quality_breakdown"]
     )
     assert agent_output["artifacts"]["agent_input"].endswith("agent_input.json")
     assert agent_output["artifacts"]["agent_bundle_manifest"].endswith(
@@ -3041,6 +3049,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert selected_attempt["probe_artifacts"]["metrics"]
     assert (round_dir / selected_attempt["probe_artifacts"]["metrics"]).exists()
     assert leaderboard[0]["selected"] is True
+    assert leaderboard[0]["attempt_id"] == "attempt_001_primary"
     assert leaderboard[0]["direction_tag"] == "lower_min_edge"
     assert leaderboard[0]["validation_status"] == "evaluated"
     assert leaderboard[0]["holdout_ev_delta"] == selected_attempt["holdout_ev_delta"]
@@ -6473,6 +6482,40 @@ def test_artifact_validator_reports_candidate_quality_score_drift(
     assert report["ok"] is False
     assert any(
         "agent_executor_report.json row attempt_001_primary quality score mismatch"
+        in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_candidate_quality_binding_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-candidate-quality-binding-drift",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/artifact-candidate-quality-binding-drift/round_001"
+        / "agent_selection_report.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["attempts"][0]["quality_breakdown"]["components"][0][
+        "reason"
+    ] = "drifted without changing score"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="artifact-candidate-quality-binding-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "agent_selection_report.json quality binding mismatch: attempt_001_primary"
         in error
         for error in report["errors"]  # type: ignore[union-attr]
     )

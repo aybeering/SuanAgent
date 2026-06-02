@@ -126,6 +126,8 @@
       "items": {
         "type": "object",
         "required": [
+          "attempt_id",
+          "attempt_index",
           "role",
           "agent_role",
           "profile_name",
@@ -138,6 +140,7 @@
           "status",
           "selected",
           "candidate_score",
+          "score_reasons",
           "quality_breakdown",
           "failure_stage",
           "failure_code",
@@ -147,6 +150,12 @@
           "selection_reason"
         ],
         "properties": {
+          "attempt_id": {
+            "type": "string"
+          },
+          "attempt_index": {
+            "type": "integer"
+          },
           "role": {
             "type": "string"
           },
@@ -182,6 +191,12 @@
           },
           "candidate_score": {
             "type": "number"
+          },
+          "score_reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "quality_breakdown": {
             "type": "object"

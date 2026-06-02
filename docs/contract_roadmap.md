@@ -107,6 +107,7 @@ Implemented or allowed V0.5 components:
 93. Deterministic `proposal_intent_summary` binding inside `agent_output_quarantine.json`, proving the pre-apply quarantine report matches both `agent_output.json` and `agent_input.json` planner context without changing quarantine release rules, patch application, or acceptance.
 94. Deterministic `proposal_intent_summary` binding inside `agent_validation.json`, proving raw-output contract validation ran against the same planner context in `agent_input.json` without changing validation pass/fail rules, git apply checks, quarantine release rules, patch application, or acceptance.
 95. Deterministic candidate quality breakdown bindings inside executor, attempt manifest, attempt output, selection, routing, agent output, leaderboard, brief, and closeout artifacts, proving candidate score explanations remain auditable across the saved candidate trace without changing queue order, scoring rules, patch application, or acceptance.
+96. Deterministic cross-artifact candidate quality consistency checks that bind each `attempt_id` in executor, attempt manifest, attempt output, selection, routing, agent output, and leaderboard artifacts back to `proposal_attempts.json`, without executing agents, rerunning backtests, applying patches, or changing acceptance.
 
 ## Contract Families
 
@@ -253,32 +254,37 @@ Codex CLI readiness contracts:
     routing, output, leaderboard, brief, and closeout artifacts, but they cannot
     change queue order, override the deterministic policy gate, or bypass the
     holdout veto.
-26. Candidate challenger reports are read-only comparison summaries. They can
+26. Cross-artifact candidate quality checks use `proposal_attempts.json` as the
+    round-local source of truth for `candidate_score`, `score_reasons`, and
+    `quality_breakdown` per `attempt_id`. They can reject inconsistent saved
+    artifacts during inspection, but they cannot execute agents, rerun
+    backtests, apply patches, or change acceptance.
+27. Candidate challenger reports are read-only comparison summaries. They can
     highlight validation gaps and holdout stability against the current
     champion, but they cannot promote champions, route candidates, apply
     patches, run backtests, or change strategy acceptance.
-27. Champion promotion dry-runs are read-only promotion previews. They can
+28. Champion promotion dry-runs are read-only promotion previews. They can
     expose the deterministic promote command that would be appropriate after
     operator review, but they cannot write champion registry files, append
     champion history, route candidates, apply patches, run backtests, or change
     strategy acceptance.
-28. Champion promotion approval artifacts record operator intent and reviewed
+29. Champion promotion approval artifacts record operator intent and reviewed
     command digests only. They cannot execute promotion, write champion
     registry files, append champion history, route candidates, apply patches,
     run backtests, or change strategy acceptance.
-29. Guarded champion promotion receipts are the only V0.5 artifact family that
+30. Guarded champion promotion receipts are the only V0.5 artifact family that
     records champion registry writes. They require approval evidence, command
     digest binding, source dry-run digest binding, unchanged champion identity,
     and a current deterministic promote recommendation before writing
     `champion.json` or appending `champion_history.jsonl`.
-30. Champion lineage reports are read-only global experiment inspections. They
+31. Champion lineage reports are read-only global experiment inspections. They
     can summarize champion history, receipts, approvals, dry-runs, and metric
     deltas, but they cannot promote champions, route candidates, run backtests,
     apply patches, write champion registry files, append champion history, or
     change strategy acceptance. Compact lineage summaries may appear in
     experiment summary and champion inspection output, but only the explicit
     lineage command writes lineage artifacts.
-31. Experiment summary dashboards are read-only inspection payloads embedded in
+32. Experiment summary dashboards are read-only inspection payloads embedded in
     `python -m orchestrator.experiments summary`. They can summarize latest
     indexed runs, recent diagnosis rows, recent failure-code counts, and
     best-run-to-champion gaps, and they may include a deterministic operator

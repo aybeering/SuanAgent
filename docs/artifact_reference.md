@@ -41,6 +41,7 @@ python -m orchestrator.experiments slots <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
 python -m orchestrator.experiments lineage
+python -m orchestrator.experiments apply-config-approved <run_id> --dry-run-path experiments/<run_id>/config_application_dry_run.json
 python -m orchestrator.experiments promote-approved <candidate_run_id> --approval-path experiments/<run_id>/champion_promotion_approval.json
 ```
 
@@ -114,6 +115,8 @@ experiments/<run_id>/
   operator_config_review.md
   config_application_dry_run.json
   config_application_dry_run.md
+  config_application_receipt.json  # after guarded config application
+  config_application_receipt.md    # after guarded config application
   agent_result_stats.json
   candidate_challenger_report.json
   candidate_challenger_report.md
@@ -342,6 +345,11 @@ Replay artifacts:
   whether approved config candidates still match the current config value and
   are ready for a later manual edit. They remain dry-run only and never edit
   config, route candidates, apply patches, run backtests, or change acceptance.
+- `config_application_receipt.json` and `config_application_receipt.md` record
+  the result of the guarded apply-config-approved command. The command writes
+  config only when the saved dry-run is ready, the operator-review digest still
+  matches, and the current config digest still matches the reviewed dry-run.
+  Blocked attempts write a receipt but leave config unchanged.
 - `experiment_scope_health.json` combines current artifact health,
   artifact-health history, and memory diagnostics for one `--created-at-from`
   scope. It is a read-only status page and marks the scope unhealthy if any

@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Config Application Receipt",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "status",
+    "ok",
+    "applied",
+    "config_path",
+    "config_before_sha256",
+    "config_after_sha256",
+    "source_dry_run_path",
+    "source_dry_run_sha256",
+    "source_operator_review_path",
+    "source_operator_review_sha256",
+    "dry_run_status",
+    "evidence_checks",
+    "applied_changes",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "config_application_receipt_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "applied",
+        "blocked"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "applied": {
+      "type": "boolean"
+    },
+    "config_path": {
+      "type": "string"
+    },
+    "config_before_sha256": {
+      "type": "string"
+    },
+    "config_after_sha256": {
+      "type": "string"
+    },
+    "source_dry_run_path": {
+      "type": "string"
+    },
+    "source_dry_run_sha256": {
+      "type": "string"
+    },
+    "source_operator_review_path": {
+      "type": "string"
+    },
+    "source_operator_review_sha256": {
+      "type": "string"
+    },
+    "dry_run_status": {
+      "type": "string"
+    },
+    "evidence_checks": {
+      "type": "object",
+      "required": [
+        "ok",
+        "blockers",
+        "dry_run_schema_errors",
+        "operator_review_schema_errors",
+        "source_config_sha256",
+        "ready_change_count"
+      ],
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dry_run_schema_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "operator_review_schema_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_config_sha256": {
+          "type": "string"
+        },
+        "ready_change_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "applied_changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "candidate_id",
+          "config_path",
+          "previous_value",
+          "new_value",
+          "source_artifact"
+        ],
+        "properties": {
+          "candidate_id": {
+            "type": "string"
+          },
+          "config_path": {
+            "type": "string"
+          },
+          "previous_value": {},
+          "new_value": {},
+          "source_artifact": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "requires_config_application_dry_run",
+        "requires_dry_run_ready",
+        "requires_source_dry_run_digest_match",
+        "requires_operator_review_digest_match",
+        "requires_current_config_digest_match",
+        "writes_only_config",
+        "does_not_delete_memory",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_route_candidates",
+        "does_not_apply_patches",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "requires_config_application_dry_run": {
+          "type": "boolean"
+        },
+        "requires_dry_run_ready": {
+          "type": "boolean"
+        },
+        "requires_source_dry_run_digest_match": {
+          "type": "boolean"
+        },
+        "requires_operator_review_digest_match": {
+          "type": "boolean"
+        },
+        "requires_current_config_digest_match": {
+          "type": "boolean"
+        },
+        "writes_only_config": {
+          "type": "boolean"
+        },
+        "does_not_delete_memory": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_route_candidates": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

@@ -50,8 +50,8 @@ Allowed implementation work includes the deterministic evaluation loop, strategy
 modifier stubs, guarded external-adapter slots, proposal contracts, artifact
 validation, replay commands, read-only outcome-memory hygiene and scope
 recommendation artifacts, read-only config change candidate and operator review
-artifacts, read-only config application dry-run artifacts, and Codex CLI
-readiness evidence.
+artifacts, read-only config application dry-run artifacts, guarded config
+application receipt artifacts, and Codex CLI readiness evidence.
 
 Still out of scope:
 
@@ -150,6 +150,10 @@ candidates. Approval still must not apply config automatically.
 Config application dry-run artifacts may preview whether approved config
 candidates are still safe for a later manual edit. They still must not apply
 config automatically.
+Config application receipts may be written only by an explicit guarded command
+after approved dry-run evidence still matches current config. Receipts may
+write config only through that command and must not run agents or change
+iteration acceptance.
 
 ## Strategy Policy
 

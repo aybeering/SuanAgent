@@ -150,6 +150,11 @@ from orchestrator.config_application_dry_run import (
     validate_config_application_dry_run_file,
     write_config_application_dry_run,
 )
+from orchestrator.config_application_executor import (
+    CONFIG_APPLICATION_RECEIPT_SCHEMA_VERSION,
+    apply_config_with_approval,
+    validate_config_application_receipt_file,
+)
 from orchestrator.operator_config_review import (
     OPERATOR_CONFIG_REVIEW_SCHEMA_VERSION,
     REQUIRED_APPROVAL_PHRASE as CONFIG_REVIEW_APPROVAL_PHRASE,
@@ -1619,6 +1624,149 @@ def test_operator_config_review_records_intent_without_applying_config(
     assert rejected_dry_run["planned_changes"][0]["review_decision"] == "rejected"
     assert (repo / "config/default.json").read_text(encoding="utf-8") == config_before
     assert_matches_schema_payload(rejected_dry_run, "config_application_dry_run")
+
+
+def test_config_application_receipt_applies_only_from_approved_dry_run(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/config-apply-approved"
+    run_dir.mkdir(parents=True)
+    memory_path = repo / "experiments/memory.jsonl"
+    records = []
+    for index in range(120):
+        records.append(
+            {
+                "created_at": f"2026-01-{(index % 28) + 1:02d}T00:00:00Z",
+                "kind": "proposal_outcome",
+                "run_id": f"config-apply-memory-run-{index:03d}",
+                "round_id": "round_001",
+                "agent_name": "stub",
+                "direction_tag": "lower_min_edge",
+                "patch_sha256": "applypatch" * 7,
+                "accepted": False,
+                "applicable": True,
+                "validation_ev_delta": -0.01,
+            }
+        )
+    memory_path.write_text(
+        "\n".join(json.dumps(record, sort_keys=True) for record in records) + "\n",
+        encoding="utf-8",
+    )
+    write_memory_hygiene(
+        output_path=run_dir / "memory_hygiene.json",
+        markdown_path=run_dir / "memory_hygiene.md",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        failed_patch_threshold=2,
+        failed_direction_threshold=3,
+        exclude_run_id="config-apply-approved",
+    )
+    write_memory_scope_recommendation(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    )
+    write_config_change_candidate(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    )
+
+    blocked_review = write_operator_config_review(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    )[2]
+    blocked_dry_run = write_config_application_dry_run(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+    )[2]
+    blocked_receipt = apply_config_with_approval(
+        run_id="config-apply-approved",
+        dry_run_path=run_dir / "config_application_dry_run.json",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+    )
+    config_payload = json.loads(
+        (repo / "config/default.json").read_text(encoding="utf-8")
+    )
+    assert blocked_review["operator_intent"]["review_recorded"] is False
+    assert blocked_dry_run["status"] == "no_approved_changes"
+    assert blocked_receipt["schema_version"] == CONFIG_APPLICATION_RECEIPT_SCHEMA_VERSION
+    assert blocked_receipt["status"] == "blocked"
+    assert blocked_receipt["applied"] is False
+    assert "operator_review_not_recorded" in blocked_receipt["evidence_checks"][
+        "blockers"
+    ]
+    assert config_payload["memory_filter"]["recent_record_limit"] == 0
+    assert_matches_schema_payload(blocked_receipt, "config_application_receipt")
+
+    write_operator_config_review(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        operator_id="test-operator",
+        decision="approve",
+        confirmation_phrase=CONFIG_REVIEW_APPROVAL_PHRASE,
+    )
+    approved_dry_run = write_config_application_dry_run(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+    )[2]
+    receipt = apply_config_with_approval(
+        run_id="config-apply-approved",
+        dry_run_path=run_dir / "config_application_dry_run.json",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+    )
+    updated_config = json.loads(
+        (repo / "config/default.json").read_text(encoding="utf-8")
+    )
+
+    assert approved_dry_run["status"] == "ready_for_manual_application"
+    assert receipt["status"] == "applied"
+    assert receipt["applied"] is True
+    assert receipt["evidence_checks"]["ok"] is True
+    assert receipt["evidence_checks"]["blockers"] == []
+    assert receipt["applied_changes"][0]["config_path"] == (
+        "memory_filter.recent_record_limit"
+    )
+    assert receipt["applied_changes"][0]["previous_value"] == 0
+    assert receipt["applied_changes"][0]["new_value"] == 100
+    assert receipt["policy"]["writes_only_config"] is True
+    assert receipt["policy"]["does_not_execute_agents"] is True
+    assert updated_config["memory_filter"]["recent_record_limit"] == 100
+    assert (run_dir / "config_application_receipt.json").exists()
+    assert (run_dir / "config_application_receipt.md").exists()
+    assert "# Config Application Receipt" in (
+        run_dir / "config_application_receipt.md"
+    ).read_text(encoding="utf-8")
+    assert_matches_schema(
+        run_dir / "config_application_receipt.json",
+        "config_application_receipt",
+    )
+    assert validate_config_application_receipt_file(
+        payload_path=run_dir / "config_application_receipt.json",
+        repo_root=repo,
+    ) == ()
+
+    report = validate_run_artifacts(
+        run_id="config-apply-approved",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert report["ok"] is False
+    assert not any(
+        "config_application_receipt.json" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
 
 
 def test_agent_contract_runner_writes_disabled_audit(tmp_path: Path) -> None:
@@ -13405,6 +13553,23 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    apply_config_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "apply-config-approved",
+            "cli-candidates",
+            "--dry-run-path",
+            "experiments/cli-candidates/config_application_dry_run.json",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     challenger_result = subprocess.run(
         [
             sys.executable,
@@ -13549,6 +13714,17 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         config_application_payload,
         "config_application_dry_run",
     )
+    assert apply_config_result.returncode == 1
+    apply_config_payload = json.loads(apply_config_result.stdout)
+    assert apply_config_payload["schema_version"] == (
+        CONFIG_APPLICATION_RECEIPT_SCHEMA_VERSION
+    )
+    assert apply_config_payload["status"] == "blocked"
+    assert apply_config_payload["applied"] is False
+    assert "operator_review_not_recorded" in apply_config_payload["evidence_checks"][
+        "blockers"
+    ]
+    assert_matches_schema_payload(apply_config_payload, "config_application_receipt")
     assert challenger_result.returncode == 0, challenger_result.stderr
     challenger_payload = json.loads(challenger_result.stdout)
     assert challenger_payload["schema_version"] == CANDIDATE_CHALLENGER_SCHEMA_VERSION

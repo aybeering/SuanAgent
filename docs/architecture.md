@@ -149,6 +149,10 @@ iteration behavior automatically.
 whether an approved candidate still matches the current config value and is
 ready for a later manual edit. The dry run is intentionally read-only and does
 not apply config changes.
+`config_application_receipt.json` and `config_application_receipt.md` are only
+created by the explicit guarded apply command. That command binds the current
+config digest, the approved dry-run digest, and the operator-review digest
+before writing config, and it still does not run agents or change acceptance.
 
 ## Champion Registry
 

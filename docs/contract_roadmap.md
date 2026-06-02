@@ -115,6 +115,7 @@ Implemented or allowed V0.5 components:
 101. A deterministic `config_change_candidate.json` and `config_change_candidate.md` report pair that translates saved read-only recommendations into operator-reviewed config field candidates for a future run, including current values, proposed values, rationale, reason codes, and risk notes, without writing config, deleting memory, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 102. A deterministic `operator_config_review.json` and `operator_config_review.md` report pair that records operator approve or reject intent for saved config change candidates, including confirmation phrase hashes for approval and reviewed candidate rows, without writing config, deleting memory, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 103. A deterministic `config_application_dry_run.json` and `config_application_dry_run.md` report pair that previews whether approved config change candidates still match the current config value and are ready for a later manual edit, without writing config, deleting memory, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
+104. A guarded `config_application_receipt.json` and `config_application_receipt.md` report pair for the explicit apply-config-approved command, which writes config only when ready dry-run evidence, operator-review evidence, and current config digests still match, without deleting memory, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 
 ## Contract Families
 
@@ -159,6 +160,8 @@ Agent-slot contracts:
 - Operator config review: `schemas/operator_config_review.schema.json`
 - Config application dry run:
   `schemas/config_application_dry_run.schema.json`
+- Config application receipt:
+  `schemas/config_application_receipt.schema.json`
 - Experiment scope health: `schemas/experiment_scope_health.schema.json`
 - Run closeout: `schemas/run_closeout.schema.json`
 - Candidate quality trace: `schemas/candidate_quality_trace.schema.json`

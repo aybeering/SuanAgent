@@ -1623,6 +1623,18 @@ def main() -> None:
     promote_approved_parser.add_argument("--approval-path", type=Path, required=True)
     promote_approved_parser.add_argument("--min-ev-delta", type=float, default=0.0)
 
+    apply_config_parser = subparsers.add_parser(
+        "apply-config-approved",
+        help="Apply config only from approved config dry-run evidence.",
+    )
+    apply_config_parser.add_argument("run_id")
+    apply_config_parser.add_argument("--dry-run-path", type=Path, required=True)
+    apply_config_parser.add_argument(
+        "--config",
+        type=Path,
+        default=Path("config/default.json"),
+    )
+
     diagnose_parser = subparsers.add_parser(
         "diagnose",
         help="Diagnose one run with artifact health and round outcomes.",
@@ -1798,6 +1810,18 @@ def main() -> None:
             approval_path=args.approval_path,
             min_ev_delta=args.min_ev_delta,
         )
+    elif args.command == "apply-config-approved":
+        from orchestrator.config_application_executor import (
+            apply_config_with_approval,
+        )
+
+        payload = apply_config_with_approval(
+            experiments_dir=args.experiments_dir,
+            repo_root=args.experiments_dir.parent,
+            run_id=args.run_id,
+            dry_run_path=args.dry_run_path,
+            config_path=args.config,
+        )
     elif args.command == "diagnose":
         payload = diagnose_run(
             experiments_dir=args.experiments_dir,
@@ -1872,6 +1896,8 @@ def main() -> None:
             return
     print(json.dumps(payload, indent=2, sort_keys=True))
     if args.command == "promote-approved" and not payload.get("promoted", False):
+        raise SystemExit(1)
+    if args.command == "apply-config-approved" and not payload.get("applied", False):
         raise SystemExit(1)
     if args.command == "validate" and args.strict and not payload.get("ok", False):
         raise SystemExit(1)

@@ -209,6 +209,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_config_application_receipt(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_optional_run_closeout(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -3876,6 +3881,92 @@ def validate_optional_champion_promotion_receipt(
     ):
         if policy.get(key) is not True:
             add_error(report, f"champion_promotion_receipt.json policy false: {key}")
+
+
+def validate_optional_config_application_receipt(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate config_application_receipt.json when a run has one."""
+    path = run_dir / "config_application_receipt.json"
+    md_path = run_dir / "config_application_receipt.md"
+    if not path.exists():
+        if md_path.exists():
+            add_error(report, "config_application_receipt.md exists without JSON")
+        return
+    checked_files(report).append(str(path))
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    else:
+        add_error(report, "config_application_receipt.json missing markdown pair")
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/config_application_receipt.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"config_application_receipt.json run_id does not match report: {path}",
+        )
+    if payload.get("status") == "applied" and payload.get("applied") is not True:
+        add_error(report, "config_application_receipt.json applied status mismatch")
+    if payload.get("status") == "blocked" and payload.get("applied") is not False:
+        add_error(report, "config_application_receipt.json blocked status mismatch")
+    dry_run_path = resolve_path(
+        Path(str(payload.get("source_dry_run_path", ""))),
+        repo_root,
+    )
+    if payload.get("source_dry_run_sha256") != file_sha256(dry_run_path):
+        add_error(report, "config_application_receipt.json dry-run digest mismatch")
+    review_path = resolve_path(
+        Path(str(payload.get("source_operator_review_path", ""))),
+        repo_root,
+    )
+    if payload.get("source_operator_review_sha256") != file_sha256(review_path):
+        add_error(report, "config_application_receipt.json review digest mismatch")
+    config_path = resolve_path(Path(str(payload.get("config_path", ""))), repo_root)
+    if payload.get("config_after_sha256") != file_sha256(config_path):
+        add_error(report, "config_application_receipt.json config digest mismatch")
+    checks = payload.get("evidence_checks", {})
+    if not isinstance(checks, dict):
+        add_error(report, "config_application_receipt.json evidence invalid")
+    else:
+        blockers = checks.get("blockers", [])
+        if payload.get("applied") is True and blockers:
+            add_error(report, "config_application_receipt.json applied with blockers")
+        if payload.get("applied") is True and checks.get("ok") is not True:
+            add_error(report, "config_application_receipt.json applied without evidence")
+    applied_changes = payload.get("applied_changes", [])
+    if not isinstance(applied_changes, list):
+        add_error(report, "config_application_receipt.json applied_changes invalid")
+    elif payload.get("applied") is True and not applied_changes:
+        add_error(report, "config_application_receipt.json applied without changes")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "config_application_receipt.json policy invalid")
+        return
+    for key in (
+        "requires_config_application_dry_run",
+        "requires_dry_run_ready",
+        "requires_source_dry_run_digest_match",
+        "requires_operator_review_digest_match",
+        "requires_current_config_digest_match",
+        "writes_only_config",
+        "does_not_delete_memory",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_route_candidates",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"config_application_receipt.json policy false: {key}")
 
 
 def validate_optional_champion_comparison(

@@ -4262,36 +4262,21 @@ def validate_optional_codex_cli_operator_unlock_request(
             )
     source_pipeline = payload.get("source_pipeline", {})
     if isinstance(source_pipeline, dict):
-        pipeline_record = source_pipeline.get("file", {})
-        if isinstance(pipeline_record, dict):
-            validate_recorded_file_hash(
-                record=pipeline_record,
-                repo_root=repo_root,
-                report=report,
-                label="codex_cli_operator_unlock_request source_pipeline",
-            )
-            validate_declared_record_path(
-                declared_path=str(source_pipeline.get("path", "")),
-                record=pipeline_record,
-                repo_root=repo_root,
-                report=report,
-                label="codex_cli_operator_unlock_request source_pipeline",
-            )
-            if not artifact_path_matches_file(
-                path_text=str(source_pipeline.get("path", "")),
-                expected_path=run_dir / "codex_cli_readiness_pipeline.json",
-                repo_root=repo_root,
-            ):
-                add_error(
-                    report,
-                    "codex_cli_operator_unlock_request source_pipeline "
-                    "not canonical run artifact",
-                )
-        else:
-            add_error(
-                report,
-                "codex_cli_operator_unlock_request.json source pipeline file invalid",
-            )
+        validate_source_artifact_provenance(
+            source=source_pipeline,
+            expected_path=run_dir / "codex_cli_readiness_pipeline.json",
+            repo_root=repo_root,
+            report=report,
+            label="codex_cli_operator_unlock_request source_pipeline",
+            invalid_file_error=(
+                "codex_cli_operator_unlock_request.json "
+                "source pipeline file invalid"
+            ),
+            not_canonical_error=(
+                "codex_cli_operator_unlock_request source_pipeline "
+                "not canonical run artifact"
+            ),
+        )
         if ready and not bool(source_pipeline.get("final_ready", False)):
             add_error(
                 report,
@@ -4302,31 +4287,22 @@ def validate_optional_codex_cli_operator_unlock_request(
     source_dry_run = payload.get("source_real_execution_dry_run", {})
     source_dry_run_plan: dict[str, Any] = {}
     if isinstance(source_dry_run, dict):
-        dry_run_record = source_dry_run.get("file", {})
+        dry_run_record = validate_source_artifact_provenance(
+            source=source_dry_run,
+            expected_path=run_dir / "codex_cli_real_execution_dry_run.json",
+            repo_root=repo_root,
+            report=report,
+            label="codex_cli_operator_unlock_request source_dry_run",
+            invalid_file_error=(
+                "codex_cli_operator_unlock_request.json "
+                "source dry-run file invalid"
+            ),
+            not_canonical_error=(
+                "codex_cli_operator_unlock_request source_dry_run "
+                "not canonical run artifact"
+            ),
+        )
         if isinstance(dry_run_record, dict):
-            validate_recorded_file_hash(
-                record=dry_run_record,
-                repo_root=repo_root,
-                report=report,
-                label="codex_cli_operator_unlock_request source_dry_run",
-            )
-            validate_declared_record_path(
-                declared_path=str(source_dry_run.get("path", "")),
-                record=dry_run_record,
-                repo_root=repo_root,
-                report=report,
-                label="codex_cli_operator_unlock_request source_dry_run",
-            )
-            if not artifact_path_matches_file(
-                path_text=str(source_dry_run.get("path", "")),
-                expected_path=run_dir / "codex_cli_real_execution_dry_run.json",
-                repo_root=repo_root,
-            ):
-                add_error(
-                    report,
-                    "codex_cli_operator_unlock_request source_dry_run "
-                    "not canonical run artifact",
-                )
             dry_run_payload = load_recorded_json_object(
                 record=dry_run_record,
                 repo_root=repo_root,
@@ -4337,11 +4313,6 @@ def validate_optional_codex_cli_operator_unlock_request(
                 source_dry_run_plan = dict_value(
                     dry_run_payload.get("planned_execution", {})
                 )
-        else:
-            add_error(
-                report,
-                "codex_cli_operator_unlock_request.json source dry-run file invalid",
-            )
         if ready and not bool(
             source_dry_run.get("real_execution_dry_run_ready", False)
         ):
@@ -4532,6 +4503,43 @@ def validate_declared_record_path(
     normalized_path = normalize_repo_path(declared_path, repo_root)
     if normalized_path != recorded_path:
         add_error(report, f"{label} path mismatch")
+
+
+def validate_source_artifact_provenance(
+    *,
+    source: dict[str, object],
+    expected_path: Path,
+    repo_root: Path,
+    report: dict[str, object],
+    label: str,
+    invalid_file_error: str,
+    not_canonical_error: str,
+) -> dict[str, object] | None:
+    """Validate hash, declared path, and canonical path for one source artifact."""
+    record = source.get("file", {})
+    if not isinstance(record, dict):
+        add_error(report, invalid_file_error)
+        return None
+    validate_recorded_file_hash(
+        record=record,
+        repo_root=repo_root,
+        report=report,
+        label=label,
+    )
+    validate_declared_record_path(
+        declared_path=str(source.get("path", "")),
+        record=record,
+        repo_root=repo_root,
+        report=report,
+        label=label,
+    )
+    if not artifact_path_matches_file(
+        path_text=str(source.get("path", "")),
+        expected_path=expected_path,
+        repo_root=repo_root,
+    ):
+        add_error(report, not_canonical_error)
+    return record
 
 
 def validate_optional_research_brief(

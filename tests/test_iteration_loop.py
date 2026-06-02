@@ -7881,6 +7881,58 @@ def test_artifact_validator_reports_operator_source_path_mismatch(
     )
 
 
+def test_artifact_validator_reports_operator_source_alias_paths(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/operator-source-alias-paths"
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        run_dir / "codex_cli_operator_unlock_request.json",
+        run_id="operator-source-alias-paths",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    alias_pipeline_path = run_dir / "alias_readiness_pipeline.json"
+    alias_dry_run_path = run_dir / "alias_real_execution_dry_run.json"
+    canonical_pipeline_path = repo / request["source_pipeline"]["file"]["path"]
+    canonical_dry_run_path = (
+        repo / request["source_real_execution_dry_run"]["file"]["path"]
+    )
+    shutil.copyfile(canonical_pipeline_path, alias_pipeline_path)
+    shutil.copyfile(canonical_dry_run_path, alias_dry_run_path)
+    request["source_pipeline"]["path"] = str(alias_pipeline_path.relative_to(repo))
+    request["source_pipeline"]["file"] = file_record(alias_pipeline_path, repo)
+    request["source_real_execution_dry_run"]["path"] = str(
+        alias_dry_run_path.relative_to(repo)
+    )
+    request["source_real_execution_dry_run"]["file"] = file_record(
+        alias_dry_run_path,
+        repo,
+    )
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="operator-source-alias-paths",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_operator_unlock_request source_pipeline "
+        "not canonical run artifact" in str(error)
+        for error in validation_report["errors"]
+    )
+    assert any(
+        "codex_cli_operator_unlock_request source_dry_run "
+        "not canonical run artifact" in str(error)
+        for error in validation_report["errors"]
+    )
+
+
 def test_artifact_validator_reports_operator_canonical_source_check_false(
     tmp_path: Path,
 ) -> None:

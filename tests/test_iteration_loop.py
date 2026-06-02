@@ -2434,6 +2434,50 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     )["ok"] is True
 
 
+def test_refresh_operator_views_uses_run_metadata_config_path(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "operator-view-refresh-config-binding"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_guarded.json",
+    )
+    refresh = refresh_operator_views_command(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+    )
+    run_dir = repo / f"experiments/{run_id}"
+    preflight = json.loads(
+        (run_dir / "codex_cli_execution_preflight.json").read_text(
+            encoding="utf-8",
+        )
+    )
+    diff = json.loads(
+        (run_dir / "codex_cli_execution_readiness_diff.json").read_text(
+            encoding="utf-8",
+        )
+    )
+
+    assert refresh["schema_version"] == "operator_view_refresh_v1"
+    assert str(refresh["config_path"]).endswith("config/codex_cli_guarded.json")
+    assert preflight["schema_version"] == "codex_cli_execution_preflight_v1"
+    assert preflight["summary"]["real_codex_execute_profile_count"] == 0
+    assert diff["schema_version"] == "codex_cli_execution_readiness_diff_v1"
+    assert diff["current_expected_execution"]["source_config"]["path"].endswith(
+        "config/codex_cli_guarded.json"
+    )
+    assert diff["policy"]["does_not_execute_codex_cli"] is True
+    assert refresh["cockpit_snapshot_freshness"]["ok"] is True
+    assert validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )["ok"] is True
+
+
 def test_config_application_receipt_applies_only_from_approved_dry_run(
     tmp_path: Path,
 ) -> None:

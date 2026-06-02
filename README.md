@@ -18,7 +18,8 @@ holdout data for a conservative risk gate. By default, the iteration loop stops
 early when an agent repeats a previously rejected patch.
 
 The strategy interface contract is documented in
-`docs/strategy_interface.md`. Machine-readable agent contracts live in
+`docs/strategy_interface.md`, and the detailed V0.5 contract/readiness roadmap
+lives in `docs/contract_roadmap.md`. Machine-readable agent contracts live in
 `schemas/agent_input.schema.json`, `schemas/agent_bundle.schema.json`,
 `schemas/agent_attempts.schema.json`, `schemas/agent_selection.schema.json`,
 `schemas/agent_executor.schema.json`, `schemas/agent_output.schema.json`,

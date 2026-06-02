@@ -102,6 +102,20 @@ jobs:
           assert fixture["contract"]["execution_status"] == "disabled"
           assert fixture["contract"]["prompt_sha256"] == fixture["contract"]["audit_stdin_sha256"]
           PY
+          python -m orchestrator.round_replay experiments/ci-codex-guarded/round_001
+          python -m orchestrator.codex_cli_replay_gate experiments/ci-codex-guarded
+          test -f experiments/ci-codex-guarded/codex_cli_replay_gate.json
+          test -f experiments/ci-codex-guarded/codex_cli_replay_gate.md
+          python - <<'PY'
+          import json
+          gate = json.load(open("experiments/ci-codex-guarded/codex_cli_replay_gate.json"))
+          assert gate["schema_version"] == "codex_cli_replay_gate_v1"
+          assert gate["ok"] is True
+          assert gate["ready_to_enable_codex_cli"] is True
+          assert gate["totals"]["blocked_count"] == 0
+          assert gate["slots"][0]["requirements"]["contract_fixture_ok"] is True
+          assert gate["slots"][0]["requirements"]["round_replay_ok"] is True
+          PY
           python -m orchestrator.artifact_validator ci-codex-guarded
           python -m orchestrator.artifact_validator ci-adaptive
           python -m orchestrator.artifact_validator ci-file-protocol-demo

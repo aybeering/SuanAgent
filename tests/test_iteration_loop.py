@@ -49,6 +49,10 @@ from orchestrator.codex_cli_contract_fixture import (
     CODEX_CLI_CONTRACT_FIXTURE_SCHEMA_VERSION,
     write_codex_cli_contract_fixture,
 )
+from orchestrator.codex_cli_replay_gate import (
+    CODEX_CLI_REPLAY_GATE_SCHEMA_VERSION,
+    write_codex_cli_replay_gate,
+)
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.agent_slot_readiness_gate import (
@@ -5394,6 +5398,110 @@ def test_codex_cli_contract_fixture_blocks_prompt_hash_mismatch(
     )
     assert cli_result.returncode == 1
     assert cli_payload["failure_code"] == "stdin_prompt_sha_mismatch"
+
+
+def test_codex_cli_replay_gate_passes_guarded_fixture_replay(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-replay-gate",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/codex-replay-gate"
+    round_dir = run_dir / "round_001"
+    replay_round(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_contract_fixture(round_dir=round_dir, repo_root=repo)
+
+    gate = write_codex_cli_replay_gate(run_dir=run_dir, repo_root=repo)
+    validation_report = validate_run_artifacts(
+        run_id="codex-replay-gate",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_replay_gate",
+            "experiments/codex-replay-gate",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert gate["schema_version"] == CODEX_CLI_REPLAY_GATE_SCHEMA_VERSION
+    assert gate["ok"] is True
+    assert gate["ready_to_enable_codex_cli"] is True
+    assert gate["totals"]["slot_count"] == 1
+    assert gate["totals"]["blocked_count"] == 0
+    slot = gate["slots"][0]
+    assert slot["adapter_name"] == "codex_cli"
+    assert slot["gate_status"] == "ready"
+    assert slot["ready_to_enable"] is True
+    assert slot["blocking_issues"] == []
+    assert slot["requirements"]["runner_is_guarded_codex_cli"] is True
+    assert slot["requirements"]["stdin_recorded"] is True
+    assert slot["requirements"]["contract_fixture_ok"] is True
+    assert slot["requirements"]["quarantine_not_released_for_disabled_codex"] is True
+    assert slot["requirements"]["round_replay_ok"] is True
+    assert slot["evidence"]["execution_status"] == "disabled"
+    assert slot["evidence"]["quarantine_status"] == "not_applicable"
+    assert_matches_schema(run_dir / "codex_cli_replay_gate.json", "codex_cli_replay_gate")
+    assert (run_dir / "codex_cli_replay_gate.md").exists()
+    assert validation_report["ok"] is True
+    assert cli_result.returncode == 0, cli_result.stderr
+    assert cli_payload["schema_version"] == CODEX_CLI_REPLAY_GATE_SCHEMA_VERSION
+    assert cli_payload["ready_to_enable_codex_cli"] is True
+
+
+def test_codex_cli_replay_gate_blocks_missing_fixture(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-replay-gate-missing-fixture",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/codex-replay-gate-missing-fixture"
+    replay_round(round_dir=run_dir / "round_001", repo_root=repo)
+
+    gate = write_codex_cli_replay_gate(run_dir=run_dir, repo_root=repo)
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_replay_gate",
+            "experiments/codex-replay-gate-missing-fixture",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert gate["schema_version"] == CODEX_CLI_REPLAY_GATE_SCHEMA_VERSION
+    assert gate["ok"] is False
+    assert gate["ready_to_enable_codex_cli"] is False
+    assert gate["totals"]["blocked_count"] == 1
+    slot = gate["slots"][0]
+    assert slot["gate_status"] == "blocked"
+    assert "contract_fixture_missing" in slot["blocking_issues"]
+    assert "contract_fixture_failed" in slot["blocking_issues"]
+    assert "contract_fixture_prompt_hash_mismatch" in slot["blocking_issues"]
+    assert cli_result.returncode == 1
+    assert cli_payload["ok"] is False
+    assert_matches_schema(run_dir / "codex_cli_replay_gate.json", "codex_cli_replay_gate")
 
 
 def test_codex_cli_adapter_execute_success_parses_patch(tmp_path: Path) -> None:

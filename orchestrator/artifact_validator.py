@@ -157,6 +157,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_codex_cli_replay_gate(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     report["ok"] = not report["errors"]
     return report
 
@@ -2125,6 +2130,117 @@ def validate_optional_external_agent_sandbox_drill(
                     f"external_agent_sandbox_drill.json policy false: {key}",
                 )
     markdown_path = run_dir / "external_agent_sandbox_drill.md"
+    if markdown_path.exists():
+        checked_files(report).append(str(markdown_path))
+
+
+def validate_optional_codex_cli_replay_gate(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate codex_cli_replay_gate.json when a run has one."""
+    path = run_dir / "codex_cli_replay_gate.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/codex_cli_replay_gate.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"codex_cli_replay_gate.json run_id does not match report: {path}",
+        )
+    slots = payload.get("slots", [])
+    if not isinstance(slots, list) or not slots:
+        add_error(report, "codex_cli_replay_gate.json slots is empty or invalid")
+        return
+    totals = payload.get("totals", {})
+    if isinstance(totals, dict) and totals.get("slot_count") != len(slots):
+        add_error(report, "codex_cli_replay_gate.json slot_count mismatch")
+    blocked_count = sum(
+        1
+        for slot in slots
+        if isinstance(slot, dict) and slot.get("gate_status") == "blocked"
+    )
+    if isinstance(totals, dict) and totals.get("blocked_count") != blocked_count:
+        add_error(report, "codex_cli_replay_gate.json blocked_count mismatch")
+    if bool(payload.get("ok", False)) != (blocked_count == 0):
+        add_error(report, "codex_cli_replay_gate.json ok/status mismatch")
+    if bool(payload.get("ready_to_enable_codex_cli", False)) != bool(
+        payload.get("ok", False)
+    ):
+        add_error(report, "codex_cli_replay_gate.json ready/ok mismatch")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "codex_cli_replay_gate.json policy invalid")
+    else:
+        for key in (
+            "gate_only",
+            "does_not_execute_codex_cli",
+            "does_not_select_candidate",
+            "does_not_apply_patches",
+            "does_not_change_acceptance",
+            "requires_guarded_execution_audit",
+            "requires_contract_fixture",
+            "requires_quarantine",
+            "requires_round_replay",
+            "deterministic_code_keeps_acceptance_authority",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(report, f"codex_cli_replay_gate.json policy false: {key}")
+    for slot in slots:
+        if not isinstance(slot, dict):
+            add_error(report, "codex_cli_replay_gate.json slot is non-object")
+            continue
+        if slot.get("adapter_name") != "codex_cli":
+            add_error(
+                report,
+                f"codex_cli_replay_gate.json non-codex slot: {slot.get('slot_id', '')}",
+            )
+        blockers = slot.get("blocking_issues", [])
+        if not isinstance(blockers, list):
+            add_error(report, "codex_cli_replay_gate.json blocking_issues invalid")
+            continue
+        if bool(slot.get("ready_to_enable", False)) and blockers:
+            add_error(
+                report,
+                f"codex_cli_replay_gate.json ready slot has blockers: {slot.get('slot_id', '')}",
+            )
+        if bool(slot.get("ready_to_enable", False)) != (
+            slot.get("gate_status") == "ready"
+        ):
+            add_error(
+                report,
+                f"codex_cli_replay_gate.json slot ready/status mismatch: {slot.get('slot_id', '')}",
+            )
+        artifacts = slot.get("artifacts", {})
+        if not isinstance(artifacts, dict):
+            add_error(report, "codex_cli_replay_gate.json artifacts invalid")
+            continue
+        for key in (
+            "agent_execution",
+            "codex_cli_contract_fixture",
+            "agent_output_quarantine",
+            "round_replay",
+        ):
+            artifact_path = resolve_path(Path(str(artifacts.get(key, ""))), repo_root)
+            if bool(slot.get("ready_to_enable", False)):
+                if not artifact_path.exists() or not artifact_path.is_file():
+                    add_error(
+                        report,
+                        f"codex_cli_replay_gate artifact does not exist: {key}={artifact_path}",
+                    )
+                    continue
+                checked_files(report).append(str(artifact_path))
+    markdown_path = run_dir / "codex_cli_replay_gate.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
 

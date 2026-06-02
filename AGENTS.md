@@ -95,6 +95,7 @@ Allowed components:
 44. A deterministic `agent_output_quarantine.json` report that quarantines selected agent output before git apply and releases only validated strategy patches.
 45. A deterministic `agent_golden_replay.json` report that freezes one saved agent input/output pair as a replayable protocol fixture.
 46. A deterministic `codex_cli_contract_fixture.json` report that freezes guarded Codex CLI stdin/stdout expectations without executing Codex.
+47. A deterministic `codex_cli_replay_gate.json` report that gates Codex CLI enablement using saved execution, fixture, quarantine, and replay artifacts.
 
 Still out of scope:
 
@@ -144,6 +145,7 @@ Current structure:
 │   ├── agent_output_quarantine.schema.json
 │   ├── agent_golden_replay.schema.json
 │   ├── codex_cli_contract_fixture.schema.json
+│   ├── codex_cli_replay_gate.schema.json
 │   ├── agent_execution.schema.json
 │   ├── agent_activation_preflight.schema.json
 │   ├── agent_execution_plan.schema.json
@@ -202,6 +204,7 @@ Current structure:
 │   ├── agent_output_quarantine.py
 │   ├── agent_golden_replay.py
 │   ├── codex_cli_contract_fixture.py
+│   ├── codex_cli_replay_gate.py
 │   ├── outcome_memory.py
 │   ├── policy_gate.py
 │   ├── proposal.py

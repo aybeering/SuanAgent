@@ -131,6 +131,13 @@ from orchestrator.artifact_validator import (
     snapshot_digest_from_payload,
     validate_run_artifacts,
 )
+from orchestrator.artifact_validator_coverage import (
+    SCHEMA_VERSION as ARTIFACT_VALIDATOR_COVERAGE_SCHEMA_VERSION,
+    build_artifact_validator_coverage,
+    coverage_markdown,
+    validate_coverage_payload_file,
+    write_coverage_report,
+)
 from orchestrator.config import (
     ProjectConfig,
     load_project_config,
@@ -251,6 +258,142 @@ def test_schema_validator_resolves_local_defs_refs() -> None:
     errors = validate_json_payload(payload={"record": {"ok": "yes"}}, schema=schema)
 
     assert "$.record.ok: expected boolean, got string" in errors
+
+
+def test_artifact_validator_coverage_reports_repo_contracts(tmp_path: Path) -> None:
+    payload = build_artifact_validator_coverage(repo_root=Path.cwd())
+
+    assert payload["schema_version"] == ARTIFACT_VALIDATOR_COVERAGE_SCHEMA_VERSION
+    assert_matches_schema_payload(payload, "artifact_validator_coverage")
+    schema_count = len(list(Path("schemas").glob("*.schema.json")))
+    assert payload["totals"]["schema_count"] == schema_count
+    rows = {
+        str(row["schema_name"]): row
+        for row in payload["schemas"]
+        if isinstance(row, dict)
+    }
+    assert rows["agent_input"]["validator_covered"] is True
+    assert rows["agent_input"]["docs_covered"] is True
+    assert rows["artifact_validator_coverage"]["tests_covered"] is True
+    assert rows["artifact_validator_coverage"]["docs_covered"] is True
+    assert rows["champion"]["validator_covered"] is True
+    assert payload["ok"] is True
+    assert payload["gaps"] == []
+
+    output_path = tmp_path / "artifact_validator_coverage.json"
+    markdown_path = tmp_path / "artifact_validator_coverage.md"
+    written = write_coverage_report(
+        output_path=output_path,
+        markdown_path=markdown_path,
+        repo_root=Path.cwd(),
+    )
+    assert written["schema_version"] == ARTIFACT_VALIDATOR_COVERAGE_SCHEMA_VERSION
+    assert validate_coverage_payload_file(
+        payload_path=output_path,
+        repo_root=Path.cwd(),
+    ) == ()
+    assert "# Artifact Validator Coverage" in coverage_markdown(payload)
+    assert "Schemas with gaps" in markdown_path.read_text(encoding="utf-8")
+
+
+def test_artifact_validator_coverage_reports_new_schema_gap(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    schema_path = repo / "schemas/uncovered_demo.schema.json"
+    schema_path.write_text(
+        json.dumps(
+            {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "title": "Uncovered Demo",
+                "type": "object",
+                "required": ["schema_version"],
+                "properties": {
+                    "schema_version": {
+                        "type": "string",
+                        "enum": ["uncovered_demo_v1"],
+                    }
+                },
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = build_artifact_validator_coverage(repo_root=repo)
+    rows = {
+        str(row["schema_name"]): row
+        for row in payload["schemas"]
+        if isinstance(row, dict)
+    }
+
+    gap_codes = rows["uncovered_demo"]["gap_codes"]
+    assert "validator_missing" in gap_codes
+    assert "docs_missing" in gap_codes
+    assert "tests_missing" in gap_codes
+    assert "inspection_or_replay_support_missing" in gap_codes
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.artifact_validator_coverage",
+            "--repo-root",
+            str(repo),
+            "--output",
+            str(repo / "coverage.json"),
+            "--markdown",
+            str(repo / "coverage.md"),
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    cli_payload = json.loads(result.stdout)
+    assert cli_payload["schema_version"] == ARTIFACT_VALIDATOR_COVERAGE_SCHEMA_VERSION
+    assert (repo / "coverage.json").exists()
+    assert (repo / "coverage.md").exists()
+
+    strict_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.artifact_validator_coverage",
+            "--repo-root",
+            str(repo),
+            "--strict",
+        ],
+        cwd=repo,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert strict_result.returncode == 1
+
+
+def test_experiments_coverage_command_reports_artifact_contracts(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "coverage",
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(result.stdout)
+
+    assert payload["schema_version"] == ARTIFACT_VALIDATOR_COVERAGE_SCHEMA_VERSION
+    assert payload["policy"]["inspection_only"] is True
+    assert_matches_schema_payload(payload, "artifact_validator_coverage")
 
 
 def test_agent_contract_runner_writes_disabled_audit(tmp_path: Path) -> None:
@@ -4653,6 +4796,40 @@ def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
     assert any(
         path.endswith("workspace_manifest.json")
         for path in file_protocol_report["checked_files"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_champion_schema_errors(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-champion-schema",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    champion_path = repo / "experiments/champion.json"
+    champion_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "champion_v1",
+                "champion_run_id": "artifact-champion-schema",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id="artifact-champion-schema",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "champion.json" in error and "missing required property" in error
+        for error in report["errors"]  # type: ignore[union-attr]
     )
 
 

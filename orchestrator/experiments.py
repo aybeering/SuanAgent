@@ -10,6 +10,7 @@ from pathlib import Path
 from orchestrator.agent_result_stats import build_agent_result_stats
 from orchestrator.agent_slot_readiness_gate import build_agent_slot_readiness_gate
 from orchestrator.agent_slot_health import build_agent_slot_health
+from orchestrator.artifact_validator_coverage import build_artifact_validator_coverage
 from orchestrator.experiment_index import read_experiment_index, recent_experiments
 from orchestrator.external_agent_sandbox_drill import (
     build_external_agent_sandbox_drill,
@@ -791,6 +792,11 @@ def main() -> None:
     )
     sandbox_parser.add_argument("run_id")
 
+    subparsers.add_parser(
+        "coverage",
+        help="Report schema, validator, docs, and replay coverage.",
+    )
+
     subparsers.add_parser("champion", help="Show the current champion registry.")
 
     compare_parser = subparsers.add_parser(
@@ -864,6 +870,8 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )
+    elif args.command == "coverage":
+        payload = build_artifact_validator_coverage(repo_root=args.experiments_dir.parent)
     elif args.command == "champion":
         payload = show_champion(experiments_dir=args.experiments_dir)
     elif args.command == "compare":

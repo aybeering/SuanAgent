@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Artifact Validator Coverage",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "repo_root",
+    "ok",
+    "totals",
+    "schemas",
+    "gaps",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "artifact_validator_coverage_v1"
+      ]
+    },
+    "repo_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "totals": {
+      "type": "object",
+      "required": [
+        "schema_count",
+        "validator_covered_count",
+        "docs_covered_count",
+        "tests_covered_count",
+        "inspection_or_replay_supported_count",
+        "schema_with_gap_count"
+      ],
+      "properties": {
+        "schema_count": {
+          "type": "integer"
+        },
+        "validator_covered_count": {
+          "type": "integer"
+        },
+        "docs_covered_count": {
+          "type": "integer"
+        },
+        "tests_covered_count": {
+          "type": "integer"
+        },
+        "inspection_or_replay_supported_count": {
+          "type": "integer"
+        },
+        "schema_with_gap_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "schemas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "schema_name",
+          "schema_path",
+          "artifact_names",
+          "validator_covered",
+          "validator_reference_count",
+          "docs_covered",
+          "docs_reference_count",
+          "tests_covered",
+          "tests_reference_count",
+          "inspection_or_replay_supported",
+          "support_commands",
+          "gap_codes",
+          "recommended_action"
+        ],
+        "properties": {
+          "schema_name": {
+            "type": "string"
+          },
+          "schema_path": {
+            "type": "string"
+          },
+          "artifact_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "validator_covered": {
+            "type": "boolean"
+          },
+          "validator_reference_count": {
+            "type": "integer"
+          },
+          "docs_covered": {
+            "type": "boolean"
+          },
+          "docs_reference_count": {
+            "type": "integer"
+          },
+          "tests_covered": {
+            "type": "boolean"
+          },
+          "tests_reference_count": {
+            "type": "integer"
+          },
+          "inspection_or_replay_supported": {
+            "type": "boolean"
+          },
+          "support_commands": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "gap_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recommended_action": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "schema_name",
+          "gap_codes",
+          "recommended_action"
+        ],
+        "properties": {
+          "schema_name": {
+            "type": "string"
+          },
+          "gap_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recommended_action": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "does_not_validate_run_artifacts",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "strict_mode_required_for_nonzero_exit"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "does_not_validate_run_artifacts": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "strict_mode_required_for_nonzero_exit": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

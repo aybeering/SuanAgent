@@ -157,6 +157,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_champion_registry(
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_optional_research_brief(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -2204,6 +2209,24 @@ def validate_optional_champion_comparison(
             report,
             f"champion_comparison.json run_id does not match report: {path}",
         )
+
+
+def validate_optional_champion_registry(
+    *,
+    experiments_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate the shared champion registry when it exists."""
+    path = experiments_dir / "champion.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/champion.schema.json",
+        report=report,
+    )
 
 
 def validate_optional_agent_slot_health(

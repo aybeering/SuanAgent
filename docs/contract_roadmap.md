@@ -84,6 +84,7 @@ Implemented or allowed V0.5 components:
 70. Startup preflight and artifact validation binding between an operator unlock request's reviewed execution plan and its recorded source real-execution dry-run plan.
 71. Operator request generation, startup preflight, and artifact validation binding that requires real Codex operator unlock requests to be written and stored as the canonical `codex_cli_operator_unlock_request.json` artifact inside the current run directory.
 72. A narrow iteration-loop startup exception that permits an existing run directory only when it contains the configured canonical real Codex operator unlock request artifact; ordinary or non-canonical existing run directories remain blocked.
+73. A deterministic `artifact_validator_coverage.json` report that audits whether each repository-local artifact schema has validator coverage, documentation references, tests, and inspection or replay support.
 
 ## Contract Families
 
@@ -116,6 +117,8 @@ Agent-slot contracts:
 - Round replay: `schemas/round_replay.schema.json`
 - Slot health/readiness: `schemas/agent_slot_health.schema.json` and
   `schemas/agent_slot_readiness_gate.schema.json`
+- Artifact contract coverage:
+  `schemas/artifact_validator_coverage.schema.json`
 
 Codex CLI readiness contracts:
 
@@ -148,6 +151,9 @@ Codex CLI readiness contracts:
    all agree on the same command, workspace, run identity, and source hashes.
 7. Visual and overfit roles may write deterministic read-only artifacts, but in
    V0.5 they cannot route, veto, or change final acceptance.
+8. Artifact coverage reports are inspection-only. They can identify missing
+   validators, docs, tests, and inspection commands, but they do not validate
+   run artifacts or change strategy acceptance.
 
 ## Near-Term Development Order
 

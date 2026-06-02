@@ -2328,11 +2328,77 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
+
+
+def test_operator_cockpit_report_flags_stale_source_snapshot(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "operator-cockpit-stale-snapshot"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / f"experiments/{run_id}"
+    write_operator_action_dashboard(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    write_operator_unlock_checklist(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
+    write_operator_cockpit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    fresh = operator_cockpit_report(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+    )
+
+    assert fresh["from_artifact"] is True
+    assert fresh["snapshot_freshness"]["schema_version"] == (
+        "operator_cockpit_snapshot_freshness_v1"
+    )
+    assert fresh["snapshot_freshness"]["ok"] is True
+    assert fresh["snapshot_freshness"]["stale_count"] == 0
     assert validate_run_artifacts(
         run_id=run_id,
         experiments_dir=repo / "experiments",
         repo_root=repo,
     )["ok"] is True
+
+    diff_path = run_dir / "codex_cli_execution_readiness_diff.json"
+    diff_path.write_text(diff_path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+
+    stale = operator_cockpit_report(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+    )
+    stale_markdown = render_operator_cockpit_markdown(stale)
+
+    assert stale["snapshot_freshness"]["ok"] is False
+    assert stale["snapshot_freshness"]["status"] == "stale_sources"
+    assert stale["snapshot_freshness"]["stale_count"] == 1
+    assert stale["snapshot_freshness"]["stale_sources"] == [
+        "codex_cli_execution_readiness_diff"
+    ]
+    assert "## Snapshot Freshness" in stale_markdown
+    assert "operator_cockpit" in stale["snapshot_freshness"]["recommended_command"]
+    stale_validation = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert stale_validation["ok"] is False
+    assert "operator_cockpit codex_cli_execution_readiness_diff sha256 mismatch" in (
+        stale_validation["errors"]
+    )
 
 
 def test_config_application_receipt_applies_only_from_approved_dry_run(

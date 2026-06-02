@@ -36,6 +36,7 @@ from orchestrator.operator_action_dashboard import (
     render_operator_action_dashboard_markdown,
 )
 from orchestrator.operator_cockpit import (
+    annotate_snapshot_freshness,
     build_operator_cockpit,
     render_operator_cockpit_markdown,
 )
@@ -1206,14 +1207,20 @@ def operator_cockpit_report(
     if cockpit_path.exists():
         payload = load_json(cockpit_path)
         payload["from_artifact"] = True
-        return payload
+        return annotate_snapshot_freshness(
+            payload,
+            repo_root=experiments_dir.parent,
+        )
     payload = build_operator_cockpit(
         run_dir=run_dir,
         experiments_dir=experiments_dir,
         repo_root=experiments_dir.parent,
     )
     payload["from_artifact"] = False
-    return payload
+    return annotate_snapshot_freshness(
+        payload,
+        repo_root=experiments_dir.parent,
+    )
 
 
 def operator_unlock_checklist_report(

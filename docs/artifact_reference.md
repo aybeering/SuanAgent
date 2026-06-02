@@ -303,7 +303,11 @@ closeout artifacts;
 expose panel rows, blockers, primary focus, and command hints without recording
 approval, executing commands, writing config, promoting champions, running
 agents, running backtests, applying patches, routing agents, or changing
-acceptance.
+acceptance. When the inspection command reads a saved cockpit artifact, it adds
+a transient `snapshot_freshness` section that compares recorded source hashes
+with the current source files and names stale sources that require an explicit
+cockpit refresh. This freshness section is read-only inspection metadata and is
+not stored in `operator_cockpit.json`.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.

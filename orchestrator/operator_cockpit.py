@@ -56,6 +56,106 @@ def write_operator_cockpit(
     return json_path, md_path, payload
 
 
+def annotate_snapshot_freshness(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> dict[str, object]:
+    """Attach transient source-hash freshness metadata to a cockpit payload."""
+    payload["snapshot_freshness"] = cockpit_snapshot_freshness(
+        payload=payload,
+        repo_root=repo_root,
+    )
+    return payload
+
+
+def cockpit_snapshot_freshness(
+    *,
+    payload: dict[str, object],
+    repo_root: Path = Path("."),
+) -> dict[str, object]:
+    """Return read-only freshness checks for a saved cockpit source snapshot."""
+    repo_root = repo_root.resolve()
+    sources = object_field(payload, "source_artifacts")
+    rows: list[dict[str, object]] = []
+    for source_key in sorted(sources):
+        source = sources.get(source_key, {})
+        if not isinstance(source, dict):
+            rows.append(
+                {
+                    "artifact_name": source_key,
+                    "path": "",
+                    "status": "invalid_record",
+                    "recorded_exists": False,
+                    "current_exists": False,
+                    "recorded_sha256": "",
+                    "current_sha256": "",
+                }
+            )
+            continue
+        source_file = source.get("file", {})
+        if not isinstance(source_file, dict):
+            rows.append(
+                {
+                    "artifact_name": source_key,
+                    "path": "",
+                    "status": "invalid_record",
+                    "recorded_exists": False,
+                    "current_exists": False,
+                    "recorded_sha256": "",
+                    "current_sha256": "",
+                }
+            )
+            continue
+        path_text = str(source_file.get("path", ""))
+        recorded_exists = bool(source_file.get("exists", False))
+        recorded_sha = str(source_file.get("sha256", ""))
+        artifact_path = resolve_path(Path(path_text), repo_root) if path_text else Path()
+        current_file = file_record(artifact_path, repo_root) if path_text else {}
+        current_exists = bool(current_file.get("exists", False))
+        current_sha = str(current_file.get("sha256", ""))
+        if not path_text:
+            status = "missing_path"
+        elif recorded_exists != current_exists:
+            status = "stale"
+        elif recorded_sha != current_sha:
+            status = "stale"
+        else:
+            status = "fresh"
+        rows.append(
+            {
+                "artifact_name": source_key,
+                "path": str(current_file.get("path", path_text)),
+                "status": status,
+                "recorded_exists": recorded_exists,
+                "current_exists": current_exists,
+                "recorded_sha256": recorded_sha,
+                "current_sha256": current_sha,
+            }
+        )
+    stale_rows = [row for row in rows if row.get("status") != "fresh"]
+    return {
+        "schema_version": "operator_cockpit_snapshot_freshness_v1",
+        "ok": not stale_rows,
+        "status": "fresh" if not stale_rows else "stale_sources",
+        "source_count": len(rows),
+        "fresh_count": len(rows) - len(stale_rows),
+        "stale_count": len(stale_rows),
+        "stale_sources": [str(row.get("artifact_name", "")) for row in stale_rows],
+        "rows": rows,
+        "recommended_command": (
+            "python -m orchestrator.operator_cockpit "
+            f"{relative_path(Path(str(payload.get('run_dir', ''))), repo_root)}"
+        ),
+        "policy": {
+            "inspection_only": True,
+            "does_not_write_artifacts": True,
+            "does_not_execute_commands": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+
 def build_operator_cockpit(
     *,
     run_dir: Path,
@@ -723,6 +823,22 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
             f"`{row.get('ok', False)}` | "
             f"{row.get('next_step', '')} |"
         )
+    freshness = object_field(payload, "snapshot_freshness")
+    if freshness:
+        lines.extend(
+            [
+                "",
+                "## Snapshot Freshness",
+                "",
+                f"- Status: `{freshness.get('status', '')}`",
+                f"- OK: `{freshness.get('ok', False)}`",
+                f"- Stale sources: `{freshness.get('stale_count', 0)}`",
+                f"- Refresh command: `{freshness.get('recommended_command', '')}`",
+                "",
+            ]
+        )
+        stale_sources = string_rows(freshness.get("stale_sources", []))
+        lines.extend([f"- `{source}`" for source in stale_sources] or ["- none"])
     lines.extend(["", "## Blockers", ""])
     blockers = string_rows(payload.get("blockers", []))
     lines.extend([f"- `{blocker}`" for blocker in blockers] or ["- none"])

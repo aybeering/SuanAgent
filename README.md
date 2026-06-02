@@ -76,7 +76,9 @@ artifacts are written. The standalone operator unlock checklist and cockpit
 include Codex CLI startup preflight evidence as read-only views so evidence gaps
 are visible without executing Codex. The checklist also includes blocking
 navigation with related artifact paths and explicit command hints for the
-operator to run manually. If a real Codex execute=true startup preflight is
+operator to run manually. The cockpit inspection command also reports whether
+the saved cockpit source hashes are stale, so operators can refresh the cockpit
+after updating readiness artifacts. If a real Codex execute=true startup preflight is
 blocked, the failed run still writes the checklist, execution readiness diff,
 and summary navigation. The Codex CLI unlock runbook turns the same evidence
 chain into an ordered read-only operator guide; it lists the required artifacts

@@ -127,6 +127,8 @@ def validate_run_artifacts(
             report=report,
         )
         validate_json_object(path=run_dir / "decision.json", report=report)
+    elif (run_dir / "codex_cli_operator_unlock_request.json").exists():
+        report["kind"] = "codex_cli_operator_unlock_request"
     elif (run_dir / "codex_cli_readiness_pipeline.json").exists():
         report["kind"] = "codex_cli_readiness_pipeline"
     elif (run_dir / "codex_cli_readiness_summary.json").exists():
@@ -229,6 +231,11 @@ def validate_run_artifacts(
         report=report,
     )
     validate_optional_codex_cli_readiness_pipeline(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
+    validate_optional_codex_cli_operator_unlock_request(
         run_dir=run_dir,
         repo_root=repo_root,
         report=report,
@@ -3764,6 +3771,201 @@ def validate_optional_codex_cli_readiness_pipeline(
                     f"codex_cli_readiness_pipeline.json policy false: {key}",
                 )
     markdown_path = run_dir / "codex_cli_readiness_pipeline.md"
+    if markdown_path.exists():
+        checked_files(report).append(str(markdown_path))
+
+
+def validate_optional_codex_cli_operator_unlock_request(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate codex_cli_operator_unlock_request.json when a run has one."""
+    path = run_dir / "codex_cli_operator_unlock_request.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/codex_cli_operator_unlock_request.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            "codex_cli_operator_unlock_request.json run_id does not match report: "
+            f"{path}",
+        )
+    if bool(payload.get("ok", False)) is not True:
+        add_error(report, "codex_cli_operator_unlock_request.json ok false")
+    blockers = payload.get("blocking_reasons", [])
+    if not isinstance(blockers, list):
+        add_error(report, "codex_cli_operator_unlock_request.json blockers invalid")
+        return
+    ready = bool(payload.get("operator_request_ready", False))
+    if ready and blockers:
+        add_error(report, "codex_cli_operator_unlock_request.json ready with blockers")
+    if not ready and not blockers:
+        add_error(
+            report,
+            "codex_cli_operator_unlock_request.json blocked without blockers",
+        )
+    checks = payload.get("checks", {})
+    if not isinstance(checks, dict):
+        add_error(report, "codex_cli_operator_unlock_request.json checks invalid")
+    else:
+        for key in (
+            "request_does_not_execute_codex_cli",
+            "request_does_not_create_workspace",
+            "request_does_not_send_strategy_prompt",
+            "request_does_not_apply_patches",
+            "request_does_not_change_acceptance",
+        ):
+            if not bool(checks.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_operator_unlock_request.json safety check false: {key}",
+                )
+        if ready:
+            for key, value in checks.items():
+                if not bool(value):
+                    add_error(
+                        report,
+                        f"codex_cli_operator_unlock_request.json check false: {key}",
+                    )
+    request = payload.get("request", {})
+    if not isinstance(request, dict):
+        add_error(report, "codex_cli_operator_unlock_request.json request invalid")
+    elif ready:
+        if not bool(request.get("requested", False)):
+            add_error(report, "codex_cli_operator_unlock_request.json requested false")
+        if not str(request.get("requested_by", "")).strip():
+            add_error(report, "codex_cli_operator_unlock_request.json requested_by missing")
+        if not bool(request.get("confirmation_phrase_matches", False)):
+            add_error(
+                report,
+                "codex_cli_operator_unlock_request.json confirmation phrase mismatch",
+            )
+    source_pipeline = payload.get("source_pipeline", {})
+    if isinstance(source_pipeline, dict):
+        pipeline_record = source_pipeline.get("file", {})
+        if isinstance(pipeline_record, dict):
+            validate_recorded_file_hash(
+                record=pipeline_record,
+                repo_root=repo_root,
+                report=report,
+                label="codex_cli_operator_unlock_request source_pipeline",
+            )
+        else:
+            add_error(
+                report,
+                "codex_cli_operator_unlock_request.json source pipeline file invalid",
+            )
+        if ready and not bool(source_pipeline.get("final_ready", False)):
+            add_error(
+                report,
+                "codex_cli_operator_unlock_request.json source pipeline not ready",
+            )
+    else:
+        add_error(report, "codex_cli_operator_unlock_request.json source_pipeline invalid")
+    source_dry_run = payload.get("source_real_execution_dry_run", {})
+    if isinstance(source_dry_run, dict):
+        dry_run_record = source_dry_run.get("file", {})
+        if isinstance(dry_run_record, dict):
+            validate_recorded_file_hash(
+                record=dry_run_record,
+                repo_root=repo_root,
+                report=report,
+                label="codex_cli_operator_unlock_request source_dry_run",
+            )
+        else:
+            add_error(
+                report,
+                "codex_cli_operator_unlock_request.json source dry-run file invalid",
+            )
+        if ready and not bool(
+            source_dry_run.get("real_execution_dry_run_ready", False)
+        ):
+            add_error(
+                report,
+                "codex_cli_operator_unlock_request.json source dry-run not ready",
+            )
+    else:
+        add_error(
+            report,
+            "codex_cli_operator_unlock_request.json source_real_execution_dry_run invalid",
+        )
+    planned = payload.get("planned_execution_review", {})
+    if not isinstance(planned, dict):
+        add_error(
+            report,
+            "codex_cli_operator_unlock_request.json planned execution invalid",
+        )
+    else:
+        if planned.get("allowed_mutation_paths", []) != [
+            "strategies/current_strategy.py"
+        ]:
+            add_error(
+                report,
+                "codex_cli_operator_unlock_request.json mutation paths invalid",
+            )
+        if bool(planned.get("execution_enabled_by_this_artifact", True)):
+            add_error(
+                report,
+                "codex_cli_operator_unlock_request.json executes by itself",
+            )
+        command = planned.get("command", [])
+        if not isinstance(command, list):
+            add_error(
+                report,
+                "codex_cli_operator_unlock_request.json command invalid",
+            )
+        else:
+            command_text = " ".join(str(part) for part in command)
+            if "strategies/current_strategy.py" not in command_text:
+                add_error(
+                    report,
+                    "codex_cli_operator_unlock_request.json command missing target file",
+                )
+            for forbidden in ("data/", "backtester/", "orchestrator/policy_gate.py"):
+                if forbidden in command_text:
+                    add_error(
+                        report,
+                        "codex_cli_operator_unlock_request.json command contains "
+                        f"{forbidden}",
+                    )
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "codex_cli_operator_unlock_request.json policy invalid")
+    else:
+        for key in (
+            "operator_request_only",
+            "read_only",
+            "requires_readiness_pipeline",
+            "requires_pipeline_final_ready",
+            "requires_real_execution_dry_run_ready",
+            "requires_explicit_operator_request",
+            "requires_exact_confirmation_phrase",
+            "does_not_execute_codex_cli",
+            "does_not_create_workspace",
+            "does_not_send_strategy_prompt",
+            "does_not_modify_config",
+            "does_not_select_candidate",
+            "does_not_apply_patches",
+            "does_not_change_acceptance",
+            "allows_only_strategy_file_mutation",
+            "deterministic_code_keeps_acceptance_authority",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_operator_unlock_request.json policy false: {key}",
+                )
+    markdown_path = run_dir / "codex_cli_operator_unlock_request.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
 

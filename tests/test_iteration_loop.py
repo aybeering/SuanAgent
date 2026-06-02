@@ -99,6 +99,11 @@ from orchestrator.codex_cli_readiness_pipeline import (
     CODEX_CLI_READINESS_PIPELINE_SCHEMA_VERSION,
     write_codex_cli_readiness_pipeline,
 )
+from orchestrator.codex_cli_operator_unlock_request import (
+    CODEX_CLI_OPERATOR_UNLOCK_REQUEST_SCHEMA_VERSION,
+    REQUIRED_OPERATOR_CONFIRMATION_PHRASE,
+    write_codex_cli_operator_unlock_request,
+)
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.agent_slot_readiness_gate import (
@@ -6541,6 +6546,13 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         dry_invocation_timeout_seconds=5,
         execute_dry_invocation=False,
     )
+    operator_request = write_codex_cli_operator_unlock_request(
+        run_dir=run_dir,
+        repo_root=repo,
+        requested=True,
+        requested_by="unit-test",
+        confirmation_phrase=REQUIRED_OPERATOR_CONFIRMATION_PHRASE,
+    )
     validation_report = validate_run_artifacts(
         run_id="codex-unlock-locked",
         experiments_dir=repo / "experiments",
@@ -6629,6 +6641,18 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         == "codex_cli_real_execution_dry_run:execution_candidate_not_ready"
         for reason in pipeline["blocking_reasons"]
     )
+    assert operator_request["schema_version"] == (
+        CODEX_CLI_OPERATOR_UNLOCK_REQUEST_SCHEMA_VERSION
+    )
+    assert operator_request["ok"] is True
+    assert operator_request["operator_request_ready"] is False
+    assert "readiness_pipeline_not_final_ready" in operator_request["blocking_reasons"]
+    assert "real_execution_dry_run_not_ready" in operator_request["blocking_reasons"]
+    assert operator_request["request"]["confirmation_phrase_matches"] is True
+    assert operator_request["checks"]["explicit_operator_request"] is True
+    assert operator_request["checks"]["request_does_not_execute_codex_cli"] is True
+    assert operator_request["policy"]["operator_request_only"] is True
+    assert operator_request["policy"]["does_not_apply_patches"] is True
     assert_matches_schema(
         run_dir / "codex_cli_execution_unlock_gate.json",
         "codex_cli_execution_unlock_gate",
@@ -6653,12 +6677,17 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         run_dir / "codex_cli_readiness_pipeline.json",
         "codex_cli_readiness_pipeline",
     )
+    assert_matches_schema(
+        run_dir / "codex_cli_operator_unlock_request.json",
+        "codex_cli_operator_unlock_request",
+    )
     assert (run_dir / "codex_cli_execution_unlock_gate.md").exists()
     assert (run_dir / "codex_cli_execution_unlock_snapshot.md").exists()
     assert (run_dir / "codex_cli_execution_candidate.md").exists()
     assert (run_dir / "codex_cli_real_execution_dry_run.md").exists()
     assert (run_dir / "codex_cli_readiness_summary.md").exists()
     assert (run_dir / "codex_cli_readiness_pipeline.md").exists()
+    assert (run_dir / "codex_cli_operator_unlock_request.md").exists()
     assert validation_report["ok"] is True
     assert cli_result.returncode == 0, cli_result.stderr
     assert cli_payload["schema_version"] == CODEX_CLI_EXECUTION_UNLOCK_GATE_SCHEMA_VERSION
@@ -6784,6 +6813,13 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         dry_invocation_timeout_seconds=5,
         execute_dry_invocation=True,
     )
+    operator_request = write_codex_cli_operator_unlock_request(
+        run_dir=run_dir,
+        repo_root=repo,
+        requested=True,
+        requested_by="unit-test",
+        confirmation_phrase=REQUIRED_OPERATOR_CONFIRMATION_PHRASE,
+    )
     validation_report = validate_run_artifacts(
         run_id="codex-unlock-ready",
         experiments_dir=repo / "experiments",
@@ -6876,6 +6912,24 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert pipeline["steps"][-1]["ready"] is True
     assert pipeline["options"]["execute_dry_invocation"] is True
     assert pipeline["policy"]["does_not_change_acceptance"] is True
+    assert operator_request["schema_version"] == (
+        CODEX_CLI_OPERATOR_UNLOCK_REQUEST_SCHEMA_VERSION
+    )
+    assert operator_request["ok"] is True
+    assert operator_request["operator_request_ready"] is True
+    assert operator_request["blocking_reasons"] == []
+    assert operator_request["source_pipeline"]["final_ready"] is True
+    assert operator_request["source_real_execution_dry_run"][
+        "real_execution_dry_run_ready"
+    ] is True
+    assert operator_request["planned_execution_review"]["target_file"] == (
+        "strategies/current_strategy.py"
+    )
+    assert operator_request["planned_execution_review"][
+        "execution_enabled_by_this_artifact"
+    ] is False
+    assert operator_request["policy"]["does_not_execute_codex_cli"] is True
+    assert operator_request["policy"]["does_not_change_acceptance"] is True
     assert_matches_schema(
         run_dir / "codex_cli_execution_unlock_gate.json",
         "codex_cli_execution_unlock_gate",
@@ -6899,6 +6953,10 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert_matches_schema(
         run_dir / "codex_cli_readiness_pipeline.json",
         "codex_cli_readiness_pipeline",
+    )
+    assert_matches_schema(
+        run_dir / "codex_cli_operator_unlock_request.json",
+        "codex_cli_operator_unlock_request",
     )
     assert validation_report["ok"] is True
     assert cli_result.returncode == 0, cli_result.stderr

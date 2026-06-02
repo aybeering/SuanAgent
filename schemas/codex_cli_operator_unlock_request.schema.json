@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Codex CLI Operator Unlock Request",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "ok",
+    "operator_request_ready",
+    "blocking_reasons",
+    "checks",
+    "request",
+    "source_pipeline",
+    "source_real_execution_dry_run",
+    "planned_execution_review",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "codex_cli_operator_unlock_request_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "operator_request_ready": {
+      "type": "boolean"
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "checks": {
+      "type": "object",
+      "required": [
+        "readiness_pipeline_exists",
+        "readiness_pipeline_ok",
+        "readiness_pipeline_completed",
+        "readiness_pipeline_final_ready",
+        "readiness_pipeline_hash_present",
+        "real_execution_dry_run_exists",
+        "real_execution_dry_run_ok",
+        "real_execution_dry_run_ready",
+        "execution_plan_present",
+        "command_present",
+        "target_file_is_current_strategy",
+        "allowed_mutation_paths_strategy_only",
+        "explicit_operator_request",
+        "requested_by_present",
+        "confirmation_phrase_matches",
+        "request_does_not_execute_codex_cli",
+        "request_does_not_create_workspace",
+        "request_does_not_send_strategy_prompt",
+        "request_does_not_apply_patches",
+        "request_does_not_change_acceptance"
+      ]
+    },
+    "request": {
+      "type": "object",
+      "required": [
+        "requested",
+        "requested_by",
+        "request_scope",
+        "required_confirmation_phrase_sha256",
+        "provided_confirmation_phrase_sha256",
+        "confirmation_phrase_matches"
+      ]
+    },
+    "source_pipeline": {
+      "type": "object",
+      "required": [
+        "path",
+        "final_ready",
+        "readiness_status",
+        "blocking_reasons",
+        "file"
+      ]
+    },
+    "source_real_execution_dry_run": {
+      "type": "object",
+      "required": [
+        "path",
+        "real_execution_dry_run_ready",
+        "blocking_reasons",
+        "file"
+      ]
+    },
+    "planned_execution_review": {
+      "type": "object",
+      "required": [
+        "agent_name",
+        "profile_name",
+        "round_id",
+        "attempt_id",
+        "target_file",
+        "allowed_mutation_paths",
+        "workspace_path",
+        "command",
+        "execution_enabled_by_this_artifact"
+      ]
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "operator_request_only",
+        "read_only",
+        "requires_readiness_pipeline",
+        "requires_pipeline_final_ready",
+        "requires_real_execution_dry_run_ready",
+        "requires_explicit_operator_request",
+        "requires_exact_confirmation_phrase",
+        "does_not_execute_codex_cli",
+        "does_not_create_workspace",
+        "does_not_send_strategy_prompt",
+        "does_not_modify_config",
+        "does_not_select_candidate",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "allows_only_strategy_file_mutation",
+        "deterministic_code_keeps_acceptance_authority"
+      ]
+    }
+  }
+}

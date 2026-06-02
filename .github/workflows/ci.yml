@@ -308,6 +308,23 @@ jobs:
           assert pipeline["policy"]["does_not_apply_patches"] is True
           assert pipeline["policy"]["does_not_change_acceptance"] is True
           PY
+          python -m orchestrator.codex_cli_operator_unlock_request experiments/ci-codex-guarded --requested --requested-by ci-operator-fixture --confirmation-phrase "I request operator review for real Codex CLI execution"
+          test -f experiments/ci-codex-guarded/codex_cli_operator_unlock_request.json
+          test -f experiments/ci-codex-guarded/codex_cli_operator_unlock_request.md
+          python - <<'PY'
+          import json
+          request = json.load(open("experiments/ci-codex-guarded/codex_cli_operator_unlock_request.json"))
+          assert request["schema_version"] == "codex_cli_operator_unlock_request_v1"
+          assert request["ok"] is True
+          assert request["operator_request_ready"] is False
+          assert "readiness_pipeline_not_final_ready" in request["blocking_reasons"]
+          assert "real_execution_dry_run_not_ready" in request["blocking_reasons"]
+          assert request["request"]["confirmation_phrase_matches"] is True
+          assert request["checks"]["explicit_operator_request"] is True
+          assert request["policy"]["operator_request_only"] is True
+          assert request["policy"]["does_not_execute_codex_cli"] is True
+          assert request["policy"]["does_not_change_acceptance"] is True
+          PY
           python -m orchestrator.artifact_validator ci-codex-guarded
           python -m orchestrator.artifact_validator ci-codex-canary
           python -m orchestrator.artifact_validator ci-adaptive

@@ -107,6 +107,7 @@ Allowed components:
 56. A deterministic `codex_cli_real_execution_dry_run.json` report that performs the final real-execution boundary dry run without invoking Codex, creating a workspace, applying patches, or changing acceptance.
 57. A deterministic `codex_cli_readiness_summary.json` report that summarizes the full Codex CLI readiness chain into one read-only status page.
 58. A deterministic `codex_cli_readiness_pipeline.json` report that runs the read-only Codex CLI readiness chain from enablement through summary as one auditable command.
+59. A deterministic `codex_cli_operator_unlock_request.json` report that records explicit operator intent for future real Codex CLI execution review without executing Codex.
 
 Still out of scope:
 
@@ -168,6 +169,7 @@ Current structure:
 │   ├── codex_cli_real_execution_dry_run.schema.json
 │   ├── codex_cli_readiness_summary.schema.json
 │   ├── codex_cli_readiness_pipeline.schema.json
+│   ├── codex_cli_operator_unlock_request.schema.json
 │   ├── agent_execution.schema.json
 │   ├── agent_activation_preflight.schema.json
 │   ├── agent_execution_plan.schema.json
@@ -239,6 +241,7 @@ Current structure:
 │   ├── codex_cli_real_execution_dry_run.py
 │   ├── codex_cli_readiness_summary.py
 │   ├── codex_cli_readiness_pipeline.py
+│   ├── codex_cli_operator_unlock_request.py
 │   ├── outcome_memory.py
 │   ├── policy_gate.py
 │   ├── proposal.py

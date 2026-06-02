@@ -42,6 +42,52 @@ jobs:
       - name: Run guarded Codex CLI audit iteration
         run: python -m orchestrator.iteration_loop --config config/codex_cli_guarded.json --run-id ci-codex-guarded --max-rounds 1
 
+      - name: Verify blocked real Codex startup checklist
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          import sys
+
+          result = subprocess.run(
+              [
+                  sys.executable,
+                  "-m",
+                  "orchestrator.iteration_loop",
+                  "--config",
+                  "config/codex_cli_enable_candidate.json",
+                  "--run-id",
+                  "ci-codex-startup-block",
+                  "--max-rounds",
+                  "1",
+              ],
+              capture_output=True,
+              text=True,
+              check=False,
+          )
+          assert result.returncode != 0
+          assert "Codex CLI execution preflight failed" in result.stderr
+
+          run_dir = "experiments/ci-codex-startup-block"
+          manifest = json.load(open(f"{run_dir}/manifest.json"))
+          checklist = json.load(open(f"{run_dir}/operator_unlock_checklist.json"))
+          markdown = open(f"{run_dir}/operator_unlock_checklist.md").read()
+          summary = open(f"{run_dir}/summary.md").read()
+
+          assert manifest["status"] == "failed"
+          assert manifest["completed_rounds"] == 0
+          assert manifest["operator_unlock_checklist"]["status"] == "blocked"
+          assert manifest["operator_unlock_checklist"]["navigation_blocking_count"] == 8
+          assert manifest["operator_unlock_checklist"]["primary_blocker"] == "primary:operator_unlock_request"
+          assert manifest["operator_unlock_checklist"]["command_hint_count"] == 4
+          assert checklist["navigation"]["blocking_count"] == 8
+          assert checklist["navigation"]["blocking_items"][0]["related_artifacts"][0]["artifact_id"] == "codex_cli_operator_unlock_request"
+          assert checklist["navigation"]["commands"][0]["executes_codex_cli"] is False
+          assert "## Blocking Navigation" in markdown
+          assert "Primary blocker: `primary:operator_unlock_request`" in summary
+          PY
+          python -m orchestrator.operator_unlock_checklist experiments/ci-codex-startup-block
+
       - name: Run Codex CLI canary iteration
         run: python -m orchestrator.iteration_loop --config config/codex_cli_canary.json --run-id ci-codex-canary --max-rounds 1
 

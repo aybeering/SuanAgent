@@ -254,7 +254,9 @@ without recording approval, executing Codex, executing agents, creating
 workspaces, applying patches, routing agents, or changing acceptance. The
 `navigation` section lists expected evidence artifacts, failed evidence groups,
 blocking reason codes, related artifact paths, and command hints that still
-require explicit operator invocation.
+require explicit operator invocation. If real Codex execute=true startup
+preflight is blocked before any round starts, the failed run still writes this
+checklist and the run summary points at the primary blocker.
 `operator_cockpit.json` and `operator_cockpit.md` collect the run closeout,
 config lineage, operator action dashboard, Codex CLI execution preflight,
 standalone operator unlock checklist, candidate challenger report,
@@ -530,7 +532,9 @@ Replay artifacts:
   `navigation.commands` so an operator can see the next artifact to inspect or
   generate. Command rows are hints only; the checklist cannot record approval,
   execute Codex, create workspaces, apply patches, route agents, or change
-  acceptance.
+  acceptance. Startup preflight failures for real Codex execute=true profiles
+  still write the checklist before the loop exits, so no-round failed runs keep
+  a deterministic blocker trail.
 - `operator_cockpit.json` and `operator_cockpit.md` aggregate run review,
   config lineage, operator action, Codex CLI execution preflight, challenger
   comparison, promotion review, promotion approval, and scope-health state into

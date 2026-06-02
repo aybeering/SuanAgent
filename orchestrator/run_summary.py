@@ -239,6 +239,18 @@ def write_iteration_summary(
             "- Failed items: "
             f"`{display_value(unlock_checklist.get('failed_count'))}`"
         )
+        lines.append(
+            "- Blocking navigation items: "
+            f"`{display_value(unlock_checklist.get('navigation_blocking_count'))}`"
+        )
+        lines.append(
+            "- Primary blocker: "
+            f"`{display_value(unlock_checklist.get('primary_blocker'))}`"
+        )
+        lines.append(
+            "- Command hints: "
+            f"`{display_value(unlock_checklist.get('command_hint_count'))}`"
+        )
         lines.append(f"- Artifact: `{display_value(unlock_checklist.get('path'))}`")
         lines.append(
             f"- Markdown: `{display_value(unlock_checklist.get('markdown_path'))}`"

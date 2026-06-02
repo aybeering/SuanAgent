@@ -4096,6 +4096,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert manifest["operator_unlock_checklist"]["status"] == "not_requested"
     assert manifest["operator_unlock_checklist"]["ready"] is False
     assert manifest["operator_unlock_checklist"]["failed_count"] == 0
+    assert manifest["operator_unlock_checklist"]["navigation_blocking_count"] == 0
+    assert manifest["operator_unlock_checklist"]["primary_blocker"] == ""
+    assert manifest["operator_unlock_checklist"]["command_hint_count"] == 0
     assert unlock_checklist["schema_version"] == (
         OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION
     )
@@ -4156,6 +4159,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert "# Operator Cockpit" in cockpit_markdown
     assert "## Operator Unlock Checklist" in summary_markdown
     assert "Codex unlock" in summary_markdown
+    assert "Blocking navigation items" in summary_markdown
     assert_matches_schema(run_dir / "operator_cockpit.json", "operator_cockpit")
     assert validate_operator_cockpit_file(
         payload_path=run_dir / "operator_cockpit.json",
@@ -12867,12 +12871,26 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
 
     run_dir = repo / "experiments/codex-execute-without-operator-request"
     preflight_path = run_dir / "codex_cli_execution_preflight.json"
+    checklist_path = run_dir / "operator_unlock_checklist.json"
     manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
     preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    full_checklist = json.loads(checklist_path.read_text(encoding="utf-8"))
+    markdown = (run_dir / "operator_unlock_checklist.md").read_text(encoding="utf-8")
+    summary_markdown = (run_dir / "summary.md").read_text(encoding="utf-8")
 
     assert manifest["status"] == "failed"
     assert manifest["completed_rounds"] == 0
     assert not (run_dir / "round_001").exists()
+    assert checklist_path.exists()
+    assert (run_dir / "operator_unlock_checklist.md").exists()
+    assert manifest["operator_unlock_checklist"]["status"] == "blocked"
+    assert manifest["operator_unlock_checklist"]["ready"] is False
+    assert manifest["operator_unlock_checklist"]["failed_count"] == 8
+    assert manifest["operator_unlock_checklist"]["navigation_blocking_count"] == 8
+    assert manifest["operator_unlock_checklist"]["primary_blocker"] == (
+        "primary:operator_unlock_request"
+    )
+    assert manifest["operator_unlock_checklist"]["command_hint_count"] >= 1
     assert preflight["schema_version"] == CODEX_CLI_EXECUTION_PREFLIGHT_SCHEMA_VERSION
     assert preflight["ok"] is False
     assert preflight["summary"]["real_codex_execute_profile_count"] == 1
@@ -12895,11 +12913,6 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
         for item in blocked_checklist["items"]
     )
     assert blocked_checklist["authority"]["checklist_can_unlock_codex"] is False
-    _, _, full_checklist = write_operator_unlock_checklist(
-        run_dir=run_dir,
-        repo_root=repo,
-    )
-    markdown = render_operator_unlock_checklist_markdown(full_checklist)
     assert full_checklist["schema_version"] == OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION
     assert full_checklist["navigation"]["status"] == "blocked"
     assert full_checklist["navigation"]["blocking_count"] == 8
@@ -12929,6 +12942,10 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
     )
     assert "## Blocking Navigation" in markdown
     assert "## Evidence Artifacts" in markdown
+    assert "Primary blocker: `primary:operator_unlock_request`" in summary_markdown
+    assert render_operator_unlock_checklist_markdown(full_checklist).startswith(
+        "# Operator Unlock Checklist"
+    )
     assert_matches_schema(
         run_dir / "operator_unlock_checklist.json",
         "operator_unlock_checklist",

@@ -73,7 +73,8 @@ later operator artifacts are written. The standalone operator unlock checklist
 and cockpit include Codex CLI startup preflight evidence as read-only views so
 evidence gaps are visible without executing Codex. The checklist also includes
 blocking navigation with related artifact paths and explicit command hints for
-the operator to run manually.
+the operator to run manually. If a real Codex execute=true startup preflight is
+blocked, the failed run still writes the checklist and summary navigation.
 
 More commands and artifact details live in `docs/artifact_reference.md`.
 

@@ -291,6 +291,9 @@ def run_iteration_loop(
             "ready": False,
             "status": "pending",
             "failed_count": 0,
+            "navigation_blocking_count": 0,
+            "primary_blocker": "",
+            "command_hint_count": 0,
         },
         "candidate_challenger_report": {
             "path": "candidate_challenger_report.json",
@@ -933,13 +936,9 @@ def finalize_iteration_run(
         run_dir=run_dir,
         repo_root=repo_root,
     )
-    manifest["operator_unlock_checklist"] = {
-        "path": "operator_unlock_checklist.json",
-        "markdown_path": "operator_unlock_checklist.md",
-        "ready": bool(unlock_checklist_payload.get("ready", False)),
-        "status": str(unlock_checklist_payload.get("status", "unknown")),
-        "failed_count": int(unlock_checklist_payload.get("failed_count", 0) or 0),
-    }
+    manifest["operator_unlock_checklist"] = operator_unlock_manifest_row(
+        unlock_checklist_payload,
+    )
     write_json(run_dir / "manifest.json", manifest)
     write_iteration_summary(run_dir=run_dir, manifest=manifest)
     _, _, cockpit_payload = write_operator_cockpit(
@@ -965,6 +964,32 @@ def finalize_iteration_run(
     }
     write_json(run_dir / "manifest.json", manifest)
     write_iteration_summary(run_dir=run_dir, manifest=manifest)
+
+
+def operator_unlock_manifest_row(payload: dict[str, object]) -> dict[str, object]:
+    """Return compact manifest metadata for the operator unlock checklist."""
+    navigation = (
+        payload.get("navigation", {})
+        if isinstance(payload.get("navigation", {}), dict)
+        else {}
+    )
+    commands = (
+        navigation.get("commands", [])
+        if isinstance(navigation.get("commands", []), list)
+        else []
+    )
+    return {
+        "path": "operator_unlock_checklist.json",
+        "markdown_path": "operator_unlock_checklist.md",
+        "ready": bool(payload.get("ready", False)),
+        "status": str(payload.get("status", "unknown")),
+        "failed_count": int(payload.get("failed_count", 0) or 0),
+        "navigation_blocking_count": int(
+            navigation.get("blocking_count", 0) or 0
+        ),
+        "primary_blocker": str(navigation.get("primary_blocker", "")),
+        "command_hint_count": len(commands),
+    }
 
 
 def run_round(

@@ -198,6 +198,9 @@ reason codes, and command hints for manual operator action. They must remain
 read-only and must not record unlock approval, execute those commands, execute
 Codex, create workspaces, run agents, apply patches, route agents, or change
 acceptance.
+If a real Codex execute=true startup preflight fails before any round starts,
+the iteration loop should still write the standalone operator unlock checklist
+and surface its navigation summary in `manifest.json` and `summary.md`.
 Operator cockpit artifacts may summarize run review, config lineage, operator
 action, Codex CLI execution preflight, standalone operator unlock checklist,
 challenger, champion promotion, and scope-health state into one human-facing

@@ -209,6 +209,9 @@ section points each failed evidence group to the related artifact paths and
 manual command hints, while keeping those commands as non-executed suggestions.
 It cannot record unlock approval, execute Codex, execute agents, create
 workspaces, route candidates, apply patches, or change acceptance.
+When a real Codex execute=true startup preflight fails before round execution,
+the iteration loop still writes this checklist and records the blocker count,
+primary blocker, and command-hint count in `manifest.json` and `summary.md`.
 `operator_cockpit.json` and `operator_cockpit.md` are the broader operator
 entrypoint. They collect the run closeout, config lineage, operator action
 dashboard, Codex CLI execution preflight, standalone operator unlock checklist,

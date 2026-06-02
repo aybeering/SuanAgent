@@ -108,8 +108,10 @@
               "operator_request_provided_confirmation_hash_matches",
               "operator_request_source_pipeline_hash_matches",
               "operator_request_source_pipeline_path_matches_record",
+              "operator_request_source_pipeline_path_is_canonical_run_artifact",
               "operator_request_source_dry_run_hash_matches",
               "operator_request_source_dry_run_path_matches_record",
+              "operator_request_source_dry_run_path_is_canonical_run_artifact",
               "operator_request_source_dry_run_plan_present",
               "operator_request_source_dry_run_plan_matches_review",
               "operator_request_agent_name_matches",
@@ -191,10 +193,16 @@
               "operator_request_source_pipeline_path_matches_record": {
                 "type": "boolean"
               },
+              "operator_request_source_pipeline_path_is_canonical_run_artifact": {
+                "type": "boolean"
+              },
               "operator_request_source_dry_run_hash_matches": {
                 "type": "boolean"
               },
               "operator_request_source_dry_run_path_matches_record": {
+                "type": "boolean"
+              },
+              "operator_request_source_dry_run_path_is_canonical_run_artifact": {
                 "type": "boolean"
               },
               "operator_request_source_dry_run_plan_present": {

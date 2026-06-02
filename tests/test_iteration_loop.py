@@ -7499,6 +7499,100 @@ def test_codex_cli_execution_preflight_blocks_operator_source_path_drift(
     )
 
 
+def test_codex_cli_execution_preflight_blocks_operator_source_alias_paths(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/source-alias-paths"
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_source_alias_paths.py",
+        "#!/usr/bin/env python3\nprint('{}')\n",
+    )
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        run_dir / "codex_cli_operator_unlock_request.json",
+        run_id="source-alias-paths",
+        executable=str(fake_codex),
+        model="source-alias-paths-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    alias_pipeline_path = run_dir / "alias_readiness_pipeline.json"
+    alias_dry_run_path = run_dir / "alias_real_execution_dry_run.json"
+    canonical_pipeline_path = repo / request["source_pipeline"]["file"]["path"]
+    canonical_dry_run_path = (
+        repo / request["source_real_execution_dry_run"]["file"]["path"]
+    )
+    shutil.copyfile(canonical_pipeline_path, alias_pipeline_path)
+    shutil.copyfile(canonical_dry_run_path, alias_dry_run_path)
+    request["source_pipeline"]["path"] = str(alias_pipeline_path.relative_to(repo))
+    request["source_pipeline"]["file"] = file_record(alias_pipeline_path, repo)
+    request["source_real_execution_dry_run"]["path"] = str(
+        alias_dry_run_path.relative_to(repo)
+    )
+    request["source_real_execution_dry_run"]["file"] = file_record(
+        alias_dry_run_path,
+        repo,
+    )
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "source-alias-paths-test",
+            "sandbox": "workspace-write",
+            "workspace_root": "workspaces",
+            "execute": True,
+            "operator_unlock_request_path": str(request_path.relative_to(repo)),
+        },
+    )
+
+    preflight = write_codex_cli_execution_preflight(
+        output_path=run_dir / "codex_cli_execution_preflight.json",
+        markdown_path=run_dir / "codex_cli_execution_preflight.md",
+        run_dir=run_dir,
+        repo_root=repo,
+        config=config,
+    )
+
+    profile = preflight["profiles"][0]
+    assert preflight["ok"] is False
+    assert profile["checks"]["operator_unlock_request_ready"] is True
+    assert profile["checks"]["operator_request_source_pipeline_hash_matches"] is True
+    assert profile["checks"]["operator_request_source_pipeline_path_matches_record"] is True
+    assert (
+        profile["checks"][
+            "operator_request_source_pipeline_path_is_canonical_run_artifact"
+        ]
+        is False
+    )
+    assert profile["checks"]["operator_request_source_dry_run_hash_matches"] is True
+    assert profile["checks"]["operator_request_source_dry_run_path_matches_record"] is True
+    assert (
+        profile["checks"][
+            "operator_request_source_dry_run_path_is_canonical_run_artifact"
+        ]
+        is False
+    )
+    assert (
+        "profile primary: "
+        "operator_request_source_pipeline_path_not_canonical_run_artifact"
+        in preflight["blocking_errors"]
+    )
+    assert (
+        "profile primary: "
+        "operator_request_source_dry_run_path_not_canonical_run_artifact"
+        in preflight["blocking_errors"]
+    )
+
+
 def test_codex_cli_execution_preflight_blocks_operator_source_plan_drift(
     tmp_path: Path,
 ) -> None:

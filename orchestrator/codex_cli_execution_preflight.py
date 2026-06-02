@@ -256,6 +256,13 @@ def profile_execution_row(
             record=source_pipeline_file,
             repo_root=repo_root,
         ),
+        "operator_request_source_pipeline_path_is_canonical_run_artifact": (
+            path_is_expected_artifact(
+                path_text=str(source_pipeline.get("path", "")),
+                expected_path=run_dir / "codex_cli_readiness_pipeline.json",
+                repo_root=repo_root,
+            )
+        ),
         "operator_request_source_dry_run_hash_matches": recorded_file_matches(
             record=source_dry_run_file,
             repo_root=repo_root,
@@ -264,6 +271,13 @@ def profile_execution_row(
             declared_path=str(source_dry_run.get("path", "")),
             record=source_dry_run_file,
             repo_root=repo_root,
+        ),
+        "operator_request_source_dry_run_path_is_canonical_run_artifact": (
+            path_is_expected_artifact(
+                path_text=str(source_dry_run.get("path", "")),
+                expected_path=run_dir / "codex_cli_real_execution_dry_run.json",
+                repo_root=repo_root,
+            )
         ),
         "operator_request_source_dry_run_plan_present": bool(source_dry_run_plan),
         "operator_request_source_dry_run_plan_matches_review": (
@@ -401,12 +415,20 @@ def operator_unlock_blockers(checks: dict[str, bool]) -> list[str]:
             "operator_request_source_pipeline_path_mismatch",
         ),
         (
+            "operator_request_source_pipeline_path_is_canonical_run_artifact",
+            "operator_request_source_pipeline_path_not_canonical_run_artifact",
+        ),
+        (
             "operator_request_source_dry_run_hash_matches",
             "operator_request_source_dry_run_hash_mismatch",
         ),
         (
             "operator_request_source_dry_run_path_matches_record",
             "operator_request_source_dry_run_path_mismatch",
+        ),
+        (
+            "operator_request_source_dry_run_path_is_canonical_run_artifact",
+            "operator_request_source_dry_run_path_not_canonical_run_artifact",
         ),
         (
             "operator_request_source_dry_run_plan_present",
@@ -518,6 +540,18 @@ def path_is_canonical_operator_request(*, path: Path | None, run_dir: Path) -> b
     if path is None:
         return False
     return path.resolve() == (run_dir / "codex_cli_operator_unlock_request.json").resolve()
+
+
+def path_is_expected_artifact(
+    *,
+    path_text: str,
+    expected_path: Path,
+    repo_root: Path,
+) -> bool:
+    """Return whether a recorded artifact path resolves to one expected file."""
+    if not path_text:
+        return False
+    return resolve_path(Path(path_text), repo_root).resolve() == expected_path.resolve()
 
 
 def source_dry_run_plan_matches_review(

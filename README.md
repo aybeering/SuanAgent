@@ -85,8 +85,9 @@ dependency order without executing agents or changing acceptance. Its
 terminal-only receipt records both pre-refresh stale source evidence and the
 post-refresh cockpit freshness summary, including the primary current blocker
 when one remains, a compact refresh-effect status, before/after blocker delta
-counts, whether operator review is still required, the reason for the first
-recommended command, and a compact safety-policy summary. If a real
+counts, whether operator review is still required, primary review reason codes,
+the reason for the first recommended command, and a compact safety-policy
+summary. If a real
 Codex execute=true startup preflight is blocked, the failed run still writes
 the checklist, execution readiness diff, and summary navigation. The Codex CLI
 unlock runbook turns the same evidence chain into an ordered read-only operator

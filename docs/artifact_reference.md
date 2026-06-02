@@ -340,18 +340,18 @@ It uses the run's recorded config path unless `--config` is provided, returns a
 terminal-only `operator_view_refresh_v1` receipt with config source, path,
 existence, SHA-256 fields, pre-refresh cockpit stale-source evidence,
 post-refresh cockpit freshness, refresh-effect status, operator-review-required
-flag, blocker delta counts, and per-artifact JSON/Markdown output hashes, and
-still does not execute commands, execute Codex, run agents, run backtests,
-write config, promote champions, apply patches, route agents, or change
-acceptance.
+flag, deterministic review reason codes, blocker delta counts, and
+per-artifact JSON/Markdown output hashes, and still does not execute commands,
+execute Codex, run agents, run backtests, write config, promote champions,
+apply patches, route agents, or change acceptance.
 Add `--markdown` to render the same terminal-only receipt as a compact operator
 summary with refreshed artifact paths, hash prefixes, config provenance,
 pre-refresh stale sources, and post-refresh snapshot freshness. The receipt
 also includes a derived operator summary from the refreshed cockpit: cockpit
 status, primary focus, blocker count, primary blocker, a short blocker preview,
 refresh-effect details including whether operator review is still required,
-before/after blocker delta details, the first recommended next command with
-its reason, and a compact safety-policy summary.
+primary review reason codes, before/after blocker delta details, the first
+recommended next command with its reason, and a compact safety-policy summary.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.

@@ -1354,6 +1354,12 @@ def refresh_operator_views(
         policy_summary=policy_summary,
         operator_summary=operator_summary,
     )
+    review_summary = operator_view_refresh_review_summary(
+        refresh_effect=refresh_effect,
+        operator_summary=operator_summary,
+        post_refresh_freshness=post_refresh_freshness,
+        policy_summary=policy_summary,
+    )
     return {
         "schema_version": "operator_view_refresh_v1",
         "run_id": run_id,
@@ -1369,6 +1375,7 @@ def refresh_operator_views(
         "operator_summary": operator_summary,
         "blocker_delta": blocker_delta,
         "refresh_effect": refresh_effect,
+        "review_summary": review_summary,
         "cockpit_snapshot_freshness": post_refresh_freshness,
         "policy": policy,
         "policy_summary": policy_summary,
@@ -1470,6 +1477,40 @@ def operator_view_refresh_effect(
     }
 
 
+def operator_view_refresh_review_summary(
+    *,
+    refresh_effect: dict[str, object],
+    operator_summary: dict[str, object],
+    post_refresh_freshness: dict[str, object],
+    policy_summary: dict[str, object],
+) -> dict[str, object]:
+    """Return deterministic reason codes for post-refresh operator review."""
+    reason_codes: list[str] = []
+    post_stale_count = int(post_refresh_freshness.get("stale_count", 0) or 0)
+    post_blocker_count = int(refresh_effect.get("post_blocker_count", 0) or 0)
+    if not bool(policy_summary.get("ok", False)):
+        reason_codes.append("safety_policy_attention")
+    if not bool(post_refresh_freshness.get("ok", False)) or post_stale_count:
+        reason_codes.append("stale_sources_remaining")
+    if not bool(operator_summary.get("cockpit_ok", False)):
+        reason_codes.append("cockpit_not_ok")
+    if post_blocker_count:
+        reason_codes.append("blockers_present")
+    required = bool(reason_codes)
+    return {
+        "schema_version": "operator_view_refresh_review_summary_v1",
+        "required": required,
+        "primary_reason": reason_codes[0] if reason_codes else "",
+        "reason_count": len(reason_codes),
+        "reason_codes": reason_codes,
+        "primary_blocker": str(operator_summary.get("primary_blocker", "")),
+        "post_blocker_count": post_blocker_count,
+        "next_command_label": str(operator_summary.get("next_command_label", "")),
+        "next_command": str(operator_summary.get("next_command", "")),
+        "next_command_reason": str(operator_summary.get("next_command_reason", "")),
+    }
+
+
 def operator_view_refresh_policy_summary(
     policy: dict[str, bool],
 ) -> dict[str, object]:
@@ -1491,6 +1532,7 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     operator_summary = dict_payload(payload.get("operator_summary", {}))
     blocker_delta = dict_payload(payload.get("blocker_delta", {}))
     refresh_effect = dict_payload(payload.get("refresh_effect", {}))
+    review_summary = dict_payload(payload.get("review_summary", {}))
     policy = dict_payload(payload.get("policy", {}))
     policy_summary = dict_payload(payload.get("policy_summary", {}))
     lines = [
@@ -1508,6 +1550,8 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Freshness ok: `{freshness.get('ok', False)}`",
         f"- Refresh effect: `{refresh_effect.get('status', '')}`",
         f"- Refresh effect summary: {refresh_effect.get('summary', '')}",
+        f"- Review required: `{review_summary.get('required', False)}`",
+        f"- Review primary reason: `{review_summary.get('primary_reason', '')}`",
         f"- Cockpit status: `{operator_summary.get('cockpit_status', '')}`",
         f"- Primary focus: `{operator_summary.get('primary_focus', '')}`",
         f"- Blockers: `{operator_summary.get('blocker_count', 0)}`",
@@ -1565,6 +1609,19 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     lines.append(
         f"- Post-refresh blockers: `{refresh_effect.get('post_blocker_count', 0)}`",
     )
+    lines.extend(["", "## Review Summary", ""])
+    lines.append(f"- Required: `{review_summary.get('required', False)}`")
+    lines.append(f"- Primary reason: `{review_summary.get('primary_reason', '')}`")
+    lines.append(f"- Reason count: `{review_summary.get('reason_count', 0)}`")
+    reason_codes = review_summary.get("reason_codes", [])
+    lines.append("- Reasons:")
+    for reason in reason_codes if isinstance(reason_codes, list) else []:
+        lines.append(f"  - `{reason}`")
+    if not reason_codes:
+        lines.append("  - none")
+    lines.append(f"- Primary blocker: `{review_summary.get('primary_blocker', '')}`")
+    lines.append(f"- Next command: `{review_summary.get('next_command_label', '')}`")
+    lines.append(f"- Next command text: `{review_summary.get('next_command', '')}`")
     blocker_preview = operator_summary.get("blocker_preview", [])
     lines.extend(["", "## Current Blockers", ""])
     for blocker in blocker_preview if isinstance(blocker_preview, list) else []:

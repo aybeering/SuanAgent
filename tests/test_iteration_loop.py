@@ -351,6 +351,7 @@ from orchestrator.experiments import (
     operator_run_review,
     operator_view_refresh_blocker_delta,
     operator_view_refresh_effect,
+    operator_view_refresh_review_summary,
     promote_champion,
     refresh_operator_views as refresh_operator_views_command,
     render_operator_view_refresh_markdown,
@@ -2741,9 +2742,26 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert refresh["refresh_effect"]["safety_policy_ok"] is True
     assert refresh["refresh_effect"]["post_blocker_count"] == len(refreshed["blockers"])
     assert refresh["refresh_effect"]["operator_review_required"] is True
+    assert refresh["review_summary"]["schema_version"] == (
+        "operator_view_refresh_review_summary_v1"
+    )
+    assert refresh["review_summary"]["required"] is True
+    assert refresh["review_summary"]["post_blocker_count"] == len(
+        refreshed["blockers"]
+    )
+    assert refresh["review_summary"]["primary_reason"] in {
+        "cockpit_not_ok",
+        "blockers_present",
+    }
+    assert "blockers_present" in refresh["review_summary"]["reason_codes"]
+    assert refresh["review_summary"]["primary_blocker"] == (
+        refreshed["blockers"][0] if refreshed["blockers"] else ""
+    )
     assert "Refresh effect:" in refresh_markdown
     assert "## Refresh Effect" in refresh_markdown
     assert "Operator review required: `True`" in refresh_markdown
+    assert "Review required: `True`" in refresh_markdown
+    assert "## Review Summary" in refresh_markdown
     assert "Blocker delta changed:" in refresh_markdown
     assert "## Blocker Delta" in refresh_markdown
     assert "Safety policy OK: `True`" in refresh_markdown
@@ -2845,9 +2863,19 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
         "safety_policy_ok": True,
         "operator_review_required": True,
     }
+    assert refresh["review_summary"]["required"] is True
+    assert refresh["review_summary"]["primary_reason"] == "blockers_present"
+    assert refresh["review_summary"]["reason_codes"] == [
+        "blockers_present",
+    ]
+    assert refresh["review_summary"]["post_blocker_count"] == refresh[
+        "blocker_delta"
+    ]["after_count"]
     assert "Refresh effect: `refreshed_no_changes`" in refresh_markdown
     assert "## Refresh Effect" in refresh_markdown
     assert "Operator review required: `True`" in refresh_markdown
+    assert "Review primary reason: `blockers_present`" in refresh_markdown
+    assert "## Review Summary" in refresh_markdown
     assert (
         f"Post-refresh blockers: `{refresh['blocker_delta']['after_count']}`"
         in refresh_markdown
@@ -2972,6 +3000,34 @@ def test_operator_view_refresh_effect_surfaces_safety_attention() -> None:
         "blockers_changed": False,
         "safety_policy_ok": False,
         "operator_review_required": True,
+    }
+
+
+def test_operator_view_refresh_review_summary_prioritizes_safety() -> None:
+    review = operator_view_refresh_review_summary(
+        refresh_effect={"post_blocker_count": 0},
+        operator_summary={
+            "cockpit_ok": True,
+            "primary_blocker": "",
+            "next_command_label": "review_cockpit",
+            "next_command": "python -m orchestrator.experiments cockpit run --markdown",
+            "next_command_reason": "Review this read-only cockpit.",
+        },
+        post_refresh_freshness={"ok": True, "stale_count": 0},
+        policy_summary={"ok": False},
+    )
+
+    assert review == {
+        "schema_version": "operator_view_refresh_review_summary_v1",
+        "required": True,
+        "primary_reason": "safety_policy_attention",
+        "reason_count": 1,
+        "reason_codes": ["safety_policy_attention"],
+        "primary_blocker": "",
+        "post_blocker_count": 0,
+        "next_command_label": "review_cockpit",
+        "next_command": "python -m orchestrator.experiments cockpit run --markdown",
+        "next_command_reason": "Review this read-only cockpit.",
     }
 
 

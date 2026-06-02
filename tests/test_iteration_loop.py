@@ -11290,7 +11290,9 @@ def test_experiments_cli_compare_work(tmp_path: Path) -> None:
     assert payload["recommendation"] == "keep_base"
 
 
-def test_experiments_cli_champion_and_promote_work(tmp_path: Path) -> None:
+def test_experiments_cli_legacy_direct_promote_remains_available(
+    tmp_path: Path,
+) -> None:
     repo = copy_repo_fixture(tmp_path)
     run_pipeline(
         run_id="cli-champion-base",
@@ -11363,6 +11365,125 @@ def test_experiments_cli_champion_and_promote_work(tmp_path: Path) -> None:
     champion = json.loads(champion_result.stdout)
     assert champion["exists"] is True
     assert champion["champion"]["champion_run_id"] == "cli-champion-candidate"
+
+    help_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "promote",
+            "--help",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert help_result.returncode == 0, help_result.stderr
+    assert "Legacy direct promotion" in help_result.stdout
+
+
+def test_experiments_cli_promote_approved_is_operator_path(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(
+        run_id="cli-approved-base",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    run_pipeline(
+        run_id="cli-approved-champion",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    make_run_accepted_with_ev_lift(
+        repo=repo,
+        run_id="cli-approved-champion",
+        ev_lift=0.2,
+    )
+    promote_champion(
+        base_run_id="cli-approved-base",
+        candidate_run_id="cli-approved-champion",
+        experiments_dir=repo / "experiments",
+    )
+    run_pipeline(
+        run_id="cli-approved-candidate",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    make_run_accepted_with_ev_lift(
+        repo=repo,
+        run_id="cli-approved-candidate",
+        ev_lift=0.5,
+    )
+
+    dry_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.champion_promotion_dry_run",
+            "experiments/cli-approved-candidate",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    approval_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.champion_promotion_approval",
+            "experiments/cli-approved-candidate",
+            "--approve",
+            "--operator-id",
+            "test-operator",
+            "--confirmation-phrase",
+            CHAMPION_PROMOTION_CONFIRMATION_PHRASE,
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    promote_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "promote-approved",
+            "cli-approved-candidate",
+            "--approval-path",
+            "experiments/cli-approved-candidate/champion_promotion_approval.json",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert dry_result.returncode == 0, dry_result.stderr
+    assert approval_result.returncode == 0, approval_result.stderr
+    assert promote_result.returncode == 0, promote_result.stderr
+    dry_payload = json.loads(dry_result.stdout)
+    approval_payload = json.loads(approval_result.stdout)
+    receipt = json.loads(promote_result.stdout)
+    champion = show_champion(experiments_dir=repo / "experiments")
+    assert dry_payload["dry_run_decision"]["promotion_command"].startswith(
+        "python -m orchestrator.experiments promote-approved"
+    )
+    assert approval_payload["status"] == "approval_recorded"
+    assert receipt["schema_version"] == CHAMPION_PROMOTION_RECEIPT_SCHEMA_VERSION
+    assert receipt["status"] == "promoted"
+    assert receipt["promoted"] is True
+    assert receipt["evidence_checks"]["blockers"] == []
+    assert champion["champion"]["champion_run_id"] == "cli-approved-candidate"
 
 
 def test_experiments_cli_memory_work(tmp_path: Path) -> None:

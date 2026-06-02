@@ -381,7 +381,7 @@ def promote_champion(
     experiments_dir: Path = Path("experiments"),
     min_ev_delta: float = 0.0,
 ) -> dict[str, object]:
-    """Promote a candidate run to champion when deterministic comparison allows."""
+    """Legacy direct promotion helper; operator CLI should use promote-approved."""
     comparison = compare_experiments(
         base_run_id=base_run_id,
         candidate_run_id=candidate_run_id,
@@ -816,7 +816,14 @@ def main() -> None:
 
     promote_parser = subparsers.add_parser(
         "promote",
-        help="Promote a candidate run to champion when comparison allows.",
+        description=(
+            "Legacy direct promotion for deterministic tests; prefer "
+            "promote-approved for operator use."
+        ),
+        help=(
+            "Legacy direct promotion for deterministic tests; prefer "
+            "promote-approved for operator use."
+        ),
     )
     promote_parser.add_argument("base_run_id")
     promote_parser.add_argument("candidate_run_id")

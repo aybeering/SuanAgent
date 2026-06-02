@@ -581,7 +581,8 @@ jobs:
           assert payload["policy"]["requires_approval_artifact"] is True
           assert payload["policy"]["does_not_execute_agents"] is True
           PY
-          python -m orchestrator.experiments promote ci-dry ci-adaptive
+          python -m orchestrator.champion_promotion_approval experiments/ci-adaptive --approve --operator-id ci --confirmation-phrase "APPROVE CHAMPION PROMOTION"
+          python -m orchestrator.experiments promote-approved ci-adaptive --approval-path experiments/ci-adaptive/champion_promotion_approval.json
           python -m orchestrator.experiments champion
 
       - name: Summarize local experiments

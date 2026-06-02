@@ -39,7 +39,6 @@ python -m orchestrator.experiments agents <run_id>
 python -m orchestrator.experiments slots <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
-python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments promote-approved <candidate_run_id> --approval-path experiments/<run_id>/champion_promotion_approval.json
 ```
 
@@ -126,7 +125,7 @@ experiments/run_artifact_health_history.jsonl
 experiments/champion_history.jsonl
 ```
 
-`champion_history.jsonl` exists after champion promotion.
+`champion_history.jsonl` exists after guarded champion promotion.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.
@@ -301,6 +300,10 @@ Replay artifacts:
   `champion.json` and appends `champion_history.jsonl` only when the approval
   artifact, reviewed command digest, dry-run digest, current champion identity,
   and current deterministic comparison still match.
+- `python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>`
+  remains available as a legacy deterministic helper for tests and fixtures,
+  but operator-facing promotion should use `promote-approved` with a recorded
+  approval artifact.
 - `artifact_validator_coverage.json` reports schema, validator, documentation,
   test, and inspection/replay coverage for repository artifact contracts.
 

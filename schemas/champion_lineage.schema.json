@@ -1,0 +1,356 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Champion Lineage",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "experiments_dir",
+    "current_champion",
+    "history",
+    "lineage",
+    "checks",
+    "ok",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "champion_lineage_v1"
+      ]
+    },
+    "experiments_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "current_champion": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "sha256",
+        "schema_version",
+        "champion_run_id",
+        "promoted_from_run_id",
+        "promoted_at",
+        "source_kind",
+        "source_status",
+        "strategy_commit",
+        "validation_ev_delta",
+        "trade_count_delta"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "schema_version": {
+          "type": "string"
+        },
+        "champion_run_id": {
+          "type": "string"
+        },
+        "promoted_from_run_id": {
+          "type": "string"
+        },
+        "promoted_at": {
+          "type": "string"
+        },
+        "source_kind": {
+          "type": "string"
+        },
+        "source_status": {
+          "type": "string"
+        },
+        "strategy_commit": {
+          "type": "string"
+        },
+        "validation_ev_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "trade_count_delta": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      }
+    },
+    "history": {
+      "type": "object",
+      "required": [
+        "path",
+        "exists",
+        "sha256",
+        "event_count",
+        "parse_error_count",
+        "parse_errors"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "event_count": {
+          "type": "integer"
+        },
+        "parse_error_count": {
+          "type": "integer"
+        },
+        "parse_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "lineage": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "index",
+          "champion_run_id",
+          "promoted_from_run_id",
+          "promoted_at",
+          "promotion_source",
+          "source_kind",
+          "source_status",
+          "source_best_round",
+          "strategy_commit",
+          "validation_ev_delta",
+          "trade_count_delta",
+          "comparison_summary",
+          "promotion_reasons",
+          "comparison_metric_deltas",
+          "evidence"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer"
+          },
+          "champion_run_id": {
+            "type": "string"
+          },
+          "promoted_from_run_id": {
+            "type": "string"
+          },
+          "promoted_at": {
+            "type": "string"
+          },
+          "promotion_source": {
+            "type": "string",
+            "enum": [
+              "approved_receipt",
+              "legacy_direct"
+            ]
+          },
+          "source_kind": {
+            "type": "string"
+          },
+          "source_status": {
+            "type": "string"
+          },
+          "source_best_round": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "strategy_commit": {
+            "type": "string"
+          },
+          "validation_ev_delta": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "trade_count_delta": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "comparison_summary": {
+            "type": "string"
+          },
+          "promotion_reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "comparison_metric_deltas": {
+            "type": "object",
+            "required": [
+              "validation_ev_delta",
+              "trade_count_delta"
+            ],
+            "properties": {
+              "validation_ev_delta": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "trade_count_delta": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            }
+          },
+          "evidence": {
+            "type": "object",
+            "required": [
+              "run_dir",
+              "approval",
+              "dry_run",
+              "receipt",
+              "receipt_promoted"
+            ],
+            "properties": {
+              "run_dir": {
+                "type": "string"
+              },
+              "approval": {
+                "$ref": "#/$defs/file_record"
+              },
+              "dry_run": {
+                "$ref": "#/$defs/file_record"
+              },
+              "receipt": {
+                "$ref": "#/$defs/file_record"
+              },
+              "receipt_promoted": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "required": [
+        "ok",
+        "current_champion_matches_last_history",
+        "history_parse_error_count",
+        "lineage_event_count",
+        "current_champion_run_id",
+        "last_history_champion_run_id"
+      ],
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "current_champion_matches_last_history": {
+          "type": "boolean"
+        },
+        "history_parse_error_count": {
+          "type": "integer"
+        },
+        "lineage_event_count": {
+          "type": "integer"
+        },
+        "current_champion_run_id": {
+          "type": "string"
+        },
+        "last_history_champion_run_id": {
+          "type": "string"
+        }
+      }
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+        "does_not_write_champion_registry",
+        "does_not_append_champion_history",
+        "does_not_promote_champion"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_saved_artifacts_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_route_agents": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "does_not_write_champion_registry": {
+          "type": "boolean"
+        },
+        "does_not_append_champion_history": {
+          "type": "boolean"
+        },
+        "does_not_promote_champion": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "file_record": {
+      "type": "object",
+      "required": [
+        "path",
+        "exists",
+        "sha256",
+        "byte_count"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "byte_count": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

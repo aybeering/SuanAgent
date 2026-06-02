@@ -96,6 +96,7 @@ Implemented or allowed V0.5 components:
 82. A deterministic `champion_promotion_dry_run.json` and `champion_promotion_dry_run.md` report pair that previews whether a completed run would satisfy the existing deterministic champion promotion comparison, without writing `champion.json`, appending champion history, running agents, running backtests, routing agents, applying patches, or changing acceptance.
 83. A deterministic `champion_promotion_approval.json` and `champion_promotion_approval.md` report pair that records operator review intent, required confirmation phrase hashes, reviewed promote command digests, and source evidence hashes without executing promotion, writing champion registry files, appending champion history, running agents, running backtests, routing agents, applying patches, or changing acceptance.
 84. A deterministic `champion_promotion_receipt.json` and `champion_promotion_receipt.md` report pair for the guarded promote-approved command, which writes `champion.json` and appends `champion_history.jsonl` only when approval evidence, command digest, dry-run digest, current champion identity, and current comparison recommendation still match.
+85. A deterministic global `champion_lineage.json` and `champion_lineage.md` report pair that connects the current champion registry, champion history, promotion receipts, approval artifacts, dry-run hashes, and comparison metric deltas into a read-only champion evolution chain without promoting champions or changing acceptance.
 
 ## Contract Families
 
@@ -139,6 +140,7 @@ Agent-slot contracts:
 - Champion promotion dry-run: `schemas/champion_promotion_dry_run.schema.json`
 - Champion promotion approval: `schemas/champion_promotion_approval.schema.json`
 - Champion promotion receipt: `schemas/champion_promotion_receipt.schema.json`
+- Champion lineage: `schemas/champion_lineage.schema.json`
 
 Codex CLI readiness contracts:
 
@@ -213,6 +215,11 @@ Codex CLI readiness contracts:
     digest binding, source dry-run digest binding, unchanged champion identity,
     and a current deterministic promote recommendation before writing
     `champion.json` or appending `champion_history.jsonl`.
+20. Champion lineage reports are read-only global experiment inspections. They
+    can summarize champion history, receipts, approvals, dry-runs, and metric
+    deltas, but they cannot promote champions, route candidates, run backtests,
+    apply patches, write champion registry files, append champion history, or
+    change strategy acceptance.
 
 ## Near-Term Development Order
 

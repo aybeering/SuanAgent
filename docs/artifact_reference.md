@@ -39,6 +39,7 @@ python -m orchestrator.experiments agents <run_id>
 python -m orchestrator.experiments slots <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
+python -m orchestrator.experiments lineage
 python -m orchestrator.experiments promote-approved <candidate_run_id> --approval-path experiments/<run_id>/champion_promotion_approval.json
 ```
 
@@ -123,9 +124,14 @@ experiments/index.jsonl
 experiments/memory.jsonl
 experiments/run_artifact_health_history.jsonl
 experiments/champion_history.jsonl
+experiments/champion_lineage.json
+experiments/champion_lineage.md
 ```
 
 `champion_history.jsonl` exists after guarded champion promotion.
+`champion_lineage.json` and `champion_lineage.md` are written by the lineage
+inspection command and summarize champion history, current champion identity,
+promotion receipts, approval hashes, dry-run hashes, and metric deltas.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.
@@ -300,6 +306,10 @@ Replay artifacts:
   `champion.json` and appends `champion_history.jsonl` only when the approval
   artifact, reviewed command digest, dry-run digest, current champion identity,
   and current deterministic comparison still match.
+- `champion_lineage.json` and `champion_lineage.md` are read-only global
+  experiment reports that connect `champion.json`, `champion_history.jsonl`,
+  promotion receipts, approval artifacts, dry-run reports, and comparison
+  metric deltas into one inspectable champion evolution chain.
 - `python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>`
   remains available as a legacy deterministic helper for tests and fixtures,
   but operator-facing promotion should use `promote-approved` with a recorded

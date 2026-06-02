@@ -162,6 +162,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_champion_lineage(
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_optional_research_brief(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -2616,6 +2621,54 @@ def validate_optional_champion_registry(
         schema_path=repo_root / "schemas/champion.schema.json",
         report=report,
     )
+
+
+def validate_optional_champion_lineage(
+    *,
+    experiments_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate the shared champion lineage report when it exists."""
+    path = experiments_dir / "champion_lineage.json"
+    md_path = experiments_dir / "champion_lineage.md"
+    if not path.exists():
+        if md_path.exists():
+            add_error(report, "champion_lineage.md exists without JSON")
+        return
+    checked_files(report).append(str(path))
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    else:
+        add_error(report, "champion_lineage.json missing markdown pair")
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/champion_lineage.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if not bool(payload.get("ok", False)):
+        add_error(report, f"champion_lineage.json ok false: {path}")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "champion_lineage.json policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+        "does_not_write_champion_registry",
+        "does_not_append_champion_history",
+        "does_not_promote_champion",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"champion_lineage.json policy false: {key}")
 
 
 def validate_optional_agent_slot_health(

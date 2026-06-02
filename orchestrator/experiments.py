@@ -805,6 +805,7 @@ def main() -> None:
     )
 
     subparsers.add_parser("champion", help="Show the current champion registry.")
+    subparsers.add_parser("lineage", help="Write and show champion lineage.")
 
     compare_parser = subparsers.add_parser(
         "compare",
@@ -931,6 +932,13 @@ def main() -> None:
         payload = build_artifact_validator_coverage(repo_root=args.experiments_dir.parent)
     elif args.command == "champion":
         payload = show_champion(experiments_dir=args.experiments_dir)
+    elif args.command == "lineage":
+        from orchestrator.champion_lineage import write_champion_lineage
+
+        _, _, payload = write_champion_lineage(
+            experiments_dir=args.experiments_dir,
+            repo_root=args.experiments_dir.parent,
+        )
     elif args.command == "compare":
         payload = compare_experiments(
             experiments_dir=args.experiments_dir,

@@ -182,6 +182,11 @@ from orchestrator.champion_promotion_executor import (
     CHAMPION_PROMOTION_RECEIPT_SCHEMA_VERSION,
     validate_champion_promotion_receipt_file,
 )
+from orchestrator.champion_lineage import (
+    CHAMPION_LINEAGE_SCHEMA_VERSION,
+    validate_champion_lineage_file,
+    write_champion_lineage,
+)
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
 from orchestrator.iteration_loop import run_iteration_loop
 from orchestrator.outcome_memory import (
@@ -10961,6 +10966,44 @@ def test_champion_promote_approved_requires_recorded_approval(
         for path in artifact_report["checked_files"]
     )
 
+    lineage_path, lineage_md, lineage = write_champion_lineage(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert lineage["schema_version"] == CHAMPION_LINEAGE_SCHEMA_VERSION
+    assert lineage["ok"] is True
+    assert lineage["current_champion"]["champion_run_id"] == "receipt-candidate"
+    assert lineage["checks"]["current_champion_matches_last_history"] is True
+    assert lineage["history"]["event_count"] == 2
+    assert [row["promotion_source"] for row in lineage["lineage"]] == [
+        "legacy_direct",
+        "approved_receipt",
+    ]
+    assert lineage["lineage"][1]["champion_run_id"] == "receipt-candidate"
+    assert lineage["lineage"][1]["promoted_from_run_id"] == "receipt-champion"
+    assert lineage["lineage"][1]["evidence"]["receipt"]["exists"] is True
+    assert lineage["lineage"][1]["evidence"]["approval"]["exists"] is True
+    assert lineage["lineage"][1]["evidence"]["dry_run"]["exists"] is True
+    assert lineage["lineage"][1]["evidence"]["receipt_promoted"] is True
+    assert lineage["policy"]["does_not_promote_champion"] is True
+    assert lineage_path.exists()
+    assert lineage_md.exists()
+    assert_matches_schema(lineage_path, "champion_lineage")
+    assert validate_champion_lineage_file(
+        payload_path=lineage_path,
+        repo_root=repo,
+    ) == ()
+    lineage_report = validate_run_artifacts(
+        run_id="receipt-candidate",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert lineage_report["ok"] is True
+    assert any(
+        path.endswith("champion_lineage.json")
+        for path in lineage_report["checked_files"]
+    )
+
 
 def test_iteration_loop_writes_champion_comparison_when_champion_exists(
     tmp_path: Path,
@@ -11484,6 +11527,32 @@ def test_experiments_cli_promote_approved_is_operator_path(
     assert receipt["promoted"] is True
     assert receipt["evidence_checks"]["blockers"] == []
     assert champion["champion"]["champion_run_id"] == "cli-approved-candidate"
+
+    lineage_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "lineage",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert lineage_result.returncode == 0, lineage_result.stderr
+    lineage = json.loads(lineage_result.stdout)
+    assert lineage["schema_version"] == CHAMPION_LINEAGE_SCHEMA_VERSION
+    assert lineage["ok"] is True
+    assert lineage["current_champion"]["champion_run_id"] == "cli-approved-candidate"
+    assert lineage["history"]["event_count"] == 2
+    assert lineage["lineage"][0]["promotion_source"] == "legacy_direct"
+    assert lineage["lineage"][1]["promotion_source"] == "approved_receipt"
+    assert (repo / "experiments/champion_lineage.json").exists()
+    assert (repo / "experiments/champion_lineage.md").exists()
+    assert_matches_schema(repo / "experiments/champion_lineage.json", "champion_lineage")
 
 
 def test_experiments_cli_memory_work(tmp_path: Path) -> None:

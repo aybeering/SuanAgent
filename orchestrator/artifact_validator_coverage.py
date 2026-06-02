@@ -56,6 +56,10 @@ KNOWN_ARTIFACT_NAMES = {
         "champion_promotion_receipt.json",
         "champion_promotion_receipt.md",
     ),
+    "champion_lineage": (
+        "champion_lineage.json",
+        "champion_lineage.md",
+    ),
 }
 
 INSPECTION_COMMANDS = {
@@ -100,6 +104,10 @@ INSPECTION_COMMANDS = {
         "python -m orchestrator.champion_promotion_executor",
     ),
     "champion": ("python -m orchestrator.experiments champion",),
+    "champion_lineage": (
+        "python -m orchestrator.champion_lineage",
+        "python -m orchestrator.experiments lineage",
+    ),
     "champion_comparison": ("python -m orchestrator.experiments compare",),
     "codex_cli_replay_gate": ("python -m orchestrator.codex_cli_replay_gate",),
     "codex_cli_enablement_gate": ("python -m orchestrator.codex_cli_enablement_gate",),

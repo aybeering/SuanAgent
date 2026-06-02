@@ -616,6 +616,19 @@ jobs:
           assert receipt["policy"]["does_not_execute_agents"] is True
           PY
           python -m orchestrator.experiments champion
+          python -m orchestrator.experiments lineage > /tmp/champion_lineage.json
+          python - <<'PY'
+          import json
+          lineage = json.load(open("/tmp/champion_lineage.json"))
+          assert lineage["schema_version"] == "champion_lineage_v1"
+          assert lineage["ok"] is True
+          assert lineage["current_champion"]["champion_run_id"] == "ci-approved-candidate"
+          assert lineage["history"]["event_count"] == 2
+          assert lineage["lineage"][0]["promotion_source"] == "legacy_direct"
+          assert lineage["lineage"][1]["promotion_source"] == "approved_receipt"
+          assert lineage["lineage"][1]["evidence"]["receipt_promoted"] is True
+          assert lineage["policy"]["does_not_promote_champion"] is True
+          PY
 
       - name: Summarize local experiments
         run: python -m orchestrator.experiments summary

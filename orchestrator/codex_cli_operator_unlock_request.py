@@ -173,6 +173,16 @@ def write_codex_cli_operator_unlock_request(
     """Write JSON and markdown operator request artifacts."""
     repo_root = repo_root.resolve()
     run_dir = resolve_path(run_dir, repo_root)
+    destination = output_path or run_dir / "codex_cli_operator_unlock_request.json"
+    markdown_destination = markdown_path or (
+        run_dir / "codex_cli_operator_unlock_request.md"
+    )
+    ensure_canonical_operator_unlock_request_paths(
+        output_path=destination,
+        markdown_path=markdown_destination,
+        run_dir=run_dir,
+        repo_root=repo_root,
+    )
     payload = build_codex_cli_operator_unlock_request(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -183,16 +193,36 @@ def write_codex_cli_operator_unlock_request(
         pipeline_path=pipeline_path,
         dry_run_path=dry_run_path,
     )
-    destination = output_path or run_dir / "codex_cli_operator_unlock_request.json"
     write_json(destination, payload)
-    markdown_destination = markdown_path or (
-        run_dir / "codex_cli_operator_unlock_request.md"
-    )
     markdown_destination.write_text(
         codex_cli_operator_unlock_request_markdown(payload),
         encoding="utf-8",
     )
     return payload
+
+
+def ensure_canonical_operator_unlock_request_paths(
+    *,
+    output_path: Path,
+    markdown_path: Path,
+    run_dir: Path,
+    repo_root: Path,
+) -> None:
+    """Require operator request artifacts to be written to canonical run paths."""
+    output_path = resolve_path(output_path, repo_root)
+    markdown_path = resolve_path(markdown_path, repo_root)
+    expected_output_path = run_dir / "codex_cli_operator_unlock_request.json"
+    expected_markdown_path = run_dir / "codex_cli_operator_unlock_request.md"
+    if output_path.resolve() != expected_output_path.resolve():
+        raise ValueError(
+            "operator unlock request JSON must be written to "
+            f"{expected_output_path}"
+        )
+    if markdown_path.resolve() != expected_markdown_path.resolve():
+        raise ValueError(
+            "operator unlock request markdown must be written to "
+            f"{expected_markdown_path}"
+        )
 
 
 def request_blockers(checks: dict[str, bool]) -> list[str]:
@@ -275,18 +305,21 @@ def relative_path(path: Path, root: Path) -> str:
 def main() -> None:
     """CLI entrypoint for operator unlock requests."""
     args = parse_args()
-    payload = write_codex_cli_operator_unlock_request(
-        run_dir=args.run_dir,
-        repo_root=args.repo_root,
-        requested=args.requested,
-        requested_by=args.requested_by,
-        confirmation_phrase=args.confirmation_phrase,
-        request_scope=args.request_scope,
-        pipeline_path=args.pipeline,
-        dry_run_path=args.dry_run,
-        output_path=args.output,
-        markdown_path=args.markdown_output,
-    )
+    try:
+        payload = write_codex_cli_operator_unlock_request(
+            run_dir=args.run_dir,
+            repo_root=args.repo_root,
+            requested=args.requested,
+            requested_by=args.requested_by,
+            confirmation_phrase=args.confirmation_phrase,
+            request_scope=args.request_scope,
+            pipeline_path=args.pipeline,
+            dry_run_path=args.dry_run,
+            output_path=args.output,
+            markdown_path=args.markdown_output,
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     print(json.dumps(payload, indent=2, sort_keys=True))
     if not payload["ok"]:
         raise SystemExit(1)
@@ -340,13 +373,19 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=Path,
         default=None,
-        help="Optional path for codex_cli_operator_unlock_request.json.",
+        help=(
+            "Optional explicit path; must equal "
+            "<run_dir>/codex_cli_operator_unlock_request.json."
+        ),
     )
     parser.add_argument(
         "--markdown-output",
         type=Path,
         default=None,
-        help="Optional path for codex_cli_operator_unlock_request.md.",
+        help=(
+            "Optional explicit path; must equal "
+            "<run_dir>/codex_cli_operator_unlock_request.md."
+        ),
     )
     return parser.parse_args()
 

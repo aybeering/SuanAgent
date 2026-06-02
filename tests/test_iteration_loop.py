@@ -8266,6 +8266,64 @@ def test_codex_cli_operator_unlock_request_schema_requires_evidence_contract(
     )
 
 
+def test_codex_cli_operator_unlock_request_requires_canonical_output_paths(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/operator-request-canonical-output"
+    bad_json_path = run_dir / "operator_request.json"
+    bad_markdown_path = run_dir / "operator_request.md"
+
+    with pytest.raises(
+        ValueError,
+        match="operator unlock request JSON must be written to",
+    ):
+        write_codex_cli_operator_unlock_request(
+            run_dir=run_dir,
+            repo_root=repo,
+            output_path=bad_json_path,
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="operator unlock request markdown must be written to",
+    ):
+        write_codex_cli_operator_unlock_request(
+            run_dir=run_dir,
+            repo_root=repo,
+            markdown_path=bad_markdown_path,
+        )
+
+    assert not bad_json_path.exists()
+    assert not bad_markdown_path.exists()
+
+
+def test_codex_cli_operator_unlock_request_cli_rejects_noncanonical_output(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    bad_output_path = "experiments/operator-request-cli-output/operator_request.json"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_operator_unlock_request",
+            "experiments/operator-request-cli-output",
+            "--output",
+            bad_output_path,
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "operator unlock request JSON must be written to" in result.stderr
+    assert not (repo / bad_output_path).exists()
+
+
 def test_codex_cli_execution_unlock_gate_blocks_candidate_config_mismatch(
     tmp_path: Path,
 ) -> None:

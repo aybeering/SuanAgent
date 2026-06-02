@@ -53,6 +53,7 @@ from orchestrator.codex_cli_execution_preflight import (
     write_codex_cli_execution_preflight,
 )
 from orchestrator.experiment_index import append_experiment_index
+from orchestrator.experiment_scope_health import write_experiment_scope_health
 from orchestrator.experiments import write_champion_comparison
 from orchestrator.failure_taxonomy import (
     apply_error_reason_code,
@@ -141,6 +142,7 @@ def run_iteration_loop(
         if stop_on_repeated_proposal is None
         else stop_on_repeated_proposal
     )
+    scope_health_created_at_from = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     modifier = get_strategy_modifier(
         active_config.strategy_modifier,
         active_config.modifier_settings,
@@ -217,6 +219,13 @@ def run_iteration_loop(
             "path": "codex_cli_execution_preflight.json",
             "ok": False,
             "blocking_error_count": 0,
+        },
+        "experiment_scope_health": {
+            "path": "experiment_scope_health.json",
+            "ok": False,
+            "status": "pending",
+            "created_at_from": scope_health_created_at_from,
+            "scoped_run_count": 0,
         },
         "memory_filter_policy": {
             "failed_patch_threshold": active_config.memory_failed_patch_threshold,
@@ -376,30 +385,14 @@ def run_iteration_loop(
                         strategy_path=strategy_path,
                     )
                     write_json(run_dir / "manifest.json", manifest)
-                    write_candidate_leaderboard(run_dir)
-                    write_iteration_summary(run_dir=run_dir, manifest=manifest)
-                    append_experiment_index(
-                        experiments_dir=active_experiments_dir,
-                        record=index_record(manifest),
-                    )
-                    write_run_diagnosis(
+                    finalize_iteration_run(
+                        manifest=manifest,
+                        run_dir=run_dir,
                         run_id=active_run_id,
                         experiments_dir=active_experiments_dir,
                         repo_root=repo_root,
-                    )
-                    write_champion_comparison(
-                        run_id=active_run_id,
-                        experiments_dir=active_experiments_dir,
-                    )
-                    write_run_diagnosis(
-                        run_id=active_run_id,
-                        experiments_dir=active_experiments_dir,
-                        repo_root=repo_root,
-                    )
-                    write_research_brief(
-                        run_id=active_run_id,
-                        experiments_dir=active_experiments_dir,
-                        repo_root=repo_root,
+                        scope_health_created_at_from=scope_health_created_at_from,
+                        write_research=True,
                     )
                     return manifest
 
@@ -416,31 +409,14 @@ def run_iteration_loop(
                         f"{round_summary['proposal_repeat_of_round']}"
                     )
                     manifest["final_strategy_commit"] = current_commit(repo_root)
-                    write_json(run_dir / "manifest.json", manifest)
-                    write_candidate_leaderboard(run_dir)
-                    write_iteration_summary(run_dir=run_dir, manifest=manifest)
-                    append_experiment_index(
-                        experiments_dir=active_experiments_dir,
-                        record=index_record(manifest),
-                    )
-                    write_run_diagnosis(
+                    finalize_iteration_run(
+                        manifest=manifest,
+                        run_dir=run_dir,
                         run_id=active_run_id,
                         experiments_dir=active_experiments_dir,
                         repo_root=repo_root,
-                    )
-                    write_champion_comparison(
-                        run_id=active_run_id,
-                        experiments_dir=active_experiments_dir,
-                    )
-                    write_run_diagnosis(
-                        run_id=active_run_id,
-                        experiments_dir=active_experiments_dir,
-                        repo_root=repo_root,
-                    )
-                    write_research_brief(
-                        run_id=active_run_id,
-                        experiments_dir=active_experiments_dir,
-                        repo_root=repo_root,
+                        scope_health_created_at_from=scope_health_created_at_from,
+                        write_research=True,
                     )
                     return manifest
 
@@ -454,80 +430,102 @@ def run_iteration_loop(
                     manifest["status"] = "stopped_no_improvement"
                     manifest["stop_reason"] = no_improvement_reason
                     manifest["final_strategy_commit"] = current_commit(repo_root)
-                    write_json(run_dir / "manifest.json", manifest)
-                    write_candidate_leaderboard(run_dir)
-                    write_iteration_summary(run_dir=run_dir, manifest=manifest)
-                    append_experiment_index(
-                        experiments_dir=active_experiments_dir,
-                        record=index_record(manifest),
-                    )
-                    write_run_diagnosis(
+                    finalize_iteration_run(
+                        manifest=manifest,
+                        run_dir=run_dir,
                         run_id=active_run_id,
                         experiments_dir=active_experiments_dir,
                         repo_root=repo_root,
-                    )
-                    write_champion_comparison(
-                        run_id=active_run_id,
-                        experiments_dir=active_experiments_dir,
-                    )
-                    write_run_diagnosis(
-                        run_id=active_run_id,
-                        experiments_dir=active_experiments_dir,
-                        repo_root=repo_root,
-                    )
-                    write_research_brief(
-                        run_id=active_run_id,
-                        experiments_dir=active_experiments_dir,
-                        repo_root=repo_root,
+                        scope_health_created_at_from=scope_health_created_at_from,
+                        write_research=True,
                     )
                     return manifest
 
         manifest["status"] = "stopped_max_rounds"
         manifest["stop_reason"] = "max_rounds reached"
         manifest["final_strategy_commit"] = current_commit(repo_root)
-        write_json(run_dir / "manifest.json", manifest)
-        write_candidate_leaderboard(run_dir)
-        write_iteration_summary(run_dir=run_dir, manifest=manifest)
-        append_experiment_index(
-            experiments_dir=active_experiments_dir,
-            record=index_record(manifest),
-        )
-        write_run_diagnosis(
+        finalize_iteration_run(
+            manifest=manifest,
+            run_dir=run_dir,
             run_id=active_run_id,
             experiments_dir=active_experiments_dir,
             repo_root=repo_root,
-        )
-        write_champion_comparison(
-            run_id=active_run_id,
-            experiments_dir=active_experiments_dir,
-        )
-        write_run_diagnosis(
-            run_id=active_run_id,
-            experiments_dir=active_experiments_dir,
-            repo_root=repo_root,
-        )
-        write_research_brief(
-            run_id=active_run_id,
-            experiments_dir=active_experiments_dir,
-            repo_root=repo_root,
+            scope_health_created_at_from=scope_health_created_at_from,
+            write_research=True,
         )
         return manifest
     except Exception as exc:
         manifest["status"] = "failed"
         manifest["error"] = str(exc)
-        write_json(run_dir / "manifest.json", manifest)
-        write_candidate_leaderboard(run_dir)
-        write_iteration_summary(run_dir=run_dir, manifest=manifest)
-        append_experiment_index(
-            experiments_dir=active_experiments_dir,
-            record=index_record(manifest),
-        )
-        write_run_diagnosis(
+        finalize_iteration_run(
+            manifest=manifest,
+            run_dir=run_dir,
             run_id=active_run_id,
             experiments_dir=active_experiments_dir,
             repo_root=repo_root,
+            scope_health_created_at_from=scope_health_created_at_from,
+            write_research=False,
         )
         raise
+
+
+def finalize_iteration_run(
+    *,
+    manifest: dict[str, object],
+    run_dir: Path,
+    run_id: str,
+    experiments_dir: Path,
+    repo_root: Path,
+    scope_health_created_at_from: str,
+    write_research: bool,
+) -> None:
+    """Write run-level final artifacts after an iteration loop reaches a stop."""
+    write_json(run_dir / "manifest.json", manifest)
+    write_candidate_leaderboard(run_dir)
+    write_iteration_summary(run_dir=run_dir, manifest=manifest)
+    append_experiment_index(
+        experiments_dir=experiments_dir,
+        record=index_record(manifest),
+    )
+    write_run_diagnosis(
+        run_id=run_id,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
+    if write_research:
+        write_champion_comparison(
+            run_id=run_id,
+            experiments_dir=experiments_dir,
+        )
+        write_run_diagnosis(
+            run_id=run_id,
+            experiments_dir=experiments_dir,
+            repo_root=repo_root,
+        )
+        write_research_brief(
+            run_id=run_id,
+            experiments_dir=experiments_dir,
+            repo_root=repo_root,
+        )
+    scope_health = write_experiment_scope_health(
+        output_path=run_dir / "experiment_scope_health.json",
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+        created_at_from=scope_health_created_at_from,
+    )
+    manifest["experiment_scope_health"] = {
+        "path": "experiment_scope_health.json",
+        "ok": bool(scope_health.get("ok", False)),
+        "status": str(scope_health.get("status", "unknown")),
+        "created_at_from": scope_health_created_at_from,
+        "scoped_run_count": int(
+            scope_health.get("summary", {}).get("scoped_run_count", 0)
+            if isinstance(scope_health.get("summary", {}), dict)
+            else 0
+        ),
+    }
+    write_json(run_dir / "manifest.json", manifest)
+    write_iteration_summary(run_dir=run_dir, manifest=manifest)
 
 
 def run_round(

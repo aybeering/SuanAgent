@@ -167,6 +167,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_experiment_scope_health(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_optional_agent_slot_health(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -2183,6 +2188,44 @@ def validate_optional_metadata(
         return
     if payload.get("run_id") != report.get("run_id"):
         add_error(report, f"run_metadata.json run_id does not match report: {path}")
+
+
+def validate_optional_experiment_scope_health(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate experiment_scope_health.json when a run has one."""
+    path = run_dir / "experiment_scope_health.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/experiment_scope_health.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if not bool(payload.get("ok", False)):
+        add_error(report, f"experiment_scope_health.json ok false: {path}")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "experiment_scope_health.json policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "does_not_route_agents",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"experiment_scope_health.json policy false: {key}")
 
 
 def validate_optional_champion_comparison(

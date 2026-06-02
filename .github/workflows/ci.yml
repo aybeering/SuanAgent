@@ -490,12 +490,19 @@ jobs:
         run: |
           test -f experiments/ci-adaptive/research_brief.json
           test -f experiments/ci-adaptive/research_brief.md
+          test -f experiments/ci-adaptive/experiment_scope_health.json
           python - <<'PY'
           import json
           payload = json.load(open("experiments/ci-adaptive/research_brief.json"))
+          scope = json.load(open("experiments/ci-adaptive/experiment_scope_health.json"))
+          summary = open("experiments/ci-adaptive/summary.md").read()
           assert payload["schema_version"] == "research_brief_v1"
           assert payload["run_id"] == "ci-adaptive"
           assert payload["top_candidates"]
+          assert scope["schema_version"] == "experiment_scope_health_v1"
+          assert scope["ok"] is True
+          assert scope["summary"]["scoped_run_count"] >= 1
+          assert "Experiment Scope Health" in summary
           PY
 
       - name: Diagnose iteration runs

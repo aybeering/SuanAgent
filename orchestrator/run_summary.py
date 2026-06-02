@@ -83,6 +83,21 @@ def write_iteration_summary(
             if split in datasets:
                 lines.append(f"- {split}: `{datasets[split]}`")
 
+    scope_health = manifest.get("experiment_scope_health")
+    if isinstance(scope_health, dict):
+        lines.extend(["", "## Experiment Scope Health", ""])
+        lines.append(f"- Status: `{display_value(scope_health.get('status'))}`")
+        lines.append(f"- OK: `{display_value(scope_health.get('ok'))}`")
+        lines.append(
+            "- Scope created_at_from: "
+            f"`{display_value(scope_health.get('created_at_from'))}`"
+        )
+        lines.append(
+            "- Scoped run count: "
+            f"`{display_value(scope_health.get('scoped_run_count'))}`"
+        )
+        lines.append(f"- Artifact: `{display_value(scope_health.get('path'))}`")
+
     lines.extend(["", "## Best Validation Delta", ""])
     if best_round is None:
         lines.append("No completed rounds.")

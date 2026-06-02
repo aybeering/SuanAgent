@@ -1953,6 +1953,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "agent_activation_preflight.md").exists()
     assert (run_dir / "research_brief.json").exists()
     assert (run_dir / "research_brief.md").exists()
+    assert (run_dir / "experiment_scope_health.json").exists()
 
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
     agent_activation = json.loads(
@@ -2016,7 +2017,25 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     agent_stats = json.loads(
         (run_dir / "agent_result_stats.json").read_text(encoding="utf-8")
     )
+    scope_health = json.loads(
+        (run_dir / "experiment_scope_health.json").read_text(encoding="utf-8")
+    )
     selected_attempt = next(attempt for attempt in attempts if attempt["selected"])
+    assert manifest["experiment_scope_health"]["path"] == "experiment_scope_health.json"
+    assert manifest["experiment_scope_health"]["ok"] is True
+    assert manifest["experiment_scope_health"]["status"] == "healthy"
+    assert manifest["experiment_scope_health"]["scoped_run_count"] == 1
+    assert manifest["experiment_scope_health"]["created_at_from"]
+    assert scope_health["schema_version"] == EXPERIMENT_SCOPE_HEALTH_SCHEMA_VERSION
+    assert scope_health["ok"] is True
+    assert scope_health["status"] == "healthy"
+    assert scope_health["summary"]["scoped_run_count"] == 1
+    assert scope_health["summary"]["artifact_failed_run_count"] == 0
+    assert scope_health["summary"]["memory_outcome_record_count"] >= 1
+    assert scope_health["components"]["run_artifact_health"]["selection"][
+        "selected_run_ids"
+    ] == ["reject-smoke"]
+    assert_matches_schema(run_dir / "experiment_scope_health.json", "experiment_scope_health")
     assert manifest["agent_activation_preflight"]["path"] == (
         "agent_activation_preflight.json"
     )
@@ -2760,8 +2779,14 @@ def test_iteration_loop_writes_research_brief(tmp_path: Path) -> None:
         path.endswith("research_brief.md")
         for path in report["checked_files"]  # type: ignore[union-attr]
     )
+    assert any(
+        path.endswith("experiment_scope_health.json")
+        for path in report["checked_files"]  # type: ignore[union-attr]
+    )
     summary_text = (run_dir / "summary.md").read_text(encoding="utf-8")
     assert "Experiment Summary" in summary_text
+    assert "Experiment Scope Health" in summary_text
+    assert "experiment_scope_health.json" in summary_text
     assert "round_001" in summary_text
     assert "strategy_modifier_stub" in summary_text
     assert "ev improvement" in summary_text

@@ -103,6 +103,7 @@ experiments/<run_id>/
   agent_result_stats.json
   research_brief.json
   research_brief.md
+  experiment_scope_health.json
 ```
 
 It also updates append-only experiment indexes:
@@ -253,7 +254,9 @@ Replay artifacts:
   artifact-health history, and memory diagnostics for one `--created-at-from`
   scope. It is a read-only status page and marks the scope unhealthy if any
   component has read errors, current artifact failures, historical scoped
-  failure observations, or memory-linked failed health runs.
+  failure observations, or memory-linked failed health runs. The iteration loop
+  writes it automatically at run completion using the run's startup timestamp
+  as the current-contract scope boundary.
 - `artifact_validator_coverage.json` reports schema, validator, documentation,
   test, and inspection/replay coverage for repository artifact contracts.
 

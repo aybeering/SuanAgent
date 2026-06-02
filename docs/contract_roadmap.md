@@ -89,7 +89,7 @@ Implemented or allowed V0.5 components:
 75. A deterministic `run_artifact_health_history.jsonl` memory layer and `run_artifact_health_history_v1` summary that track repeated artifact-health failures across saved inspection runs.
 76. A deterministic `memory_diagnostics.json` report that cross-references proposal outcome memory with artifact-health history by run id, agent, profile, direction, and patch hash without routing agents or changing acceptance.
 77. A deterministic current-contract scope filter for artifact health, artifact-health history, and memory diagnostics, keyed by indexed `created_at`, so legacy experiment directories can remain on disk without polluting current V0.5 validation.
-78. A deterministic `experiment_scope_health.json` report that combines scoped artifact health, health-history, and memory diagnostics into one read-only status page without running agents, running backtests, routing agents, applying patches, or changing acceptance.
+78. A deterministic `experiment_scope_health.json` report that combines scoped artifact health, health-history, and memory diagnostics into one read-only status page without running agents, running backtests, routing agents, applying patches, or changing acceptance. The iteration loop writes this report automatically at run completion using the run's startup timestamp as the scope boundary.
 
 ## Contract Families
 

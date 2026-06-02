@@ -165,6 +165,11 @@ from orchestrator.config_application_restore_executor import (
     restore_config_with_preview,
     validate_config_application_restore_receipt_file,
 )
+from orchestrator.config_lineage import (
+    CONFIG_LINEAGE_SCHEMA_VERSION,
+    validate_config_lineage_file,
+    write_config_lineage,
+)
 from orchestrator.operator_config_review import (
     OPERATOR_CONFIG_REVIEW_SCHEMA_VERSION,
     REQUIRED_APPROVAL_PHRASE as CONFIG_REVIEW_APPROVAL_PHRASE,
@@ -1870,6 +1875,40 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
         payload_path=run_dir / "config_application_restore_receipt.json",
         repo_root=repo,
     ) == ()
+    _, _, lineage = write_config_lineage(
+        run_id="config-apply-approved",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+    )
+    assert lineage["schema_version"] == CONFIG_LINEAGE_SCHEMA_VERSION
+    assert lineage["status"] == "restored"
+    assert lineage["ok"] is True
+    assert lineage["checks"]["applied"] is True
+    assert lineage["checks"]["restored"] is True
+    assert lineage["checks"]["stage_count"] == 6
+    assert lineage["checks"]["existing_stage_count"] == 6
+    assert lineage["checks"]["current_config_matches_latest_stage"] is True
+    assert [row["stage_name"] for row in lineage["stages"]] == [
+        "config_change_candidate",
+        "operator_config_review",
+        "config_application_dry_run",
+        "config_application_receipt",
+        "config_application_rollback_preview",
+        "config_application_restore_receipt",
+    ]
+    assert lineage["policy"]["inspection_only"] is True
+    assert lineage["policy"]["does_not_write_config"] is True
+    assert (run_dir / "config_lineage.json").exists()
+    assert (run_dir / "config_lineage.md").exists()
+    assert "# Config Lineage" in (run_dir / "config_lineage.md").read_text(
+        encoding="utf-8"
+    )
+    assert_matches_schema(run_dir / "config_lineage.json", "config_lineage")
+    assert validate_config_lineage_file(
+        payload_path=run_dir / "config_lineage.json",
+        repo_root=repo,
+    ) == ()
 
     report = validate_run_artifacts(
         run_id="config-apply-approved",
@@ -1887,6 +1926,10 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
     )
     assert not any(
         "config_application_restore_receipt.json" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+    assert not any(
+        "config_lineage.json" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 
@@ -13744,6 +13787,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    write_config_lineage_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.config_lineage",
+            "cli-candidates",
+            "--experiments-dir",
+            "experiments",
+            "--repo-root",
+            ".",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    config_lineage_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "config-lineage",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     challenger_result = subprocess.run(
         [
             sys.executable,
@@ -13929,6 +14003,21 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         restore_config_payload,
         "config_application_restore_receipt",
     )
+    assert write_config_lineage_result.returncode == 0, (
+        write_config_lineage_result.stderr
+    )
+    assert config_lineage_result.returncode == 0, config_lineage_result.stderr
+    config_lineage_payload = json.loads(config_lineage_result.stdout)
+    assert config_lineage_payload["schema_version"] == CONFIG_LINEAGE_SCHEMA_VERSION
+    assert config_lineage_payload["status"] == "blocked"
+    assert config_lineage_payload["from_artifact"] is True
+    assert config_lineage_payload["checks"]["existing_stage_count"] == 6
+    assert config_lineage_payload["checks"][
+        "current_config_matches_latest_stage"
+    ] is True
+    assert config_lineage_payload["policy"]["inspection_only"] is True
+    assert config_lineage_payload["policy"]["does_not_write_config"] is True
+    assert_matches_schema_payload(config_lineage_payload, "config_lineage")
     assert challenger_result.returncode == 0, challenger_result.stderr
     challenger_payload = json.loads(challenger_result.stdout)
     assert challenger_payload["schema_version"] == CANDIDATE_CHALLENGER_SCHEMA_VERSION

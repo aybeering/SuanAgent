@@ -44,6 +44,7 @@ python -m orchestrator.experiments lineage
 python -m orchestrator.experiments apply-config-approved <run_id> --dry-run-path experiments/<run_id>/config_application_dry_run.json
 python -m orchestrator.experiments config-application-rollback-preview <run_id> --receipt-path experiments/<run_id>/config_application_receipt.json
 python -m orchestrator.experiments restore-config-approved <run_id> --preview-path experiments/<run_id>/config_application_rollback_preview.json
+python -m orchestrator.experiments config-lineage <run_id>
 python -m orchestrator.experiments promote-approved <candidate_run_id> --approval-path experiments/<run_id>/champion_promotion_approval.json
 ```
 
@@ -123,6 +124,8 @@ experiments/<run_id>/
   config_application_rollback_preview.md    # after rollback preview command
   config_application_restore_receipt.json  # after guarded restore command
   config_application_restore_receipt.md    # after guarded restore command
+  config_lineage.json                      # after config lineage command
+  config_lineage.md                        # after config lineage command
   agent_result_stats.json
   candidate_challenger_report.json
   candidate_challenger_report.md
@@ -366,6 +369,9 @@ Replay artifacts:
   saved rollback preview is ready and all preview, receipt, and current config
   digests still match. Blocked attempts write a receipt but leave config
   unchanged.
+- `config_lineage.json` and `config_lineage.md` connect config candidates,
+  operator review, dry-run, apply receipt, rollback preview, and restore
+  receipt artifacts into one read-only digest chain for the run.
 - `experiment_scope_health.json` combines current artifact health,
   artifact-health history, and memory diagnostics for one `--created-at-from`
   scope. It is a read-only status page and marks the scope unhealthy if any

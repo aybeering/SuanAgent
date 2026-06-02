@@ -52,7 +52,8 @@ validation, replay commands, read-only outcome-memory hygiene and scope
 recommendation artifacts, read-only config change candidate and operator review
 artifacts, read-only config application dry-run artifacts, guarded config
 application receipt artifacts, read-only config rollback preview artifacts, and
-guarded config restore receipt artifacts, and Codex CLI readiness evidence.
+guarded config restore receipt artifacts, read-only config lineage artifacts,
+and Codex CLI readiness evidence.
 
 Still out of scope:
 
@@ -162,6 +163,9 @@ Config application restore receipts may be written only by an explicit guarded
 restore command after rollback preview evidence still matches current config.
 Receipts may write config only through that command and must not run agents or
 change iteration acceptance.
+Config lineage artifacts may connect config candidates, reviews, dry-runs,
+apply receipts, rollback previews, and restore receipts for audit. They must be
+read-only and must not write config.
 
 ## Strategy Policy
 

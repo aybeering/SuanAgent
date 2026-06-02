@@ -751,6 +751,22 @@ jobs:
           assert payload["policy"]["writes_only_config"] is True
           PY
 
+      - name: Inspect config lineage
+        run: |
+          python -m orchestrator.config_lineage ci-adaptive > /tmp/config_lineage.json
+          python - <<'PY'
+          import json
+          payload = json.load(open("/tmp/config_lineage.json"))
+          assert payload["schema_version"] == "config_lineage_v1"
+          assert payload["status"] == "blocked"
+          assert payload["ok"] is True
+          assert payload["checks"]["stage_count"] == 6
+          assert payload["checks"]["existing_stage_count"] == 6
+          assert payload["checks"]["current_config_matches_latest_stage"] is True
+          assert payload["policy"]["inspection_only"] is True
+          assert payload["policy"]["does_not_write_config"] is True
+          PY
+
       - name: Inspect candidate leaderboard
         run: python -m orchestrator.experiments candidates ci-adaptive --limit 5
 

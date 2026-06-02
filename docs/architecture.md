@@ -162,6 +162,9 @@ They never restore config automatically.
 guarded restore command. That command restores config only when the rollback
 preview is ready and the preview, receipt, and current config digests still
 match; it does not run agents or change acceptance.
+`config_lineage.json` and `config_lineage.md` connect the run's config
+candidate, review, dry-run, application receipt, rollback preview, and restore
+receipt artifacts into one read-only digest chain. They do not write config.
 
 ## Champion Registry
 

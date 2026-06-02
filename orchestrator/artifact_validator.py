@@ -224,6 +224,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_config_lineage(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_optional_run_closeout(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -4255,6 +4260,88 @@ def load_optional_json_object(path: Path) -> dict[str, Any]:
     except json.JSONDecodeError:
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def validate_optional_config_lineage(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate config_lineage.json when present."""
+    path = run_dir / "config_lineage.json"
+    md_path = run_dir / "config_lineage.md"
+    if not path.exists():
+        if md_path.exists():
+            add_error(report, "config_lineage.md exists without JSON")
+        return
+    checked_files(report).append(str(path))
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    else:
+        add_error(report, "config_lineage.json missing markdown pair")
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/config_lineage.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(report, "config_lineage.json run_id does not match report")
+    checks = payload.get("checks", {})
+    if not isinstance(checks, dict):
+        add_error(report, "config_lineage.json checks invalid")
+    else:
+        if payload.get("ok") != checks.get("ok"):
+            add_error(report, "config_lineage.json ok mismatch")
+        if checks.get("stage_count") != 6:
+            add_error(report, "config_lineage.json stage_count mismatch")
+        current_config = payload.get("current_config", {})
+        current_config_path = repo_root / "config/default.json"
+        if isinstance(current_config, dict):
+            current_config_path = resolve_path(
+                Path(str(current_config.get("path", ""))),
+                repo_root,
+            )
+        if checks.get("current_config_sha256") != file_sha256(current_config_path):
+            add_error(report, "config_lineage.json current config digest mismatch")
+    stages = payload.get("stages", [])
+    if not isinstance(stages, list):
+        add_error(report, "config_lineage.json stages invalid")
+    elif len(stages) != 6:
+        add_error(report, "config_lineage.json stages length mismatch")
+    else:
+        for row in stages:
+            if not isinstance(row, dict):
+                add_error(report, "config_lineage.json stage row invalid")
+                continue
+            artifact_path = resolve_path(
+                Path(str(row.get("artifact_path", ""))),
+                repo_root,
+            )
+            if row.get("exists") is True and row.get("sha256") != file_sha256(
+                artifact_path,
+            ):
+                add_error(report, "config_lineage.json stage digest mismatch")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "config_lineage.json policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_write_config",
+        "does_not_delete_memory",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_route_candidates",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"config_lineage.json policy false: {key}")
 
 
 def validate_optional_champion_comparison(

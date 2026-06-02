@@ -2860,6 +2860,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert agent_output["schema_version"] == AGENT_OUTPUT_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_output.json", "agent_output")
+    assert agent_output["proposal_intent_summary"] == (
+        agent_input["proposal_intent_summary"]
+    )
+    assert agent_output["proposal_intent_summary"] == (
+        attempt_output["proposal_intent_summary"]
+    )
     assert agent_output["selected_role"] == selected_attempt["role"]
     assert agent_output["selected_agent_role"] == "strategy_modifier"
     assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
@@ -6335,7 +6341,40 @@ def test_artifact_validator_reports_schema_errors(tmp_path: Path) -> None:
     )
 
     assert report["ok"] is False
-    assert any("expected one of" in error and "mystery" in error for error in report["errors"])  # type: ignore[union-attr]
+    assert any(
+        "expected one of" in error and "mystery" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_agent_output_intent_summary_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-agent-output-intent-drift",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/artifact-agent-output-intent-drift/round_001/agent_output.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["proposal_intent_summary"]["recommended_direction"] = "drifted_direction"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="artifact-agent-output-intent-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "agent_output proposal intent summary drift" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
 
 
 def test_artifact_validator_reports_agent_role_mismatch(tmp_path: Path) -> None:

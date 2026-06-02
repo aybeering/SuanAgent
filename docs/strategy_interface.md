@@ -102,6 +102,8 @@ for drift.
 Each saved attempt's `attempt_output.json` also records the same summary, so
 audit replay can detect input/output drift without changing candidate replay,
 patch application, or acceptance.
+The round-level `agent_output.json` records the same summary as well, binding
+the selected-output contract back to the planner context in `agent_input.json`.
 Agent profiles may separately declare `supported_directions`. The executor uses
 that declaration only as a deterministic contract check after a proposal is
 normalized: a candidate whose `direction_tag` is outside its own declared

@@ -498,6 +498,11 @@ def validate_round_dir(
         schema_path=repo_root / "schemas/agent_output.schema.json",
         report=report,
     )
+    validate_agent_output(
+        path=round_dir / "agent_output.json",
+        repo_root=repo_root,
+        report=report,
+    )
     validate_contract_file(
         payload_path=round_dir / "agent_validation.json",
         schema_path=repo_root / "schemas/agent_validation.schema.json",
@@ -1007,6 +1012,42 @@ def validate_agent_bundle_manifest(
             file_path = resolve_path(Path(str(row.get("path", ""))), repo_root)
             if not file_path.exists() or not file_path.is_file():
                 add_error(report, f"bundle file does not exist: {file_path}")
+
+
+def validate_agent_output(
+    *,
+    path: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate selected agent output context bindings."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    validate_proposal_intent_summary_contract(
+        summary=payload.get("proposal_intent_summary", {}),
+        artifact_name="agent_output.json",
+        report=report,
+    )
+    artifacts = payload.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        add_error(report, f"agent_output.json artifacts is invalid: {path}")
+        return
+    agent_input_path = resolve_path(
+        Path(str(artifacts.get("agent_input", ""))),
+        repo_root,
+    )
+    if not agent_input_path.exists() or not agent_input_path.is_file():
+        add_error(
+            report,
+            f"agent_output agent_input artifact missing: {agent_input_path}",
+        )
+        return
+    agent_input = load_json_object(agent_input_path, report)
+    if agent_input is not None and agent_input.get(
+        "proposal_intent_summary", {}
+    ) != payload.get("proposal_intent_summary", {}):
+        add_error(report, "agent_output proposal intent summary drift")
 
 
 def validate_agent_output_quarantine(

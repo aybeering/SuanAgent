@@ -390,6 +390,10 @@ def build_agent_output_payload(
     """Return the deterministic output contract from modifier selection."""
     selected_role = str(selected_attempt.get("role", ""))
     selected_agent_role = str(selected_attempt.get("agent_role", ""))
+    agent_input = load_json_object(round_dir / "agent_input.json")
+    proposal_intent_summary = dict_or_empty(
+        agent_input.get("proposal_intent_summary", {})
+    )
     return {
         "schema_version": AGENT_OUTPUT_SCHEMA_VERSION,
         "run_id": run_id,
@@ -398,6 +402,7 @@ def build_agent_output_payload(
         "selected_role": selected_role,
         "selected_agent_role": selected_agent_role,
         "selection_reason": str(selected_attempt.get("selection_reason", "")),
+        "proposal_intent_summary": proposal_intent_summary,
         "selected_proposal": proposal.to_dict(),
         "attempt_count": len(proposal_attempts),
         "attempts": compact_attempts(proposal_attempts),

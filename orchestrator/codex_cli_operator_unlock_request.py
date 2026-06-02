@@ -49,6 +49,12 @@ def build_codex_cli_operator_unlock_request(
         dry_run_path or run_dir / "codex_cli_real_execution_dry_run.json",
         repo_root,
     )
+    ensure_canonical_operator_unlock_source_paths(
+        pipeline_path=pipeline_path,
+        dry_run_path=dry_run_path,
+        run_dir=run_dir,
+        repo_root=repo_root,
+    )
     pipeline = load_json_object(pipeline_path)
     dry_run = load_json_object(dry_run_path)
     planned_execution = object_value(dry_run.get("planned_execution", {}))
@@ -225,6 +231,30 @@ def ensure_canonical_operator_unlock_request_paths(
         )
 
 
+def ensure_canonical_operator_unlock_source_paths(
+    *,
+    pipeline_path: Path,
+    dry_run_path: Path,
+    run_dir: Path,
+    repo_root: Path,
+) -> None:
+    """Require operator request source evidence to come from canonical run paths."""
+    pipeline_path = resolve_path(pipeline_path, repo_root)
+    dry_run_path = resolve_path(dry_run_path, repo_root)
+    expected_pipeline_path = run_dir / "codex_cli_readiness_pipeline.json"
+    expected_dry_run_path = run_dir / "codex_cli_real_execution_dry_run.json"
+    if pipeline_path.resolve() != expected_pipeline_path.resolve():
+        raise ValueError(
+            "operator unlock request pipeline source must be "
+            f"{expected_pipeline_path}"
+        )
+    if dry_run_path.resolve() != expected_dry_run_path.resolve():
+        raise ValueError(
+            "operator unlock request dry-run source must be "
+            f"{expected_dry_run_path}"
+        )
+
+
 def request_blockers(checks: dict[str, bool]) -> list[str]:
     """Return stable blocker codes for an operator unlock request."""
     blockers: list[str] = []
@@ -361,13 +391,19 @@ def parse_args() -> argparse.Namespace:
         "--pipeline",
         type=Path,
         default=None,
-        help="Optional path to codex_cli_readiness_pipeline.json.",
+        help=(
+            "Optional explicit path; must equal "
+            "<run_dir>/codex_cli_readiness_pipeline.json."
+        ),
     )
     parser.add_argument(
         "--dry-run",
         type=Path,
         default=None,
-        help="Optional path to codex_cli_real_execution_dry_run.json.",
+        help=(
+            "Optional explicit path; must equal "
+            "<run_dir>/codex_cli_real_execution_dry_run.json."
+        ),
     )
     parser.add_argument(
         "--output",

@@ -4267,6 +4267,16 @@ def validate_optional_codex_cli_operator_unlock_request(
                 report=report,
                 label="codex_cli_operator_unlock_request source_pipeline",
             )
+            if not artifact_path_matches_file(
+                path_text=str(source_pipeline.get("path", "")),
+                expected_path=run_dir / "codex_cli_readiness_pipeline.json",
+                repo_root=repo_root,
+            ):
+                add_error(
+                    report,
+                    "codex_cli_operator_unlock_request source_pipeline "
+                    "not canonical run artifact",
+                )
         else:
             add_error(
                 report,
@@ -4297,6 +4307,16 @@ def validate_optional_codex_cli_operator_unlock_request(
                 report=report,
                 label="codex_cli_operator_unlock_request source_dry_run",
             )
+            if not artifact_path_matches_file(
+                path_text=str(source_dry_run.get("path", "")),
+                expected_path=run_dir / "codex_cli_real_execution_dry_run.json",
+                repo_root=repo_root,
+            ):
+                add_error(
+                    report,
+                    "codex_cli_operator_unlock_request source_dry_run "
+                    "not canonical run artifact",
+                )
             dry_run_payload = load_recorded_json_object(
                 record=dry_run_record,
                 repo_root=repo_root,
@@ -4651,6 +4671,18 @@ def artifact_path_matches_run_dir(
     if not path_text:
         return False
     return resolve_path(Path(path_text), repo_root).resolve() == run_dir.resolve()
+
+
+def artifact_path_matches_file(
+    *,
+    path_text: str,
+    expected_path: Path,
+    repo_root: Path,
+) -> bool:
+    """Return whether an artifact path points at one expected file."""
+    if not path_text:
+        return False
+    return resolve_path(Path(path_text), repo_root).resolve() == expected_path.resolve()
 
 
 def checked_files(report: dict[str, object]) -> list[str]:

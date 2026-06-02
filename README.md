@@ -232,13 +232,15 @@ startup preflight command for the same profile. The Codex operator request
 command, startup preflight, and artifact validator all require any operator
 unlock request file to be written and stored as the canonical
 `codex_cli_operator_unlock_request.json` artifact inside the current run's
-artifact directory. The request must point at the exact reviewed workspace path
-for that run, satisfy the full operator request schema, still match the
-recorded readiness evidence hashes, source evidence paths, and recorded run
-identity, and preserve the reviewed operator intent fields and planned execution
-identity, so a reviewed request cannot be reused across unrelated runs or after
-its source evidence, source dry-run execution plan, execution slot, workspace,
-artifact location, or approval scope drifts.
+artifact directory. It must also read source evidence from the canonical
+`codex_cli_readiness_pipeline.json` and `codex_cli_real_execution_dry_run.json`
+artifacts in that same run directory. The request must point at the exact
+reviewed workspace path for that run, satisfy the full operator request schema,
+still match the recorded readiness evidence hashes, source evidence paths, and
+recorded run identity, and preserve the reviewed operator intent fields and
+planned execution identity, so a reviewed request cannot be reused across
+unrelated runs or after its source evidence, source dry-run execution plan,
+execution slot, workspace, artifact location, or approval scope drifts.
 To support that artifact-local approval flow without making run output
 overwrites normal, the iteration loop permits an existing run directory only
 when it already contains the configured canonical real-Codex operator unlock

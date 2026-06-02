@@ -8324,6 +8324,109 @@ def test_codex_cli_operator_unlock_request_cli_rejects_noncanonical_output(
     assert not (repo / bad_output_path).exists()
 
 
+def test_codex_cli_operator_unlock_request_requires_canonical_source_paths(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/operator-request-canonical-source"
+
+    with pytest.raises(
+        ValueError,
+        match="operator unlock request pipeline source must be",
+    ):
+        write_codex_cli_operator_unlock_request(
+            run_dir=run_dir,
+            repo_root=repo,
+            pipeline_path=repo / "operator_unlock_fixtures/readiness_pipeline.json",
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="operator unlock request dry-run source must be",
+    ):
+        write_codex_cli_operator_unlock_request(
+            run_dir=run_dir,
+            repo_root=repo,
+            dry_run_path=repo / "operator_unlock_fixtures/real_execution_dry_run.json",
+        )
+
+    assert not (run_dir / "codex_cli_operator_unlock_request.json").exists()
+    assert not (run_dir / "codex_cli_operator_unlock_request.md").exists()
+
+
+def test_codex_cli_operator_unlock_request_cli_rejects_noncanonical_source(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = "experiments/operator-request-cli-source"
+    bad_pipeline_path = "operator_unlock_fixtures/readiness_pipeline.json"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_operator_unlock_request",
+            run_dir,
+            "--pipeline",
+            bad_pipeline_path,
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "operator unlock request pipeline source must be" in result.stderr
+    assert not (
+        repo / run_dir / "codex_cli_operator_unlock_request.json"
+    ).exists()
+
+
+def test_artifact_validator_reports_operator_noncanonical_source_artifacts(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/operator-noncanonical-source"
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        run_dir / "codex_cli_operator_unlock_request.json",
+        run_id="operator-noncanonical-source",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    for source_key, filename in (
+        ("source_pipeline", "unreviewed_readiness_pipeline.json"),
+        ("source_real_execution_dry_run", "unreviewed_real_execution_dry_run.json"),
+    ):
+        canonical_source_path = repo / request[source_key]["file"]["path"]
+        noncanonical_source_path = run_dir / filename
+        shutil.copyfile(canonical_source_path, noncanonical_source_path)
+        request[source_key]["path"] = str(noncanonical_source_path.relative_to(repo))
+        request[source_key]["file"] = file_record(noncanonical_source_path, repo)
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="operator-noncanonical-source",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_operator_unlock_request source_pipeline "
+        "not canonical run artifact" in str(error)
+        for error in validation_report["errors"]
+    )
+    assert any(
+        "codex_cli_operator_unlock_request source_dry_run "
+        "not canonical run artifact" in str(error)
+        for error in validation_report["errors"]
+    )
+
+
 def test_codex_cli_execution_unlock_gate_blocks_candidate_config_mismatch(
     tmp_path: Path,
 ) -> None:
@@ -9803,8 +9906,14 @@ def write_operator_unlock_request_fixture(
     """Write a ready operator request fixture for local fake Codex tests."""
     path.parent.mkdir(parents=True, exist_ok=True)
     run_dir = repo / "experiments" / run_id
-    source_pipeline_path = path.parent / f"{path.stem}_readiness_pipeline.json"
-    source_dry_run_path = path.parent / f"{path.stem}_real_execution_dry_run.json"
+    canonical_request_path = run_dir / "codex_cli_operator_unlock_request.json"
+    canonical_source_paths = path.resolve() == canonical_request_path.resolve()
+    if canonical_source_paths:
+        source_pipeline_path = run_dir / "codex_cli_readiness_pipeline.json"
+        source_dry_run_path = run_dir / "codex_cli_real_execution_dry_run.json"
+    else:
+        source_pipeline_path = path.parent / f"{path.stem}_readiness_pipeline.json"
+        source_dry_run_path = path.parent / f"{path.stem}_real_execution_dry_run.json"
     command = build_codex_command(
         executable=executable,
         model=model,
@@ -9815,41 +9924,54 @@ def write_operator_unlock_request_fixture(
         f"{workspace_root}/{run_id}/codex_cli_real_execution/"
         "real_codex_execution/attempt_001_real_execution/strategy_workspace"
     )
-    source_pipeline_path.write_text(
-        json.dumps(
-            {
-                "ok": True,
-                "pipeline_completed": True,
-                "final_ready": True,
-                "readiness_status": "ready_for_operator_review",
-            },
-            indent=2,
-            sort_keys=True,
-        )
+    support_dir = run_dir / "operator_unlock_fixture_support"
+    support_dir.mkdir(parents=True, exist_ok=True)
+    source_candidate_path = support_dir / "codex_cli_execution_candidate.json"
+    source_candidate_path.write_text(
+        json.dumps({"ok": True, "execution_candidate_ready": True}, sort_keys=True)
         + "\n",
         encoding="utf-8",
     )
-    source_dry_run_path.write_text(
-        json.dumps(
-            {
-                "ok": True,
-                "real_execution_dry_run_ready": True,
-                "planned_execution": {
-                    "agent_name": "codex_cli",
-                    "profile_name": "real_codex_execution",
-                    "round_id": "codex_cli_real_execution",
-                    "attempt_id": "attempt_001_real_execution",
-                    "target_file": "strategies/current_strategy.py",
-                    "allowed_mutation_paths": ["strategies/current_strategy.py"],
-                    "workspace_path": planned_workspace_path,
-                    "command": command,
-                    "timeout_seconds": 30,
-                },
-            },
-            indent=2,
-            sort_keys=True,
+    pipeline_payload = {
+        "ok": True,
+        "pipeline_completed": True,
+        "final_ready": True,
+        "readiness_status": "ready_for_operator_review",
+    }
+    dry_run_payload = {
+        "ok": True,
+        "real_execution_dry_run_ready": True,
+        "planned_execution": {
+            "agent_name": "codex_cli",
+            "profile_name": "real_codex_execution",
+            "round_id": "codex_cli_real_execution",
+            "attempt_id": "attempt_001_real_execution",
+            "target_file": "strategies/current_strategy.py",
+            "allowed_mutation_paths": ["strategies/current_strategy.py"],
+            "workspace_path": planned_workspace_path,
+            "command": command,
+            "timeout_seconds": 30,
+        },
+    }
+    if canonical_source_paths:
+        pipeline_payload = canonical_readiness_pipeline_fixture(
+            repo=repo,
+            run_dir=run_dir,
+            support_dir=support_dir,
         )
-        + "\n",
+        dry_run_payload = canonical_real_execution_dry_run_fixture(
+            repo=repo,
+            run_dir=run_dir,
+            source_candidate_path=source_candidate_path,
+            planned_workspace_path=planned_workspace_path,
+            command=command,
+        )
+    source_pipeline_path.write_text(
+        json.dumps(pipeline_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    source_dry_run_path.write_text(
+        json.dumps(dry_run_payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
     payload = {
@@ -9943,6 +10065,169 @@ def write_operator_unlock_request_fixture(
     )
     assert_matches_schema(path, "codex_cli_operator_unlock_request")
     return path
+
+
+def canonical_readiness_pipeline_fixture(
+    *,
+    repo: Path,
+    run_dir: Path,
+    support_dir: Path,
+) -> dict[str, object]:
+    """Return a schema-valid readiness pipeline fixture for canonical requests."""
+    step_rows: list[dict[str, object]] = []
+    for index in range(1, 10):
+        step_json = support_dir / f"pipeline_step_{index:03d}.json"
+        step_md = support_dir / f"pipeline_step_{index:03d}.md"
+        step_json.write_text(
+            json.dumps({"step": index}, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        step_md.write_text(f"# Step {index}\n", encoding="utf-8")
+        step_rows.append(
+            {
+                "step": f"fixture_step_{index:03d}",
+                "schema_version": "fixture_v1",
+                "ok": True,
+                "ready_key": "ready",
+                "ready": True,
+                "blocking_reasons": [],
+                "artifacts": {
+                    "json": file_record(step_json, repo),
+                    "markdown": file_record(step_md, repo),
+                },
+            }
+        )
+    generated_path = support_dir / "pipeline_generated.json"
+    generated_path.write_text(json.dumps({"generated": True}, sort_keys=True) + "\n")
+    final_summary_path = support_dir / "pipeline_final_summary.json"
+    final_summary_path.write_text(
+        json.dumps({"final_ready": True}, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return {
+        "schema_version": "codex_cli_readiness_pipeline_v1",
+        "run_id": run_dir.name,
+        "run_dir": str(run_dir),
+        "canary_run_dir": str(run_dir / "canary"),
+        "config_path": "config/codex_cli_enable_candidate.json",
+        "ok": True,
+        "pipeline_completed": True,
+        "final_ready": True,
+        "readiness_status": "ready_for_operator_review",
+        "blocking_reasons": [],
+        "steps": step_rows,
+        "generated_artifacts": {
+            "fixture_generated": file_record(generated_path, repo),
+        },
+        "final_summary": {
+            "path": str(final_summary_path.relative_to(repo)),
+            "final_ready": True,
+            "readiness_status": "ready_for_operator_review",
+            "missing_stages": [],
+            "blocked_stages": [],
+            "file": file_record(final_summary_path, repo),
+        },
+        "options": {
+            "approved": True,
+            "approved_by": "unit-test-fixture",
+            "confirmation_phrase_matches_required": True,
+            "preflight_timeout_seconds": 5,
+            "dry_invocation_timeout_seconds": 5,
+            "execute_dry_invocation": False,
+        },
+        "policy": {
+            "pipeline_only": True,
+            "read_only": True,
+            "does_not_execute_real_codex_strategy_modification": True,
+            "does_not_create_real_execution_workspace": True,
+            "does_not_send_strategy_prompt": True,
+            "does_not_modify_config": True,
+            "does_not_select_candidate": True,
+            "does_not_apply_patches": True,
+            "does_not_change_acceptance": True,
+            "requires_existing_replay_gate": True,
+            "requires_existing_canary_gate": True,
+            "deterministic_code_keeps_acceptance_authority": True,
+        },
+    }
+
+
+def canonical_real_execution_dry_run_fixture(
+    *,
+    repo: Path,
+    run_dir: Path,
+    source_candidate_path: Path,
+    planned_workspace_path: str,
+    command: list[str],
+) -> dict[str, object]:
+    """Return a schema-valid real execution dry-run fixture."""
+    return {
+        "schema_version": "codex_cli_real_execution_dry_run_v1",
+        "run_id": run_dir.name,
+        "run_dir": str(run_dir),
+        "ok": True,
+        "real_execution_dry_run_ready": True,
+        "blocking_reasons": [],
+        "checks": {
+            "candidate_exists": True,
+            "candidate_ok": True,
+            "candidate_ready": True,
+            "candidate_file_hash_present": True,
+            "source_snapshot_recorded": True,
+            "execution_plan_present": True,
+            "command_present": True,
+            "command_targets_strategy_only": True,
+            "workspace_path_declared": True,
+            "workspace_not_created": True,
+            "allowed_mutation_paths_strategy_only": True,
+            "candidate_does_not_execute_by_itself": True,
+            "dry_run_does_not_execute_codex_cli": True,
+            "dry_run_does_not_create_workspace": True,
+            "dry_run_does_not_send_strategy_prompt": True,
+            "dry_run_does_not_apply_patches": True,
+            "dry_run_does_not_change_acceptance": True,
+        },
+        "source_candidate": {
+            "path": str(source_candidate_path.relative_to(repo)),
+            "execution_candidate_ready": True,
+            "blocking_reasons": [],
+            "file": file_record(source_candidate_path, repo),
+        },
+        "planned_execution": {
+            "agent_name": "codex_cli",
+            "profile_name": "real_codex_execution",
+            "round_id": "codex_cli_real_execution",
+            "attempt_id": "attempt_001_real_execution",
+            "target_file": "strategies/current_strategy.py",
+            "allowed_mutation_paths": ["strategies/current_strategy.py"],
+            "workspace_path": planned_workspace_path,
+            "command": command,
+            "timeout_seconds": 30,
+        },
+        "dry_run_result": {
+            "execution_performed": False,
+            "subprocess_invoked": False,
+            "workspace_created": False,
+            "patch_applied": False,
+            "acceptance_changed": False,
+            "would_execute_if_unlocked_and_operator_confirms": True,
+        },
+        "policy": {
+            "dry_run_only": True,
+            "read_only": True,
+            "requires_execution_candidate": True,
+            "requires_candidate_ready": True,
+            "does_not_execute_codex_cli": True,
+            "does_not_create_workspace": True,
+            "does_not_send_strategy_prompt": True,
+            "does_not_modify_config": True,
+            "does_not_select_candidate": True,
+            "does_not_apply_patches": True,
+            "does_not_change_acceptance": True,
+            "allows_only_strategy_file_mutation": True,
+            "deterministic_code_keeps_acceptance_authority": True,
+        },
+    }
 
 
 def stable_json_digest(payload: object) -> str:

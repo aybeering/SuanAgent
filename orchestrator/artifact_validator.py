@@ -2522,6 +2522,7 @@ def validate_optional_codex_cli_execution_preflight(
                     "operator_request_command_matches_profile",
                     "operator_request_command_sha256_matches_profile",
                     "operator_request_workspace_prefix_matches_run",
+                    "operator_request_workspace_path_matches_expected",
                     "operator_request_targets_current_strategy",
                     "operator_request_allows_strategy_only",
                     "operator_request_does_not_execute_by_itself",
@@ -2552,6 +2553,11 @@ def validate_optional_codex_cli_execution_preflight(
                     add_error(
                         report,
                         "codex_cli_execution_preflight expected workspace prefix missing",
+                    )
+                if not str(expected.get("workspace_path", "")).strip():
+                    add_error(
+                        report,
+                        "codex_cli_execution_preflight expected workspace path missing",
                     )
                 if not isinstance(expected_command, list):
                     add_error(
@@ -4242,6 +4248,17 @@ def validate_optional_codex_cli_operator_unlock_request(
                     "codex_cli_operator_unlock_request.json planned "
                     f"{key} mismatch",
                 )
+        expected_workspace_suffix = (
+            f"{run_dir.name}/codex_cli_real_execution/real_codex_execution/"
+            "attempt_001_real_execution/strategy_workspace"
+        )
+        if not str(planned.get("workspace_path", "")).endswith(
+            expected_workspace_suffix
+        ):
+            add_error(
+                report,
+                "codex_cli_operator_unlock_request.json planned workspace_path mismatch",
+            )
         if planned.get("allowed_mutation_paths", []) != [
             "strategies/current_strategy.py"
         ]:

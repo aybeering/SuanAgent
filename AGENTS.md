@@ -117,6 +117,7 @@ Allowed components:
 66. Startup preflight and artifact validation path binding for operator unlock source evidence files, so reviewed readiness evidence paths cannot drift independently from their recorded file hashes.
 67. Startup preflight and artifact validation binding for operator unlock run identity, including `run_id` and `run_dir`, so reviewed requests cannot be reused across iteration runs.
 68. Startup preflight and artifact validation binding for operator unlock planned execution identity, including agent name, profile name, round id, and attempt id.
+69. Startup preflight and artifact validation binding for the exact operator-reviewed real Codex workspace path, so reviewed requests cannot drift to another attempt workspace inside the same run.
 
 Still out of scope:
 

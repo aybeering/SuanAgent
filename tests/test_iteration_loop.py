@@ -7461,6 +7461,76 @@ def test_codex_cli_execution_preflight_blocks_operator_execution_identity_drift(
     ]
 
 
+def test_codex_cli_execution_preflight_blocks_operator_workspace_path_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_workspace_path_drift.py",
+        "#!/usr/bin/env python3\nprint('{}')\n",
+    )
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / "operator_unlock_fixtures/workspace_path_drift_request.json",
+        run_id="workspace-path-drift",
+        executable=str(fake_codex),
+        model="workspace-path-drift-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request["planned_execution_review"]["workspace_path"] = (
+        "workspaces/workspace-path-drift/codex_cli_real_execution/"
+        "real_codex_execution/attempt_999_real_execution/strategy_workspace"
+    )
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "workspace-path-drift-test",
+            "sandbox": "workspace-write",
+            "workspace_root": "workspaces",
+            "execute": True,
+            "operator_unlock_request_path": str(request_path.relative_to(repo)),
+        },
+    )
+
+    preflight = write_codex_cli_execution_preflight(
+        output_path=repo
+        / "experiments/workspace-path-drift/codex_cli_execution_preflight.json",
+        markdown_path=repo
+        / "experiments/workspace-path-drift/codex_cli_execution_preflight.md",
+        run_dir=repo / "experiments/workspace-path-drift",
+        repo_root=repo,
+        config=config,
+    )
+
+    profile = preflight["profiles"][0]
+    assert preflight["ok"] is False
+    assert profile["checks"]["operator_unlock_request_contract_valid"] is True
+    assert profile["checks"]["operator_unlock_request_ready"] is True
+    assert profile["checks"]["operator_request_agent_name_matches"] is True
+    assert profile["checks"]["operator_request_profile_name_matches"] is True
+    assert profile["checks"]["operator_request_round_id_matches"] is True
+    assert profile["checks"]["operator_request_attempt_id_matches"] is True
+    assert profile["checks"]["operator_request_workspace_prefix_matches_run"] is True
+    assert (
+        profile["checks"]["operator_request_workspace_path_matches_expected"]
+        is False
+    )
+    assert (
+        "profile primary: operator_request_workspace_path_mismatch"
+        in preflight["blocking_errors"]
+    )
+
+
 def test_codex_cli_execution_preflight_blocks_operator_intent_drift(
     tmp_path: Path,
 ) -> None:
@@ -7673,6 +7743,40 @@ def test_artifact_validator_reports_operator_planned_identity_mismatch(
     assert validation_report["ok"] is False
     assert any(
         "codex_cli_operator_unlock_request.json planned profile_name mismatch"
+        in str(error)
+        for error in validation_report["errors"]
+    )
+
+
+def test_artifact_validator_reports_operator_planned_workspace_path_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/operator-planned-workspace-drift"
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        run_dir / "codex_cli_operator_unlock_request.json",
+        run_id="operator-planned-workspace-drift",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request["planned_execution_review"]["workspace_path"] = (
+        "workspaces/operator-planned-workspace-drift/codex_cli_real_execution/"
+        "real_codex_execution/attempt_999_real_execution/strategy_workspace"
+    )
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="operator-planned-workspace-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_operator_unlock_request.json planned workspace_path mismatch"
         in str(error)
         for error in validation_report["errors"]
     )
@@ -9324,7 +9428,10 @@ def write_operator_unlock_request_fixture(
             "attempt_id": "attempt_001_real_execution",
             "target_file": "strategies/current_strategy.py",
             "allowed_mutation_paths": ["strategies/current_strategy.py"],
-            "workspace_path": f"{workspace_root}/{run_id}/unit-test/strategy_workspace",
+            "workspace_path": (
+                f"{workspace_root}/{run_id}/codex_cli_real_execution/"
+                "real_codex_execution/attempt_001_real_execution/strategy_workspace"
+            ),
             "command": command,
             "command_sha256": stable_json_digest(command),
             "execution_enabled_by_this_artifact": False,

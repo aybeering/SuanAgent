@@ -115,6 +115,7 @@
               "operator_request_command_matches_profile",
               "operator_request_command_sha256_matches_profile",
               "operator_request_workspace_prefix_matches_run",
+              "operator_request_workspace_path_matches_expected",
               "operator_request_targets_current_strategy",
               "operator_request_allows_strategy_only",
               "operator_request_does_not_execute_by_itself"
@@ -207,6 +208,9 @@
               "operator_request_workspace_prefix_matches_run": {
                 "type": "boolean"
               },
+              "operator_request_workspace_path_matches_expected": {
+                "type": "boolean"
+              },
               "operator_request_targets_current_strategy": {
                 "type": "boolean"
               },
@@ -232,6 +236,7 @@
               "attempt_id",
               "workspace_root",
               "workspace_prefix",
+              "workspace_path",
               "command",
               "command_sha256"
             ],
@@ -255,6 +260,9 @@
                 "type": "string"
               },
               "workspace_prefix": {
+                "type": "string"
+              },
+              "workspace_path": {
                 "type": "string"
               },
               "command": {

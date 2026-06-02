@@ -177,6 +177,10 @@ def profile_execution_row(
         workspace_root=workspace_root,
         run_id=run_id,
     )
+    expected_workspace_path = real_execution_workspace_path(
+        workspace_root=workspace_root,
+        run_id=run_id,
+    )
     expected_confirmation_hash = sha256_text(REQUIRED_OPERATOR_CONFIRMATION_PHRASE)
     checks = {
         "profile_enabled": enabled,
@@ -261,6 +265,10 @@ def profile_execution_row(
             bool(expected_workspace_prefix)
             and planned_workspace_path.startswith(expected_workspace_prefix)
         ),
+        "operator_request_workspace_path_matches_expected": (
+            bool(expected_workspace_path)
+            and planned_workspace_path == expected_workspace_path
+        ),
         "operator_request_targets_current_strategy": str(
             planned.get("target_file", "")
         )
@@ -306,6 +314,7 @@ def profile_execution_row(
             "attempt_id": EXPECTED_ATTEMPT_ID,
             "workspace_root": workspace_root,
             "workspace_prefix": expected_workspace_prefix,
+            "workspace_path": expected_workspace_path,
             "command": expected_command,
             "command_sha256": expected_command_sha256,
         },
@@ -396,6 +405,10 @@ def operator_unlock_blockers(checks: dict[str, bool]) -> list[str]:
             "operator_request_workspace_prefix_mismatch",
         ),
         (
+            "operator_request_workspace_path_matches_expected",
+            "operator_request_workspace_path_mismatch",
+        ),
+        (
             "operator_request_targets_current_strategy",
             "operator_request_target_not_current_strategy",
         ),
@@ -428,6 +441,17 @@ def workspace_prefix(*, workspace_root: str, run_id: str) -> str:
     """Return the required run-scoped workspace prefix for real execution."""
     root = workspace_root.rstrip("/")
     return f"{root}/{run_id}/" if root and run_id else ""
+
+
+def real_execution_workspace_path(*, workspace_root: str, run_id: str) -> str:
+    """Return the exact reviewed workspace path for real Codex execution."""
+    root = workspace_root.rstrip("/")
+    if not root or not run_id:
+        return ""
+    return (
+        f"{root}/{run_id}/{EXPECTED_ROUND_ID}/{EXPECTED_PROFILE_NAME}/"
+        f"{EXPECTED_ATTEMPT_ID}/strategy_workspace"
+    )
 
 
 def recorded_file_matches(*, record: dict[str, Any], repo_root: Path) -> bool:

@@ -4263,6 +4263,10 @@ def validate_optional_operator_action_dashboard(
         string_list(payload.get("blockers", []))
     ):
         add_error(report, "operator_action_dashboard blocker count mismatch")
+    validate_operator_action_dashboard_recommended_commands(
+        payload=payload,
+        report=report,
+    )
 
     authority = payload.get("authority", {})
     if not isinstance(authority, dict):
@@ -4301,6 +4305,64 @@ def validate_optional_operator_action_dashboard(
     ):
         if policy.get(key) is not True:
             add_error(report, f"operator_action_dashboard.json policy false: {key}")
+
+
+def validate_operator_action_dashboard_recommended_commands(
+    *,
+    payload: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate action-dashboard command hints stay within known boundaries."""
+    commands = payload.get("recommended_commands", [])
+    if not isinstance(commands, list) or not commands:
+        add_error(report, "operator_action_dashboard recommended_commands invalid")
+        return
+    allowed_writes = {
+        "write_action_audit": "operator_action_audit.json",
+        "record_operator_approval": "operator_action_approval.json",
+        "execute_approved_command": "operator_action_execution_receipt.json",
+        "review_execution_receipt": "",
+        "review_action_dashboard": "",
+    }
+    labels: set[str] = set()
+    for index, row in enumerate(commands):
+        if not isinstance(row, dict):
+            add_error(
+                report,
+                f"operator_action_dashboard recommended command {index} invalid",
+            )
+            continue
+        label = str(row.get("label", ""))
+        labels.add(label)
+        command = str(row.get("command", ""))
+        writes_artifact = str(row.get("writes_artifact", ""))
+        if label not in allowed_writes:
+            add_error(
+                report,
+                f"operator_action_dashboard recommended command unknown: {label}",
+            )
+        elif writes_artifact != allowed_writes[label]:
+            add_error(
+                report,
+                f"operator_action_dashboard recommended command writes mismatch: {label}",
+            )
+        if not command.startswith("python -m orchestrator."):
+            add_error(
+                report,
+                f"operator_action_dashboard recommended command prefix invalid: {label}",
+            )
+        for token in ("&&", "||", "|", "`", "$(", "\n", ";"):
+            if token in command:
+                add_error(
+                    report,
+                    f"operator_action_dashboard recommended command unsafe token: {label}",
+                )
+                break
+    current_step = str(payload.get("current_step", ""))
+    if current_step and current_step not in labels:
+        add_error(report, "operator_action_dashboard current step command missing")
+    if "review_action_dashboard" not in labels:
+        add_error(report, "operator_action_dashboard review command missing")
 
 
 def validate_optional_operator_unlock_checklist(

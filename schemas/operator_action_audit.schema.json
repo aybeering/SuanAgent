@@ -80,7 +80,9 @@
         "execution_status",
         "execution_completed",
         "chain_ok",
-        "consistency_error_count"
+        "consistency_error_count",
+        "failure_reason_count",
+        "first_failure_stage"
       ],
       "properties": {
         "action_count": {
@@ -112,6 +114,12 @@
         },
         "consistency_error_count": {
           "type": "integer"
+        },
+        "failure_reason_count": {
+          "type": "integer"
+        },
+        "first_failure_stage": {
+          "type": "string"
         }
       }
     },
@@ -270,6 +278,7 @@
         "approval_schema_errors",
         "execution_schema_errors",
         "consistency_errors",
+        "failure_reasons",
         "plan_sha256",
         "approval_sha256",
         "execution_sha256",
@@ -302,6 +311,12 @@
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "failure_reasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/failure_reason"
           }
         },
         "plan_sha256": {
@@ -422,6 +437,38 @@
         },
         "byte_count": {
           "type": "integer"
+        }
+      }
+    },
+    "failure_reason": {
+      "type": "object",
+      "required": [
+        "stage",
+        "code",
+        "severity",
+        "detail"
+      ],
+      "properties": {
+        "stage": {
+          "type": "string",
+          "enum": [
+            "action_plan",
+            "action_approval",
+            "execution_receipt",
+            "chain"
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "error"
+          ]
+        },
+        "detail": {
+          "type": "string"
         }
       }
     }

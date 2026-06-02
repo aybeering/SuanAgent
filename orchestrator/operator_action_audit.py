@@ -234,6 +234,12 @@ def chain_checks(
         "approval_schema_errors": list(approval_errors),
         "execution_schema_errors": list(execution_errors),
         "consistency_errors": unique_strings(consistency_errors),
+        "failure_reasons": chain_failure_reasons(
+            plan_schema_errors=list(plan_errors),
+            approval_schema_errors=list(approval_errors),
+            execution_schema_errors=list(execution_errors),
+            consistency_errors=unique_strings(consistency_errors),
+        ),
         "plan_sha256": file_sha256(plan_path),
         "approval_sha256": file_sha256(approval_path),
         "execution_sha256": file_sha256(execution_path),
@@ -262,7 +268,7 @@ def audit_status(
     """Return compact action audit status."""
     if not plan:
         return "missing_action_plan"
-    if string_list(checks.get("consistency_errors", [])):
+    if list_of_dicts(checks.get("failure_reasons", [])):
         return "chain_inconsistent"
     if not approval:
         return "pending_approval"
@@ -304,7 +310,82 @@ def audit_summary(
         "consistency_error_count": len(
             string_list(checks.get("consistency_errors", []))
         ),
+        "failure_reason_count": len(list_of_dicts(checks.get("failure_reasons", []))),
+        "first_failure_stage": first_failure_stage(checks),
     }
+
+
+def chain_failure_reasons(
+    *,
+    plan_schema_errors: list[str],
+    approval_schema_errors: list[str],
+    execution_schema_errors: list[str],
+    consistency_errors: list[str],
+) -> list[dict[str, object]]:
+    """Return stable failure taxonomy rows for action audit chain breaks."""
+    reasons: list[dict[str, object]] = []
+    for error in plan_schema_errors:
+        reasons.append(
+            failure_reason(
+                stage="action_plan",
+                code="action_plan_schema_error",
+                detail=error,
+            )
+        )
+    for error in approval_schema_errors:
+        reasons.append(
+            failure_reason(
+                stage="action_approval",
+                code="action_approval_schema_error",
+                detail=error,
+            )
+        )
+    for error in execution_schema_errors:
+        reasons.append(
+            failure_reason(
+                stage="execution_receipt",
+                code="execution_receipt_schema_error",
+                detail=error,
+            )
+        )
+    for error in consistency_errors:
+        reasons.append(
+            failure_reason(
+                stage=consistency_error_stage(error),
+                code=error,
+                detail=error,
+            )
+        )
+    return reasons
+
+
+def failure_reason(*, stage: str, code: str, detail: str) -> dict[str, object]:
+    """Return one stable failure reason row."""
+    return {
+        "stage": stage,
+        "code": code,
+        "severity": "error",
+        "detail": detail,
+    }
+
+
+def consistency_error_stage(code: str) -> str:
+    """Return the artifact stage responsible for a consistency error code."""
+    if code.startswith("action_plan"):
+        return "action_plan"
+    if code.startswith("approval"):
+        return "action_approval"
+    if code.startswith("execution"):
+        return "execution_receipt"
+    return "chain"
+
+
+def first_failure_stage(checks: dict[str, object]) -> str:
+    """Return the first failure stage for compact dashboard summaries."""
+    reasons = list_of_dicts(checks.get("failure_reasons", []))
+    if not reasons:
+        return "none"
+    return str(reasons[0].get("stage", "chain"))
 
 
 def selected_action_record(
@@ -443,6 +524,24 @@ def render_operator_action_audit_markdown(payload: dict[str, object]) -> str:
     ]
     errors = string_list(checks.get("consistency_errors", []))
     lines.extend([f"- `{error}`" for error in errors] or ["- none"])
+    lines.extend(
+        [
+            "",
+            "## Failure Reasons",
+            "",
+        ]
+    )
+    reasons = list_of_dicts(checks.get("failure_reasons", []))
+    lines.extend(
+        [
+            (
+                f"- `{reason.get('stage', '')}` / `{reason.get('code', '')}`: "
+                f"{reason.get('detail', '')}"
+            )
+            for reason in reasons
+        ]
+        or ["- none"]
+    )
     lines.extend(
         [
             "",

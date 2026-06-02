@@ -2100,6 +2100,9 @@ def test_operator_action_audit_tracks_plan_approval_execution_chain(
     assert completed["ok"] is True
     assert completed["summary"]["chain_ok"] is True
     assert completed["chain_checks"]["consistency_errors"] == []
+    assert completed["chain_checks"]["failure_reasons"] == []
+    assert completed["summary"]["failure_reason_count"] == 0
+    assert completed["summary"]["first_failure_stage"] == "none"
     assert completed["execution_record"]["executed"] is True
     assert completed["source_artifacts"]["action_approval"]["file"]["exists"] is True
     assert completed["source_artifacts"]["execution_receipt"]["file"]["exists"] is True
@@ -2116,6 +2119,39 @@ def test_operator_action_audit_tracks_plan_approval_execution_chain(
         experiments_dir=repo / "experiments",
         repo_root=repo,
     )["ok"] is True
+
+    execution_path = run_dir / "operator_action_execution_receipt.json"
+    tampered_execution = json.loads(execution_path.read_text(encoding="utf-8"))
+    tampered_execution["selected_command"]["command_sha256"] = "tampered-command"
+    execution_path.write_text(
+        json.dumps(tampered_execution, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    json_path, _, inconsistent = write_operator_action_audit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert inconsistent["status"] == "chain_inconsistent"
+    assert inconsistent["ok"] is False
+    assert inconsistent["summary"]["failure_reason_count"] == 1
+    assert inconsistent["summary"]["first_failure_stage"] == "execution_receipt"
+    assert inconsistent["chain_checks"]["consistency_errors"] == [
+        "execution_command_digest_mismatch"
+    ]
+    assert inconsistent["chain_checks"]["failure_reasons"] == [
+        {
+            "stage": "execution_receipt",
+            "code": "execution_command_digest_mismatch",
+            "severity": "error",
+            "detail": "execution_command_digest_mismatch",
+        }
+    ]
+    assert_matches_schema_payload(inconsistent, "operator_action_audit")
+    assert validate_operator_action_audit_file(
+        payload_path=json_path,
+        repo_root=repo,
+    ) == ()
 
 
 def test_shared_recommended_command_hint_validator_enforces_boundaries() -> None:

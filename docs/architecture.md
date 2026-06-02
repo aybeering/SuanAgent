@@ -191,8 +191,8 @@ agents, or change acceptance are blocked.
 `operator_action_audit.json` and `operator_action_audit.md` then provide a
 read-only chain view across the saved plan, approval, and execution receipt.
 They expose source artifact hashes, schema errors, selected-command
-consistency, execution status, and the next operator step without executing
-commands or changing repository state.
+consistency, execution status, stable stage/code failure reasons, and the next
+operator step without executing commands or changing repository state.
 `operator_action_dashboard.json` and `operator_action_dashboard.md` summarize
 that chain for the operator. They show the current step, timeline, selected
 command, safe command counts, blockers, and suggested guarded commands while

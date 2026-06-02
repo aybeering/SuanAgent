@@ -27,6 +27,9 @@ jobs:
       - name: Run tests
         run: python -m pytest
 
+      - name: Check artifact contract coverage
+        run: python -m orchestrator.artifact_validator_coverage --strict
+
       - name: Run preflight
         run: python -m orchestrator.preflight --config config/default.json
 

@@ -52,6 +52,7 @@ python -m orchestrator.round_replay experiments/<run_id>/round_001
 python -m orchestrator.agent_slot_health experiments/<run_id>
 python -m orchestrator.agent_output_intake experiments/<run_id>/round_001/agent_input.json experiments/<run_id>/round_001/demo_agent_output.json --output experiments/<run_id>/round_001/agent_validation.json
 python -m orchestrator.artifact_validator_coverage --output artifact_validator_coverage.json --markdown artifact_validator_coverage.md
+python -m orchestrator.artifact_validator_coverage --strict
 python -m orchestrator.experiments coverage
 ```
 

@@ -258,6 +258,22 @@ jobs:
           assert candidate["policy"]["does_not_execute_codex_cli"] is True
           assert candidate["policy"]["does_not_create_workspace"] is True
           PY
+          python -m orchestrator.codex_cli_real_execution_dry_run experiments/ci-codex-guarded
+          test -f experiments/ci-codex-guarded/codex_cli_real_execution_dry_run.json
+          test -f experiments/ci-codex-guarded/codex_cli_real_execution_dry_run.md
+          python - <<'PY'
+          import json
+          dry_run = json.load(open("experiments/ci-codex-guarded/codex_cli_real_execution_dry_run.json"))
+          assert dry_run["schema_version"] == "codex_cli_real_execution_dry_run_v1"
+          assert dry_run["ok"] is True
+          assert dry_run["real_execution_dry_run_ready"] is False
+          assert "execution_candidate_not_ready" in dry_run["blocking_reasons"]
+          assert dry_run["dry_run_result"]["execution_performed"] is False
+          assert dry_run["dry_run_result"]["subprocess_invoked"] is False
+          assert dry_run["dry_run_result"]["workspace_created"] is False
+          assert dry_run["policy"]["does_not_execute_codex_cli"] is True
+          assert dry_run["policy"]["does_not_create_workspace"] is True
+          PY
           python -m orchestrator.artifact_validator ci-codex-guarded
           python -m orchestrator.artifact_validator ci-codex-canary
           python -m orchestrator.artifact_validator ci-adaptive

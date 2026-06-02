@@ -127,6 +127,8 @@ def validate_run_artifacts(
             report=report,
         )
         validate_json_object(path=run_dir / "decision.json", report=report)
+    elif (run_dir / "codex_cli_real_execution_dry_run.json").exists():
+        report["kind"] = "codex_cli_real_execution_dry_run"
     elif (run_dir / "codex_cli_execution_candidate.json").exists():
         report["kind"] = "codex_cli_execution_candidate"
     elif (run_dir / "codex_cli_execution_unlock_snapshot.json").exists():
@@ -208,6 +210,11 @@ def validate_run_artifacts(
         report=report,
     )
     validate_optional_codex_cli_execution_candidate(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
+    validate_optional_codex_cli_real_execution_dry_run(
         run_dir=run_dir,
         repo_root=repo_root,
         report=report,
@@ -3350,6 +3357,165 @@ def validate_optional_codex_cli_execution_candidate(
                     f"codex_cli_execution_candidate.json policy false: {key}",
                 )
     markdown_path = run_dir / "codex_cli_execution_candidate.md"
+    if markdown_path.exists():
+        checked_files(report).append(str(markdown_path))
+
+
+def validate_optional_codex_cli_real_execution_dry_run(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate codex_cli_real_execution_dry_run.json when a run has one."""
+    path = run_dir / "codex_cli_real_execution_dry_run.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/codex_cli_real_execution_dry_run.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"codex_cli_real_execution_dry_run.json run_id does not match report: {path}",
+        )
+    if bool(payload.get("ok", False)) is not True:
+        add_error(report, "codex_cli_real_execution_dry_run.json ok false")
+    blockers = payload.get("blocking_reasons", [])
+    if not isinstance(blockers, list):
+        add_error(report, "codex_cli_real_execution_dry_run.json blockers invalid")
+        return
+    ready = bool(payload.get("real_execution_dry_run_ready", False))
+    if ready and blockers:
+        add_error(report, "codex_cli_real_execution_dry_run.json ready with blockers")
+    if not ready and not blockers:
+        add_error(
+            report,
+            "codex_cli_real_execution_dry_run.json blocked without reason",
+        )
+    checks = payload.get("checks", {})
+    if not isinstance(checks, dict):
+        add_error(report, "codex_cli_real_execution_dry_run.json checks invalid")
+    else:
+        for key in (
+            "dry_run_does_not_execute_codex_cli",
+            "dry_run_does_not_create_workspace",
+            "dry_run_does_not_send_strategy_prompt",
+            "dry_run_does_not_apply_patches",
+            "dry_run_does_not_change_acceptance",
+        ):
+            if not bool(checks.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_real_execution_dry_run.json safety check false: {key}",
+                )
+        if ready:
+            for key, value in checks.items():
+                if not bool(value):
+                    add_error(
+                        report,
+                        f"codex_cli_real_execution_dry_run.json check false: {key}",
+                    )
+    source_candidate = payload.get("source_candidate", {})
+    if not isinstance(source_candidate, dict):
+        add_error(
+            report,
+            "codex_cli_real_execution_dry_run.json source_candidate invalid",
+        )
+    else:
+        candidate_record = source_candidate.get("file", {})
+        if isinstance(candidate_record, dict):
+            validate_recorded_file_hash(
+                record=candidate_record,
+                repo_root=repo_root,
+                report=report,
+                label="codex_cli_real_execution_dry_run source_candidate",
+            )
+        else:
+            add_error(report, "codex_cli_real_execution_dry_run candidate file invalid")
+    planned = payload.get("planned_execution", {})
+    if not isinstance(planned, dict):
+        add_error(report, "codex_cli_real_execution_dry_run.json planned invalid")
+    else:
+        if planned.get("allowed_mutation_paths", []) != [
+            "strategies/current_strategy.py"
+        ]:
+            add_error(
+                report,
+                "codex_cli_real_execution_dry_run.json mutation paths invalid",
+            )
+        command = planned.get("command", [])
+        if not isinstance(command, list):
+            add_error(report, "codex_cli_real_execution_dry_run.json command invalid")
+        else:
+            command_text = " ".join(str(part) for part in command)
+            if "strategies/current_strategy.py" not in command_text:
+                add_error(
+                    report,
+                    "codex_cli_real_execution_dry_run.json command missing target file",
+                )
+            for forbidden in ("data/", "backtester/", "orchestrator/policy_gate.py"):
+                if forbidden in command_text:
+                    add_error(
+                        report,
+                        f"codex_cli_real_execution_dry_run.json command contains {forbidden}",
+                    )
+        workspace_path = resolve_path(
+            Path(str(planned.get("workspace_path", ""))),
+            repo_root,
+        )
+        if workspace_path.exists():
+            add_error(
+                report,
+                f"codex_cli_real_execution_dry_run workspace exists: {workspace_path}",
+            )
+    dry_result = payload.get("dry_run_result", {})
+    if not isinstance(dry_result, dict):
+        add_error(report, "codex_cli_real_execution_dry_run.json result invalid")
+    else:
+        for key in (
+            "execution_performed",
+            "subprocess_invoked",
+            "workspace_created",
+            "patch_applied",
+            "acceptance_changed",
+        ):
+            if bool(dry_result.get(key, True)):
+                add_error(
+                    report,
+                    f"codex_cli_real_execution_dry_run.json result true: {key}",
+                )
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "codex_cli_real_execution_dry_run.json policy invalid")
+    else:
+        for key in (
+            "dry_run_only",
+            "read_only",
+            "requires_execution_candidate",
+            "requires_candidate_ready",
+            "does_not_execute_codex_cli",
+            "does_not_create_workspace",
+            "does_not_send_strategy_prompt",
+            "does_not_modify_config",
+            "does_not_select_candidate",
+            "does_not_apply_patches",
+            "does_not_change_acceptance",
+            "allows_only_strategy_file_mutation",
+            "deterministic_code_keeps_acceptance_authority",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_real_execution_dry_run.json policy false: {key}",
+                )
+    markdown_path = run_dir / "codex_cli_real_execution_dry_run.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
 

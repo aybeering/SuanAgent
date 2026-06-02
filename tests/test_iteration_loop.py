@@ -87,6 +87,10 @@ from orchestrator.codex_cli_execution_candidate import (
     CODEX_CLI_EXECUTION_CANDIDATE_SCHEMA_VERSION,
     write_codex_cli_execution_candidate,
 )
+from orchestrator.codex_cli_real_execution_dry_run import (
+    CODEX_CLI_REAL_EXECUTION_DRY_RUN_SCHEMA_VERSION,
+    write_codex_cli_real_execution_dry_run,
+)
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.agent_slot_readiness_gate import (
@@ -6509,6 +6513,10 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         run_dir=run_dir,
         repo_root=repo,
     )
+    real_dry_run = write_codex_cli_real_execution_dry_run(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
     validation_report = validate_run_artifacts(
         run_id="codex-unlock-locked",
         experiments_dir=repo / "experiments",
@@ -6562,6 +6570,15 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         "strategies/current_strategy.py"
     ]
     assert candidate["execution_plan"]["execution_enabled_by_this_artifact"] is False
+    assert real_dry_run["schema_version"] == (
+        CODEX_CLI_REAL_EXECUTION_DRY_RUN_SCHEMA_VERSION
+    )
+    assert real_dry_run["ok"] is True
+    assert real_dry_run["real_execution_dry_run_ready"] is False
+    assert "execution_candidate_not_ready" in real_dry_run["blocking_reasons"]
+    assert real_dry_run["dry_run_result"]["execution_performed"] is False
+    assert real_dry_run["dry_run_result"]["subprocess_invoked"] is False
+    assert real_dry_run["dry_run_result"]["workspace_created"] is False
     assert_matches_schema(
         run_dir / "codex_cli_execution_unlock_gate.json",
         "codex_cli_execution_unlock_gate",
@@ -6574,9 +6591,14 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         run_dir / "codex_cli_execution_candidate.json",
         "codex_cli_execution_candidate",
     )
+    assert_matches_schema(
+        run_dir / "codex_cli_real_execution_dry_run.json",
+        "codex_cli_real_execution_dry_run",
+    )
     assert (run_dir / "codex_cli_execution_unlock_gate.md").exists()
     assert (run_dir / "codex_cli_execution_unlock_snapshot.md").exists()
     assert (run_dir / "codex_cli_execution_candidate.md").exists()
+    assert (run_dir / "codex_cli_real_execution_dry_run.md").exists()
     assert validation_report["ok"] is True
     assert cli_result.returncode == 0, cli_result.stderr
     assert cli_payload["schema_version"] == CODEX_CLI_EXECUTION_UNLOCK_GATE_SCHEMA_VERSION
@@ -6682,6 +6704,10 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         run_dir=run_dir,
         repo_root=repo,
     )
+    real_dry_run = write_codex_cli_real_execution_dry_run(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
     validation_report = validate_run_artifacts(
         run_id="codex-unlock-ready",
         experiments_dir=repo / "experiments",
@@ -6740,6 +6766,21 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     ]
     assert candidate["execution_plan"]["execution_enabled_by_this_artifact"] is False
     assert candidate["policy"]["does_not_execute_codex_cli"] is True
+    assert real_dry_run["schema_version"] == (
+        CODEX_CLI_REAL_EXECUTION_DRY_RUN_SCHEMA_VERSION
+    )
+    assert real_dry_run["ok"] is True
+    assert real_dry_run["real_execution_dry_run_ready"] is True
+    assert real_dry_run["blocking_reasons"] == []
+    assert real_dry_run["checks"]["candidate_ready"] is True
+    assert real_dry_run["checks"]["workspace_not_created"] is True
+    assert real_dry_run["planned_execution"]["allowed_mutation_paths"] == [
+        "strategies/current_strategy.py"
+    ]
+    assert real_dry_run["dry_run_result"]["execution_performed"] is False
+    assert real_dry_run["dry_run_result"][
+        "would_execute_if_unlocked_and_operator_confirms"
+    ] is True
     assert_matches_schema(
         run_dir / "codex_cli_execution_unlock_gate.json",
         "codex_cli_execution_unlock_gate",
@@ -6751,6 +6792,10 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert_matches_schema(
         run_dir / "codex_cli_execution_candidate.json",
         "codex_cli_execution_candidate",
+    )
+    assert_matches_schema(
+        run_dir / "codex_cli_real_execution_dry_run.json",
+        "codex_cli_real_execution_dry_run",
     )
     assert validation_report["ok"] is True
     assert cli_result.returncode == 0, cli_result.stderr

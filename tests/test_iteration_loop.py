@@ -350,6 +350,7 @@ from orchestrator.experiments import (
     operator_unlock_checklist_report,
     operator_run_review,
     operator_view_refresh_blocker_delta,
+    operator_view_refresh_effect,
     promote_champion,
     refresh_operator_views as refresh_operator_views_command,
     render_operator_view_refresh_markdown,
@@ -2727,6 +2728,19 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     )
     assert refresh["blocker_delta"]["before_count"] == len(stale["blockers"])
     assert refresh["blocker_delta"]["after_count"] == len(refreshed["blockers"])
+    assert refresh["refresh_effect"]["schema_version"] == (
+        "operator_view_refresh_effect_v1"
+    )
+    assert refresh["refresh_effect"]["status"] in {
+        "stale_sources_fixed",
+        "stale_sources_fixed_blockers_changed",
+    }
+    assert refresh["refresh_effect"]["stale_sources_fixed"] is True
+    assert refresh["refresh_effect"]["pre_stale_count"] == 1
+    assert refresh["refresh_effect"]["post_stale_count"] == 0
+    assert refresh["refresh_effect"]["safety_policy_ok"] is True
+    assert "Refresh effect:" in refresh_markdown
+    assert "## Refresh Effect" in refresh_markdown
     assert "Blocker delta changed:" in refresh_markdown
     assert "## Blocker Delta" in refresh_markdown
     assert "Safety policy OK: `True`" in refresh_markdown
@@ -2816,6 +2830,18 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     ]["after_count"]
     assert refresh["blocker_delta"]["added_count"] == 0
     assert refresh["blocker_delta"]["removed_count"] == 0
+    assert refresh["refresh_effect"] == {
+        "schema_version": "operator_view_refresh_effect_v1",
+        "status": "refreshed_no_changes",
+        "summary": "Refresh completed with no stale-source or blocker changes.",
+        "stale_sources_fixed": False,
+        "pre_stale_count": 0,
+        "post_stale_count": 0,
+        "blockers_changed": False,
+        "safety_policy_ok": True,
+    }
+    assert "Refresh effect: `refreshed_no_changes`" in refresh_markdown
+    assert "## Refresh Effect" in refresh_markdown
     assert "Blocker delta changed: `False`" in refresh_markdown
     assert "Blockers added: `0`" in refresh_markdown
     assert "Blockers removed: `0`" in refresh_markdown
@@ -2913,6 +2939,26 @@ def test_operator_view_refresh_blocker_delta_tracks_added_removed() -> None:
         "added_blockers": ["scope_health_not_ok"],
         "removed_blockers": ["config_lineage_not_ok"],
         "persisted_blocker_preview": ["operator_approval_not_recorded"],
+    }
+
+
+def test_operator_view_refresh_effect_surfaces_safety_attention() -> None:
+    effect = operator_view_refresh_effect(
+        pre_refresh_freshness={"ok": True, "stale_count": 0},
+        post_refresh_freshness={"ok": True, "stale_count": 0},
+        blocker_delta={"changed": False},
+        policy_summary={"ok": False},
+    )
+
+    assert effect == {
+        "schema_version": "operator_view_refresh_effect_v1",
+        "status": "safety_policy_attention",
+        "summary": "Refresh completed, but the safety policy summary needs review.",
+        "stale_sources_fixed": False,
+        "pre_stale_count": 0,
+        "post_stale_count": 0,
+        "blockers_changed": False,
+        "safety_policy_ok": False,
     }
 
 

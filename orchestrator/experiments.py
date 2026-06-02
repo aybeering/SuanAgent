@@ -1332,6 +1332,7 @@ def refresh_operator_views(
         before=pre_refresh_blockers,
         after=string_payload(cockpit.get("blockers", [])),
     )
+    post_refresh_freshness = dict_payload(cockpit.get("snapshot_freshness", {}))
     policy = {
         "writes_existing_read_only_operator_artifacts": True,
         "does_not_record_approval": True,
@@ -1345,6 +1346,13 @@ def refresh_operator_views(
         "does_not_route_agents": True,
         "does_not_change_acceptance": True,
     }
+    policy_summary = operator_view_refresh_policy_summary(policy)
+    refresh_effect = operator_view_refresh_effect(
+        pre_refresh_freshness=pre_refresh_freshness,
+        post_refresh_freshness=post_refresh_freshness,
+        blocker_delta=blocker_delta,
+        policy_summary=policy_summary,
+    )
     return {
         "schema_version": "operator_view_refresh_v1",
         "run_id": run_id,
@@ -1359,9 +1367,10 @@ def refresh_operator_views(
         "refreshed_artifacts": refreshed,
         "operator_summary": operator_summary,
         "blocker_delta": blocker_delta,
-        "cockpit_snapshot_freshness": cockpit.get("snapshot_freshness", {}),
+        "refresh_effect": refresh_effect,
+        "cockpit_snapshot_freshness": post_refresh_freshness,
         "policy": policy,
-        "policy_summary": operator_view_refresh_policy_summary(policy),
+        "policy_summary": policy_summary,
     }
 
 
@@ -1408,6 +1417,50 @@ def operator_view_refresh_blocker_delta(
     }
 
 
+def operator_view_refresh_effect(
+    *,
+    pre_refresh_freshness: dict[str, object],
+    post_refresh_freshness: dict[str, object],
+    blocker_delta: dict[str, object],
+    policy_summary: dict[str, object],
+) -> dict[str, object]:
+    """Return a compact operator-facing summary of refresh impact."""
+    pre_stale_count = int(pre_refresh_freshness.get("stale_count", 0) or 0)
+    post_stale_count = int(post_refresh_freshness.get("stale_count", 0) or 0)
+    stale_sources_fixed = pre_stale_count > 0 and post_stale_count == 0
+    blockers_changed = bool(blocker_delta.get("changed", False))
+    safety_policy_ok = bool(policy_summary.get("ok", False))
+    freshness_ok = bool(post_refresh_freshness.get("ok", False))
+    if not safety_policy_ok:
+        status = "safety_policy_attention"
+        summary = "Refresh completed, but the safety policy summary needs review."
+    elif not freshness_ok or post_stale_count:
+        status = "refresh_incomplete"
+        summary = "Refresh completed, but some cockpit sources are still stale."
+    elif stale_sources_fixed and blockers_changed:
+        status = "stale_sources_fixed_blockers_changed"
+        summary = "Refresh fixed stale sources and changed the blocker set."
+    elif stale_sources_fixed:
+        status = "stale_sources_fixed"
+        summary = "Refresh fixed stale cockpit sources."
+    elif blockers_changed:
+        status = "blockers_changed"
+        summary = "Refresh changed the blocker set."
+    else:
+        status = "refreshed_no_changes"
+        summary = "Refresh completed with no stale-source or blocker changes."
+    return {
+        "schema_version": "operator_view_refresh_effect_v1",
+        "status": status,
+        "summary": summary,
+        "stale_sources_fixed": stale_sources_fixed,
+        "pre_stale_count": pre_stale_count,
+        "post_stale_count": post_stale_count,
+        "blockers_changed": blockers_changed,
+        "safety_policy_ok": safety_policy_ok,
+    }
+
+
 def operator_view_refresh_policy_summary(
     policy: dict[str, bool],
 ) -> dict[str, object]:
@@ -1428,6 +1481,7 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     freshness = dict_payload(payload.get("cockpit_snapshot_freshness", {}))
     operator_summary = dict_payload(payload.get("operator_summary", {}))
     blocker_delta = dict_payload(payload.get("blocker_delta", {}))
+    refresh_effect = dict_payload(payload.get("refresh_effect", {}))
     policy = dict_payload(payload.get("policy", {}))
     policy_summary = dict_payload(payload.get("policy_summary", {}))
     lines = [
@@ -1443,6 +1497,8 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Pre-refresh stale sources: `{pre_freshness.get('stale_count', 0)}`",
         f"- Cockpit freshness: `{freshness.get('status', '')}`",
         f"- Freshness ok: `{freshness.get('ok', False)}`",
+        f"- Refresh effect: `{refresh_effect.get('status', '')}`",
+        f"- Refresh effect summary: {refresh_effect.get('summary', '')}",
         f"- Cockpit status: `{operator_summary.get('cockpit_status', '')}`",
         f"- Primary focus: `{operator_summary.get('primary_focus', '')}`",
         f"- Blockers: `{operator_summary.get('blocker_count', 0)}`",
@@ -1482,6 +1538,18 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         lines.append(f"- `{source}`")
     if not pre_stale_sources:
         lines.append("- none")
+    lines.extend(["", "## Refresh Effect", ""])
+    lines.append(f"- Status: `{refresh_effect.get('status', '')}`")
+    lines.append(f"- Summary: {refresh_effect.get('summary', '')}")
+    lines.append(
+        f"- Stale sources fixed: `{refresh_effect.get('stale_sources_fixed', False)}`",
+    )
+    lines.append(
+        f"- Blockers changed: `{refresh_effect.get('blockers_changed', False)}`",
+    )
+    lines.append(
+        f"- Safety policy ok: `{refresh_effect.get('safety_policy_ok', False)}`",
+    )
     blocker_preview = operator_summary.get("blocker_preview", [])
     lines.extend(["", "## Current Blockers", ""])
     for blocker in blocker_preview if isinstance(blocker_preview, list) else []:

@@ -13,6 +13,7 @@ from orchestrator.agent_slot_readiness_gate import build_agent_slot_readiness_ga
 from orchestrator.agent_slot_health import build_agent_slot_health
 from orchestrator.artifact_validator_coverage import build_artifact_validator_coverage
 from orchestrator.candidate_quality_trace import build_candidate_quality_trace
+from orchestrator.config_change_candidate import build_config_change_candidate
 from orchestrator.experiment_index import read_experiment_index, recent_experiments
 from orchestrator.external_agent_sandbox_drill import (
     build_external_agent_sandbox_drill,
@@ -769,6 +770,29 @@ def memory_scope_recommendation_report(
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
     payload = build_memory_scope_recommendation(
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+        experiments_dir=experiments_dir,
+    )
+    payload["from_artifact"] = False
+    return payload
+
+
+def config_change_candidate_report(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+) -> dict[str, object]:
+    """Return config change candidates for one iteration run."""
+    run_dir = experiments_dir / run_id
+    path = run_dir / "config_change_candidate.json"
+    if path.exists():
+        payload = load_json(path)
+        payload["from_artifact"] = True
+        return payload
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    payload = build_config_change_candidate(
         run_dir=run_dir,
         repo_root=experiments_dir.parent,
         experiments_dir=experiments_dir,
@@ -1593,6 +1617,12 @@ def main() -> None:
     )
     memory_scope_parser.add_argument("run_id")
 
+    config_change_parser = subparsers.add_parser(
+        "config-change-candidate",
+        help="Show advisory config change candidates for one iteration run.",
+    )
+    config_change_parser.add_argument("run_id")
+
     scope_health_parser = subparsers.add_parser(
         "scope-health",
         help="Summarize artifact, history, and memory health for one scope.",
@@ -1740,6 +1770,11 @@ def main() -> None:
         )
     elif args.command == "memory-scope-recommendation":
         payload = memory_scope_recommendation_report(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
+        )
+    elif args.command == "config-change-candidate":
+        payload = config_change_candidate_report(
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )

@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Config Change Candidate",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "sources",
+    "summary",
+    "changes",
+    "operator_review",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "config_change_candidate_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "artifact_name",
+          "from_artifact",
+          "file"
+        ],
+        "properties": {
+          "artifact_name": {
+            "type": "string"
+          },
+          "from_artifact": {
+            "type": "boolean"
+          },
+          "file": {
+            "$ref": "#/$defs/file_record"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "candidate_count",
+        "recommended_change_count",
+        "status",
+        "highest_priority",
+        "config_paths"
+      ],
+      "properties": {
+        "candidate_count": {
+          "type": "integer"
+        },
+        "recommended_change_count": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "changes_recommended",
+            "no_changes_recommended"
+          ]
+        },
+        "highest_priority": {
+          "type": "string",
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "config_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "candidate_id",
+          "config_path",
+          "operation",
+          "current_value",
+          "proposed_value",
+          "source_artifact",
+          "source_action",
+          "priority",
+          "reason_codes",
+          "rationale",
+          "risk_notes",
+          "applied",
+          "requires_operator_review"
+        ],
+        "properties": {
+          "candidate_id": {
+            "type": "string"
+          },
+          "config_path": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "set"
+            ]
+          },
+          "current_value": {},
+          "proposed_value": {},
+          "source_artifact": {
+            "type": "string"
+          },
+          "source_action": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "risk_notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "applied": {
+            "type": "boolean"
+          },
+          "requires_operator_review": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "operator_review": {
+      "type": "object",
+      "required": [
+        "required",
+        "status",
+        "instruction"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending_review",
+            "no_candidate_changes"
+          ]
+        },
+        "instruction": {
+          "type": "string"
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_write_config",
+        "does_not_delete_memory",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_route_candidates",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "operator_must_apply_changes_manually"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_saved_artifacts_only": {
+          "type": "boolean"
+        },
+        "does_not_write_config": {
+          "type": "boolean"
+        },
+        "does_not_delete_memory": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_route_candidates": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "operator_must_apply_changes_manually": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "file_record": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

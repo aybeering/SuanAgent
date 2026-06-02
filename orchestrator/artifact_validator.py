@@ -33,6 +33,8 @@ ITERATION_RUN_REQUIRED_FILES = (
     "memory_hygiene.md",
     "memory_scope_recommendation.json",
     "memory_scope_recommendation.md",
+    "config_change_candidate.json",
+    "config_change_candidate.md",
     "codex_cli_execution_preflight.json",
     "codex_cli_execution_preflight.md",
     "agent_activation_preflight.json",
@@ -336,6 +338,11 @@ def validate_iteration_run(
         repo_root=repo_root,
         report=report,
     )
+    validate_config_change_candidate(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_contract_file(
         payload_path=run_dir / "agent_activation_preflight.json",
         schema_path=repo_root / "schemas/agent_activation_preflight.schema.json",
@@ -586,6 +593,96 @@ def validate_memory_scope_recommendation(
     ):
         if policy.get(key) is not True:
             add_error(report, f"memory_scope_recommendation.json policy false: {key}")
+
+
+def validate_config_change_candidate(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate run-level config change candidate artifact."""
+    path = run_dir / "config_change_candidate.json"
+    md_path = run_dir / "config_change_candidate.md"
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/config_change_candidate.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"config_change_candidate.json run_id does not match report: {path}",
+        )
+    sources = payload.get("sources", [])
+    if not isinstance(sources, list):
+        add_error(report, "config_change_candidate.json sources invalid")
+        sources = []
+    for index, source in enumerate(sources, start=1):
+        if not isinstance(source, dict):
+            add_error(report, f"config_change_candidate.json source {index} invalid")
+            continue
+        file_payload = source.get("file", {})
+        if not isinstance(file_payload, dict):
+            add_error(report, f"config_change_candidate.json source {index} file invalid")
+            continue
+        validate_recorded_file_hash(
+            record=file_payload,
+            repo_root=repo_root,
+            report=report,
+            label=f"config_change_candidate source {index}",
+        )
+        if source.get("artifact_name") == "memory_scope_recommendation" and not str(
+            file_payload.get("path", "")
+        ).endswith("memory_scope_recommendation.json"):
+            add_error(
+                report,
+                "config_change_candidate source is not memory_scope_recommendation.json",
+            )
+    changes = payload.get("changes", [])
+    if not isinstance(changes, list):
+        add_error(report, "config_change_candidate.json changes invalid")
+        changes = []
+    summary = payload.get("summary", {})
+    if not isinstance(summary, dict):
+        add_error(report, "config_change_candidate.json summary invalid")
+    else:
+        if int(summary.get("candidate_count", -1)) != len(changes):
+            add_error(report, "config_change_candidate.json candidate_count mismatch")
+    for index, change in enumerate(changes, start=1):
+        if not isinstance(change, dict):
+            add_error(report, f"config_change_candidate.json change {index} invalid")
+            continue
+        if change.get("applied") is not False:
+            add_error(report, f"config_change_candidate.json change {index} applied")
+        if change.get("requires_operator_review") is not True:
+            add_error(
+                report,
+                f"config_change_candidate.json change {index} missing operator review",
+            )
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "config_change_candidate.json policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_write_config",
+        "does_not_delete_memory",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_route_candidates",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "operator_must_apply_changes_manually",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"config_change_candidate.json policy false: {key}")
 
 
 def validate_round_candidate_quality_bindings(

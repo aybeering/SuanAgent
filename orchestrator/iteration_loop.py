@@ -49,6 +49,7 @@ from orchestrator.candidate_challenger_report import write_candidate_challenger_
 from orchestrator.candidate_quality_trace import write_candidate_quality_trace
 from orchestrator.champion_promotion_approval import write_champion_promotion_approval
 from orchestrator.champion_promotion_dry_run import write_champion_promotion_dry_run
+from orchestrator.config_change_candidate import write_config_change_candidate
 from orchestrator.config import (
     ProjectConfig,
     load_project_config,
@@ -278,6 +279,12 @@ def run_iteration_loop(
             "action": "pending",
             "recommended_recent_record_limit": 0,
             "recommended_created_at_from": "",
+        },
+        "config_change_candidate": {
+            "path": "config_change_candidate.json",
+            "markdown_path": "config_change_candidate.md",
+            "status": "pending",
+            "candidate_count": 0,
         },
         "champion_promotion_dry_run": {
             "path": "champion_promotion_dry_run.json",
@@ -618,6 +625,24 @@ def finalize_iteration_run(
         ),
         "recommended_created_at_from": str(
             scope_decision.get("recommended_created_at_from", "")
+        ),
+    }
+    _, _, config_candidate = write_config_change_candidate(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        experiments_dir=experiments_dir,
+    )
+    config_candidate_summary = (
+        config_candidate.get("summary", {})
+        if isinstance(config_candidate.get("summary", {}), dict)
+        else {}
+    )
+    manifest["config_change_candidate"] = {
+        "path": "config_change_candidate.json",
+        "markdown_path": "config_change_candidate.md",
+        "status": str(config_candidate_summary.get("status", "")),
+        "candidate_count": int(
+            config_candidate_summary.get("candidate_count", 0) or 0
         ),
     }
     write_iteration_summary(run_dir=run_dir, manifest=manifest)

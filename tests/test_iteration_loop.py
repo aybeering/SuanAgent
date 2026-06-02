@@ -138,6 +138,12 @@ from orchestrator.artifact_validator_coverage import (
     validate_coverage_payload_file,
     write_coverage_report,
 )
+from orchestrator.config_change_candidate import (
+    CONFIG_CHANGE_CANDIDATE_SCHEMA_VERSION,
+    build_config_change_candidate,
+    validate_config_change_candidate_file,
+    write_config_change_candidate,
+)
 from orchestrator.run_artifact_health import (
     HISTORY_SCHEMA_VERSION as RUN_ARTIFACT_HEALTH_HISTORY_SCHEMA_VERSION,
     SCHEMA_VERSION as RUN_ARTIFACT_HEALTH_SCHEMA_VERSION,
@@ -223,6 +229,7 @@ from orchestrator.experiments import (
     agent_slot_health_report,
     candidate_leaderboard,
     candidate_quality_trace,
+    config_change_candidate_report,
     compare_experiments,
     experiment_leaderboard,
     list_experiments,
@@ -1326,6 +1333,83 @@ def test_memory_scope_recommendation_suggests_recent_limit(
     ) == ()
 
 
+def test_config_change_candidate_records_manual_config_edits(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/config-candidate"
+    run_dir.mkdir(parents=True)
+    memory_path = repo / "experiments/memory.jsonl"
+    config_before = (repo / "config/default.json").read_text(encoding="utf-8")
+    records = []
+    for index in range(120):
+        records.append(
+            {
+                "created_at": f"2026-01-{(index % 28) + 1:02d}T00:00:00Z",
+                "kind": "proposal_outcome",
+                "run_id": f"candidate-memory-run-{index:03d}",
+                "round_id": "round_001",
+                "agent_name": "stub",
+                "direction_tag": "lower_min_edge",
+                "patch_sha256": "configpatch" * 7,
+                "accepted": False,
+                "applicable": True,
+                "validation_ev_delta": -0.01,
+            }
+        )
+    memory_path.write_text(
+        "\n".join(json.dumps(record, sort_keys=True) for record in records) + "\n",
+        encoding="utf-8",
+    )
+    write_memory_hygiene(
+        output_path=run_dir / "memory_hygiene.json",
+        markdown_path=run_dir / "memory_hygiene.md",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        failed_patch_threshold=2,
+        failed_direction_threshold=3,
+        exclude_run_id="config-candidate",
+    )
+    write_memory_scope_recommendation(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    )
+
+    json_path, md_path, payload = write_config_change_candidate(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    )
+    dynamic_payload = build_config_change_candidate(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    )
+
+    assert payload["schema_version"] == CONFIG_CHANGE_CANDIDATE_SCHEMA_VERSION
+    assert payload["summary"]["status"] == "changes_recommended"
+    assert payload["summary"]["candidate_count"] == 1
+    assert payload["changes"][0]["config_path"] == "memory_filter.recent_record_limit"
+    assert payload["changes"][0]["operation"] == "set"
+    assert payload["changes"][0]["current_value"] == 0
+    assert payload["changes"][0]["proposed_value"] == 100
+    assert payload["changes"][0]["applied"] is False
+    assert payload["changes"][0]["requires_operator_review"] is True
+    assert payload["policy"]["does_not_write_config"] is True
+    assert payload["sources"][0]["file"]["path"].endswith(
+        "memory_scope_recommendation.json"
+    )
+    assert dynamic_payload["sources"][0]["from_artifact"] is True
+    assert "# Config Change Candidate" in md_path.read_text(encoding="utf-8")
+    assert (repo / "config/default.json").read_text(encoding="utf-8") == config_before
+    assert_matches_schema_payload(payload, "config_change_candidate")
+    assert validate_config_change_candidate_file(
+        payload_path=json_path,
+        repo_root=repo,
+    ) == ()
+
+
 def test_agent_contract_runner_writes_disabled_audit(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     round_dir = tmp_path / "round"
@@ -2250,6 +2334,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "memory_hygiene.md").exists()
     assert (run_dir / "memory_scope_recommendation.json").exists()
     assert (run_dir / "memory_scope_recommendation.md").exists()
+    assert (run_dir / "config_change_candidate.json").exists()
+    assert (run_dir / "config_change_candidate.md").exists()
     assert (run_dir / "agent_result_stats.json").exists()
     assert (run_dir / "agent_activation_preflight.json").exists()
     assert (run_dir / "agent_activation_preflight.md").exists()
@@ -2343,6 +2429,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     memory_scope_markdown = (run_dir / "memory_scope_recommendation.md").read_text(
         encoding="utf-8"
     )
+    config_change_candidate = json.loads(
+        (run_dir / "config_change_candidate.json").read_text(encoding="utf-8")
+    )
+    config_change_markdown = (run_dir / "config_change_candidate.md").read_text(
+        encoding="utf-8"
+    )
     agent_stats = json.loads(
         (run_dir / "agent_result_stats.json").read_text(encoding="utf-8")
     )
@@ -2424,6 +2516,27 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert_matches_schema(
         run_dir / "memory_scope_recommendation.json",
         "memory_scope_recommendation",
+    )
+    assert manifest["config_change_candidate"]["path"] == (
+        "config_change_candidate.json"
+    )
+    assert manifest["config_change_candidate"]["markdown_path"] == (
+        "config_change_candidate.md"
+    )
+    assert config_change_candidate["schema_version"] == (
+        CONFIG_CHANGE_CANDIDATE_SCHEMA_VERSION
+    )
+    assert config_change_candidate["sources"][0]["file"]["path"].endswith(
+        "memory_scope_recommendation.json"
+    )
+    assert config_change_candidate["summary"]["candidate_count"] == (
+        manifest["config_change_candidate"]["candidate_count"]
+    )
+    assert config_change_candidate["policy"]["operator_must_apply_changes_manually"] is True
+    assert "# Config Change Candidate" in config_change_markdown
+    assert_matches_schema(
+        run_dir / "config_change_candidate.json",
+        "config_change_candidate",
     )
     assert manifest["candidate_challenger_report"]["path"] == (
         "candidate_challenger_report.json"
@@ -6686,6 +6799,37 @@ def test_artifact_validator_reports_memory_scope_policy_violation(
     assert report["ok"] is False
     assert any(
         "memory_scope_recommendation.json policy false: does_not_write_config"
+        in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_config_candidate_policy_violation(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="config-candidate-policy-error",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/config-candidate-policy-error/config_change_candidate.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["policy"]["does_not_write_config"] = False
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="config-candidate-policy-error",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "config_change_candidate.json policy false: does_not_write_config"
         in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
@@ -12767,6 +12911,10 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         run_id="cli-candidates",
         experiments_dir=repo / "experiments",
     )
+    config_candidate = config_change_candidate_report(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+    )
     result = subprocess.run(
         [
             sys.executable,
@@ -12844,6 +12992,21 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    config_candidate_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "config-change-candidate",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     challenger_result = subprocess.run(
         [
             sys.executable,
@@ -12900,6 +13063,9 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         MEMORY_SCOPE_RECOMMENDATION_SCHEMA_VERSION
     )
     assert scope_recommendation["policy"]["does_not_write_config"] is True
+    assert config_candidate["from_artifact"] is True
+    assert config_candidate["schema_version"] == CONFIG_CHANGE_CANDIDATE_SCHEMA_VERSION
+    assert config_candidate["policy"]["does_not_write_config"] is True
     assert stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
     assert "avg_holdout_ev_delta" in stats["agents"][0]
     assert stats["round_replays"]["round_count"] == 1
@@ -12938,6 +13104,15 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert scope_payload["schema_version"] == MEMORY_SCOPE_RECOMMENDATION_SCHEMA_VERSION
     assert scope_payload["from_artifact"] is True
     assert scope_payload["source"]["path"].endswith("memory_hygiene.json")
+    assert config_candidate_result.returncode == 0, config_candidate_result.stderr
+    config_candidate_payload = json.loads(config_candidate_result.stdout)
+    assert config_candidate_payload["schema_version"] == (
+        CONFIG_CHANGE_CANDIDATE_SCHEMA_VERSION
+    )
+    assert config_candidate_payload["from_artifact"] is True
+    assert config_candidate_payload["sources"][0]["file"]["path"].endswith(
+        "memory_scope_recommendation.json"
+    )
     assert challenger_result.returncode == 0, challenger_result.stderr
     challenger_payload = json.loads(challenger_result.stdout)
     assert challenger_payload["schema_version"] == CANDIDATE_CHALLENGER_SCHEMA_VERSION

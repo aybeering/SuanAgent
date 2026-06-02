@@ -137,6 +137,10 @@ The run also writes `memory_scope_recommendation.json` and
 `memory_scope_recommendation.md`, an advisory-only report that suggests whether
 future runs should keep full-history memory or set a recent-record scope. It
 does not edit config, delete memory, route candidates, or change acceptance.
+`config_change_candidate.json` and `config_change_candidate.md` lift those
+recommendations into operator-reviewed config fields for a future run. The loop
+does not apply the candidate changes; it only records the field, current value,
+proposed value, rationale, and risk notes.
 
 ## Champion Registry
 

@@ -49,7 +49,8 @@ Build V0.5 only.
 Allowed implementation work includes the deterministic evaluation loop, strategy
 modifier stubs, guarded external-adapter slots, proposal contracts, artifact
 validation, replay commands, read-only outcome-memory hygiene and scope
-recommendation artifacts, and Codex CLI readiness evidence.
+recommendation artifacts, read-only config change candidate artifacts, and
+Codex CLI readiness evidence.
 
 Still out of scope:
 
@@ -140,6 +141,9 @@ Artifact details live in `docs/artifact_reference.md`.
 Outcome-memory hygiene and scope recommendation artifacts are advisory only:
 they may suggest future config changes, but they must not edit config, delete
 memory, route candidates, apply patches, or change acceptance.
+Config change candidate artifacts are also advisory only. They may record fields
+an operator could edit later, but the loop must not apply those changes by
+itself.
 
 ## Strategy Policy
 

@@ -43,6 +43,10 @@ KNOWN_ARTIFACT_NAMES = {
         "memory_scope_recommendation.json",
         "memory_scope_recommendation.md",
     ),
+    "config_change_candidate": (
+        "config_change_candidate.json",
+        "config_change_candidate.md",
+    ),
     "experiment_scope_health": ("experiment_scope_health.json",),
     "run_closeout": ("run_closeout.json", "run_closeout.md"),
     "candidate_challenger_report": (
@@ -101,6 +105,10 @@ INSPECTION_COMMANDS = {
     "memory_scope_recommendation": (
         "python -m orchestrator.memory_scope_recommendation",
         "python -m orchestrator.experiments memory-scope-recommendation",
+    ),
+    "config_change_candidate": (
+        "python -m orchestrator.config_change_candidate",
+        "python -m orchestrator.experiments config-change-candidate",
     ),
     "experiment_scope_health": (
         "python -m orchestrator.experiment_scope_health",

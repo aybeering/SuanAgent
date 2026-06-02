@@ -1465,6 +1465,12 @@ def file_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def stable_json_digest(payload: object) -> str:
+    """Return a stable digest for one JSON-compatible payload."""
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
 def int_value(value: object) -> int:
     """Return an integer value or zero."""
     return value if isinstance(value, int) else 0
@@ -2412,6 +2418,60 @@ def validate_optional_codex_cli_execution_preflight(
             checks = profile.get("checks", {})
             if not isinstance(checks, dict):
                 add_error(report, "codex_cli_execution_preflight checks invalid")
+            elif requires_unlock and operator_ready:
+                for key in (
+                    "operator_request_command_matches_profile",
+                    "operator_request_command_sha256_matches_profile",
+                    "operator_request_workspace_root_matches_profile",
+                    "operator_request_targets_current_strategy",
+                    "operator_request_allows_strategy_only",
+                    "operator_request_does_not_execute_by_itself",
+                ):
+                    if not bool(checks.get(key, False)):
+                        add_error(
+                            report,
+                            "codex_cli_execution_preflight ready with false "
+                            f"check: {key}",
+                        )
+            expected = profile.get("expected_execution", {})
+            if not isinstance(expected, dict):
+                add_error(report, "codex_cli_execution_preflight expected execution invalid")
+            else:
+                expected_command = expected.get("command", [])
+                expected_target = str(expected.get("target_file", ""))
+                if expected_target != "strategies/current_strategy.py":
+                    add_error(
+                        report,
+                        "codex_cli_execution_preflight expected target invalid",
+                    )
+                if not str(expected.get("workspace_root", "")).strip():
+                    add_error(
+                        report,
+                        "codex_cli_execution_preflight expected workspace root missing",
+                    )
+                if not isinstance(expected_command, list):
+                    add_error(
+                        report,
+                        "codex_cli_execution_preflight expected command invalid",
+                    )
+                else:
+                    expected_command_text = " ".join(
+                        str(part) for part in expected_command
+                    )
+                    if "strategies/current_strategy.py" not in expected_command_text:
+                        add_error(
+                            report,
+                            "codex_cli_execution_preflight expected command "
+                            "missing target file",
+                        )
+                    if expected.get("command_sha256") != stable_json_digest(
+                        expected_command
+                    ):
+                        add_error(
+                            report,
+                            "codex_cli_execution_preflight expected command "
+                            "sha256 mismatch",
+                        )
         summary = payload.get("summary", {})
         if isinstance(summary, dict):
             if summary.get("real_codex_execute_profile_count") != real_execute_count:
@@ -4062,6 +4122,11 @@ def validate_optional_codex_cli_operator_unlock_request(
             )
         else:
             command_text = " ".join(str(part) for part in command)
+            if planned.get("command_sha256") != stable_json_digest(command):
+                add_error(
+                    report,
+                    "codex_cli_operator_unlock_request.json command sha256 mismatch",
+                )
             if "strategies/current_strategy.py" not in command_text:
                 add_error(
                     report,

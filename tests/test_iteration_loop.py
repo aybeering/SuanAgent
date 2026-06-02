@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import shutil
 import stat
 import subprocess
@@ -5913,6 +5914,10 @@ print(json.dumps({
     operator_request_path = write_operator_unlock_request_fixture(
         repo,
         repo / "operator_unlock_fixtures/codex_structured_fixture_request.json",
+        executable=str(fake_codex),
+        model="structured-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
     )
     config = replace(
         default,
@@ -7025,6 +7030,65 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     )
 
 
+def test_codex_cli_execution_preflight_blocks_stale_operator_request(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_stale_request.py",
+        "#!/usr/bin/env python3\nprint('{}')\n",
+    )
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / "operator_unlock_fixtures/stale_request.json",
+        executable=str(fake_codex),
+        model="old-model",
+        sandbox="workspace-write",
+        workspace_root="old-workspaces",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "new-model",
+            "sandbox": "workspace-write",
+            "workspace_root": "new-workspaces",
+            "execute": True,
+            "operator_unlock_request_path": str(request_path.relative_to(repo)),
+        },
+    )
+
+    preflight = write_codex_cli_execution_preflight(
+        output_path=repo / "experiments/stale-request/codex_cli_execution_preflight.json",
+        markdown_path=repo / "experiments/stale-request/codex_cli_execution_preflight.md",
+        run_dir=repo / "experiments/stale-request",
+        repo_root=repo,
+        config=config,
+    )
+
+    assert preflight["ok"] is False
+    profile = preflight["profiles"][0]
+    assert profile["operator_unlock_ready"] is False
+    assert profile["checks"]["operator_unlock_request_ready"] is True
+    assert profile["checks"]["operator_request_command_matches_profile"] is False
+    assert profile["checks"][
+        "operator_request_command_sha256_matches_profile"
+    ] is False
+    assert profile["checks"]["operator_request_workspace_root_matches_profile"] is False
+    assert "profile primary: operator_request_command_mismatch" in preflight[
+        "blocking_errors"
+    ]
+    assert "profile primary: operator_request_command_sha256_mismatch" in preflight[
+        "blocking_errors"
+    ]
+    assert "profile primary: operator_request_workspace_root_mismatch" in preflight[
+        "blocking_errors"
+    ]
+
+
 def test_codex_cli_execution_unlock_gate_blocks_candidate_config_mismatch(
     tmp_path: Path,
 ) -> None:
@@ -7222,6 +7286,10 @@ print(json.dumps({
     operator_request_path = write_operator_unlock_request_fixture(
         repo,
         repo / "operator_unlock_fixtures/codex_mutation_fixture_request.json",
+        executable=str(fake_codex),
+        model="mutation-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
     )
     config = replace(
         default,
@@ -8429,9 +8497,23 @@ def write_fake_command(tmp_path: Path, filename: str, content: str) -> Path:
     return path
 
 
-def write_operator_unlock_request_fixture(repo: Path, path: Path) -> Path:
+def write_operator_unlock_request_fixture(
+    repo: Path,
+    path: Path,
+    *,
+    executable: str = "codex",
+    model: str = "default",
+    sandbox: str = "workspace-write",
+    workspace_root: str = "workspaces",
+) -> Path:
     """Write a ready operator request fixture for local fake Codex tests."""
     path.parent.mkdir(parents=True, exist_ok=True)
+    command = build_codex_command(
+        executable=executable,
+        model=model,
+        sandbox=sandbox,
+        target_file="strategies/current_strategy.py",
+    )
     payload = {
         "schema_version": CODEX_CLI_OPERATOR_UNLOCK_REQUEST_SCHEMA_VERSION,
         "run_id": path.parent.name,
@@ -8489,13 +8571,9 @@ def write_operator_unlock_request_fixture(repo: Path, path: Path) -> Path:
             "attempt_id": "attempt_001_real_execution",
             "target_file": "strategies/current_strategy.py",
             "allowed_mutation_paths": ["strategies/current_strategy.py"],
-            "workspace_path": "workspaces/unit-test/strategy_workspace",
-            "command": [
-                "codex",
-                "exec",
-                "--",
-                "Modify only strategies/current_strategy.py and return a patch.",
-            ],
+            "workspace_path": f"{workspace_root}/unit-test/strategy_workspace",
+            "command": command,
+            "command_sha256": stable_json_digest(command),
             "execution_enabled_by_this_artifact": False,
         },
         "policy": {
@@ -8523,6 +8601,11 @@ def write_operator_unlock_request_fixture(repo: Path, path: Path) -> Path:
     )
     assert_matches_schema(path, "codex_cli_operator_unlock_request")
     return path
+
+
+def stable_json_digest(payload: object) -> str:
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def build_test_replacement_proposal(

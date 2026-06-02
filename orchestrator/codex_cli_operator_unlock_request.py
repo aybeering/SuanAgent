@@ -133,6 +133,7 @@ def build_codex_cli_operator_unlock_request(
             "allowed_mutation_paths": allowed_mutation_paths,
             "workspace_path": str(planned_execution.get("workspace_path", "")),
             "command": command,
+            "command_sha256": stable_digest(command),
             "execution_enabled_by_this_artifact": False,
         },
         "policy": {
@@ -225,6 +226,12 @@ def request_blockers(checks: dict[str, bool]) -> list[str]:
         if not checks.get(key, False):
             blockers.append(code)
     return blockers
+
+
+def stable_digest(payload: object) -> str:
+    """Return a stable digest for one JSON-compatible payload."""
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return sha256_text(encoded)
 
 
 def codex_cli_operator_unlock_request_markdown(payload: dict[str, Any]) -> str:

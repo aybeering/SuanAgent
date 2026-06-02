@@ -49,7 +49,8 @@
           "operator_unlock_ready",
           "blocking_errors",
           "checks",
-          "operator_unlock_request"
+          "operator_unlock_request",
+          "expected_execution"
         ]
       }
     },

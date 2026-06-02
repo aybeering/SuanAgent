@@ -107,6 +107,7 @@
         "allowed_mutation_paths",
         "workspace_path",
         "command",
+        "command_sha256",
         "execution_enabled_by_this_artifact"
       ]
     },

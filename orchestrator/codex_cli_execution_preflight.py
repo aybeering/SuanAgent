@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
 
+from agents.codex_dry_run_adapter import build_codex_command
 from orchestrator.agent_activation_preflight import effective_agent_profiles
 from orchestrator.codex_cli_dry_invocation_guard import (
     file_record,
@@ -133,10 +135,24 @@ def profile_execution_row(
         enabled and adapter_name == "codex_cli" and execute and not canary_exempt
     )
     request_path_text = str(settings.get("operator_unlock_request_path", ""))
-    request_path = resolve_path(Path(request_path_text), repo_root) if request_path_text else None
+    request_path = (
+        resolve_path(Path(request_path_text), repo_root)
+        if request_path_text
+        else None
+    )
     request = load_json_object(request_path) if request_path is not None else {}
     planned = object_value(request.get("planned_execution_review", {}))
     allowed_mutation_paths = string_list(planned.get("allowed_mutation_paths", []))
+    expected_command = build_codex_command(
+        executable=executable,
+        model=str(settings.get("model", "default")),
+        sandbox=str(settings.get("sandbox", "workspace-write")),
+        target_file=TARGET_FILE,
+    )
+    planned_command = string_list(planned.get("command", []))
+    expected_command_sha256 = stable_digest(expected_command)
+    planned_workspace_path = str(planned.get("workspace_path", ""))
+    workspace_root = str(settings.get("workspace_root", "workspaces"))
     checks = {
         "profile_enabled": enabled,
         "adapter_is_codex_cli": adapter_name == "codex_cli",
@@ -149,6 +165,18 @@ def profile_execution_row(
         "operator_unlock_request_ok": bool(request.get("ok", False)),
         "operator_unlock_request_ready": bool(
             request.get("operator_request_ready", False)
+        ),
+        "operator_request_command_matches_profile": planned_command == expected_command,
+        "operator_request_command_sha256_matches_profile": str(
+            planned.get("command_sha256", "")
+        )
+        == expected_command_sha256,
+        "operator_request_workspace_root_matches_profile": (
+            bool(workspace_root)
+            and (
+                planned_workspace_path == workspace_root
+                or planned_workspace_path.startswith(workspace_root.rstrip("/") + "/")
+            )
         ),
         "operator_request_targets_current_strategy": str(
             planned.get("target_file", "")
@@ -187,6 +215,12 @@ def profile_execution_row(
                 "sha256": "",
             }
         ),
+        "expected_execution": {
+            "target_file": TARGET_FILE,
+            "workspace_root": workspace_root,
+            "command": expected_command,
+            "command_sha256": expected_command_sha256,
+        },
     }
 
 
@@ -198,6 +232,18 @@ def operator_unlock_blockers(checks: dict[str, bool]) -> list[str]:
         ("operator_unlock_request_exists", "operator_unlock_request_missing"),
         ("operator_unlock_request_ok", "operator_unlock_request_not_ok"),
         ("operator_unlock_request_ready", "operator_unlock_request_not_ready"),
+        (
+            "operator_request_command_matches_profile",
+            "operator_request_command_mismatch",
+        ),
+        (
+            "operator_request_command_sha256_matches_profile",
+            "operator_request_command_sha256_mismatch",
+        ),
+        (
+            "operator_request_workspace_root_matches_profile",
+            "operator_request_workspace_root_mismatch",
+        ),
         (
             "operator_request_targets_current_strategy",
             "operator_request_target_not_current_strategy",
@@ -214,6 +260,12 @@ def operator_unlock_blockers(checks: dict[str, bool]) -> list[str]:
         if not checks.get(key, False):
             blockers.append(code)
     return blockers
+
+
+def stable_digest(payload: object) -> str:
+    """Return a stable digest for one JSON-compatible payload."""
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def codex_cli_execution_preflight_markdown(payload: dict[str, Any]) -> str:

@@ -7881,6 +7881,48 @@ def test_artifact_validator_reports_operator_source_path_mismatch(
     )
 
 
+def test_artifact_validator_reports_operator_canonical_source_check_false(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/operator-canonical-source-check-false"
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        run_dir / "codex_cli_operator_unlock_request.json",
+        run_id="operator-canonical-source-check-false",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request["checks"]["readiness_pipeline_path_is_canonical_run_artifact"] = False
+    request["checks"]["real_execution_dry_run_path_is_canonical_run_artifact"] = False
+    request["operator_request_ready"] = False
+    request["blocking_reasons"] = [
+        "readiness_pipeline_path_not_canonical_run_artifact",
+        "real_execution_dry_run_path_not_canonical_run_artifact",
+    ]
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="operator-canonical-source-check-false",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_operator_unlock_request.json canonical source check false: "
+        "readiness_pipeline_path_is_canonical_run_artifact" in str(error)
+        for error in validation_report["errors"]
+    )
+    assert any(
+        "codex_cli_operator_unlock_request.json canonical source check false: "
+        "real_execution_dry_run_path_is_canonical_run_artifact" in str(error)
+        for error in validation_report["errors"]
+    )
+
+
 def test_artifact_validator_reports_operator_run_dir_mismatch(
     tmp_path: Path,
 ) -> None:

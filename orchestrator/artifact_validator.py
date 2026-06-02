@@ -4230,6 +4230,16 @@ def validate_optional_codex_cli_operator_unlock_request(
                     report,
                     f"codex_cli_operator_unlock_request.json safety check false: {key}",
                 )
+        for key in (
+            "readiness_pipeline_path_is_canonical_run_artifact",
+            "real_execution_dry_run_path_is_canonical_run_artifact",
+        ):
+            if not bool(checks.get(key, False)):
+                add_error(
+                    report,
+                    "codex_cli_operator_unlock_request.json canonical source "
+                    f"check false: {key}",
+                )
         if ready:
             for key, value in checks.items():
                 if not bool(value):

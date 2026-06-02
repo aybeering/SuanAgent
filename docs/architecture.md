@@ -141,6 +141,10 @@ does not edit config, delete memory, route candidates, or change acceptance.
 recommendations into operator-reviewed config fields for a future run. The loop
 does not apply the candidate changes; it only records the field, current value,
 proposed value, rationale, and risk notes.
+`operator_config_review.json` and `operator_config_review.md` can then record
+whether an operator approved or rejected the candidate. This creates an audit
+trail for human intent, but it still does not edit config files or change
+iteration behavior automatically.
 
 ## Champion Registry
 

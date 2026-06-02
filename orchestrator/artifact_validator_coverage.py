@@ -47,6 +47,10 @@ KNOWN_ARTIFACT_NAMES = {
         "config_change_candidate.json",
         "config_change_candidate.md",
     ),
+    "operator_config_review": (
+        "operator_config_review.json",
+        "operator_config_review.md",
+    ),
     "experiment_scope_health": ("experiment_scope_health.json",),
     "run_closeout": ("run_closeout.json", "run_closeout.md"),
     "candidate_challenger_report": (
@@ -109,6 +113,10 @@ INSPECTION_COMMANDS = {
     "config_change_candidate": (
         "python -m orchestrator.config_change_candidate",
         "python -m orchestrator.experiments config-change-candidate",
+    ),
+    "operator_config_review": (
+        "python -m orchestrator.operator_config_review",
+        "python -m orchestrator.experiments operator-config-review",
     ),
     "experiment_scope_health": (
         "python -m orchestrator.experiment_scope_health",

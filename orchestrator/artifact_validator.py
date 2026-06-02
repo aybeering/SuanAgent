@@ -35,6 +35,8 @@ ITERATION_RUN_REQUIRED_FILES = (
     "memory_scope_recommendation.md",
     "config_change_candidate.json",
     "config_change_candidate.md",
+    "operator_config_review.json",
+    "operator_config_review.md",
     "codex_cli_execution_preflight.json",
     "codex_cli_execution_preflight.md",
     "agent_activation_preflight.json",
@@ -339,6 +341,11 @@ def validate_iteration_run(
         report=report,
     )
     validate_config_change_candidate(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
+    validate_operator_config_review(
         run_dir=run_dir,
         repo_root=repo_root,
         report=report,
@@ -683,6 +690,93 @@ def validate_config_change_candidate(
     ):
         if policy.get(key) is not True:
             add_error(report, f"config_change_candidate.json policy false: {key}")
+
+
+def validate_operator_config_review(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate run-level operator config review artifact."""
+    path = run_dir / "operator_config_review.json"
+    md_path = run_dir / "operator_config_review.md"
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/operator_config_review.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"operator_config_review.json run_id does not match report: {path}",
+        )
+    source = payload.get("source", {})
+    if not isinstance(source, dict):
+        add_error(report, "operator_config_review.json source invalid")
+    else:
+        file_payload = source.get("file", {})
+        if not isinstance(file_payload, dict):
+            add_error(report, "operator_config_review.json source file invalid")
+        else:
+            validate_recorded_file_hash(
+                record=file_payload,
+                repo_root=repo_root,
+                report=report,
+                label="operator_config_review source",
+            )
+            if source.get("artifact_name") == "config_change_candidate" and not str(
+                file_payload.get("path", "")
+            ).endswith("config_change_candidate.json"):
+                add_error(
+                    report,
+                    "operator_config_review source is not config_change_candidate.json",
+                )
+    reviewed_changes = payload.get("reviewed_changes", [])
+    if not isinstance(reviewed_changes, list):
+        add_error(report, "operator_config_review.json reviewed_changes invalid")
+        reviewed_changes = []
+    summary = payload.get("candidate_summary", {})
+    if not isinstance(summary, dict):
+        add_error(report, "operator_config_review.json candidate_summary invalid")
+    else:
+        if int(summary.get("candidate_count", -1)) != len(reviewed_changes):
+            add_error(report, "operator_config_review.json candidate_count mismatch")
+    for index, change in enumerate(reviewed_changes, start=1):
+        if not isinstance(change, dict):
+            add_error(report, f"operator_config_review.json change {index} invalid")
+            continue
+        if change.get("applied") is not False:
+            add_error(report, f"operator_config_review.json change {index} applied")
+        if change.get("requires_manual_config_edit") is not True:
+            add_error(
+                report,
+                f"operator_config_review.json change {index} missing manual edit flag",
+            )
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "operator_config_review.json policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_write_config",
+        "does_not_delete_memory",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_route_candidates",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "review_does_not_apply_config",
+        "config_changes_still_require_manual_edit",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"operator_config_review.json policy false: {key}")
 
 
 def validate_round_candidate_quality_bindings(

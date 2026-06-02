@@ -86,6 +86,7 @@ from orchestrator.outcome_memory import (
 )
 from orchestrator.memory_hygiene import write_memory_hygiene
 from orchestrator.memory_scope_recommendation import write_memory_scope_recommendation
+from orchestrator.operator_config_review import write_operator_config_review
 from orchestrator.overfit_validator import write_overfit_validation
 from orchestrator.policy_gate import (
     apply_holdout_gate,
@@ -285,6 +286,12 @@ def run_iteration_loop(
             "markdown_path": "config_change_candidate.md",
             "status": "pending",
             "candidate_count": 0,
+        },
+        "operator_config_review": {
+            "path": "operator_config_review.json",
+            "markdown_path": "operator_config_review.md",
+            "status": "pending",
+            "review_recorded": False,
         },
         "champion_promotion_dry_run": {
             "path": "champion_promotion_dry_run.json",
@@ -644,6 +651,22 @@ def finalize_iteration_run(
         "candidate_count": int(
             config_candidate_summary.get("candidate_count", 0) or 0
         ),
+    }
+    _, _, config_review = write_operator_config_review(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        experiments_dir=experiments_dir,
+    )
+    config_review_intent = (
+        config_review.get("operator_intent", {})
+        if isinstance(config_review.get("operator_intent", {}), dict)
+        else {}
+    )
+    manifest["operator_config_review"] = {
+        "path": "operator_config_review.json",
+        "markdown_path": "operator_config_review.md",
+        "status": str(config_review.get("status", "")),
+        "review_recorded": bool(config_review_intent.get("review_recorded", False)),
     }
     write_iteration_summary(run_dir=run_dir, manifest=manifest)
     append_experiment_index(

@@ -110,6 +110,8 @@ experiments/<run_id>/
   memory_scope_recommendation.md
   config_change_candidate.json
   config_change_candidate.md
+  operator_config_review.json
+  operator_config_review.md
   agent_result_stats.json
   candidate_challenger_report.json
   candidate_challenger_report.md
@@ -328,6 +330,11 @@ Replay artifacts:
   saved recommendations into operator-reviewed config field candidates, such as
   `memory_filter.recent_record_limit`. They include current value, proposed
   value, rationale, reason codes, and risk notes, but they never write config,
+  route candidates, apply patches, run backtests, or change acceptance.
+- `operator_config_review.json` and `operator_config_review.md` record
+  operator approve or reject intent for saved config candidates. Approval
+  requires the configured confirmation phrase, rejection can be recorded without
+  applying anything, and both paths remain audit-only: they never edit config,
   route candidates, apply patches, run backtests, or change acceptance.
 - `experiment_scope_health.json` combines current artifact health,
   artifact-health history, and memory diagnostics for one `--created-at-from`

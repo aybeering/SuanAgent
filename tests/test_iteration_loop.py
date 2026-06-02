@@ -144,6 +144,13 @@ from orchestrator.config_change_candidate import (
     validate_config_change_candidate_file,
     write_config_change_candidate,
 )
+from orchestrator.operator_config_review import (
+    OPERATOR_CONFIG_REVIEW_SCHEMA_VERSION,
+    REQUIRED_APPROVAL_PHRASE as CONFIG_REVIEW_APPROVAL_PHRASE,
+    build_operator_config_review,
+    validate_operator_config_review_file,
+    write_operator_config_review,
+)
 from orchestrator.run_artifact_health import (
     HISTORY_SCHEMA_VERSION as RUN_ARTIFACT_HEALTH_HISTORY_SCHEMA_VERSION,
     SCHEMA_VERSION as RUN_ARTIFACT_HEALTH_SCHEMA_VERSION,
@@ -235,6 +242,7 @@ from orchestrator.experiments import (
     list_experiments,
     memory_hygiene_report,
     memory_scope_recommendation_report,
+    operator_config_review_report,
     promote_champion,
     show_experiment,
     show_champion,
@@ -1410,6 +1418,133 @@ def test_config_change_candidate_records_manual_config_edits(
     ) == ()
 
 
+def test_operator_config_review_records_intent_without_applying_config(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/operator-config-review"
+    run_dir.mkdir(parents=True)
+    memory_path = repo / "experiments/memory.jsonl"
+    config_before = (repo / "config/default.json").read_text(encoding="utf-8")
+    records = []
+    for index in range(120):
+        records.append(
+            {
+                "created_at": f"2026-01-{(index % 28) + 1:02d}T00:00:00Z",
+                "kind": "proposal_outcome",
+                "run_id": f"operator-review-memory-run-{index:03d}",
+                "round_id": "round_001",
+                "agent_name": "stub",
+                "direction_tag": "lower_min_edge",
+                "patch_sha256": "reviewpatch" * 7,
+                "accepted": False,
+                "applicable": True,
+                "validation_ev_delta": -0.01,
+            }
+        )
+    memory_path.write_text(
+        "\n".join(json.dumps(record, sort_keys=True) for record in records) + "\n",
+        encoding="utf-8",
+    )
+    write_memory_hygiene(
+        output_path=run_dir / "memory_hygiene.json",
+        markdown_path=run_dir / "memory_hygiene.md",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        failed_patch_threshold=2,
+        failed_direction_threshold=3,
+        exclude_run_id="operator-config-review",
+    )
+    write_memory_scope_recommendation(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    )
+    write_config_change_candidate(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    )
+
+    json_path, md_path, payload = write_operator_config_review(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    )
+    dynamic_payload = build_operator_config_review(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    )
+
+    assert payload["schema_version"] == OPERATOR_CONFIG_REVIEW_SCHEMA_VERSION
+    assert payload["status"] == "ready_for_operator_review"
+    assert payload["source"]["from_artifact"] is True
+    assert payload["source"]["file"]["path"].endswith("config_change_candidate.json")
+    assert payload["candidate_summary"]["candidate_count"] == 1
+    assert payload["operator_intent"]["review_recorded"] is False
+    assert payload["operator_intent"]["decision_requested"] == "none"
+    assert payload["review_gate"]["eligible_for_review"] is True
+    assert "operator_review_not_recorded" in payload["review_gate"]["review_blockers"]
+    assert payload["reviewed_changes"][0]["review_decision"] == "pending"
+    assert payload["reviewed_changes"][0]["applied"] is False
+    assert payload["reviewed_changes"][0]["requires_manual_config_edit"] is True
+    assert payload["policy"]["does_not_write_config"] is True
+    assert dynamic_payload["source"]["from_artifact"] is True
+    assert "# Operator Config Review" in md_path.read_text(encoding="utf-8")
+    assert_matches_schema_payload(payload, "operator_config_review")
+    assert validate_operator_config_review_file(
+        payload_path=json_path,
+        repo_root=repo,
+    ) == ()
+
+    _, _, blocked_approval = write_operator_config_review(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        operator_id="test-operator",
+        decision="approve",
+        confirmation_phrase="wrong phrase",
+    )
+    assert blocked_approval["status"] == "review_blocked"
+    assert blocked_approval["operator_intent"]["review_recorded"] is False
+    assert blocked_approval["operator_intent"]["confirmation_phrase_matches"] is False
+    assert blocked_approval["reviewed_changes"][0]["review_decision"] == "pending"
+
+    _, _, approval = write_operator_config_review(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        operator_id="test-operator",
+        decision="approve",
+        confirmation_phrase=CONFIG_REVIEW_APPROVAL_PHRASE,
+    )
+    assert approval["status"] == "review_recorded"
+    assert approval["operator_intent"]["review_recorded"] is True
+    assert approval["operator_intent"]["decision_requested"] == "approve"
+    assert approval["operator_intent"]["operator_id"] == "test-operator"
+    assert approval["operator_intent"]["confirmation_phrase_matches"] is True
+    assert approval["reviewed_changes"][0]["review_decision"] == "approved"
+    assert approval["reviewed_changes"][0]["applied"] is False
+    assert approval["reviewed_changes"][0]["requires_manual_config_edit"] is True
+    assert (repo / "config/default.json").read_text(encoding="utf-8") == config_before
+    assert_matches_schema_payload(approval, "operator_config_review")
+
+    _, _, rejection = write_operator_config_review(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        operator_id="test-operator",
+        decision="reject",
+    )
+    assert rejection["status"] == "review_recorded"
+    assert rejection["operator_intent"]["review_recorded"] is True
+    assert rejection["operator_intent"]["decision_requested"] == "reject"
+    assert rejection["reviewed_changes"][0]["review_decision"] == "rejected"
+    assert (repo / "config/default.json").read_text(encoding="utf-8") == config_before
+    assert_matches_schema_payload(rejection, "operator_config_review")
+
+
 def test_agent_contract_runner_writes_disabled_audit(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     round_dir = tmp_path / "round"
@@ -2336,6 +2471,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "memory_scope_recommendation.md").exists()
     assert (run_dir / "config_change_candidate.json").exists()
     assert (run_dir / "config_change_candidate.md").exists()
+    assert (run_dir / "operator_config_review.json").exists()
+    assert (run_dir / "operator_config_review.md").exists()
     assert (run_dir / "agent_result_stats.json").exists()
     assert (run_dir / "agent_activation_preflight.json").exists()
     assert (run_dir / "agent_activation_preflight.md").exists()
@@ -2435,6 +2572,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     config_change_markdown = (run_dir / "config_change_candidate.md").read_text(
         encoding="utf-8"
     )
+    operator_config_review = json.loads(
+        (run_dir / "operator_config_review.json").read_text(encoding="utf-8")
+    )
+    operator_config_review_markdown = (
+        run_dir / "operator_config_review.md"
+    ).read_text(encoding="utf-8")
     agent_stats = json.loads(
         (run_dir / "agent_result_stats.json").read_text(encoding="utf-8")
     )
@@ -2538,6 +2681,38 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         run_dir / "config_change_candidate.json",
         "config_change_candidate",
     )
+    assert manifest["operator_config_review"]["path"] == (
+        "operator_config_review.json"
+    )
+    assert manifest["operator_config_review"]["markdown_path"] == (
+        "operator_config_review.md"
+    )
+    assert operator_config_review["schema_version"] == (
+        OPERATOR_CONFIG_REVIEW_SCHEMA_VERSION
+    )
+    assert operator_config_review["source"]["file"]["path"].endswith(
+        "config_change_candidate.json"
+    )
+    assert operator_config_review["candidate_summary"]["candidate_count"] == len(
+        operator_config_review["reviewed_changes"]
+    )
+    assert operator_config_review["status"] == (
+        manifest["operator_config_review"]["status"]
+    )
+    assert operator_config_review["operator_intent"]["review_recorded"] == (
+        manifest["operator_config_review"]["review_recorded"]
+    )
+    assert operator_config_review["policy"]["does_not_write_config"] is True
+    assert operator_config_review["policy"]["does_not_change_acceptance"] is True
+    assert "# Operator Config Review" in operator_config_review_markdown
+    assert_matches_schema(
+        run_dir / "operator_config_review.json",
+        "operator_config_review",
+    )
+    assert validate_operator_config_review_file(
+        payload_path=run_dir / "operator_config_review.json",
+        repo_root=Path.cwd(),
+    ) == ()
     assert manifest["candidate_challenger_report"]["path"] == (
         "candidate_challenger_report.json"
     )
@@ -6830,6 +7005,37 @@ def test_artifact_validator_reports_config_candidate_policy_violation(
     assert report["ok"] is False
     assert any(
         "config_change_candidate.json policy false: does_not_write_config"
+        in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_operator_config_review_policy_violation(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="operator-config-policy-error",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/operator-config-policy-error/operator_config_review.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["policy"]["does_not_write_config"] = False
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="operator-config-policy-error",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "operator_config_review.json policy false: does_not_write_config"
         in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
@@ -12915,6 +13121,10 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         run_id="cli-candidates",
         experiments_dir=repo / "experiments",
     )
+    config_review = operator_config_review_report(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+    )
     result = subprocess.run(
         [
             sys.executable,
@@ -13007,6 +13217,21 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    config_review_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "operator-config-review",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     challenger_result = subprocess.run(
         [
             sys.executable,
@@ -13066,6 +13291,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert config_candidate["from_artifact"] is True
     assert config_candidate["schema_version"] == CONFIG_CHANGE_CANDIDATE_SCHEMA_VERSION
     assert config_candidate["policy"]["does_not_write_config"] is True
+    assert config_review["from_artifact"] is True
+    assert config_review["schema_version"] == OPERATOR_CONFIG_REVIEW_SCHEMA_VERSION
+    assert config_review["source"]["file"]["path"].endswith(
+        "config_change_candidate.json"
+    )
+    assert config_review["policy"]["does_not_write_config"] is True
     assert stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
     assert "avg_holdout_ev_delta" in stats["agents"][0]
     assert stats["round_replays"]["round_count"] == 1
@@ -13113,6 +13344,16 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert config_candidate_payload["sources"][0]["file"]["path"].endswith(
         "memory_scope_recommendation.json"
     )
+    assert config_review_result.returncode == 0, config_review_result.stderr
+    config_review_payload = json.loads(config_review_result.stdout)
+    assert config_review_payload["schema_version"] == (
+        OPERATOR_CONFIG_REVIEW_SCHEMA_VERSION
+    )
+    assert config_review_payload["from_artifact"] is True
+    assert config_review_payload["source"]["file"]["path"].endswith(
+        "config_change_candidate.json"
+    )
+    assert_matches_schema_payload(config_review_payload, "operator_config_review")
     assert challenger_result.returncode == 0, challenger_result.stderr
     challenger_payload = json.loads(challenger_result.stdout)
     assert challenger_payload["schema_version"] == CANDIDATE_CHALLENGER_SCHEMA_VERSION

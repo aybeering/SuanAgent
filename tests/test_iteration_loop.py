@@ -113,6 +113,12 @@ from orchestrator.codex_cli_execution_preflight import (
     CODEX_CLI_EXECUTION_PREFLIGHT_SCHEMA_VERSION,
     write_codex_cli_execution_preflight,
 )
+from orchestrator.codex_cli_unlock_runbook import (
+    CODEX_CLI_UNLOCK_RUNBOOK_SCHEMA_VERSION,
+    render_codex_cli_unlock_runbook_markdown,
+    validate_codex_cli_unlock_runbook_file,
+    write_codex_cli_unlock_runbook,
+)
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.agent_slot_readiness_gate import (
@@ -327,6 +333,7 @@ from orchestrator.experiments import (
     operator_action_execution_report,
     operator_action_plan_report,
     operator_cockpit_report,
+    codex_cli_unlock_runbook_report,
     operator_unlock_checklist_report,
     operator_run_review,
     promote_champion,
@@ -12963,6 +12970,67 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
     assert (run_dir / "codex_cli_execution_preflight.md").exists()
 
 
+def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_enable_candidate.json")
+
+    with pytest.raises(ValueError, match="Codex CLI execution preflight failed"):
+        run_iteration_loop(
+            run_id="codex-unlock-runbook-startup-block",
+            max_rounds=1,
+            repo_root=repo,
+            config=config,
+        )
+
+    run_dir = repo / "experiments/codex-unlock-runbook-startup-block"
+    json_path, md_path, runbook = write_codex_cli_unlock_runbook(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
+    markdown = md_path.read_text(encoding="utf-8")
+    report = codex_cli_unlock_runbook_report(
+        run_id="codex-unlock-runbook-startup-block",
+        experiments_dir=repo / "experiments",
+    )
+
+    assert json_path.exists()
+    assert md_path.exists()
+    assert runbook["schema_version"] == CODEX_CLI_UNLOCK_RUNBOOK_SCHEMA_VERSION
+    assert runbook["status"] == "needs_artifacts"
+    assert runbook["ready"] is False
+    assert runbook["summary"]["step_count"] == 5
+    assert runbook["summary"]["blocked_step_count"] == 1
+    assert runbook["summary"]["missing_step_count"] == 4
+    assert runbook["summary"]["next_step_id"] == "step_001_execution_preflight"
+    assert runbook["steps"][0]["artifact_id"] == "codex_cli_execution_preflight"
+    assert runbook["steps"][0]["status"] == "blocked"
+    assert any(
+        "operator_unlock_request_path_missing" in reason
+        for reason in runbook["steps"][0]["blocking_reasons"]
+    )
+    assert all(
+        command["executes_codex_cli"] is False
+        and command["requires_explicit_operator_invocation"] is True
+        for command in runbook["operator_commands"]
+    )
+    assert runbook["policy"]["does_not_execute_codex_cli"] is True
+    assert runbook["policy"]["does_not_create_workspace"] is True
+    assert "# Codex CLI Unlock Runbook" in markdown
+    assert "Run startup execution preflight" in markdown
+    assert report["from_artifact"] is True
+    assert report["schema_version"] == CODEX_CLI_UNLOCK_RUNBOOK_SCHEMA_VERSION
+    assert render_codex_cli_unlock_runbook_markdown(report).startswith(
+        "# Codex CLI Unlock Runbook"
+    )
+    assert_matches_schema(json_path, "codex_cli_unlock_runbook")
+    assert validate_codex_cli_unlock_runbook_file(
+        payload_path=json_path,
+        repo_root=repo,
+    ) == ()
+
+
 def test_iteration_loop_still_rejects_existing_run_dir_without_operator_request(
     tmp_path: Path,
 ) -> None:
@@ -14659,6 +14727,17 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     unlock_checklist_markdown = render_operator_unlock_checklist_markdown(
         unlock_checklist
     )
+    write_codex_cli_unlock_runbook(
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+    )
+    unlock_runbook = codex_cli_unlock_runbook_report(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+    )
+    unlock_runbook_markdown = render_codex_cli_unlock_runbook_markdown(
+        unlock_runbook
+    )
     write_operator_cockpit(
         run_dir=repo / "experiments/cli-candidates",
         experiments_dir=repo / "experiments",
@@ -14914,6 +14993,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "--experiments-dir",
             "experiments",
             "unlock-checklist",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    unlock_runbook_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "unlock-runbook",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    unlock_runbook_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "unlock-runbook",
             "cli-candidates",
             "--markdown",
         ],
@@ -15445,6 +15555,27 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         unlock_checklist_markdown_result.stderr
     )
     assert "# Operator Unlock Checklist" in unlock_checklist_markdown_result.stdout
+    assert unlock_runbook["schema_version"] == CODEX_CLI_UNLOCK_RUNBOOK_SCHEMA_VERSION
+    assert unlock_runbook["from_artifact"] is True
+    assert unlock_runbook["status"] == "needs_artifacts"
+    assert unlock_runbook["summary"]["step_count"] == 5
+    assert unlock_runbook["policy"]["does_not_execute_codex_cli"] is True
+    assert "# Codex CLI Unlock Runbook" in unlock_runbook_markdown
+    assert unlock_runbook_result.returncode == 0, unlock_runbook_result.stderr
+    unlock_runbook_payload = json.loads(unlock_runbook_result.stdout)
+    assert unlock_runbook_payload["schema_version"] == (
+        CODEX_CLI_UNLOCK_RUNBOOK_SCHEMA_VERSION
+    )
+    assert unlock_runbook_payload["from_artifact"] is True
+    assert unlock_runbook_payload["summary"]["step_count"] == 5
+    assert_matches_schema_payload(
+        unlock_runbook_payload,
+        "codex_cli_unlock_runbook",
+    )
+    assert unlock_runbook_markdown_result.returncode == 0, (
+        unlock_runbook_markdown_result.stderr
+    )
+    assert "# Codex CLI Unlock Runbook" in unlock_runbook_markdown_result.stdout
     assert cockpit_result.returncode == 0, cockpit_result.stderr
     cockpit_payload = json.loads(cockpit_result.stdout)
     assert cockpit_payload["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION

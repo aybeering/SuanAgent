@@ -57,8 +57,8 @@ read-only run closeout operator dashboard summaries, read-only operator action
 plans, read-only operator action approval receipts, guarded read-only operator
 action execution receipts, read-only operator action audit artifacts, read-only
 operator action dashboard artifacts, read-only operator unlock checklist
-artifacts, read-only operator cockpit artifacts, and Codex CLI readiness
-evidence.
+artifacts, read-only Codex CLI unlock runbook artifacts, read-only operator
+cockpit artifacts, and Codex CLI readiness evidence.
 
 Still out of scope:
 

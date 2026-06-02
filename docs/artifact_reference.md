@@ -65,6 +65,9 @@ python -m orchestrator.experiments action-dashboard <run_id> --markdown
 python -m orchestrator.operator_unlock_checklist experiments/<run_id>
 python -m orchestrator.experiments unlock-checklist <run_id>
 python -m orchestrator.experiments unlock-checklist <run_id> --markdown
+python -m orchestrator.codex_cli_unlock_runbook experiments/<run_id>
+python -m orchestrator.experiments unlock-runbook <run_id>
+python -m orchestrator.experiments unlock-runbook <run_id> --markdown
 python -m orchestrator.operator_cockpit experiments/<run_id>
 python -m orchestrator.experiments cockpit <run_id>
 python -m orchestrator.experiments cockpit <run_id> --markdown
@@ -174,6 +177,8 @@ experiments/<run_id>/
   operator_action_dashboard.md
   operator_unlock_checklist.json
   operator_unlock_checklist.md
+  codex_cli_unlock_runbook.json  # after optional unlock runbook command
+  codex_cli_unlock_runbook.md    # after optional unlock runbook command
   operator_cockpit.json
   operator_cockpit.md
 ```
@@ -257,6 +262,15 @@ blocking reason codes, related artifact paths, and command hints that still
 require explicit operator invocation. If real Codex execute=true startup
 preflight is blocked before any round starts, the failed run still writes this
 checklist and the run summary points at the primary blocker.
+`codex_cli_unlock_runbook.json` and `codex_cli_unlock_runbook.md` convert the
+same Codex CLI unlock chain into an ordered operator guide. `python -m
+orchestrator.codex_cli_unlock_runbook experiments/<run_id>` writes the
+artifacts, and `python -m orchestrator.experiments unlock-runbook <run_id>` or
+`unlock-runbook --markdown` shows the saved or derived guide. The runbook lists
+the required evidence artifacts, readiness fields, status, and command hints,
+but every command still requires explicit operator invocation. It cannot record
+approval, execute commands, execute Codex, create workspaces, route agents,
+apply patches, or change acceptance.
 `operator_cockpit.json` and `operator_cockpit.md` collect the run closeout,
 config lineage, operator action dashboard, Codex CLI execution preflight,
 standalone operator unlock checklist, candidate challenger report,

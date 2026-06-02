@@ -92,6 +92,21 @@ jobs:
           assert "Primary blocker: `primary:operator_unlock_request`" in summary
           PY
           python -m orchestrator.operator_unlock_checklist experiments/ci-codex-startup-block
+          python -m orchestrator.codex_cli_unlock_runbook experiments/ci-codex-startup-block
+          test -f experiments/ci-codex-startup-block/codex_cli_unlock_runbook.json
+          test -f experiments/ci-codex-startup-block/codex_cli_unlock_runbook.md
+          python - <<'PY'
+          import json
+
+          runbook = json.load(open("experiments/ci-codex-startup-block/codex_cli_unlock_runbook.json"))
+          markdown = open("experiments/ci-codex-startup-block/codex_cli_unlock_runbook.md").read()
+          assert runbook["schema_version"] == "codex_cli_unlock_runbook_v1"
+          assert runbook["status"] == "needs_artifacts"
+          assert runbook["summary"]["step_count"] == 5
+          assert runbook["summary"]["next_step_id"] == "step_001_execution_preflight"
+          assert all(command["executes_codex_cli"] is False for command in runbook["operator_commands"])
+          assert "# Codex CLI Unlock Runbook" in markdown
+          PY
           python - <<'PY'
           import json
           from pathlib import Path
@@ -836,6 +851,22 @@ jobs:
           assert checklist["authority"]["checklist_can_execute_codex"] is False
           assert "## Blocking Navigation" in markdown
           assert "# Operator Unlock Checklist" in markdown
+          PY
+          python -m orchestrator.codex_cli_unlock_runbook experiments/ci-adaptive
+          test -f experiments/ci-adaptive/codex_cli_unlock_runbook.json
+          test -f experiments/ci-adaptive/codex_cli_unlock_runbook.md
+          python -m orchestrator.experiments unlock-runbook ci-adaptive > /tmp/codex_cli_unlock_runbook.json
+          python -m orchestrator.experiments unlock-runbook ci-adaptive --markdown > /tmp/codex_cli_unlock_runbook.md
+          python - <<'PY'
+          import json
+          runbook = json.load(open("/tmp/codex_cli_unlock_runbook.json"))
+          markdown = open("/tmp/codex_cli_unlock_runbook.md").read()
+          assert runbook["schema_version"] == "codex_cli_unlock_runbook_v1"
+          assert runbook["from_artifact"] is True
+          assert runbook["summary"]["step_count"] == 5
+          assert runbook["policy"]["does_not_execute_codex_cli"] is True
+          assert all(command["requires_explicit_operator_invocation"] is True for command in runbook["operator_commands"])
+          assert "# Codex CLI Unlock Runbook" in markdown
           PY
           python -m orchestrator.operator_cockpit experiments/ci-adaptive
           test -f experiments/ci-adaptive/operator_cockpit.json

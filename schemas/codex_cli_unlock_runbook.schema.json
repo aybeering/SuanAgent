@@ -1,0 +1,397 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Codex CLI Unlock Runbook",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "status",
+    "ready",
+    "summary",
+    "source_checklist",
+    "steps",
+    "operator_commands",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "codex_cli_unlock_runbook_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "needs_artifacts",
+        "blocked",
+        "ready_for_operator_review",
+        "not_requested"
+      ]
+    },
+    "ready": {
+      "type": "boolean"
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "step_count",
+        "ready_step_count",
+        "missing_step_count",
+        "blocked_step_count",
+        "operator_command_count",
+        "checklist_status",
+        "checklist_ready",
+        "checklist_failed_count",
+        "next_step_id",
+        "ready_steps",
+        "missing_steps",
+        "blocked_steps"
+      ],
+      "properties": {
+        "step_count": {
+          "type": "integer"
+        },
+        "ready_step_count": {
+          "type": "integer"
+        },
+        "missing_step_count": {
+          "type": "integer"
+        },
+        "blocked_step_count": {
+          "type": "integer"
+        },
+        "operator_command_count": {
+          "type": "integer"
+        },
+        "checklist_status": {
+          "type": "string"
+        },
+        "checklist_ready": {
+          "type": "boolean"
+        },
+        "checklist_failed_count": {
+          "type": "integer"
+        },
+        "next_step_id": {
+          "type": "string"
+        },
+        "ready_steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missing_steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blocked_steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "source_checklist": {
+      "type": "object",
+      "required": [
+        "artifact_name",
+        "from_artifact",
+        "file",
+        "status",
+        "ready",
+        "failed_count",
+        "markdown_preview"
+      ],
+      "properties": {
+        "artifact_name": {
+          "type": "string"
+        },
+        "from_artifact": {
+          "type": "boolean"
+        },
+        "file": {
+          "$ref": "#/$defs/file_record"
+        },
+        "status": {
+          "type": "string"
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "failed_count": {
+          "type": "integer"
+        },
+        "markdown_preview": {
+          "type": "string"
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "operator_commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/command"
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "runbook_only",
+        "does_not_execute_commands",
+        "does_not_execute_codex_cli",
+        "does_not_record_operator_approval",
+        "does_not_create_workspace",
+        "does_not_send_strategy_prompt",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+        "commands_require_explicit_operator_invocation"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_saved_artifacts_only": {
+          "type": "boolean"
+        },
+        "runbook_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_commands": {
+          "type": "boolean"
+        },
+        "does_not_execute_codex_cli": {
+          "type": "boolean"
+        },
+        "does_not_record_operator_approval": {
+          "type": "boolean"
+        },
+        "does_not_create_workspace": {
+          "type": "boolean"
+        },
+        "does_not_send_strategy_prompt": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_route_agents": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "commands_require_explicit_operator_invocation": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "step": {
+      "type": "object",
+      "required": [
+        "step_id",
+        "artifact_id",
+        "label",
+        "purpose",
+        "status",
+        "ready",
+        "required",
+        "ready_field",
+        "artifact",
+        "blocking_reasons",
+        "command",
+        "authority"
+      ],
+      "properties": {
+        "step_id": {
+          "type": "string"
+        },
+        "artifact_id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "missing",
+            "blocked",
+            "ready"
+          ]
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "ready_field": {
+          "type": "string"
+        },
+        "artifact": {
+          "$ref": "#/$defs/artifact"
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "command": {
+          "$ref": "#/$defs/command"
+        },
+        "authority": {
+          "type": "object",
+          "required": [
+            "step_can_execute_command",
+            "step_can_execute_codex_cli",
+            "step_can_create_workspace",
+            "step_can_apply_patches",
+            "step_can_change_acceptance"
+          ],
+          "properties": {
+            "step_can_execute_command": {
+              "type": "boolean"
+            },
+            "step_can_execute_codex_cli": {
+              "type": "boolean"
+            },
+            "step_can_create_workspace": {
+              "type": "boolean"
+            },
+            "step_can_apply_patches": {
+              "type": "boolean"
+            },
+            "step_can_change_acceptance": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": [
+        "artifact_id",
+        "label",
+        "purpose",
+        "required_for_real_codex_unlock",
+        "json_path",
+        "json_file",
+        "markdown_path",
+        "markdown_file",
+        "write_command_label",
+        "write_command"
+      ],
+      "properties": {
+        "artifact_id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "required_for_real_codex_unlock": {
+          "type": "boolean"
+        },
+        "json_path": {
+          "type": "string"
+        },
+        "json_file": {
+          "$ref": "#/$defs/file_record"
+        },
+        "markdown_path": {
+          "type": "string"
+        },
+        "markdown_file": {
+          "$ref": "#/$defs/file_record"
+        },
+        "write_command_label": {
+          "type": "string"
+        },
+        "write_command": {
+          "type": "string"
+        }
+      }
+    },
+    "command": {
+      "type": "object",
+      "required": [
+        "label",
+        "command",
+        "writes_artifacts",
+        "executes_codex_cli",
+        "requires_explicit_operator_invocation"
+      ],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "writes_artifacts": {
+          "type": "boolean"
+        },
+        "executes_codex_cli": {
+          "type": "boolean"
+        },
+        "requires_explicit_operator_invocation": {
+          "type": "boolean"
+        }
+      }
+    },
+    "file_record": {
+      "type": "object",
+      "required": [
+        "path",
+        "exists",
+        "sha256",
+        "byte_count"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "byte_count": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

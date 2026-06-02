@@ -212,6 +212,12 @@ workspaces, route candidates, apply patches, or change acceptance.
 When a real Codex execute=true startup preflight fails before round execution,
 the iteration loop still writes this checklist and records the blocker count,
 primary blocker, and command-hint count in `manifest.json` and `summary.md`.
+`codex_cli_unlock_runbook.json` and `codex_cli_unlock_runbook.md` are the
+ordered operator guide for that same unlock chain. They read the checklist and
+expected evidence artifacts, report each step as missing, blocked, or ready,
+and show command hints without executing those commands. The runbook is
+read-only: it cannot record operator approval, execute Codex, create
+workspaces, apply patches, route agents, or change acceptance.
 `operator_cockpit.json` and `operator_cockpit.md` are the broader operator
 entrypoint. They collect the run closeout, config lineage, operator action
 dashboard, Codex CLI execution preflight, standalone operator unlock checklist,

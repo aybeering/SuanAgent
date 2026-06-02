@@ -64,6 +64,7 @@ python -m orchestrator.experiments action-execution <run_id> --markdown
 python -m orchestrator.experiments action-audit <run_id> --markdown
 python -m orchestrator.experiments action-dashboard <run_id> --markdown
 python -m orchestrator.experiments unlock-checklist <run_id> --markdown
+python -m orchestrator.experiments unlock-runbook <run_id> --markdown
 python -m orchestrator.experiments cockpit <run_id> --markdown
 ```
 
@@ -74,7 +75,10 @@ and cockpit include Codex CLI startup preflight evidence as read-only views so
 evidence gaps are visible without executing Codex. The checklist also includes
 blocking navigation with related artifact paths and explicit command hints for
 the operator to run manually. If a real Codex execute=true startup preflight is
-blocked, the failed run still writes the checklist and summary navigation.
+blocked, the failed run still writes the checklist and summary navigation. The
+Codex CLI unlock runbook turns the same evidence chain into an ordered
+read-only operator guide; it lists the required artifacts and command hints but
+does not execute commands or unlock Codex.
 
 More commands and artifact details live in `docs/artifact_reference.md`.
 

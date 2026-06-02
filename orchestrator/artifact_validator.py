@@ -356,6 +356,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_codex_cli_unlock_runbook(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     report["ok"] = not report["errors"]
     return report
 
@@ -7651,6 +7656,184 @@ def validate_optional_codex_cli_operator_unlock_request(
     markdown_path = run_dir / "codex_cli_operator_unlock_request.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
+
+
+def validate_optional_codex_cli_unlock_runbook(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate codex_cli_unlock_runbook.json when a run has one."""
+    path = run_dir / "codex_cli_unlock_runbook.json"
+    if not path.exists():
+        return
+    md_path = run_dir / "codex_cli_unlock_runbook.md"
+    checked_files(report).append(str(path))
+    if not md_path.exists():
+        add_error(report, f"missing Codex CLI unlock runbook markdown: {md_path}")
+    else:
+        checked_files(report).append(str(md_path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/codex_cli_unlock_runbook.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(report, "codex_cli_unlock_runbook.json run_id mismatch")
+    if not artifact_path_matches_run_dir(
+        path_text=str(payload.get("run_dir", "")),
+        run_dir=run_dir,
+        repo_root=repo_root,
+    ):
+        add_error(report, "codex_cli_unlock_runbook.json run_dir mismatch")
+    steps = payload.get("steps", [])
+    if not isinstance(steps, list) or len(steps) != 5:
+        add_error(report, "codex_cli_unlock_runbook.json steps invalid")
+        steps = []
+    expected_artifact_ids = [
+        "codex_cli_execution_preflight",
+        "codex_cli_readiness_pipeline",
+        "codex_cli_execution_candidate",
+        "codex_cli_real_execution_dry_run",
+        "codex_cli_operator_unlock_request",
+    ]
+    observed_artifact_ids = [
+        str(step.get("artifact_id", "")) for step in steps if isinstance(step, dict)
+    ]
+    if observed_artifact_ids != expected_artifact_ids:
+        add_error(report, "codex_cli_unlock_runbook.json step order invalid")
+    ready_count = 0
+    missing_count = 0
+    blocked_count = 0
+    for step in steps:
+        if not isinstance(step, dict):
+            add_error(report, "codex_cli_unlock_runbook.json step row invalid")
+            continue
+        status = str(step.get("status", ""))
+        ready = bool(step.get("ready", False))
+        if status == "ready":
+            ready_count += 1
+            if not ready:
+                add_error(report, "codex_cli_unlock_runbook.json ready step false")
+        elif status == "missing":
+            missing_count += 1
+        elif status == "blocked":
+            blocked_count += 1
+        else:
+            add_error(report, f"codex_cli_unlock_runbook.json step status invalid: {status}")
+        artifact = step.get("artifact", {})
+        if not isinstance(artifact, dict):
+            add_error(report, "codex_cli_unlock_runbook.json step artifact invalid")
+        else:
+            json_file = artifact.get("json_file", {})
+            if isinstance(json_file, dict) and json_file.get("exists") is True:
+                validate_recorded_file_hash(
+                    record=json_file,
+                    repo_root=repo_root,
+                    report=report,
+                    label=(
+                        "codex_cli_unlock_runbook "
+                        f"{step.get('artifact_id', '')}"
+                    ),
+                )
+        command = step.get("command", {})
+        if not isinstance(command, dict):
+            add_error(report, "codex_cli_unlock_runbook.json command invalid")
+        else:
+            if bool(command.get("executes_codex_cli", True)):
+                add_error(report, "codex_cli_unlock_runbook.json command executes Codex")
+            if not bool(command.get("requires_explicit_operator_invocation", False)):
+                add_error(
+                    report,
+                    "codex_cli_unlock_runbook.json command lacks explicit operator gate",
+                )
+        authority = step.get("authority", {})
+        if not isinstance(authority, dict):
+            add_error(report, "codex_cli_unlock_runbook.json authority invalid")
+        else:
+            for key in (
+                "step_can_execute_command",
+                "step_can_execute_codex_cli",
+                "step_can_create_workspace",
+                "step_can_apply_patches",
+                "step_can_change_acceptance",
+            ):
+                if bool(authority.get(key, True)):
+                    add_error(
+                        report,
+                        f"codex_cli_unlock_runbook.json authority true: {key}",
+                    )
+    summary = payload.get("summary", {})
+    if not isinstance(summary, dict):
+        add_error(report, "codex_cli_unlock_runbook.json summary invalid")
+    else:
+        if int(summary.get("step_count", -1)) != len(steps):
+            add_error(report, "codex_cli_unlock_runbook.json step count mismatch")
+        if int(summary.get("ready_step_count", -1)) != ready_count:
+            add_error(report, "codex_cli_unlock_runbook.json ready count mismatch")
+        if int(summary.get("missing_step_count", -1)) != missing_count:
+            add_error(report, "codex_cli_unlock_runbook.json missing count mismatch")
+        if int(summary.get("blocked_step_count", -1)) != blocked_count:
+            add_error(report, "codex_cli_unlock_runbook.json blocked count mismatch")
+    source = payload.get("source_checklist", {})
+    if not isinstance(source, dict):
+        add_error(report, "codex_cli_unlock_runbook.json source checklist invalid")
+    else:
+        source_file = source.get("file", {})
+        if isinstance(source_file, dict) and source_file.get("exists") is True:
+            validate_recorded_file_hash(
+                record=source_file,
+                repo_root=repo_root,
+                report=report,
+                label="codex_cli_unlock_runbook source_checklist",
+            )
+    commands = payload.get("operator_commands", [])
+    if not isinstance(commands, list):
+        add_error(report, "codex_cli_unlock_runbook.json commands invalid")
+    else:
+        if len(commands) != len(steps):
+            add_error(report, "codex_cli_unlock_runbook.json command count mismatch")
+        for command in commands:
+            if not isinstance(command, dict):
+                add_error(report, "codex_cli_unlock_runbook.json command row invalid")
+                continue
+            if bool(command.get("executes_codex_cli", True)):
+                add_error(
+                    report,
+                    "codex_cli_unlock_runbook.json operator command executes Codex",
+                )
+            if not bool(command.get("requires_explicit_operator_invocation", False)):
+                add_error(
+                    report,
+                    "codex_cli_unlock_runbook.json operator command lacks explicit gate",
+                )
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "codex_cli_unlock_runbook.json policy invalid")
+    else:
+        for key in (
+            "inspection_only",
+            "reads_saved_artifacts_only",
+            "runbook_only",
+            "does_not_execute_commands",
+            "does_not_execute_codex_cli",
+            "does_not_record_operator_approval",
+            "does_not_create_workspace",
+            "does_not_send_strategy_prompt",
+            "does_not_apply_patches",
+            "does_not_route_agents",
+            "does_not_change_acceptance",
+            "commands_require_explicit_operator_invocation",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_unlock_runbook.json policy false: {key}",
+                )
 
 
 def snapshot_digest_from_payload(payload: dict[str, object]) -> str:

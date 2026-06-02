@@ -139,6 +139,18 @@ Run the read-only readiness pipeline:
 python -m orchestrator.codex_cli_readiness_pipeline experiments/guarded-demo --config config/codex_cli_enable_candidate.json --canary-run-dir experiments/canary-demo --approved --approved-by local-review --confirmation-phrase "I approve this Codex CLI candidate for manual enablement"
 ```
 
+Generate the read-only unlock runbook:
+
+```bash
+python -m orchestrator.codex_cli_unlock_runbook experiments/guarded-demo
+python -m orchestrator.experiments unlock-runbook guarded-demo --markdown
+```
+
+The runbook orders the required readiness, candidate, dry-run, and operator
+request artifacts into a manual review guide. It only reads saved artifacts and
+prints command hints; it does not execute Codex, record approval, create
+workspaces, apply patches, or change acceptance.
+
 Record operator review intent:
 
 ```bash

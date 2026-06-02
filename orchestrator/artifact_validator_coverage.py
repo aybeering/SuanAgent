@@ -75,6 +75,10 @@ KNOWN_ARTIFACT_NAMES = {
         "operator_unlock_checklist.json",
         "operator_unlock_checklist.md",
     ),
+    "codex_cli_unlock_runbook": (
+        "codex_cli_unlock_runbook.json",
+        "codex_cli_unlock_runbook.md",
+    ),
     "operator_cockpit": (
         "operator_cockpit.json",
         "operator_cockpit.md",
@@ -270,6 +274,10 @@ INSPECTION_COMMANDS = {
     ),
     "codex_cli_operator_unlock_request": (
         "python -m orchestrator.codex_cli_operator_unlock_request",
+    ),
+    "codex_cli_unlock_runbook": (
+        "python -m orchestrator.codex_cli_unlock_runbook",
+        "python -m orchestrator.experiments unlock-runbook",
     ),
     "codex_cli_execution_preflight": (
         "python -m orchestrator.codex_cli_execution_preflight",

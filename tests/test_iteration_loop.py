@@ -296,6 +296,13 @@ from orchestrator.operator_cockpit import (
     validate_operator_cockpit_file,
     write_operator_cockpit,
 )
+from orchestrator.operator_unlock_checklist import (
+    OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION,
+    build_operator_unlock_checklist,
+    render_operator_unlock_checklist_markdown,
+    validate_operator_unlock_checklist_file,
+    write_operator_unlock_checklist,
+)
 from orchestrator.run_diagnosis import diagnose_run
 from orchestrator.proposal_intent import build_proposal_intent
 from orchestrator.preflight import run_preflight
@@ -320,6 +327,7 @@ from orchestrator.experiments import (
     operator_action_execution_report,
     operator_action_plan_report,
     operator_cockpit_report,
+    operator_unlock_checklist_report,
     operator_run_review,
     promote_champion,
     render_operator_run_review_markdown,
@@ -383,6 +391,10 @@ def refresh_operator_views(repo: Path, run_id: str) -> None:
     write_operator_action_dashboard(
         run_dir=run_dir,
         experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    write_operator_unlock_checklist(
+        run_dir=run_dir,
         repo_root=repo,
     )
     write_operator_cockpit(
@@ -2157,6 +2169,10 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
+    write_operator_unlock_checklist(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
     write_operator_cockpit(
         run_dir=run_dir,
         experiments_dir=repo / "experiments",
@@ -2185,11 +2201,21 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
         experiments_dir=repo / "experiments",
         repo_root=repo,
     )
+    write_operator_unlock_checklist(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
 
     json_path, md_path, cockpit = write_operator_cockpit(
         run_dir=run_dir,
         experiments_dir=repo / "experiments",
         repo_root=repo,
+    )
+    unlock_checklist = json.loads(
+        (run_dir / "operator_unlock_checklist.json").read_text(encoding="utf-8")
+    )
+    unlock_markdown = (run_dir / "operator_unlock_checklist.md").read_text(
+        encoding="utf-8"
     )
     markdown = render_operator_cockpit_markdown(cockpit)
     built = build_operator_cockpit(
@@ -2211,6 +2237,27 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["source_artifacts"]["codex_cli_execution_preflight"]["file"][
         "exists"
     ] is True
+    assert cockpit["source_artifacts"]["operator_unlock_checklist"]["file"][
+        "path"
+    ].endswith("operator_unlock_checklist.json")
+    assert cockpit["source_artifacts"]["operator_unlock_checklist"]["file"][
+        "exists"
+    ] is True
+    assert unlock_checklist["schema_version"] == (
+        OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION
+    )
+    assert unlock_checklist["status"] == "not_requested"
+    assert unlock_checklist["ready"] is False
+    assert unlock_checklist["item_count"] == 0
+    assert unlock_checklist["policy"]["does_not_execute_codex_cli"] is True
+    assert "# Operator Unlock Checklist" in unlock_markdown
+    assert render_operator_unlock_checklist_markdown(unlock_checklist).startswith(
+        "# Operator Unlock Checklist"
+    )
+    assert build_operator_unlock_checklist(
+        run_dir=run_dir,
+        repo_root=repo,
+    )["schema_version"] == OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION
     assert cockpit["summary"]["codex_preflight_status"] == (
         "no_real_execution_profiles"
     )
@@ -2238,6 +2285,11 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert "# Operator Cockpit" in markdown
     assert "# Operator Cockpit" in md_path.read_text(encoding="utf-8")
     assert built["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION
+    assert_matches_schema_payload(unlock_checklist, "operator_unlock_checklist")
+    assert validate_operator_unlock_checklist_file(
+        payload_path=run_dir / "operator_unlock_checklist.json",
+        repo_root=repo,
+    ) == ()
     assert_matches_schema_payload(cockpit, "operator_cockpit")
     assert validate_operator_cockpit_file(
         payload_path=json_path,
@@ -3493,6 +3545,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "operator_action_plan.md").exists()
     assert (run_dir / "operator_action_dashboard.json").exists()
     assert (run_dir / "operator_action_dashboard.md").exists()
+    assert (run_dir / "operator_unlock_checklist.json").exists()
+    assert (run_dir / "operator_unlock_checklist.md").exists()
     assert (run_dir / "operator_cockpit.json").exists()
     assert (run_dir / "operator_cockpit.md").exists()
     assert (repo / "experiments/run_artifact_health_history.jsonl").exists()
@@ -3636,6 +3690,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     action_dashboard_markdown = (
         run_dir / "operator_action_dashboard.md"
     ).read_text(encoding="utf-8")
+    unlock_checklist = json.loads(
+        (run_dir / "operator_unlock_checklist.json").read_text(encoding="utf-8")
+    )
+    unlock_checklist_markdown = (run_dir / "operator_unlock_checklist.md").read_text(
+        encoding="utf-8"
+    )
     cockpit = json.loads((run_dir / "operator_cockpit.json").read_text("utf-8"))
     cockpit_markdown = (run_dir / "operator_cockpit.md").read_text(encoding="utf-8")
     summary_markdown = (run_dir / "summary.md").read_text(encoding="utf-8")
@@ -4021,6 +4081,35 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         payload_path=run_dir / "operator_action_dashboard.json",
         repo_root=Path.cwd(),
     ) == ()
+    assert manifest["operator_unlock_checklist"]["path"] == (
+        "operator_unlock_checklist.json"
+    )
+    assert manifest["operator_unlock_checklist"]["markdown_path"] == (
+        "operator_unlock_checklist.md"
+    )
+    assert manifest["operator_unlock_checklist"]["status"] == "not_requested"
+    assert manifest["operator_unlock_checklist"]["ready"] is False
+    assert manifest["operator_unlock_checklist"]["failed_count"] == 0
+    assert unlock_checklist["schema_version"] == (
+        OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION
+    )
+    assert unlock_checklist["status"] == "not_requested"
+    assert unlock_checklist["ready"] is False
+    assert unlock_checklist["item_count"] == 0
+    assert unlock_checklist["source_artifacts"]["codex_cli_execution_preflight"][
+        "file"
+    ]["path"].endswith("codex_cli_execution_preflight.json")
+    assert unlock_checklist["policy"]["does_not_execute_codex_cli"] is True
+    assert unlock_checklist["policy"]["does_not_change_acceptance"] is True
+    assert "# Operator Unlock Checklist" in unlock_checklist_markdown
+    assert_matches_schema(
+        run_dir / "operator_unlock_checklist.json",
+        "operator_unlock_checklist",
+    )
+    assert validate_operator_unlock_checklist_file(
+        payload_path=run_dir / "operator_unlock_checklist.json",
+        repo_root=Path.cwd(),
+    ) == ()
     assert manifest["operator_cockpit"]["path"] == "operator_cockpit.json"
     assert manifest["operator_cockpit"]["markdown_path"] == "operator_cockpit.md"
     assert manifest["operator_cockpit"]["ok"] is True
@@ -4036,6 +4125,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert cockpit["source_artifacts"]["codex_cli_execution_preflight"]["file"][
         "path"
     ].endswith("codex_cli_execution_preflight.json")
+    assert cockpit["source_artifacts"]["operator_unlock_checklist"]["file"][
+        "path"
+    ].endswith("operator_unlock_checklist.json")
+    assert cockpit["source_artifacts"]["operator_unlock_checklist"]["file"][
+        "sha256"
+    ]
     assert cockpit["summary"]["run_status"] == manifest["status"]
     assert cockpit["summary"]["codex_preflight_status"] == (
         "no_real_execution_profiles"
@@ -4047,6 +4142,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert cockpit["policy"]["does_not_execute_commands"] is True
     assert cockpit["policy"]["does_not_change_acceptance"] is True
     assert "# Operator Cockpit" in cockpit_markdown
+    assert "## Operator Unlock Checklist" in summary_markdown
     assert "Codex unlock" in summary_markdown
     assert_matches_schema(run_dir / "operator_cockpit.json", "operator_cockpit")
     assert validate_operator_cockpit_file(
@@ -14479,6 +14575,17 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     action_dashboard_markdown = render_operator_action_dashboard_markdown(
         action_dashboard
     )
+    write_operator_unlock_checklist(
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+    )
+    unlock_checklist = operator_unlock_checklist_report(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+    )
+    unlock_checklist_markdown = render_operator_unlock_checklist_markdown(
+        unlock_checklist
+    )
     write_operator_cockpit(
         run_dir=repo / "experiments/cli-candidates",
         experiments_dir=repo / "experiments",
@@ -14703,6 +14810,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "--experiments-dir",
             "experiments",
             "action-dashboard",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    unlock_checklist_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "unlock-checklist",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    unlock_checklist_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "unlock-checklist",
             "cli-candidates",
             "--markdown",
         ],
@@ -15090,6 +15228,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert action_dashboard["policy"]["does_not_record_approval"] is True
     assert action_dashboard["authority"]["dashboard_can_execute_commands"] is False
     assert "# Operator Action Dashboard" in action_dashboard_markdown
+    assert unlock_checklist["from_artifact"] is True
+    assert unlock_checklist["schema_version"] == OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION
+    assert unlock_checklist["status"] == "not_requested"
+    assert unlock_checklist["ready"] is False
+    assert unlock_checklist["item_count"] == 0
+    assert unlock_checklist["policy"]["does_not_execute_codex_cli"] is True
+    assert "# Operator Unlock Checklist" in unlock_checklist_markdown
     assert cockpit["from_artifact"] is True
     assert cockpit["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION
     assert cockpit["summary"]["action_status"] == "execution_completed"
@@ -15208,6 +15353,22 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         action_dashboard_markdown_result.stderr
     )
     assert "# Operator Action Dashboard" in action_dashboard_markdown_result.stdout
+    assert unlock_checklist_result.returncode == 0, unlock_checklist_result.stderr
+    unlock_checklist_payload = json.loads(unlock_checklist_result.stdout)
+    assert unlock_checklist_payload["schema_version"] == (
+        OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION
+    )
+    assert unlock_checklist_payload["from_artifact"] is True
+    assert unlock_checklist_payload["status"] == "not_requested"
+    assert unlock_checklist_payload["policy"]["does_not_execute_codex_cli"] is True
+    assert_matches_schema_payload(
+        unlock_checklist_payload,
+        "operator_unlock_checklist",
+    )
+    assert unlock_checklist_markdown_result.returncode == 0, (
+        unlock_checklist_markdown_result.stderr
+    )
+    assert "# Operator Unlock Checklist" in unlock_checklist_markdown_result.stdout
     assert cockpit_result.returncode == 0, cockpit_result.stderr
     cockpit_payload = json.loads(cockpit_result.stdout)
     assert cockpit_payload["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION

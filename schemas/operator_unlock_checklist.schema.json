@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Operator Unlock Checklist",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "status",
+    "ready",
+    "item_count",
+    "passed_count",
+    "failed_count",
+    "next_step",
+    "source_artifacts",
+    "items",
+    "authority",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "operator_unlock_checklist_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "missing_preflight",
+        "not_requested",
+        "canary_exempt",
+        "blocked",
+        "ready"
+      ]
+    },
+    "ready": {
+      "type": "boolean"
+    },
+    "item_count": {
+      "type": "integer"
+    },
+    "passed_count": {
+      "type": "integer"
+    },
+    "failed_count": {
+      "type": "integer"
+    },
+    "next_step": {
+      "type": "string"
+    },
+    "source_artifacts": {
+      "type": "object",
+      "required": [
+        "codex_cli_execution_preflight"
+      ],
+      "properties": {
+        "codex_cli_execution_preflight": {
+          "$ref": "#/$defs/source_artifact"
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/checklist_item"
+      }
+    },
+    "authority": {
+      "type": "object",
+      "required": [
+        "checklist_can_unlock_codex",
+        "checklist_can_execute_codex",
+        "checklist_can_create_workspace",
+        "checklist_can_apply_patches",
+        "checklist_can_change_acceptance"
+      ],
+      "properties": {
+        "checklist_can_unlock_codex": {
+          "type": "boolean"
+        },
+        "checklist_can_execute_codex": {
+          "type": "boolean"
+        },
+        "checklist_can_create_workspace": {
+          "type": "boolean"
+        },
+        "checklist_can_apply_patches": {
+          "type": "boolean"
+        },
+        "checklist_can_change_acceptance": {
+          "type": "boolean"
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_record_unlock_approval",
+        "does_not_execute_codex_cli",
+        "does_not_execute_agents",
+        "does_not_create_workspace",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_saved_artifacts_only": {
+          "type": "boolean"
+        },
+        "does_not_record_unlock_approval": {
+          "type": "boolean"
+        },
+        "does_not_execute_codex_cli": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_create_workspace": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_route_agents": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "source_artifact": {
+      "type": "object",
+      "required": [
+        "artifact_name",
+        "file",
+        "schema_errors"
+      ],
+      "properties": {
+        "artifact_name": {
+          "type": "string"
+        },
+        "file": {
+          "$ref": "#/$defs/file_record"
+        },
+        "schema_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "file_record": {
+      "type": "object",
+      "required": [
+        "path",
+        "exists",
+        "sha256",
+        "byte_count"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "byte_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "checklist_item": {
+      "type": "object",
+      "required": [
+        "check_id",
+        "profile_name",
+        "label",
+        "status",
+        "required",
+        "passed_check_count",
+        "total_check_count",
+        "failed_checks",
+        "evidence",
+        "next_step"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string"
+        },
+        "profile_name": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "passed",
+            "failed"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "passed_check_count": {
+          "type": "integer"
+        },
+        "total_check_count": {
+          "type": "integer"
+        },
+        "failed_checks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "next_step": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

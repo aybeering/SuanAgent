@@ -261,6 +261,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_operator_unlock_checklist(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_optional_operator_cockpit(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -4288,6 +4293,81 @@ def validate_optional_operator_action_dashboard(
             add_error(report, f"operator_action_dashboard.json policy false: {key}")
 
 
+def validate_optional_operator_unlock_checklist(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate operator_unlock_checklist.json/md when present."""
+    path = run_dir / "operator_unlock_checklist.json"
+    md_path = run_dir / "operator_unlock_checklist.md"
+    if not path.exists() and not md_path.exists():
+        return
+    if not path.exists():
+        add_error(report, f"missing operator unlock checklist JSON: {path}")
+        return
+    if not md_path.exists():
+        add_error(report, f"missing operator unlock checklist markdown: {md_path}")
+    checked_files(report).append(str(path))
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/operator_unlock_checklist.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(report, "operator_unlock_checklist.json run_id mismatch")
+
+    sources = payload.get("source_artifacts", {})
+    if not isinstance(sources, dict):
+        add_error(report, "operator_unlock_checklist source_artifacts invalid")
+        sources = {}
+    source = sources.get("codex_cli_execution_preflight", {})
+    if not isinstance(source, dict):
+        add_error(report, "operator_unlock_checklist preflight source invalid")
+    else:
+        source_file = source.get("file", {})
+        if not isinstance(source_file, dict):
+            add_error(report, "operator_unlock_checklist preflight file invalid")
+        elif source_file.get("exists") is True:
+            validate_recorded_file_hash(
+                record=source_file,
+                repo_root=repo_root,
+                report=report,
+                label="operator_unlock_checklist codex_cli_execution_preflight",
+            )
+            source_path = resolve_path(Path(str(source_file.get("path", ""))), repo_root)
+            if source_path.name != "codex_cli_execution_preflight.json":
+                add_error(report, "operator_unlock_checklist source path invalid")
+
+    validate_operator_cockpit_unlock_checklist(
+        payload={"codex_unlock_checklist": payload},
+        report=report,
+    )
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "operator_unlock_checklist policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_record_unlock_approval",
+        "does_not_execute_codex_cli",
+        "does_not_execute_agents",
+        "does_not_create_workspace",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"operator_unlock_checklist policy false: {key}")
+
+
 def validate_optional_operator_cockpit(
     *,
     run_dir: Path,
@@ -4327,6 +4407,7 @@ def validate_optional_operator_cockpit(
         ("config_lineage", "config_lineage.json"),
         ("operator_action_dashboard", "operator_action_dashboard.json"),
         ("codex_cli_execution_preflight", "codex_cli_execution_preflight.json"),
+        ("operator_unlock_checklist", "operator_unlock_checklist.json"),
         ("candidate_challenger_report", "candidate_challenger_report.json"),
         ("champion_promotion_dry_run", "champion_promotion_dry_run.json"),
         ("champion_promotion_approval", "champion_promotion_approval.json"),

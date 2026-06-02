@@ -63,14 +63,15 @@ python -m orchestrator.experiments action-approval <run_id> --markdown
 python -m orchestrator.experiments action-execution <run_id> --markdown
 python -m orchestrator.experiments action-audit <run_id> --markdown
 python -m orchestrator.experiments action-dashboard <run_id> --markdown
+python -m orchestrator.experiments unlock-checklist <run_id> --markdown
 python -m orchestrator.experiments cockpit <run_id> --markdown
 ```
 
 `iteration_loop` writes the final action dashboard and cockpit during closeout;
 the inspection commands can also refresh or render those read-only views after
-later operator artifacts are written. The cockpit includes the Codex CLI
-startup preflight as a read-only panel and grouped unlock checklist so evidence
-gaps are visible without executing Codex.
+later operator artifacts are written. The standalone operator unlock checklist
+and cockpit include Codex CLI startup preflight evidence as read-only views so
+evidence gaps are visible without executing Codex.
 
 More commands and artifact details live in `docs/artifact_reference.md`.
 

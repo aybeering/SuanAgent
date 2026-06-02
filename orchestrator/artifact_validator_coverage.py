@@ -71,6 +71,10 @@ KNOWN_ARTIFACT_NAMES = {
         "operator_action_dashboard.json",
         "operator_action_dashboard.md",
     ),
+    "operator_unlock_checklist": (
+        "operator_unlock_checklist.json",
+        "operator_unlock_checklist.md",
+    ),
     "operator_cockpit": (
         "operator_cockpit.json",
         "operator_cockpit.md",
@@ -178,6 +182,10 @@ INSPECTION_COMMANDS = {
     "operator_action_dashboard": (
         "python -m orchestrator.operator_action_dashboard",
         "python -m orchestrator.experiments action-dashboard",
+    ),
+    "operator_unlock_checklist": (
+        "python -m orchestrator.operator_unlock_checklist",
+        "python -m orchestrator.experiments unlock-checklist",
     ),
     "operator_cockpit": (
         "python -m orchestrator.operator_cockpit",

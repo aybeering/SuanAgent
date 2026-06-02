@@ -15,6 +15,10 @@ from orchestrator.operator_action_audit import (
     schema_errors,
 )
 from orchestrator.operator_action_dashboard import build_operator_action_dashboard
+from orchestrator.operator_unlock_checklist import (
+    build_codex_unlock_checklist,
+    build_operator_unlock_checklist,
+)
 from orchestrator.schema_validation import validate_json_file
 
 
@@ -70,7 +74,9 @@ def build_operator_cockpit(
     promotion = load_json_object(run_dir / "champion_promotion_dry_run.json")
     approval = load_json_object(run_dir / "champion_promotion_approval.json")
     codex_preflight = load_json_object(run_dir / "codex_cli_execution_preflight.json")
-    codex_unlock_checklist = build_codex_unlock_checklist(
+    codex_unlock_checklist = load_or_build_unlock_checklist(
+        run_dir=run_dir,
+        repo_root=repo_root,
         codex_preflight=codex_preflight,
     )
     action_dashboard = load_or_build_action_dashboard(
@@ -167,6 +173,41 @@ def load_or_build_action_dashboard(
         experiments_dir=experiments_dir,
         repo_root=repo_root,
     )
+
+
+def load_or_build_unlock_checklist(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    codex_preflight: dict[str, Any],
+) -> dict[str, Any]:
+    """Load saved operator unlock checklist or derive the embedded checklist."""
+    path = run_dir / "operator_unlock_checklist.json"
+    if path.exists():
+        payload = load_json_object(path)
+        return {
+            "status": str(payload.get("status", "missing_preflight")),
+            "ready": bool(payload.get("ready", False)),
+            "item_count": int(payload.get("item_count", 0) or 0),
+            "passed_count": int(payload.get("passed_count", 0) or 0),
+            "failed_count": int(payload.get("failed_count", 0) or 0),
+            "next_step": str(payload.get("next_step", "")),
+            "items": list_of_dicts(payload.get("items", [])),
+            "authority": object_field(payload, "authority"),
+        }
+    if codex_preflight:
+        return build_codex_unlock_checklist(codex_preflight=codex_preflight)
+    payload = build_operator_unlock_checklist(run_dir=run_dir, repo_root=repo_root)
+    return {
+        "status": str(payload.get("status", "missing_preflight")),
+        "ready": bool(payload.get("ready", False)),
+        "item_count": int(payload.get("item_count", 0) or 0),
+        "passed_count": int(payload.get("passed_count", 0) or 0),
+        "failed_count": int(payload.get("failed_count", 0) or 0),
+        "next_step": str(payload.get("next_step", "")),
+        "items": list_of_dicts(payload.get("items", [])),
+        "authority": object_field(payload, "authority"),
+    }
 
 
 def cockpit_summary(
@@ -408,6 +449,10 @@ def source_artifacts(*, run_dir: Path, repo_root: Path) -> dict[str, object]:
             run_dir / "codex_cli_execution_preflight.json",
             "schemas/codex_cli_execution_preflight.schema.json",
         ),
+        "operator_unlock_checklist": (
+            run_dir / "operator_unlock_checklist.json",
+            "schemas/operator_unlock_checklist.schema.json",
+        ),
         "candidate_challenger_report": (
             run_dir / "candidate_challenger_report.json",
             "schemas/candidate_challenger_report.schema.json",
@@ -538,221 +583,6 @@ def command_hint(
         "command": command,
         "reason": reason,
         "writes_artifact": writes_artifact,
-    }
-
-
-def build_codex_unlock_checklist(
-    *,
-    codex_preflight: dict[str, Any],
-) -> dict[str, object]:
-    """Return a grouped, read-only checklist for real Codex CLI unlock evidence."""
-    if not codex_preflight:
-        return checklist_payload(
-            status="missing_preflight",
-            ready=False,
-            next_step="run codex_cli_execution_preflight before reviewing unlock evidence",
-            items=[],
-        )
-    profiles = list_of_dicts(codex_preflight.get("profiles", []))
-    real_profiles = [
-        profile for profile in profiles if bool(profile.get("requires_operator_unlock", False))
-    ]
-    summary = object_field(codex_preflight, "summary")
-    if not real_profiles:
-        canary_count = int(summary.get("canary_exempt_count", 0) or 0)
-        status = "canary_exempt" if canary_count else "not_requested"
-        next_step = (
-            "checked-in canary execution is exempt from real Codex unlock"
-            if canary_count
-            else "keep real Codex execution disabled unless explicitly reviewed"
-        )
-        return checklist_payload(
-            status=status,
-            ready=canary_count > 0,
-            next_step=next_step,
-            items=[],
-        )
-
-    items = [
-        item
-        for profile in real_profiles
-        for item in checklist_items_for_profile(profile=profile)
-    ]
-    failed_count = sum(1 for item in items if item["status"] == "failed")
-    blockers = string_rows(codex_preflight.get("blocking_errors", []))
-    ready = bool(codex_preflight.get("ok", False)) and failed_count == 0 and not blockers
-    return checklist_payload(
-        status="ready" if ready else "blocked",
-        ready=ready,
-        next_step=(
-            "review operator unlock request before any real Codex execution"
-            if ready
-            else "complete failed unlock evidence items before enabling real Codex execution"
-        ),
-        items=items,
-    )
-
-
-def checklist_items_for_profile(*, profile: dict[str, Any]) -> list[dict[str, object]]:
-    """Return grouped unlock checklist items for one real Codex profile."""
-    profile_name = str(profile.get("profile_name", ""))
-    checks = object_field(profile, "checks")
-    groups = [
-        (
-            "operator_unlock_request",
-            "Canonical operator unlock request",
-            [
-                "operator_unlock_request_path_declared",
-                "operator_unlock_request_exists",
-                "operator_unlock_request_path_is_run_artifact",
-                "operator_unlock_request_path_is_canonical_run_artifact",
-                "operator_unlock_request_contract_valid",
-                "operator_unlock_request_schema_version_matches",
-                "operator_unlock_request_ok",
-                "operator_unlock_request_ready",
-            ],
-            "write the canonical codex_cli_operator_unlock_request.json artifact",
-        ),
-        (
-            "operator_intent",
-            "Explicit operator intent",
-            [
-                "operator_request_scope_matches",
-                "operator_request_explicitly_requested",
-                "operator_request_requested_by_present",
-                "operator_request_confirmation_phrase_matches",
-                "operator_request_required_confirmation_hash_matches",
-                "operator_request_provided_confirmation_hash_matches",
-            ],
-            "record explicit operator intent with the required confirmation phrase",
-        ),
-        (
-            "source_evidence",
-            "Readiness evidence binding",
-            [
-                "operator_request_source_pipeline_hash_matches",
-                "operator_request_source_pipeline_path_matches_record",
-                "operator_request_source_pipeline_path_is_canonical_run_artifact",
-                "operator_request_source_dry_run_hash_matches",
-                "operator_request_source_dry_run_path_matches_record",
-                "operator_request_source_dry_run_path_is_canonical_run_artifact",
-                "operator_request_source_dry_run_plan_present",
-                "operator_request_source_dry_run_plan_matches_review",
-            ],
-            "regenerate readiness pipeline, dry run, and operator request together",
-        ),
-        (
-            "execution_identity",
-            "Reviewed execution identity",
-            [
-                "operator_request_run_id_matches",
-                "operator_request_run_dir_matches_run",
-                "operator_request_agent_name_matches",
-                "operator_request_profile_name_matches",
-                "operator_request_round_id_matches",
-                "operator_request_attempt_id_matches",
-            ],
-            "bind the operator request to this run, profile, round, and attempt",
-        ),
-        (
-            "command_review",
-            "Reviewed command digest",
-            [
-                "operator_request_command_matches_profile",
-                "operator_request_command_sha256_matches_profile",
-            ],
-            "review the exact Codex command and command digest",
-        ),
-        (
-            "workspace_boundary",
-            "Reviewed workspace boundary",
-            [
-                "operator_request_workspace_prefix_matches_run",
-                "operator_request_workspace_path_matches_expected",
-            ],
-            "bind the request to the exact reviewed isolated workspace path",
-        ),
-        (
-            "mutation_boundary",
-            "Strategy-only mutation boundary",
-            [
-                "operator_request_targets_current_strategy",
-                "operator_request_allows_strategy_only",
-            ],
-            "restrict allowed mutation paths to strategies/current_strategy.py",
-        ),
-        (
-            "non_executing_request",
-            "Operator request remains non-executing",
-            ["operator_request_does_not_execute_by_itself"],
-            "ensure approval artifacts do not execute Codex by themselves",
-        ),
-    ]
-    return [
-        checklist_item(
-            profile_name=profile_name,
-            group_id=group_id,
-            label=label,
-            check_keys=check_keys,
-            checks=checks,
-            next_step=next_step,
-        )
-        for group_id, label, check_keys, next_step in groups
-    ]
-
-
-def checklist_item(
-    *,
-    profile_name: str,
-    group_id: str,
-    label: str,
-    check_keys: list[str],
-    checks: dict[str, Any],
-    next_step: str,
-) -> dict[str, object]:
-    """Return one grouped checklist item."""
-    failed_keys = [key for key in check_keys if not bool(checks.get(key, False))]
-    return {
-        "check_id": f"{profile_name}:{group_id}" if profile_name else group_id,
-        "profile_name": profile_name,
-        "label": label,
-        "status": "failed" if failed_keys else "passed",
-        "required": True,
-        "passed_check_count": len(check_keys) - len(failed_keys),
-        "total_check_count": len(check_keys),
-        "failed_checks": failed_keys,
-        "evidence": (
-            f"{len(check_keys) - len(failed_keys)}/{len(check_keys)} checks passed"
-        ),
-        "next_step": "" if not failed_keys else next_step,
-    }
-
-
-def checklist_payload(
-    *,
-    status: str,
-    ready: bool,
-    next_step: str,
-    items: list[dict[str, object]],
-) -> dict[str, object]:
-    """Return a stable Codex unlock checklist payload."""
-    passed_count = sum(1 for item in items if item["status"] == "passed")
-    failed_count = sum(1 for item in items if item["status"] == "failed")
-    return {
-        "status": status,
-        "ready": ready,
-        "item_count": len(items),
-        "passed_count": passed_count,
-        "failed_count": failed_count,
-        "next_step": next_step,
-        "items": items,
-        "authority": {
-            "checklist_can_unlock_codex": False,
-            "checklist_can_execute_codex": False,
-            "checklist_can_create_workspace": False,
-            "checklist_can_apply_patches": False,
-            "checklist_can_change_acceptance": False,
-        },
     }
 
 

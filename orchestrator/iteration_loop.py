@@ -93,6 +93,7 @@ from orchestrator.operator_action_dashboard import write_operator_action_dashboa
 from orchestrator.operator_action_plan import write_operator_action_plan
 from orchestrator.operator_cockpit import write_operator_cockpit
 from orchestrator.operator_config_review import write_operator_config_review
+from orchestrator.operator_unlock_checklist import write_operator_unlock_checklist
 from orchestrator.overfit_validator import write_overfit_validation
 from orchestrator.policy_gate import (
     apply_holdout_gate,
@@ -283,6 +284,13 @@ def run_iteration_loop(
             "primary_focus": "",
             "codex_unlock_status": "pending",
             "codex_unlock_failed_count": 0,
+        },
+        "operator_unlock_checklist": {
+            "path": "operator_unlock_checklist.json",
+            "markdown_path": "operator_unlock_checklist.md",
+            "ready": False,
+            "status": "pending",
+            "failed_count": 0,
         },
         "candidate_challenger_report": {
             "path": "candidate_challenger_report.json",
@@ -918,6 +926,19 @@ def finalize_iteration_run(
         "ok": bool(action_dashboard_payload.get("ok", False)),
         "status": str(action_dashboard_payload.get("status", "unknown")),
         "current_step": str(action_dashboard_payload.get("current_step", "")),
+    }
+    write_json(run_dir / "manifest.json", manifest)
+    write_iteration_summary(run_dir=run_dir, manifest=manifest)
+    _, _, unlock_checklist_payload = write_operator_unlock_checklist(
+        run_dir=run_dir,
+        repo_root=repo_root,
+    )
+    manifest["operator_unlock_checklist"] = {
+        "path": "operator_unlock_checklist.json",
+        "markdown_path": "operator_unlock_checklist.md",
+        "ready": bool(unlock_checklist_payload.get("ready", False)),
+        "status": str(unlock_checklist_payload.get("status", "unknown")),
+        "failed_count": int(unlock_checklist_payload.get("failed_count", 0) or 0),
     }
     write_json(run_dir / "manifest.json", manifest)
     write_iteration_summary(run_dir=run_dir, manifest=manifest)

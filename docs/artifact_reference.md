@@ -62,6 +62,9 @@ python -m orchestrator.experiments action-audit <run_id> --markdown
 python -m orchestrator.operator_action_dashboard experiments/<run_id>
 python -m orchestrator.experiments action-dashboard <run_id>
 python -m orchestrator.experiments action-dashboard <run_id> --markdown
+python -m orchestrator.operator_unlock_checklist experiments/<run_id>
+python -m orchestrator.experiments unlock-checklist <run_id>
+python -m orchestrator.experiments unlock-checklist <run_id> --markdown
 python -m orchestrator.operator_cockpit experiments/<run_id>
 python -m orchestrator.experiments cockpit <run_id>
 python -m orchestrator.experiments cockpit <run_id> --markdown
@@ -169,6 +172,8 @@ experiments/<run_id>/
   operator_action_audit.md    # after optional operator action audit command
   operator_action_dashboard.json
   operator_action_dashboard.md
+  operator_unlock_checklist.json
+  operator_unlock_checklist.md
   operator_cockpit.json
   operator_cockpit.md
 ```
@@ -240,15 +245,22 @@ command counts, blockers, and suggested read-only/guarded commands without
 recording approval, executing commands, writing config, promoting champions,
 running agents, running backtests, applying patches, routing agents, or
 changing acceptance.
+`operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose the
+Codex CLI operator-unlock evidence chain as a standalone read-only checklist.
+The iteration loop writes it during closeout before the final cockpit so cockpit
+source hashes bind to it. `python -m orchestrator.experiments unlock-checklist
+<run_id>` and `unlock-checklist --markdown` show the saved or derived checklist
+without recording approval, executing Codex, executing agents, creating
+workspaces, applying patches, routing agents, or changing acceptance.
 `operator_cockpit.json` and `operator_cockpit.md` collect the run closeout,
 config lineage, operator action dashboard, Codex CLI execution preflight,
-candidate challenger report, champion-promotion dry-run, promotion approval,
-and scope-health status into a single read-only operator page. The Codex CLI
-panel exposes startup preflight status, real-execution profile counts,
-operator-unlock readiness counts, preflight blockers, and a grouped
-`codex_unlock_checklist` of required evidence items, but it does not unlock or
+standalone operator unlock checklist, candidate challenger report,
+champion-promotion dry-run, promotion approval, and scope-health status into a
+single read-only operator page. The Codex CLI panel exposes startup preflight
+status, real-execution profile counts, operator-unlock readiness counts,
+preflight blockers, and the grouped checklist status, but it does not unlock or
 execute Codex. The iteration loop writes the final cockpit after the dashboard
-so source hashes bind to the final closeout artifacts;
+and standalone checklist so source hashes bind to the final closeout artifacts;
 `python -m orchestrator.experiments cockpit <run_id>` and `cockpit --markdown`
 expose panel rows, blockers, primary focus, and command hints without recording
 approval, executing commands, writing config, promoting champions, running
@@ -508,6 +520,11 @@ Replay artifacts:
   and the explicit command can refresh them after later operator action
   artifacts. They list the timeline, selected command, safe command counts,
   blockers, and command hints, but cannot approve or execute anything.
+- `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose
+  Codex CLI operator-unlock evidence as a standalone read-only checklist. They
+  classify saved preflight evidence groups and source hashes, but cannot record
+  approval, execute Codex, create workspaces, apply patches, route agents, or
+  change acceptance.
 - `operator_cockpit.json` and `operator_cockpit.md` aggregate run review,
   config lineage, operator action, Codex CLI execution preflight, challenger
   comparison, promotion review, promotion approval, and scope-health state into

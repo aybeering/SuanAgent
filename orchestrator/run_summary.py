@@ -230,6 +230,20 @@ def write_iteration_summary(
             f"- Markdown: `{display_value(action_dashboard.get('markdown_path'))}`"
         )
 
+    unlock_checklist = manifest.get("operator_unlock_checklist")
+    if isinstance(unlock_checklist, dict):
+        lines.extend(["", "## Operator Unlock Checklist", ""])
+        lines.append(f"- Status: `{display_value(unlock_checklist.get('status'))}`")
+        lines.append(f"- Ready: `{display_value(unlock_checklist.get('ready'))}`")
+        lines.append(
+            "- Failed items: "
+            f"`{display_value(unlock_checklist.get('failed_count'))}`"
+        )
+        lines.append(f"- Artifact: `{display_value(unlock_checklist.get('path'))}`")
+        lines.append(
+            f"- Markdown: `{display_value(unlock_checklist.get('markdown_path'))}`"
+        )
+
     cockpit = manifest.get("operator_cockpit")
     if isinstance(cockpit, dict):
         lines.extend(["", "## Operator Cockpit", ""])

@@ -56,8 +56,9 @@ guarded config restore receipt artifacts, read-only config lineage artifacts,
 read-only run closeout operator dashboard summaries, read-only operator action
 plans, read-only operator action approval receipts, guarded read-only operator
 action execution receipts, read-only operator action audit artifacts, read-only
-operator action dashboard artifacts, read-only operator cockpit artifacts, and
-Codex CLI readiness evidence.
+operator action dashboard artifacts, read-only operator unlock checklist
+artifacts, read-only operator cockpit artifacts, and Codex CLI readiness
+evidence.
 
 Still out of scope:
 
@@ -190,17 +191,22 @@ Operator action dashboard artifacts may summarize that action chain into a
 human-facing next-step view. They must remain read-only and must not record
 approval, execute commands, write config, promote champions, run agents, run
 backtests, apply patches, route agents, or change acceptance.
+Operator unlock checklist artifacts may summarize Codex CLI startup preflight
+evidence as standalone grouped request, intent, source, command, workspace, and
+mutation-boundary checks. They must remain read-only and must not record unlock
+approval, execute Codex, create workspaces, run agents, apply patches, route
+agents, or change acceptance.
 Operator cockpit artifacts may summarize run review, config lineage, operator
-action, Codex CLI execution preflight, challenger, champion promotion, and
-scope-health state into one human-facing page. The Codex CLI preflight panel
-may expose unlock blockers, readiness counts, and a grouped evidence checklist,
-but it must not unlock Codex or execute agents. Cockpit artifacts must remain
-read-only and must not record approval, execute commands, write config, promote
-champions, run agents, run backtests, apply patches, route agents, or change
-acceptance.
+action, Codex CLI execution preflight, standalone operator unlock checklist,
+challenger, champion promotion, and scope-health state into one human-facing
+page. The Codex CLI preflight panel may expose unlock blockers, readiness
+counts, and grouped checklist status, but it must not unlock Codex or execute
+agents. Cockpit artifacts must remain read-only and must not record approval,
+execute commands, write config, promote champions, run agents, run backtests,
+apply patches, route agents, or change acceptance.
 The iteration loop writes the final operator action dashboard and cockpit
-during closeout, and explicit commands may refresh them after later operator
-artifacts are written.
+during closeout, along with the standalone operator unlock checklist. Explicit
+commands may refresh them after later operator artifacts are written.
 
 ## Strategy Policy
 

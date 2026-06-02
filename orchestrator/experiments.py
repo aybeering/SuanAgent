@@ -39,6 +39,10 @@ from orchestrator.operator_cockpit import (
     build_operator_cockpit,
     render_operator_cockpit_markdown,
 )
+from orchestrator.operator_unlock_checklist import (
+    build_operator_unlock_checklist,
+    render_operator_unlock_checklist_markdown,
+)
 from orchestrator.operator_action_executor import (
     render_receipt_markdown as render_operator_action_execution_markdown,
 )
@@ -1204,6 +1208,28 @@ def operator_cockpit_report(
     return payload
 
 
+def operator_unlock_checklist_report(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+) -> dict[str, object]:
+    """Return the saved or derived operator unlock checklist for one run."""
+    run_dir = experiments_dir / run_id
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    checklist_path = run_dir / "operator_unlock_checklist.json"
+    if checklist_path.exists():
+        payload = load_json(checklist_path)
+        payload["from_artifact"] = True
+        return payload
+    payload = build_operator_unlock_checklist(
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+    )
+    payload["from_artifact"] = False
+    return payload
+
+
 def agent_slot_health_report(
     *,
     run_id: str,
@@ -1910,6 +1936,17 @@ def main() -> None:
         help="Render the operator cockpit as markdown.",
     )
 
+    unlock_checklist_parser = subparsers.add_parser(
+        "unlock-checklist",
+        help="Show the read-only operator unlock checklist for one iteration run.",
+    )
+    unlock_checklist_parser.add_argument("run_id")
+    unlock_checklist_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the operator unlock checklist as markdown.",
+    )
+
     action_plan_parser = subparsers.add_parser(
         "action-plan",
         help="Show read-only operator action candidates for one iteration run.",
@@ -2214,6 +2251,14 @@ def main() -> None:
         )
         if args.markdown:
             print(render_operator_cockpit_markdown(payload), end="")
+            return
+    elif args.command == "unlock-checklist":
+        payload = operator_unlock_checklist_report(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
+        )
+        if args.markdown:
+            print(render_operator_unlock_checklist_markdown(payload), end="")
             return
     elif args.command == "action-plan":
         payload = operator_action_plan_report(

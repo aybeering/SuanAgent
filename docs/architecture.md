@@ -201,18 +201,26 @@ config, promote champions, run agents, run backtests, route agents, apply
 patches, or change acceptance. The iteration loop writes the final dashboard
 during closeout after the action plan; the explicit dashboard command is still
 available to refresh the view after later approval or execution artifacts.
+`operator_unlock_checklist.json` and `operator_unlock_checklist.md` split the
+Codex CLI unlock evidence checklist into its own read-only artifact. It reads
+the saved startup execution preflight, groups required operator evidence, and
+reports whether any real Codex profile is blocked or ready. It cannot record
+unlock approval, execute Codex, execute agents, create workspaces, route
+candidates, apply patches, or change acceptance.
 `operator_cockpit.json` and `operator_cockpit.md` are the broader operator
 entrypoint. They collect the run closeout, config lineage, operator action
-dashboard, Codex CLI execution preflight, challenger comparison,
-champion-promotion review, promotion approval, and scope-health status into one
-read-only page with panel rows and command hints. The Codex CLI panel exposes
-unlock blockers, readiness counts, and a grouped evidence checklist without
-unlocking or executing Codex. The cockpit is an inspection artifact only; it
+dashboard, Codex CLI execution preflight, standalone operator unlock checklist,
+challenger comparison, champion-promotion review, promotion approval, and
+scope-health status into one read-only page with panel rows and command hints.
+The Codex CLI panel exposes unlock blockers, readiness counts, and grouped
+checklist status without unlocking or executing Codex. The cockpit is an
+inspection artifact only; it
 cannot record approvals,
 execute commands, write config, promote champions, run agents, run backtests,
 route agents, apply patches, or change acceptance. The iteration loop writes
-the final cockpit after the dashboard so source hashes bind to the completed
-operator-facing artifacts; the explicit cockpit command can refresh that
+the final cockpit after the dashboard and standalone checklist so source hashes
+bind to the completed operator-facing artifacts; the explicit cockpit command
+can refresh that
 binding after later operator inspection artifacts are rewritten.
 
 ## Champion Registry

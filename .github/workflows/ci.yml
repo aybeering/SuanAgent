@@ -723,6 +723,24 @@ jobs:
           assert dashboard["authority"]["dashboard_can_execute_commands"] is False
           assert "# Operator Action Dashboard" in markdown
           PY
+          python -m orchestrator.operator_unlock_checklist experiments/ci-adaptive
+          test -f experiments/ci-adaptive/operator_unlock_checklist.json
+          test -f experiments/ci-adaptive/operator_unlock_checklist.md
+          python -m orchestrator.experiments unlock-checklist ci-adaptive > /tmp/operator_unlock_checklist.json
+          python -m orchestrator.experiments unlock-checklist ci-adaptive --markdown > /tmp/operator_unlock_checklist.md
+          python - <<'PY'
+          import json
+          checklist = json.load(open("/tmp/operator_unlock_checklist.json"))
+          markdown = open("/tmp/operator_unlock_checklist.md").read()
+          assert checklist["schema_version"] == "operator_unlock_checklist_v1"
+          assert checklist["from_artifact"] is True
+          assert checklist["status"] == "not_requested"
+          assert checklist["ready"] is False
+          assert checklist["item_count"] == 0
+          assert checklist["policy"]["does_not_execute_codex_cli"] is True
+          assert checklist["authority"]["checklist_can_execute_codex"] is False
+          assert "# Operator Unlock Checklist" in markdown
+          PY
           python -m orchestrator.operator_cockpit experiments/ci-adaptive
           test -f experiments/ci-adaptive/operator_cockpit.json
           test -f experiments/ci-adaptive/operator_cockpit.md
@@ -739,6 +757,7 @@ jobs:
           assert cockpit["summary"]["codex_preflight_ok"] is True
           assert cockpit["codex_unlock_checklist"]["status"] == "not_requested"
           assert cockpit["codex_unlock_checklist"]["item_count"] == 0
+          assert cockpit["source_artifacts"]["operator_unlock_checklist"]["file"]["exists"] is True
           assert any(row["panel_id"] == "codex_cli_unlock" for row in cockpit["panels"])
           assert cockpit["authority"]["cockpit_can_execute_commands"] is False
           assert cockpit["authority"]["cockpit_can_promote_champion"] is False
@@ -941,16 +960,21 @@ jobs:
           assert payload["policy"]["does_not_write_config"] is True
           PY
           python -m orchestrator.operator_action_dashboard experiments/ci-adaptive > /tmp/operator_action_dashboard_refreshed.json
+          python -m orchestrator.operator_unlock_checklist experiments/ci-adaptive > /tmp/operator_unlock_checklist_refreshed.json
           python -m orchestrator.operator_cockpit experiments/ci-adaptive > /tmp/operator_cockpit_refreshed.json
           python - <<'PY'
           import json
           dashboard = json.load(open("/tmp/operator_action_dashboard_refreshed.json"))
+          checklist = json.load(open("/tmp/operator_unlock_checklist_refreshed.json"))
           cockpit = json.load(open("/tmp/operator_cockpit_refreshed.json"))
           assert dashboard["schema_version"] == "operator_action_dashboard_v1"
+          assert checklist["schema_version"] == "operator_unlock_checklist_v1"
+          assert checklist["policy"]["does_not_execute_codex_cli"] is True
           assert cockpit["schema_version"] == "operator_cockpit_v1"
           assert cockpit["summary"]["config_lineage_status"] == "blocked"
           assert cockpit["summary"]["codex_preflight_ok"] is True
           assert cockpit["codex_unlock_checklist"]["authority"]["checklist_can_execute_codex"] is False
+          assert cockpit["source_artifacts"]["operator_unlock_checklist"]["file"]["exists"] is True
           assert cockpit["source_artifacts"]["codex_cli_execution_preflight"]["file"]["exists"] is True
           assert cockpit["source_artifacts"]["config_lineage"]["file"]["exists"] is True
           assert cockpit["policy"]["does_not_change_acceptance"] is True

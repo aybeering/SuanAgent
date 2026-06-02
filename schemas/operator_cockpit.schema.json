@@ -56,6 +56,7 @@
         "config_lineage",
         "operator_action_dashboard",
         "codex_cli_execution_preflight",
+        "operator_unlock_checklist",
         "candidate_challenger_report",
         "champion_promotion_dry_run",
         "champion_promotion_approval",
@@ -72,6 +73,9 @@
           "$ref": "#/$defs/source_artifact"
         },
         "codex_cli_execution_preflight": {
+          "$ref": "#/$defs/source_artifact"
+        },
+        "operator_unlock_checklist": {
           "$ref": "#/$defs/source_artifact"
         },
         "candidate_challenger_report": {

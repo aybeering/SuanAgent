@@ -258,7 +258,11 @@ Codex CLI readiness contracts:
     config-lineage status, champion/promotion review status, recommended next
     inspection steps, suggested directions, and directions to avoid, but they
     cannot write config, promote champions, execute agents, run backtests, route
-    candidates, apply patches, or change strategy acceptance.
+    candidates, apply patches, or change strategy acceptance. The terminal-only
+    `operator_run_review_v1` payload exposed by
+    `python -m orchestrator.experiments review <run_id>` is validated against
+    `schemas/operator_run_review.schema.json` before JSON or markdown output is
+    printed.
 15. Strategy search-space config is an advisory planning contract. It can name
     candidate direction tags, direction order, modifier hints, and a fallback
     direction for operator review and future agent input, but it cannot execute

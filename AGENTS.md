@@ -60,7 +60,8 @@ operator action dashboard artifacts, read-only operator unlock checklist
 artifacts, read-only Codex CLI unlock runbook artifacts, read-only operator
 cockpit artifacts, read-only Codex CLI execution readiness diff artifacts, and
 Codex CLI readiness evidence, plus schema-validated terminal-only operator view
-refresh receipts and experiment summary dashboards.
+refresh receipts, operator run review receipts, and experiment summary
+dashboards.
 
 Still out of scope:
 

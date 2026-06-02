@@ -360,6 +360,7 @@ from orchestrator.experiments import (
     show_champion,
     summarize_experiments,
     validate_experiment_summary_dashboard_payload,
+    validate_operator_run_review_payload,
     validate_operator_view_refresh_payload,
     external_agent_sandbox_report,
 )
@@ -14597,6 +14598,45 @@ def test_experiment_summary_dashboard_schema_rejects_missing_watchlist() -> None
     assert "$: missing required property watchlist" in errors
 
 
+def test_operator_run_review_schema_rejects_missing_dashboard() -> None:
+    payload = {
+        "schema_version": "operator_run_review_v1",
+        "run_id": "run",
+        "run_dir": "experiments/run",
+        "from_artifact": True,
+        "closeout_path": "experiments/run/run_closeout.json",
+        "closeout_markdown_path": "experiments/run/run_closeout.md",
+        "run_status": "stopped_max_rounds",
+        "closeout_status": "ready_for_review",
+        "closeout_ok": True,
+        "summary": {
+            "completed_rounds": 1,
+            "accepted_round": None,
+            "stop_reason": "max_rounds reached",
+            "config_lineage_status": "partial",
+            "research_primary_focus": "close_champion_ev_gap",
+        },
+        "policy": {
+            "inspection_only": True,
+            "reads_saved_artifacts_only": True,
+            "does_not_execute_agents": True,
+            "does_not_run_backtests": True,
+            "does_not_write_config": True,
+            "does_not_promote_champion": True,
+            "does_not_apply_patches": True,
+            "does_not_route_agents": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+    errors = validate_operator_run_review_payload(
+        payload,
+        repo_root=Path(__file__).resolve().parents[1],
+    )
+
+    assert "$: missing required property dashboard" in errors
+
+
 def test_compare_experiments_recommends_accepted_metric_winner(
     tmp_path: Path,
 ) -> None:
@@ -16497,6 +16537,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert config_application["policy"]["does_not_write_config"] is True
     assert review["schema_version"] == "operator_run_review_v1"
+    assert validate_operator_run_review_payload(review, repo_root=repo) == ()
     assert review["from_artifact"] is True
     assert review["dashboard"]["schema_version"] == "operator_dashboard_v1"
     assert review["dashboard"]["config_review"]["lineage_status"] == "partial"
@@ -16606,6 +16647,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert review_result.returncode == 0, review_result.stderr
     review_payload = json.loads(review_result.stdout)
     assert review_payload["schema_version"] == "operator_run_review_v1"
+    assert validate_operator_run_review_payload(review_payload, repo_root=repo) == ()
     assert review_payload["from_artifact"] is True
     assert review_payload["dashboard"]["schema_version"] == "operator_dashboard_v1"
     assert review_payload["dashboard"]["config_review"]["lineage_status"] == "partial"

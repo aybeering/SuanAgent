@@ -1,0 +1,410 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Operator Run Review",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "from_artifact",
+    "closeout_path",
+    "closeout_markdown_path",
+    "run_status",
+    "closeout_status",
+    "closeout_ok",
+    "summary",
+    "dashboard",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "operator_run_review_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "from_artifact": {
+      "type": "boolean"
+    },
+    "closeout_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "closeout_markdown_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_status": {
+      "type": "string"
+    },
+    "closeout_status": {
+      "type": "string"
+    },
+    "closeout_ok": {
+      "type": "boolean"
+    },
+    "summary": {
+      "$ref": "#/$defs/review_summary"
+    },
+    "dashboard": {
+      "$ref": "#/$defs/operator_dashboard"
+    },
+    "policy": {
+      "$ref": "#/$defs/review_policy"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "review_summary": {
+      "type": "object",
+      "required": [
+        "completed_rounds",
+        "accepted_round",
+        "stop_reason",
+        "config_lineage_status",
+        "research_primary_focus"
+      ],
+      "properties": {
+        "completed_rounds": {
+          "type": "integer"
+        },
+        "accepted_round": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ]
+        },
+        "stop_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "config_lineage_status": {
+          "type": "string"
+        },
+        "research_primary_focus": {
+          "type": "string"
+        }
+      }
+    },
+    "operator_dashboard": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status_summary",
+        "config_review",
+        "champion_review",
+        "watchlist",
+        "gates",
+        "operator_action_items",
+        "authority",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "operator_dashboard_v1"
+          ]
+        },
+        "status_summary": {
+          "$ref": "#/$defs/status_summary"
+        },
+        "config_review": {
+          "$ref": "#/$defs/config_review"
+        },
+        "champion_review": {
+          "$ref": "#/$defs/champion_review"
+        },
+        "watchlist": {
+          "$ref": "#/$defs/watchlist"
+        },
+        "gates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gate"
+          }
+        },
+        "operator_action_items": {
+          "$ref": "#/$defs/string_array"
+        },
+        "authority": {
+          "$ref": "#/$defs/dashboard_authority"
+        },
+        "policy": {
+          "$ref": "#/$defs/dashboard_policy"
+        }
+      }
+    },
+    "status_summary": {
+      "type": "object",
+      "required": [
+        "run_status",
+        "closeout_status",
+        "accepted",
+        "accepted_round",
+        "completed_rounds",
+        "selected_candidate_count",
+        "stop_reason"
+      ],
+      "properties": {
+        "run_status": {
+          "type": "string"
+        },
+        "closeout_status": {
+          "type": "string"
+        },
+        "accepted": {
+          "type": "boolean"
+        },
+        "accepted_round": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ]
+        },
+        "completed_rounds": {
+          "type": "integer"
+        },
+        "selected_candidate_count": {
+          "type": "integer"
+        },
+        "stop_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "config_review": {
+      "type": "object",
+      "required": [
+        "lineage_status",
+        "lineage_ok",
+        "existing_stage_count",
+        "current_config_matches_latest_stage",
+        "applied",
+        "restored"
+      ],
+      "properties": {
+        "lineage_status": {
+          "type": "string"
+        },
+        "lineage_ok": {
+          "type": "boolean"
+        },
+        "existing_stage_count": {
+          "type": "integer"
+        },
+        "current_config_matches_latest_stage": {
+          "type": "boolean"
+        },
+        "applied": {
+          "type": "boolean"
+        },
+        "restored": {
+          "type": "boolean"
+        }
+      }
+    },
+    "champion_review": {
+      "type": "object",
+      "required": [
+        "challenger_status",
+        "promotion_status",
+        "would_promote",
+        "approval_status",
+        "approval_recorded"
+      ],
+      "properties": {
+        "challenger_status": {
+          "type": "string"
+        },
+        "promotion_status": {
+          "type": "string"
+        },
+        "would_promote": {
+          "type": "boolean"
+        },
+        "approval_status": {
+          "type": "string"
+        },
+        "approval_recorded": {
+          "type": "boolean"
+        }
+      }
+    },
+    "watchlist": {
+      "type": "object",
+      "required": [
+        "status",
+        "alert_count"
+      ],
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "alert_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "required": [
+        "gate_name",
+        "ok",
+        "status",
+        "artifact_path",
+        "details"
+      ],
+      "properties": {
+        "gate_name": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string"
+        },
+        "artifact_path": {
+          "type": "string"
+        },
+        "details": {
+          "type": "string"
+        }
+      }
+    },
+    "dashboard_authority": {
+      "type": "object",
+      "required": [
+        "final_acceptance_authority",
+        "agent_language_can_accept",
+        "config_changes_require_guarded_command",
+        "champion_promotion_requires_explicit_command"
+      ],
+      "properties": {
+        "final_acceptance_authority": {
+          "type": "string",
+          "enum": [
+            "deterministic_code"
+          ]
+        },
+        "agent_language_can_accept": {
+          "type": "boolean"
+        },
+        "config_changes_require_guarded_command": {
+          "type": "boolean"
+        },
+        "champion_promotion_requires_explicit_command": {
+          "type": "boolean"
+        }
+      }
+    },
+    "dashboard_policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_saved_artifacts_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_write_config": {
+          "type": "boolean"
+        },
+        "does_not_promote_champion": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_route_agents": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        }
+      }
+    },
+    "review_policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_saved_artifacts_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_write_config": {
+          "type": "boolean"
+        },
+        "does_not_promote_champion": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_route_agents": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

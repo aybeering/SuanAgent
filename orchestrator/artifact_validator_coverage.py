@@ -206,6 +206,10 @@ INSPECTION_COMMANDS = {
         "python -m orchestrator.experiments summary",
         "python -m orchestrator.experiments summary --markdown",
     ),
+    "operator_run_review": (
+        "python -m orchestrator.experiments review",
+        "python -m orchestrator.experiments review --markdown",
+    ),
     "config_application_dry_run": (
         "python -m orchestrator.config_application_dry_run",
         "python -m orchestrator.experiments config-application-dry-run",

@@ -87,6 +87,7 @@ OPERATOR_VIEW_REFRESH_SCHEMA_PATH = Path("schemas/operator_view_refresh.schema.j
 EXPERIMENT_SUMMARY_DASHBOARD_SCHEMA_PATH = Path(
     "schemas/experiment_summary_dashboard.schema.json"
 )
+OPERATOR_RUN_REVIEW_SCHEMA_PATH = Path("schemas/operator_run_review.schema.json")
 
 
 def list_experiments(
@@ -1004,7 +1005,7 @@ def operator_run_review(
         from_artifact = False
     dashboard = dict_payload(closeout.get("operator_dashboard", {}))
     summary = dict_payload(closeout.get("summary", {}))
-    return {
+    payload = {
         "schema_version": "operator_run_review_v1",
         "run_id": run_id,
         "run_dir": str(run_dir),
@@ -1038,6 +1039,15 @@ def operator_run_review(
             "does_not_change_acceptance": True,
         },
     }
+    errors = validate_operator_run_review_payload(
+        payload,
+        repo_root=experiments_dir.parent,
+    )
+    if errors:
+        raise ValueError(
+            "operator run review failed schema validation: " + "; ".join(errors)
+        )
+    return payload
 
 
 def render_operator_run_review_markdown(payload: dict[str, object]) -> str:
@@ -1109,6 +1119,16 @@ def render_operator_run_review_markdown(payload: dict[str, object]) -> str:
         ]
     )
     return "\n".join(lines)
+
+
+def validate_operator_run_review_payload(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate an in-memory operator run review payload."""
+    schema = load_schema(repo_root / OPERATOR_RUN_REVIEW_SCHEMA_PATH)
+    return validate_json_payload(payload=payload, schema=schema)
 
 
 def operator_action_plan_report(

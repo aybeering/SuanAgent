@@ -177,6 +177,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_champion_promotion_dry_run(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_optional_run_closeout(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -2384,6 +2389,68 @@ def validate_optional_candidate_challenger_report(
     ):
         if policy.get(key) is not True:
             add_error(report, f"candidate_challenger_report.json policy false: {key}")
+
+
+def validate_optional_champion_promotion_dry_run(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate champion_promotion_dry_run.json/md when a run has one."""
+    path = run_dir / "champion_promotion_dry_run.json"
+    md_path = run_dir / "champion_promotion_dry_run.md"
+    if not path.exists() and not md_path.exists():
+        return
+    if not path.exists():
+        add_error(report, f"missing champion promotion dry-run JSON artifact: {path}")
+        return
+    if not md_path.exists():
+        add_error(report, f"missing champion promotion dry-run markdown artifact: {md_path}")
+    checked_files(report).append(str(path))
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/champion_promotion_dry_run.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"champion_promotion_dry_run.json run_id does not match report: {path}",
+        )
+    if not bool(payload.get("ok", False)):
+        add_error(report, f"champion_promotion_dry_run.json ok false: {path}")
+    checks = payload.get("checks", {})
+    if not isinstance(checks, dict):
+        add_error(report, "champion_promotion_dry_run.json checks invalid")
+        return
+    if checks.get("would_write_champion_registry") is not False:
+        add_error(report, "champion_promotion_dry_run.json would write champion")
+    if checks.get("would_append_champion_history") is not False:
+        add_error(report, "champion_promotion_dry_run.json would append history")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "champion_promotion_dry_run.json policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_write_champion_registry",
+        "does_not_append_champion_history",
+        "does_not_change_acceptance",
+        "requires_explicit_promote_command",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"champion_promotion_dry_run.json policy false: {key}")
 
 
 def validate_optional_champion_comparison(

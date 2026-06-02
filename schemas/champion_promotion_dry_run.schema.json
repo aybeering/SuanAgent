@@ -1,0 +1,353 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Champion Promotion Dry Run",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "experiments_dir",
+    "status",
+    "ok",
+    "checks",
+    "champion",
+    "candidate",
+    "comparison",
+    "dry_run_decision",
+    "recommended_next_actions",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "champion_promotion_dry_run_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "experiments_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "needs_artifacts",
+        "no_champion",
+        "already_champion",
+        "promotion_blocked",
+        "promotion_not_recommended",
+        "promotion_recommended"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "checks": {
+      "type": "object",
+      "required": [
+        "manifest_present",
+        "diagnosis_present",
+        "champion_present",
+        "candidate_is_current_champion",
+        "comparison_available",
+        "candidate_artifact_ok",
+        "candidate_accepted",
+        "read_only",
+        "would_write_champion_registry",
+        "would_append_champion_history"
+      ],
+      "properties": {
+        "manifest_present": {
+          "type": "boolean"
+        },
+        "diagnosis_present": {
+          "type": "boolean"
+        },
+        "champion_present": {
+          "type": "boolean"
+        },
+        "candidate_is_current_champion": {
+          "type": "boolean"
+        },
+        "comparison_available": {
+          "type": "boolean"
+        },
+        "candidate_artifact_ok": {
+          "type": "boolean"
+        },
+        "candidate_accepted": {
+          "type": "boolean"
+        },
+        "read_only": {
+          "type": "boolean"
+        },
+        "would_write_champion_registry": {
+          "type": "boolean"
+        },
+        "would_append_champion_history": {
+          "type": "boolean"
+        }
+      }
+    },
+    "champion": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "champion_run_id",
+        "validation_ev_delta",
+        "trade_count_delta",
+        "source_status",
+        "strategy_commit"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "champion_run_id": {
+          "type": "string"
+        },
+        "validation_ev_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "trade_count_delta": {
+          "type": [
+            "integer",
+            "number",
+            "null"
+          ]
+        },
+        "source_status": {
+          "type": "string"
+        },
+        "strategy_commit": {
+          "type": "string"
+        },
+        "comparison_summary": {
+          "type": "string"
+        }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "required": [
+        "run_id",
+        "kind",
+        "status",
+        "accepted",
+        "artifact_ok",
+        "validation_ev_delta",
+        "trade_count_delta",
+        "best_round",
+        "final_strategy_commit"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "accepted": {
+          "type": "boolean"
+        },
+        "artifact_ok": {
+          "type": "boolean"
+        },
+        "validation_ev_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "trade_count_delta": {
+          "type": [
+            "integer",
+            "number",
+            "null"
+          ]
+        },
+        "best_round": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "final_strategy_commit": {
+          "type": "string"
+        }
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "required": [
+        "exists",
+        "base_run_id",
+        "candidate_run_id",
+        "winner",
+        "recommendation",
+        "validation_ev_delta",
+        "trade_count_delta",
+        "dataset_match",
+        "reasons",
+        "summary",
+        "min_ev_delta"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "base_run_id": {
+          "type": "string"
+        },
+        "candidate_run_id": {
+          "type": "string"
+        },
+        "winner": {
+          "type": "string"
+        },
+        "recommendation": {
+          "type": "string"
+        },
+        "validation_ev_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "trade_count_delta": {
+          "type": [
+            "integer",
+            "number",
+            "null"
+          ]
+        },
+        "dataset_match": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary": {
+          "type": "string"
+        },
+        "min_ev_delta": {
+          "type": "number"
+        }
+      }
+    },
+    "dry_run_decision": {
+      "type": "object",
+      "required": [
+        "eligible",
+        "would_promote",
+        "blocking_reasons",
+        "promotion_command",
+        "evidence_paths"
+      ],
+      "properties": {
+        "eligible": {
+          "type": "boolean"
+        },
+        "would_promote": {
+          "type": "boolean"
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "promotion_command": {
+          "type": "string"
+        },
+        "evidence_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "recommended_next_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_write_champion_registry",
+        "does_not_append_champion_history",
+        "does_not_change_acceptance",
+        "requires_explicit_promote_command",
+        "promotion_authority"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_saved_artifacts_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_route_agents": {
+          "type": "boolean"
+        },
+        "does_not_write_champion_registry": {
+          "type": "boolean"
+        },
+        "does_not_append_champion_history": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "requires_explicit_promote_command": {
+          "type": "boolean"
+        },
+        "promotion_authority": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

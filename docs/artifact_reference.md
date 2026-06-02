@@ -103,6 +103,8 @@ experiments/<run_id>/
   agent_result_stats.json
   candidate_challenger_report.json
   candidate_challenger_report.md
+  champion_promotion_dry_run.json
+  champion_promotion_dry_run.md
   research_brief.json
   research_brief.md
   experiment_scope_health.json
@@ -278,6 +280,12 @@ Replay artifacts:
   exists. They expose validation gap, holdout stability flags, and top
   candidates for operator inspection only; they cannot promote champions,
   route agents, run backtests, apply patches, or change acceptance.
+- `champion_promotion_dry_run.json` and `champion_promotion_dry_run.md`
+  preview whether the completed run would satisfy the deterministic champion
+  promotion comparison against the current champion. They never write
+  `champion.json`, append `champion_history.jsonl`, execute agents, run
+  backtests, apply patches, route agents, or change acceptance. Actual
+  promotion still requires the explicit `experiments promote` command.
 - `artifact_validator_coverage.json` reports schema, validator, documentation,
   test, and inspection/replay coverage for repository artifact contracts.
 

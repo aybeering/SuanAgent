@@ -169,6 +169,10 @@ from orchestrator.candidate_challenger_report import (
     CANDIDATE_CHALLENGER_SCHEMA_VERSION,
     validate_candidate_challenger_report_file,
 )
+from orchestrator.champion_promotion_dry_run import (
+    CHAMPION_PROMOTION_DRY_RUN_SCHEMA_VERSION,
+    validate_champion_promotion_dry_run_file,
+)
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
 from orchestrator.iteration_loop import run_iteration_loop
 from orchestrator.outcome_memory import (
@@ -1967,6 +1971,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "experiment_scope_health.json").exists()
     assert (run_dir / "candidate_challenger_report.json").exists()
     assert (run_dir / "candidate_challenger_report.md").exists()
+    assert (run_dir / "champion_promotion_dry_run.json").exists()
+    assert (run_dir / "champion_promotion_dry_run.md").exists()
     assert (run_dir / "run_closeout.json").exists()
     assert (run_dir / "run_closeout.md").exists()
     assert (repo / "experiments/run_artifact_health_history.jsonl").exists()
@@ -2042,6 +2048,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     challenger_markdown = (run_dir / "candidate_challenger_report.md").read_text(
         encoding="utf-8"
     )
+    promotion_dry_run = json.loads(
+        (run_dir / "champion_promotion_dry_run.json").read_text(encoding="utf-8")
+    )
+    promotion_markdown = (run_dir / "champion_promotion_dry_run.md").read_text(
+        encoding="utf-8"
+    )
     closeout = json.loads((run_dir / "run_closeout.json").read_text(encoding="utf-8"))
     closeout_markdown = (run_dir / "run_closeout.md").read_text(encoding="utf-8")
     history_records = [
@@ -2073,6 +2085,39 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert validate_candidate_challenger_report_file(
         payload_path=run_dir / "candidate_challenger_report.json",
+        repo_root=Path.cwd(),
+    ) == ()
+    assert manifest["champion_promotion_dry_run"]["path"] == (
+        "champion_promotion_dry_run.json"
+    )
+    assert manifest["champion_promotion_dry_run"]["markdown_path"] == (
+        "champion_promotion_dry_run.md"
+    )
+    assert manifest["champion_promotion_dry_run"]["ok"] is True
+    assert manifest["champion_promotion_dry_run"]["status"] == "no_champion"
+    assert manifest["champion_promotion_dry_run"]["would_promote"] is False
+    assert (
+        promotion_dry_run["schema_version"]
+        == CHAMPION_PROMOTION_DRY_RUN_SCHEMA_VERSION
+    )
+    assert promotion_dry_run["ok"] is True
+    assert promotion_dry_run["status"] == "no_champion"
+    assert promotion_dry_run["dry_run_decision"]["would_promote"] is False
+    assert "no_current_champion" in promotion_dry_run["dry_run_decision"][
+        "blocking_reasons"
+    ]
+    assert promotion_dry_run["checks"]["would_write_champion_registry"] is False
+    assert promotion_dry_run["checks"]["would_append_champion_history"] is False
+    assert (
+        promotion_dry_run["policy"]["requires_explicit_promote_command"] is True
+    )
+    assert "# Champion Promotion Dry Run" in promotion_markdown
+    assert_matches_schema(
+        run_dir / "champion_promotion_dry_run.json",
+        "champion_promotion_dry_run",
+    )
+    assert validate_champion_promotion_dry_run_file(
+        payload_path=run_dir / "champion_promotion_dry_run.json",
         repo_root=Path.cwd(),
     ) == ()
     assert manifest["run_closeout"]["path"] == "run_closeout.json"
@@ -2911,6 +2956,14 @@ def test_iteration_loop_writes_research_brief(tmp_path: Path) -> None:
         for path in report["checked_files"]  # type: ignore[union-attr]
     )
     assert any(
+        path.endswith("champion_promotion_dry_run.json")
+        for path in report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
+        path.endswith("champion_promotion_dry_run.md")
+        for path in report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
         path.endswith("run_closeout.json")
         for path in report["checked_files"]  # type: ignore[union-attr]
     )
@@ -2926,6 +2979,8 @@ def test_iteration_loop_writes_research_brief(tmp_path: Path) -> None:
     assert "run_artifact_health_history.jsonl" in summary_text
     assert "Candidate Challenger Report" in summary_text
     assert "candidate_challenger_report.json" in summary_text
+    assert "Champion Promotion Dry Run" in summary_text
+    assert "champion_promotion_dry_run.json" in summary_text
     assert "Run Closeout" in summary_text
     assert "run_closeout.json" in summary_text
     assert "round_001" in summary_text
@@ -10616,9 +10671,13 @@ def test_iteration_loop_writes_champion_comparison_when_champion_exists(
     challenger_path = (
         repo / "experiments/auto-challenger/candidate_challenger_report.json"
     )
+    promotion_path = (
+        repo / "experiments/auto-challenger/champion_promotion_dry_run.json"
+    )
     brief_path = repo / "experiments/auto-challenger/research_brief.json"
     comparison = json.loads(comparison_path.read_text(encoding="utf-8"))
     challenger = json.loads(challenger_path.read_text(encoding="utf-8"))
+    promotion = json.loads(promotion_path.read_text(encoding="utf-8"))
     brief = json.loads(brief_path.read_text(encoding="utf-8"))
     markdown = (repo / "experiments/auto-challenger/research_brief.md").read_text(
         encoding="utf-8"
@@ -10645,11 +10704,26 @@ def test_iteration_loop_writes_champion_comparison_when_champion_exists(
         "trails_champion_validation"
     )
     assert challenger["policy"]["does_not_promote_champion"] is True
+    assert promotion["schema_version"] == CHAMPION_PROMOTION_DRY_RUN_SCHEMA_VERSION
+    assert promotion["champion"]["exists"] is True
+    assert promotion["champion"]["champion_run_id"] == "auto-champion-current"
+    assert promotion["comparison"]["base_run_id"] == "auto-champion-current"
+    assert promotion["comparison"]["candidate_run_id"] == "auto-challenger"
+    assert promotion["status"] == "promotion_blocked"
+    assert promotion["dry_run_decision"]["would_promote"] is False
+    assert promotion["dry_run_decision"]["promotion_command"] == ""
+    assert (
+        "candidate_not_accepted"
+        in promotion["dry_run_decision"]["blocking_reasons"]
+    )
+    assert promotion["policy"]["does_not_write_champion_registry"] is True
+    assert promotion["policy"]["does_not_append_champion_history"] is True
     assert brief["champion_comparison"]["exists"] is True
     assert brief["champion_comparison"]["champion_run_id"] == "auto-champion-current"
     assert "## Champion Comparison" in markdown
     assert_matches_schema(comparison_path, "champion_comparison")
     assert_matches_schema(challenger_path, "candidate_challenger_report")
+    assert_matches_schema(promotion_path, "champion_promotion_dry_run")
     assert_matches_schema(brief_path, "research_brief")
     assert report["ok"] is True
     assert any(
@@ -10658,6 +10732,10 @@ def test_iteration_loop_writes_champion_comparison_when_champion_exists(
     )
     assert any(
         path.endswith("candidate_challenger_report.json")
+        for path in report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
+        path.endswith("champion_promotion_dry_run.json")
         for path in report["checked_files"]  # type: ignore[union-attr]
     )
 
@@ -11041,6 +11119,18 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    promotion_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.champion_promotion_dry_run",
+            "experiments/cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
     assert rows
     assert rows[0]["run_id"] == "cli-candidates"
@@ -11082,6 +11172,19 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         payload_path=repo / "experiments/cli-candidates/candidate_challenger_report.json",
         repo_root=repo,
     ) == ()
+    assert promotion_result.returncode == 0, promotion_result.stderr
+    promotion_payload = json.loads(promotion_result.stdout)
+    assert (
+        promotion_payload["schema_version"]
+        == CHAMPION_PROMOTION_DRY_RUN_SCHEMA_VERSION
+    )
+    assert promotion_payload["status"] == "no_champion"
+    assert promotion_payload["dry_run_decision"]["would_promote"] is False
+    assert promotion_payload["policy"]["requires_explicit_promote_command"] is True
+    assert validate_champion_promotion_dry_run_file(
+        payload_path=repo / "experiments/cli-candidates/champion_promotion_dry_run.json",
+        repo_root=repo,
+    ) == ()
 
 
 def test_summary_markdown_is_written_for_single_and_iteration_runs(tmp_path: Path) -> None:
@@ -11112,6 +11215,7 @@ def test_summary_markdown_is_written_for_single_and_iteration_runs(tmp_path: Pat
     assert "Best Validation Delta" in iteration_summary
     assert "Proposal Quality" in iteration_summary
     assert "Candidate Challenger Report" in iteration_summary
+    assert "Champion Promotion Dry Run" in iteration_summary
     assert "Candidate Leaderboard" in iteration_summary
     assert "Expected Change" in iteration_summary
     assert "Probe EV" in iteration_summary

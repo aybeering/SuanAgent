@@ -93,6 +93,7 @@ Implemented or allowed V0.5 components:
 79. A deterministic `run_closeout.json` and `run_closeout.md` report pair that summarizes completed iteration status, health, selected candidates, deterministic acceptance authority, and recommended next actions without running agents, running backtests, applying patches, routing agents, or changing acceptance.
 80. Deterministic candidate quality breakdown fields that decompose proposal prefilter scores into named components and carry selected validation and holdout signals across leaderboard, routing, selection, brief, and closeout artifacts without changing final acceptance authority.
 81. A deterministic `candidate_challenger_report.json` and `candidate_challenger_report.md` report pair that compares saved candidate rows with the current champion registry, including validation gap and holdout stability flags, without promoting champions, routing agents, running backtests, applying patches, or changing acceptance.
+82. A deterministic `champion_promotion_dry_run.json` and `champion_promotion_dry_run.md` report pair that previews whether a completed run would satisfy the existing deterministic champion promotion comparison, without writing `champion.json`, appending champion history, running agents, running backtests, routing agents, applying patches, or changing acceptance.
 
 ## Contract Families
 
@@ -133,6 +134,7 @@ Agent-slot contracts:
 - Experiment scope health: `schemas/experiment_scope_health.schema.json`
 - Run closeout: `schemas/run_closeout.schema.json`
 - Candidate challenger report: `schemas/candidate_challenger_report.schema.json`
+- Champion promotion dry-run: `schemas/champion_promotion_dry_run.schema.json`
 
 Codex CLI readiness contracts:
 
@@ -193,6 +195,11 @@ Codex CLI readiness contracts:
     highlight validation gaps and holdout stability against the current
     champion, but they cannot promote champions, route candidates, apply
     patches, run backtests, or change strategy acceptance.
+17. Champion promotion dry-runs are read-only promotion previews. They can
+    expose the deterministic promote command that would be appropriate after
+    operator review, but they cannot write champion registry files, append
+    champion history, route candidates, apply patches, run backtests, or change
+    strategy acceptance.
 
 ## Near-Term Development Order
 

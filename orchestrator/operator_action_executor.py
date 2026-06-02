@@ -26,6 +26,8 @@ ALLOWED_EXPERIMENTS_SUBCOMMANDS = {
     "action-approval",
     "action-plan",
     "candidates",
+    "config-change-candidate",
+    "config-lineage",
     "quality-trace",
     "review",
     "show",

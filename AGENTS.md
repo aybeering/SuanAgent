@@ -111,6 +111,7 @@ Allowed components:
 60. A deterministic `codex_cli_execution_preflight.json` startup gate that blocks real Codex CLI execution unless a ready operator unlock request is already recorded and still matches the current profile command, current run workspace prefix, and recorded readiness evidence hashes.
 61. Deterministic `agent_execution.json` command digest binding that lets artifact validation prove guarded Codex CLI attempts used the command reviewed by startup preflight.
 62. Strict local JSON schema validation, including repository-local `$defs` references, for Codex CLI execution preflight evidence contracts.
+63. Strict `codex_cli_operator_unlock_request.json` evidence contracts that type-check operator intent, source artifact file records, planned command review, and read-only safety policy.
 
 Still out of scope:
 

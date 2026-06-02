@@ -7305,6 +7305,67 @@ def test_codex_cli_execution_preflight_schema_requires_evidence_contract(
     )
 
 
+def test_codex_cli_operator_unlock_request_schema_requires_evidence_contract(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_operator_request_schema.py",
+        "#!/usr/bin/env python3\nprint('{}')\n",
+    )
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / "operator_unlock_fixtures/schema_contract_request.json",
+        run_id="operator-request-schema",
+        executable=str(fake_codex),
+        model="schema-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    schema = json.loads(
+        (
+            Path.cwd() / "schemas/codex_cli_operator_unlock_request.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert validate_json_payload(payload=request, schema=schema) == ()
+
+    missing_source_file = json.loads(json.dumps(request))
+    del missing_source_file["source_pipeline"]["file"]
+    missing_errors = validate_json_payload(
+        payload=missing_source_file,
+        schema=schema,
+    )
+    assert (
+        "$.source_pipeline: missing required property file"
+        in missing_errors
+    )
+
+    bad_file_record = json.loads(json.dumps(request))
+    bad_file_record["source_real_execution_dry_run"]["file"]["bytes"] = "bad"
+    file_record_errors = validate_json_payload(
+        payload=bad_file_record,
+        schema=schema,
+    )
+    assert (
+        "$.source_real_execution_dry_run.file.bytes: expected integer, got string"
+        in file_record_errors
+    )
+
+    unexpected_check = json.loads(json.dumps(request))
+    unexpected_check["checks"]["natural_language_override"] = True
+    unexpected_errors = validate_json_payload(
+        payload=unexpected_check,
+        schema=schema,
+    )
+    assert (
+        "$.checks: unexpected property natural_language_override"
+        in unexpected_errors
+    )
+
+
 def test_codex_cli_execution_unlock_gate_blocks_candidate_config_mismatch(
     tmp_path: Path,
 ) -> None:

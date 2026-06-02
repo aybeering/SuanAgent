@@ -64,7 +64,70 @@
         "request_does_not_send_strategy_prompt",
         "request_does_not_apply_patches",
         "request_does_not_change_acceptance"
-      ]
+      ],
+      "properties": {
+        "readiness_pipeline_exists": {
+          "type": "boolean"
+        },
+        "readiness_pipeline_ok": {
+          "type": "boolean"
+        },
+        "readiness_pipeline_completed": {
+          "type": "boolean"
+        },
+        "readiness_pipeline_final_ready": {
+          "type": "boolean"
+        },
+        "readiness_pipeline_hash_present": {
+          "type": "boolean"
+        },
+        "real_execution_dry_run_exists": {
+          "type": "boolean"
+        },
+        "real_execution_dry_run_ok": {
+          "type": "boolean"
+        },
+        "real_execution_dry_run_ready": {
+          "type": "boolean"
+        },
+        "execution_plan_present": {
+          "type": "boolean"
+        },
+        "command_present": {
+          "type": "boolean"
+        },
+        "target_file_is_current_strategy": {
+          "type": "boolean"
+        },
+        "allowed_mutation_paths_strategy_only": {
+          "type": "boolean"
+        },
+        "explicit_operator_request": {
+          "type": "boolean"
+        },
+        "requested_by_present": {
+          "type": "boolean"
+        },
+        "confirmation_phrase_matches": {
+          "type": "boolean"
+        },
+        "request_does_not_execute_codex_cli": {
+          "type": "boolean"
+        },
+        "request_does_not_create_workspace": {
+          "type": "boolean"
+        },
+        "request_does_not_send_strategy_prompt": {
+          "type": "boolean"
+        },
+        "request_does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "request_does_not_change_acceptance": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
     },
     "request": {
       "type": "object",
@@ -75,7 +138,28 @@
         "required_confirmation_phrase_sha256",
         "provided_confirmation_phrase_sha256",
         "confirmation_phrase_matches"
-      ]
+      ],
+      "properties": {
+        "requested": {
+          "type": "boolean"
+        },
+        "requested_by": {
+          "type": "string"
+        },
+        "request_scope": {
+          "type": "string"
+        },
+        "required_confirmation_phrase_sha256": {
+          "type": "string"
+        },
+        "provided_confirmation_phrase_sha256": {
+          "type": "string"
+        },
+        "confirmation_phrase_matches": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
     },
     "source_pipeline": {
       "type": "object",
@@ -85,7 +169,28 @@
         "readiness_status",
         "blocking_reasons",
         "file"
-      ]
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "final_ready": {
+          "type": "boolean"
+        },
+        "readiness_status": {
+          "type": "string"
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "file": {
+          "$ref": "#/$defs/file_record"
+        }
+      },
+      "additionalProperties": false
     },
     "source_real_execution_dry_run": {
       "type": "object",
@@ -94,7 +199,25 @@
         "real_execution_dry_run_ready",
         "blocking_reasons",
         "file"
-      ]
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "real_execution_dry_run_ready": {
+          "type": "boolean"
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "file": {
+          "$ref": "#/$defs/file_record"
+        }
+      },
+      "additionalProperties": false
     },
     "planned_execution_review": {
       "type": "object",
@@ -109,7 +232,46 @@
         "command",
         "command_sha256",
         "execution_enabled_by_this_artifact"
-      ]
+      ],
+      "properties": {
+        "agent_name": {
+          "type": "string"
+        },
+        "profile_name": {
+          "type": "string"
+        },
+        "round_id": {
+          "type": "string"
+        },
+        "attempt_id": {
+          "type": "string"
+        },
+        "target_file": {
+          "type": "string"
+        },
+        "allowed_mutation_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "workspace_path": {
+          "type": "string"
+        },
+        "command": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "command_sha256": {
+          "type": "string"
+        },
+        "execution_enabled_by_this_artifact": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
     },
     "policy": {
       "type": "object",
@@ -130,7 +292,85 @@
         "does_not_change_acceptance",
         "allows_only_strategy_file_mutation",
         "deterministic_code_keeps_acceptance_authority"
-      ]
+      ],
+      "properties": {
+        "operator_request_only": {
+          "type": "boolean"
+        },
+        "read_only": {
+          "type": "boolean"
+        },
+        "requires_readiness_pipeline": {
+          "type": "boolean"
+        },
+        "requires_pipeline_final_ready": {
+          "type": "boolean"
+        },
+        "requires_real_execution_dry_run_ready": {
+          "type": "boolean"
+        },
+        "requires_explicit_operator_request": {
+          "type": "boolean"
+        },
+        "requires_exact_confirmation_phrase": {
+          "type": "boolean"
+        },
+        "does_not_execute_codex_cli": {
+          "type": "boolean"
+        },
+        "does_not_create_workspace": {
+          "type": "boolean"
+        },
+        "does_not_send_strategy_prompt": {
+          "type": "boolean"
+        },
+        "does_not_modify_config": {
+          "type": "boolean"
+        },
+        "does_not_select_candidate": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "allows_only_strategy_file_mutation": {
+          "type": "boolean"
+        },
+        "deterministic_code_keeps_acceptance_authority": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "file_record": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

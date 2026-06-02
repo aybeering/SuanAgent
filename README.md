@@ -23,6 +23,7 @@ The strategy interface contract is documented in
 `schemas/agent_attempts.schema.json`, `schemas/agent_selection.schema.json`,
 `schemas/agent_executor.schema.json`, `schemas/agent_output.schema.json`,
 `schemas/agent_validation.schema.json`, `schemas/agent_execution.schema.json`,
+`schemas/codex_cli_operator_unlock_request.schema.json`,
 `schemas/codex_cli_execution_preflight.schema.json`,
 `schemas/agent_activation_preflight.schema.json`,
 `schemas/agent_execution_plan.schema.json`,
@@ -409,8 +410,8 @@ validated against `schemas/round_replay.schema.json`; optional slot health
 reports are validated against `schemas/agent_slot_health.schema.json`; run
 provenance is validated against `schemas/run_metadata.schema.json`.
 The local schema validator resolves repository-local `$defs` references, so
-nested file records in readiness and execution preflight artifacts are checked
-instead of being treated as opaque objects.
+nested file records in operator unlock request, readiness, and execution
+preflight artifacts are checked instead of being treated as opaque objects.
 `agent_execution.json` records `runner_name=agent_contract_runner_v1`, making it
 clear which shared execution contract handled the external command.
 Use `python -m orchestrator.artifact_validator <run_id>` to check that a run

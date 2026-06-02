@@ -141,6 +141,7 @@ from orchestrator.attempt_replay import replay_attempt
 from orchestrator.round_replay import ROUND_REPLAY_SCHEMA_VERSION, replay_round
 from orchestrator.artifact_validator import (
     snapshot_digest_from_payload,
+    validate_optional_operator_unlock_checklist,
     validate_recommended_command_hints,
     validate_run_artifacts,
 )
@@ -13378,6 +13379,42 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
         payload_path=execution_diff_path,
         repo_root=repo,
     ) == ()
+    checklist_validation: dict[str, object] = {
+        "run_id": "codex-execute-without-operator-request",
+        "checked_files": [],
+        "errors": [],
+        "warnings": [],
+    }
+    validate_optional_operator_unlock_checklist(
+        run_dir=run_dir,
+        repo_root=repo,
+        report=checklist_validation,
+    )
+    assert checklist_validation["errors"] == []
+
+    tampered_checklist = json.loads(checklist_path.read_text(encoding="utf-8"))
+    tampered_label = tampered_checklist["navigation"]["commands"][0]["label"]
+    tampered_checklist["navigation"]["commands"][0]["command"] += (
+        " && python -m orchestrator.run_loop"
+    )
+    checklist_path.write_text(
+        json.dumps(tampered_checklist, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    tampered_validation: dict[str, object] = {
+        "run_id": "codex-execute-without-operator-request",
+        "checked_files": [],
+        "errors": [],
+        "warnings": [],
+    }
+    validate_optional_operator_unlock_checklist(
+        run_dir=run_dir,
+        repo_root=repo,
+        report=tampered_validation,
+    )
+    assert (
+        f"operator_unlock_checklist command unsafe token: {tampered_label}"
+    ) in tampered_validation["errors"]
 
 
 def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(

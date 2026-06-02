@@ -4340,8 +4340,14 @@ def validate_recommended_command_hints(
     payload: dict[str, object],
     report: dict[str, object],
     artifact_label: str,
-    allowed_writes: dict[str, str],
+    allowed_writes: dict[str, object],
     unsafe_tokens: tuple[str, ...],
+    commands_field: str = "recommended_commands",
+    writes_field: str = "writes_artifact",
+    command_noun: str = "recommended command",
+    allowed_artifact_ids: dict[str, str] | None = None,
+    artifact_id_field: str = "artifact_id",
+    allow_empty: bool = False,
     current_step_field: str | None = None,
     current_step_error: str = "",
     required_label_errors: dict[str, str] | None = None,
@@ -4351,9 +4357,11 @@ def validate_recommended_command_hints(
     first_command_error: str = "",
 ) -> None:
     """Validate operator-facing command hints against deterministic boundaries."""
-    commands = payload.get("recommended_commands", [])
+    commands = payload.get(commands_field, [])
     if not isinstance(commands, list) or not commands:
-        add_error(report, f"{artifact_label} recommended_commands invalid")
+        if allow_empty and isinstance(commands, list):
+            return
+        add_error(report, f"{artifact_label} {commands_field} invalid")
         return
 
     first = commands[0]
@@ -4365,29 +4373,42 @@ def validate_recommended_command_hints(
     labels: set[str] = set()
     for index, row in enumerate(commands):
         if not isinstance(row, dict):
-            add_error(report, f"{artifact_label} recommended command {index} invalid")
+            add_error(report, f"{artifact_label} {command_noun} {index} invalid")
             continue
         label = str(row.get("label", ""))
         labels.add(label)
         command = str(row.get("command", ""))
-        writes_artifact = str(row.get("writes_artifact", ""))
+        writes_artifact = row.get(writes_field, "")
         if label not in allowed_writes:
-            add_error(report, f"{artifact_label} recommended command unknown: {label}")
+            add_error(report, f"{artifact_label} {command_noun} unknown: {label}")
         elif writes_artifact != allowed_writes[label]:
             add_error(
                 report,
-                f"{artifact_label} recommended command writes mismatch: {label}",
+                f"{artifact_label} {command_noun} writes mismatch: {label}",
             )
+        if allowed_artifact_ids is not None:
+            expected_artifact_id = allowed_artifact_ids.get(label)
+            actual_artifact_id = str(row.get(artifact_id_field, ""))
+            if expected_artifact_id is None:
+                add_error(
+                    report,
+                    f"{artifact_label} {command_noun} artifact unknown: {label}",
+                )
+            elif actual_artifact_id != expected_artifact_id:
+                add_error(
+                    report,
+                    f"{artifact_label} {command_noun} artifact mismatch: {label}",
+                )
         if not command.startswith("python -m orchestrator."):
             add_error(
                 report,
-                f"{artifact_label} recommended command prefix invalid: {label}",
+                f"{artifact_label} {command_noun} prefix invalid: {label}",
             )
         for token in unsafe_tokens:
             if token in command:
                 add_error(
                     report,
-                    f"{artifact_label} recommended command unsafe token: {label}",
+                    f"{artifact_label} {command_noun} unsafe token: {label}",
                 )
                 break
 
@@ -4548,6 +4569,11 @@ def validate_operator_unlock_navigation(
     if not isinstance(commands, list):
         add_error(report, "operator_unlock_checklist commands invalid")
         commands = []
+    else:
+        validate_operator_unlock_navigation_command_hints(
+            navigation=navigation,
+            report=report,
+        )
     for command in commands:
         if not isinstance(command, dict):
             add_error(report, "operator_unlock_checklist command invalid")
@@ -4556,8 +4582,6 @@ def validate_operator_unlock_navigation(
             add_error(report, "operator_unlock_checklist command executes codex")
         if command.get("requires_explicit_operator_invocation") is not True:
             add_error(report, "operator_unlock_checklist command lacks explicit gate")
-        if not str(command.get("command", "")).startswith("python -m orchestrator."):
-            add_error(report, "operator_unlock_checklist command prefix invalid")
     nav_policy = navigation.get("policy", {})
     if not isinstance(nav_policy, dict):
         add_error(report, "operator_unlock_checklist navigation policy invalid")
@@ -4575,6 +4599,33 @@ def validate_operator_unlock_navigation(
     ):
         if nav_policy.get(key) is not True:
             add_error(report, f"operator_unlock_checklist navigation policy false: {key}")
+
+
+def validate_operator_unlock_navigation_command_hints(
+    *,
+    navigation: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate operator unlock navigation command hints are bounded."""
+    allowed_artifact_ids = {
+        "run_readiness_pipeline": "codex_cli_readiness_pipeline",
+        "write_execution_candidate": "codex_cli_execution_candidate",
+        "write_real_execution_dry_run": "codex_cli_real_execution_dry_run",
+        "write_operator_unlock_request": "codex_cli_operator_unlock_request",
+        "run_execution_preflight": "codex_cli_execution_preflight",
+    }
+    validate_recommended_command_hints(
+        payload=navigation,
+        report=report,
+        artifact_label="operator_unlock_checklist",
+        allowed_writes={label: True for label in allowed_artifact_ids},
+        unsafe_tokens=("&&", "||", "|", "`", "$(", "\n", ";"),
+        commands_field="commands",
+        writes_field="writes_artifacts",
+        command_noun="command",
+        allowed_artifact_ids=allowed_artifact_ids,
+        allow_empty=True,
+    )
 
 
 def validate_optional_operator_cockpit(

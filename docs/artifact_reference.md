@@ -267,9 +267,12 @@ without recording approval, executing Codex, executing agents, creating
 workspaces, applying patches, routing agents, or changing acceptance. The
 `navigation` section lists expected evidence artifacts, failed evidence groups,
 blocking reason codes, related artifact paths, and command hints that still
-require explicit operator invocation. If real Codex execute=true startup
-preflight is blocked before any round starts, the failed run still writes this
-checklist and the run summary points at the primary blocker.
+require explicit operator invocation. Artifact validation checks those
+navigation command hints through the shared operator command-hint validator for
+known labels, artifact ids, write flags, command prefixes, and simple
+shell-control-token guards. If real Codex execute=true startup preflight is
+blocked before any round starts, the failed run still writes this checklist and
+the run summary points at the primary blocker.
 `codex_cli_unlock_runbook.json` and `codex_cli_unlock_runbook.md` convert the
 same Codex CLI unlock chain into an ordered operator guide. `python -m
 orchestrator.codex_cli_unlock_runbook experiments/<run_id>` writes the
@@ -590,11 +593,13 @@ Replay artifacts:
   classify saved preflight evidence groups and source hashes, then provide
   `navigation.expected_artifacts`, `navigation.blocking_items`, and
   `navigation.commands` so an operator can see the next artifact to inspect or
-  generate. Command rows are hints only; the checklist cannot record approval,
-  execute Codex, create workspaces, apply patches, route agents, or change
-  acceptance. Startup preflight failures for real Codex execute=true profiles
-  still write the checklist before the loop exits, so no-round failed runs keep
-  a deterministic blocker trail.
+  generate. Artifact validation rejects unknown navigation command labels,
+  artifact mismatches, write-flag mismatches, unsafe shell control tokens, and
+  invalid command prefixes. Command rows are hints only; the checklist cannot
+  record approval, execute Codex, create workspaces, apply patches, route
+  agents, or change acceptance. Startup preflight failures for real Codex
+  execute=true profiles still write the checklist before the loop exits, so
+  no-round failed runs keep a deterministic blocker trail.
 - `operator_cockpit.json` and `operator_cockpit.md` aggregate run review,
   config lineage, operator action, Codex CLI execution preflight, challenger
   comparison, promotion review, promotion approval, and scope-health state into

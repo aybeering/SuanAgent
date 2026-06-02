@@ -123,6 +123,16 @@ def write_iteration_summary(
             f"- History: `{display_value(artifact_health_history.get('path'))}`"
         )
 
+    run_closeout = manifest.get("run_closeout")
+    if isinstance(run_closeout, dict):
+        lines.extend(["", "## Run Closeout", ""])
+        lines.append(f"- Status: `{display_value(run_closeout.get('status'))}`")
+        lines.append(f"- OK: `{display_value(run_closeout.get('ok'))}`")
+        lines.append(f"- Artifact: `{display_value(run_closeout.get('path'))}`")
+        lines.append(
+            f"- Markdown: `{display_value(run_closeout.get('markdown_path'))}`"
+        )
+
     lines.extend(["", "## Best Validation Delta", ""])
     if best_round is None:
         lines.append("No completed rounds.")

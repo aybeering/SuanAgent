@@ -104,6 +104,8 @@ experiments/<run_id>/
   research_brief.json
   research_brief.md
   experiment_scope_health.json
+  run_closeout.json
+  run_closeout.md
 ```
 
 It also updates append-only experiment indexes:
@@ -259,6 +261,11 @@ Replay artifacts:
   failure observations, or memory-linked failed health runs. The iteration loop
   writes it automatically at run completion using the run's startup timestamp
   as the current-contract scope boundary.
+- `run_closeout.json` and `run_closeout.md` summarize the completed iteration
+  run for operator review. They read saved artifacts only, record deterministic
+  acceptance authority, selected candidates, health status, and recommended
+  next actions, and cannot execute agents, run backtests, apply patches, route
+  agents, or change acceptance.
 - `artifact_validator_coverage.json` reports schema, validator, documentation,
   test, and inspection/replay coverage for repository artifact contracts.
 

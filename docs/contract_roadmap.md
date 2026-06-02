@@ -90,6 +90,7 @@ Implemented or allowed V0.5 components:
 76. A deterministic `memory_diagnostics.json` report that cross-references proposal outcome memory with artifact-health history by run id, agent, profile, direction, and patch hash without routing agents or changing acceptance.
 77. A deterministic current-contract scope filter for artifact health, artifact-health history, and memory diagnostics, keyed by indexed `created_at`, so legacy experiment directories can remain on disk without polluting current V0.5 validation.
 78. A deterministic `experiment_scope_health.json` report that combines scoped artifact health, health-history, and memory diagnostics into one read-only status page without running agents, running backtests, routing agents, applying patches, or changing acceptance. The iteration loop writes this report automatically at run completion using the run's startup timestamp as the scope boundary.
+79. A deterministic `run_closeout.json` and `run_closeout.md` report pair that summarizes completed iteration status, health, selected candidates, deterministic acceptance authority, and recommended next actions without running agents, running backtests, applying patches, routing agents, or changing acceptance.
 
 ## Contract Families
 
@@ -128,6 +129,7 @@ Agent-slot contracts:
   `schemas/run_artifact_health_history.schema.json`
 - Memory diagnostics: `schemas/memory_diagnostics.schema.json`
 - Experiment scope health: `schemas/experiment_scope_health.schema.json`
+- Run closeout: `schemas/run_closeout.schema.json`
 
 Codex CLI readiness contracts:
 
@@ -178,6 +180,9 @@ Codex CLI readiness contracts:
     can mark a scope healthy or unhealthy for operator inspection, but it cannot
     execute agents, run backtests, route candidates, apply patches, repair
     artifacts, or change strategy acceptance.
+14. Run closeout reports are read-only operator summaries. They can recommend
+    next inspection steps, but they cannot execute agents, run backtests, route
+    candidates, apply patches, or change strategy acceptance.
 
 ## Near-Term Development Order
 

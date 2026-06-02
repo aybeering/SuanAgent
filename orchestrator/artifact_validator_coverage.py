@@ -39,6 +39,7 @@ KNOWN_ARTIFACT_NAMES = {
     "run_artifact_health_history": ("run_artifact_health_history.jsonl",),
     "memory_diagnostics": ("memory_diagnostics.json",),
     "experiment_scope_health": ("experiment_scope_health.json",),
+    "run_closeout": ("run_closeout.json", "run_closeout.md"),
 }
 
 INSPECTION_COMMANDS = {
@@ -68,6 +69,7 @@ INSPECTION_COMMANDS = {
         "python -m orchestrator.experiment_scope_health",
         "python -m orchestrator.experiments scope-health",
     ),
+    "run_closeout": ("python -m orchestrator.run_closeout",),
     "champion": ("python -m orchestrator.experiments champion",),
     "champion_comparison": ("python -m orchestrator.experiments compare",),
     "codex_cli_replay_gate": ("python -m orchestrator.codex_cli_replay_gate",),
@@ -116,6 +118,7 @@ def build_artifact_validator_coverage(*, repo_root: Path = Path(".")) -> dict[st
             read_text(repo_root / "orchestrator/run_artifact_health.py"),
             read_text(repo_root / "orchestrator/memory_diagnostics.py"),
             read_text(repo_root / "orchestrator/experiment_scope_health.py"),
+            read_text(repo_root / "orchestrator/run_closeout.py"),
         )
     )
     docs_text = read_paths(paths=DOC_PATHS, repo_root=repo_root)

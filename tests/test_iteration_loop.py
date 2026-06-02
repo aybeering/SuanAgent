@@ -174,6 +174,10 @@ from orchestrator.outcome_memory import (
     read_outcome_memory,
 )
 from orchestrator.run_loop import run_pipeline
+from orchestrator.run_closeout import (
+    RUN_CLOSEOUT_SCHEMA_VERSION,
+    validate_run_closeout_file,
+)
 from orchestrator.run_diagnosis import diagnose_run
 from orchestrator.preflight import run_preflight
 from orchestrator.schema_validation import validate_json_file, validate_json_payload
@@ -1957,6 +1961,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "research_brief.json").exists()
     assert (run_dir / "research_brief.md").exists()
     assert (run_dir / "experiment_scope_health.json").exists()
+    assert (run_dir / "run_closeout.json").exists()
+    assert (run_dir / "run_closeout.md").exists()
     assert (repo / "experiments/run_artifact_health_history.jsonl").exists()
 
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
@@ -2024,6 +2030,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     scope_health = json.loads(
         (run_dir / "experiment_scope_health.json").read_text(encoding="utf-8")
     )
+    closeout = json.loads((run_dir / "run_closeout.json").read_text(encoding="utf-8"))
+    closeout_markdown = (run_dir / "run_closeout.md").read_text(encoding="utf-8")
     history_records = [
         json.loads(line)
         for line in (repo / "experiments/run_artifact_health_history.jsonl")
@@ -2032,6 +2040,26 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         if line.strip()
     ]
     selected_attempt = next(attempt for attempt in attempts if attempt["selected"])
+    assert manifest["run_closeout"]["path"] == "run_closeout.json"
+    assert manifest["run_closeout"]["markdown_path"] == "run_closeout.md"
+    assert manifest["run_closeout"]["ok"] is True
+    assert manifest["run_closeout"]["status"] == "ready_for_review"
+    assert closeout["schema_version"] == RUN_CLOSEOUT_SCHEMA_VERSION
+    assert closeout["ok"] is True
+    assert closeout["closeout_status"] == "ready_for_review"
+    assert closeout["summary"]["scope_health_ok"] is True
+    assert closeout["summary"]["artifact_health_history_recorded"] is True
+    assert closeout["summary"]["candidate_count"] >= 1
+    assert closeout["decision_record"]["final_acceptance_authority"] == (
+        "deterministic_code"
+    )
+    assert closeout["policy"]["does_not_execute_agents"] is True
+    assert "# Run Closeout" in closeout_markdown
+    assert_matches_schema(run_dir / "run_closeout.json", "run_closeout")
+    assert validate_run_closeout_file(
+        payload_path=run_dir / "run_closeout.json",
+        repo_root=Path.cwd(),
+    ) == ()
     assert manifest["artifact_health_history"]["path"] == (
         "run_artifact_health_history.jsonl"
     )
@@ -2811,12 +2839,22 @@ def test_iteration_loop_writes_research_brief(tmp_path: Path) -> None:
         path.endswith("experiment_scope_health.json")
         for path in report["checked_files"]  # type: ignore[union-attr]
     )
+    assert any(
+        path.endswith("run_closeout.json")
+        for path in report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
+        path.endswith("run_closeout.md")
+        for path in report["checked_files"]  # type: ignore[union-attr]
+    )
     summary_text = (run_dir / "summary.md").read_text(encoding="utf-8")
     assert "Experiment Summary" in summary_text
     assert "Experiment Scope Health" in summary_text
     assert "experiment_scope_health.json" in summary_text
     assert "Artifact Health History" in summary_text
     assert "run_artifact_health_history.jsonl" in summary_text
+    assert "Run Closeout" in summary_text
+    assert "run_closeout.json" in summary_text
     assert "round_001" in summary_text
     assert "strategy_modifier_stub" in summary_text
     assert "ev improvement" in summary_text

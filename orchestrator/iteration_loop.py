@@ -99,6 +99,7 @@ from orchestrator.run_artifact_health import (
     append_run_artifact_health_history,
     build_run_artifact_health,
 )
+from orchestrator.run_closeout import write_run_closeout
 from orchestrator.run_loop import run_and_write, write_json
 from orchestrator.run_metadata import write_run_metadata
 from orchestrator.run_summary import write_iteration_summary
@@ -239,6 +240,12 @@ def run_iteration_loop(
             "ok": False,
             "scoped_run_count": 0,
             "failed_run_count": 0,
+        },
+        "run_closeout": {
+            "path": "run_closeout.json",
+            "markdown_path": "run_closeout.md",
+            "ok": False,
+            "status": "pending",
         },
         "memory_filter_policy": {
             "failed_patch_threshold": active_config.memory_failed_patch_threshold,
@@ -566,6 +573,24 @@ def finalize_iteration_run(
     }
     write_json(run_dir / "manifest.json", manifest)
     write_iteration_summary(run_dir=run_dir, manifest=manifest)
+    _, _, closeout_payload = write_run_closeout(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
+    manifest["run_closeout"] = {
+        "path": "run_closeout.json",
+        "markdown_path": "run_closeout.md",
+        "ok": bool(closeout_payload.get("ok", False)),
+        "status": str(closeout_payload.get("closeout_status", "unknown")),
+    }
+    write_json(run_dir / "manifest.json", manifest)
+    write_iteration_summary(run_dir=run_dir, manifest=manifest)
+    write_run_closeout(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
 
 
 def run_round(

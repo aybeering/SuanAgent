@@ -157,6 +157,9 @@
           "candidate_score": {
             "type": "number"
           },
+          "quality_breakdown": {
+            "type": "object"
+          },
           "score_reasons": {
             "type": "array"
           },
@@ -183,6 +186,18 @@
           },
           "probe_ev_delta": {
             "type": "number"
+          },
+          "validation_ev_delta": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "holdout_ev_delta": {
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "validation_status": {
             "type": "string"

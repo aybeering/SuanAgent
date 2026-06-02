@@ -129,6 +129,9 @@
           "candidate_score": {
             "type": "number"
           },
+          "quality_breakdown": {
+            "type": "object"
+          },
           "failure_stage": {
             "type": "string"
           },
@@ -184,6 +187,9 @@
           "probe_ev_delta": {
             "type": "number"
           },
+          "probe_trade_count_delta": {
+            "type": "number"
+          },
           "validation_status": {
             "type": "string"
           },
@@ -194,6 +200,24 @@
             ]
           },
           "validation_ev_delta": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "validation_trade_count_delta": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "holdout_ev_delta": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "holdout_trade_count_delta": {
             "type": [
               "number",
               "null"

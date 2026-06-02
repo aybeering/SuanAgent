@@ -173,8 +173,8 @@ def write_iteration_summary(
             lines.extend(["", "## Candidate Leaderboard", ""])
             lines.extend(
                 [
-                    "| Round | Role | Agent | Direction | Prior | Explore | Champion Gap | Selected | Score | Probe EV | Validation EV | Status |",
-                    "| --- | --- | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
+                    "| Round | Role | Agent | Direction | Prior | Explore | Champion Gap | Quality | Selected | Score | Probe EV | Validation EV | Holdout EV | Status |",
+                    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- |",
                 ]
             )
             for row in candidate_rows[:10]:
@@ -275,6 +275,8 @@ def candidate_leaderboard_row(row: dict[str, Any]) -> str:
     """Build one markdown row for the candidate leaderboard."""
     validation_ev = row.get("validation_ev_delta")
     validation_text = "none" if validation_ev is None else str(validation_ev)
+    holdout_ev = row.get("holdout_ev_delta")
+    holdout_text = "none" if holdout_ev is None else str(holdout_ev)
     return (
         f"| {escape_cell(str(row.get('round_id', '')))} "
         f"| {escape_cell(str(row.get('role', '')))} "
@@ -283,10 +285,12 @@ def candidate_leaderboard_row(row: dict[str, Any]) -> str:
         f"| {escape_cell(direction_prior_label(row.get('direction_prior', {})))} "
         f"| {escape_cell(exploration_bonus_label(row.get('exploration_bonus', {})))} "
         f"| {escape_cell(champion_gap_label(row.get('champion_gap', {})))} "
+        f"| {escape_cell(quality_breakdown_label(row.get('quality_breakdown', {})))} "
         f"| `{str(bool(row.get('selected', False))).lower()}` "
         f"| {escape_cell(str(row.get('candidate_score', 0)))} "
         f"| {escape_cell(str(row.get('probe_ev_delta', 0.0)))} "
         f"| {escape_cell(validation_text)} "
+        f"| {escape_cell(holdout_text)} "
         f"| {escape_cell(str(row.get('status', '')))} |"
     )
 
@@ -327,6 +331,26 @@ def champion_gap_label(value: object) -> str:
     score_delta = int(value.get("score_delta", 0))
     sign = "+" if score_delta > 0 else ""
     return f"{sign}{score_delta} gap={float(value.get('gap', 0.0)):.6f}"
+
+
+def quality_breakdown_label(value: object) -> str:
+    """Return compact quality component text."""
+    if not isinstance(value, dict):
+        return "none"
+    components = value.get("components", [])
+    if not isinstance(components, list):
+        return "none"
+    named = [
+        component
+        for component in components
+        if isinstance(component, dict) and int(component.get("score_delta", 0)) != 0
+    ]
+    if not named:
+        return "none"
+    return "; ".join(
+        f"{component.get('name', '')}={int(component.get('score_delta', 0))}"
+        for component in named[:3]
+    )
 
 
 def best_validation_round(rounds: list[dict[str, object]]) -> dict[str, object] | None:

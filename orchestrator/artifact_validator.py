@@ -282,7 +282,14 @@ def validate_iteration_run(
     if manifest is None:
         return
 
-    validate_json_list(path=run_dir / "candidate_leaderboard.json", report=report)
+    candidate_rows = validate_json_list(
+        path=run_dir / "candidate_leaderboard.json",
+        report=report,
+    )
+    validate_candidate_leaderboard_quality(
+        rows=candidate_rows,
+        report=report,
+    )
     validate_contract_file(
         payload_path=run_dir / "agent_activation_preflight.json",
         schema_path=repo_root / "schemas/agent_activation_preflight.schema.json",
@@ -306,6 +313,47 @@ def validate_iteration_run(
         round_dir = run_dir / round_id
         validate_round_dir(round_dir=round_dir, repo_root=repo_root, report=report)
     report["rounds_checked"] = len(round_ids)
+
+
+def validate_candidate_leaderboard_quality(
+    *,
+    rows: list[Any] | None,
+    report: dict[str, object],
+) -> None:
+    """Validate candidate leaderboard quality metadata when rows are present."""
+    if rows is None:
+        return
+    for index, row in enumerate(rows, start=1):
+        if not isinstance(row, dict):
+            add_error(report, f"candidate_leaderboard row {index} is not an object")
+            continue
+        quality = row.get("quality_breakdown", {})
+        if not isinstance(quality, dict):
+            add_error(report, f"candidate_leaderboard row {index} quality invalid")
+            continue
+        if quality.get("schema_version") != "candidate_quality_v1":
+            add_error(report, f"candidate_leaderboard row {index} quality schema invalid")
+        if quality.get("total_score") != row.get("candidate_score"):
+            add_error(report, f"candidate_leaderboard row {index} quality score mismatch")
+        components = quality.get("components", [])
+        if not isinstance(components, list):
+            add_error(report, f"candidate_leaderboard row {index} quality components invalid")
+        signals = quality.get("signals", {})
+        if not isinstance(signals, dict):
+            add_error(report, f"candidate_leaderboard row {index} quality signals invalid")
+            continue
+        if row.get("selected") is True:
+            for key in ("validation_ev_delta", "holdout_ev_delta"):
+                if row.get(key) is None:
+                    add_error(
+                        report,
+                        f"candidate_leaderboard selected row {index} missing {key}",
+                    )
+                if signals.get(key) != row.get(key):
+                    add_error(
+                        report,
+                        f"candidate_leaderboard selected row {index} signal mismatch: {key}",
+                    )
 
 
 def validate_round_dir(

@@ -236,8 +236,10 @@
         "selected",
         "status",
         "candidate_score",
+        "quality_breakdown",
         "probe_ev_delta",
         "validation_ev_delta",
+        "holdout_ev_delta",
         "selection_reason"
       ],
       "properties": {
@@ -265,10 +267,19 @@
         "candidate_score": {
           "type": "number"
         },
+        "quality_breakdown": {
+          "type": "object"
+        },
         "probe_ev_delta": {
           "type": "number"
         },
         "validation_ev_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "holdout_ev_delta": {
           "type": [
             "number",
             "null"

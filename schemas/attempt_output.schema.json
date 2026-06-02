@@ -142,6 +142,9 @@
         "score_reasons": {
           "type": "array"
         },
+        "quality_breakdown": {
+          "type": "object"
+        },
         "blocking_reasons": {
           "type": "array",
           "items": {
@@ -174,8 +177,29 @@
             "null"
           ]
         },
+        "trade_count_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
         "probe_ev_delta": {
           "type": "number"
+        },
+        "probe_trade_count_delta": {
+          "type": "number"
+        },
+        "holdout_ev_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "holdout_trade_count_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
         }
       }
     },

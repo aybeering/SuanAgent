@@ -185,8 +185,10 @@ def compact_candidate(row: dict[str, Any]) -> dict[str, object]:
         "selected": bool(row.get("selected", False)),
         "status": row.get("status", ""),
         "candidate_score": row.get("candidate_score", 0),
+        "quality_breakdown": row.get("quality_breakdown", {}),
         "probe_ev_delta": row.get("probe_ev_delta", 0.0),
         "validation_ev_delta": row.get("validation_ev_delta"),
+        "holdout_ev_delta": row.get("holdout_ev_delta"),
         "selection_reason": row.get("selection_reason", ""),
     }
 
@@ -245,8 +247,8 @@ def render_run_closeout_markdown(payload: dict[str, object]) -> str:
     else:
         lines.extend(
             [
-                "| Round | Profile | Direction | Status | Score | Probe EV | Validation EV |",
-                "| --- | --- | --- | --- | ---: | ---: | ---: |",
+                "| Round | Profile | Direction | Status | Quality | Score | Probe EV | Validation EV | Holdout EV |",
+                "| --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: |",
             ]
         )
         for row in selected:
@@ -256,11 +258,33 @@ def render_run_closeout_markdown(payload: dict[str, object]) -> str:
                 f"{row.get('profile_name', '')} | "
                 f"{row.get('direction_tag', '')} | "
                 f"{row.get('status', '')} | "
+                f"{quality_breakdown_label(row.get('quality_breakdown', {}))} | "
                 f"{row.get('candidate_score', 0)} | "
                 f"{row.get('probe_ev_delta', 0.0)} | "
-                f"{row.get('validation_ev_delta', '')} |"
+                f"{row.get('validation_ev_delta', '')} | "
+                f"{row.get('holdout_ev_delta', '')} |"
             )
     return "\n".join(lines) + "\n"
+
+
+def quality_breakdown_label(value: object) -> str:
+    """Return compact quality component text."""
+    if not isinstance(value, dict):
+        return "none"
+    components = value.get("components", [])
+    if not isinstance(components, list):
+        return "none"
+    named = [
+        component
+        for component in components
+        if isinstance(component, dict) and int(component.get("score_delta", 0)) != 0
+    ]
+    if not named:
+        return "none"
+    return "; ".join(
+        f"{component.get('name', '')}={int(component.get('score_delta', 0))}"
+        for component in named[:3]
+    )
 
 
 def validate_run_closeout_file(

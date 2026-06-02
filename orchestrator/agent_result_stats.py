@@ -217,6 +217,7 @@ def aggregate_group(
     selected_count = sum(1 for row in rows if bool(row.get("selected", False)))
     selectable_count = sum(1 for row in rows if row.get("status") == "selectable")
     failure_counts = failure_counter(rows)
+    quality_counts = quality_component_counter(rows)
     return {
         "key": key,
         "key_field": key_field,
@@ -232,8 +233,30 @@ def aggregate_group(
         "avg_candidate_score": average_number(rows, "candidate_score"),
         "avg_probe_ev_delta": average_number(rows, "probe_ev_delta"),
         "avg_validation_ev_delta": average_optional_number(rows, "validation_ev_delta"),
+        "avg_holdout_ev_delta": average_optional_number(rows, "holdout_ev_delta"),
+        "quality_component_counts": dict(sorted(quality_counts.items())),
+        "top_quality_component": top_counter_key(quality_counts),
         "routing_action": routing_action(rows),
     }
+
+
+def quality_component_counter(rows: list[dict[str, object]]) -> Counter[str]:
+    """Count score component names across candidate quality breakdowns."""
+    counter: Counter[str] = Counter()
+    for row in rows:
+        quality = row.get("quality_breakdown", {})
+        if not isinstance(quality, dict):
+            continue
+        components = quality.get("components", [])
+        if not isinstance(components, list):
+            continue
+        for component in components:
+            if not isinstance(component, dict):
+                continue
+            name = str(component.get("name", ""))
+            if name:
+                counter[name] += 1
+    return counter
 
 
 def routing_hints(rows: list[dict[str, object]]) -> list[dict[str, object]]:

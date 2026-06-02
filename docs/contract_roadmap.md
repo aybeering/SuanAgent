@@ -91,6 +91,7 @@ Implemented or allowed V0.5 components:
 77. A deterministic current-contract scope filter for artifact health, artifact-health history, and memory diagnostics, keyed by indexed `created_at`, so legacy experiment directories can remain on disk without polluting current V0.5 validation.
 78. A deterministic `experiment_scope_health.json` report that combines scoped artifact health, health-history, and memory diagnostics into one read-only status page without running agents, running backtests, routing agents, applying patches, or changing acceptance. The iteration loop writes this report automatically at run completion using the run's startup timestamp as the scope boundary.
 79. A deterministic `run_closeout.json` and `run_closeout.md` report pair that summarizes completed iteration status, health, selected candidates, deterministic acceptance authority, and recommended next actions without running agents, running backtests, applying patches, routing agents, or changing acceptance.
+80. Deterministic candidate quality breakdown fields that decompose proposal prefilter scores into named components and carry selected validation and holdout signals across leaderboard, routing, selection, brief, and closeout artifacts without changing final acceptance authority.
 
 ## Contract Families
 
@@ -183,6 +184,9 @@ Codex CLI readiness contracts:
 14. Run closeout reports are read-only operator summaries. They can recommend
     next inspection steps, but they cannot execute agents, run backtests, route
     candidates, apply patches, or change strategy acceptance.
+15. Candidate quality breakdowns explain proposal ranking only. They can expose
+    score components and post-evaluation signals, but they cannot override the
+    deterministic policy gate or holdout veto.
 
 ## Near-Term Development Order
 

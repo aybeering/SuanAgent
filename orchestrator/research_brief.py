@@ -100,8 +100,10 @@ def compact_candidates(rows: list[dict[str, Any]]) -> list[dict[str, object]]:
                 "selected": bool(row.get("selected", False)),
                 "status": row.get("status", ""),
                 "candidate_score": row.get("candidate_score", 0),
+                "quality_breakdown": row.get("quality_breakdown", {}),
                 "probe_ev_delta": row.get("probe_ev_delta", 0.0),
                 "validation_ev_delta": row.get("validation_ev_delta"),
+                "holdout_ev_delta": row.get("holdout_ev_delta"),
                 "champion_gap": row.get("champion_gap", {}),
                 "selection_reason": row.get("selection_reason", ""),
             }
@@ -223,8 +225,8 @@ def render_research_brief_markdown(payload: dict[str, object]) -> str:
     else:
         lines.extend(
             [
-                "| Round | Role | Direction | Selected | Score | Probe EV | Validation EV | Champion Gap | Status |",
-                "| --- | --- | --- | --- | ---: | ---: | ---: | --- | --- |",
+                "| Round | Role | Direction | Selected | Score | Probe EV | Validation EV | Holdout EV | Champion Gap | Status |",
+                "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- |",
             ]
         )
         for row in candidates:
@@ -246,6 +248,8 @@ def candidate_row(row: dict[str, object]) -> str:
         )
     validation = row.get("validation_ev_delta")
     validation_text = "none" if validation is None else f"{float(validation):.6f}"
+    holdout = row.get("holdout_ev_delta")
+    holdout_text = "none" if holdout is None else f"{float(holdout):.6f}"
     return (
         f"| {row.get('round_id', '')} "
         f"| {row.get('role', '')} "
@@ -254,6 +258,7 @@ def candidate_row(row: dict[str, object]) -> str:
         f"| {row.get('candidate_score', 0)} "
         f"| {float(row.get('probe_ev_delta', 0.0)):.6f} "
         f"| {validation_text} "
+        f"| {holdout_text} "
         f"| {champion_gap_text} "
         f"| {row.get('status', '')} |"
     )

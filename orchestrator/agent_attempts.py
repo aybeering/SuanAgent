@@ -182,6 +182,7 @@ def selection_rows(
                     attempt_index=index - 1,
                 ),
                 "candidate_score": attempt.get("candidate_score", 0),
+                "quality_breakdown": attempt.get("quality_breakdown", {}),
                 "failure_stage": failure["stage"],
                 "failure_code": failure["code"],
                 "failure_message": failure["message"],
@@ -197,9 +198,22 @@ def selection_rows(
                 ),
                 "patch_sha256": attempt.get("patch_sha256", ""),
                 "probe_ev_delta": attempt.get("probe_ev_delta", 0.0),
+                "probe_trade_count_delta": attempt.get(
+                    "probe_trade_count_delta",
+                    0.0,
+                ),
                 "validation_status": attempt.get("validation_status", ""),
                 "validation_accepted": attempt.get("validation_accepted", None),
                 "validation_ev_delta": attempt.get("validation_ev_delta", None),
+                "validation_trade_count_delta": attempt.get(
+                    "validation_trade_count_delta",
+                    None,
+                ),
+                "holdout_ev_delta": attempt.get("holdout_ev_delta", None),
+                "holdout_trade_count_delta": attempt.get(
+                    "holdout_trade_count_delta",
+                    None,
+                ),
                 "attempt_dir": relative_path(
                     round_dir / ATTEMPTS_DIRNAME / attempt_id,
                     repo_root,
@@ -303,13 +317,21 @@ def attempt_output_payload(
                 blocking_reasons=blocking_reasons,
             ),
             "score_reasons": attempt.get("score_reasons", []),
+            "quality_breakdown": attempt.get("quality_breakdown", {}),
             "blocking_reasons": blocking_reasons,
         },
         "validation": {
             "status": attempt.get("validation_status", ""),
             "accepted": attempt.get("validation_accepted", None),
             "ev_delta": attempt.get("validation_ev_delta", None),
+            "trade_count_delta": attempt.get("validation_trade_count_delta", None),
             "probe_ev_delta": attempt.get("probe_ev_delta", 0.0),
+            "probe_trade_count_delta": attempt.get("probe_trade_count_delta", 0.0),
+            "holdout_ev_delta": attempt.get("holdout_ev_delta", None),
+            "holdout_trade_count_delta": attempt.get(
+                "holdout_trade_count_delta",
+                None,
+            ),
         },
         "artifacts": attempt_output_artifacts(
             round_dir=round_dir,

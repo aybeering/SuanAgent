@@ -266,6 +266,11 @@ Replay artifacts:
   acceptance authority, selected candidates, health status, and recommended
   next actions, and cannot execute agents, run backtests, apply patches, route
   agents, or change acceptance.
+- `candidate_leaderboard.json` records every proposal attempt with stable
+  quality metadata. `quality_breakdown` decomposes the pre-backtest candidate
+  score into named components, and selected rows also record validation and
+  holdout EV deltas. These fields explain candidate routing only; final
+  acceptance remains controlled by deterministic policy and holdout gates.
 - `artifact_validator_coverage.json` reports schema, validator, documentation,
   test, and inspection/replay coverage for repository artifact contracts.
 

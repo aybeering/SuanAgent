@@ -2050,6 +2050,10 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert closeout["summary"]["scope_health_ok"] is True
     assert closeout["summary"]["artifact_health_history_recorded"] is True
     assert closeout["summary"]["candidate_count"] >= 1
+    assert closeout["selected_candidates"][0]["quality_breakdown"]["schema_version"] == (
+        "candidate_quality_v1"
+    )
+    assert closeout["selected_candidates"][0]["holdout_ev_delta"] is not None
     assert closeout["decision_record"]["final_acceptance_authority"] == (
         "deterministic_code"
     )
@@ -2553,6 +2557,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_output["attempts"][0]["adapter_name"] == "fixed_patch_stub"
     assert agent_output["attempts"][0]["runner_name"] == "in_process_modifier"
     assert "routing_prior" in agent_output["attempts"][0]
+    assert agent_output["attempts"][0]["quality_breakdown"]["schema_version"] == (
+        "candidate_quality_v1"
+    )
     assert agent_output["artifacts"]["agent_input"].endswith("agent_input.json")
     assert agent_output["artifacts"]["agent_bundle_manifest"].endswith(
         "agent_bundle_manifest.json"
@@ -2619,6 +2626,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert agent_routing["candidates"][0]["selected"] is True
     assert agent_routing["candidates"][0]["agent_role"] == "strategy_modifier"
+    assert agent_routing["candidates"][0]["quality_breakdown"]["total_score"] == (
+        selected_attempt["candidate_score"]
+    )
     assert agent_routing["candidates"][0]["selection_reason"] == selected_attempt[
         "selection_reason"
     ]
@@ -2643,8 +2653,24 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_stats["totals"]["attempt_count"] == len(leaderboard)
     assert agent_stats["agents"][0]["key"] == "strategy_modifier_stub"
     assert agent_stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
+    assert "avg_holdout_ev_delta" in agent_stats["agents"][0]
+    assert agent_stats["agents"][0]["top_quality_component"] == "base_selectable"
     assert agent_stats["directions"][0]["key"] == "lower_min_edge"
     assert isinstance(selected_attempt["validation_ev_delta"], float)
+    assert isinstance(selected_attempt["holdout_ev_delta"], float)
+    assert selected_attempt["quality_breakdown"]["schema_version"] == (
+        "candidate_quality_v1"
+    )
+    assert selected_attempt["quality_breakdown"]["total_score"] == (
+        selected_attempt["candidate_score"]
+    )
+    assert selected_attempt["quality_breakdown"]["signals"]["validation_ev_delta"] == (
+        selected_attempt["validation_ev_delta"]
+    )
+    assert selected_attempt["quality_breakdown"]["signals"]["holdout_ev_delta"] == (
+        selected_attempt["holdout_ev_delta"]
+    )
+    assert selected_attempt["quality_breakdown"]["policy"]["agent_language_can_accept"] is False
     assert selected_attempt["probe_metrics_before"]
     assert selected_attempt["probe_metrics_after"]
     assert selected_attempt["probe_artifacts"]["metrics"]
@@ -2652,6 +2678,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert leaderboard[0]["selected"] is True
     assert leaderboard[0]["direction_tag"] == "lower_min_edge"
     assert leaderboard[0]["validation_status"] == "evaluated"
+    assert leaderboard[0]["holdout_ev_delta"] == selected_attempt["holdout_ev_delta"]
+    assert leaderboard[0]["quality_breakdown"]["components"]
     assert leaderboard[0]["round_id"] == "round_001"
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
@@ -10941,9 +10969,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert rows
     assert rows[0]["run_id"] == "cli-candidates"
     assert rows[0]["selected"] is True
+    assert rows[0]["quality_breakdown"]["schema_version"] == "candidate_quality_v1"
+    assert rows[0]["holdout_ev_delta"] is not None
     assert stats["from_artifact"] is True
     assert stats["totals"]["attempt_count"] == len(rows)
     assert stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
+    assert "avg_holdout_ev_delta" in stats["agents"][0]
     assert stats["round_replays"]["round_count"] == 1
     assert stats["round_replays"]["replayed_round_count"] == 1
     assert stats["round_replays"]["ok_count"] == 1
@@ -10957,6 +10988,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert len(payload) == 1
     assert payload[0]["run_id"] == "cli-candidates"
     assert "probe_ev_delta" in payload[0]
+    assert "quality_breakdown" in payload[0]
     assert stats_result.returncode == 0, stats_result.stderr
     stats_payload = json.loads(stats_result.stdout)
     assert stats_payload["schema_version"] == "agent_result_stats_v1"
@@ -10997,6 +11029,8 @@ def test_summary_markdown_is_written_for_single_and_iteration_runs(tmp_path: Pat
     assert "Candidate Leaderboard" in iteration_summary
     assert "Expected Change" in iteration_summary
     assert "Probe EV" in iteration_summary
+    assert "Holdout EV" in iteration_summary
+    assert "Quality" in iteration_summary
     assert "strategy_modifier_stub" in iteration_summary
 
 

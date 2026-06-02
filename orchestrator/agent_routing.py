@@ -112,6 +112,9 @@ def routing_candidates(
                 "selected": selected,
                 "rank": attempt_rank(attempts=attempts, attempt_index=index - 1),
                 "candidate_score": attempt.get("candidate_score", 0),
+                "quality_breakdown": dict_or_empty(
+                    attempt.get("quality_breakdown", {})
+                ),
                 "score_reasons": list_or_empty(attempt.get("score_reasons", [])),
                 "blocking_reasons": blocking_reasons,
                 "selection_reason": str(attempt.get("selection_reason", "")),
@@ -126,6 +129,8 @@ def routing_candidates(
                 "failure_message": str(attempt.get("failure_message", "")),
                 "patch_sha256": str(attempt.get("patch_sha256", "")),
                 "probe_ev_delta": attempt.get("probe_ev_delta", 0.0),
+                "validation_ev_delta": attempt.get("validation_ev_delta", None),
+                "holdout_ev_delta": attempt.get("holdout_ev_delta", None),
                 "validation_status": str(attempt.get("validation_status", "")),
                 "routing_prior": dict_or_empty(attempt.get("routing_prior", {})),
                 "exploration_bonus": dict_or_empty(

@@ -978,6 +978,8 @@ def run_round(
         decision=decision,
         metrics_before=metrics_before,
         metrics_after=metrics_after,
+        holdout_metrics_before=holdout_metrics_before,
+        holdout_metrics_after=holdout_metrics_after,
     )
     write_json(round_dir / "proposal_attempts.json", proposal_attempts)
     write_agent_selection_report(
@@ -1086,6 +1088,8 @@ def attach_validation_result_to_attempts(
     decision: dict[str, object],
     metrics_before: dict[str, float | int],
     metrics_after: dict[str, float | int],
+    holdout_metrics_before: dict[str, float | int],
+    holdout_metrics_after: dict[str, float | int],
 ) -> list[dict[str, object]]:
     """Attach final validation outcome to the selected candidate attempt."""
     for attempt in attempts:
@@ -1109,7 +1113,32 @@ def attach_validation_result_to_attempts(
             metrics_after,
             "trade_count",
         )
+        attempt["holdout_ev_delta"] = metric_delta(
+            holdout_metrics_before,
+            holdout_metrics_after,
+            "ev",
+        )
+        attempt["holdout_trade_count_delta"] = metric_delta(
+            holdout_metrics_before,
+            holdout_metrics_after,
+            "trade_count",
+        )
         attempt["selected_patch_sha256"] = selected_patch_sha256
+        quality = attempt.get("quality_breakdown", {})
+        if isinstance(quality, dict):
+            quality["signals"] = candidate_quality_signals(
+                probe_metrics_before=metrics_dict_or_empty(
+                    attempt.get("probe_metrics_before", {})
+                ),
+                probe_metrics_after=metrics_dict_or_empty(
+                    attempt.get("probe_metrics_after", {})
+                ),
+                validation_metrics_before=metrics_before,
+                validation_metrics_after=metrics_after,
+                holdout_metrics_before=holdout_metrics_before,
+                holdout_metrics_after=holdout_metrics_after,
+            )
+            attempt["quality_breakdown"] = quality
         failure = primary_failure(decision.get("reason_codes", []))
         attempt["failure_stage"] = failure["stage"]
         attempt["failure_code"] = failure["code"]
@@ -1201,11 +1230,15 @@ def candidate_leaderboard_rows(run_dir: Path) -> list[dict[str, object]]:
                     "round_id": round_dir.name,
                     "attempt_index": attempt_index,
                     "role": attempt.get("role", ""),
+                    "profile_name": attempt.get("profile_name", ""),
+                    "adapter_name": attempt.get("adapter_name", ""),
+                    "runner_name": attempt.get("runner_name", ""),
                     "agent_name": attempt.get("agent_name", ""),
                     "direction_tag": attempt.get("direction_tag", ""),
                     "selected": bool(attempt.get("selected", False)),
                     "status": attempt.get("status", ""),
                     "candidate_score": attempt.get("candidate_score", 0),
+                    "quality_breakdown": attempt.get("quality_breakdown", {}),
                     "probe_ev_delta": attempt.get("probe_ev_delta", 0.0),
                     "probe_trade_count_delta": attempt.get(
                         "probe_trade_count_delta",
@@ -1220,6 +1253,11 @@ def candidate_leaderboard_rows(run_dir: Path) -> list[dict[str, object]]:
                     "validation_ev_delta": attempt.get("validation_ev_delta", None),
                     "validation_trade_count_delta": attempt.get(
                         "validation_trade_count_delta",
+                        None,
+                    ),
+                    "holdout_ev_delta": attempt.get("holdout_ev_delta", None),
+                    "holdout_trade_count_delta": attempt.get(
+                        "holdout_trade_count_delta",
                         None,
                     ),
                     "patch_sha256": attempt.get("patch_sha256", ""),
@@ -1334,6 +1372,7 @@ def proposal_attempt_record(
     status: str,
     candidate_score: int,
     score_reasons: list[str],
+    quality_breakdown: dict[str, object],
     probe_metrics_before: dict[str, float | int],
     probe_metrics_after: dict[str, float | int],
     probe_error: str,
@@ -1376,6 +1415,7 @@ def proposal_attempt_record(
         "reason_codes": reason_codes,
         "candidate_score": candidate_score,
         "score_reasons": score_reasons,
+        "quality_breakdown": quality_breakdown,
         "candidate_selection": candidate_selection,
         "contract_errors": payload.get("contract_errors", ()),
         "probe_metrics_before": probe_metrics_before,
@@ -1599,6 +1639,7 @@ def select_proposal_candidate(
                 status=status,
                 candidate_score=int(score_payload["score"]),
                 score_reasons=list(score_payload["reasons"]),
+                quality_breakdown=dict(score_payload["quality_breakdown"]),
                 probe_metrics_before=probe_metrics_before,
                 probe_metrics_after=probe_metrics_after,
                 probe_error=probe_error,
@@ -1721,6 +1762,7 @@ def score_proposal_candidate(
     candidate_selection: dict[str, float | int],
 ) -> dict[str, object]:
     """Score a candidate deterministically before running expensive evaluation."""
+    components: list[dict[str, object]] = []
     if status != "selectable":
         reasons = [f"status={status}"]
         if memory_filter_reason:
@@ -1731,24 +1773,71 @@ def score_proposal_candidate(
             reasons.append("duplicate patch hash")
         if probe_error:
             reasons.append("probe evaluation failed")
-        return {"score": 0, "reasons": reasons}
+        components.append(
+            score_component(
+                name="prefilter",
+                score_delta=0,
+                reason="; ".join(reasons),
+            )
+        )
+        return {
+            "score": 0,
+            "reasons": reasons,
+            "quality_breakdown": candidate_quality_breakdown(
+                status=status,
+                total_score=0,
+                components=components,
+                probe_metrics_before=probe_metrics_before,
+                probe_metrics_after=probe_metrics_after,
+            ),
+        }
 
     score = score_setting(candidate_selection, "base_selectable_score")
     reasons = [f"base selectable score {format_score_delta(score)}"]
+    components.append(
+        score_component(
+            name="base_selectable",
+            score_delta=score,
+            reason="base selectable score",
+        )
+    )
     expected = proposal.expected_metric_change
     for metric, value in sorted(expected.items()):
         delta, reason = expected_metric_score(metric, value, candidate_selection)
         if delta:
             score += delta
             reasons.append(reason)
+            components.append(
+                score_component(
+                    name=f"expected_metric.{metric}",
+                    score_delta=delta,
+                    reason=reason,
+                    weight=score_weight(candidate_selection, "expected_metric_weight"),
+                )
+            )
     risk_delta, risk_reason = risk_score(proposal.risk_notes, candidate_selection)
     if risk_delta:
         score += risk_delta
         reasons.append(risk_reason)
+        components.append(
+            score_component(
+                name="risk_notes",
+                score_delta=risk_delta,
+                reason=risk_reason,
+                weight=score_weight(candidate_selection, "risk_weight"),
+            )
+        )
     if role == "primary":
         primary_bonus = score_setting(candidate_selection, "primary_modifier_bonus")
         score += primary_bonus
         reasons.append(f"primary modifier stability {format_score_delta(primary_bonus)}")
+        components.append(
+            score_component(
+                name="primary_modifier_bonus",
+                score_delta=primary_bonus,
+                reason="primary modifier stability",
+            )
+        )
     prior_delta, prior_reason = direction_prior_score(
         direction_prior_payload,
         candidate_selection,
@@ -1756,6 +1845,14 @@ def score_proposal_candidate(
     if prior_delta:
         score += prior_delta
         reasons.append(prior_reason)
+        components.append(
+            score_component(
+                name="direction_prior",
+                score_delta=prior_delta,
+                reason=prior_reason,
+                weight=score_weight(candidate_selection, "direction_prior_weight"),
+            )
+        )
     exploration_delta, exploration_reason = exploration_bonus_score(
         exploration_bonus_payload,
         candidate_selection,
@@ -1763,6 +1860,14 @@ def score_proposal_candidate(
     if exploration_delta:
         score += exploration_delta
         reasons.append(exploration_reason)
+        components.append(
+            score_component(
+                name="exploration_bonus",
+                score_delta=exploration_delta,
+                reason=exploration_reason,
+                weight=score_weight(candidate_selection, "exploration_bonus_weight"),
+            )
+        )
     routing_delta, routing_reason = routing_prior_score(
         routing_prior_payload,
         candidate_selection,
@@ -1770,6 +1875,14 @@ def score_proposal_candidate(
     if routing_delta:
         score += routing_delta
         reasons.append(routing_reason)
+        components.append(
+            score_component(
+                name="routing_prior",
+                score_delta=routing_delta,
+                reason=routing_reason,
+                weight=score_weight(candidate_selection, "routing_prior_weight"),
+            )
+        )
     probe_delta, probe_reason = probe_score(
         metrics_before=probe_metrics_before,
         metrics_after=probe_metrics_after,
@@ -1778,6 +1891,14 @@ def score_proposal_candidate(
     if probe_delta:
         score += probe_delta
         reasons.append(probe_reason)
+        components.append(
+            score_component(
+                name="probe",
+                score_delta=probe_delta,
+                reason=probe_reason,
+                weight=score_weight(candidate_selection, "probe_weight"),
+            )
+        )
     champion_delta, champion_reason = champion_gap_score(
         champion_gap_payload,
         candidate_selection,
@@ -1785,7 +1906,25 @@ def score_proposal_candidate(
     if champion_delta:
         score += champion_delta
         reasons.append(champion_reason)
-    return {"score": score, "reasons": reasons}
+        components.append(
+            score_component(
+                name="champion_gap",
+                score_delta=champion_delta,
+                reason=champion_reason,
+                weight=score_weight(candidate_selection, "champion_gap_weight"),
+            )
+        )
+    return {
+        "score": score,
+        "reasons": reasons,
+        "quality_breakdown": candidate_quality_breakdown(
+            status=status,
+            total_score=score,
+            components=components,
+            probe_metrics_before=probe_metrics_before,
+            probe_metrics_after=probe_metrics_after,
+        ),
+    }
 
 
 def champion_gap_payload_for_candidate(
@@ -2211,6 +2350,120 @@ def metric_delta(
     if key not in before or key not in after:
         return 0.0
     return float(after[key]) - float(before[key])
+
+
+def score_component(
+    *,
+    name: str,
+    score_delta: int,
+    reason: str,
+    weight: float = 1.0,
+) -> dict[str, object]:
+    """Return one structured score contribution row."""
+    return {
+        "name": name,
+        "score_delta": score_delta,
+        "weight": weight,
+        "reason": reason,
+    }
+
+
+def candidate_quality_breakdown(
+    *,
+    status: str,
+    total_score: int,
+    components: list[dict[str, object]],
+    probe_metrics_before: dict[str, float | int],
+    probe_metrics_after: dict[str, float | int],
+    validation_metrics_before: dict[str, float | int] | None = None,
+    validation_metrics_after: dict[str, float | int] | None = None,
+    holdout_metrics_before: dict[str, float | int] | None = None,
+    holdout_metrics_after: dict[str, float | int] | None = None,
+) -> dict[str, object]:
+    """Return machine-readable candidate quality metadata."""
+    return {
+        "schema_version": "candidate_quality_v1",
+        "status": status,
+        "selectable": status == "selectable",
+        "total_score": total_score,
+        "component_count": len(components),
+        "components": components,
+        "signals": candidate_quality_signals(
+            probe_metrics_before=probe_metrics_before,
+            probe_metrics_after=probe_metrics_after,
+            validation_metrics_before=validation_metrics_before,
+            validation_metrics_after=validation_metrics_after,
+            holdout_metrics_before=holdout_metrics_before,
+            holdout_metrics_after=holdout_metrics_after,
+        ),
+        "policy": {
+            "score_is_prefilter_only": True,
+            "final_acceptance_authority": "deterministic_policy_and_holdout_gates",
+            "agent_language_can_accept": False,
+        },
+    }
+
+
+def candidate_quality_signals(
+    *,
+    probe_metrics_before: dict[str, float | int],
+    probe_metrics_after: dict[str, float | int],
+    validation_metrics_before: dict[str, float | int] | None = None,
+    validation_metrics_after: dict[str, float | int] | None = None,
+    holdout_metrics_before: dict[str, float | int] | None = None,
+    holdout_metrics_after: dict[str, float | int] | None = None,
+) -> dict[str, object]:
+    """Return candidate metric signals without changing acceptance."""
+    validation_before = validation_metrics_before or {}
+    validation_after = validation_metrics_after or {}
+    holdout_before = holdout_metrics_before or {}
+    holdout_after = holdout_metrics_after or {}
+    return {
+        "probe_ev_delta": metric_delta(probe_metrics_before, probe_metrics_after, "ev"),
+        "probe_trade_count_delta": metric_delta(
+            probe_metrics_before,
+            probe_metrics_after,
+            "trade_count",
+        ),
+        "validation_ev_delta": optional_metric_delta(
+            validation_before,
+            validation_after,
+            "ev",
+        ),
+        "validation_trade_count_delta": optional_metric_delta(
+            validation_before,
+            validation_after,
+            "trade_count",
+        ),
+        "holdout_ev_delta": optional_metric_delta(holdout_before, holdout_after, "ev"),
+        "holdout_trade_count_delta": optional_metric_delta(
+            holdout_before,
+            holdout_after,
+            "trade_count",
+        ),
+    }
+
+
+def optional_metric_delta(
+    before: dict[str, float | int],
+    after: dict[str, float | int],
+    key: str,
+) -> float | None:
+    """Return a metric delta only when both payloads contain the metric."""
+    if key not in before or key not in after:
+        return None
+    return metric_delta(before, after, key)
+
+
+def metrics_dict_or_empty(value: object) -> dict[str, float | int]:
+    """Return numeric metric mappings from an object value."""
+    if not isinstance(value, dict):
+        return {}
+    return {
+        str(key): metric_value
+        for key, metric_value in value.items()
+        if isinstance(metric_value, int | float)
+    }
 
 
 def skipped_attempt_summaries(

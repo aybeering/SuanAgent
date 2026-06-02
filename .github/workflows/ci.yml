@@ -352,9 +352,15 @@ jobs:
           assert "routing_prior" in attempts[0]
           leaderboard = json.load(open("experiments/ci-adaptive/candidate_leaderboard.json"))
           assert "failure_stage" in leaderboard[0]
+          assert leaderboard[0]["quality_breakdown"]["schema_version"] == "candidate_quality_v1"
+          assert leaderboard[0]["quality_breakdown"]["total_score"] == leaderboard[0]["candidate_score"]
+          selected = next(row for row in leaderboard if row["selected"])
+          assert selected["holdout_ev_delta"] is not None
+          assert selected["quality_breakdown"]["signals"]["holdout_ev_delta"] == selected["holdout_ev_delta"]
           stats = json.load(open("experiments/ci-adaptive/agent_result_stats.json"))
           assert stats["schema_version"] == "agent_result_stats_v1"
           assert stats["agents"]
+          assert "avg_holdout_ev_delta" in stats["agents"][0]
           executor = json.load(open("experiments/ci-adaptive/round_001/agent_executor_report.json"))
           assert executor["schema_version"] == "agent_executor_v1"
           assert executor["selected_attempt_id"]

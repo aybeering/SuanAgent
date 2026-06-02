@@ -53,6 +53,9 @@ python -m orchestrator.experiments restore-config-approved <run_id> --preview-pa
 python -m orchestrator.experiments config-lineage <run_id>
 python -m orchestrator.experiments promote-approved <candidate_run_id> --approval-path experiments/<run_id>/champion_promotion_approval.json
 python -m orchestrator.operator_action_approval experiments/<run_id> --action-id <action_id> --command-label <label> --approve --operator-id <operator> --confirmation-phrase "APPROVE OPERATOR ACTION"
+python -m orchestrator.operator_action_executor <run_id> --approval-path experiments/<run_id>/operator_action_approval.json
+python -m orchestrator.experiments action-execution <run_id>
+python -m orchestrator.experiments action-execution <run_id> --markdown
 ```
 
 Replay and validation:
@@ -151,6 +154,8 @@ experiments/<run_id>/
   operator_action_plan.md
   operator_action_approval.json  # after explicit operator approval command
   operator_action_approval.md    # after explicit operator approval command
+  operator_action_execution_receipt.json  # after guarded read-only action execution
+  operator_action_execution_receipt.md    # after guarded read-only action execution
 ```
 
 It also updates append-only experiment indexes:
@@ -198,6 +203,13 @@ approval binds to `operator_action_plan.json`, records the selected action id,
 command label, command digest, operator id, and confirmation phrase hashes, but
 still does not execute the approved command. The approved command must be
 invoked separately by the operator.
+`operator_action_execution_receipt.json` and
+`operator_action_execution_receipt.md` can then record the guarded execution of
+an approved read-only inspection command. The receipt requires a saved approval
+artifact, validates the selected command digest, blocks commands that write
+repository state, promote champions, run backtests, execute agents, route
+agents, apply patches, or change acceptance, records stdout/stderr hashes, and
+checks tracked workspace mutation before writing the receipt.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.
@@ -435,6 +447,13 @@ Replay artifacts:
   phrase `APPROVE OPERATOR ACTION` for approval, but approval still does not
   execute commands, write config, promote champions, run agents, rerun
   backtests, route candidates, apply patches, or change acceptance.
+- `operator_action_execution_receipt.json` and
+  `operator_action_execution_receipt.md` record guarded execution of one
+  approved action-plan command. They execute only allowlisted read-only
+  inspection commands, bind to `operator_action_approval.json` by SHA-256,
+  record stdout/stderr hashes, and check tracked workspace mutation. They block
+  commands that write repository state, promote champions, run backtests,
+  execute agents, apply patches, route agents, or change acceptance.
 - `candidate_leaderboard.json` records every proposal attempt with stable
   quality metadata. `quality_breakdown` decomposes the pre-backtest candidate
   score into named components, selected rows also record validation and

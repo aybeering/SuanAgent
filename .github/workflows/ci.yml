@@ -667,6 +667,26 @@ jobs:
           assert approval["policy"]["command_still_requires_explicit_execution"] is True
           assert "# Operator Action Approval" in markdown
           PY
+          python -m orchestrator.operator_action_executor ci-adaptive --approval-path experiments/ci-adaptive/operator_action_approval.json
+          test -f experiments/ci-adaptive/operator_action_execution_receipt.json
+          test -f experiments/ci-adaptive/operator_action_execution_receipt.md
+          python -m orchestrator.experiments action-execution ci-adaptive > /tmp/operator_action_execution_receipt.json
+          python -m orchestrator.experiments action-execution ci-adaptive --markdown > /tmp/operator_action_execution_receipt.md
+          python - <<'PY'
+          import json
+          receipt = json.load(open("/tmp/operator_action_execution_receipt.json"))
+          markdown = open("/tmp/operator_action_execution_receipt.md").read()
+          assert receipt["schema_version"] == "operator_action_execution_receipt_v1"
+          assert receipt["from_artifact"] is True
+          assert receipt["status"] == "completed"
+          assert receipt["executed"] is True
+          assert receipt["command_execution"]["status"] == "completed"
+          assert receipt["command_execution"]["returncode"] == 0
+          assert receipt["mutation_guard"]["ok"] is True
+          assert receipt["policy"]["executes_only_allowlisted_read_only_commands"] is True
+          assert receipt["policy"]["blocks_backtest_commands"] is True
+          assert "# Operator Action Execution Receipt" in markdown
+          PY
 
       - name: Diagnose iteration runs
         run: |

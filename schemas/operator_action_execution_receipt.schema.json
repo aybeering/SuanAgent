@@ -1,0 +1,338 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Operator Action Execution Receipt",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "status",
+    "ok",
+    "executed",
+    "source_approval",
+    "selected_action",
+    "selected_command",
+    "evidence_checks",
+    "command_execution",
+    "mutation_guard",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "operator_action_execution_receipt_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "blocked",
+        "command_failed",
+        "timeout",
+        "workspace_violation"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "executed": {
+      "type": "boolean"
+    },
+    "source_approval": {
+      "type": "object",
+      "required": [
+        "artifact_name",
+        "file",
+        "approval_status",
+        "approval_recorded"
+      ],
+      "properties": {
+        "artifact_name": {
+          "type": "string"
+        },
+        "file": {
+          "$ref": "#/$defs/file_record"
+        },
+        "approval_status": {
+          "type": "string"
+        },
+        "approval_recorded": {
+          "type": "boolean"
+        }
+      }
+    },
+    "selected_action": {
+      "type": "object"
+    },
+    "selected_command": {
+      "type": "object"
+    },
+    "evidence_checks": {
+      "type": "object",
+      "required": [
+        "ok",
+        "blockers",
+        "approval_schema_errors",
+        "selected_command_sha256",
+        "computed_command_sha256",
+        "source_action_plan_path",
+        "source_action_plan_sha256",
+        "allowed_experiments_subcommands"
+      ],
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "approval_schema_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "selected_command_sha256": {
+          "type": "string"
+        },
+        "computed_command_sha256": {
+          "type": "string"
+        },
+        "source_action_plan_path": {
+          "type": "string"
+        },
+        "source_action_plan_sha256": {
+          "type": "string"
+        },
+        "allowed_experiments_subcommands": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "command_execution": {
+      "type": "object",
+      "required": [
+        "executed",
+        "status",
+        "returncode",
+        "duration_ms",
+        "timeout_seconds",
+        "command",
+        "argv",
+        "stdout",
+        "stderr"
+      ],
+      "properties": {
+        "executed": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "blocked",
+            "command_failed",
+            "timeout"
+          ]
+        },
+        "returncode": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "command": {
+          "type": "string"
+        },
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stdout": {
+          "$ref": "#/$defs/output_record"
+        },
+        "stderr": {
+          "$ref": "#/$defs/output_record"
+        }
+      }
+    },
+    "mutation_guard": {
+      "type": "object",
+      "required": [
+        "available",
+        "tracked_status_before",
+        "tracked_status_after",
+        "tracked_status_unchanged",
+        "ok"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "tracked_status_before": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tracked_status_after": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tracked_status_unchanged": {
+          "type": "boolean"
+        },
+        "ok": {
+          "type": "boolean"
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "requires_operator_action_approval",
+        "requires_approval_recorded",
+        "requires_command_digest_match",
+        "requires_source_action_plan_digest_match",
+        "executes_only_allowlisted_read_only_commands",
+        "blocks_repository_writing_commands",
+        "blocks_champion_promotion_commands",
+        "blocks_backtest_commands",
+        "records_stdout_stderr_hashes",
+        "checks_tracked_workspace_mutation",
+        "does_not_execute_agents",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "requires_operator_action_approval": {
+          "type": "boolean"
+        },
+        "requires_approval_recorded": {
+          "type": "boolean"
+        },
+        "requires_command_digest_match": {
+          "type": "boolean"
+        },
+        "requires_source_action_plan_digest_match": {
+          "type": "boolean"
+        },
+        "executes_only_allowlisted_read_only_commands": {
+          "type": "boolean"
+        },
+        "blocks_repository_writing_commands": {
+          "type": "boolean"
+        },
+        "blocks_champion_promotion_commands": {
+          "type": "boolean"
+        },
+        "blocks_backtest_commands": {
+          "type": "boolean"
+        },
+        "records_stdout_stderr_hashes": {
+          "type": "boolean"
+        },
+        "checks_tracked_workspace_mutation": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_write_config": {
+          "type": "boolean"
+        },
+        "does_not_promote_champion": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_route_agents": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "file_record": {
+      "type": "object",
+      "required": [
+        "path",
+        "exists",
+        "sha256",
+        "byte_count"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "byte_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "output_record": {
+      "type": "object",
+      "required": [
+        "sha256",
+        "byte_count",
+        "line_count",
+        "excerpt"
+      ],
+      "properties": {
+        "sha256": {
+          "type": "string"
+        },
+        "byte_count": {
+          "type": "integer"
+        },
+        "line_count": {
+          "type": "integer"
+        },
+        "excerpt": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

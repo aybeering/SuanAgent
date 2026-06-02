@@ -54,8 +54,8 @@ artifacts, read-only config application dry-run artifacts, guarded config
 application receipt artifacts, read-only config rollback preview artifacts, and
 guarded config restore receipt artifacts, read-only config lineage artifacts,
 read-only run closeout operator dashboard summaries, read-only operator action
-plans, read-only operator action approval receipts, and Codex CLI readiness
-evidence.
+plans, read-only operator action approval receipts, guarded read-only operator
+action execution receipts, and Codex CLI readiness evidence.
 
 Still out of scope:
 
@@ -175,6 +175,11 @@ acceptance.
 Operator action approval receipts may record explicit approval for one
 action-plan command candidate. They must bind to the action plan and selected
 command digest, but must still not execute commands or change repository state.
+Operator action execution receipts may execute only an approved, allowlisted,
+read-only inspection command from the action plan. They must block commands
+that write repository state, promote champions, run backtests, execute agents,
+apply patches, route agents, or change acceptance, and they must record output
+hashes plus tracked workspace mutation evidence.
 
 ## Strategy Policy
 

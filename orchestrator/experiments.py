@@ -27,6 +27,9 @@ from orchestrator.operator_action_approval import (
     build_operator_action_approval,
     render_operator_action_approval_markdown,
 )
+from orchestrator.operator_action_executor import (
+    render_receipt_markdown as render_operator_action_execution_markdown,
+)
 from orchestrator.operator_action_plan import (
     build_operator_action_plan,
     render_operator_action_plan_markdown,
@@ -1101,6 +1104,25 @@ def operator_action_approval_report(
     return payload
 
 
+def operator_action_execution_report(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+) -> dict[str, object]:
+    """Return the saved operator action execution receipt for one run."""
+    run_dir = experiments_dir / run_id
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    receipt_path = run_dir / "operator_action_execution_receipt.json"
+    if not receipt_path.exists():
+        raise FileNotFoundError(
+            f"Operator action execution receipt not found: {receipt_path}"
+        )
+    payload = load_json(receipt_path)
+    payload["from_artifact"] = True
+    return payload
+
+
 def agent_slot_health_report(
     *,
     run_id: str,
@@ -1820,6 +1842,17 @@ def main() -> None:
         help="Render the operator action approval as markdown.",
     )
 
+    action_execution_parser = subparsers.add_parser(
+        "action-execution",
+        help="Show a saved operator action execution receipt.",
+    )
+    action_execution_parser.add_argument("run_id")
+    action_execution_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the operator action execution receipt as markdown.",
+    )
+
     leaderboard_parser = subparsers.add_parser(
         "leaderboard",
         help="Rank experiments by validation EV improvement.",
@@ -2077,6 +2110,14 @@ def main() -> None:
         )
         if args.markdown:
             print(render_operator_action_approval_markdown(payload), end="")
+            return
+    elif args.command == "action-execution":
+        payload = operator_action_execution_report(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
+        )
+        if args.markdown:
+            print(render_operator_action_execution_markdown(payload), end="")
             return
     elif args.command == "leaderboard":
         payload = experiment_leaderboard(

@@ -122,6 +122,7 @@ Implemented or allowed V0.5 components:
 108. A deterministic `operator_dashboard` section inside `run_closeout.json` and `run_closeout.md`, exposed through `python -m orchestrator.experiments review <run_id>`, that summarizes run status, artifact health, config lineage, champion review, promotion review, watchlist status, operator action items, and deterministic authority in one read-only operator view, without writing config, promoting champions, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 109. A deterministic `operator_action_plan.json` and `operator_action_plan.md` report pair, exposed through `python -m orchestrator.experiments action-plan <run_id>`, that derives explicit command candidates from the saved closeout dashboard, binds to `run_closeout.json` by SHA-256, marks guarded commands, and requires explicit operator invocation without executing commands, writing config, promoting champions, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 110. A deterministic `operator_action_approval.json` and `operator_action_approval.md` report pair, exposed through `python -m orchestrator.experiments action-approval <run_id>` and written by `python -m orchestrator.operator_action_approval`, that records explicit operator approval for one action-plan command candidate, binds to `operator_action_plan.json` and the selected command digest, and requires a confirmation phrase without executing commands, writing config, promoting champions, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
+111. A guarded `operator_action_execution_receipt.json` and `operator_action_execution_receipt.md` report pair, written by `python -m orchestrator.operator_action_executor` and exposed through `python -m orchestrator.experiments action-execution <run_id>`, that executes only approval-backed allowlisted read-only inspection commands, binds to `operator_action_approval.json` and the selected command digest, records stdout/stderr hashes and tracked workspace mutation evidence, and blocks commands that write repository state, promote champions, execute agents, rerun backtests, route candidates, apply patches, or change acceptance.
 
 ## Contract Families
 
@@ -177,6 +178,8 @@ Agent-slot contracts:
 - Run closeout: `schemas/run_closeout.schema.json`
 - Operator action plan: `schemas/operator_action_plan.schema.json`
 - Operator action approval: `schemas/operator_action_approval.schema.json`
+- Operator action execution receipt:
+  `schemas/operator_action_execution_receipt.schema.json`
 - Candidate quality trace: `schemas/candidate_quality_trace.schema.json`
 - Candidate challenger report: `schemas/candidate_challenger_report.schema.json`
 - Champion promotion dry-run: `schemas/champion_promotion_dry_run.schema.json`

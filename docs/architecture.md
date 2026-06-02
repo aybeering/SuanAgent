@@ -181,6 +181,13 @@ operator invocation; they do not execute commands or change repository state.
 explicit approval for one action-plan command candidate. They bind to the saved
 action plan and command digest, but approval is still not execution; the
 operator must invoke the selected command separately.
+`operator_action_execution_receipt.json` and
+`operator_action_execution_receipt.md` record the guarded execution of one
+approved read-only inspection command. They bind to the saved approval and
+command digest, execute without a shell, record stdout/stderr hashes, and check
+tracked git status before and after execution. Commands that write repository
+state, promote champions, run backtests, execute agents, apply patches, route
+agents, or change acceptance are blocked.
 
 ## Champion Registry
 

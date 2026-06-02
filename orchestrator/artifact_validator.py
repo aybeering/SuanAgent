@@ -246,6 +246,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_operator_action_execution_receipt(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_optional_agent_slot_health(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -3924,6 +3929,129 @@ def validate_optional_operator_action_approval(
             add_error(report, "operator_action_approval.json approval flag missing")
         if intent.get("confirmation_phrase_matches") is not True:
             add_error(report, "operator_action_approval.json confirmation mismatch")
+
+
+def validate_optional_operator_action_execution_receipt(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate operator_action_execution_receipt.json/md when present."""
+    path = run_dir / "operator_action_execution_receipt.json"
+    md_path = run_dir / "operator_action_execution_receipt.md"
+    if not path.exists() and not md_path.exists():
+        return
+    if not path.exists():
+        add_error(report, f"missing operator action execution receipt JSON: {path}")
+        return
+    if not md_path.exists():
+        add_error(report, f"missing operator action execution receipt markdown: {md_path}")
+    checked_files(report).append(str(path))
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root
+        / "schemas/operator_action_execution_receipt.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(report, "operator_action_execution_receipt.json run_id mismatch")
+
+    source = payload.get("source_approval", {})
+    if not isinstance(source, dict):
+        add_error(report, "operator_action_execution_receipt.json source invalid")
+        source = {}
+    source_file = source.get("file", {})
+    if not isinstance(source_file, dict):
+        add_error(report, "operator_action_execution_receipt.json source file invalid")
+        source_file = {}
+    else:
+        validate_recorded_file_hash(
+            record=source_file,
+            repo_root=repo_root,
+            report=report,
+            label="operator_action_execution source approval",
+        )
+        approval_path = resolve_path(Path(str(source_file.get("path", ""))), repo_root)
+        if approval_path.name != "operator_action_approval.json":
+            add_error(
+                report,
+                "operator_action_execution source is not operator_action_approval.json",
+            )
+        if source_file.get("sha256") != file_sha256(approval_path):
+            add_error(report, "operator_action_execution source digest mismatch")
+
+    command = payload.get("selected_command", {})
+    if not isinstance(command, dict):
+        add_error(report, "operator_action_execution selected_command invalid")
+        command = {}
+    command_text = str(command.get("command", ""))
+    command_sha256 = hashlib.sha256(command_text.encode("utf-8")).hexdigest()
+    if command_text and str(command.get("command_sha256", "")) != command_sha256:
+        add_error(report, "operator_action_execution selected command digest mismatch")
+    if command.get("writes_repository") is True:
+        add_error(report, "operator_action_execution command writes repository")
+    if command.get("promotes_champion") is True:
+        add_error(report, "operator_action_execution command promotes champion")
+    if command.get("runs_backtests") is True and payload.get("executed") is True:
+        add_error(report, "operator_action_execution executed backtest command")
+
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "operator_action_execution_receipt.json policy invalid")
+        return
+    for key in (
+        "requires_operator_action_approval",
+        "requires_approval_recorded",
+        "requires_command_digest_match",
+        "requires_source_action_plan_digest_match",
+        "executes_only_allowlisted_read_only_commands",
+        "blocks_repository_writing_commands",
+        "blocks_champion_promotion_commands",
+        "blocks_backtest_commands",
+        "records_stdout_stderr_hashes",
+        "checks_tracked_workspace_mutation",
+        "does_not_execute_agents",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            add_error(
+                report,
+                f"operator_action_execution_receipt.json policy false: {key}",
+            )
+
+    execution = payload.get("command_execution", {})
+    if not isinstance(execution, dict):
+        add_error(report, "operator_action_execution command_execution invalid")
+        execution = {}
+    mutation = payload.get("mutation_guard", {})
+    if not isinstance(mutation, dict):
+        add_error(report, "operator_action_execution mutation_guard invalid")
+        mutation = {}
+    if payload.get("status") == "completed":
+        if payload.get("ok") is not True:
+            add_error(report, "operator_action_execution completed but not ok")
+        if payload.get("executed") is not True:
+            add_error(report, "operator_action_execution completed but not executed")
+        if execution.get("status") != "completed":
+            add_error(report, "operator_action_execution status mismatch")
+        if execution.get("returncode") != 0:
+            add_error(report, "operator_action_execution returncode not zero")
+        if mutation.get("ok") is not True:
+            add_error(report, "operator_action_execution mutation guard failed")
+        if mutation.get("tracked_status_unchanged") is not True:
+            add_error(report, "operator_action_execution tracked status changed")
+    if payload.get("status") == "blocked" and payload.get("executed") is not False:
+        add_error(report, "operator_action_execution blocked but executed")
 
 
 def validate_optional_candidate_challenger_report(

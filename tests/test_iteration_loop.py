@@ -141,6 +141,7 @@ from orchestrator.attempt_replay import replay_attempt
 from orchestrator.round_replay import ROUND_REPLAY_SCHEMA_VERSION, replay_round
 from orchestrator.artifact_validator import (
     snapshot_digest_from_payload,
+    validate_recommended_command_hints,
     validate_run_artifacts,
 )
 from orchestrator.artifact_validator_coverage import (
@@ -2066,6 +2067,49 @@ def test_operator_action_audit_tracks_plan_approval_execution_chain(
         experiments_dir=repo / "experiments",
         repo_root=repo,
     )["ok"] is True
+
+
+def test_shared_recommended_command_hint_validator_enforces_boundaries() -> None:
+    report: dict[str, object] = {"errors": []}
+    payload: dict[str, object] = {
+        "current_step": "missing_step",
+        "recommended_commands": [
+            {
+                "label": "review_page",
+                "command": (
+                    "python -m orchestrator.experiments review run --markdown; "
+                    "python -m orchestrator.run_loop"
+                ),
+                "writes_artifact": "unexpected.json",
+            }
+        ],
+    }
+
+    validate_recommended_command_hints(
+        payload=payload,
+        report=report,
+        artifact_label="test_operator_view",
+        allowed_writes={"review_page": ""},
+        unsafe_tokens=(";",),
+        current_step_field="current_step",
+        current_step_error="test_operator_view current step command missing",
+        required_label_errors={
+            "review_home": "test_operator_view review_home command missing",
+        },
+        first_label="review_home",
+        first_label_error="test_operator_view first recommended command invalid",
+        first_command="python -m orchestrator.experiments home run --markdown",
+        first_command_error="test_operator_view first command mismatch",
+    )
+
+    assert report["errors"] == [
+        "test_operator_view first recommended command invalid",
+        "test_operator_view recommended command writes mismatch: review_page",
+        "test_operator_view recommended command unsafe token: review_page",
+        "test_operator_view current step command missing",
+        "test_operator_view review_home command missing",
+        "test_operator_view first command mismatch",
+    ]
 
 
 def test_operator_action_dashboard_summarizes_next_operator_step(

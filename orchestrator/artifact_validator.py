@@ -4313,56 +4313,99 @@ def validate_operator_action_dashboard_recommended_commands(
     report: dict[str, object],
 ) -> None:
     """Validate action-dashboard command hints stay within known boundaries."""
+    validate_recommended_command_hints(
+        payload=payload,
+        report=report,
+        artifact_label="operator_action_dashboard",
+        allowed_writes={
+            "write_action_audit": "operator_action_audit.json",
+            "record_operator_approval": "operator_action_approval.json",
+            "execute_approved_command": "operator_action_execution_receipt.json",
+            "review_execution_receipt": "",
+            "review_action_dashboard": "",
+        },
+        unsafe_tokens=("&&", "||", "|", "`", "$(", "\n", ";"),
+        current_step_field="current_step",
+        current_step_error="operator_action_dashboard current step command missing",
+        required_label_errors={
+            "review_action_dashboard": (
+                "operator_action_dashboard review command missing"
+            ),
+        },
+    )
+
+
+def validate_recommended_command_hints(
+    *,
+    payload: dict[str, object],
+    report: dict[str, object],
+    artifact_label: str,
+    allowed_writes: dict[str, str],
+    unsafe_tokens: tuple[str, ...],
+    current_step_field: str | None = None,
+    current_step_error: str = "",
+    required_label_errors: dict[str, str] | None = None,
+    first_label: str = "",
+    first_label_error: str = "",
+    first_command: str = "",
+    first_command_error: str = "",
+) -> None:
+    """Validate operator-facing command hints against deterministic boundaries."""
     commands = payload.get("recommended_commands", [])
     if not isinstance(commands, list) or not commands:
-        add_error(report, "operator_action_dashboard recommended_commands invalid")
+        add_error(report, f"{artifact_label} recommended_commands invalid")
         return
-    allowed_writes = {
-        "write_action_audit": "operator_action_audit.json",
-        "record_operator_approval": "operator_action_approval.json",
-        "execute_approved_command": "operator_action_execution_receipt.json",
-        "review_execution_receipt": "",
-        "review_action_dashboard": "",
-    }
+
+    first = commands[0]
+    if first_label and (
+        not isinstance(first, dict) or first.get("label") != first_label
+    ):
+        add_error(report, first_label_error)
+
     labels: set[str] = set()
     for index, row in enumerate(commands):
         if not isinstance(row, dict):
-            add_error(
-                report,
-                f"operator_action_dashboard recommended command {index} invalid",
-            )
+            add_error(report, f"{artifact_label} recommended command {index} invalid")
             continue
         label = str(row.get("label", ""))
         labels.add(label)
         command = str(row.get("command", ""))
         writes_artifact = str(row.get("writes_artifact", ""))
         if label not in allowed_writes:
-            add_error(
-                report,
-                f"operator_action_dashboard recommended command unknown: {label}",
-            )
+            add_error(report, f"{artifact_label} recommended command unknown: {label}")
         elif writes_artifact != allowed_writes[label]:
             add_error(
                 report,
-                f"operator_action_dashboard recommended command writes mismatch: {label}",
+                f"{artifact_label} recommended command writes mismatch: {label}",
             )
         if not command.startswith("python -m orchestrator."):
             add_error(
                 report,
-                f"operator_action_dashboard recommended command prefix invalid: {label}",
+                f"{artifact_label} recommended command prefix invalid: {label}",
             )
-        for token in ("&&", "||", "|", "`", "$(", "\n", ";"):
+        for token in unsafe_tokens:
             if token in command:
                 add_error(
                     report,
-                    f"operator_action_dashboard recommended command unsafe token: {label}",
+                    f"{artifact_label} recommended command unsafe token: {label}",
                 )
                 break
-    current_step = str(payload.get("current_step", ""))
-    if current_step and current_step not in labels:
-        add_error(report, "operator_action_dashboard current step command missing")
-    if "review_action_dashboard" not in labels:
-        add_error(report, "operator_action_dashboard review command missing")
+
+    if current_step_field:
+        current_step = str(payload.get(current_step_field, ""))
+        if current_step and current_step not in labels:
+            add_error(report, current_step_error)
+
+    for required_label, error in (required_label_errors or {}).items():
+        if required_label not in labels:
+            add_error(report, error)
+
+    if (
+        first_command
+        and isinstance(first, dict)
+        and str(first.get("command", "")) != first_command
+    ):
+        add_error(report, first_command_error)
 
 
 def validate_optional_operator_unlock_checklist(
@@ -4671,52 +4714,27 @@ def validate_operator_cockpit_recommended_commands(
     report: dict[str, object],
 ) -> None:
     """Validate cockpit command hints stay within known review boundaries."""
-    commands = payload.get("recommended_commands", [])
-    if not isinstance(commands, list) or not commands:
-        add_error(report, "operator_cockpit recommended_commands invalid")
-        return
-    allowed_writes = {
-        "review_cockpit": "",
-        "review_run_dashboard": "",
-        "review_action_dashboard": "",
-        "review_codex_cli_preflight": "codex_cli_execution_preflight.json",
-        "review_codex_cli_readiness_diff": "",
-        "write_action_dashboard": "operator_action_dashboard.json",
-        "continue_operator_action": "",
-        "review_promotion_approval": "champion_promotion_approval.json",
-    }
-    first = commands[0]
-    if not isinstance(first, dict) or first.get("label") != "review_cockpit":
-        add_error(report, "operator_cockpit first recommended command invalid")
-    for index, row in enumerate(commands):
-        if not isinstance(row, dict):
-            add_error(report, f"operator_cockpit recommended command {index} invalid")
-            continue
-        label = str(row.get("label", ""))
-        command = str(row.get("command", ""))
-        writes_artifact = str(row.get("writes_artifact", ""))
-        if label not in allowed_writes:
-            add_error(report, f"operator_cockpit recommended command unknown: {label}")
-        elif writes_artifact != allowed_writes[label]:
-            add_error(
-                report,
-                f"operator_cockpit recommended command writes mismatch: {label}",
-            )
-        if not command.startswith("python -m orchestrator."):
-            add_error(
-                report,
-                f"operator_cockpit recommended command prefix invalid: {label}",
-            )
-        for token in ("&&", "||", "|", ">", "<", "`", "$("):
-            if token in command:
-                add_error(
-                    report,
-                    f"operator_cockpit recommended command unsafe token: {label}",
-                )
-                break
     expected_first = f"python -m orchestrator.experiments cockpit {run_id} --markdown"
-    if isinstance(first, dict) and str(first.get("command", "")) != expected_first:
-        add_error(report, "operator_cockpit review_cockpit command mismatch")
+    validate_recommended_command_hints(
+        payload=payload,
+        report=report,
+        artifact_label="operator_cockpit",
+        allowed_writes={
+            "review_cockpit": "",
+            "review_run_dashboard": "",
+            "review_action_dashboard": "",
+            "review_codex_cli_preflight": "codex_cli_execution_preflight.json",
+            "review_codex_cli_readiness_diff": "",
+            "write_action_dashboard": "operator_action_dashboard.json",
+            "continue_operator_action": "",
+            "review_promotion_approval": "champion_promotion_approval.json",
+        },
+        unsafe_tokens=("&&", "||", "|", ">", "<", "`", "$(", "\n", ";"),
+        first_label="review_cockpit",
+        first_label_error="operator_cockpit first recommended command invalid",
+        first_command=expected_first,
+        first_command_error="operator_cockpit review_cockpit command mismatch",
+    )
 
 
 def validate_operator_cockpit_unlock_checklist(

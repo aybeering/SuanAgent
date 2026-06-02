@@ -255,9 +255,9 @@ orchestrator.experiments action-dashboard <run_id>` and `action-dashboard
 command counts, blockers, and suggested read-only/guarded commands without
 recording approval, executing commands, writing config, promoting champions,
 running agents, running backtests, applying patches, routing agents, or
-changing acceptance. Artifact validation checks dashboard command hints against
-known labels, expected write targets, current-step coverage, and simple
-shell-control-token guards.
+changing acceptance. Artifact validation checks dashboard command hints through
+the shared operator command-hint validator for known labels, expected write
+targets, current-step coverage, and simple shell-control-token guards.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose the
 Codex CLI operator-unlock evidence chain as a standalone read-only checklist.
 The iteration loop writes it during closeout before the final cockpit so cockpit
@@ -306,9 +306,10 @@ closeout artifacts;
 expose panel rows, blockers, primary focus, and command hints without recording
 approval, executing commands, writing config, promoting champions, running
 agents, running backtests, applying patches, routing agents, or changing
-acceptance. Artifact validation checks cockpit command hints against known
-labels, expected write targets, the required `review_cockpit` first command, and
-simple shell-control-token guards. When the inspection command reads a saved
+acceptance. Artifact validation checks cockpit command hints through the shared
+operator command-hint validator for known labels, expected write targets, the
+required `review_cockpit` first command, and simple shell-control-token guards.
+When the inspection command reads a saved
 cockpit artifact, it adds a transient `snapshot_freshness` section that compares
 recorded source hashes with the current source files and names stale sources
 that require an explicit cockpit refresh. This freshness section is read-only

@@ -1180,6 +1180,13 @@ jobs:
           assert refresh["config_sha256"] == hashlib.sha256(
               open("config/adaptive_stub.json", "rb").read()
           ).hexdigest()
+          for row in refresh["refreshed_artifacts"]:
+              assert row["json_file"]["exists"] is True
+              assert row["markdown_file"]["exists"] is True
+              assert row["json_file"]["sha256"]
+              assert row["markdown_file"]["sha256"]
+              assert row["json_file"]["relative_path"].startswith("experiments/ci-adaptive/")
+              assert row["markdown_file"]["relative_path"].startswith("experiments/ci-adaptive/")
           assert dashboard["schema_version"] == "operator_action_dashboard_v1"
           assert checklist["schema_version"] == "operator_unlock_checklist_v1"
           assert checklist["navigation"]["policy"]["does_not_execute_commands"] is True

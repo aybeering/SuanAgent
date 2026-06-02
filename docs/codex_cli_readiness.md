@@ -179,8 +179,9 @@ The refresh command rewrites the read-only operator action dashboard, Codex CLI
 execution preflight, unlock checklist, readiness diff, and cockpit in dependency
 order. It uses the run's recorded config path unless `--config` is provided and
 returns a terminal-only receipt with the config source, path, existence flag,
-and SHA-256 digest; it does not execute Codex, record approval, create
-workspaces, modify config, apply patches, or change acceptance.
+SHA-256 digest, and per-artifact JSON/Markdown output hashes; it does not
+execute Codex, record approval, create workspaces, modify config, apply patches,
+or change acceptance.
 
 Record operator review intent:
 

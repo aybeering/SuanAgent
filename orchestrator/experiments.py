@@ -1310,6 +1310,8 @@ def refresh_operator_views(
                 "artifact_name": artifact_name,
                 "json_path": str(json_path),
                 "markdown_path": str(md_path),
+                "json_file": refresh_file_record(json_path, repo_root=repo_root),
+                "markdown_file": refresh_file_record(md_path, repo_root=repo_root),
                 "schema_version": str(payload.get("schema_version", "")),
             }
         )
@@ -1397,6 +1399,19 @@ def refresh_config_record(
         "metadata_path": str(metadata_path),
         "metadata_relative_path": repo_relative_path(metadata_path, repo_root),
         "metadata_exists": metadata_path.exists(),
+    }
+
+
+def refresh_file_record(path: Path, *, repo_root: Path) -> dict[str, object]:
+    """Return a compact file record for a refreshed output artifact."""
+    exists = path.exists()
+    data = path.read_bytes() if exists and path.is_file() else b""
+    return {
+        "path": str(path),
+        "relative_path": repo_relative_path(path, repo_root),
+        "exists": exists,
+        "bytes": len(data),
+        "sha256": hashlib.sha256(data).hexdigest() if data else "",
     }
 
 

@@ -70,6 +70,8 @@ def write_agent_attempts_manifest(
                 "agent_role": attempt.get("agent_role", ""),
                 "profile_name": attempt.get("profile_name", ""),
                 "adapter_name": attempt.get("adapter_name", ""),
+                "supported_directions": attempt.get("supported_directions", []),
+                "direction_capability": attempt.get("direction_capability", {}),
                 "runner_name": attempt.get("runner_name", ""),
                 "runner": attempt.get("runner", {}),
                 "agent_name": attempt.get("agent_name", ""),
@@ -170,6 +172,8 @@ def selection_rows(
                 "agent_role": attempt.get("agent_role", ""),
                 "profile_name": attempt.get("profile_name", ""),
                 "adapter_name": attempt.get("adapter_name", ""),
+                "supported_directions": attempt.get("supported_directions", []),
+                "direction_capability": attempt.get("direction_capability", {}),
                 "runner_name": attempt.get("runner_name", ""),
                 "runner": attempt.get("runner", {}),
                 "agent_name": attempt.get("agent_name", ""),
@@ -293,6 +297,8 @@ def attempt_output_payload(
         "agent_role": attempt.get("agent_role", ""),
         "profile_name": attempt.get("profile_name", ""),
         "adapter_name": attempt.get("adapter_name", ""),
+        "supported_directions": attempt.get("supported_directions", []),
+        "direction_capability": attempt.get("direction_capability", {}),
         "runner_name": attempt.get("runner_name", ""),
         "runner": attempt.get("runner", {}),
         "agent_name": attempt.get("agent_name", ""),
@@ -421,6 +427,9 @@ def write_attempt_agent_input(
         "adapter_name": str(attempt.get("adapter_name", "")),
         "agent_name": str(attempt.get("agent_name", "")),
         "output_filename": "",
+        "supported_directions": list_or_empty(
+            attempt.get("supported_directions", [])
+        ),
     }
     output_contract = payload.get("output_contract", {})
     if isinstance(output_contract, dict):
@@ -443,6 +452,11 @@ def load_json_object(path: Path) -> dict[str, object]:
     """Load a JSON object from disk."""
     payload = json.loads(path.read_text(encoding="utf-8"))
     return payload if isinstance(payload, dict) else {}
+
+
+def list_or_empty(value: object) -> list[object]:
+    """Return JSON-list metadata without leaking tuple values."""
+    return list(value) if isinstance(value, list | tuple) else []
 
 
 def selected_attempt_index(attempts: list[dict[str, object]]) -> int | None:
@@ -479,6 +493,7 @@ def attempt_blocking_reasons(attempt: dict[str, object]) -> list[str]:
         "memory_filter_reason",
         "patch_memory_filter_reason",
         "direction_filter_reason",
+        "direction_capability_reason",
         "patch_check_error",
         "probe_error",
     ):

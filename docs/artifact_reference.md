@@ -244,9 +244,11 @@ Context and planning artifacts:
 - `proposal_intent.json` and `proposal_intent.md` convert context into
   deterministic planner guidance using the configured strategy search-space
   direction order and fallback direction.
-- `agent_execution_plan.json` records the planned candidate queue before any
-  modifier runs.
-- `agent_routing_policy.json` explains deterministic candidate ranking.
+- `agent_execution_plan.json` records the planned candidate queue and each
+  profile's declared direction capability before any modifier runs.
+- `agent_routing_policy.json` explains deterministic candidate ranking,
+  including whether each proposal direction matched the profile's declared
+  capability.
 
 Role and readiness artifacts:
 

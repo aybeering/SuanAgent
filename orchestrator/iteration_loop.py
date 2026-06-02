@@ -876,6 +876,7 @@ def run_round(
         min_validation_ev_delta=min_validation_ev_delta,
         candidate_selection=candidate_selection,
         executor_config=executor_config,
+        strategy_search_space=strategy_search_space,
         run_id=run_id,
         strategy_module=strategy_module,
         probe_data_path=probe_data_path,
@@ -1431,6 +1432,8 @@ def proposal_attempt_record(
     profile_name: str,
     adapter_name: str,
     agent_role: str,
+    supported_directions: list[str],
+    direction_capability: dict[str, object],
     runner_capability: dict[str, object],
     proposal: StrategyProposal,
     memory_filter_reason: str,
@@ -1459,6 +1462,7 @@ def proposal_attempt_record(
         memory_filter_reason=memory_filter_reason,
         patch_memory_filter_reason=patch_memory_filter_reason,
         direction_filter_reason=direction_filter_reason,
+        direction_capability_reason=str(direction_capability.get("reason", "")),
         patch_check_error=patch_check_error,
         probe_error=probe_error,
         duplicate_patch=status == "duplicate_candidate",
@@ -1472,6 +1476,9 @@ def proposal_attempt_record(
         "modifier_name": modifier_name,
         "profile_name": profile_name,
         "adapter_name": adapter_name,
+        "supported_directions": supported_directions,
+        "direction_capability": direction_capability,
+        "direction_capability_reason": str(direction_capability.get("reason", "")),
         "runner": runner_capability,
         "runner_name": str(runner_capability.get("runner_name", "")),
         "agent_name": payload.get("agent_name", ""),
@@ -1540,6 +1547,7 @@ def select_proposal_candidate(
     min_validation_ev_delta: float,
     candidate_selection: dict[str, float | int],
     executor_config: dict[str, object],
+    strategy_search_space: dict[str, object],
     run_id: str,
     strategy_module: str,
     probe_data_path: Path,
@@ -1553,6 +1561,7 @@ def select_proposal_candidate(
         executor_config=executor_config,
         primary_profile=primary_profile,
         fallback_profiles=fallback_profiles,
+        strategy_search_space=strategy_search_space,
     )
     write_agent_execution_plan(
         output_path=round_dir / "agent_execution_plan.json",
@@ -1588,6 +1597,7 @@ def select_proposal_candidate(
         profile_name_value = agent_result.profile_name
         adapter_name_value = agent_result.adapter_name
         agent_role = agent_result.agent_role
+        supported_directions = agent_result.supported_directions
         runner_capability = agent_result.runner_capability
         proposal = agent_result.proposal
         proposal = enforce_proposal_contract(
@@ -1616,6 +1626,14 @@ def select_proposal_candidate(
             patch_memory_reason,
             direction_memory_reason,
         )
+        direction_capability_payload = direction_capability_for_proposal(
+            supported_directions=supported_directions,
+            proposal_direction_tag=proposal.direction_tag,
+            strategy_search_space=strategy_search_space,
+        )
+        direction_capability_reason = str(
+            direction_capability_payload.get("reason", "")
+        )
         direction_prior_payload = direction_prior(
             experiments_dir=experiments_dir,
             direction_tag=proposal.direction_tag,
@@ -1637,7 +1655,12 @@ def select_proposal_candidate(
         if proposal.patch_sha256:
             seen_patch_hashes.add(proposal.patch_sha256)
         patch_check_error = ""
-        if not memory_reason and proposal.applicable and not duplicate_patch:
+        if (
+            not direction_capability_reason
+            and not memory_reason
+            and proposal.applicable
+            and not duplicate_patch
+        ):
             try:
                 check_patch(repo_root, proposal.patch_diff)
             except GitError as exc:
@@ -1647,6 +1670,7 @@ def select_proposal_candidate(
             memory_filter_reason=memory_reason,
             patch_check_error=patch_check_error,
             duplicate_patch=duplicate_patch,
+            direction_capability_reason=direction_capability_reason,
         )
         probe_metrics_after: dict[str, float | int] = {}
         probe_error = ""
@@ -1698,6 +1722,8 @@ def select_proposal_candidate(
                 profile_name=profile_name_value,
                 adapter_name=adapter_name_value,
                 agent_role=agent_role,
+                supported_directions=list(supported_directions),
+                direction_capability=direction_capability_payload,
                 runner_capability=runner_capability,
                 proposal=proposal,
                 memory_filter_reason=memory_reason,
@@ -1775,16 +1801,83 @@ def publish_selected_runtime_artifacts(
             shutil.copy2(source, round_dir / destination_name)
 
 
+def direction_capability_for_proposal(
+    *,
+    supported_directions: tuple[str, ...],
+    proposal_direction_tag: str,
+    strategy_search_space: dict[str, object],
+) -> dict[str, object]:
+    """Return deterministic profile-direction compatibility metadata."""
+    normalized_supported = tuple(
+        str(direction) for direction in supported_directions if str(direction)
+    )
+    search_space_order = strategy_search_space_direction_order(strategy_search_space)
+    wildcard = "*" in normalized_supported
+    supported_by_profile = (
+        bool(proposal_direction_tag)
+        and (wildcard or proposal_direction_tag in normalized_supported)
+    )
+    in_search_space = (
+        proposal_direction_tag in search_space_order
+        if search_space_order
+        else bool(proposal_direction_tag)
+    )
+    ok = supported_by_profile and in_search_space
+    reason = ""
+    if not proposal_direction_tag:
+        reason = "proposal direction_tag is empty"
+    elif not in_search_space:
+        reason = (
+            "proposal direction is outside configured strategy_search_space: "
+            f"{proposal_direction_tag}"
+        )
+    elif not supported_by_profile:
+        supported_text = ", ".join(normalized_supported) or "none"
+        reason = (
+            "profile does not support proposal direction "
+            f"{proposal_direction_tag}; supported={supported_text}"
+        )
+    return {
+        "schema_version": "direction_capability_v1",
+        "proposal_direction_tag": proposal_direction_tag,
+        "supported_directions": list(normalized_supported),
+        "strategy_search_space_directions": list(search_space_order),
+        "wildcard": wildcard,
+        "supported_by_profile": supported_by_profile,
+        "in_strategy_search_space": in_search_space,
+        "ok": ok,
+        "reason": reason,
+        "policy": {
+            "contract_check_only": True,
+            "does_not_change_acceptance": True,
+            "acceptance_still_requires_policy_gate": True,
+        },
+    }
+
+
+def strategy_search_space_direction_order(
+    strategy_search_space: dict[str, object],
+) -> tuple[str, ...]:
+    """Return configured direction tags from search-space metadata."""
+    raw_order = strategy_search_space.get("direction_order", [])
+    if isinstance(raw_order, list | tuple):
+        return tuple(str(direction) for direction in raw_order if str(direction))
+    return ()
+
+
 def proposal_candidate_status(
     *,
     proposal: StrategyProposal,
     memory_filter_reason: str,
     patch_check_error: str,
     duplicate_patch: bool,
+    direction_capability_reason: str,
 ) -> str:
     """Return the cheap deterministic prefilter status for a proposal."""
     if proposal.contract_errors:
         return "contract_invalid"
+    if direction_capability_reason:
+        return "direction_not_supported"
     if memory_filter_reason:
         return "memory_rejected"
     if not proposal.applicable:

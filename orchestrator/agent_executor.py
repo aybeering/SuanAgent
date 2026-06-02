@@ -9,6 +9,7 @@ from typing import Any
 
 from agents.modifier_adapter import StrategyModifier
 from orchestrator.agent_attempts import attempt_trace_id
+from orchestrator.config import adapter_supported_directions
 from orchestrator.proposal import StrategyProposal
 
 
@@ -26,6 +27,7 @@ class AgentCandidate:
     profile_name: str
     adapter_name: str
     agent_role: str
+    supported_directions: tuple[str, ...]
     runner_capability: dict[str, object]
     modifier: StrategyModifier
 
@@ -41,6 +43,7 @@ class AgentCandidateResult:
     profile_name: str
     adapter_name: str
     agent_role: str
+    supported_directions: tuple[str, ...]
     runner_capability: dict[str, object]
     proposal: StrategyProposal
 
@@ -52,6 +55,7 @@ def build_agent_queue(
     executor_config: dict[str, object] | None = None,
     primary_profile: dict[str, object] | None = None,
     fallback_profiles: tuple[dict[str, object], ...] = (),
+    strategy_search_space: dict[str, object] | None = None,
 ) -> tuple[AgentCandidate, ...]:
     """Return a stable primary-plus-fallback execution queue."""
     modifiers = [("primary", primary_modifier, primary_profile or {})]
@@ -72,6 +76,11 @@ def build_agent_queue(
             profile_name=profile_name(profile, role),
             adapter_name=profile_adapter_name(profile, modifier),
             agent_role=profile_agent_role(profile),
+            supported_directions=profile_supported_directions(
+                profile=profile,
+                adapter_name=profile_adapter_name(profile, modifier),
+                strategy_search_space=strategy_search_space or {},
+            ),
             runner_capability=profile_runner_capability(profile),
             modifier=modifier,
         )
@@ -117,6 +126,7 @@ def execute_agent_queue(
                 profile_name=candidate.profile_name,
                 adapter_name=candidate.adapter_name,
                 agent_role=candidate.agent_role,
+                supported_directions=candidate.supported_directions,
                 runner_capability=candidate.runner_capability,
                 proposal=proposal,
             )
@@ -221,6 +231,10 @@ def executor_attempt_row(
         ),
         "profile_name": str(attempt.get("profile_name", "")),
         "adapter_name": str(attempt.get("adapter_name", "")),
+        "supported_directions": list_or_empty(attempt.get("supported_directions", [])),
+        "direction_capability": dict_or_empty(
+            attempt.get("direction_capability", {})
+        ),
         "runner": dict_or_empty(attempt.get("runner", {})),
         "agent_name": str(attempt.get("agent_name", "")),
         "direction_tag": str(attempt.get("direction_tag", "")),
@@ -311,3 +325,19 @@ def profile_runner_capability(profile: dict[str, object]) -> dict[str, object]:
     """Return normalized runner metadata carried by an agent profile."""
     runner = profile.get("runner", {})
     return dict_or_empty(runner)
+
+
+def profile_supported_directions(
+    *,
+    profile: dict[str, object],
+    adapter_name: str,
+    strategy_search_space: dict[str, object],
+) -> tuple[str, ...]:
+    """Return normalized direction capability for one queued profile."""
+    supported = profile.get("supported_directions", ())
+    if isinstance(supported, list | tuple) and supported:
+        return tuple(str(direction) for direction in supported if str(direction))
+    return adapter_supported_directions(
+        adapter_name=adapter_name,
+        strategy_search_space=strategy_search_space,
+    )

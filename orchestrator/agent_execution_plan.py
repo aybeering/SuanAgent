@@ -106,6 +106,13 @@ def candidate_plan_row(
         "adapter_name": candidate.adapter_name,
         "agent_role": candidate.agent_role,
         "modifier_name": candidate.modifier_name,
+        "direction_capability": {
+            "schema_version": "direction_capability_v1",
+            "supported_directions": list(candidate.supported_directions),
+            "wildcard": "*" in candidate.supported_directions,
+            "source": "agent_profile_or_adapter_default",
+            "enforced_after_proposal_contract": True,
+        },
         "runner": runner,
         "workspace": workspace,
         "input_contract": {

@@ -1380,6 +1380,7 @@ def test_agent_executor_builds_stable_attempt_queue(tmp_path: Path) -> None:
     queue = build_agent_queue(
         primary_modifier=primary,
         fallback_modifiers=(fallback,),
+        strategy_search_space=load_project_config(Path.cwd()).strategy_search_space,
     )
     results = execute_agent_queue(
         queue=queue,
@@ -1409,6 +1410,10 @@ def test_agent_executor_builds_stable_attempt_queue(tmp_path: Path) -> None:
         "primary_agent",
         "fallback_agent",
     ]
+    assert [candidate.supported_directions for candidate in queue] == [
+        ("*",),
+        ("*",),
+    ]
     assert [result.proposal.agent_name for result in results] == [
         "primary_agent",
         "fallback_agent",
@@ -1437,6 +1442,7 @@ def test_agent_executor_builds_stable_attempt_queue(tmp_path: Path) -> None:
                 "settings": {},
             },
         ),
+        strategy_search_space=load_project_config(Path.cwd()).strategy_search_space,
     )
     assert [candidate.modifier_name for candidate in profiled_queue] == [
         "primary_agent",
@@ -1453,6 +1459,10 @@ def test_agent_executor_builds_stable_attempt_queue(tmp_path: Path) -> None:
     assert [candidate.agent_role for candidate in profiled_queue] == [
         "strategy_modifier",
         "strategy_modifier",
+    ]
+    assert [candidate.supported_directions for candidate in profiled_queue] == [
+        ("lower_min_edge",),
+        ("lower_min_edge", "reduce_stake"),
     ]
 
     capped_queue = build_agent_queue(
@@ -1704,6 +1714,34 @@ def test_preflight_rejects_strategy_search_space_authority(
     )
 
 
+def test_preflight_rejects_unknown_profile_supported_direction(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_path = repo / "config/bad_profile_direction.json"
+    config = json.loads((repo / "config/default.json").read_text())
+    config["agents"] = [
+        {
+            "name": "strategy_bot",
+            "adapter": "fixed_patch_stub",
+            "role": "primary",
+            "agent_role": "strategy_modifier",
+            "enabled": True,
+            "supported_directions": ["unknown_direction"],
+            "settings": {},
+        }
+    ]
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    result = run_preflight(repo_root=repo, config_path=config_path)
+
+    assert result.ok is False
+    assert any(
+        "supported_directions contains unknown direction: unknown_direction" in error
+        for error in result.errors
+    )
+
+
 def test_preflight_rejects_negative_routing_prior_penalty(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     config_path = repo / "config/negative_routing_prior.json"
@@ -1782,11 +1820,16 @@ def test_explicit_agent_profiles_load_and_preflight(tmp_path: Path) -> None:
     ]
     assert loaded.agent_profiles[0]["adapter"] == "fixed_patch_stub"
     assert loaded.agent_profiles[0]["agent_role"] == "strategy_modifier"
+    assert loaded.agent_profiles[0]["supported_directions"] == ("lower_min_edge",)
     assert loaded.agent_profiles[0]["runner"]["runner_name"] == "in_process_modifier"
     assert loaded.agent_profiles[0]["runner"]["isolation"] == "none"
     assert loaded.agent_profiles[1]["enabled"] is False
     assert loaded.agent_profiles[1]["agent_role"] == "analysis"
     assert loaded.agent_profiles[2]["role"] == "fallback"
+    assert loaded.agent_profiles[2]["supported_directions"] == (
+        "lower_min_edge",
+        "reduce_stake",
+    )
 
 
 def test_preflight_rejects_invalid_agent_profiles(tmp_path: Path) -> None:
@@ -3442,6 +3485,93 @@ def test_iteration_loop_uses_fallback_after_memory_rejected_primary(
     assert "STAKE = 8.0" in proposal["patch_diff"]
     assert not decision["reasons"][0].startswith("memory filter rejected patch")
     assert "selected fallback_01 with score" in summary_text
+
+
+def test_iteration_loop_skips_profile_with_unsupported_direction(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        agent_profiles=(
+            {
+                "name": "narrow_primary",
+                "adapter": "fixed_patch_stub",
+                "role": "primary",
+                "agent_role": "strategy_modifier",
+                "enabled": True,
+                "supported_directions": ("raise_min_edge",),
+                "settings": {},
+                "runner": normalize_runner_capability(
+                    adapter_name="fixed_patch_stub",
+                    settings={},
+                ),
+            },
+            {
+                "name": "conservative_fallback",
+                "adapter": "conservative_stub",
+                "role": "fallback",
+                "agent_role": "strategy_modifier",
+                "enabled": True,
+                "supported_directions": ("raise_min_edge",),
+                "settings": {},
+                "runner": normalize_runner_capability(
+                    adapter_name="conservative_stub",
+                    settings={},
+                ),
+            },
+        ),
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+        stop_after_no_improvement_rounds=0,
+    )
+
+    manifest = run_iteration_loop(
+        run_id="direction-capability-skip",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+
+    round_dir = repo / "experiments/direction-capability-skip/round_001"
+    attempts = json.loads(
+        (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
+    )
+    selection = json.loads(
+        (round_dir / "agent_selection_report.json").read_text(encoding="utf-8")
+    )
+    routing = json.loads(
+        (round_dir / "agent_routing_policy.json").read_text(encoding="utf-8")
+    )
+    execution_plan = json.loads(
+        (round_dir / "agent_execution_plan.json").read_text(encoding="utf-8")
+    )
+
+    assert manifest["rounds"][0]["proposal_fallback_used"] is True  # type: ignore[index]
+    assert attempts[0]["status"] == "direction_not_supported"
+    assert attempts[0]["failure_code"] == "profile_direction_not_supported"
+    assert attempts[0]["direction_capability"]["ok"] is False
+    assert attempts[0]["direction_capability"]["proposal_direction_tag"] == (
+        "lower_min_edge"
+    )
+    assert attempts[0]["supported_directions"] == ["raise_min_edge"]
+    assert attempts[1]["status"] == "selectable"
+    assert attempts[1]["selected"] is True
+    assert attempts[1]["direction_tag"] == "raise_min_edge"
+    assert attempts[1]["direction_capability"]["ok"] is True
+    assert selection["attempts"][0]["skip_reason"].startswith(
+        "profile does not support proposal direction lower_min_edge"
+    )
+    assert routing["candidates"][0]["eligible"] is False
+    assert routing["candidates"][0]["direction_capability"]["ok"] is False
+    assert routing["candidates"][1]["selected"] is True
+    assert execution_plan["attempts"][0]["direction_capability"][
+        "supported_directions"
+    ] == ["raise_min_edge"]
+    assert_matches_schema(round_dir / "agent_execution_plan.json", "agent_execution_plan")
+    assert_matches_schema(round_dir / "agent_selection_report.json", "agent_selection")
+    assert_matches_schema(round_dir / "agent_routing_policy.json", "agent_routing_policy")
 
 
 def test_iteration_loop_tries_next_candidate_after_fallback_memory_rejection(

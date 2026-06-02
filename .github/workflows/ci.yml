@@ -350,6 +350,9 @@ jobs:
           attempts = json.load(open("experiments/ci-adaptive/round_001/proposal_attempts.json"))
           assert "failure_code" in attempts[0]
           assert "routing_prior" in attempts[0]
+          assert attempts[0]["supported_directions"]
+          assert attempts[0]["direction_capability"]["schema_version"] == "direction_capability_v1"
+          assert attempts[0]["direction_capability"]["ok"] is True
           leaderboard = json.load(open("experiments/ci-adaptive/candidate_leaderboard.json"))
           assert "failure_stage" in leaderboard[0]
           assert leaderboard[0]["quality_breakdown"]["schema_version"] == "candidate_quality_v1"
@@ -382,6 +385,7 @@ jobs:
           assert executor["execution_policy"]["mode"] == "sequential"
           assert executor["execution_policy"]["max_candidates"] == 0
           assert executor["execution_policy"]["per_agent_timeout_seconds"] == 120
+          assert executor["attempts"][0]["direction_capability"]["ok"] is True
           workspace = json.load(open("experiments/ci-file-protocol-demo/round_001/workspace_manifest.json"))
           assert workspace["attempt_id"] == "attempt_001_primary"
           assert "attempt_001_primary" in workspace["workspace_path"]

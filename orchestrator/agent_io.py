@@ -223,6 +223,9 @@ def compact_agent_profiles(
             "role": str(profile.get("role", "")),
             "agent_role": str(profile.get("agent_role", "strategy_modifier")),
             "enabled": bool(profile.get("enabled", True)),
+            "supported_directions": list_or_empty(
+                profile.get("supported_directions", [])
+            ),
             "settings": dict_or_empty(profile.get("settings", {})),
             "runner": dict_or_empty(profile.get("runner", {})),
         }
@@ -240,6 +243,7 @@ def active_agent_template() -> dict[str, object]:
         "adapter_name": "",
         "agent_name": "",
         "output_filename": "",
+        "supported_directions": [],
     }
 
 
@@ -248,6 +252,11 @@ def dict_or_empty(value: object) -> dict[str, object]:
     if not isinstance(value, dict):
         return {}
     return {str(key): entry for key, entry in value.items()}
+
+
+def list_or_empty(value: object) -> list[object]:
+    """Return JSON-list metadata without leaking tuple values."""
+    return list(value) if isinstance(value, list | tuple) else []
 
 
 def write_agent_output(

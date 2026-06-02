@@ -22,6 +22,7 @@ from orchestrator.config import (
     WORKSPACE_DRY_RUNNER_NAME,
     ProjectConfig,
     load_project_config,
+    strategy_direction_order,
 )
 
 
@@ -290,10 +291,50 @@ def validate_agent_profiles(config: ProjectConfig, errors: list[str]) -> None:
             profile_index=index,
             errors=errors,
         )
+        validate_agent_profile_direction_capability(
+            profile=profile,
+            profile_index=index,
+            config=config,
+            errors=errors,
+        )
         if enabled and role == "primary":
             enabled_primary_count += 1
     if config.agent_profiles and enabled_primary_count != 1:
         errors.append("agents must contain exactly one enabled primary profile")
+
+
+def validate_agent_profile_direction_capability(
+    *,
+    profile: dict[str, object],
+    profile_index: int,
+    config: ProjectConfig,
+    errors: list[str],
+) -> None:
+    """Validate one profile's declared strategy-direction capability."""
+    supported = profile.get("supported_directions", [])
+    if not isinstance(supported, list | tuple):
+        errors.append(f"agents[{profile_index}].supported_directions must be an array")
+        return
+    if not supported:
+        errors.append(f"agents[{profile_index}].supported_directions must be non-empty")
+        return
+    normalized = [str(direction) for direction in supported if str(direction)]
+    if len(normalized) != len(set(normalized)):
+        errors.append(f"agents[{profile_index}].supported_directions must be unique")
+    if "*" in normalized:
+        if len(normalized) != 1:
+            errors.append(
+                f"agents[{profile_index}].supported_directions wildcard must stand alone"
+            )
+        return
+    allowed_directions = set(strategy_direction_order(config.strategy_search_space))
+    for direction in normalized:
+        if direction not in allowed_directions:
+            errors.append(
+                "agents"
+                f"[{profile_index}].supported_directions contains unknown direction: "
+                f"{direction}"
+            )
 
 
 def validate_agent_roles(config: ProjectConfig, errors: list[str]) -> None:

@@ -73,6 +73,19 @@ DEFAULT_STRATEGY_SEARCH_SPACE = {
         "does_not_change_acceptance": True,
     },
 }
+ADAPTER_DIRECTION_CAPABILITIES = {
+    "fixed_patch_stub": ("lower_min_edge",),
+    "strategy_modifier_stub": ("lower_min_edge",),
+    "adaptive_stub": ("lower_min_edge", "reduce_stake"),
+    "strategy_modifier_adaptive_stub": ("lower_min_edge", "reduce_stake"),
+    "conservative_stub": ("raise_min_edge",),
+    "strategy_modifier_conservative_stub": ("raise_min_edge",),
+    "codex_cli": ("*",),
+    "codex_dry_run": ("*",),
+    "codex_cli_dry_run": ("*",),
+    "codex_cli_canary": ("lower_min_edge",),
+    "file_protocol": ("*",),
+}
 AGENT_CONTRACT_RUNNER_NAME = "agent_contract_runner_v1"
 CODEX_CLI_GUARDED_RUNNER_NAME = "codex_cli_guarded_adapter"
 IN_PROCESS_RUNNER_NAME = "in_process_modifier"
@@ -263,7 +276,10 @@ def load_project_config(
         raw.get("strategy_search_space", {}),
     )
     fallback_names = fallback_modifier_names(memory_filter)
-    agent_profiles = normalize_agent_profiles(raw=raw)
+    agent_profiles = normalize_agent_profiles(
+        raw=raw,
+        strategy_search_space=strategy_search_space,
+    )
     agent_roles = normalize_agent_roles(raw=raw)
     return ProjectConfig(
         baseline_strategy_module=str(raw["baseline_strategy_module"]),
@@ -415,12 +431,13 @@ def modifier_settings_for(raw: dict[str, object], modifier_name: str) -> dict[st
 def normalize_agent_profiles(
     *,
     raw: dict[str, object],
+    strategy_search_space: dict[str, object],
 ) -> tuple[dict[str, object], ...]:
     """Return explicit agent profiles from config."""
     raw_profiles = raw.get("agents", [])
     if isinstance(raw_profiles, list) and raw_profiles:
         return tuple(
-            normalize_agent_profile(raw_profile, index)
+            normalize_agent_profile(raw_profile, index, strategy_search_space)
             for index, raw_profile in enumerate(raw_profiles, start=1)
             if isinstance(raw_profile, dict)
         )
@@ -430,17 +447,24 @@ def normalize_agent_profiles(
 def normalize_agent_profile(
     raw_profile: dict[str, object],
     index: int,
+    strategy_search_space: dict[str, object],
 ) -> dict[str, object]:
     """Return a normalized explicit agent profile."""
     settings = raw_profile.get("settings", {})
     adapter = str(raw_profile.get("adapter", ""))
     normalized_settings = settings if isinstance(settings, dict) else {}
+    supported_directions = profile_supported_directions(
+        raw_profile=raw_profile,
+        adapter_name=adapter,
+        strategy_search_space=strategy_search_space,
+    )
     return {
         "name": str(raw_profile.get("name", f"agent_{index:02d}")),
         "adapter": adapter,
         "role": str(raw_profile.get("role", "fallback")),
         "agent_role": str(raw_profile.get("agent_role", "strategy_modifier")),
         "enabled": bool(raw_profile.get("enabled", True)),
+        "supported_directions": supported_directions,
         "settings": normalized_settings,
         "runner": normalize_runner_capability(
             adapter_name=adapter,
@@ -448,6 +472,43 @@ def normalize_agent_profile(
             raw_runner=raw_profile.get("runner", {}),
         ),
     }
+
+
+def profile_supported_directions(
+    *,
+    raw_profile: dict[str, object],
+    adapter_name: str,
+    strategy_search_space: dict[str, object],
+) -> tuple[str, ...]:
+    """Return the direction capability declared by one profile."""
+    explicit = string_list(raw_profile.get("supported_directions", []))
+    if explicit:
+        return tuple(explicit)
+    return adapter_supported_directions(
+        adapter_name=adapter_name,
+        strategy_search_space=strategy_search_space,
+    )
+
+
+def adapter_supported_directions(
+    *,
+    adapter_name: str,
+    strategy_search_space: dict[str, object],
+) -> tuple[str, ...]:
+    """Return deterministic default direction capability for one adapter."""
+    configured = ADAPTER_DIRECTION_CAPABILITIES.get(adapter_name, ("*",))
+    if "*" in configured:
+        return ("*",)
+    allowed = set(strategy_direction_order(strategy_search_space))
+    return tuple(direction for direction in configured if direction in allowed)
+
+
+def strategy_direction_order(strategy_search_space: dict[str, object]) -> tuple[str, ...]:
+    """Return configured strategy direction tags in stable order."""
+    raw_order = strategy_search_space.get("direction_order", [])
+    if isinstance(raw_order, list | tuple):
+        return tuple(str(direction) for direction in raw_order if str(direction))
+    return ()
 
 
 def normalize_agent_roles(

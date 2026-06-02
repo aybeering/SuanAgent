@@ -14,6 +14,7 @@ from orchestrator.config import (
     IN_PROCESS_RUNNER_NAME,
     WORKSPACE_DRY_RUNNER_NAME,
     ProjectConfig,
+    adapter_supported_directions,
     default_runner_name,
     normalize_runner_capability,
 )
@@ -145,6 +146,10 @@ def effective_agent_profiles(config: ProjectConfig) -> tuple[dict[str, object], 
             "role": "primary",
             "agent_role": "strategy_modifier",
             "enabled": True,
+            "supported_directions": adapter_supported_directions(
+                adapter_name=config.strategy_modifier,
+                strategy_search_space=config.strategy_search_space,
+            ),
             "settings": config.modifier_settings,
             "runner": normalize_runner_capability(
                 adapter_name=config.strategy_modifier,
@@ -159,6 +164,10 @@ def effective_agent_profiles(config: ProjectConfig) -> tuple[dict[str, object], 
             "role": "fallback",
             "agent_role": "strategy_modifier",
             "enabled": True,
+            "supported_directions": adapter_supported_directions(
+                adapter_name=fallback_modifier,
+                strategy_search_space=config.strategy_search_space,
+            ),
             "settings": config.modifier_settings,
             "runner": normalize_runner_capability(
                 adapter_name=fallback_modifier,
@@ -261,6 +270,9 @@ def profile_rows_for(
                 "queue_role": queue_role,
                 "agent_role": agent_role,
                 "adapter_name": adapter_name,
+                "supported_directions": string_list(
+                    profile.get("supported_directions", [])
+                ),
                 "activation_status": activation_status(
                     enabled=enabled,
                     blockers=blockers,

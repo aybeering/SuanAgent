@@ -97,6 +97,7 @@ Implemented or allowed V0.5 components:
 83. A deterministic `champion_promotion_approval.json` and `champion_promotion_approval.md` report pair that records operator review intent, required confirmation phrase hashes, reviewed promote command digests, and source evidence hashes without executing promotion, writing champion registry files, appending champion history, running agents, running backtests, routing agents, applying patches, or changing acceptance.
 84. A deterministic `champion_promotion_receipt.json` and `champion_promotion_receipt.md` report pair for the guarded promote-approved command, which writes `champion.json` and appends `champion_history.jsonl` only when approval evidence, command digest, dry-run digest, current champion identity, and current comparison recommendation still match.
 85. A deterministic global `champion_lineage.json` and `champion_lineage.md` report pair that connects the current champion registry, champion history, promotion receipts, approval artifacts, dry-run hashes, and comparison metric deltas into a read-only champion evolution chain without promoting champions or changing acceptance.
+86. Deterministic profile direction-capability contracts that let each modifier profile declare supported proposal directions, record those declarations in agent input, execution plan, selection, routing, executor, and attempt artifacts, and skip mismatched candidates without giving planner guidance final routing or acceptance authority.
 
 ## Contract Families
 
@@ -200,23 +201,27 @@ Codex CLI readiness contracts:
     candidate direction tags, direction order, modifier hints, and a fallback
     direction for operator review and future agent input, but it cannot execute
     agents, route candidates, apply patches, or change strategy acceptance.
-16. Candidate quality breakdowns explain proposal ranking only. They can expose
+16. Profile direction-capability checks are contract enforcement only. They can
+    reject a candidate whose proposal direction is outside the profile's own
+    declared capability, but they cannot accept a strategy, override validation,
+    or let planner guidance route candidates.
+17. Candidate quality breakdowns explain proposal ranking only. They can expose
     score components and post-evaluation signals, but they cannot override the
     deterministic policy gate or holdout veto.
-17. Candidate challenger reports are read-only comparison summaries. They can
+18. Candidate challenger reports are read-only comparison summaries. They can
     highlight validation gaps and holdout stability against the current
     champion, but they cannot promote champions, route candidates, apply
     patches, run backtests, or change strategy acceptance.
-18. Champion promotion dry-runs are read-only promotion previews. They can
+19. Champion promotion dry-runs are read-only promotion previews. They can
     expose the deterministic promote command that would be appropriate after
     operator review, but they cannot write champion registry files, append
     champion history, route candidates, apply patches, run backtests, or change
     strategy acceptance.
-19. Champion promotion approval artifacts record operator intent and reviewed
+20. Champion promotion approval artifacts record operator intent and reviewed
     command digests only. They cannot execute promotion, write champion
     registry files, append champion history, route candidates, apply patches,
     run backtests, or change strategy acceptance.
-20. Guarded champion promotion receipts are the only V0.5 artifact family that
+21. Guarded champion promotion receipts are the only V0.5 artifact family that
     records champion registry writes. They require approval evidence, command
     digest binding, source dry-run digest binding, unchanged champion identity,
     and a current deterministic promote recommendation before writing

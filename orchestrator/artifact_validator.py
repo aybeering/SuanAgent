@@ -743,6 +743,18 @@ def validate_agent_input_search_space(*, path: Path, report: dict[str, object]) 
     directions = search_space.get("directions", [])
     if not isinstance(directions, list) or not directions:
         add_error(report, f"agent_input.json strategy_search_space directions empty: {path}")
+    direction_tags = {
+        str(direction.get("direction_tag", ""))
+        for direction in directions
+        if isinstance(direction, dict)
+        and str(direction.get("direction_tag", ""))
+    }
+    validate_agent_input_profile_directions(
+        payload=payload,
+        direction_tags=direction_tags,
+        path=path,
+        report=report,
+    )
     policy = search_space.get("policy", {})
     if not isinstance(policy, dict):
         add_error(report, f"agent_input.json strategy_search_space policy invalid: {path}")
@@ -754,6 +766,47 @@ def validate_agent_input_search_space(*, path: Path, report: dict[str, object]) 
     ):
         if policy.get(key) is not True:
             add_error(report, f"agent_input.json strategy_search_space policy false: {key}")
+
+
+def validate_agent_input_profile_directions(
+    *,
+    payload: dict[str, object],
+    direction_tags: set[str],
+    path: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate profile direction capabilities exposed to agents."""
+    profiles = payload.get("agent_profiles", [])
+    if not isinstance(profiles, list):
+        add_error(report, f"agent_input.json agent_profiles invalid: {path}")
+        return
+    for index, profile in enumerate(profiles, start=1):
+        if not isinstance(profile, dict):
+            add_error(report, f"agent_input.json agent_profiles[{index}] invalid: {path}")
+            continue
+        supported = profile.get("supported_directions", [])
+        if not isinstance(supported, list) or not supported:
+            add_error(
+                report,
+                f"agent_input.json agent_profiles[{index}].supported_directions empty: {path}",
+            )
+            continue
+        normalized = [str(direction) for direction in supported if str(direction)]
+        if "*" in normalized:
+            if normalized != ["*"]:
+                add_error(
+                    report,
+                    "agent_input.json supported_directions wildcard must stand alone: "
+                    f"{path}",
+                )
+            continue
+        for direction in normalized:
+            if direction not in direction_tags:
+                add_error(
+                    report,
+                    "agent_input.json supported_directions unknown direction "
+                    f"{direction}: {path}",
+                )
 
 
 def validate_optional_workspace_manifest(
@@ -985,6 +1038,10 @@ def validate_agent_execution_plan(
                 "agent_execution_plan.json only strategy_modifier may be planned: "
                 f"{agent_role}",
             )
+        validate_execution_plan_direction_capability(
+            attempt=attempt,
+            report=report,
+        )
         validate_execution_plan_input_contract(
             attempt=attempt,
             repo_root=repo_root,
@@ -1007,6 +1064,25 @@ def validate_agent_execution_plan(
         ):
             if not bool(policy.get(key, False)):
                 add_error(report, f"agent_execution_plan.json policy false: {key}")
+
+
+def validate_execution_plan_direction_capability(
+    *,
+    attempt: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate planned direction capability metadata."""
+    capability = attempt.get("direction_capability", {})
+    if not isinstance(capability, dict):
+        add_error(report, "agent_execution_plan.json direction_capability is invalid")
+        return
+    if capability.get("schema_version") != "direction_capability_v1":
+        add_error(report, "agent_execution_plan.json direction_capability schema mismatch")
+    supported = capability.get("supported_directions", [])
+    if not isinstance(supported, list) or not supported:
+        add_error(report, "agent_execution_plan.json supported_directions is empty")
+    if capability.get("wildcard") is True and supported != ["*"]:
+        add_error(report, "agent_execution_plan.json wildcard capability must be ['*']")
 
 
 def validate_execution_plan_input_contract(
@@ -2121,6 +2197,11 @@ def validate_agent_executor_report(
                 report,
                 f"agent_executor_report.json unknown agent_role: {agent_role}",
             )
+        validate_direction_capability_row(
+            row=row,
+            artifact_name="agent_executor_report.json",
+            report=report,
+        )
         artifacts = row.get("artifacts", {})
         if not isinstance(artifacts, dict):
             add_error(report, "agent_executor_report.json artifacts is non-object")
@@ -2181,6 +2262,11 @@ def validate_agent_routing_policy(
                 report,
                 f"agent_routing_policy.json unknown agent_role: {agent_role}",
             )
+        validate_direction_capability_row(
+            row=row,
+            artifact_name="agent_routing_policy.json",
+            report=report,
+        )
         artifacts = row.get("artifacts", {})
         if not isinstance(artifacts, dict):
             add_error(report, "agent_routing_policy.json artifacts is non-object")
@@ -2237,6 +2323,11 @@ def validate_agent_selection_report(
             continue
         if bool(row.get("selected", False)):
             selected_rows += 1
+        validate_direction_capability_row(
+            row=row,
+            artifact_name="agent_selection_report.json",
+            report=report,
+        )
         attempt_dir = resolve_path(Path(str(row.get("attempt_dir", ""))), repo_root)
         if not attempt_dir.exists() or not attempt_dir.is_dir():
             add_error(report, f"selection attempt_dir does not exist: {attempt_dir}")
@@ -2248,6 +2339,39 @@ def validate_agent_selection_report(
             report,
             f"agent_selection_report.json must have exactly one selected row, got {selected_rows}",
         )
+
+
+def validate_direction_capability_row(
+    *,
+    row: dict[str, object],
+    artifact_name: str,
+    report: dict[str, object],
+) -> None:
+    """Validate direction-capability audit metadata for one candidate row."""
+    supported = row.get("supported_directions", [])
+    if not isinstance(supported, list) or not supported:
+        add_error(report, f"{artifact_name} missing supported_directions")
+    capability = row.get("direction_capability", {})
+    if not isinstance(capability, dict):
+        add_error(report, f"{artifact_name} direction_capability must be object")
+        return
+    if capability.get("schema_version") != "direction_capability_v1":
+        add_error(report, f"{artifact_name} direction_capability schema mismatch")
+    status = str(row.get("status", ""))
+    capability_ok = bool(capability.get("ok", False))
+    reason = str(capability.get("reason", ""))
+    if status == "direction_not_supported" and capability_ok:
+        add_error(
+            report,
+            f"{artifact_name} direction_not_supported row has ok capability",
+        )
+    if status == "direction_not_supported" and not reason:
+        add_error(
+            report,
+            f"{artifact_name} direction_not_supported row missing reason",
+        )
+    if status == "selectable" and not capability_ok:
+        add_error(report, f"{artifact_name} selectable row has failed capability")
 
 
 def validate_required_files(

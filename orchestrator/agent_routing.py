@@ -103,6 +103,12 @@ def routing_candidates(
                 "agent_role": str(attempt.get("agent_role", "")),
                 "profile_name": str(attempt.get("profile_name", "")),
                 "adapter_name": str(attempt.get("adapter_name", "")),
+                "supported_directions": list_or_empty(
+                    attempt.get("supported_directions", [])
+                ),
+                "direction_capability": dict_or_empty(
+                    attempt.get("direction_capability", {})
+                ),
                 "runner_name": str(attempt.get("runner_name", "")),
                 "runner": dict_or_empty(attempt.get("runner", {})),
                 "agent_name": str(attempt.get("agent_name", "")),
@@ -205,6 +211,7 @@ def attempt_blocking_reasons(attempt: dict[str, object]) -> list[str]:
         "memory_filter_reason",
         "patch_memory_filter_reason",
         "direction_filter_reason",
+        "direction_capability_reason",
         "patch_check_error",
         "probe_error",
     ):

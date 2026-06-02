@@ -382,6 +382,11 @@ def write_active_agent_input(
         "profile_name": profile_name,
         "adapter_name": adapter_name,
         "agent_name": agent_name,
+        "supported_directions": supported_directions_for_active_agent(
+            payload=payload,
+            profile_name=profile_name,
+            adapter_name=adapter_name,
+        ),
         "output_filename": output_filename,
     }
     output_contract = payload.get("output_contract", {})
@@ -395,6 +400,28 @@ def write_active_agent_input(
     bundle_copy = agent_input_path.parent / "agent_input_bundle" / "agent_input.json"
     if bundle_copy.exists():
         shutil.copy2(agent_input_path, bundle_copy)
+
+
+def supported_directions_for_active_agent(
+    *,
+    payload: dict[str, object],
+    profile_name: str,
+    adapter_name: str,
+) -> list[str]:
+    """Return profile direction capability from the round input contract."""
+    profiles = payload.get("agent_profiles", [])
+    if not isinstance(profiles, list):
+        return []
+    for profile in profiles:
+        if not isinstance(profile, dict):
+            continue
+        if (
+            str(profile.get("profile_name", "")) == profile_name
+            and str(profile.get("adapter_name", "")) == adapter_name
+        ):
+            supported = profile.get("supported_directions", [])
+            return list(supported) if isinstance(supported, list | tuple) else []
+    return []
 
 
 def role_from_attempt_id(attempt_id: str) -> str:

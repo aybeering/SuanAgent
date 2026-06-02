@@ -11,6 +11,8 @@
     "agent_role",
     "profile_name",
     "adapter_name",
+    "supported_directions",
+    "direction_capability",
     "runner_name",
     "runner",
     "agent_name",
@@ -58,6 +60,15 @@
     },
     "adapter_name": {
       "type": "string"
+    },
+    "supported_directions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "direction_capability": {
+      "type": "object"
     },
     "runner_name": {
       "type": "string"

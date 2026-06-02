@@ -338,6 +338,7 @@
           "role",
           "agent_role",
           "enabled",
+          "supported_directions",
           "settings",
           "runner"
         ],
@@ -357,6 +358,12 @@
           "enabled": {
             "type": "boolean"
           },
+          "supported_directions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "settings": {
             "type": "object"
           },
@@ -375,6 +382,7 @@
         "profile_name",
         "adapter_name",
         "agent_name",
+        "supported_directions",
         "output_filename"
       ],
       "properties": {
@@ -395,6 +403,12 @@
         },
         "agent_name": {
           "type": "string"
+        },
+        "supported_directions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         },
         "output_filename": {
           "type": "string"

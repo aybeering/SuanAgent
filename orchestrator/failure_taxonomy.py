@@ -86,6 +86,7 @@ def attempt_prefilter_reason_codes(
     probe_error: str,
     duplicate_patch: bool,
     applicable: bool,
+    direction_capability_reason: str = "",
 ) -> list[dict[str, str]]:
     """Classify cheap pre-validation candidate failures."""
     if isinstance(contract_errors, list | tuple) and contract_errors:
@@ -94,6 +95,15 @@ def attempt_prefilter_reason_codes(
                 stage="contract",
                 code="contract_invalid",
                 message="; ".join(str(error) for error in contract_errors),
+            )
+        ]
+    if direction_capability_reason or status == "direction_not_supported":
+        return [
+            reason_code(
+                stage="selection",
+                code="profile_direction_not_supported",
+                message=direction_capability_reason
+                or "proposal direction is not supported by this profile",
             )
         ]
     if patch_memory_filter_reason and direction_filter_reason:

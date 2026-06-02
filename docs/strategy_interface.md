@@ -88,6 +88,11 @@ input contract and `agent_output.json` as the audited selected-output contract.
 direction tags, direction order, modifier hints, and a fallback direction; this
 block guides proposal generation only and cannot route agents or decide
 acceptance.
+Agent profiles may separately declare `supported_directions`. The executor uses
+that declaration only as a deterministic contract check after a proposal is
+normalized: a candidate whose `direction_tag` is outside its own declared
+capability is skipped and audited as `direction_not_supported`. This does not
+let the planner choose an agent and does not bypass the policy gate.
 The corresponding JSON Schema files are:
 
 ```text

@@ -84,6 +84,7 @@
           "adapter_name",
           "agent_role",
           "modifier_name",
+          "direction_capability",
           "runner",
           "workspace",
           "input_contract",
@@ -112,6 +113,39 @@
           },
           "modifier_name": {
             "type": "string"
+          },
+          "direction_capability": {
+            "type": "object",
+            "required": [
+              "schema_version",
+              "supported_directions",
+              "wildcard",
+              "source",
+              "enforced_after_proposal_contract"
+            ],
+            "properties": {
+              "schema_version": {
+                "type": "string",
+                "enum": [
+                  "direction_capability_v1"
+                ]
+              },
+              "supported_directions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "wildcard": {
+                "type": "boolean"
+              },
+              "source": {
+                "type": "string"
+              },
+              "enforced_after_proposal_contract": {
+                "type": "boolean"
+              }
+            }
           },
           "runner": {
             "type": "object"

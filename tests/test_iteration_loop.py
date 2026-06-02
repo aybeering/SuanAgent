@@ -2725,6 +2725,11 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     else:
         assert refresh["operator_summary"]["primary_blocker"] == ""
         assert refresh["operator_summary"]["blocker_preview"] == []
+    assert refresh["operator_summary"]["next_command_reason"]
+    assert (
+        f"Next command reason: {refresh['operator_summary']['next_command_reason']}"
+        in refresh_markdown
+    )
     assert validate_run_artifacts(
         run_id=run_id,
         experiments_dir=repo / "experiments",
@@ -2801,6 +2806,8 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     assert "Primary blocker:" in refresh_markdown
     assert "## Current Blockers" in refresh_markdown
     assert "Next command: `review_cockpit`" in refresh_markdown
+    assert "Next command reason:" in refresh_markdown
+    assert refresh["operator_summary"]["next_command_reason"] in refresh_markdown
     assert f"cockpit {run_id} --markdown" in refresh_markdown
     for row in refresh["refreshed_artifacts"]:
         json_file = row["json_file"]

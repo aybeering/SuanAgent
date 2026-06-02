@@ -1401,6 +1401,7 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Primary blocker: `{operator_summary.get('primary_blocker', '')}`",
         f"- Next command: `{operator_summary.get('next_command_label', '')}`",
         f"- Next command text: `{operator_summary.get('next_command', '')}`",
+        f"- Next command reason: {operator_summary.get('next_command_reason', '')}",
         "",
         "## Refreshed Artifacts",
         "",

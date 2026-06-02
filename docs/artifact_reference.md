@@ -348,7 +348,7 @@ summary with refreshed artifact paths, hash prefixes, config provenance,
 pre-refresh stale sources, and post-refresh snapshot freshness. The receipt
 also includes a derived operator summary from the refreshed cockpit: cockpit
 status, primary focus, blocker count, primary blocker, a short blocker preview,
-and the first recommended next command.
+and the first recommended next command with its reason.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.

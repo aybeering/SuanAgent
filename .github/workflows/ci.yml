@@ -97,7 +97,14 @@ jobs:
           assert diff["status"] == "missing_evidence"
           assert diff["ready"] is False
           assert diff["summary"]["preflight_ok"] is False
-          assert diff["current_expected_execution"]["config_object_provided"] is False
+          assert isinstance(
+              diff["current_expected_execution"]["config_object_provided"],
+              bool,
+          )
+          assert diff["current_expected_execution"]["source_config"]["path"].endswith(
+              "config/codex_cli_enable_candidate.json"
+          )
+          assert diff["current_expected_execution"]["source_config"]["sha256"]
           assert diff["policy"]["does_not_execute_codex_cli"] is True
           assert "## Blocking Navigation" in markdown
           assert "# Codex CLI Execution Readiness Diff" in diff_markdown

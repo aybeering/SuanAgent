@@ -1149,27 +1149,48 @@ jobs:
           assert payload["policy"]["inspection_only"] is True
           assert payload["policy"]["does_not_write_config"] is True
           PY
-          python -m orchestrator.operator_action_dashboard experiments/ci-adaptive > /tmp/operator_action_dashboard_refreshed.json
-          python -m orchestrator.operator_unlock_checklist experiments/ci-adaptive > /tmp/operator_unlock_checklist_refreshed.json
-          python -m orchestrator.operator_cockpit experiments/ci-adaptive > /tmp/operator_cockpit_refreshed.json
+          python -m orchestrator.experiments refresh-operator-views ci-adaptive > /tmp/operator_view_refresh.json
           python - <<'PY'
           import json
-          dashboard = json.load(open("/tmp/operator_action_dashboard_refreshed.json"))
-          checklist = json.load(open("/tmp/operator_unlock_checklist_refreshed.json"))
-          cockpit = json.load(open("/tmp/operator_cockpit_refreshed.json"))
+          refresh = json.load(open("/tmp/operator_view_refresh.json"))
+          dashboard = json.load(open("experiments/ci-adaptive/operator_action_dashboard.json"))
+          checklist = json.load(open("experiments/ci-adaptive/operator_unlock_checklist.json"))
+          diff = json.load(open("experiments/ci-adaptive/codex_cli_execution_readiness_diff.json"))
+          cockpit = json.load(open("experiments/ci-adaptive/operator_cockpit.json"))
+          assert refresh["schema_version"] == "operator_view_refresh_v1"
+          assert refresh["refreshed_count"] == 5
+          assert [
+              row["artifact_name"] for row in refresh["refreshed_artifacts"]
+          ] == [
+              "operator_action_dashboard",
+              "codex_cli_execution_preflight",
+              "operator_unlock_checklist",
+              "codex_cli_execution_readiness_diff",
+              "operator_cockpit",
+          ]
+          assert refresh["cockpit_snapshot_freshness"]["ok"] is True
+          assert refresh["policy"]["does_not_execute_codex_cli"] is True
+          assert refresh["policy"]["does_not_run_backtests"] is True
+          assert refresh["policy"]["does_not_change_acceptance"] is True
           assert dashboard["schema_version"] == "operator_action_dashboard_v1"
           assert checklist["schema_version"] == "operator_unlock_checklist_v1"
           assert checklist["navigation"]["policy"]["does_not_execute_commands"] is True
           assert checklist["policy"]["does_not_execute_codex_cli"] is True
+          assert diff["schema_version"] == "codex_cli_execution_readiness_diff_v1"
+          assert diff["policy"]["does_not_execute_codex_cli"] is True
+          assert diff["policy"]["does_not_modify_config"] is True
           assert cockpit["schema_version"] == "operator_cockpit_v1"
           assert cockpit["summary"]["config_lineage_status"] == "blocked"
           assert cockpit["summary"]["codex_preflight_ok"] is True
+          assert cockpit["summary"]["codex_readiness_diff_status"] in {"blocked", "missing_evidence"}
           assert cockpit["codex_unlock_checklist"]["authority"]["checklist_can_execute_codex"] is False
           assert cockpit["source_artifacts"]["operator_unlock_checklist"]["file"]["exists"] is True
           assert cockpit["source_artifacts"]["codex_cli_execution_preflight"]["file"]["exists"] is True
+          assert cockpit["source_artifacts"]["codex_cli_execution_readiness_diff"]["file"]["exists"] is True
           assert cockpit["source_artifacts"]["config_lineage"]["file"]["exists"] is True
           assert cockpit["policy"]["does_not_change_acceptance"] is True
           PY
+          python -m orchestrator.artifact_validator ci-adaptive
 
       - name: Inspect candidate leaderboard
         run: python -m orchestrator.experiments candidates ci-adaptive --limit 5

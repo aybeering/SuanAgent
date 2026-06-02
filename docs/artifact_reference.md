@@ -304,10 +304,13 @@ closeout artifacts;
 expose panel rows, blockers, primary focus, and command hints without recording
 approval, executing commands, writing config, promoting champions, running
 agents, running backtests, applying patches, routing agents, or changing
-acceptance. When the inspection command reads a saved cockpit artifact, it adds
-a transient `snapshot_freshness` section that compares recorded source hashes
-with the current source files and names stale sources that require an explicit
-cockpit refresh. This freshness section is read-only inspection metadata and is
+acceptance. Artifact validation checks cockpit command hints against known
+labels, expected write targets, the required `review_cockpit` first command, and
+simple shell-control-token guards. When the inspection command reads a saved
+cockpit artifact, it adds a transient `snapshot_freshness` section that compares
+recorded source hashes with the current source files and names stale sources
+that require an explicit cockpit refresh. This freshness section is read-only
+inspection metadata and is
 not stored in `operator_cockpit.json`.
 `python -m orchestrator.experiments refresh-operator-views <run_id>` is an
 explicit convenience command that rewrites the existing read-only operator
@@ -594,7 +597,9 @@ Replay artifacts:
   dashboard, and the explicit command can refresh source hashes after later
   operator inspection artifacts. They list panels, blockers, primary focus,
   Codex unlock checklist visibility, failed evidence groups, and command hints
-  while preserving deterministic acceptance authority.
+  while preserving deterministic acceptance authority. Artifact validation
+  rejects unknown cockpit command labels, unexpected write targets, unsafe shell
+  control tokens, and a missing first `review_cockpit` command.
 - `candidate_leaderboard.json` records every proposal attempt with stable
   quality metadata. `quality_breakdown` decomposes the pre-backtest candidate
   score into named components, selected rows also record validation and

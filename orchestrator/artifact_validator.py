@@ -4561,6 +4561,11 @@ def validate_optional_operator_cockpit(
     if not isinstance(summary.get("codex_readiness_diff_ready", False), bool):
         add_error(report, "operator_cockpit.json codex readiness diff ready invalid")
     validate_operator_cockpit_unlock_checklist(payload=payload, report=report)
+    validate_operator_cockpit_recommended_commands(
+        payload=payload,
+        run_id=str(report.get("run_id", "")),
+        report=report,
+    )
 
     authority = payload.get("authority", {})
     if not isinstance(authority, dict):
@@ -4595,6 +4600,61 @@ def validate_optional_operator_cockpit(
     ):
         if policy.get(key) is not True:
             add_error(report, f"operator_cockpit.json policy false: {key}")
+
+
+def validate_operator_cockpit_recommended_commands(
+    *,
+    payload: dict[str, object],
+    run_id: str,
+    report: dict[str, object],
+) -> None:
+    """Validate cockpit command hints stay within known review boundaries."""
+    commands = payload.get("recommended_commands", [])
+    if not isinstance(commands, list) or not commands:
+        add_error(report, "operator_cockpit recommended_commands invalid")
+        return
+    allowed_writes = {
+        "review_cockpit": "",
+        "review_run_dashboard": "",
+        "review_action_dashboard": "",
+        "review_codex_cli_preflight": "codex_cli_execution_preflight.json",
+        "review_codex_cli_readiness_diff": "",
+        "write_action_dashboard": "operator_action_dashboard.json",
+        "continue_operator_action": "",
+        "review_promotion_approval": "champion_promotion_approval.json",
+    }
+    first = commands[0]
+    if not isinstance(first, dict) or first.get("label") != "review_cockpit":
+        add_error(report, "operator_cockpit first recommended command invalid")
+    for index, row in enumerate(commands):
+        if not isinstance(row, dict):
+            add_error(report, f"operator_cockpit recommended command {index} invalid")
+            continue
+        label = str(row.get("label", ""))
+        command = str(row.get("command", ""))
+        writes_artifact = str(row.get("writes_artifact", ""))
+        if label not in allowed_writes:
+            add_error(report, f"operator_cockpit recommended command unknown: {label}")
+        elif writes_artifact != allowed_writes[label]:
+            add_error(
+                report,
+                f"operator_cockpit recommended command writes mismatch: {label}",
+            )
+        if not command.startswith("python -m orchestrator."):
+            add_error(
+                report,
+                f"operator_cockpit recommended command prefix invalid: {label}",
+            )
+        for token in ("&&", "||", "|", ">", "<", "`", "$("):
+            if token in command:
+                add_error(
+                    report,
+                    f"operator_cockpit recommended command unsafe token: {label}",
+                )
+                break
+    expected_first = f"python -m orchestrator.experiments cockpit {run_id} --markdown"
+    if isinstance(first, dict) and str(first.get("command", "")) != expected_first:
+        add_error(report, "operator_cockpit review_cockpit command mismatch")
 
 
 def validate_operator_cockpit_unlock_checklist(

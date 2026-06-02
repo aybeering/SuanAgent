@@ -2330,6 +2330,30 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
+    assert validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )["ok"] is True
+
+    tampered_cockpit = json.loads(json_path.read_text(encoding="utf-8"))
+    tampered_cockpit["recommended_commands"][0]["command"] = (
+        f"python -m orchestrator.experiments cockpit {run_id} --markdown && "
+        "python -m orchestrator.run_loop"
+    )
+    json_path.write_text(
+        json.dumps(tampered_cockpit, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    tampered_validation = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert tampered_validation["ok"] is False
+    assert "operator_cockpit recommended command unsafe token: review_cockpit" in (
+        tampered_validation["errors"]
+    )
 
 
 def test_operator_cockpit_report_flags_stale_source_snapshot(

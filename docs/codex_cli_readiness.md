@@ -182,6 +182,8 @@ returns a terminal-only receipt with the config source, path, existence flag,
 SHA-256 digest, and per-artifact JSON/Markdown output hashes; it does not
 execute Codex, record approval, create workspaces, modify config, apply patches,
 or change acceptance.
+Use `--markdown` for the same terminal-only receipt as a short operator summary
+when reviewing the refreshed paths and hash prefixes by eye.
 
 Record operator review intent:
 

@@ -1347,6 +1347,57 @@ def refresh_operator_views(
     }
 
 
+def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
+    """Render the operator-view refresh receipt as a compact markdown summary."""
+    config_record = dict_payload(payload.get("config_record", {}))
+    freshness = dict_payload(payload.get("cockpit_snapshot_freshness", {}))
+    policy = dict_payload(payload.get("policy", {}))
+    lines = [
+        "# Operator View Refresh",
+        "",
+        f"- Run id: `{payload.get('run_id', '')}`",
+        f"- Refreshed artifacts: `{payload.get('refreshed_count', 0)}`",
+        f"- Config source: `{payload.get('config_source', '')}`",
+        f"- Config path: `{config_record.get('relative_path', payload.get('config_path', ''))}`",
+        f"- Config exists: `{payload.get('config_path_exists', False)}`",
+        f"- Config sha256: `{str(payload.get('config_sha256', ''))[:12]}`",
+        f"- Cockpit freshness: `{freshness.get('status', '')}`",
+        f"- Freshness ok: `{freshness.get('ok', False)}`",
+        "",
+        "## Refreshed Artifacts",
+        "",
+        "| Artifact | JSON | JSON SHA | Markdown | Markdown SHA |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for row in list_payload(payload.get("refreshed_artifacts", [])):
+        json_file = dict_payload(row.get("json_file", {}))
+        markdown_file = dict_payload(row.get("markdown_file", {}))
+        lines.append(
+            "| "
+            f"{row.get('artifact_name', '')} | "
+            f"`{json_file.get('relative_path', row.get('json_path', ''))}` | "
+            f"`{str(json_file.get('sha256', ''))[:12]}` | "
+            f"`{markdown_file.get('relative_path', row.get('markdown_path', ''))}` | "
+            f"`{str(markdown_file.get('sha256', ''))[:12]}` |"
+        )
+    if not list_payload(payload.get("refreshed_artifacts", [])):
+        lines.append("| none |  |  |  |  |")
+    stale_sources = freshness.get("stale_sources", [])
+    lines.extend(["", "## Snapshot Freshness", ""])
+    lines.append(f"- Stale sources: `{freshness.get('stale_count', 0)}`")
+    lines.append(
+        f"- Refresh command: `{freshness.get('recommended_command', '')}`",
+    )
+    for source in stale_sources if isinstance(stale_sources, list) else []:
+        lines.append(f"- `{source}`")
+    if not stale_sources:
+        lines.append("- none")
+    lines.extend(["", "## Safety Policy", ""])
+    for key in sorted(policy):
+        lines.append(f"- `{key}`: `{policy.get(key)}`")
+    return "\n".join(lines) + "\n"
+
+
 def inferred_run_config_path(*, run_dir: Path, repo_root: Path) -> Path:
     """Return the config path recorded for a run, falling back to default."""
     return refresh_config_path(
@@ -2208,6 +2259,11 @@ def main() -> None:
         default=None,
         help="Config path used for the Codex CLI execution readiness diff.",
     )
+    refresh_views_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the refresh receipt as a concise operator summary.",
+    )
 
     unlock_checklist_parser = subparsers.add_parser(
         "unlock-checklist",
@@ -2559,6 +2615,9 @@ def main() -> None:
             run_id=args.run_id,
             config_path=args.config,
         )
+        if args.markdown:
+            print(render_operator_view_refresh_markdown(payload), end="")
+            return
     elif args.command == "unlock-checklist":
         payload = operator_unlock_checklist_report(
             experiments_dir=args.experiments_dir,

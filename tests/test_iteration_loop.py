@@ -345,6 +345,7 @@ from orchestrator.experiments import (
     operator_run_review,
     promote_champion,
     refresh_operator_views as refresh_operator_views_command,
+    render_operator_view_refresh_markdown,
     render_operator_run_review_markdown,
     show_experiment,
     show_champion,
@@ -2474,6 +2475,13 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     assert refresh["config_sha256"] == hashlib.sha256(
         (repo / "config/codex_cli_guarded.json").read_bytes()
     ).hexdigest()
+    refresh_markdown = render_operator_view_refresh_markdown(refresh)
+    assert "# Operator View Refresh" in refresh_markdown
+    assert f"Run id: `{run_id}`" in refresh_markdown
+    assert "Refreshed artifacts: `5`" in refresh_markdown
+    assert "Config source: `run_metadata`" in refresh_markdown
+    assert "config/codex_cli_guarded.json" in refresh_markdown
+    assert "Cockpit freshness: `fresh`" in refresh_markdown
     for row in refresh["refreshed_artifacts"]:
         json_file = row["json_file"]
         markdown_file = row["markdown_file"]
@@ -2489,6 +2497,10 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
         assert markdown_file["sha256"] == hashlib.sha256(
             (repo / str(markdown_file["relative_path"])).read_bytes()
         ).hexdigest()
+        assert str(json_file["relative_path"]) in refresh_markdown
+        assert str(markdown_file["relative_path"]) in refresh_markdown
+        assert str(json_file["sha256"])[:12] in refresh_markdown
+        assert str(markdown_file["sha256"])[:12] in refresh_markdown
     assert preflight["schema_version"] == "codex_cli_execution_preflight_v1"
     assert preflight["summary"]["real_codex_execute_profile_count"] == 0
     assert diff["schema_version"] == "codex_cli_execution_readiness_diff_v1"

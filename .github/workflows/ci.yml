@@ -1150,15 +1150,22 @@ jobs:
           assert payload["policy"]["does_not_write_config"] is True
           PY
           python -m orchestrator.experiments refresh-operator-views ci-adaptive > /tmp/operator_view_refresh.json
+          python -m orchestrator.experiments refresh-operator-views ci-adaptive --markdown > /tmp/operator_view_refresh.md
           python - <<'PY'
           import hashlib
           import json
           refresh = json.load(open("/tmp/operator_view_refresh.json"))
+          refresh_markdown = open("/tmp/operator_view_refresh.md").read()
           dashboard = json.load(open("experiments/ci-adaptive/operator_action_dashboard.json"))
           checklist = json.load(open("experiments/ci-adaptive/operator_unlock_checklist.json"))
           diff = json.load(open("experiments/ci-adaptive/codex_cli_execution_readiness_diff.json"))
           cockpit = json.load(open("experiments/ci-adaptive/operator_cockpit.json"))
           assert refresh["schema_version"] == "operator_view_refresh_v1"
+          assert "# Operator View Refresh" in refresh_markdown
+          assert "Run id: `ci-adaptive`" in refresh_markdown
+          assert "Config source: `run_metadata`" in refresh_markdown
+          assert "config/adaptive_stub.json" in refresh_markdown
+          assert "Cockpit freshness: `fresh`" in refresh_markdown
           assert refresh["refreshed_count"] == 5
           assert [
               row["artifact_name"] for row in refresh["refreshed_artifacts"]
@@ -1187,6 +1194,10 @@ jobs:
               assert row["markdown_file"]["sha256"]
               assert row["json_file"]["relative_path"].startswith("experiments/ci-adaptive/")
               assert row["markdown_file"]["relative_path"].startswith("experiments/ci-adaptive/")
+              assert row["json_file"]["relative_path"] in refresh_markdown
+              assert row["markdown_file"]["relative_path"] in refresh_markdown
+              assert row["json_file"]["sha256"][:12] in refresh_markdown
+              assert row["markdown_file"]["sha256"][:12] in refresh_markdown
           assert dashboard["schema_version"] == "operator_action_dashboard_v1"
           assert checklist["schema_version"] == "operator_unlock_checklist_v1"
           assert checklist["navigation"]["policy"]["does_not_execute_commands"] is True

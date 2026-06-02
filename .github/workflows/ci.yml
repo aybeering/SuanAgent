@@ -289,6 +289,25 @@ jobs:
           assert any(reason == "codex_cli_real_execution_dry_run:execution_candidate_not_ready" for reason in summary["aggregate_blocking_reasons"])
           assert summary["policy"]["does_not_execute_codex_cli"] is True
           PY
+          python -m orchestrator.codex_cli_readiness_pipeline experiments/ci-codex-guarded --config config/codex_cli_enable_candidate.json --canary-run-dir experiments/ci-codex-canary --approved --approved-by ci-approval-fixture --confirmation-phrase "I approve this Codex CLI candidate for manual enablement"
+          test -f experiments/ci-codex-guarded/codex_cli_readiness_pipeline.json
+          test -f experiments/ci-codex-guarded/codex_cli_readiness_pipeline.md
+          python - <<'PY'
+          import json
+          pipeline = json.load(open("experiments/ci-codex-guarded/codex_cli_readiness_pipeline.json"))
+          summary = json.load(open("experiments/ci-codex-guarded/codex_cli_readiness_summary.json"))
+          assert pipeline["schema_version"] == "codex_cli_readiness_pipeline_v1"
+          assert pipeline["ok"] is True
+          assert pipeline["pipeline_completed"] is True
+          assert pipeline["final_ready"] is False
+          assert pipeline["readiness_status"] == "blocked"
+          assert len(pipeline["steps"]) == 9
+          assert pipeline["steps"][-1]["step"] == "codex_cli_readiness_summary"
+          assert pipeline["blocking_reasons"] == summary["aggregate_blocking_reasons"]
+          assert pipeline["policy"]["pipeline_only"] is True
+          assert pipeline["policy"]["does_not_apply_patches"] is True
+          assert pipeline["policy"]["does_not_change_acceptance"] is True
+          PY
           python -m orchestrator.artifact_validator ci-codex-guarded
           python -m orchestrator.artifact_validator ci-codex-canary
           python -m orchestrator.artifact_validator ci-adaptive

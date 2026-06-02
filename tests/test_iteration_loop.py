@@ -95,6 +95,10 @@ from orchestrator.codex_cli_readiness_summary import (
     CODEX_CLI_READINESS_SUMMARY_SCHEMA_VERSION,
     write_codex_cli_readiness_summary,
 )
+from orchestrator.codex_cli_readiness_pipeline import (
+    CODEX_CLI_READINESS_PIPELINE_SCHEMA_VERSION,
+    write_codex_cli_readiness_pipeline,
+)
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.agent_slot_readiness_gate import (
@@ -6525,6 +6529,18 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         run_dir=run_dir,
         repo_root=repo,
     )
+    pipeline = write_codex_cli_readiness_pipeline(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        canary_run_dir=canary_run_dir,
+        approved=True,
+        approved_by="unit-test",
+        confirmation_phrase=REQUIRED_CONFIRMATION_PHRASE,
+        preflight_timeout_seconds=5,
+        dry_invocation_timeout_seconds=5,
+        execute_dry_invocation=False,
+    )
     validation_report = validate_run_artifacts(
         run_id="codex-unlock-locked",
         experiments_dir=repo / "experiments",
@@ -6598,6 +6614,21 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         == "codex_cli_real_execution_dry_run:execution_candidate_not_ready"
         for reason in readiness["aggregate_blocking_reasons"]
     )
+    assert pipeline["schema_version"] == CODEX_CLI_READINESS_PIPELINE_SCHEMA_VERSION
+    assert pipeline["ok"] is True
+    assert pipeline["pipeline_completed"] is True
+    assert pipeline["final_ready"] is False
+    assert pipeline["readiness_status"] == "blocked"
+    assert len(pipeline["steps"]) == 9
+    assert pipeline["steps"][-1]["step"] == "codex_cli_readiness_summary"
+    assert pipeline["options"]["execute_dry_invocation"] is False
+    assert pipeline["policy"]["pipeline_only"] is True
+    assert pipeline["policy"]["does_not_apply_patches"] is True
+    assert any(
+        reason
+        == "codex_cli_real_execution_dry_run:execution_candidate_not_ready"
+        for reason in pipeline["blocking_reasons"]
+    )
     assert_matches_schema(
         run_dir / "codex_cli_execution_unlock_gate.json",
         "codex_cli_execution_unlock_gate",
@@ -6618,11 +6649,16 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         run_dir / "codex_cli_readiness_summary.json",
         "codex_cli_readiness_summary",
     )
+    assert_matches_schema(
+        run_dir / "codex_cli_readiness_pipeline.json",
+        "codex_cli_readiness_pipeline",
+    )
     assert (run_dir / "codex_cli_execution_unlock_gate.md").exists()
     assert (run_dir / "codex_cli_execution_unlock_snapshot.md").exists()
     assert (run_dir / "codex_cli_execution_candidate.md").exists()
     assert (run_dir / "codex_cli_real_execution_dry_run.md").exists()
     assert (run_dir / "codex_cli_readiness_summary.md").exists()
+    assert (run_dir / "codex_cli_readiness_pipeline.md").exists()
     assert validation_report["ok"] is True
     assert cli_result.returncode == 0, cli_result.stderr
     assert cli_payload["schema_version"] == CODEX_CLI_EXECUTION_UNLOCK_GATE_SCHEMA_VERSION
@@ -6736,6 +6772,18 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         run_dir=run_dir,
         repo_root=repo,
     )
+    pipeline = write_codex_cli_readiness_pipeline(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        canary_run_dir=canary_run_dir,
+        approved=True,
+        approved_by="unit-test",
+        confirmation_phrase=REQUIRED_CONFIRMATION_PHRASE,
+        preflight_timeout_seconds=5,
+        dry_invocation_timeout_seconds=5,
+        execute_dry_invocation=True,
+    )
     validation_report = validate_run_artifacts(
         run_id="codex-unlock-ready",
         experiments_dir=repo / "experiments",
@@ -6817,6 +6865,17 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert readiness["aggregate_blocking_reasons"] == []
     assert readiness["stages"][-1]["stage"] == "codex_cli_real_execution_dry_run"
     assert readiness["stages"][-1]["ready"] is True
+    assert pipeline["schema_version"] == CODEX_CLI_READINESS_PIPELINE_SCHEMA_VERSION
+    assert pipeline["ok"] is True
+    assert pipeline["pipeline_completed"] is True
+    assert pipeline["final_ready"] is True
+    assert pipeline["readiness_status"] == "ready_for_operator_review"
+    assert pipeline["blocking_reasons"] == []
+    assert len(pipeline["steps"]) == 9
+    assert pipeline["steps"][-1]["step"] == "codex_cli_readiness_summary"
+    assert pipeline["steps"][-1]["ready"] is True
+    assert pipeline["options"]["execute_dry_invocation"] is True
+    assert pipeline["policy"]["does_not_change_acceptance"] is True
     assert_matches_schema(
         run_dir / "codex_cli_execution_unlock_gate.json",
         "codex_cli_execution_unlock_gate",
@@ -6836,6 +6895,10 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert_matches_schema(
         run_dir / "codex_cli_readiness_summary.json",
         "codex_cli_readiness_summary",
+    )
+    assert_matches_schema(
+        run_dir / "codex_cli_readiness_pipeline.json",
+        "codex_cli_readiness_pipeline",
     )
     assert validation_report["ok"] is True
     assert cli_result.returncode == 0, cli_result.stderr

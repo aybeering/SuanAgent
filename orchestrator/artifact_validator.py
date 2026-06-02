@@ -127,6 +127,8 @@ def validate_run_artifacts(
             report=report,
         )
         validate_json_object(path=run_dir / "decision.json", report=report)
+    elif (run_dir / "codex_cli_readiness_pipeline.json").exists():
+        report["kind"] = "codex_cli_readiness_pipeline"
     elif (run_dir / "codex_cli_readiness_summary.json").exists():
         report["kind"] = "codex_cli_readiness_summary"
     elif (run_dir / "codex_cli_real_execution_dry_run.json").exists():
@@ -222,6 +224,11 @@ def validate_run_artifacts(
         report=report,
     )
     validate_optional_codex_cli_readiness_summary(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
+    validate_optional_codex_cli_readiness_pipeline(
         run_dir=run_dir,
         repo_root=repo_root,
         report=report,
@@ -3616,6 +3623,147 @@ def validate_optional_codex_cli_readiness_summary(
                     f"codex_cli_readiness_summary.json policy false: {key}",
                 )
     markdown_path = run_dir / "codex_cli_readiness_summary.md"
+    if markdown_path.exists():
+        checked_files(report).append(str(markdown_path))
+
+
+def validate_optional_codex_cli_readiness_pipeline(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate codex_cli_readiness_pipeline.json when a run has one."""
+    path = run_dir / "codex_cli_readiness_pipeline.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/codex_cli_readiness_pipeline.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"codex_cli_readiness_pipeline.json run_id does not match report: {path}",
+        )
+    if bool(payload.get("ok", False)) is not True:
+        add_error(report, "codex_cli_readiness_pipeline.json ok false")
+    if bool(payload.get("pipeline_completed", False)) is not True:
+        add_error(report, "codex_cli_readiness_pipeline.json pipeline incomplete")
+    steps = payload.get("steps", [])
+    if not isinstance(steps, list) or len(steps) != 9:
+        add_error(report, "codex_cli_readiness_pipeline.json steps invalid")
+    else:
+        for step in steps:
+            if not isinstance(step, dict):
+                add_error(report, "codex_cli_readiness_pipeline.json step invalid")
+                continue
+            artifacts = step.get("artifacts", {})
+            if not isinstance(artifacts, dict):
+                add_error(
+                    report,
+                    f"codex_cli_readiness_pipeline step artifacts invalid: {step.get('step', '')}",
+                )
+                continue
+            for key in ("json", "markdown"):
+                record = artifacts.get(key, {})
+                if not isinstance(record, dict):
+                    add_error(
+                        report,
+                        f"codex_cli_readiness_pipeline step artifact invalid: {key}",
+                    )
+                    continue
+                validate_recorded_file_hash(
+                    record=record,
+                    repo_root=repo_root,
+                    report=report,
+                    label=f"codex_cli_readiness_pipeline step {step.get('step', '')}.{key}",
+                )
+    generated = payload.get("generated_artifacts", {})
+    if not isinstance(generated, dict) or not generated:
+        add_error(report, "codex_cli_readiness_pipeline.json generated artifacts invalid")
+    else:
+        for key, record in generated.items():
+            if not isinstance(record, dict):
+                add_error(
+                    report,
+                    f"codex_cli_readiness_pipeline generated artifact invalid: {key}",
+                )
+                continue
+            validate_recorded_file_hash(
+                record=record,
+                repo_root=repo_root,
+                report=report,
+                label=f"codex_cli_readiness_pipeline generated {key}",
+            )
+    final_ready = bool(payload.get("final_ready", False))
+    readiness_status = str(payload.get("readiness_status", ""))
+    if final_ready and readiness_status != "ready_for_operator_review":
+        add_error(report, "codex_cli_readiness_pipeline.json ready/status mismatch")
+    if not final_ready and readiness_status != "blocked":
+        add_error(report, "codex_cli_readiness_pipeline.json blocked/status mismatch")
+    blockers = payload.get("blocking_reasons", [])
+    if not isinstance(blockers, list):
+        add_error(report, "codex_cli_readiness_pipeline.json blockers invalid")
+    elif final_ready and blockers:
+        add_error(report, "codex_cli_readiness_pipeline.json ready with blockers")
+    elif not final_ready and not blockers:
+        add_error(report, "codex_cli_readiness_pipeline.json blocked without blockers")
+    final_summary = payload.get("final_summary", {})
+    if not isinstance(final_summary, dict):
+        add_error(report, "codex_cli_readiness_pipeline.json final_summary invalid")
+    else:
+        if bool(final_summary.get("final_ready", False)) != final_ready:
+            add_error(report, "codex_cli_readiness_pipeline.json final summary mismatch")
+        summary_record = final_summary.get("file", {})
+        if isinstance(summary_record, dict):
+            validate_recorded_file_hash(
+                record=summary_record,
+                repo_root=repo_root,
+                report=report,
+                label="codex_cli_readiness_pipeline final_summary",
+            )
+        else:
+            add_error(report, "codex_cli_readiness_pipeline.json final summary file invalid")
+    options = payload.get("options", {})
+    if not isinstance(options, dict):
+        add_error(report, "codex_cli_readiness_pipeline.json options invalid")
+    elif bool(options.get("execute_dry_invocation", True)):
+        dry_guard = load_json_object(run_dir / "codex_cli_dry_invocation_guard.json", report)
+        if dry_guard and not bool(dry_guard.get("execution_requested", False)):
+            add_error(
+                report,
+                "codex_cli_readiness_pipeline.json execute option/dry guard mismatch",
+            )
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "codex_cli_readiness_pipeline.json policy invalid")
+    else:
+        for key in (
+            "pipeline_only",
+            "read_only",
+            "does_not_execute_real_codex_strategy_modification",
+            "does_not_create_real_execution_workspace",
+            "does_not_send_strategy_prompt",
+            "does_not_modify_config",
+            "does_not_select_candidate",
+            "does_not_apply_patches",
+            "does_not_change_acceptance",
+            "requires_existing_replay_gate",
+            "requires_existing_canary_gate",
+            "deterministic_code_keeps_acceptance_authority",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_readiness_pipeline.json policy false: {key}",
+                )
+    markdown_path = run_dir / "codex_cli_readiness_pipeline.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
 

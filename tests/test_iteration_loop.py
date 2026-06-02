@@ -5948,7 +5948,8 @@ print(json.dumps({
     default = load_project_config(repo)
     operator_request_path = write_operator_unlock_request_fixture(
         repo,
-        repo / "operator_unlock_fixtures/codex_structured_fixture_request.json",
+        repo
+        / "experiments/codex-structured-fixture/codex_cli_operator_unlock_request.json",
         run_id="codex-structured-fixture",
         executable=str(fake_codex),
         model="structured-test",
@@ -7258,6 +7259,61 @@ def test_codex_cli_execution_preflight_blocks_operator_run_identity_drift(
     ]
 
 
+def test_codex_cli_execution_preflight_blocks_external_operator_request_path(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_external_request_path.py",
+        "#!/usr/bin/env python3\nprint('{}')\n",
+    )
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / "operator_unlock_fixtures/external_request_path.json",
+        run_id="external-request-path",
+        executable=str(fake_codex),
+        model="external-request-path-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "external-request-path-test",
+            "sandbox": "workspace-write",
+            "workspace_root": "workspaces",
+            "execute": True,
+            "operator_unlock_request_path": str(request_path.relative_to(repo)),
+        },
+    )
+
+    preflight = write_codex_cli_execution_preflight(
+        output_path=repo
+        / "experiments/external-request-path/codex_cli_execution_preflight.json",
+        markdown_path=repo
+        / "experiments/external-request-path/codex_cli_execution_preflight.md",
+        run_dir=repo / "experiments/external-request-path",
+        repo_root=repo,
+        config=config,
+    )
+
+    profile = preflight["profiles"][0]
+    assert preflight["ok"] is False
+    assert profile["checks"]["operator_unlock_request_exists"] is True
+    assert profile["checks"]["operator_unlock_request_path_is_run_artifact"] is False
+    assert profile["checks"]["operator_unlock_request_contract_valid"] is True
+    assert profile["checks"]["operator_request_run_id_matches"] is True
+    assert profile["checks"]["operator_request_run_dir_matches_run"] is True
+    assert (
+        "profile primary: operator_unlock_request_path_not_run_artifact"
+        in preflight["blocking_errors"]
+    )
+
+
 def test_codex_cli_execution_preflight_blocks_operator_source_drift(
     tmp_path: Path,
 ) -> None:
@@ -7907,6 +7963,66 @@ def test_artifact_validator_reports_operator_source_plan_mismatch(
     )
 
 
+def test_artifact_validator_reports_preflight_external_operator_request(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "preflight-external-request-path"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_preflight_external_request.py",
+        "#!/usr/bin/env python3\nprint('{}')\n",
+    )
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / "operator_unlock_fixtures/preflight_external_request.json",
+        run_id=run_id,
+        executable=str(fake_codex),
+        model="preflight-external-request-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "preflight-external-request-test",
+            "sandbox": "workspace-write",
+            "workspace_root": "workspaces",
+            "execute": True,
+            "operator_unlock_request_path": str(request_path.relative_to(repo)),
+        },
+    )
+    run_dir = repo / "experiments" / run_id
+    write_codex_cli_execution_preflight(
+        output_path=run_dir / "codex_cli_execution_preflight.json",
+        markdown_path=run_dir / "codex_cli_execution_preflight.md",
+        run_dir=run_dir,
+        repo_root=repo,
+        config=config,
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_execution_preflight operator request outside run directory"
+        in str(error)
+        for error in validation_report["errors"]
+    )
+
+
 def test_codex_cli_execution_preflight_schema_requires_evidence_contract(
     tmp_path: Path,
 ) -> None:
@@ -8193,6 +8309,21 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
     assert (run_dir / "codex_cli_execution_preflight.md").exists()
 
 
+def test_iteration_loop_still_rejects_existing_run_dir_without_operator_request(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/existing-run-without-operator-request"
+    run_dir.mkdir(parents=True)
+
+    with pytest.raises(FileExistsError, match="Run directory already exists"):
+        run_iteration_loop(
+            run_id="existing-run-without-operator-request",
+            max_rounds=1,
+            repo_root=repo,
+        )
+
+
 def test_iteration_loop_rejects_codex_cli_workspace_mutation(
     tmp_path: Path,
 ) -> None:
@@ -8229,7 +8360,7 @@ print(json.dumps({
     default = load_project_config(repo)
     operator_request_path = write_operator_unlock_request_fixture(
         repo,
-        repo / "operator_unlock_fixtures/codex_mutation_fixture_request.json",
+        repo / "experiments/codex-mutation-guard/codex_cli_operator_unlock_request.json",
         run_id="codex-mutation-guard",
         executable=str(fake_codex),
         model="mutation-test",

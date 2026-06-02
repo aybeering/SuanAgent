@@ -198,6 +198,10 @@ def profile_execution_row(
         "operator_unlock_request_exists": bool(
             request_path is not None and request_path.exists() and request_path.is_file()
         ),
+        "operator_unlock_request_path_is_run_artifact": path_is_inside_run_dir(
+            path=request_path,
+            run_dir=run_dir,
+        ),
         "operator_unlock_request_contract_valid": operator_request_contract_valid(
             request_path=request_path,
             repo_root=repo_root,
@@ -342,6 +346,10 @@ def operator_unlock_blockers(checks: dict[str, bool]) -> list[str]:
         ("operator_unlock_request_path_declared", "operator_unlock_request_path_missing"),
         ("operator_unlock_request_exists", "operator_unlock_request_missing"),
         (
+            "operator_unlock_request_path_is_run_artifact",
+            "operator_unlock_request_path_not_run_artifact",
+        ),
+        (
             "operator_unlock_request_contract_valid",
             "operator_unlock_request_contract_invalid",
         ),
@@ -482,6 +490,17 @@ def load_recorded_json(*, record: dict[str, Any], repo_root: Path) -> dict[str, 
     if not path_text:
         return {}
     return load_json_object(resolve_path(Path(path_text), repo_root))
+
+
+def path_is_inside_run_dir(*, path: Path | None, run_dir: Path) -> bool:
+    """Return whether a path is recorded under the current run directory."""
+    if path is None:
+        return False
+    try:
+        path.resolve().relative_to(run_dir.resolve())
+    except ValueError:
+        return False
+    return True
 
 
 def source_dry_run_plan_matches_review(

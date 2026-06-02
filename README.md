@@ -229,13 +229,18 @@ execution and guard decisions can be inspected without replaying the agent.
 Execution audits include a stable `command_sha256`; for guarded Codex CLI
 attempts, artifact validation cross-checks that digest against the run-level
 startup preflight command for the same profile. The Codex startup preflight also
-requires any operator unlock request to point at the exact reviewed workspace
-path for the current run, satisfy the full operator request schema, still match
-the recorded readiness evidence hashes, source evidence paths, and recorded run
-identity, and preserve the reviewed operator intent fields and planned execution
-identity, so a reviewed request cannot be reused across unrelated runs or after
-its source evidence, source dry-run execution plan, execution slot, workspace,
-or approval scope drifts.
+requires any operator unlock request file to be stored inside the current run's
+artifact directory, point at the exact reviewed workspace path for that run,
+satisfy the full operator request schema, still match the recorded readiness
+evidence hashes, source evidence paths, and recorded run identity, and preserve
+the reviewed operator intent fields and planned execution identity, so a reviewed
+request cannot be reused across unrelated runs or after its source evidence,
+source dry-run execution plan, execution slot, workspace, artifact location, or
+approval scope drifts.
+To support that artifact-local approval flow without making run output
+overwrites normal, the iteration loop permits an existing run directory only
+when it already contains the configured real-Codex operator unlock request file;
+other pre-existing run directories remain blocked.
 The subprocess execution, output-file copy-back, mutation guard, and execution
 audit are handled by the shared `agent_contract_runner_v1` runner; the
 file-protocol adapter only prepares the isolated workspace and converts the

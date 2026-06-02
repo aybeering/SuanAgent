@@ -182,7 +182,15 @@ def run_iteration_loop(
     strategy_file_path = active_config.resolve_path(repo_root, active_config.strategy_path)
     strategy_module = active_config.current_strategy_module
     run_dir = active_experiments_dir / active_run_id
-    run_dir.mkdir(parents=True, exist_ok=False)
+    if run_dir.exists():
+        if not can_start_from_existing_operator_request_run_dir(
+            run_dir=run_dir,
+            repo_root=repo_root,
+            agent_profiles=agent_profiles,
+        ):
+            raise FileExistsError(f"Run directory already exists: {run_dir}")
+    else:
+        run_dir.mkdir(parents=True, exist_ok=False)
 
     manifest: dict[str, object] = {
         "run_id": active_run_id,
@@ -1209,6 +1217,42 @@ def profile_settings(profile: dict[str, object]) -> dict[str, object]:
     if not isinstance(settings, dict):
         return {}
     return {str(key): value for key, value in settings.items()}
+
+
+def can_start_from_existing_operator_request_run_dir(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    agent_profiles: tuple[dict[str, object], ...],
+) -> bool:
+    """Return whether an existing run dir contains a configured unlock request."""
+    if not run_dir.is_dir():
+        return False
+    for profile in agent_profiles:
+        settings = profile_settings(profile)
+        request_path_text = str(settings.get("operator_unlock_request_path", ""))
+        executable = str(settings.get("executable", "codex"))
+        if (
+            str(profile.get("adapter", "")) != "codex_cli"
+            or not bool(settings.get("execute", False))
+            or executable == "agents/codex_cli_canary.py"
+            or not request_path_text
+        ):
+            continue
+        raw_path = Path(request_path_text)
+        request_path = raw_path if raw_path.is_absolute() else repo_root / raw_path
+        if request_path.exists() and path_inside_base(path=request_path, base=run_dir):
+            return True
+    return False
+
+
+def path_inside_base(*, path: Path, base: Path) -> bool:
+    """Return whether a path resolves inside a base directory."""
+    try:
+        path.resolve().relative_to(base.resolve())
+    except ValueError:
+        return False
+    return True
 
 
 def proposal_attempt_record(

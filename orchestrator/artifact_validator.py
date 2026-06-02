@@ -1586,6 +1586,15 @@ def load_recorded_json_object(
     return load_json_object(resolve_path(Path(path_text), repo_root), report)
 
 
+def path_inside_base(*, path: Path, base: Path) -> bool:
+    """Return whether a path resolves inside a base directory."""
+    try:
+        path.resolve().relative_to(base.resolve())
+    except ValueError:
+        return False
+    return True
+
+
 def source_plan_matches_operator_review(
     *,
     source_plan: dict[str, Any],
@@ -2532,6 +2541,16 @@ def validate_optional_codex_cli_execution_preflight(
                             f"{profile.get('profile_name', '')}"
                         ),
                     )
+                    request_path = resolve_path(
+                        Path(str(request_record.get("path", ""))),
+                        repo_root,
+                    )
+                    if not path_inside_base(path=request_path, base=run_dir):
+                        add_error(
+                            report,
+                            "codex_cli_execution_preflight operator request "
+                            "outside run directory",
+                        )
                 else:
                     add_error(
                         report,
@@ -2558,6 +2577,7 @@ def validate_optional_codex_cli_execution_preflight(
                 for key in (
                     "operator_unlock_request_contract_valid",
                     "operator_unlock_request_schema_version_matches",
+                    "operator_unlock_request_path_is_run_artifact",
                     "operator_request_run_id_matches",
                     "operator_request_run_dir_matches_run",
                     "operator_request_scope_matches",

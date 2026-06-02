@@ -234,16 +234,20 @@ backtests, route candidates, apply patches, or change acceptance.
 `operator_action_approval.json` and `operator_action_approval.md` can then
 record explicit operator approval for one action-plan command candidate. The
 approval binds to `operator_action_plan.json`, records the selected action id,
-command label, command digest, operator id, and confirmation phrase hashes, but
-still does not execute the approved command. The approved command must be
-invoked separately by the operator.
+command label, command digest, operator id, and confirmation phrase hashes.
+Artifact validation replays the selected action and command lookup from the
+saved action plan so the approval cannot drift to a different command while
+keeping a valid source digest. Approval still does not execute the approved
+command. The approved command must be invoked separately by the operator.
 `operator_action_execution_receipt.json` and
 `operator_action_execution_receipt.md` can then record the guarded execution of
 an approved read-only inspection command. The receipt requires a saved approval
-artifact, validates the selected command digest, blocks commands that write
-repository state, promote champions, run backtests, execute agents, route
-agents, apply patches, or change acceptance, records stdout/stderr hashes, and
-checks tracked workspace mutation before writing the receipt.
+artifact, validates the selected command digest, verifies that the receipt's
+selected action, selected command, execution command, argv, and evidence hashes
+still match the saved approval, blocks commands that write repository state,
+promote champions, run backtests, execute agents, route agents, apply patches,
+or change acceptance, records stdout/stderr hashes, and checks tracked
+workspace mutation before writing the receipt.
 `operator_action_audit.json` and `operator_action_audit.md` connect the saved
 action plan, approval, and execution receipt into one digest-checked read-only
 chain. `python -m orchestrator.experiments action-audit <run_id>` and
@@ -573,16 +577,20 @@ Replay artifacts:
 - `operator_action_approval.json` and `operator_action_approval.md` record
   operator approval for one action-plan command candidate. They bind to
   `operator_action_plan.json` by SHA-256 and require the exact confirmation
-  phrase `APPROVE OPERATOR ACTION` for approval, but approval still does not
-  execute commands, write config, promote champions, run agents, rerun
-  backtests, route candidates, apply patches, or change acceptance.
+  phrase `APPROVE OPERATOR ACTION` for approval. Artifact validation replays
+  the selected action and command lookup from the saved action plan and rejects
+  selected-command drift, but approval still does not execute commands, write
+  config, promote champions, run agents, rerun backtests, route candidates,
+  apply patches, or change acceptance.
 - `operator_action_execution_receipt.json` and
   `operator_action_execution_receipt.md` record guarded execution of one
   approved action-plan command. They execute only allowlisted read-only
   inspection commands, bind to `operator_action_approval.json` by SHA-256,
-  record stdout/stderr hashes, and check tracked workspace mutation. They block
-  commands that write repository state, promote champions, run backtests,
-  execute agents, apply patches, route agents, or change acceptance.
+  verify selected action, selected command, execution command, argv, and
+  evidence hashes against the saved approval, record stdout/stderr hashes, and
+  check tracked workspace mutation. They block commands that write repository
+  state, promote champions, run backtests, execute agents, apply patches, route
+  agents, or change acceptance.
 - `operator_action_audit.json` and `operator_action_audit.md` summarize the
   action plan, approval, and execution receipt chain. They validate source
   artifact schema state, source file hashes, selected command consistency, and

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -3940,6 +3941,7 @@ def validate_optional_operator_action_approval(
         return
     if payload.get("run_id") != report.get("run_id"):
         add_error(report, f"operator_action_approval.json run_id mismatch: {path}")
+    action_plan: dict[str, Any] = {}
     source = payload.get("source_action_plan", {})
     if not isinstance(source, dict):
         add_error(report, "operator_action_approval.json source_action_plan invalid")
@@ -3965,6 +3967,9 @@ def validate_optional_operator_action_approval(
                 )
             if source_file.get("sha256") != file_sha256(plan_path):
                 add_error(report, "operator_action_approval source digest mismatch")
+            loaded_plan = load_json_object(plan_path, report)
+            if loaded_plan is not None:
+                action_plan = loaded_plan
     policy = payload.get("policy", {})
     if not isinstance(policy, dict):
         add_error(report, "operator_action_approval.json policy invalid")
@@ -4001,6 +4006,13 @@ def validate_optional_operator_action_approval(
         add_error(report, "operator_action_approval.json command executed by approval")
     if command.get("command") and command.get("command_sha256_matches") is not True:
         add_error(report, "operator_action_approval.json command digest mismatch")
+    validate_operator_action_approval_selection(
+        action_plan=action_plan,
+        intent=intent,
+        selected_action=payload.get("selected_action", {}),
+        selected_command=command,
+        report=report,
+    )
     approval_recorded = bool(intent.get("approval_recorded", False))
     if approval_recorded:
         if gate.get("eligible_for_approval") is not True:
@@ -4011,6 +4023,98 @@ def validate_optional_operator_action_approval(
             add_error(report, "operator_action_approval.json approval flag missing")
         if intent.get("confirmation_phrase_matches") is not True:
             add_error(report, "operator_action_approval.json confirmation mismatch")
+
+
+def validate_operator_action_approval_selection(
+    *,
+    action_plan: dict[str, Any],
+    intent: dict[str, object],
+    selected_action: object,
+    selected_command: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate approval selection still matches the saved action plan."""
+    if not action_plan:
+        return
+    if not isinstance(selected_action, dict):
+        add_error(report, "operator_action_approval selected_action invalid")
+        selected_action = {}
+    target_action_id = str(intent.get("target_action_id", ""))
+    target_command_label = str(intent.get("target_command_label", ""))
+    plan_action = find_operator_action_plan_action(
+        action_plan=action_plan,
+        action_id=target_action_id,
+    )
+    if not plan_action:
+        add_error(report, "operator_action_approval selected action missing from plan")
+        return
+    plan_command = find_operator_action_plan_command(
+        action=plan_action,
+        command_label=target_command_label,
+    )
+    if not plan_command:
+        add_error(report, "operator_action_approval selected command missing from plan")
+        return
+    for key in ("action_id", "action_type", "status", "source_text"):
+        if str(selected_action.get(key, "")) != str(plan_action.get(key, "")):
+            add_error(report, f"operator_action_approval selected action mismatch: {key}")
+    for key in operator_command_binding_fields():
+        if selected_command.get(key) != normalized_operator_command(plan_command).get(key):
+            add_error(report, f"operator_action_approval selected command mismatch: {key}")
+
+
+def find_operator_action_plan_action(
+    *,
+    action_plan: dict[str, Any],
+    action_id: str,
+) -> dict[str, object]:
+    """Return one action-plan action by id."""
+    for action in list_of_dicts(action_plan.get("actions", [])):
+        if str(action.get("action_id", "")) == action_id:
+            return action
+    return {}
+
+
+def find_operator_action_plan_command(
+    *,
+    action: dict[str, object],
+    command_label: str,
+) -> dict[str, object]:
+    """Return one action-plan command by label."""
+    for command in list_of_dicts(action.get("command_candidates", [])):
+        if str(command.get("label", "")) == command_label:
+            return command
+    return {}
+
+
+def operator_command_binding_fields() -> tuple[str, ...]:
+    """Return command fields that must stay bound across operator artifacts."""
+    return (
+        "label",
+        "command",
+        "command_sha256",
+        "expected_artifact",
+        "writes_repository",
+        "promotes_champion",
+        "runs_backtests",
+        "requires_explicit_operator_invocation",
+    )
+
+
+def normalized_operator_command(command: dict[str, object]) -> dict[str, object]:
+    """Return a stable command subset for cross-artifact binding checks."""
+    return {
+        "label": str(command.get("label", "")),
+        "command": str(command.get("command", "")),
+        "command_sha256": str(command.get("command_sha256", "")),
+        "expected_artifact": str(command.get("expected_artifact", "")),
+        "writes_repository": bool(command.get("writes_repository", False)),
+        "promotes_champion": bool(command.get("promotes_champion", False)),
+        "runs_backtests": bool(command.get("runs_backtests", False)),
+        "requires_explicit_operator_invocation": bool(
+            command.get("requires_explicit_operator_invocation", False)
+        ),
+    }
 
 
 def validate_optional_operator_action_execution_receipt(
@@ -4044,6 +4148,7 @@ def validate_optional_operator_action_execution_receipt(
     if payload.get("run_id") != report.get("run_id"):
         add_error(report, "operator_action_execution_receipt.json run_id mismatch")
 
+    approval_payload: dict[str, Any] = {}
     source = payload.get("source_approval", {})
     if not isinstance(source, dict):
         add_error(report, "operator_action_execution_receipt.json source invalid")
@@ -4067,6 +4172,9 @@ def validate_optional_operator_action_execution_receipt(
             )
         if source_file.get("sha256") != file_sha256(approval_path):
             add_error(report, "operator_action_execution source digest mismatch")
+        loaded_approval = load_json_object(approval_path, report)
+        if loaded_approval is not None:
+            approval_payload = loaded_approval
 
     command = payload.get("selected_command", {})
     if not isinstance(command, dict):
@@ -4082,6 +4190,18 @@ def validate_optional_operator_action_execution_receipt(
         add_error(report, "operator_action_execution command promotes champion")
     if command.get("runs_backtests") is True and payload.get("executed") is True:
         add_error(report, "operator_action_execution executed backtest command")
+    execution = payload.get("command_execution", {})
+    if not isinstance(execution, dict):
+        add_error(report, "operator_action_execution command_execution invalid")
+        execution = {}
+    validate_operator_action_execution_binding(
+        receipt=payload,
+        approval=approval_payload,
+        source=source,
+        selected_command=command,
+        execution=execution,
+        report=report,
+    )
 
     policy = payload.get("policy", {})
     if not isinstance(policy, dict):
@@ -4111,10 +4231,6 @@ def validate_optional_operator_action_execution_receipt(
                 f"operator_action_execution_receipt.json policy false: {key}",
             )
 
-    execution = payload.get("command_execution", {})
-    if not isinstance(execution, dict):
-        add_error(report, "operator_action_execution command_execution invalid")
-        execution = {}
     mutation = payload.get("mutation_guard", {})
     if not isinstance(mutation, dict):
         add_error(report, "operator_action_execution mutation_guard invalid")
@@ -4134,6 +4250,94 @@ def validate_optional_operator_action_execution_receipt(
             add_error(report, "operator_action_execution tracked status changed")
     if payload.get("status") == "blocked" and payload.get("executed") is not False:
         add_error(report, "operator_action_execution blocked but executed")
+
+
+def validate_operator_action_execution_binding(
+    *,
+    receipt: dict[str, Any],
+    approval: dict[str, Any],
+    source: dict[str, object],
+    selected_command: dict[str, object],
+    execution: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate execution receipt fields bind to approval and execution evidence."""
+    if approval:
+        approval_source = approval.get("source_action_plan", {})
+        if not isinstance(approval_source, dict):
+            approval_source = {}
+        approval_source_file = approval_source.get("file", {})
+        if not isinstance(approval_source_file, dict):
+            approval_source_file = {}
+        evidence = receipt.get("evidence_checks", {})
+        if not isinstance(evidence, dict):
+            evidence = {}
+        approval_action = approval.get("selected_action", {})
+        receipt_action = receipt.get("selected_action", {})
+        if not isinstance(approval_action, dict):
+            approval_action = {}
+        if not isinstance(receipt_action, dict):
+            receipt_action = {}
+        for key in ("action_id", "action_type", "status", "source_text"):
+            if str(receipt_action.get(key, "")) != str(approval_action.get(key, "")):
+                add_error(report, f"operator_action_execution selected action mismatch: {key}")
+        approval_command = approval.get("selected_command", {})
+        if not isinstance(approval_command, dict):
+            approval_command = {}
+        for key in operator_command_binding_fields():
+            if normalized_operator_command(selected_command).get(key) != (
+                normalized_operator_command(approval_command).get(key)
+            ):
+                add_error(
+                    report,
+                    f"operator_action_execution selected command mismatch: {key}",
+                )
+        source_approval_recorded = bool(source.get("approval_recorded", False))
+        approval_recorded = bool(
+            dict_field(approval, "operator_intent").get("approval_recorded", False)
+        )
+        if source_approval_recorded != approval_recorded:
+            add_error(report, "operator_action_execution approval_recorded mismatch")
+        if str(source.get("approval_status", "")) != str(approval.get("status", "")):
+            add_error(report, "operator_action_execution approval status mismatch")
+        if str(evidence.get("source_action_plan_path", "")) != str(
+            approval_source_file.get("path", "")
+        ):
+            add_error(report, "operator_action_execution source action plan path mismatch")
+        if str(evidence.get("source_action_plan_sha256", "")) != str(
+            approval_source_file.get("sha256", "")
+        ):
+            add_error(report, "operator_action_execution source action plan sha mismatch")
+    command_text = str(selected_command.get("command", ""))
+    if str(execution.get("command", "")) != command_text:
+        add_error(report, "operator_action_execution command_execution command mismatch")
+    if execution.get("argv") != parse_shell_words(command_text):
+        add_error(report, "operator_action_execution command_execution argv mismatch")
+    evidence = receipt.get("evidence_checks", {})
+    if not isinstance(evidence, dict):
+        add_error(report, "operator_action_execution evidence_checks invalid")
+        evidence = {}
+    command_sha = sha256_text(command_text)
+    if str(evidence.get("selected_command_sha256", "")) != str(
+        selected_command.get("command_sha256", "")
+    ):
+        add_error(report, "operator_action_execution evidence selected sha mismatch")
+    if str(evidence.get("computed_command_sha256", "")) != command_sha:
+        add_error(report, "operator_action_execution evidence computed sha mismatch")
+
+
+def dict_field(payload: dict[str, Any], key: str) -> dict[str, object]:
+    """Return a dict field or an empty dict."""
+    value = payload.get(key, {})
+    return value if isinstance(value, dict) else {}
+
+
+def parse_shell_words(command: str) -> list[str]:
+    """Parse a command into argv without running a shell."""
+    try:
+        return shlex.split(command)
+    except ValueError:
+        return []
 
 
 def validate_optional_operator_action_audit(

@@ -142,6 +142,8 @@ from orchestrator.round_replay import ROUND_REPLAY_SCHEMA_VERSION, replay_round
 from orchestrator.artifact_validator import (
     snapshot_digest_from_payload,
     validate_optional_codex_cli_unlock_runbook,
+    validate_optional_operator_action_approval,
+    validate_optional_operator_action_execution_receipt,
     validate_optional_operator_action_plan,
     validate_optional_operator_unlock_checklist,
     validate_recommended_command_hints,
@@ -1832,6 +1834,27 @@ def test_operator_action_approval_records_intent_without_executing_command(
         repo_root=repo,
     )["ok"] is True
 
+    tampered_approval = json.loads(json_path.read_text(encoding="utf-8"))
+    tampered_approval["selected_command"]["expected_artifact"] = "unexpected.json"
+    json_path.write_text(
+        json.dumps(tampered_approval, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    approval_validation: dict[str, object] = {
+        "run_id": "operator-action-approval",
+        "checked_files": [],
+        "errors": [],
+        "warnings": [],
+    }
+    validate_optional_operator_action_approval(
+        run_dir=run_dir,
+        repo_root=repo,
+        report=approval_validation,
+    )
+    assert (
+        "operator_action_approval selected command mismatch: expected_artifact"
+    ) in approval_validation["errors"]
+
 
 def test_operator_action_execution_receipt_runs_only_approved_read_only_commands(
     tmp_path: Path,
@@ -1912,6 +1935,29 @@ def test_operator_action_execution_receipt_runs_only_approved_read_only_commands
         experiments_dir=repo / "experiments",
         repo_root=repo,
     )["ok"] is True
+
+    receipt_path = run_dir / "operator_action_execution_receipt.json"
+    tampered_receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    tampered_receipt["command_execution"]["command"] += " --markdown"
+    tampered_receipt["command_execution"]["argv"].append("--markdown")
+    receipt_path.write_text(
+        json.dumps(tampered_receipt, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    receipt_validation: dict[str, object] = {
+        "run_id": run_id,
+        "checked_files": [],
+        "errors": [],
+        "warnings": [],
+    }
+    validate_optional_operator_action_execution_receipt(
+        run_dir=run_dir,
+        repo_root=repo,
+        report=receipt_validation,
+    )
+    assert (
+        "operator_action_execution command_execution command mismatch"
+    ) in receipt_validation["errors"]
 
     dangerous_command = "python -m orchestrator.iteration_loop"
     dangerous_sha = hashlib.sha256(dangerous_command.encode("utf-8")).hexdigest()

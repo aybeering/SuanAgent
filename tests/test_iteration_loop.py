@@ -2249,6 +2249,12 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert unlock_checklist["status"] == "not_requested"
     assert unlock_checklist["ready"] is False
     assert unlock_checklist["item_count"] == 0
+    assert unlock_checklist["navigation"]["schema_version"] == (
+        "operator_unlock_navigation_v1"
+    )
+    assert unlock_checklist["navigation"]["blocking_count"] == 0
+    assert len(unlock_checklist["navigation"]["expected_artifacts"]) == 5
+    assert unlock_checklist["navigation"]["policy"]["does_not_execute_commands"] is True
     assert unlock_checklist["policy"]["does_not_execute_codex_cli"] is True
     assert "# Operator Unlock Checklist" in unlock_markdown
     assert render_operator_unlock_checklist_markdown(unlock_checklist).startswith(
@@ -4096,6 +4102,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert unlock_checklist["status"] == "not_requested"
     assert unlock_checklist["ready"] is False
     assert unlock_checklist["item_count"] == 0
+    assert unlock_checklist["navigation"]["blocking_count"] == 0
+    assert unlock_checklist["navigation"]["commands"] == []
+    assert any(
+        row["artifact_id"] == "codex_cli_operator_unlock_request"
+        for row in unlock_checklist["navigation"]["expected_artifacts"]
+    )
     assert unlock_checklist["source_artifacts"]["codex_cli_execution_preflight"][
         "file"
     ]["path"].endswith("codex_cli_execution_preflight.json")
@@ -12878,9 +12890,53 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
     assert any(
         item["check_id"].endswith(":operator_unlock_request")
         and item["status"] == "failed"
+        and "codex_cli_operator_unlock_request" in item["related_artifacts"]
+        and item["command_hints"][0]["executes_codex_cli"] is False
         for item in blocked_checklist["items"]
     )
     assert blocked_checklist["authority"]["checklist_can_unlock_codex"] is False
+    _, _, full_checklist = write_operator_unlock_checklist(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
+    markdown = render_operator_unlock_checklist_markdown(full_checklist)
+    assert full_checklist["schema_version"] == OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION
+    assert full_checklist["navigation"]["status"] == "blocked"
+    assert full_checklist["navigation"]["blocking_count"] == 8
+    assert full_checklist["navigation"]["primary_blocker"] == (
+        "primary:operator_unlock_request"
+    )
+    first_blocker = full_checklist["navigation"]["blocking_items"][0]
+    assert first_blocker["blocking_reason_codes"][0] == (
+        "operator_unlock_request_path_missing"
+    )
+    assert first_blocker["related_artifacts"][0]["artifact_id"] == (
+        "codex_cli_operator_unlock_request"
+    )
+    assert first_blocker["command_hints"][0]["label"] == (
+        "write_operator_unlock_request"
+    )
+    assert "codex_cli_operator_unlock_request" in first_blocker["command_hints"][0][
+        "command"
+    ]
+    assert full_checklist["navigation"]["commands"][0]["executes_codex_cli"] is False
+    assert full_checklist["navigation"]["commands"][0][
+        "requires_explicit_operator_invocation"
+    ] is True
+    assert any(
+        row["artifact_id"] == "codex_cli_real_execution_dry_run"
+        for row in full_checklist["navigation"]["expected_artifacts"]
+    )
+    assert "## Blocking Navigation" in markdown
+    assert "## Evidence Artifacts" in markdown
+    assert_matches_schema(
+        run_dir / "operator_unlock_checklist.json",
+        "operator_unlock_checklist",
+    )
+    assert validate_operator_unlock_checklist_file(
+        payload_path=run_dir / "operator_unlock_checklist.json",
+        repo_root=repo,
+    ) == ()
     assert preflight["policy"]["does_not_execute_codex_cli"] is True
     assert preflight["policy"]["does_not_create_workspace"] is True
     assert_matches_schema(
@@ -15233,6 +15289,8 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert unlock_checklist["status"] == "not_requested"
     assert unlock_checklist["ready"] is False
     assert unlock_checklist["item_count"] == 0
+    assert unlock_checklist["navigation"]["blocking_count"] == 0
+    assert unlock_checklist["navigation"]["policy"]["commands_are_hints_only"] is True
     assert unlock_checklist["policy"]["does_not_execute_codex_cli"] is True
     assert "# Operator Unlock Checklist" in unlock_checklist_markdown
     assert cockpit["from_artifact"] is True
@@ -15360,6 +15418,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert unlock_checklist_payload["from_artifact"] is True
     assert unlock_checklist_payload["status"] == "not_requested"
+    assert unlock_checklist_payload["navigation"]["blocking_count"] == 0
     assert unlock_checklist_payload["policy"]["does_not_execute_codex_cli"] is True
     assert_matches_schema_payload(
         unlock_checklist_payload,

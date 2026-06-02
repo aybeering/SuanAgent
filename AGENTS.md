@@ -193,9 +193,11 @@ approval, execute commands, write config, promote champions, run agents, run
 backtests, apply patches, route agents, or change acceptance.
 Operator unlock checklist artifacts may summarize Codex CLI startup preflight
 evidence as standalone grouped request, intent, source, command, workspace, and
-mutation-boundary checks. They must remain read-only and must not record unlock
-approval, execute Codex, create workspaces, run agents, apply patches, route
-agents, or change acceptance.
+mutation-boundary checks. They may include expected artifact paths, blocker
+reason codes, and command hints for manual operator action. They must remain
+read-only and must not record unlock approval, execute those commands, execute
+Codex, create workspaces, run agents, apply patches, route agents, or change
+acceptance.
 Operator cockpit artifacts may summarize run review, config lineage, operator
 action, Codex CLI execution preflight, standalone operator unlock checklist,
 challenger, champion promotion, and scope-health state into one human-facing

@@ -71,7 +71,9 @@ python -m orchestrator.experiments cockpit <run_id> --markdown
 the inspection commands can also refresh or render those read-only views after
 later operator artifacts are written. The standalone operator unlock checklist
 and cockpit include Codex CLI startup preflight evidence as read-only views so
-evidence gaps are visible without executing Codex.
+evidence gaps are visible without executing Codex. The checklist also includes
+blocking navigation with related artifact paths and explicit command hints for
+the operator to run manually.
 
 More commands and artifact details live in `docs/artifact_reference.md`.
 

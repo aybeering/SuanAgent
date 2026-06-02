@@ -204,9 +204,11 @@ available to refresh the view after later approval or execution artifacts.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` split the
 Codex CLI unlock evidence checklist into its own read-only artifact. It reads
 the saved startup execution preflight, groups required operator evidence, and
-reports whether any real Codex profile is blocked or ready. It cannot record
-unlock approval, execute Codex, execute agents, create workspaces, route
-candidates, apply patches, or change acceptance.
+reports whether any real Codex profile is blocked or ready. Its navigation
+section points each failed evidence group to the related artifact paths and
+manual command hints, while keeping those commands as non-executed suggestions.
+It cannot record unlock approval, execute Codex, execute agents, create
+workspaces, route candidates, apply patches, or change acceptance.
 `operator_cockpit.json` and `operator_cockpit.md` are the broader operator
 entrypoint. They collect the run closeout, config lineage, operator action
 dashboard, Codex CLI execution preflight, standalone operator unlock checklist,

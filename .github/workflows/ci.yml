@@ -737,8 +737,14 @@ jobs:
           assert checklist["status"] == "not_requested"
           assert checklist["ready"] is False
           assert checklist["item_count"] == 0
+          assert checklist["navigation"]["schema_version"] == "operator_unlock_navigation_v1"
+          assert checklist["navigation"]["blocking_count"] == 0
+          assert len(checklist["navigation"]["expected_artifacts"]) == 5
+          assert checklist["navigation"]["commands"] == []
+          assert checklist["navigation"]["policy"]["commands_are_hints_only"] is True
           assert checklist["policy"]["does_not_execute_codex_cli"] is True
           assert checklist["authority"]["checklist_can_execute_codex"] is False
+          assert "## Blocking Navigation" in markdown
           assert "# Operator Unlock Checklist" in markdown
           PY
           python -m orchestrator.operator_cockpit experiments/ci-adaptive
@@ -969,6 +975,7 @@ jobs:
           cockpit = json.load(open("/tmp/operator_cockpit_refreshed.json"))
           assert dashboard["schema_version"] == "operator_action_dashboard_v1"
           assert checklist["schema_version"] == "operator_unlock_checklist_v1"
+          assert checklist["navigation"]["policy"]["does_not_execute_commands"] is True
           assert checklist["policy"]["does_not_execute_codex_cli"] is True
           assert cockpit["schema_version"] == "operator_cockpit_v1"
           assert cockpit["summary"]["config_lineage_status"] == "blocked"

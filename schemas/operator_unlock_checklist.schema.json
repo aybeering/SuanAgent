@@ -13,6 +13,7 @@
     "failed_count",
     "next_step",
     "source_artifacts",
+    "navigation",
     "items",
     "authority",
     "policy"
@@ -73,6 +74,9 @@
       "items": {
         "$ref": "#/$defs/checklist_item"
       }
+    },
+    "navigation": {
+      "$ref": "#/$defs/navigation"
     },
     "authority": {
       "type": "object",
@@ -196,12 +200,16 @@
       "required": [
         "check_id",
         "profile_name",
+        "group_id",
         "label",
         "status",
         "required",
         "passed_check_count",
         "total_check_count",
         "failed_checks",
+        "blocking_reason_codes",
+        "related_artifacts",
+        "command_hints",
         "evidence",
         "next_step"
       ],
@@ -210,6 +218,9 @@
           "type": "string"
         },
         "profile_name": {
+          "type": "string"
+        },
+        "group_id": {
           "type": "string"
         },
         "label": {
@@ -237,11 +248,260 @@
             "type": "string"
           }
         },
+        "blocking_reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "related_artifacts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "command_hints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/command_hint"
+          }
+        },
         "evidence": {
           "type": "string"
         },
         "next_step": {
           "type": "string"
+        }
+      }
+    },
+    "navigation": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "ready",
+        "blocking_count",
+        "primary_blocker",
+        "expected_artifacts",
+        "blocking_items",
+        "commands",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "operator_unlock_navigation_v1"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "blocking_count": {
+          "type": "integer"
+        },
+        "primary_blocker": {
+          "type": "string"
+        },
+        "expected_artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/navigation_artifact"
+          }
+        },
+        "blocking_items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/navigation_blocking_item"
+          }
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/command_hint"
+          }
+        },
+        "policy": {
+          "$ref": "#/$defs/navigation_policy"
+        }
+      }
+    },
+    "navigation_blocking_item": {
+      "type": "object",
+      "required": [
+        "check_id",
+        "profile_name",
+        "label",
+        "status",
+        "blocking_reason_codes",
+        "failed_checks",
+        "related_artifacts",
+        "command_hints",
+        "next_step"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string"
+        },
+        "profile_name": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "blocking_reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "failed_checks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "related_artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/navigation_artifact"
+          }
+        },
+        "command_hints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/command_hint"
+          }
+        },
+        "next_step": {
+          "type": "string"
+        }
+      }
+    },
+    "navigation_artifact": {
+      "type": "object",
+      "required": [
+        "artifact_id",
+        "label",
+        "purpose",
+        "required_for_real_codex_unlock",
+        "json_path",
+        "json_file",
+        "markdown_path",
+        "markdown_file",
+        "write_command_label",
+        "write_command"
+      ],
+      "properties": {
+        "artifact_id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "required_for_real_codex_unlock": {
+          "type": "boolean"
+        },
+        "json_path": {
+          "type": "string"
+        },
+        "json_file": {
+          "$ref": "#/$defs/file_record"
+        },
+        "markdown_path": {
+          "type": "string"
+        },
+        "markdown_file": {
+          "$ref": "#/$defs/file_record"
+        },
+        "write_command_label": {
+          "type": "string"
+        },
+        "write_command": {
+          "type": "string"
+        }
+      }
+    },
+    "command_hint": {
+      "type": "object",
+      "required": [
+        "label",
+        "artifact_id",
+        "command",
+        "writes_artifacts",
+        "executes_codex_cli",
+        "requires_explicit_operator_invocation"
+      ],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "artifact_id": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "writes_artifacts": {
+          "type": "boolean"
+        },
+        "executes_codex_cli": {
+          "type": "boolean"
+        },
+        "requires_explicit_operator_invocation": {
+          "type": "boolean"
+        }
+      }
+    },
+    "navigation_policy": {
+      "type": "object",
+      "required": [
+        "navigation_only",
+        "commands_are_hints_only",
+        "requires_explicit_operator_invocation",
+        "does_not_execute_commands",
+        "does_not_execute_codex_cli",
+        "does_not_create_workspace",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "navigation_only": {
+          "type": "boolean"
+        },
+        "commands_are_hints_only": {
+          "type": "boolean"
+        },
+        "requires_explicit_operator_invocation": {
+          "type": "boolean"
+        },
+        "does_not_execute_commands": {
+          "type": "boolean"
+        },
+        "does_not_execute_codex_cli": {
+          "type": "boolean"
+        },
+        "does_not_create_workspace": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_route_agents": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
         }
       }
     }

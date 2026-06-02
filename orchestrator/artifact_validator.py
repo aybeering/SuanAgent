@@ -4349,6 +4349,11 @@ def validate_optional_operator_unlock_checklist(
         payload={"codex_unlock_checklist": payload},
         report=report,
     )
+    validate_operator_unlock_navigation(
+        payload=payload,
+        repo_root=repo_root,
+        report=report,
+    )
     policy = payload.get("policy", {})
     if not isinstance(policy, dict):
         add_error(report, "operator_unlock_checklist policy invalid")
@@ -4366,6 +4371,95 @@ def validate_optional_operator_unlock_checklist(
     ):
         if policy.get(key) is not True:
             add_error(report, f"operator_unlock_checklist policy false: {key}")
+
+
+def validate_operator_unlock_navigation(
+    *,
+    payload: dict[str, Any],
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate read-only navigation fields in operator_unlock_checklist.json."""
+    navigation = payload.get("navigation", {})
+    if not isinstance(navigation, dict):
+        add_error(report, "operator_unlock_checklist navigation invalid")
+        return
+    if navigation.get("schema_version") != "operator_unlock_navigation_v1":
+        add_error(report, "operator_unlock_checklist navigation schema invalid")
+    blocking_items = navigation.get("blocking_items", [])
+    if not isinstance(blocking_items, list):
+        add_error(report, "operator_unlock_checklist blocking_items invalid")
+        blocking_items = []
+    if navigation.get("blocking_count") != len(blocking_items):
+        add_error(report, "operator_unlock_checklist blocking_count mismatch")
+    if blocking_items and not navigation.get("primary_blocker"):
+        add_error(report, "operator_unlock_checklist primary blocker missing")
+    expected_artifacts = navigation.get("expected_artifacts", [])
+    if not isinstance(expected_artifacts, list):
+        add_error(report, "operator_unlock_checklist expected_artifacts invalid")
+        expected_artifacts = []
+    artifact_ids = set()
+    for artifact in expected_artifacts:
+        if not isinstance(artifact, dict):
+            add_error(report, "operator_unlock_checklist artifact row invalid")
+            continue
+        artifact_id = str(artifact.get("artifact_id", ""))
+        artifact_ids.add(artifact_id)
+        json_file = artifact.get("json_file", {})
+        if not isinstance(json_file, dict):
+            add_error(report, "operator_unlock_checklist artifact file invalid")
+        elif json_file.get("exists") is True:
+            validate_recorded_file_hash(
+                record=json_file,
+                repo_root=repo_root,
+                report=report,
+                label=f"operator_unlock_checklist artifact {artifact_id}",
+            )
+        if artifact.get("required_for_real_codex_unlock") is not True:
+            add_error(report, "operator_unlock_checklist artifact not required")
+    for artifact_id in (
+        "codex_cli_readiness_pipeline",
+        "codex_cli_execution_candidate",
+        "codex_cli_real_execution_dry_run",
+        "codex_cli_operator_unlock_request",
+        "codex_cli_execution_preflight",
+    ):
+        if artifact_id not in artifact_ids:
+            add_error(
+                report,
+                f"operator_unlock_checklist navigation missing artifact: {artifact_id}",
+            )
+    commands = navigation.get("commands", [])
+    if not isinstance(commands, list):
+        add_error(report, "operator_unlock_checklist commands invalid")
+        commands = []
+    for command in commands:
+        if not isinstance(command, dict):
+            add_error(report, "operator_unlock_checklist command invalid")
+            continue
+        if command.get("executes_codex_cli") is not False:
+            add_error(report, "operator_unlock_checklist command executes codex")
+        if command.get("requires_explicit_operator_invocation") is not True:
+            add_error(report, "operator_unlock_checklist command lacks explicit gate")
+        if not str(command.get("command", "")).startswith("python -m orchestrator."):
+            add_error(report, "operator_unlock_checklist command prefix invalid")
+    nav_policy = navigation.get("policy", {})
+    if not isinstance(nav_policy, dict):
+        add_error(report, "operator_unlock_checklist navigation policy invalid")
+        return
+    for key in (
+        "navigation_only",
+        "commands_are_hints_only",
+        "requires_explicit_operator_invocation",
+        "does_not_execute_commands",
+        "does_not_execute_codex_cli",
+        "does_not_create_workspace",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+    ):
+        if nav_policy.get(key) is not True:
+            add_error(report, f"operator_unlock_checklist navigation policy false: {key}")
 
 
 def validate_optional_operator_cockpit(

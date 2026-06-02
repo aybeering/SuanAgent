@@ -251,7 +251,10 @@ The iteration loop writes it during closeout before the final cockpit so cockpit
 source hashes bind to it. `python -m orchestrator.experiments unlock-checklist
 <run_id>` and `unlock-checklist --markdown` show the saved or derived checklist
 without recording approval, executing Codex, executing agents, creating
-workspaces, applying patches, routing agents, or changing acceptance.
+workspaces, applying patches, routing agents, or changing acceptance. The
+`navigation` section lists expected evidence artifacts, failed evidence groups,
+blocking reason codes, related artifact paths, and command hints that still
+require explicit operator invocation.
 `operator_cockpit.json` and `operator_cockpit.md` collect the run closeout,
 config lineage, operator action dashboard, Codex CLI execution preflight,
 standalone operator unlock checklist, candidate challenger report,
@@ -522,9 +525,12 @@ Replay artifacts:
   blockers, and command hints, but cannot approve or execute anything.
 - `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose
   Codex CLI operator-unlock evidence as a standalone read-only checklist. They
-  classify saved preflight evidence groups and source hashes, but cannot record
-  approval, execute Codex, create workspaces, apply patches, route agents, or
-  change acceptance.
+  classify saved preflight evidence groups and source hashes, then provide
+  `navigation.expected_artifacts`, `navigation.blocking_items`, and
+  `navigation.commands` so an operator can see the next artifact to inspect or
+  generate. Command rows are hints only; the checklist cannot record approval,
+  execute Codex, create workspaces, apply patches, route agents, or change
+  acceptance.
 - `operator_cockpit.json` and `operator_cockpit.md` aggregate run review,
   config lineage, operator action, Codex CLI execution preflight, challenger
   comparison, promotion review, promotion approval, and scope-health state into

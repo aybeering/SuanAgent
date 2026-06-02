@@ -19,6 +19,117 @@ from orchestrator.schema_validation import validate_json_file
 
 OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION = "operator_unlock_checklist_v1"
 SCHEMA_PATH = Path("schemas/operator_unlock_checklist.schema.json")
+MANUAL_APPROVAL_PHRASE = "I approve this Codex CLI candidate for manual enablement"
+OPERATOR_REQUEST_PHRASE = "I request operator review for real Codex CLI execution"
+
+CHECK_TO_BLOCKER_CODE = {
+    "operator_unlock_request_path_declared": "operator_unlock_request_path_missing",
+    "operator_unlock_request_exists": "operator_unlock_request_missing",
+    "operator_unlock_request_path_is_run_artifact": (
+        "operator_unlock_request_path_not_run_artifact"
+    ),
+    "operator_unlock_request_path_is_canonical_run_artifact": (
+        "operator_unlock_request_path_not_canonical_run_artifact"
+    ),
+    "operator_unlock_request_contract_valid": "operator_unlock_request_contract_invalid",
+    "operator_unlock_request_schema_version_matches": (
+        "operator_unlock_request_schema_version_mismatch"
+    ),
+    "operator_unlock_request_ok": "operator_unlock_request_not_ok",
+    "operator_unlock_request_ready": "operator_unlock_request_not_ready",
+    "operator_request_run_id_matches": "operator_request_run_id_mismatch",
+    "operator_request_run_dir_matches_run": "operator_request_run_dir_mismatch",
+    "operator_request_scope_matches": "operator_request_scope_mismatch",
+    "operator_request_explicitly_requested": "operator_request_not_explicitly_requested",
+    "operator_request_requested_by_present": "operator_request_requested_by_missing",
+    "operator_request_confirmation_phrase_matches": (
+        "operator_request_confirmation_phrase_mismatch"
+    ),
+    "operator_request_required_confirmation_hash_matches": (
+        "operator_request_required_confirmation_hash_mismatch"
+    ),
+    "operator_request_provided_confirmation_hash_matches": (
+        "operator_request_provided_confirmation_hash_mismatch"
+    ),
+    "operator_request_source_pipeline_hash_matches": (
+        "operator_request_source_pipeline_hash_mismatch"
+    ),
+    "operator_request_source_pipeline_path_matches_record": (
+        "operator_request_source_pipeline_path_mismatch"
+    ),
+    "operator_request_source_pipeline_path_is_canonical_run_artifact": (
+        "operator_request_source_pipeline_path_not_canonical_run_artifact"
+    ),
+    "operator_request_source_dry_run_hash_matches": (
+        "operator_request_source_dry_run_hash_mismatch"
+    ),
+    "operator_request_source_dry_run_path_matches_record": (
+        "operator_request_source_dry_run_path_mismatch"
+    ),
+    "operator_request_source_dry_run_path_is_canonical_run_artifact": (
+        "operator_request_source_dry_run_path_not_canonical_run_artifact"
+    ),
+    "operator_request_source_dry_run_plan_present": (
+        "operator_request_source_dry_run_plan_missing"
+    ),
+    "operator_request_source_dry_run_plan_matches_review": (
+        "operator_request_source_dry_run_plan_mismatch"
+    ),
+    "operator_request_agent_name_matches": "operator_request_agent_name_mismatch",
+    "operator_request_profile_name_matches": "operator_request_profile_name_mismatch",
+    "operator_request_round_id_matches": "operator_request_round_id_mismatch",
+    "operator_request_attempt_id_matches": "operator_request_attempt_id_mismatch",
+    "operator_request_command_matches_profile": "operator_request_command_mismatch",
+    "operator_request_command_sha256_matches_profile": (
+        "operator_request_command_sha256_mismatch"
+    ),
+    "operator_request_workspace_prefix_matches_run": (
+        "operator_request_workspace_prefix_mismatch"
+    ),
+    "operator_request_workspace_path_matches_expected": (
+        "operator_request_workspace_path_mismatch"
+    ),
+    "operator_request_targets_current_strategy": (
+        "operator_request_target_not_current_strategy"
+    ),
+    "operator_request_allows_strategy_only": (
+        "operator_request_mutation_paths_not_strategy_only"
+    ),
+    "operator_request_does_not_execute_by_itself": (
+        "operator_request_executes_by_itself"
+    ),
+}
+
+GROUP_ARTIFACTS = {
+    "operator_unlock_request": ["codex_cli_operator_unlock_request"],
+    "operator_intent": ["codex_cli_operator_unlock_request"],
+    "source_evidence": [
+        "codex_cli_readiness_pipeline",
+        "codex_cli_real_execution_dry_run",
+        "codex_cli_operator_unlock_request",
+    ],
+    "execution_identity": [
+        "codex_cli_execution_candidate",
+        "codex_cli_real_execution_dry_run",
+        "codex_cli_operator_unlock_request",
+    ],
+    "command_review": [
+        "codex_cli_execution_candidate",
+        "codex_cli_real_execution_dry_run",
+        "codex_cli_operator_unlock_request",
+    ],
+    "workspace_boundary": [
+        "codex_cli_execution_candidate",
+        "codex_cli_real_execution_dry_run",
+        "codex_cli_operator_unlock_request",
+    ],
+    "mutation_boundary": [
+        "codex_cli_execution_candidate",
+        "codex_cli_real_execution_dry_run",
+        "codex_cli_operator_unlock_request",
+    ],
+    "non_executing_request": ["codex_cli_operator_unlock_request"],
+}
 
 
 def write_operator_unlock_checklist(
@@ -59,6 +170,14 @@ def build_operator_unlock_checklist(
     codex_preflight_path = run_dir / "codex_cli_execution_preflight.json"
     codex_preflight = load_json_object(codex_preflight_path)
     checklist = build_codex_unlock_checklist(codex_preflight=codex_preflight)
+    items = list_of_dicts(checklist.get("items", []))
+    navigation = build_unlock_navigation(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        checklist=checklist,
+        codex_preflight=codex_preflight,
+        items=items,
+    )
     return {
         "schema_version": OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION,
         "run_id": run_dir.name,
@@ -77,7 +196,8 @@ def build_operator_unlock_checklist(
                 repo_root=repo_root,
             ),
         },
-        "items": list_of_dicts(checklist.get("items", [])),
+        "navigation": navigation,
+        "items": items,
         "authority": object_field(checklist, "authority"),
         "policy": {
             "inspection_only": True,
@@ -121,6 +241,7 @@ def build_codex_unlock_checklist(
             items=[],
         )
     profiles = list_of_dicts(codex_preflight.get("profiles", []))
+    run_id = str(codex_preflight.get("run_id", ""))
     real_profiles = [
         profile
         for profile in profiles
@@ -145,7 +266,7 @@ def build_codex_unlock_checklist(
     items = [
         item
         for profile in real_profiles
-        for item in checklist_items_for_profile(profile=profile)
+        for item in checklist_items_for_profile(profile=profile, run_id=run_id)
     ]
     failed_count = sum(1 for item in items if item["status"] == "failed")
     blockers = string_rows(codex_preflight.get("blocking_errors", []))
@@ -162,7 +283,11 @@ def build_codex_unlock_checklist(
     )
 
 
-def checklist_items_for_profile(*, profile: dict[str, Any]) -> list[dict[str, object]]:
+def checklist_items_for_profile(
+    *,
+    profile: dict[str, Any],
+    run_id: str = "",
+) -> list[dict[str, object]]:
     """Return grouped unlock checklist items for one real Codex profile."""
     profile_name = str(profile.get("profile_name", ""))
     checks = object_field(profile, "checks")
@@ -259,6 +384,8 @@ def checklist_items_for_profile(*, profile: dict[str, Any]) -> list[dict[str, ob
     ]
     return [
         checklist_item(
+            profile=profile,
+            run_id=run_id,
             profile_name=profile_name,
             group_id=group_id,
             label=label,
@@ -272,6 +399,8 @@ def checklist_items_for_profile(*, profile: dict[str, Any]) -> list[dict[str, ob
 
 def checklist_item(
     *,
+    profile: dict[str, Any],
+    run_id: str,
     profile_name: str,
     group_id: str,
     label: str,
@@ -281,15 +410,29 @@ def checklist_item(
 ) -> dict[str, object]:
     """Return one grouped checklist item."""
     failed_keys = [key for key in check_keys if not bool(checks.get(key, False))]
+    blocking_reason_codes = [
+        blocker_code_for_check(key)
+        for key in failed_keys
+        if blocker_code_for_check(key)
+    ]
+    related_artifacts = artifact_ids_for_group(group_id)
+    command_hints = command_hints_for_group(
+        group_id=group_id,
+        run_id=run_id,
+    )
     return {
         "check_id": f"{profile_name}:{group_id}" if profile_name else group_id,
         "profile_name": profile_name,
+        "group_id": group_id,
         "label": label,
         "status": "failed" if failed_keys else "passed",
         "required": True,
         "passed_check_count": len(check_keys) - len(failed_keys),
         "total_check_count": len(check_keys),
         "failed_checks": failed_keys,
+        "blocking_reason_codes": blocking_reason_codes,
+        "related_artifacts": related_artifacts,
+        "command_hints": command_hints,
         "evidence": (
             f"{len(check_keys) - len(failed_keys)}/{len(check_keys)} checks passed"
         ),
@@ -325,6 +468,301 @@ def checklist_payload(
     }
 
 
+def build_unlock_navigation(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    checklist: dict[str, object],
+    codex_preflight: dict[str, Any],
+    items: list[dict[str, Any]],
+) -> dict[str, object]:
+    """Return read-only artifact and command navigation for unlock blockers."""
+    failed_items = [item for item in items if item.get("status") == "failed"]
+    missing_preflight = not codex_preflight
+    blocking_items = [
+        navigation_blocking_item(item=item, run_dir=run_dir, repo_root=repo_root)
+        for item in failed_items
+    ]
+    if missing_preflight:
+        blocking_items.insert(
+            0,
+            {
+                "check_id": "codex_cli_execution_preflight",
+                "profile_name": "",
+                "label": "Codex CLI execution preflight",
+                "status": "failed",
+                "blocking_reason_codes": ["codex_cli_execution_preflight_missing"],
+                "failed_checks": ["codex_cli_execution_preflight_exists"],
+                "related_artifacts": [
+                    artifact_navigation_record(
+                        artifact_id="codex_cli_execution_preflight",
+                        run_dir=run_dir,
+                        repo_root=repo_root,
+                    )
+                ],
+                "command_hints": command_hints_for_group(
+                    group_id="codex_cli_execution_preflight",
+                    run_id=run_dir.name,
+                    run_arg=display_path(run_dir, repo_root),
+                ),
+                "next_step": (
+                    "write codex_cli_execution_preflight.json before reviewing "
+                    "real Codex unlock evidence"
+                ),
+            },
+        )
+    commands = unique_command_hints(
+        [
+            command
+            for item in blocking_items
+            for command in list_of_dicts(item.get("command_hints", []))
+        ]
+    )
+    expected_artifacts = [
+        artifact_navigation_record(
+            artifact_id=artifact_id,
+            run_dir=run_dir,
+            repo_root=repo_root,
+        )
+        for artifact_id in (
+            "codex_cli_readiness_pipeline",
+            "codex_cli_execution_candidate",
+            "codex_cli_real_execution_dry_run",
+            "codex_cli_operator_unlock_request",
+            "codex_cli_execution_preflight",
+        )
+    ]
+    return {
+        "schema_version": "operator_unlock_navigation_v1",
+        "status": str(checklist.get("status", "missing_preflight")),
+        "ready": bool(checklist.get("ready", False)),
+        "blocking_count": len(blocking_items),
+        "primary_blocker": (
+            str(blocking_items[0].get("check_id", "")) if blocking_items else ""
+        ),
+        "expected_artifacts": expected_artifacts,
+        "blocking_items": blocking_items,
+        "commands": commands,
+        "policy": {
+            "navigation_only": True,
+            "commands_are_hints_only": True,
+            "requires_explicit_operator_invocation": True,
+            "does_not_execute_commands": True,
+            "does_not_execute_codex_cli": True,
+            "does_not_create_workspace": True,
+            "does_not_apply_patches": True,
+            "does_not_route_agents": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+
+def navigation_blocking_item(
+    *,
+    item: dict[str, Any],
+    run_dir: Path,
+    repo_root: Path,
+) -> dict[str, object]:
+    """Return one human-actionable blocker row from a failed checklist item."""
+    related_artifact_ids = string_rows(item.get("related_artifacts", []))
+    return {
+        "check_id": str(item.get("check_id", "")),
+        "profile_name": str(item.get("profile_name", "")),
+        "label": str(item.get("label", "")),
+        "status": str(item.get("status", "")),
+        "blocking_reason_codes": string_rows(item.get("blocking_reason_codes", [])),
+        "failed_checks": string_rows(item.get("failed_checks", [])),
+        "related_artifacts": [
+            artifact_navigation_record(
+                artifact_id=artifact_id,
+                run_dir=run_dir,
+                repo_root=repo_root,
+            )
+            for artifact_id in related_artifact_ids
+        ],
+        "command_hints": command_hints_for_group(
+            group_id=str(item.get("group_id", "")),
+            run_id=run_dir.name,
+            run_arg=display_path(run_dir, repo_root),
+        ),
+        "next_step": str(item.get("next_step", "")),
+    }
+
+
+def artifact_navigation_record(
+    *,
+    artifact_id: str,
+    run_dir: Path,
+    repo_root: Path,
+) -> dict[str, object]:
+    """Return file and command metadata for one expected unlock artifact."""
+    spec = artifact_spec(artifact_id)
+    json_path = run_dir / str(spec.get("json_filename", ""))
+    markdown_filename = str(spec.get("markdown_filename", ""))
+    markdown_path = run_dir / markdown_filename if markdown_filename else None
+    return {
+        "artifact_id": artifact_id,
+        "label": str(spec.get("label", "")),
+        "purpose": str(spec.get("purpose", "")),
+        "required_for_real_codex_unlock": True,
+        "json_path": display_path(json_path, repo_root),
+        "json_file": file_record(json_path, repo_root),
+        "markdown_path": (
+            display_path(markdown_path, repo_root) if markdown_path is not None else ""
+        ),
+        "markdown_file": (
+            file_record(markdown_path, repo_root)
+            if markdown_path is not None
+            else {"exists": False, "path": "", "sha256": "", "byte_count": 0}
+        ),
+        "write_command_label": str(spec.get("command_label", "")),
+        "write_command": command_for_artifact(
+            artifact_id=artifact_id,
+            run_arg=display_path(run_dir, repo_root),
+        ),
+    }
+
+
+def artifact_spec(artifact_id: str) -> dict[str, str]:
+    """Return static metadata for one unlock evidence artifact."""
+    specs = {
+        "codex_cli_readiness_pipeline": {
+            "label": "Codex CLI readiness pipeline",
+            "json_filename": "codex_cli_readiness_pipeline.json",
+            "markdown_filename": "codex_cli_readiness_pipeline.md",
+            "purpose": "aggregate read-only readiness evidence before operator request",
+            "command_label": "run_readiness_pipeline",
+        },
+        "codex_cli_execution_candidate": {
+            "label": "Codex CLI execution candidate",
+            "json_filename": "codex_cli_execution_candidate.json",
+            "markdown_filename": "codex_cli_execution_candidate.md",
+            "purpose": "freeze the reviewed command, workspace, and mutation boundary",
+            "command_label": "write_execution_candidate",
+        },
+        "codex_cli_real_execution_dry_run": {
+            "label": "Codex CLI real execution dry run",
+            "json_filename": "codex_cli_real_execution_dry_run.json",
+            "markdown_filename": "codex_cli_real_execution_dry_run.md",
+            "purpose": "dry-run the final real-execution boundary without executing Codex",
+            "command_label": "write_real_execution_dry_run",
+        },
+        "codex_cli_operator_unlock_request": {
+            "label": "Codex CLI operator unlock request",
+            "json_filename": "codex_cli_operator_unlock_request.json",
+            "markdown_filename": "codex_cli_operator_unlock_request.md",
+            "purpose": "record explicit operator intent for future real Codex review",
+            "command_label": "write_operator_unlock_request",
+        },
+        "codex_cli_execution_preflight": {
+            "label": "Codex CLI execution preflight",
+            "json_filename": "codex_cli_execution_preflight.json",
+            "markdown_filename": "codex_cli_execution_preflight.md",
+            "purpose": "startup gate that blocks real Codex without ready request",
+            "command_label": "run_execution_preflight",
+        },
+    }
+    return specs.get(
+        artifact_id,
+        {
+            "label": artifact_id,
+            "json_filename": "",
+            "markdown_filename": "",
+            "purpose": "",
+            "command_label": "",
+        },
+    )
+
+
+def command_for_artifact(*, artifact_id: str, run_arg: str) -> str:
+    """Return the explicit operator command that can write one artifact."""
+    commands = {
+        "codex_cli_readiness_pipeline": (
+            "python -m orchestrator.codex_cli_readiness_pipeline "
+            f"{run_arg} --config config/codex_cli_enable_candidate.json "
+            "--canary-run-dir experiments/canary-demo --approved "
+            f'--approved-by <operator> --confirmation-phrase "{MANUAL_APPROVAL_PHRASE}"'
+        ),
+        "codex_cli_execution_candidate": (
+            f"python -m orchestrator.codex_cli_execution_candidate {run_arg}"
+        ),
+        "codex_cli_real_execution_dry_run": (
+            f"python -m orchestrator.codex_cli_real_execution_dry_run {run_arg}"
+        ),
+        "codex_cli_operator_unlock_request": (
+            "python -m orchestrator.codex_cli_operator_unlock_request "
+            f"{run_arg} --requested --requested-by <operator> "
+            f'--confirmation-phrase "{OPERATOR_REQUEST_PHRASE}"'
+        ),
+        "codex_cli_execution_preflight": (
+            "python -m orchestrator.codex_cli_execution_preflight "
+            f"{run_arg} --config config/codex_cli_enable_candidate.json"
+        ),
+    }
+    return commands.get(artifact_id, "")
+
+
+def command_hints_for_group(
+    *,
+    group_id: str,
+    run_id: str,
+    run_arg: str | None = None,
+) -> list[dict[str, object]]:
+    """Return explicit command hints for a failed unlock evidence group."""
+    if run_arg is None:
+        run_arg = f"experiments/{run_id}" if run_id else "experiments/<run_id>"
+    artifact_ids = (
+        ["codex_cli_execution_preflight"]
+        if group_id == "codex_cli_execution_preflight"
+        else artifact_ids_for_group(group_id)
+    )
+    return [
+        {
+            "label": str(artifact_spec(artifact_id).get("command_label", "")),
+            "artifact_id": artifact_id,
+            "command": command_for_artifact(
+                artifact_id=artifact_id,
+                run_arg=run_arg,
+            ),
+            "writes_artifacts": True,
+            "executes_codex_cli": False,
+            "requires_explicit_operator_invocation": True,
+        }
+        for artifact_id in artifact_ids
+    ]
+
+
+def unique_command_hints(commands: list[dict[str, Any]]) -> list[dict[str, object]]:
+    """Deduplicate command hints while preserving first-seen order."""
+    seen: set[str] = set()
+    unique: list[dict[str, object]] = []
+    for command in commands:
+        label = str(command.get("label", ""))
+        if label in seen:
+            continue
+        seen.add(label)
+        unique.append(command)
+    return unique
+
+
+def artifact_ids_for_group(group_id: str) -> list[str]:
+    """Return expected evidence artifact ids for one checklist group."""
+    return list(GROUP_ARTIFACTS.get(group_id, []))
+
+
+def blocker_code_for_check(check_key: str) -> str:
+    """Return stable blocker code for one failed preflight check."""
+    return CHECK_TO_BLOCKER_CODE.get(check_key, "")
+
+
+def display_path(path: Path, repo_root: Path) -> str:
+    """Return a stable repository-relative path when possible."""
+    try:
+        return str(path.resolve().relative_to(repo_root.resolve()))
+    except ValueError:
+        return str(path)
+
+
 def render_operator_unlock_checklist_markdown(payload: dict[str, object]) -> str:
     """Render operator unlock checklist as markdown."""
     lines = [
@@ -349,6 +787,67 @@ def render_operator_unlock_checklist_markdown(payload: dict[str, object]) -> str
             f"`{item.get('status', '')}` | "
             f"{item.get('evidence', '')} | "
             f"{item.get('next_step', '')} |"
+        )
+    navigation = object_field(payload, "navigation")
+    blocking_items = list_of_dicts(navigation.get("blocking_items", []))
+    expected_artifacts = list_of_dicts(navigation.get("expected_artifacts", []))
+    commands = list_of_dicts(navigation.get("commands", []))
+    lines.extend(
+        [
+            "",
+            "## Blocking Navigation",
+            "",
+            f"- Blocking items: `{navigation.get('blocking_count', 0)}`",
+            f"- Primary blocker: `{navigation.get('primary_blocker', '')}`",
+            "",
+            "| Blocker | Reasons | Related Artifacts | Next Step |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    if not blocking_items:
+        lines.append("| none | none | none | no unlock blocker is active |")
+    for blocker in blocking_items:
+        artifact_ids = [
+            str(row.get("artifact_id", ""))
+            for row in list_of_dicts(blocker.get("related_artifacts", []))
+        ]
+        lines.append(
+            "| "
+            f"{blocker.get('label', '')} | "
+            f"{', '.join(string_rows(blocker.get('blocking_reason_codes', [])))} | "
+            f"{', '.join(artifact_ids)} | "
+            f"{blocker.get('next_step', '')} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Evidence Artifacts",
+            "",
+            "| Artifact | Exists | Path | Command |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    for artifact in expected_artifacts:
+        json_file = object_field(artifact, "json_file")
+        lines.append(
+            "| "
+            f"{artifact.get('artifact_id', '')} | "
+            f"`{json_file.get('exists', False)}` | "
+            f"`{artifact.get('json_path', '')}` | "
+            f"`{artifact.get('write_command_label', '')}` |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Command Hints",
+            "",
+        ]
+    )
+    if not commands:
+        lines.append("- none")
+    for command in commands:
+        lines.append(
+            f"- `{command.get('label', '')}`: `{command.get('command', '')}`"
         )
     lines.extend(
         [

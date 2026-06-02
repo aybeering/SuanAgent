@@ -34,6 +34,8 @@ python -m orchestrator.experiments review <run_id>
 python -m orchestrator.experiments review <run_id> --markdown
 python -m orchestrator.experiments action-plan <run_id>
 python -m orchestrator.experiments action-plan <run_id> --markdown
+python -m orchestrator.experiments action-approval <run_id>
+python -m orchestrator.experiments action-approval <run_id> --markdown
 python -m orchestrator.experiments summary
 python -m orchestrator.experiments summary --markdown
 python -m orchestrator.experiments leaderboard --limit 5
@@ -50,6 +52,7 @@ python -m orchestrator.experiments config-application-rollback-preview <run_id> 
 python -m orchestrator.experiments restore-config-approved <run_id> --preview-path experiments/<run_id>/config_application_rollback_preview.json
 python -m orchestrator.experiments config-lineage <run_id>
 python -m orchestrator.experiments promote-approved <candidate_run_id> --approval-path experiments/<run_id>/champion_promotion_approval.json
+python -m orchestrator.operator_action_approval experiments/<run_id> --action-id <action_id> --command-label <label> --approve --operator-id <operator> --confirmation-phrase "APPROVE OPERATOR ACTION"
 ```
 
 Replay and validation:
@@ -146,6 +149,8 @@ experiments/<run_id>/
   run_closeout.md
   operator_action_plan.json
   operator_action_plan.md
+  operator_action_approval.json  # after explicit operator approval command
+  operator_action_approval.md    # after explicit operator approval command
 ```
 
 It also updates append-only experiment indexes:
@@ -187,6 +192,12 @@ review. `python -m orchestrator.experiments action-plan <run_id>` and
 The plan records command digests, guarded-command flags, and deterministic
 authority fields, but it cannot write config, promote champions, execute
 agents, run backtests, route candidates, apply patches, or change acceptance.
+`operator_action_approval.json` and `operator_action_approval.md` can then
+record explicit operator approval for one action-plan command candidate. The
+approval binds to `operator_action_plan.json`, records the selected action id,
+command label, command digest, operator id, and confirmation phrase hashes, but
+still does not execute the approved command. The approved command must be
+invoked separately by the operator.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.
@@ -418,6 +429,12 @@ Replay artifacts:
   invocation for every candidate. They do not execute commands, execute agents,
   run backtests, write config, promote champions, route agents, apply patches,
   or change acceptance.
+- `operator_action_approval.json` and `operator_action_approval.md` record
+  operator approval for one action-plan command candidate. They bind to
+  `operator_action_plan.json` by SHA-256 and require the exact confirmation
+  phrase `APPROVE OPERATOR ACTION` for approval, but approval still does not
+  execute commands, write config, promote champions, run agents, rerun
+  backtests, route candidates, apply patches, or change acceptance.
 - `candidate_leaderboard.json` records every proposal attempt with stable
   quality metadata. `quality_breakdown` decomposes the pre-backtest candidate
   score into named components, selected rows also record validation and

@@ -55,6 +55,10 @@ KNOWN_ARTIFACT_NAMES = {
         "operator_action_plan.json",
         "operator_action_plan.md",
     ),
+    "operator_action_approval": (
+        "operator_action_approval.json",
+        "operator_action_approval.md",
+    ),
     "config_application_dry_run": (
         "config_application_dry_run.json",
         "config_application_dry_run.md",
@@ -142,6 +146,10 @@ INSPECTION_COMMANDS = {
     "operator_action_plan": (
         "python -m orchestrator.operator_action_plan",
         "python -m orchestrator.experiments action-plan",
+    ),
+    "operator_action_approval": (
+        "python -m orchestrator.operator_action_approval",
+        "python -m orchestrator.experiments action-approval",
     ),
     "config_application_dry_run": (
         "python -m orchestrator.config_application_dry_run",

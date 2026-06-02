@@ -54,7 +54,8 @@ artifacts, read-only config application dry-run artifacts, guarded config
 application receipt artifacts, read-only config rollback preview artifacts, and
 guarded config restore receipt artifacts, read-only config lineage artifacts,
 read-only run closeout operator dashboard summaries, read-only operator action
-plans, and Codex CLI readiness evidence.
+plans, read-only operator action approval receipts, and Codex CLI readiness
+evidence.
 
 Still out of scope:
 
@@ -171,6 +172,9 @@ Operator action plans may translate run closeout dashboard items into explicit
 command candidates for review. They must be read-only and must not execute
 commands, write config, promote champions, run agents, apply patches, or change
 acceptance.
+Operator action approval receipts may record explicit approval for one
+action-plan command candidate. They must bind to the action plan and selected
+command digest, but must still not execute commands or change repository state.
 
 ## Strategy Policy
 

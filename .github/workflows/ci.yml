@@ -623,6 +623,50 @@ jobs:
           assert "# Operator Action Plan" in markdown
           assert "Every command candidate requires explicit operator invocation" in markdown
           PY
+          python - <<'PY'
+          import json
+          import subprocess
+          import sys
+          plan = json.load(open("experiments/ci-adaptive/operator_action_plan.json"))
+          action = plan["actions"][0]
+          command = action["command_candidates"][0]
+          subprocess.run(
+              [
+                  sys.executable,
+                  "-m",
+                  "orchestrator.operator_action_approval",
+                  "experiments/ci-adaptive",
+                  "--action-id",
+                  action["action_id"],
+                  "--command-label",
+                  command["label"],
+                  "--approve",
+                  "--operator-id",
+                  "ci",
+                  "--confirmation-phrase",
+                  "APPROVE OPERATOR ACTION",
+              ],
+              check=True,
+          )
+          PY
+          test -f experiments/ci-adaptive/operator_action_approval.json
+          test -f experiments/ci-adaptive/operator_action_approval.md
+          python -m orchestrator.experiments action-approval ci-adaptive > /tmp/operator_action_approval.json
+          python -m orchestrator.experiments action-approval ci-adaptive --markdown > /tmp/operator_action_approval.md
+          python - <<'PY'
+          import json
+          approval = json.load(open("/tmp/operator_action_approval.json"))
+          markdown = open("/tmp/operator_action_approval.md").read()
+          assert approval["schema_version"] == "operator_action_approval_v1"
+          assert approval["from_artifact"] is True
+          assert approval["status"] == "approval_recorded"
+          assert approval["operator_intent"]["approval_recorded"] is True
+          assert approval["selected_command"]["executed_by_approval"] is False
+          assert approval["selected_command"]["command_sha256_matches"] is True
+          assert approval["policy"]["does_not_execute_commands"] is True
+          assert approval["policy"]["command_still_requires_explicit_execution"] is True
+          assert "# Operator Action Approval" in markdown
+          PY
 
       - name: Diagnose iteration runs
         run: |

@@ -177,6 +177,10 @@ candidates, run backtests, apply patches, execute agents, or change acceptance.
 closeout and turn dashboard action items into reviewed command candidates. They
 bind to `run_closeout.json`, mark guarded candidates, and require explicit
 operator invocation; they do not execute commands or change repository state.
+`operator_action_approval.json` and `operator_action_approval.md` record
+explicit approval for one action-plan command candidate. They bind to the saved
+action plan and command digest, but approval is still not execution; the
+operator must invoke the selected command separately.
 
 ## Champion Registry
 

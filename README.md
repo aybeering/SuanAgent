@@ -59,6 +59,7 @@ Useful inspection:
 ```bash
 python -m orchestrator.experiments review <run_id> --markdown
 python -m orchestrator.experiments action-plan <run_id> --markdown
+python -m orchestrator.experiments action-approval <run_id> --markdown
 ```
 
 More commands and artifact details live in `docs/artifact_reference.md`.

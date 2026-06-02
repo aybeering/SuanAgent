@@ -23,6 +23,10 @@ from orchestrator.config_application_dry_run import build_config_application_dry
 from orchestrator.memory_diagnostics import build_memory_diagnostics
 from orchestrator.memory_hygiene import build_memory_hygiene
 from orchestrator.memory_scope_recommendation import build_memory_scope_recommendation
+from orchestrator.operator_action_approval import (
+    build_operator_action_approval,
+    render_operator_action_approval_markdown,
+)
 from orchestrator.operator_action_plan import (
     build_operator_action_plan,
     render_operator_action_plan_markdown,
@@ -1070,6 +1074,33 @@ def operator_action_plan_report(
     return payload
 
 
+def operator_action_approval_report(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+    action_id: str = "",
+    command_label: str = "",
+) -> dict[str, object]:
+    """Return the saved or derived operator action approval for one run."""
+    run_dir = experiments_dir / run_id
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    approval_path = run_dir / "operator_action_approval.json"
+    if approval_path.exists() and not action_id and not command_label:
+        payload = load_json(approval_path)
+        payload["from_artifact"] = True
+        return payload
+    payload = build_operator_action_approval(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=experiments_dir.parent,
+        action_id=action_id,
+        command_label=command_label,
+    )
+    payload["from_artifact"] = False
+    return payload
+
+
 def agent_slot_health_report(
     *,
     run_id: str,
@@ -1776,6 +1807,19 @@ def main() -> None:
         help="Render the operator action plan as markdown.",
     )
 
+    action_approval_parser = subparsers.add_parser(
+        "action-approval",
+        help="Show read-only operator approval status for one action candidate.",
+    )
+    action_approval_parser.add_argument("run_id")
+    action_approval_parser.add_argument("--action-id", default="")
+    action_approval_parser.add_argument("--command-label", default="")
+    action_approval_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the operator action approval as markdown.",
+    )
+
     leaderboard_parser = subparsers.add_parser(
         "leaderboard",
         help="Rank experiments by validation EV improvement.",
@@ -2023,6 +2067,16 @@ def main() -> None:
         )
         if args.markdown:
             print(render_operator_action_plan_markdown(payload), end="")
+            return
+    elif args.command == "action-approval":
+        payload = operator_action_approval_report(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
+            action_id=args.action_id,
+            command_label=args.command_label,
+        )
+        if args.markdown:
+            print(render_operator_action_approval_markdown(payload), end="")
             return
     elif args.command == "leaderboard":
         payload = experiment_leaderboard(

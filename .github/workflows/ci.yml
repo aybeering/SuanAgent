@@ -112,9 +112,24 @@ jobs:
                   "\n".join(kept_lines) + ("\n" if kept_lines else ""),
                   encoding="utf-8",
               )
-          Path("experiments/run_artifact_health_history.jsonl").unlink(
-              missing_ok=True,
-          )
+          history_path = Path("experiments/run_artifact_health_history.jsonl")
+          if history_path.exists():
+              kept_lines = []
+              for line in history_path.read_text(encoding="utf-8").splitlines():
+                  if not line.strip():
+                      continue
+                  payload = json.loads(line)
+                  failed_run_ids = {
+                      str(row.get("run_id", ""))
+                      for row in payload.get("failed_runs", [])
+                      if isinstance(row, dict)
+                  }
+                  if probe_run_id not in failed_run_ids:
+                      kept_lines.append(line)
+              history_path.write_text(
+                  "\n".join(kept_lines) + ("\n" if kept_lines else ""),
+                  encoding="utf-8",
+              )
           PY
 
       - name: Run Codex CLI canary iteration

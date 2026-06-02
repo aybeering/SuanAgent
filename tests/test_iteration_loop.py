@@ -2842,6 +2842,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert attempt_output["selected"] is True
     assert attempt_output["proposal"]["patch_sha256"] == proposal["patch_sha256"]
     assert attempt_output["selection"]["skip_reason"] == ""
+    assert attempt_output["proposal_intent_summary"] == (
+        attempt_agent_input["proposal_intent_summary"]
+    )
+    assert attempt_output["proposal_intent_summary"] == (
+        agent_input["proposal_intent_summary"]
+    )
     assert attempt_output["direction_intent_alignment"][
         "proposal_matches_recommended_direction"
     ] is True

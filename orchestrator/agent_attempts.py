@@ -294,6 +294,10 @@ def attempt_output_payload(
             selected_index=selected_index,
         )
     failure = primary_failure(reason_codes)
+    agent_input = load_json_object(attempt_dir / "agent_input.json")
+    proposal_intent_summary = object_or_empty(
+        agent_input.get("proposal_intent_summary", {})
+    )
     return {
         "schema_version": ATTEMPT_OUTPUT_SCHEMA_VERSION,
         "attempt_id": attempt_id,
@@ -306,6 +310,7 @@ def attempt_output_payload(
         "supported_directions": attempt.get("supported_directions", []),
         "direction_capability": attempt.get("direction_capability", {}),
         "direction_intent_alignment": attempt.get("direction_intent_alignment", {}),
+        "proposal_intent_summary": proposal_intent_summary,
         "runner_name": attempt.get("runner_name", ""),
         "runner": attempt.get("runner", {}),
         "agent_name": attempt.get("agent_name", ""),
@@ -457,8 +462,15 @@ def workspace_agent_input_path(*, round_dir: Path, attempt_id: str) -> Path | No
 
 def load_json_object(path: Path) -> dict[str, object]:
     """Load a JSON object from disk."""
+    if not path.exists():
+        return {}
     payload = json.loads(path.read_text(encoding="utf-8"))
     return payload if isinstance(payload, dict) else {}
+
+
+def object_or_empty(value: object) -> dict[str, object]:
+    """Return a JSON object payload or an empty mapping."""
+    return value if isinstance(value, dict) else {}
 
 
 def list_or_empty(value: object) -> list[object]:

@@ -99,6 +99,9 @@ attempt-scoped agent inputs preserve the same summary.
 `agent_execution_plan.json` binds that same summary into each planned attempt's
 input contract so the pre-execution queue and later agent inputs can be checked
 for drift.
+Each saved attempt's `attempt_output.json` also records the same summary, so
+audit replay can detect input/output drift without changing candidate replay,
+patch application, or acceptance.
 Agent profiles may separately declare `supported_directions`. The executor uses
 that declaration only as a deterministic contract check after a proposal is
 normalized: a candidate whose `direction_tag` is outside its own declared

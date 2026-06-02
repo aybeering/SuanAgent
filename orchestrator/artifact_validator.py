@@ -2307,6 +2307,11 @@ def validate_attempt_output_artifacts(
     if not isinstance(artifacts, dict):
         add_error(report, f"attempt_output.json artifacts is invalid: {path}")
         return
+    validate_proposal_intent_summary_contract(
+        summary=payload.get("proposal_intent_summary", {}),
+        artifact_name="attempt_output.json",
+        report=report,
+    )
     required = (
         "attempt",
         "agent_input",
@@ -2323,6 +2328,12 @@ def validate_attempt_output_artifacts(
         artifact_path = resolve_path(Path(str(artifacts.get(key, ""))), repo_root)
         if not artifact_path.exists() or not artifact_path.is_file():
             add_error(report, f"attempt_output artifact does not exist: {key}={artifact_path}")
+        if key == "agent_input" and artifact_path.exists() and artifact_path.is_file():
+            agent_input = load_json_object(artifact_path, report)
+            if agent_input is not None and agent_input.get(
+                "proposal_intent_summary", {}
+            ) != payload.get("proposal_intent_summary", {}):
+                add_error(report, "attempt_output proposal intent summary drift")
     for key in optional:
         value = str(artifacts.get(key, ""))
         if not value:

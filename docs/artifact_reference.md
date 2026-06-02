@@ -276,7 +276,8 @@ Replay artifacts:
 - `attempt_replay.json` validates one saved candidate attempt without changing
   final acceptance.
 - `attempt_output.json` links one saved attempt's input, proposal, raw output,
-  patch, selection explanation, validation status, and optional execution audit.
+  patch, selection explanation, validation status, proposal intent summary, and
+  optional execution audit.
 - `round_replay.json` validates all saved planned attempts for a round.
 - `agent_slot_health.json` summarizes slot readiness, audits, and replay state.
 - `run_artifact_health.json` batch-validates saved experiment run artifacts

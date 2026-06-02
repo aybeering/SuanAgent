@@ -102,6 +102,7 @@ Implemented or allowed V0.5 components:
 88. Deterministic `direction_decision_trace` metadata inside `proposal_intent.json` that records planner candidate order, avoid-source codes, selected direction, fallback exhaustion, and advisory-only authority policy without changing routing, scoring, patch application, or acceptance.
 89. Deterministic `proposal_intent_summary` metadata inside round-level, bundle-level, workspace-backed, and attempt-scoped `agent_input.json` contracts so future external agents can consume planner direction guidance from the input contract while the summary remains advisory-only and cannot change routing, scoring, patch application, or acceptance.
 90. Deterministic `proposal_intent_summary` binding inside `agent_execution_plan.json` and each planned attempt's input contract, proving the pre-execution queue was planned against the same advisory planner context that later appears in agent input artifacts without changing queue order, scoring, patch application, or acceptance.
+91. Deterministic `proposal_intent_summary` binding inside `attempt_output.json`, proving each saved candidate attempt's output audit matches the planner context in its attempt-scoped `agent_input.json` without changing replay, scoring, patch application, or acceptance.
 
 ## Contract Families
 
@@ -225,35 +226,39 @@ Codex CLI readiness contracts:
     attempts to the context they will receive. They can prove plan/input
     consistency, but they cannot change queue order, score candidates, apply
     patches, or change acceptance.
-21. Candidate quality breakdowns explain proposal ranking only. They can expose
+21. Proposal intent summaries in `attempt_output.json` bind saved attempt
+    audits to the same context recorded in attempt-scoped agent input. They can
+    prove audit/input consistency, but they cannot change replay, score
+    candidates, apply patches, or change acceptance.
+22. Candidate quality breakdowns explain proposal ranking only. They can expose
     score components and post-evaluation signals, but they cannot override the
     deterministic policy gate or holdout veto.
-22. Candidate challenger reports are read-only comparison summaries. They can
+23. Candidate challenger reports are read-only comparison summaries. They can
     highlight validation gaps and holdout stability against the current
     champion, but they cannot promote champions, route candidates, apply
     patches, run backtests, or change strategy acceptance.
-23. Champion promotion dry-runs are read-only promotion previews. They can
+24. Champion promotion dry-runs are read-only promotion previews. They can
     expose the deterministic promote command that would be appropriate after
     operator review, but they cannot write champion registry files, append
     champion history, route candidates, apply patches, run backtests, or change
     strategy acceptance.
-24. Champion promotion approval artifacts record operator intent and reviewed
+25. Champion promotion approval artifacts record operator intent and reviewed
     command digests only. They cannot execute promotion, write champion
     registry files, append champion history, route candidates, apply patches,
     run backtests, or change strategy acceptance.
-25. Guarded champion promotion receipts are the only V0.5 artifact family that
+26. Guarded champion promotion receipts are the only V0.5 artifact family that
     records champion registry writes. They require approval evidence, command
     digest binding, source dry-run digest binding, unchanged champion identity,
     and a current deterministic promote recommendation before writing
     `champion.json` or appending `champion_history.jsonl`.
-26. Champion lineage reports are read-only global experiment inspections. They
+27. Champion lineage reports are read-only global experiment inspections. They
     can summarize champion history, receipts, approvals, dry-runs, and metric
     deltas, but they cannot promote champions, route candidates, run backtests,
     apply patches, write champion registry files, append champion history, or
     change strategy acceptance. Compact lineage summaries may appear in
     experiment summary and champion inspection output, but only the explicit
     lineage command writes lineage artifacts.
-27. Experiment summary dashboards are read-only inspection payloads embedded in
+28. Experiment summary dashboards are read-only inspection payloads embedded in
     `python -m orchestrator.experiments summary`. They can summarize latest
     indexed runs, recent diagnosis rows, recent failure-code counts, and
     best-run-to-champion gaps, and they may include a deterministic operator

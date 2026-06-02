@@ -157,6 +157,11 @@ before writing config, and it still does not run agents or change acceptance.
 `config_application_rollback_preview.md` then provide a read-only manual
 restore plan and next-run impact summary from the receipt and current config.
 They never restore config automatically.
+`config_application_restore_receipt.json` and
+`config_application_restore_receipt.md` are only created by the explicit
+guarded restore command. That command restores config only when the rollback
+preview is ready and the preview, receipt, and current config digests still
+match; it does not run agents or change acceptance.
 
 ## Champion Registry
 

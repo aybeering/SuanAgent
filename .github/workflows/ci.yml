@@ -734,6 +734,23 @@ jobs:
           assert payload["policy"]["does_not_write_config"] is True
           PY
 
+      - name: Verify guarded config restore blocks without ready preview
+        run: |
+          if python -m orchestrator.experiments restore-config-approved ci-adaptive --preview-path experiments/ci-adaptive/config_application_rollback_preview.json > /tmp/blocked_config_restore.json; then
+            echo "restore-config-approved unexpectedly succeeded without ready preview"
+            exit 1
+          fi
+          python - <<'PY'
+          import json
+          payload = json.load(open("/tmp/blocked_config_restore.json"))
+          assert payload["schema_version"] == "config_application_restore_receipt_v1"
+          assert payload["status"] == "blocked"
+          assert payload["restored"] is False
+          assert "preview_not_ready" in payload["restore_gate"]["blockers"]
+          assert payload["policy"]["requires_config_application_rollback_preview"] is True
+          assert payload["policy"]["writes_only_config"] is True
+          PY
+
       - name: Inspect candidate leaderboard
         run: python -m orchestrator.experiments candidates ci-adaptive --limit 5
 

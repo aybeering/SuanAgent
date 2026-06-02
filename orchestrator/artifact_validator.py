@@ -219,6 +219,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_config_application_restore_receipt(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_optional_run_closeout(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -3936,7 +3941,13 @@ def validate_optional_config_application_receipt(
     if payload.get("source_operator_review_sha256") != file_sha256(review_path):
         add_error(report, "config_application_receipt.json review digest mismatch")
     config_path = resolve_path(Path(str(payload.get("config_path", ""))), repo_root)
-    if payload.get("config_after_sha256") != file_sha256(config_path):
+    if payload.get("config_after_sha256") != file_sha256(
+        config_path,
+    ) and not has_restored_config_application(
+        run_dir=run_dir,
+        receipt_path=path,
+        repo_root=repo_root,
+    ):
         add_error(report, "config_application_receipt.json config digest mismatch")
     checks = payload.get("evidence_checks", {})
     if not isinstance(checks, dict):
@@ -4022,7 +4033,13 @@ def validate_optional_config_application_rollback_preview(
             "config_application_rollback_preview.json receipt digest mismatch",
         )
     config_path = resolve_path(Path(str(payload.get("config_path", ""))), repo_root)
-    if payload.get("current_config_sha256") != file_sha256(config_path):
+    if payload.get("current_config_sha256") != file_sha256(
+        config_path,
+    ) and not has_config_restore_from_preview(
+        run_dir=run_dir,
+        preview_path=path,
+        repo_root=repo_root,
+    ):
         add_error(
             report,
             "config_application_rollback_preview.json config digest mismatch",
@@ -4079,6 +4096,165 @@ def validate_optional_config_application_rollback_preview(
                 report,
                 f"config_application_rollback_preview.json policy false: {key}",
             )
+
+
+def validate_optional_config_application_restore_receipt(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate config_application_restore_receipt.json when present."""
+    path = run_dir / "config_application_restore_receipt.json"
+    md_path = run_dir / "config_application_restore_receipt.md"
+    if not path.exists():
+        if md_path.exists():
+            add_error(
+                report,
+                "config_application_restore_receipt.md exists without JSON",
+            )
+        return
+    checked_files(report).append(str(path))
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    else:
+        add_error(
+            report,
+            "config_application_restore_receipt.json missing markdown pair",
+        )
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root
+        / "schemas/config_application_restore_receipt.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            "config_application_restore_receipt.json run_id does not match report",
+        )
+    if payload.get("status") == "restored" and payload.get("restored") is not True:
+        add_error(report, "config_application_restore_receipt.json status mismatch")
+    if payload.get("status") == "blocked" and payload.get("restored") is not False:
+        add_error(report, "config_application_restore_receipt.json blocked mismatch")
+    preview_path = resolve_path(
+        Path(str(payload.get("source_preview_path", ""))),
+        repo_root,
+    )
+    if payload.get("source_preview_sha256") != file_sha256(preview_path):
+        add_error(
+            report,
+            "config_application_restore_receipt.json preview digest mismatch",
+        )
+    receipt_path = resolve_path(
+        Path(str(payload.get("source_receipt_path", ""))),
+        repo_root,
+    )
+    if payload.get("source_receipt_sha256") != file_sha256(receipt_path):
+        add_error(
+            report,
+            "config_application_restore_receipt.json receipt digest mismatch",
+        )
+    config_path = resolve_path(Path(str(payload.get("config_path", ""))), repo_root)
+    if payload.get("config_after_sha256") != file_sha256(config_path):
+        add_error(
+            report,
+            "config_application_restore_receipt.json config digest mismatch",
+        )
+    gate = payload.get("restore_gate", {})
+    if not isinstance(gate, dict):
+        add_error(report, "config_application_restore_receipt.json gate invalid")
+    else:
+        blockers = gate.get("blockers", [])
+        if payload.get("restored") is True and blockers:
+            add_error(report, "config_application_restore_receipt.json restored blocked")
+        if payload.get("restored") is True and gate.get("ok") is not True:
+            add_error(
+                report,
+                "config_application_restore_receipt.json restored without evidence",
+            )
+    restored_changes = payload.get("restored_changes", [])
+    if not isinstance(restored_changes, list):
+        add_error(report, "config_application_restore_receipt.json changes invalid")
+    elif payload.get("restored") is True and not restored_changes:
+        add_error(report, "config_application_restore_receipt.json restored no changes")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "config_application_restore_receipt.json policy invalid")
+        return
+    for key in (
+        "requires_config_application_rollback_preview",
+        "requires_preview_ready",
+        "requires_preview_digest_match",
+        "requires_source_receipt_digest_match",
+        "requires_current_config_digest_match",
+        "writes_only_config",
+        "does_not_delete_memory",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_route_candidates",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            add_error(
+                report,
+                f"config_application_restore_receipt.json policy false: {key}",
+            )
+
+
+def has_restored_config_application(
+    *,
+    run_dir: Path,
+    receipt_path: Path,
+    repo_root: Path,
+) -> bool:
+    """Return true when a restore receipt explains the current config drift."""
+    restore_path = run_dir / "config_application_restore_receipt.json"
+    if not restore_path.exists():
+        return False
+    payload = load_optional_json_object(restore_path)
+    if payload.get("restored") is not True:
+        return False
+    source_receipt = resolve_path(
+        Path(str(payload.get("source_receipt_path", ""))),
+        repo_root,
+    )
+    return source_receipt.resolve() == receipt_path.resolve()
+
+
+def has_config_restore_from_preview(
+    *,
+    run_dir: Path,
+    preview_path: Path,
+    repo_root: Path,
+) -> bool:
+    """Return true when a restore receipt explains preview config drift."""
+    restore_path = run_dir / "config_application_restore_receipt.json"
+    if not restore_path.exists():
+        return False
+    payload = load_optional_json_object(restore_path)
+    if payload.get("restored") is not True:
+        return False
+    source_preview = resolve_path(
+        Path(str(payload.get("source_preview_path", ""))),
+        repo_root,
+    )
+    return source_preview.resolve() == preview_path.resolve()
+
+
+def load_optional_json_object(path: Path) -> dict[str, Any]:
+    """Load a JSON object for optional cross-artifact checks."""
+    if not path.exists() or not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
 
 
 def validate_optional_champion_comparison(

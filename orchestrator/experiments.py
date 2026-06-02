@@ -1666,6 +1666,18 @@ def main() -> None:
         default=Path("config/default.json"),
     )
 
+    restore_config_parser = subparsers.add_parser(
+        "restore-config-approved",
+        help="Restore config only from ready rollback-preview evidence.",
+    )
+    restore_config_parser.add_argument("run_id")
+    restore_config_parser.add_argument("--preview-path", type=Path, required=True)
+    restore_config_parser.add_argument(
+        "--config",
+        type=Path,
+        default=Path("config/default.json"),
+    )
+
     diagnose_parser = subparsers.add_parser(
         "diagnose",
         help="Diagnose one run with artifact health and round outcomes.",
@@ -1865,6 +1877,18 @@ def main() -> None:
             dry_run_path=args.dry_run_path,
             config_path=args.config,
         )
+    elif args.command == "restore-config-approved":
+        from orchestrator.config_application_restore_executor import (
+            restore_config_with_preview,
+        )
+
+        payload = restore_config_with_preview(
+            experiments_dir=args.experiments_dir,
+            repo_root=args.experiments_dir.parent,
+            run_id=args.run_id,
+            preview_path=args.preview_path,
+            config_path=args.config,
+        )
     elif args.command == "diagnose":
         payload = diagnose_run(
             experiments_dir=args.experiments_dir,
@@ -1948,6 +1972,11 @@ def main() -> None:
     if args.command == "promote-approved" and not payload.get("promoted", False):
         raise SystemExit(1)
     if args.command == "apply-config-approved" and not payload.get("applied", False):
+        raise SystemExit(1)
+    if args.command == "restore-config-approved" and not payload.get(
+        "restored",
+        False,
+    ):
         raise SystemExit(1)
     if args.command == "validate" and args.strict and not payload.get("ok", False):
         raise SystemExit(1)

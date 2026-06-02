@@ -52,7 +52,7 @@ validation, replay commands, read-only outcome-memory hygiene and scope
 recommendation artifacts, read-only config change candidate and operator review
 artifacts, read-only config application dry-run artifacts, guarded config
 application receipt artifacts, read-only config rollback preview artifacts, and
-Codex CLI readiness evidence.
+guarded config restore receipt artifacts, and Codex CLI readiness evidence.
 
 Still out of scope:
 
@@ -158,6 +158,10 @@ iteration acceptance.
 Config application rollback previews may inspect receipts and current config to
 describe manual restore plans and next-run impact. They must remain read-only
 and must not restore config automatically.
+Config application restore receipts may be written only by an explicit guarded
+restore command after rollback preview evidence still matches current config.
+Receipts may write config only through that command and must not run agents or
+change iteration acceptance.
 
 ## Strategy Policy
 

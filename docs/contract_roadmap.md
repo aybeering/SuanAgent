@@ -117,6 +117,7 @@ Implemented or allowed V0.5 components:
 103. A deterministic `config_application_dry_run.json` and `config_application_dry_run.md` report pair that previews whether approved config change candidates still match the current config value and are ready for a later manual edit, without writing config, deleting memory, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 104. A guarded `config_application_receipt.json` and `config_application_receipt.md` report pair for the explicit apply-config-approved command, which writes config only when ready dry-run evidence, operator-review evidence, and current config digests still match, without deleting memory, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 105. A read-only `config_application_rollback_preview.json` and `config_application_rollback_preview.md` report pair that derives manual restore rows and next-run impact from a saved config application receipt and current config, without writing config, deleting memory, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
+106. A guarded `config_application_restore_receipt.json` and `config_application_restore_receipt.md` report pair for the explicit restore-config-approved command, which restores config only when rollback-preview evidence, source receipt evidence, and current config digests still match, without deleting memory, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 
 ## Contract Families
 
@@ -165,6 +166,8 @@ Agent-slot contracts:
   `schemas/config_application_receipt.schema.json`
 - Config application rollback preview:
   `schemas/config_application_rollback_preview.schema.json`
+- Config application restore receipt:
+  `schemas/config_application_restore_receipt.schema.json`
 - Experiment scope health: `schemas/experiment_scope_health.schema.json`
 - Run closeout: `schemas/run_closeout.schema.json`
 - Candidate quality trace: `schemas/candidate_quality_trace.schema.json`

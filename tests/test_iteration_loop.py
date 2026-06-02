@@ -160,6 +160,11 @@ from orchestrator.config_application_rollback_preview import (
     validate_config_application_rollback_preview_file,
     write_config_application_rollback_preview,
 )
+from orchestrator.config_application_restore_executor import (
+    CONFIG_APPLICATION_RESTORE_RECEIPT_SCHEMA_VERSION,
+    restore_config_with_preview,
+    validate_config_application_restore_receipt_file,
+)
 from orchestrator.operator_config_review import (
     OPERATOR_CONFIG_REVIEW_SCHEMA_VERSION,
     REQUIRED_APPROVAL_PHRASE as CONFIG_REVIEW_APPROVAL_PHRASE,
@@ -1727,6 +1732,23 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
         blocked_preview,
         "config_application_rollback_preview",
     )
+    blocked_restore = restore_config_with_preview(
+        run_id="config-apply-approved",
+        preview_path=run_dir / "config_application_rollback_preview.json",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+    )
+    assert blocked_restore["schema_version"] == (
+        CONFIG_APPLICATION_RESTORE_RECEIPT_SCHEMA_VERSION
+    )
+    assert blocked_restore["status"] == "blocked"
+    assert blocked_restore["restored"] is False
+    assert "preview_not_ready" in blocked_restore["restore_gate"]["blockers"]
+    assert_matches_schema_payload(
+        blocked_restore,
+        "config_application_restore_receipt",
+    )
 
     write_operator_config_review(
         run_dir=run_dir,
@@ -1813,6 +1835,41 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
         payload_path=run_dir / "config_application_rollback_preview.json",
         repo_root=repo,
     ) == ()
+    restore_receipt = restore_config_with_preview(
+        run_id="config-apply-approved",
+        preview_path=run_dir / "config_application_rollback_preview.json",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+    )
+    restored_config = json.loads(
+        (repo / "config/default.json").read_text(encoding="utf-8")
+    )
+    assert restore_receipt["status"] == "restored"
+    assert restore_receipt["restored"] is True
+    assert restore_receipt["restore_gate"]["ok"] is True
+    assert restore_receipt["restore_gate"]["blockers"] == []
+    assert restore_receipt["restored_changes"][0]["config_path"] == (
+        "memory_filter.recent_record_limit"
+    )
+    assert restore_receipt["restored_changes"][0]["previous_value"] == 100
+    assert restore_receipt["restored_changes"][0]["restored_value"] == 0
+    assert restore_receipt["policy"]["writes_only_config"] is True
+    assert restore_receipt["policy"]["does_not_execute_agents"] is True
+    assert restored_config["memory_filter"]["recent_record_limit"] == 0
+    assert (run_dir / "config_application_restore_receipt.json").exists()
+    assert (run_dir / "config_application_restore_receipt.md").exists()
+    assert "# Config Application Restore Receipt" in (
+        run_dir / "config_application_restore_receipt.md"
+    ).read_text(encoding="utf-8")
+    assert_matches_schema(
+        run_dir / "config_application_restore_receipt.json",
+        "config_application_restore_receipt",
+    )
+    assert validate_config_application_restore_receipt_file(
+        payload_path=run_dir / "config_application_restore_receipt.json",
+        repo_root=repo,
+    ) == ()
 
     report = validate_run_artifacts(
         run_id="config-apply-approved",
@@ -1826,6 +1883,10 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
     )
     assert not any(
         "config_application_rollback_preview.json" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+    assert not any(
+        "config_application_restore_receipt.json" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 
@@ -13648,6 +13709,41 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    write_rollback_preview_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.config_application_rollback_preview",
+            "cli-candidates",
+            "--receipt-path",
+            "experiments/cli-candidates/config_application_receipt.json",
+            "--experiments-dir",
+            "experiments",
+            "--repo-root",
+            ".",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    restore_config_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "restore-config-approved",
+            "cli-candidates",
+            "--preview-path",
+            "experiments/cli-candidates/config_application_rollback_preview.json",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     challenger_result = subprocess.run(
         [
             sys.executable,
@@ -13817,6 +13913,21 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert_matches_schema_payload(
         rollback_preview_payload,
         "config_application_rollback_preview",
+    )
+    assert write_rollback_preview_result.returncode == 0, (
+        write_rollback_preview_result.stderr
+    )
+    assert restore_config_result.returncode == 1
+    restore_config_payload = json.loads(restore_config_result.stdout)
+    assert restore_config_payload["schema_version"] == (
+        CONFIG_APPLICATION_RESTORE_RECEIPT_SCHEMA_VERSION
+    )
+    assert restore_config_payload["status"] == "blocked"
+    assert restore_config_payload["restored"] is False
+    assert "preview_not_ready" in restore_config_payload["restore_gate"]["blockers"]
+    assert_matches_schema_payload(
+        restore_config_payload,
+        "config_application_restore_receipt",
     )
     assert challenger_result.returncode == 0, challenger_result.stderr
     challenger_payload = json.loads(challenger_result.stdout)

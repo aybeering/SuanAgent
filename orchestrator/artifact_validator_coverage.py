@@ -202,6 +202,10 @@ INSPECTION_COMMANDS = {
     "operator_view_refresh": (
         "python -m orchestrator.experiments refresh-operator-views",
     ),
+    "experiment_summary_dashboard": (
+        "python -m orchestrator.experiments summary",
+        "python -m orchestrator.experiments summary --markdown",
+    ),
     "config_application_dry_run": (
         "python -m orchestrator.config_application_dry_run",
         "python -m orchestrator.experiments config-application-dry-run",

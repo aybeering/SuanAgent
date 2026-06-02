@@ -345,6 +345,9 @@ Codex CLI readiness contracts:
     apply patches, promote champions, write artifacts, or change strategy
     acceptance. The optional `summary --markdown` mode renders the same payload
     for terminal inspection without writing artifacts.
+    The embedded `experiment_summary_dashboard_v1` payload is validated against
+    `schemas/experiment_summary_dashboard.schema.json` before JSON or markdown
+    output is printed.
 33. Operator cockpit panels include Codex CLI execution preflight state as a
     read-only unlock visibility layer. They may summarize real-execution
     profile counts, operator-unlock-ready counts, and startup blockers, but

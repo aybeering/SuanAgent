@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Experiment Summary Dashboard",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "total_runs",
+    "recent_limit",
+    "latest_run",
+    "latest_accepted_run",
+    "latest_rejected_run",
+    "recent_runs",
+    "recent_failure_codes",
+    "top_recent_failure_code",
+    "champion_gap",
+    "watchlist",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "experiment_summary_dashboard_v1"
+      ]
+    },
+    "total_runs": {
+      "type": "integer"
+    },
+    "recent_limit": {
+      "type": "integer"
+    },
+    "latest_run": {
+      "$ref": "#/$defs/optional_record_row"
+    },
+    "latest_accepted_run": {
+      "$ref": "#/$defs/optional_record_row"
+    },
+    "latest_rejected_run": {
+      "$ref": "#/$defs/optional_record_row"
+    },
+    "recent_runs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/recent_run_row"
+      }
+    },
+    "recent_failure_codes": {
+      "type": "object"
+    },
+    "top_recent_failure_code": {
+      "type": "string"
+    },
+    "champion_gap": {
+      "$ref": "#/$defs/champion_gap"
+    },
+    "watchlist": {
+      "$ref": "#/$defs/watchlist"
+    },
+    "policy": {
+      "$ref": "#/$defs/dashboard_policy"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "optional_record_row": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "run_id",
+        "kind",
+        "status",
+        "created_at"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string"
+        }
+      }
+    },
+    "recent_run_row": {
+      "type": "object",
+      "required": [
+        "run_id",
+        "kind",
+        "status",
+        "artifact_ok",
+        "accepted",
+        "validation_ev_delta",
+        "best_round",
+        "accepted_round",
+        "completed_rounds",
+        "stop_reason",
+        "failure_code",
+        "failure_stage",
+        "selected_direction_tag",
+        "summary"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "artifact_ok": {
+          "type": "boolean"
+        },
+        "accepted": {
+          "type": "boolean"
+        },
+        "validation_ev_delta": {
+          "type": "number"
+        },
+        "best_round": {
+          "type": "string"
+        },
+        "accepted_round": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ]
+        },
+        "completed_rounds": {
+          "type": "integer"
+        },
+        "stop_reason": {
+          "type": "string"
+        },
+        "failure_code": {
+          "type": "string"
+        },
+        "failure_stage": {
+          "type": "string"
+        },
+        "selected_direction_tag": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        }
+      }
+    },
+    "champion_gap": {
+      "type": "object",
+      "required": [
+        "active",
+        "status",
+        "champion_run_id",
+        "comparison_run_id",
+        "gap_to_champion"
+      ],
+      "properties": {
+        "active": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "no_champion",
+            "no_comparison_run",
+            "best_run_is_champion",
+            "best_run_beats_champion",
+            "best_run_trails_champion",
+            "best_run_ties_champion"
+          ]
+        },
+        "champion_run_id": {
+          "type": "string"
+        },
+        "comparison_run_id": {
+          "type": "string"
+        },
+        "champion_validation_ev_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "comparison_validation_ev_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "gap_to_champion": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "watchlist": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "alert_count",
+        "severity_counts",
+        "alerts",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "experiment_watchlist_v1"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "clean",
+            "informational",
+            "attention",
+            "critical"
+          ]
+        },
+        "alert_count": {
+          "type": "integer"
+        },
+        "severity_counts": {
+          "$ref": "#/$defs/severity_counts"
+        },
+        "alerts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/watch_alert"
+          }
+        },
+        "policy": {
+          "$ref": "#/$defs/watchlist_policy"
+        }
+      }
+    },
+    "severity_counts": {
+      "type": "object",
+      "required": [
+        "critical",
+        "warning",
+        "info"
+      ],
+      "properties": {
+        "critical": {
+          "type": "integer"
+        },
+        "warning": {
+          "type": "integer"
+        },
+        "info": {
+          "type": "integer"
+        }
+      }
+    },
+    "watch_alert": {
+      "type": "object",
+      "required": [
+        "severity",
+        "code",
+        "title",
+        "detail",
+        "run_id"
+      ],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "warning",
+            "info"
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": "string"
+        }
+      }
+    },
+    "dashboard_policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_promote_champion",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_saved_artifacts_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_promote_champion": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        }
+      }
+    },
+    "watchlist_policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

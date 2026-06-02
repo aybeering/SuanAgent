@@ -213,6 +213,9 @@ diagnosis rows, recent failure-code counts, a best-run-to-champion gap, and an
 operator watchlist for repeated proposals, artifact-health failures, and
 champion-gap alerts. It is inspection-only and does not execute agents, run
 backtests, apply patches, promote champions, or change acceptance.
+The embedded dashboard is validated in memory against
+`schemas/experiment_summary_dashboard.schema.json` before JSON or markdown is
+printed.
 `python -m orchestrator.experiments summary --markdown` renders the same
 summary payload, including the watchlist, as a compact terminal-friendly
 Markdown report without writing artifacts.

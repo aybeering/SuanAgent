@@ -359,6 +359,7 @@ from orchestrator.experiments import (
     show_experiment,
     show_champion,
     summarize_experiments,
+    validate_experiment_summary_dashboard_payload,
     validate_operator_view_refresh_payload,
     external_agent_sandbox_report,
 )
@@ -14531,6 +14532,10 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     assert summary["total_runs"] == 2
     assert summary["by_kind"] == {"single_run": 1, "iteration_loop": 1}
     assert summary["dashboard"]["schema_version"] == "experiment_summary_dashboard_v1"  # type: ignore[index]
+    assert validate_experiment_summary_dashboard_payload(
+        summary["dashboard"],  # type: ignore[arg-type,index]
+        repo_root=repo,
+    ) == ()
     assert summary["dashboard"]["latest_run"]["run_id"] == "iteration-rank"  # type: ignore[index]
     assert summary["dashboard"]["latest_rejected_run"]["run_id"] == "single-rank"  # type: ignore[index]
     assert summary["dashboard"]["latest_accepted_run"] is None  # type: ignore[index]
@@ -14553,6 +14558,43 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     assert summary["champion_lineage"]["lineage_artifact_exists"] is False  # type: ignore[index]
     assert len(leaderboard) == 2
     assert all("ev_delta" in row for row in leaderboard)
+
+
+def test_experiment_summary_dashboard_schema_rejects_missing_watchlist() -> None:
+    payload = {
+        "schema_version": "experiment_summary_dashboard_v1",
+        "total_runs": 0,
+        "recent_limit": 5,
+        "latest_run": None,
+        "latest_accepted_run": None,
+        "latest_rejected_run": None,
+        "recent_runs": [],
+        "recent_failure_codes": {},
+        "top_recent_failure_code": "none",
+        "champion_gap": {
+            "active": False,
+            "status": "no_champion",
+            "champion_run_id": "",
+            "comparison_run_id": "",
+            "gap_to_champion": None,
+        },
+        "policy": {
+            "inspection_only": True,
+            "reads_saved_artifacts_only": True,
+            "does_not_execute_agents": True,
+            "does_not_run_backtests": True,
+            "does_not_apply_patches": True,
+            "does_not_promote_champion": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+    errors = validate_experiment_summary_dashboard_payload(
+        payload,
+        repo_root=Path(__file__).resolve().parents[1],
+    )
+
+    assert "$: missing required property watchlist" in errors
 
 
 def test_compare_experiments_recommends_accepted_metric_winner(
@@ -15312,6 +15354,10 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
     summary = json.loads(summary_result.stdout)
     assert summary["total_runs"] == 1
     assert summary["dashboard"]["schema_version"] == "experiment_summary_dashboard_v1"
+    assert validate_experiment_summary_dashboard_payload(
+        summary["dashboard"],
+        repo_root=repo,
+    ) == ()
     assert summary["dashboard"]["latest_run"]["run_id"] == "cli-summary"
     assert summary["dashboard"]["latest_rejected_run"]["run_id"] == "cli-summary"
     assert summary["dashboard"]["latest_accepted_run"] is None

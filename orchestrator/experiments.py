@@ -84,6 +84,9 @@ CHAMPION_SCHEMA_VERSION = "champion_v1"
 SUMMARY_DASHBOARD_SCHEMA_VERSION = "experiment_summary_dashboard_v1"
 SUMMARY_DASHBOARD_RECENT_LIMIT = 5
 OPERATOR_VIEW_REFRESH_SCHEMA_PATH = Path("schemas/operator_view_refresh.schema.json")
+EXPERIMENT_SUMMARY_DASHBOARD_SCHEMA_PATH = Path(
+    "schemas/experiment_summary_dashboard.schema.json"
+)
 
 
 def list_experiments(
@@ -145,16 +148,26 @@ def summarize_experiments(
 
     leaderboard = experiment_leaderboard(experiments_dir=experiments_dir, limit=1)
     best_run = leaderboard[0] if leaderboard else None
+    dashboard = experiment_summary_dashboard(
+        records=records,
+        experiments_dir=experiments_dir,
+        best_run=best_run,
+    )
+    errors = validate_experiment_summary_dashboard_payload(
+        dashboard,
+        repo_root=experiments_dir.parent,
+    )
+    if errors:
+        raise ValueError(
+            "experiment summary dashboard failed schema validation: "
+            + "; ".join(errors)
+        )
     return {
         "total_runs": len(records),
         "by_kind": by_kind,
         "by_status": by_status,
         "best_run": best_run,
-        "dashboard": experiment_summary_dashboard(
-            records=records,
-            experiments_dir=experiments_dir,
-            best_run=best_run,
-        ),
+        "dashboard": dashboard,
         "champion_lineage": champion_lineage_summary(
             experiments_dir=experiments_dir,
         ),
@@ -211,6 +224,16 @@ def experiment_summary_dashboard(
             "does_not_change_acceptance": True,
         },
     }
+
+
+def validate_experiment_summary_dashboard_payload(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate an in-memory experiment summary dashboard payload."""
+    schema = load_schema(repo_root / EXPERIMENT_SUMMARY_DASHBOARD_SCHEMA_PATH)
+    return validate_json_payload(payload=payload, schema=schema)
 
 
 def diagnose_record(

@@ -226,8 +226,11 @@ closeout dashboard action items into explicit command candidates for human
 review. `python -m orchestrator.experiments action-plan <run_id>` and
 `action-plan --markdown` expose the same plan without executing any command.
 The plan records command digests, guarded-command flags, and deterministic
-authority fields, but it cannot write config, promote champions, execute
-agents, run backtests, route candidates, apply patches, or change acceptance.
+authority fields. Artifact validation checks command candidates through the
+shared operator command-hint validator for known labels, expected artifacts,
+command prefixes, simple shell-control-token guards, and matching command
+digests. The plan cannot write config, promote champions, execute agents, run
+backtests, route candidates, apply patches, or change acceptance.
 `operator_action_approval.json` and `operator_action_approval.md` can then
 record explicit operator approval for one action-plan command candidate. The
 approval binds to `operator_action_plan.json`, records the selected action id,
@@ -562,9 +565,11 @@ Replay artifacts:
   command candidates from the saved closeout dashboard. They bind to
   `run_closeout.json` by SHA-256, mark commands that would write repository
   state, promote champions, or run backtests, and require explicit operator
-  invocation for every candidate. They do not execute commands, execute agents,
-  run backtests, write config, promote champions, route agents, apply patches,
-  or change acceptance.
+  invocation for every candidate. Artifact validation rejects unknown command
+  labels, expected-artifact mismatches, unsafe shell control tokens, invalid
+  command prefixes, and command digest mismatches. They do not execute
+  commands, execute agents, run backtests, write config, promote champions,
+  route agents, apply patches, or change acceptance.
 - `operator_action_approval.json` and `operator_action_approval.md` record
   operator approval for one action-plan command candidate. They bind to
   `operator_action_plan.json` by SHA-256 and require the exact confirmation

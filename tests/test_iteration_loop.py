@@ -142,6 +142,7 @@ from orchestrator.round_replay import ROUND_REPLAY_SCHEMA_VERSION, replay_round
 from orchestrator.artifact_validator import (
     snapshot_digest_from_payload,
     validate_optional_codex_cli_unlock_runbook,
+    validate_optional_operator_action_plan,
     validate_optional_operator_unlock_checklist,
     validate_recommended_command_hints,
     validate_run_artifacts,
@@ -3786,11 +3787,12 @@ def test_patch_can_be_applied_and_rolled_back(tmp_path: Path) -> None:
 
 def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
+    run_id = "reject-smoke"
 
-    manifest = run_iteration_loop(run_id="reject-smoke", max_rounds=1, repo_root=repo)
+    manifest = run_iteration_loop(run_id=run_id, max_rounds=1, repo_root=repo)
 
     assert manifest["status"] == "stopped_max_rounds"
-    run_dir = repo / "experiments/reject-smoke"
+    run_dir = repo / f"experiments/{run_id}"
     round_dir = run_dir / "round_001"
     for filename in (
         "metrics_before.json",
@@ -4401,6 +4403,45 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         payload_path=run_dir / "operator_action_plan.json",
         repo_root=Path.cwd(),
     ) == ()
+    action_plan_validation: dict[str, object] = {
+        "run_id": run_id,
+        "checked_files": [],
+        "errors": [],
+        "warnings": [],
+    }
+    validate_optional_operator_action_plan(
+        run_dir=run_dir,
+        repo_root=Path.cwd(),
+        report=action_plan_validation,
+    )
+    assert action_plan_validation["errors"] == []
+
+    action_plan_path = run_dir / "operator_action_plan.json"
+    tampered_action_plan = json.loads(action_plan_path.read_text(encoding="utf-8"))
+    tampered_command = tampered_action_plan["actions"][0]["command_candidates"][0]
+    tampered_label = tampered_command["label"]
+    tampered_command["command"] += " && python -m orchestrator.run_loop"
+    tampered_command["command_sha256"] = hashlib.sha256(
+        tampered_command["command"].encode("utf-8")
+    ).hexdigest()
+    action_plan_path.write_text(
+        json.dumps(tampered_action_plan, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    tampered_action_plan_validation: dict[str, object] = {
+        "run_id": run_id,
+        "checked_files": [],
+        "errors": [],
+        "warnings": [],
+    }
+    validate_optional_operator_action_plan(
+        run_dir=run_dir,
+        repo_root=Path.cwd(),
+        report=tampered_action_plan_validation,
+    )
+    assert (
+        f"operator_action_plan action 1 command unsafe token: {tampered_label}"
+    ) in tampered_action_plan_validation["errors"]
     assert manifest["operator_action_dashboard"]["path"] == (
         "operator_action_dashboard.json"
     )

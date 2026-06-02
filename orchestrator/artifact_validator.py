@@ -2838,6 +2838,11 @@ def file_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def sha256_text(value: str) -> str:
+    """Return a SHA-256 digest for text."""
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
 def stable_json_digest(payload: object) -> str:
     """Return a stable digest for one JSON-compatible payload."""
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
@@ -3840,6 +3845,11 @@ def validate_optional_operator_action_plan(
         if not isinstance(commands, list):
             add_error(report, f"operator_action_plan.json action {index} commands invalid")
             continue
+        validate_operator_action_plan_command_candidates(
+            action=action,
+            action_index=index,
+            report=report,
+        )
         for command_index, command in enumerate(commands, start=1):
             if not isinstance(command, dict):
                 add_error(
@@ -3857,6 +3867,48 @@ def validate_optional_operator_action_plan(
                     report,
                     "operator_action_plan.json command missing explicit invocation flag",
                 )
+            if command.get("command_sha256") != sha256_text(str(command.get("command", ""))):
+                add_error(
+                    report,
+                    "operator_action_plan.json command sha256 mismatch",
+                )
+
+
+def operator_action_plan_expected_artifacts() -> dict[str, str]:
+    """Return expected action-plan command labels and artifact outputs."""
+    return {
+        "validate_run_artifacts": "run_artifact_health.json",
+        "inspect_scope_health": "experiment_scope_health.json",
+        "inspect_config_lineage": "config_lineage.json",
+        "inspect_config_candidate": "config_change_candidate.json",
+        "inspect_promotion_approval": "champion_promotion_approval.json",
+        "promote_from_approval": "champion_promotion_receipt.json",
+        "inspect_candidates": "candidate_leaderboard.json",
+        "inspect_quality_trace": "candidate_quality_trace.json",
+        "start_next_iteration": "manifest.json",
+        "review_run_dashboard": "run_closeout.md",
+        "inspect_research_brief": "research_brief.json",
+    }
+
+
+def validate_operator_action_plan_command_candidates(
+    *,
+    action: dict[str, object],
+    action_index: int,
+    report: dict[str, object],
+) -> None:
+    """Validate operator action plan command candidates stay bounded."""
+    validate_recommended_command_hints(
+        payload=action,
+        report=report,
+        artifact_label="operator_action_plan",
+        allowed_writes=operator_action_plan_expected_artifacts(),
+        unsafe_tokens=("&&", "||", "|", "`", "$(", "\n", ";"),
+        commands_field="command_candidates",
+        writes_field="expected_artifact",
+        command_noun=f"action {action_index} command",
+        allow_empty=True,
+    )
 
 
 def validate_optional_operator_action_approval(

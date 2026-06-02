@@ -105,6 +105,7 @@ Allowed components:
 54. A deterministic `codex_cli_execution_unlock_snapshot.json` report that freezes the unlock gate, candidate config binding, and evidence artifact hashes so later drift or tampering can be detected.
 55. A deterministic `codex_cli_execution_candidate.json` report that freezes the future real Codex command, planned workspace path, allowed mutation boundary, and unlock snapshot evidence without executing Codex.
 56. A deterministic `codex_cli_real_execution_dry_run.json` report that performs the final real-execution boundary dry run without invoking Codex, creating a workspace, applying patches, or changing acceptance.
+57. A deterministic `codex_cli_readiness_summary.json` report that summarizes the full Codex CLI readiness chain into one read-only status page.
 
 Still out of scope:
 
@@ -164,6 +165,7 @@ Current structure:
 │   ├── codex_cli_execution_unlock_snapshot.schema.json
 │   ├── codex_cli_execution_candidate.schema.json
 │   ├── codex_cli_real_execution_dry_run.schema.json
+│   ├── codex_cli_readiness_summary.schema.json
 │   ├── agent_execution.schema.json
 │   ├── agent_activation_preflight.schema.json
 │   ├── agent_execution_plan.schema.json
@@ -233,6 +235,7 @@ Current structure:
 │   ├── codex_cli_execution_unlock_snapshot.py
 │   ├── codex_cli_execution_candidate.py
 │   ├── codex_cli_real_execution_dry_run.py
+│   ├── codex_cli_readiness_summary.py
 │   ├── outcome_memory.py
 │   ├── policy_gate.py
 │   ├── proposal.py

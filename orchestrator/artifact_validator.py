@@ -127,6 +127,8 @@ def validate_run_artifacts(
             report=report,
         )
         validate_json_object(path=run_dir / "decision.json", report=report)
+    elif (run_dir / "codex_cli_readiness_summary.json").exists():
+        report["kind"] = "codex_cli_readiness_summary"
     elif (run_dir / "codex_cli_real_execution_dry_run.json").exists():
         report["kind"] = "codex_cli_real_execution_dry_run"
     elif (run_dir / "codex_cli_execution_candidate.json").exists():
@@ -215,6 +217,11 @@ def validate_run_artifacts(
         report=report,
     )
     validate_optional_codex_cli_real_execution_dry_run(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
+    validate_optional_codex_cli_readiness_summary(
         run_dir=run_dir,
         repo_root=repo_root,
         report=report,
@@ -3516,6 +3523,99 @@ def validate_optional_codex_cli_real_execution_dry_run(
                     f"codex_cli_real_execution_dry_run.json policy false: {key}",
                 )
     markdown_path = run_dir / "codex_cli_real_execution_dry_run.md"
+    if markdown_path.exists():
+        checked_files(report).append(str(markdown_path))
+
+
+def validate_optional_codex_cli_readiness_summary(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate codex_cli_readiness_summary.json when a run has one."""
+    path = run_dir / "codex_cli_readiness_summary.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/codex_cli_readiness_summary.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"codex_cli_readiness_summary.json run_id does not match report: {path}",
+        )
+    if bool(payload.get("ok", False)) is not True:
+        add_error(report, "codex_cli_readiness_summary.json ok false")
+    stages = payload.get("stages", [])
+    if not isinstance(stages, list) or len(stages) != 10:
+        add_error(report, "codex_cli_readiness_summary.json stages invalid")
+    else:
+        for stage in stages:
+            if not isinstance(stage, dict):
+                add_error(report, "codex_cli_readiness_summary.json stage invalid")
+                continue
+            artifact = stage.get("artifact", {})
+            if not isinstance(artifact, dict):
+                add_error(
+                    report,
+                    f"codex_cli_readiness_summary artifact invalid: {stage.get('stage', '')}",
+                )
+                continue
+            artifact_path = resolve_path(Path(str(artifact.get("path", ""))), repo_root)
+            if artifact_path.exists():
+                checked_files(report).append(str(artifact_path))
+            elif bool(artifact.get("exists", False)):
+                add_error(
+                    report,
+                    f"codex_cli_readiness_summary artifact missing: {artifact_path}",
+                )
+    final_ready = bool(payload.get("final_ready", False))
+    readiness_status = str(payload.get("readiness_status", ""))
+    if final_ready and readiness_status != "ready_for_operator_review":
+        add_error(report, "codex_cli_readiness_summary.json ready/status mismatch")
+    if not final_ready and readiness_status != "blocked":
+        add_error(report, "codex_cli_readiness_summary.json blocked/status mismatch")
+    blockers = payload.get("aggregate_blocking_reasons", [])
+    if not isinstance(blockers, list):
+        add_error(report, "codex_cli_readiness_summary.json blockers invalid")
+    elif not final_ready and not blockers:
+        add_error(report, "codex_cli_readiness_summary.json blocked without blockers")
+    if isinstance(stages, list) and stages:
+        final_stage = stages[-1]
+        if (
+            isinstance(final_stage, dict)
+            and bool(final_stage.get("ready", False)) != final_ready
+        ):
+            add_error(report, "codex_cli_readiness_summary.json final stage mismatch")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "codex_cli_readiness_summary.json policy invalid")
+    else:
+        for key in (
+            "summary_only",
+            "read_only",
+            "does_not_execute_codex_cli",
+            "does_not_create_workspace",
+            "does_not_send_strategy_prompt",
+            "does_not_modify_config",
+            "does_not_select_candidate",
+            "does_not_apply_patches",
+            "does_not_change_acceptance",
+            "deterministic_code_keeps_acceptance_authority",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(
+                    report,
+                    f"codex_cli_readiness_summary.json policy false: {key}",
+                )
+    markdown_path = run_dir / "codex_cli_readiness_summary.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
 

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Codex CLI Readiness Summary",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "ok",
+    "readiness_status",
+    "final_ready",
+    "missing_stages",
+    "blocked_stages",
+    "aggregate_blocking_reasons",
+    "stages",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "codex_cli_readiness_summary_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "readiness_status": {
+      "type": "string",
+      "enum": [
+        "blocked",
+        "ready_for_operator_review"
+      ]
+    },
+    "final_ready": {
+      "type": "boolean"
+    },
+    "missing_stages": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_stages": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "aggregate_blocking_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "stage",
+          "schema_version",
+          "artifact",
+          "ok",
+          "ready_key",
+          "ready",
+          "blocking_reasons"
+        ]
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "summary_only",
+        "read_only",
+        "does_not_execute_codex_cli",
+        "does_not_create_workspace",
+        "does_not_send_strategy_prompt",
+        "does_not_modify_config",
+        "does_not_select_candidate",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "deterministic_code_keeps_acceptance_authority"
+      ]
+    }
+  }
+}

@@ -274,6 +274,21 @@ jobs:
           assert dry_run["policy"]["does_not_execute_codex_cli"] is True
           assert dry_run["policy"]["does_not_create_workspace"] is True
           PY
+          python -m orchestrator.codex_cli_readiness_summary experiments/ci-codex-guarded
+          test -f experiments/ci-codex-guarded/codex_cli_readiness_summary.json
+          test -f experiments/ci-codex-guarded/codex_cli_readiness_summary.md
+          python - <<'PY'
+          import json
+          summary = json.load(open("experiments/ci-codex-guarded/codex_cli_readiness_summary.json"))
+          assert summary["schema_version"] == "codex_cli_readiness_summary_v1"
+          assert summary["ok"] is True
+          assert summary["readiness_status"] == "blocked"
+          assert summary["final_ready"] is False
+          assert len(summary["stages"]) == 10
+          assert "codex_cli_real_execution_dry_run" in summary["blocked_stages"]
+          assert any(reason == "codex_cli_real_execution_dry_run:execution_candidate_not_ready" for reason in summary["aggregate_blocking_reasons"])
+          assert summary["policy"]["does_not_execute_codex_cli"] is True
+          PY
           python -m orchestrator.artifact_validator ci-codex-guarded
           python -m orchestrator.artifact_validator ci-codex-canary
           python -m orchestrator.artifact_validator ci-adaptive

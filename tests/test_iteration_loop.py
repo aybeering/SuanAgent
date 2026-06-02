@@ -45,6 +45,10 @@ from orchestrator.agent_golden_replay import (
     write_agent_golden_replay,
 )
 from orchestrator.agent_output_quarantine import AGENT_OUTPUT_QUARANTINE_SCHEMA_VERSION
+from orchestrator.codex_cli_contract_fixture import (
+    CODEX_CLI_CONTRACT_FIXTURE_SCHEMA_VERSION,
+    write_codex_cli_contract_fixture,
+)
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.agent_slot_readiness_gate import (
@@ -5269,6 +5273,127 @@ def test_codex_cli_adapter_disabled_does_not_execute(tmp_path: Path) -> None:
         round_dir / "agent_executions/attempt_001_primary.json",
         "agent_execution",
     )
+
+
+def test_codex_cli_contract_fixture_freezes_guarded_stdin_stdout(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-contract-fixture",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/codex-contract-fixture"
+    round_dir = run_dir / "round_001"
+
+    fixture = write_codex_cli_contract_fixture(round_dir=round_dir, repo_root=repo)
+    validation_report = validate_run_artifacts(
+        run_id="codex-contract-fixture",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_contract_fixture",
+            "experiments/codex-contract-fixture/round_001",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert fixture["schema_version"] == CODEX_CLI_CONTRACT_FIXTURE_SCHEMA_VERSION
+    assert fixture["ok"] is True
+    assert fixture["failure_code"] == "none"
+    assert fixture["attempt_id"] == "attempt_001_primary"
+    assert fixture["checks"]["adapter_is_codex_cli"] is True
+    assert fixture["checks"]["runner_is_guarded_codex_cli"] is True
+    assert fixture["checks"]["stdin_prompt_sha_matches_audit"] is True
+    assert fixture["checks"]["fixture_stdout_validation_ok"] is True
+    assert fixture["checks"]["fixture_patch_present"] is True
+    assert fixture["checks"]["does_not_execute_codex"] is True
+    assert fixture["contract"]["execution_status"] == "disabled"
+    assert fixture["contract"]["execution_enabled"] is False
+    assert fixture["contract"]["prompt_sha256"] == (
+        fixture["contract"]["audit_stdin_sha256"]
+    )
+    assert fixture["contract"]["fixture_direction_tag"] == (
+        "codex_cli_fixture_lower_min_edge"
+    )
+    assert len(fixture["contract"]["fixture_patch_sha256"]) == 64
+    assert fixture["artifacts"]["fixture_stdout"]["exists"] is True
+    assert fixture["artifacts"]["fixture_validation"]["exists"] is True
+    assert fixture["artifacts"]["fixture_proposal"]["exists"] is True
+    assert (
+        round_dir
+        / "agent_attempts/attempt_001_primary/codex_cli_fixture_stdout.json"
+    ).exists()
+    assert_matches_schema(
+        round_dir / "codex_cli_contract_fixture.json",
+        "codex_cli_contract_fixture",
+    )
+    assert validation_report["ok"] is True
+    assert cli_result.returncode == 0, cli_result.stderr
+    assert cli_payload["schema_version"] == CODEX_CLI_CONTRACT_FIXTURE_SCHEMA_VERSION
+    assert cli_payload["ok"] is True
+
+
+def test_codex_cli_contract_fixture_blocks_prompt_hash_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-contract-mismatch",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    round_dir = repo / "experiments/codex-contract-mismatch/round_001"
+    for audit_path in (
+        round_dir / "agent_executions/attempt_001_primary.json",
+        round_dir / "agent_attempts/attempt_001_primary/agent_execution.json",
+    ):
+        audit = json.loads(audit_path.read_text(encoding="utf-8"))
+        audit["stdin"]["sha256"] = "0" * 64
+        audit_path.write_text(
+            json.dumps(audit, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    fixture = write_codex_cli_contract_fixture(round_dir=round_dir, repo_root=repo)
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_contract_fixture",
+            "experiments/codex-contract-mismatch/round_001",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert fixture["schema_version"] == CODEX_CLI_CONTRACT_FIXTURE_SCHEMA_VERSION
+    assert fixture["ok"] is False
+    assert fixture["failure_code"] == "stdin_prompt_sha_mismatch"
+    assert fixture["checks"]["stdin_prompt_sha_matches_audit"] is False
+    assert fixture["artifacts"]["fixture_stdout"]["exists"] is False
+    assert_matches_schema(
+        round_dir / "codex_cli_contract_fixture.json",
+        "codex_cli_contract_fixture",
+    )
+    assert cli_result.returncode == 1
+    assert cli_payload["failure_code"] == "stdin_prompt_sha_mismatch"
 
 
 def test_codex_cli_adapter_execute_success_parses_patch(tmp_path: Path) -> None:

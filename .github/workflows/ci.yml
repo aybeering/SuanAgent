@@ -85,6 +85,23 @@ jobs:
           assert sandbox["ok"] is True
           assert sandbox["slots"][0]["command"]["source"] == "agent_execution"
           PY
+          python -m orchestrator.codex_cli_contract_fixture experiments/ci-codex-guarded/round_001
+          test -f experiments/ci-codex-guarded/round_001/codex_cli_contract_fixture.json
+          test -f experiments/ci-codex-guarded/round_001/codex_cli_contract_fixture.md
+          test -f experiments/ci-codex-guarded/round_001/agent_attempts/attempt_001_primary/codex_cli_fixture_stdout.json
+          test -f experiments/ci-codex-guarded/round_001/agent_attempts/attempt_001_primary/codex_cli_fixture_validation.json
+          python - <<'PY'
+          import json
+          fixture = json.load(open("experiments/ci-codex-guarded/round_001/codex_cli_contract_fixture.json"))
+          assert fixture["schema_version"] == "codex_cli_contract_fixture_v1"
+          assert fixture["ok"] is True
+          assert fixture["failure_code"] == "none"
+          assert fixture["checks"]["runner_is_guarded_codex_cli"] is True
+          assert fixture["checks"]["stdin_prompt_sha_matches_audit"] is True
+          assert fixture["checks"]["fixture_stdout_validation_ok"] is True
+          assert fixture["contract"]["execution_status"] == "disabled"
+          assert fixture["contract"]["prompt_sha256"] == fixture["contract"]["audit_stdin_sha256"]
+          PY
           python -m orchestrator.artifact_validator ci-codex-guarded
           python -m orchestrator.artifact_validator ci-adaptive
           python -m orchestrator.artifact_validator ci-file-protocol-demo

@@ -1319,6 +1319,7 @@ def refresh_operator_views(
         run_id=run_id,
         experiments_dir=experiments_dir,
     )
+    operator_summary = operator_view_refresh_summary(cockpit)
     return {
         "schema_version": "operator_view_refresh_v1",
         "run_id": run_id,
@@ -1330,6 +1331,7 @@ def refresh_operator_views(
         "config_record": config_record,
         "refreshed_count": len(refreshed),
         "refreshed_artifacts": refreshed,
+        "operator_summary": operator_summary,
         "cockpit_snapshot_freshness": cockpit.get("snapshot_freshness", {}),
         "policy": {
             "writes_existing_read_only_operator_artifacts": True,
@@ -1347,10 +1349,31 @@ def refresh_operator_views(
     }
 
 
+def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, object]:
+    """Return the next operator-facing checkpoint after refreshing views."""
+    commands = list_payload(cockpit.get("recommended_commands", []))
+    next_command = commands[0] if commands else {}
+    blockers = list_payload(cockpit.get("blockers", []))
+    raw_blockers = cockpit.get("blockers", [])
+    blocker_count = (
+        len(raw_blockers) if isinstance(raw_blockers, list) else len(blockers)
+    )
+    return {
+        "cockpit_status": str(cockpit.get("status", "")),
+        "cockpit_ok": bool(cockpit.get("ok", False)),
+        "primary_focus": str(cockpit.get("primary_focus", "")),
+        "blocker_count": blocker_count,
+        "next_command_label": str(next_command.get("label", "")),
+        "next_command": str(next_command.get("command", "")),
+        "next_command_reason": str(next_command.get("reason", "")),
+    }
+
+
 def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     """Render the operator-view refresh receipt as a compact markdown summary."""
     config_record = dict_payload(payload.get("config_record", {}))
     freshness = dict_payload(payload.get("cockpit_snapshot_freshness", {}))
+    operator_summary = dict_payload(payload.get("operator_summary", {}))
     policy = dict_payload(payload.get("policy", {}))
     lines = [
         "# Operator View Refresh",
@@ -1363,6 +1386,11 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Config sha256: `{str(payload.get('config_sha256', ''))[:12]}`",
         f"- Cockpit freshness: `{freshness.get('status', '')}`",
         f"- Freshness ok: `{freshness.get('ok', False)}`",
+        f"- Cockpit status: `{operator_summary.get('cockpit_status', '')}`",
+        f"- Primary focus: `{operator_summary.get('primary_focus', '')}`",
+        f"- Blockers: `{operator_summary.get('blocker_count', 0)}`",
+        f"- Next command: `{operator_summary.get('next_command_label', '')}`",
+        f"- Next command text: `{operator_summary.get('next_command', '')}`",
         "",
         "## Refreshed Artifacts",
         "",

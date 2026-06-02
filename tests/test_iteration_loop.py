@@ -2482,6 +2482,20 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     assert "Config source: `run_metadata`" in refresh_markdown
     assert "config/codex_cli_guarded.json" in refresh_markdown
     assert "Cockpit freshness: `fresh`" in refresh_markdown
+    assert refresh["operator_summary"]["cockpit_status"] in {
+        "needs_operator_review",
+        "ready_for_review",
+        "action_pending",
+        "promotion_pending_approval",
+    }
+    assert refresh["operator_summary"]["primary_focus"]
+    assert refresh["operator_summary"]["next_command_label"] == "review_cockpit"
+    assert (
+        f"cockpit {run_id} --markdown"
+        in refresh["operator_summary"]["next_command"]
+    )
+    assert "Next command: `review_cockpit`" in refresh_markdown
+    assert f"cockpit {run_id} --markdown" in refresh_markdown
     for row in refresh["refreshed_artifacts"]:
         json_file = row["json_file"]
         markdown_file = row["markdown_file"]

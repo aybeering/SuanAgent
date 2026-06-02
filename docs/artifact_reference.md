@@ -320,7 +320,9 @@ still does not execute commands, execute Codex, run agents, run backtests, write
 config, promote champions, apply patches, route agents, or change acceptance.
 Add `--markdown` to render the same terminal-only receipt as a compact operator
 summary with refreshed artifact paths, hash prefixes, config provenance, and
-snapshot freshness.
+snapshot freshness. The receipt also includes a derived operator summary from
+the refreshed cockpit: cockpit status, primary focus, blocker count, and the
+first recommended next command.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.

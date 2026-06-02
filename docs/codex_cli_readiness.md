@@ -183,7 +183,9 @@ SHA-256 digest, and per-artifact JSON/Markdown output hashes; it does not
 execute Codex, record approval, create workspaces, modify config, apply patches,
 or change acceptance.
 Use `--markdown` for the same terminal-only receipt as a short operator summary
-when reviewing the refreshed paths and hash prefixes by eye.
+when reviewing the refreshed paths and hash prefixes by eye. The summary also
+surfaces the refreshed cockpit status, primary focus, blocker count, and first
+recommended next command.
 
 Record operator review intent:
 

@@ -1166,6 +1166,11 @@ jobs:
           assert "Config source: `run_metadata`" in refresh_markdown
           assert "config/adaptive_stub.json" in refresh_markdown
           assert "Cockpit freshness: `fresh`" in refresh_markdown
+          assert refresh["operator_summary"]["primary_focus"]
+          assert refresh["operator_summary"]["next_command_label"] == "review_cockpit"
+          assert "cockpit ci-adaptive --markdown" in refresh["operator_summary"]["next_command"]
+          assert "Next command: `review_cockpit`" in refresh_markdown
+          assert "cockpit ci-adaptive --markdown" in refresh_markdown
           assert refresh["refreshed_count"] == 5
           assert [
               row["artifact_name"] for row in refresh["refreshed_artifacts"]

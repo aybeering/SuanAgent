@@ -111,6 +111,7 @@ Implemented or allowed V0.5 components:
 97. A deterministic `candidate_quality_trace.json` and `candidate_quality_trace.md` report pair that summarizes saved candidate score components, probe/validation/holdout signals, selected attempts, patch families, and failure codes from `candidate_leaderboard.json` without executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 98. Configurable deterministic outcome-memory scope fields, `memory_filter.created_at_from` and `memory_filter.recent_record_limit`, that constrain patch rejection, direction rejection, and direction history priors while preserving full-history behavior by default.
 99. A deterministic `memory_hygiene.json` and `memory_hygiene.md` report pair that summarizes active versus ignored outcome memory records, patch and direction block groups, and read-only hygiene recommendations without deleting memory, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
+100. A deterministic `memory_scope_recommendation.json` and `memory_scope_recommendation.md` report pair that reads saved memory hygiene artifacts and recommends whether future runs should keep full-history outcome memory or set a recent-record scope, without writing config, deleting memory, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 
 ## Contract Families
 
@@ -149,6 +150,8 @@ Agent-slot contracts:
   `schemas/run_artifact_health_history.schema.json`
 - Memory diagnostics: `schemas/memory_diagnostics.schema.json`
 - Memory hygiene: `schemas/memory_hygiene.schema.json`
+- Memory scope recommendation:
+  `schemas/memory_scope_recommendation.schema.json`
 - Experiment scope health: `schemas/experiment_scope_health.schema.json`
 - Run closeout: `schemas/run_closeout.schema.json`
 - Candidate quality trace: `schemas/candidate_quality_trace.schema.json`

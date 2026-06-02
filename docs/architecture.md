@@ -133,6 +133,10 @@ Each iteration run writes `memory_hygiene.json` and `memory_hygiene.md` to show
 which records were active, which were ignored by scope, and which patch or
 direction groups would be blocked. These reports are read-only and do not
 delete memory or change acceptance.
+The run also writes `memory_scope_recommendation.json` and
+`memory_scope_recommendation.md`, an advisory-only report that suggests whether
+future runs should keep full-history memory or set a recent-record scope. It
+does not edit config, delete memory, route candidates, or change acceptance.
 
 ## Champion Registry
 

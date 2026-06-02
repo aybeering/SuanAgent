@@ -31,6 +31,8 @@ ITERATION_RUN_REQUIRED_FILES = (
     "candidate_quality_trace.md",
     "memory_hygiene.json",
     "memory_hygiene.md",
+    "memory_scope_recommendation.json",
+    "memory_scope_recommendation.md",
     "codex_cli_execution_preflight.json",
     "codex_cli_execution_preflight.md",
     "agent_activation_preflight.json",
@@ -329,6 +331,11 @@ def validate_iteration_run(
         repo_root=repo_root,
         report=report,
     )
+    validate_memory_scope_recommendation(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_contract_file(
         payload_path=run_dir / "agent_activation_preflight.json",
         schema_path=repo_root / "schemas/agent_activation_preflight.schema.json",
@@ -518,6 +525,67 @@ def validate_memory_hygiene(
     ):
         if policy.get(key) is not True:
             add_error(report, f"memory_hygiene.json policy false: {key}")
+
+
+def validate_memory_scope_recommendation(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate run-level memory scope recommendation artifact."""
+    path = run_dir / "memory_scope_recommendation.json"
+    md_path = run_dir / "memory_scope_recommendation.md"
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/memory_scope_recommendation.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"memory_scope_recommendation.json run_id does not match report: {path}",
+        )
+    source = payload.get("source", {})
+    if not isinstance(source, dict):
+        add_error(report, "memory_scope_recommendation.json source invalid")
+    else:
+        validate_recorded_file_hash(
+            record=source,
+            repo_root=repo_root,
+            report=report,
+            label="memory_scope_recommendation source",
+        )
+        if not str(source.get("path", "")).endswith("memory_hygiene.json"):
+            add_error(
+                report,
+                "memory_scope_recommendation source is not memory_hygiene.json",
+            )
+    recommendation = payload.get("recommendation", {})
+    if not isinstance(recommendation, dict):
+        add_error(report, "memory_scope_recommendation.json recommendation invalid")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "memory_scope_recommendation.json policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_write_config",
+        "does_not_delete_memory",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_route_candidates",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"memory_scope_recommendation.json policy false: {key}")
 
 
 def validate_round_candidate_quality_bindings(

@@ -160,6 +160,12 @@ from orchestrator.memory_hygiene import (
     validate_memory_hygiene_file,
     write_memory_hygiene,
 )
+from orchestrator.memory_scope_recommendation import (
+    MEMORY_SCOPE_RECOMMENDATION_SCHEMA_VERSION,
+    build_memory_scope_recommendation,
+    validate_memory_scope_recommendation_file,
+    write_memory_scope_recommendation,
+)
 from orchestrator.experiment_scope_health import (
     SCHEMA_VERSION as EXPERIMENT_SCOPE_HEALTH_SCHEMA_VERSION,
     build_experiment_scope_health,
@@ -221,6 +227,7 @@ from orchestrator.experiments import (
     experiment_leaderboard,
     list_experiments,
     memory_hygiene_report,
+    memory_scope_recommendation_report,
     promote_champion,
     show_experiment,
     show_champion,
@@ -1255,6 +1262,70 @@ def test_memory_hygiene_scopes_filter_history(tmp_path: Path) -> None:
     assert validate_memory_hygiene_file(payload_path=output_path, repo_root=repo) == ()
 
 
+def test_memory_scope_recommendation_suggests_recent_limit(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/scope-rec"
+    run_dir.mkdir(parents=True)
+    memory_path = repo / "experiments/memory.jsonl"
+    records = []
+    for index in range(120):
+        records.append(
+            {
+                "created_at": f"2026-01-{(index % 28) + 1:02d}T00:00:00Z",
+                "kind": "proposal_outcome",
+                "run_id": f"memory-run-{index:03d}",
+                "round_id": "round_001",
+                "agent_name": "stub",
+                "direction_tag": "lower_min_edge",
+                "patch_sha256": "scopepatch" * 7,
+                "accepted": False,
+                "applicable": True,
+                "validation_ev_delta": -0.01,
+            }
+        )
+    memory_path.write_text(
+        "\n".join(json.dumps(record, sort_keys=True) for record in records) + "\n",
+        encoding="utf-8",
+    )
+    write_memory_hygiene(
+        output_path=run_dir / "memory_hygiene.json",
+        markdown_path=run_dir / "memory_hygiene.md",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        failed_patch_threshold=2,
+        failed_direction_threshold=3,
+        exclude_run_id="scope-rec",
+    )
+
+    json_path, md_path, payload = write_memory_scope_recommendation(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    )
+    dynamic_payload = build_memory_scope_recommendation(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    )
+
+    assert payload["schema_version"] == MEMORY_SCOPE_RECOMMENDATION_SCHEMA_VERSION
+    assert payload["source"]["path"].endswith("memory_hygiene.json")
+    assert payload["observed_totals"]["active_record_count"] == 120
+    assert payload["recommendation"]["action"] == "set_recent_record_limit"
+    assert payload["recommendation"]["recommended_recent_record_limit"] == 100
+    assert payload["recommendation"]["would_change_current_config"] is True
+    assert payload["policy"]["does_not_write_config"] is True
+    assert "# Memory Scope Recommendation" in md_path.read_text(encoding="utf-8")
+    assert dynamic_payload["source_from_artifact"] is True
+    assert_matches_schema_payload(payload, "memory_scope_recommendation")
+    assert validate_memory_scope_recommendation_file(
+        payload_path=json_path,
+        repo_root=repo,
+    ) == ()
+
+
 def test_agent_contract_runner_writes_disabled_audit(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     round_dir = tmp_path / "round"
@@ -2177,6 +2248,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "candidate_quality_trace.md").exists()
     assert (run_dir / "memory_hygiene.json").exists()
     assert (run_dir / "memory_hygiene.md").exists()
+    assert (run_dir / "memory_scope_recommendation.json").exists()
+    assert (run_dir / "memory_scope_recommendation.md").exists()
     assert (run_dir / "agent_result_stats.json").exists()
     assert (run_dir / "agent_activation_preflight.json").exists()
     assert (run_dir / "agent_activation_preflight.md").exists()
@@ -2264,6 +2337,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     memory_hygiene_markdown = (run_dir / "memory_hygiene.md").read_text(
         encoding="utf-8"
     )
+    memory_scope_recommendation = json.loads(
+        (run_dir / "memory_scope_recommendation.json").read_text(encoding="utf-8")
+    )
+    memory_scope_markdown = (run_dir / "memory_scope_recommendation.md").read_text(
+        encoding="utf-8"
+    )
     agent_stats = json.loads(
         (run_dir / "agent_result_stats.json").read_text(encoding="utf-8")
     )
@@ -2325,6 +2404,27 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert memory_hygiene["policy"]["does_not_change_acceptance"] is True
     assert "# Memory Hygiene" in memory_hygiene_markdown
     assert_matches_schema(run_dir / "memory_hygiene.json", "memory_hygiene")
+    assert manifest["memory_scope_recommendation"]["path"] == (
+        "memory_scope_recommendation.json"
+    )
+    assert manifest["memory_scope_recommendation"]["markdown_path"] == (
+        "memory_scope_recommendation.md"
+    )
+    assert memory_scope_recommendation["schema_version"] == (
+        MEMORY_SCOPE_RECOMMENDATION_SCHEMA_VERSION
+    )
+    assert memory_scope_recommendation["source"]["path"].endswith(
+        "memory_hygiene.json"
+    )
+    assert memory_scope_recommendation["recommendation"]["action"] == (
+        manifest["memory_scope_recommendation"]["action"]
+    )
+    assert memory_scope_recommendation["policy"]["does_not_write_config"] is True
+    assert "# Memory Scope Recommendation" in memory_scope_markdown
+    assert_matches_schema(
+        run_dir / "memory_scope_recommendation.json",
+        "memory_scope_recommendation",
+    )
     assert manifest["candidate_challenger_report"]["path"] == (
         "candidate_challenger_report.json"
     )
@@ -6555,6 +6655,37 @@ def test_artifact_validator_reports_candidate_quality_trace_policy_violation(
     assert report["ok"] is False
     assert any(
         "candidate_quality_trace.json policy false: does_not_change_acceptance"
+        in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_memory_scope_policy_violation(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="memory-scope-policy-error",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/memory-scope-policy-error/memory_scope_recommendation.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["policy"]["does_not_write_config"] = False
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="memory-scope-policy-error",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "memory_scope_recommendation.json policy false: does_not_write_config"
         in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
@@ -12632,6 +12763,10 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         run_id="cli-candidates",
         experiments_dir=repo / "experiments",
     )
+    scope_recommendation = memory_scope_recommendation_report(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+    )
     result = subprocess.run(
         [
             sys.executable,
@@ -12694,6 +12829,21 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    scope_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "memory-scope-recommendation",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     challenger_result = subprocess.run(
         [
             sys.executable,
@@ -12745,6 +12895,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert hygiene["from_artifact"] is True
     assert hygiene["schema_version"] == MEMORY_HYGIENE_SCHEMA_VERSION
     assert hygiene["policy"]["does_not_delete_memory"] is True
+    assert scope_recommendation["from_artifact"] is True
+    assert scope_recommendation["schema_version"] == (
+        MEMORY_SCOPE_RECOMMENDATION_SCHEMA_VERSION
+    )
+    assert scope_recommendation["policy"]["does_not_write_config"] is True
     assert stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
     assert "avg_holdout_ev_delta" in stats["agents"][0]
     assert stats["round_replays"]["round_count"] == 1
@@ -12778,6 +12933,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     hygiene_payload = json.loads(hygiene_result.stdout)
     assert hygiene_payload["schema_version"] == MEMORY_HYGIENE_SCHEMA_VERSION
     assert hygiene_payload["from_artifact"] is True
+    assert scope_result.returncode == 0, scope_result.stderr
+    scope_payload = json.loads(scope_result.stdout)
+    assert scope_payload["schema_version"] == MEMORY_SCOPE_RECOMMENDATION_SCHEMA_VERSION
+    assert scope_payload["from_artifact"] is True
+    assert scope_payload["source"]["path"].endswith("memory_hygiene.json")
     assert challenger_result.returncode == 0, challenger_result.stderr
     challenger_payload = json.loads(challenger_result.stdout)
     assert challenger_payload["schema_version"] == CANDIDATE_CHALLENGER_SCHEMA_VERSION

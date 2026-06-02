@@ -48,7 +48,8 @@ Build V0.5 only.
 
 Allowed implementation work includes the deterministic evaluation loop, strategy
 modifier stubs, guarded external-adapter slots, proposal contracts, artifact
-validation, replay commands, and Codex CLI readiness evidence.
+validation, replay commands, read-only outcome-memory hygiene and scope
+recommendation artifacts, and Codex CLI readiness evidence.
 
 Still out of scope:
 
@@ -136,6 +137,9 @@ experiments/<run_id>/
 ```
 
 Artifact details live in `docs/artifact_reference.md`.
+Outcome-memory hygiene and scope recommendation artifacts are advisory only:
+they may suggest future config changes, but they must not edit config, delete
+memory, route candidates, apply patches, or change acceptance.
 
 ## Strategy Policy
 

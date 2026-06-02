@@ -39,6 +39,10 @@ KNOWN_ARTIFACT_NAMES = {
     "run_artifact_health_history": ("run_artifact_health_history.jsonl",),
     "memory_diagnostics": ("memory_diagnostics.json",),
     "memory_hygiene": ("memory_hygiene.json", "memory_hygiene.md"),
+    "memory_scope_recommendation": (
+        "memory_scope_recommendation.json",
+        "memory_scope_recommendation.md",
+    ),
     "experiment_scope_health": ("experiment_scope_health.json",),
     "run_closeout": ("run_closeout.json", "run_closeout.md"),
     "candidate_challenger_report": (
@@ -93,6 +97,10 @@ INSPECTION_COMMANDS = {
     "memory_hygiene": (
         "python -m orchestrator.memory_hygiene",
         "python -m orchestrator.experiments memory-hygiene",
+    ),
+    "memory_scope_recommendation": (
+        "python -m orchestrator.memory_scope_recommendation",
+        "python -m orchestrator.experiments memory-scope-recommendation",
     ),
     "experiment_scope_health": (
         "python -m orchestrator.experiment_scope_health",

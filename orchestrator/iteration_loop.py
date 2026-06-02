@@ -84,6 +84,7 @@ from orchestrator.outcome_memory import (
     memory_filter_rejection_reason,
 )
 from orchestrator.memory_hygiene import write_memory_hygiene
+from orchestrator.memory_scope_recommendation import write_memory_scope_recommendation
 from orchestrator.overfit_validator import write_overfit_validation
 from orchestrator.policy_gate import (
     apply_holdout_gate,
@@ -270,6 +271,13 @@ def run_iteration_loop(
             "active_record_count": 0,
             "patch_block_count": 0,
             "direction_block_count": 0,
+        },
+        "memory_scope_recommendation": {
+            "path": "memory_scope_recommendation.json",
+            "markdown_path": "memory_scope_recommendation.md",
+            "action": "pending",
+            "recommended_recent_record_limit": 0,
+            "recommended_created_at_from": "",
         },
         "champion_promotion_dry_run": {
             "path": "champion_promotion_dry_run.json",
@@ -589,6 +597,27 @@ def finalize_iteration_run(
         "patch_block_count": int(hygiene_totals.get("patch_block_count", 0) or 0),
         "direction_block_count": int(
             hygiene_totals.get("direction_block_count", 0) or 0
+        ),
+    }
+    _, _, scope_recommendation = write_memory_scope_recommendation(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        experiments_dir=experiments_dir,
+    )
+    scope_decision = (
+        scope_recommendation.get("recommendation", {})
+        if isinstance(scope_recommendation.get("recommendation", {}), dict)
+        else {}
+    )
+    manifest["memory_scope_recommendation"] = {
+        "path": "memory_scope_recommendation.json",
+        "markdown_path": "memory_scope_recommendation.md",
+        "action": str(scope_decision.get("action", "")),
+        "recommended_recent_record_limit": int(
+            scope_decision.get("recommended_recent_record_limit", 0) or 0
+        ),
+        "recommended_created_at_from": str(
+            scope_decision.get("recommended_created_at_from", "")
         ),
     }
     write_iteration_summary(run_dir=run_dir, manifest=manifest)

@@ -106,6 +106,8 @@ experiments/<run_id>/
   candidate_quality_trace.md
   memory_hygiene.json
   memory_hygiene.md
+  memory_scope_recommendation.json
+  memory_scope_recommendation.md
   agent_result_stats.json
   candidate_challenger_report.json
   candidate_challenger_report.md
@@ -315,6 +317,11 @@ Replay artifacts:
   direction groups that would trigger deterministic rejection, and advisory
   hygiene recommendations. They never delete memory, run backtests, route
   agents, apply patches, or change acceptance.
+- `memory_scope_recommendation.json` and `memory_scope_recommendation.md`
+  summarize whether the current outcome-memory scope should remain full-history
+  or be narrowed for future runs with a recent-record limit. They read saved
+  hygiene artifacts only, never write config, never delete memory, never route
+  candidates, never apply patches, and never change acceptance.
 - `experiment_scope_health.json` combines current artifact health,
   artifact-health history, and memory diagnostics for one `--created-at-from`
   scope. It is a read-only status page and marks the scope unhealthy if any

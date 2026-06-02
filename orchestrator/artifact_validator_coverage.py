@@ -159,7 +159,10 @@ INSPECTION_COMMANDS = {
         "python -m orchestrator.experiment_scope_health",
         "python -m orchestrator.experiments scope-health",
     ),
-    "run_closeout": ("python -m orchestrator.run_closeout",),
+    "run_closeout": (
+        "python -m orchestrator.run_closeout",
+        "python -m orchestrator.experiments review",
+    ),
     "candidate_challenger_report": (
         "python -m orchestrator.candidate_challenger_report",
     ),

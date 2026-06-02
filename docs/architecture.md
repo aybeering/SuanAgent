@@ -169,7 +169,9 @@ receipt artifacts into one read-only digest chain. They do not write config.
 `run_closeout.json` and `run_closeout.md` include an `operator_dashboard`
 summary that rolls up artifact health, config lineage, champion review,
 promotion review, watchlist status, action items, and deterministic authority.
-It is an inspection view only; it cannot write config, promote champions, route
+`python -m orchestrator.experiments review <run_id>` renders the same dashboard
+without requiring the operator to inspect the full closeout file. It is an
+inspection view only; it cannot write config, promote champions, route
 candidates, run backtests, apply patches, execute agents, or change acceptance.
 
 ## Champion Registry

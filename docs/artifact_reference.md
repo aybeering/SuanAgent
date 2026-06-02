@@ -30,6 +30,8 @@ Experiment inspection:
 ```bash
 python -m orchestrator.experiments list --limit 5
 python -m orchestrator.experiments show <run_id>
+python -m orchestrator.experiments review <run_id>
+python -m orchestrator.experiments review <run_id> --markdown
 python -m orchestrator.experiments summary
 python -m orchestrator.experiments summary --markdown
 python -m orchestrator.experiments leaderboard --limit 5
@@ -169,6 +171,11 @@ backtests, apply patches, promote champions, or change acceptance.
 `python -m orchestrator.experiments summary --markdown` renders the same
 summary payload, including the watchlist, as a compact terminal-friendly
 Markdown report without writing artifacts.
+`python -m orchestrator.experiments review <run_id>` returns the saved
+`run_closeout.json` operator dashboard directly. `review --markdown` renders
+the same dashboard for terminal inspection. The command is read-only: it does
+not write config, promote champions, execute agents, run backtests, route
+candidates, apply patches, or change acceptance.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.

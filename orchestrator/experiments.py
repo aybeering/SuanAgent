@@ -30,6 +30,7 @@ from orchestrator.run_artifact_health import (
     build_run_artifact_health,
     build_run_artifact_health_history,
 )
+from orchestrator.run_closeout import build_run_closeout
 from orchestrator.run_diagnosis import diagnose_run
 
 
@@ -909,6 +910,137 @@ def config_lineage_report(
     return payload
 
 
+def operator_run_review(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+) -> dict[str, object]:
+    """Return the operator dashboard for one iteration run."""
+    run_dir = experiments_dir / run_id
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    closeout_path = run_dir / "run_closeout.json"
+    if closeout_path.exists():
+        closeout = load_json(closeout_path)
+        from_artifact = True
+    else:
+        if not (run_dir / "manifest.json").exists():
+            raise FileNotFoundError(f"Iteration manifest not found for run: {run_id}")
+        closeout = build_run_closeout(
+            run_dir=run_dir,
+            experiments_dir=experiments_dir,
+            repo_root=experiments_dir.parent,
+        )
+        from_artifact = False
+    dashboard = dict_payload(closeout.get("operator_dashboard", {}))
+    summary = dict_payload(closeout.get("summary", {}))
+    return {
+        "schema_version": "operator_run_review_v1",
+        "run_id": run_id,
+        "run_dir": str(run_dir),
+        "from_artifact": from_artifact,
+        "closeout_path": str(closeout_path),
+        "closeout_markdown_path": str(run_dir / "run_closeout.md"),
+        "run_status": str(closeout.get("status", "unknown")),
+        "closeout_status": str(closeout.get("closeout_status", "unknown")),
+        "closeout_ok": bool(closeout.get("ok", False)),
+        "summary": {
+            "completed_rounds": int(summary.get("completed_rounds", 0) or 0),
+            "accepted_round": summary.get("accepted_round"),
+            "stop_reason": summary.get("stop_reason"),
+            "config_lineage_status": str(
+                summary.get("config_lineage_status", "unknown")
+            ),
+            "research_primary_focus": str(
+                summary.get("research_primary_focus", "unknown")
+            ),
+        },
+        "dashboard": dashboard,
+        "policy": {
+            "inspection_only": True,
+            "reads_saved_artifacts_only": True,
+            "does_not_execute_agents": True,
+            "does_not_run_backtests": True,
+            "does_not_write_config": True,
+            "does_not_promote_champion": True,
+            "does_not_apply_patches": True,
+            "does_not_route_agents": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+
+def render_operator_run_review_markdown(payload: dict[str, object]) -> str:
+    """Render an operator run review payload as compact markdown."""
+    dashboard = dict_payload(payload.get("dashboard", {}))
+    status_summary = dict_payload(dashboard.get("status_summary", {}))
+    config_review = dict_payload(dashboard.get("config_review", {}))
+    champion_review = dict_payload(dashboard.get("champion_review", {}))
+    watchlist = dict_payload(dashboard.get("watchlist", {}))
+    lines = [
+        "# Operator Run Review",
+        "",
+        f"- Run id: `{markdown_cell(payload.get('run_id', ''))}`",
+        f"- Run status: `{markdown_cell(payload.get('run_status', 'unknown'))}`",
+        f"- Closeout status: `{markdown_cell(payload.get('closeout_status', 'unknown'))}`",
+        f"- Closeout OK: `{payload.get('closeout_ok', False)}`",
+        f"- Completed rounds: `{status_summary.get('completed_rounds', 0)}`",
+        f"- Stop reason: `{markdown_cell(status_summary.get('stop_reason', ''))}`",
+        "",
+        "## Config",
+        "",
+        f"- Lineage status: `{markdown_cell(config_review.get('lineage_status', 'unknown'))}`",
+        f"- Existing stages: `{config_review.get('existing_stage_count', 0)}`",
+        "- Current config matches latest stage: "
+        f"`{config_review.get('current_config_matches_latest_stage', False)}`",
+        "",
+        "## Champion",
+        "",
+        f"- Challenger status: `{markdown_cell(champion_review.get('challenger_status', 'unknown'))}`",
+        f"- Promotion approval: `{markdown_cell(champion_review.get('approval_status', 'unknown'))}`",
+        f"- Would promote: `{champion_review.get('would_promote', False)}`",
+        "",
+        "## Watchlist",
+        "",
+        f"- Status: `{markdown_cell(watchlist.get('status', 'unknown'))}`",
+        f"- Alerts: `{watchlist.get('alert_count', 0)}`",
+        "",
+        "## Gates",
+        "",
+        "| Gate | OK | Status | Artifact |",
+        "| --- | --- | --- | --- |",
+    ]
+    for row in list_payload(dashboard.get("gates", [])):
+        lines.append(
+            "| "
+            f"{markdown_cell(row.get('gate_name', ''))} | "
+            f"{row.get('ok', False)} | "
+            f"{markdown_cell(row.get('status', ''))} | "
+            f"`{markdown_cell(row.get('artifact_path', ''))}` |"
+        )
+    lines.extend(["", "## Action Items", ""])
+    raw_action_items = dashboard.get("operator_action_items", [])
+    action_items = (
+        [str(item) for item in raw_action_items]
+        if isinstance(raw_action_items, list)
+        else []
+    )
+    lines.extend([f"- {markdown_cell(item)}" for item in action_items] or ["- none"])
+    lines.extend(
+        [
+            "",
+            "## Authority",
+            "",
+            "- Final acceptance authority: `deterministic_code`",
+            "- Executes agents: `False`",
+            "- Writes config: `False`",
+            "- Promotes champion: `False`",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def agent_slot_health_report(
     *,
     run_id: str,
@@ -1593,6 +1725,17 @@ def main() -> None:
     show_parser = subparsers.add_parser("show", help="Show one experiment.")
     show_parser.add_argument("run_id")
 
+    review_parser = subparsers.add_parser(
+        "review",
+        help="Show the operator dashboard for one iteration run.",
+    )
+    review_parser.add_argument("run_id")
+    review_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the operator dashboard as markdown.",
+    )
+
     leaderboard_parser = subparsers.add_parser(
         "leaderboard",
         help="Rank experiments by validation EV improvement.",
@@ -1825,6 +1968,14 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )
+    elif args.command == "review":
+        payload = operator_run_review(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
+        )
+        if args.markdown:
+            print(render_operator_run_review_markdown(payload), end="")
+            return
     elif args.command == "leaderboard":
         payload = experiment_leaderboard(
             experiments_dir=args.experiments_dir,

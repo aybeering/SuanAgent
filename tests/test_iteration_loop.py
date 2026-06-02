@@ -270,7 +270,9 @@ from orchestrator.experiments import (
     memory_hygiene_report,
     memory_scope_recommendation_report,
     operator_config_review_report,
+    operator_run_review,
     promote_champion,
+    render_operator_run_review_markdown,
     show_experiment,
     show_champion,
     summarize_experiments,
@@ -13657,6 +13659,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         experiments_dir=repo / "experiments",
         config_path=repo / "config/default.json",
     )
+    review = operator_run_review(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+    )
+    review_markdown = render_operator_run_review_markdown(review)
     result = subprocess.run(
         [
             sys.executable,
@@ -13668,6 +13675,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "cli-candidates",
             "--limit",
             "1",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    review_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "review",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    review_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "review",
+            "cli-candidates",
+            "--markdown",
         ],
         cwd=repo,
         capture_output=True,
@@ -13953,6 +13991,15 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         "operator_config_review.json"
     )
     assert config_application["policy"]["does_not_write_config"] is True
+    assert review["schema_version"] == "operator_run_review_v1"
+    assert review["from_artifact"] is True
+    assert review["dashboard"]["schema_version"] == "operator_dashboard_v1"
+    assert review["dashboard"]["config_review"]["lineage_status"] == "partial"
+    assert review["dashboard"]["policy"]["does_not_write_config"] is True
+    assert review["policy"]["does_not_change_acceptance"] is True
+    assert "# Operator Run Review" in review_markdown
+    assert "## Config" in review_markdown
+    assert "Final acceptance authority" in review_markdown
     assert stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
     assert "avg_holdout_ev_delta" in stats["agents"][0]
     assert stats["round_replays"]["round_count"] == 1
@@ -13969,6 +14016,17 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert payload[0]["run_id"] == "cli-candidates"
     assert "probe_ev_delta" in payload[0]
     assert "quality_breakdown" in payload[0]
+    assert review_result.returncode == 0, review_result.stderr
+    review_payload = json.loads(review_result.stdout)
+    assert review_payload["schema_version"] == "operator_run_review_v1"
+    assert review_payload["from_artifact"] is True
+    assert review_payload["dashboard"]["schema_version"] == "operator_dashboard_v1"
+    assert review_payload["dashboard"]["config_review"]["lineage_status"] == "partial"
+    assert review_payload["policy"]["does_not_execute_agents"] is True
+    assert review_markdown_result.returncode == 0, review_markdown_result.stderr
+    assert "# Operator Run Review" in review_markdown_result.stdout
+    assert "Lineage status" in review_markdown_result.stdout
+    assert "Executes agents: `False`" in review_markdown_result.stdout
     assert stats_result.returncode == 0, stats_result.stderr
     stats_payload = json.loads(stats_result.stdout)
     assert stats_payload["schema_version"] == "agent_result_stats_v1"

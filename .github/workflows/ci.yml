@@ -586,6 +586,21 @@ jobs:
           assert "Config Lineage" in summary
           assert "Run Closeout" in summary
           PY
+          python -m orchestrator.experiments review ci-adaptive > /tmp/operator_review.json
+          python -m orchestrator.experiments review ci-adaptive --markdown > /tmp/operator_review.md
+          python - <<'PY'
+          import json
+          review = json.load(open("/tmp/operator_review.json"))
+          markdown = open("/tmp/operator_review.md").read()
+          assert review["schema_version"] == "operator_run_review_v1"
+          assert review["from_artifact"] is True
+          assert review["dashboard"]["schema_version"] == "operator_dashboard_v1"
+          assert review["dashboard"]["config_review"]["lineage_status"] == "partial"
+          assert review["dashboard"]["policy"]["does_not_write_config"] is True
+          assert review["policy"]["does_not_execute_agents"] is True
+          assert "# Operator Run Review" in markdown
+          assert "Executes agents: `False`" in markdown
+          PY
 
       - name: Diagnose iteration runs
         run: |

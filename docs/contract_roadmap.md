@@ -87,6 +87,16 @@ Implemented or allowed V0.5 components:
 
 ## Contract Families
 
+Documentation map:
+
+- `README.md` is the short project entrypoint.
+- `TASK.md` defines the current V0.5 target and smoke checks.
+- `AGENTS.md` defines repository rules for coding agents.
+- `docs/architecture.md` explains the runtime architecture.
+- `docs/artifact_reference.md` indexes commands and generated artifacts.
+- `docs/codex_cli_readiness.md` explains the guarded Codex CLI evidence chain.
+- `docs/strategy_interface.md` documents the strategy modification boundary.
+
 Core evaluation contracts:
 
 - Strategy interface: `docs/strategy_interface.md`

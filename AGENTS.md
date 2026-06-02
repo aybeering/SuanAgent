@@ -144,6 +144,9 @@ Current structure:
 │   └── workflows/
 │       └── ci.yml
 ├── docs/
+│   ├── architecture.md
+│   ├── artifact_reference.md
+│   ├── codex_cli_readiness.md
 │   ├── contract_roadmap.md
 │   └── strategy_interface.md
 ├── agents/

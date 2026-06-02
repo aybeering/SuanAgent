@@ -53,8 +53,8 @@ recommendation artifacts, read-only config change candidate and operator review
 artifacts, read-only config application dry-run artifacts, guarded config
 application receipt artifacts, read-only config rollback preview artifacts, and
 guarded config restore receipt artifacts, read-only config lineage artifacts,
-read-only run closeout operator dashboard summaries, and Codex CLI readiness
-evidence.
+read-only run closeout operator dashboard summaries, read-only operator action
+plans, and Codex CLI readiness evidence.
 
 Still out of scope:
 
@@ -167,6 +167,10 @@ change iteration acceptance.
 Config lineage artifacts may connect config candidates, reviews, dry-runs,
 apply receipts, rollback previews, and restore receipts for audit. They must be
 read-only and must not write config.
+Operator action plans may translate run closeout dashboard items into explicit
+command candidates for review. They must be read-only and must not execute
+commands, write config, promote champions, run agents, apply patches, or change
+acceptance.
 
 ## Strategy Policy
 

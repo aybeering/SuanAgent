@@ -51,6 +51,10 @@ KNOWN_ARTIFACT_NAMES = {
         "operator_config_review.json",
         "operator_config_review.md",
     ),
+    "operator_action_plan": (
+        "operator_action_plan.json",
+        "operator_action_plan.md",
+    ),
     "config_application_dry_run": (
         "config_application_dry_run.json",
         "config_application_dry_run.md",
@@ -134,6 +138,10 @@ INSPECTION_COMMANDS = {
     "operator_config_review": (
         "python -m orchestrator.operator_config_review",
         "python -m orchestrator.experiments operator-config-review",
+    ),
+    "operator_action_plan": (
+        "python -m orchestrator.operator_action_plan",
+        "python -m orchestrator.experiments action-plan",
     ),
     "config_application_dry_run": (
         "python -m orchestrator.config_application_dry_run",

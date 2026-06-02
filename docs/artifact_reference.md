@@ -32,6 +32,8 @@ python -m orchestrator.experiments list --limit 5
 python -m orchestrator.experiments show <run_id>
 python -m orchestrator.experiments review <run_id>
 python -m orchestrator.experiments review <run_id> --markdown
+python -m orchestrator.experiments action-plan <run_id>
+python -m orchestrator.experiments action-plan <run_id> --markdown
 python -m orchestrator.experiments summary
 python -m orchestrator.experiments summary --markdown
 python -m orchestrator.experiments leaderboard --limit 5
@@ -142,6 +144,8 @@ experiments/<run_id>/
   experiment_scope_health.json
   run_closeout.json
   run_closeout.md
+  operator_action_plan.json
+  operator_action_plan.md
 ```
 
 It also updates append-only experiment indexes:
@@ -176,6 +180,13 @@ Markdown report without writing artifacts.
 the same dashboard for terminal inspection. The command is read-only: it does
 not write config, promote champions, execute agents, run backtests, route
 candidates, apply patches, or change acceptance.
+`operator_action_plan.json` and `operator_action_plan.md` translate the saved
+closeout dashboard action items into explicit command candidates for human
+review. `python -m orchestrator.experiments action-plan <run_id>` and
+`action-plan --markdown` expose the same plan without executing any command.
+The plan records command digests, guarded-command flags, and deterministic
+authority fields, but it cannot write config, promote champions, execute
+agents, run backtests, route candidates, apply patches, or change acceptance.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.
@@ -400,6 +411,13 @@ Replay artifacts:
   operator-facing dashboard, and recommended next actions, and cannot execute
   agents, run backtests, write config, promote champions, apply patches, route
   agents, or change acceptance.
+- `operator_action_plan.json` and `operator_action_plan.md` derive explicit
+  command candidates from the saved closeout dashboard. They bind to
+  `run_closeout.json` by SHA-256, mark commands that would write repository
+  state, promote champions, or run backtests, and require explicit operator
+  invocation for every candidate. They do not execute commands, execute agents,
+  run backtests, write config, promote champions, route agents, apply patches,
+  or change acceptance.
 - `candidate_leaderboard.json` records every proposal attempt with stable
   quality metadata. `quality_breakdown` decomposes the pre-backtest candidate
   score into named components, selected rows also record validation and

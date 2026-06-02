@@ -252,6 +252,12 @@ from orchestrator.run_closeout import (
     RUN_CLOSEOUT_SCHEMA_VERSION,
     validate_run_closeout_file,
 )
+from orchestrator.operator_action_plan import (
+    OPERATOR_ACTION_PLAN_SCHEMA_VERSION,
+    build_operator_action_plan,
+    render_operator_action_plan_markdown,
+    validate_operator_action_plan_file,
+)
 from orchestrator.run_diagnosis import diagnose_run
 from orchestrator.proposal_intent import build_proposal_intent
 from orchestrator.preflight import run_preflight
@@ -270,6 +276,7 @@ from orchestrator.experiments import (
     memory_hygiene_report,
     memory_scope_recommendation_report,
     operator_config_review_report,
+    operator_action_plan_report,
     operator_run_review,
     promote_champion,
     render_operator_run_review_markdown,
@@ -3011,6 +3018,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     closeout = json.loads((run_dir / "run_closeout.json").read_text(encoding="utf-8"))
     closeout_markdown = (run_dir / "run_closeout.md").read_text(encoding="utf-8")
+    action_plan = json.loads(
+        (run_dir / "operator_action_plan.json").read_text(encoding="utf-8")
+    )
+    action_plan_markdown = (run_dir / "operator_action_plan.md").read_text(
+        encoding="utf-8"
+    )
     history_records = [
         json.loads(line)
         for line in (repo / "experiments/run_artifact_health_history.jsonl")
@@ -3326,6 +3339,42 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert_matches_schema(run_dir / "run_closeout.json", "run_closeout")
     assert validate_run_closeout_file(
         payload_path=run_dir / "run_closeout.json",
+        repo_root=Path.cwd(),
+    ) == ()
+    assert manifest["operator_action_plan"]["path"] == "operator_action_plan.json"
+    assert manifest["operator_action_plan"]["markdown_path"] == (
+        "operator_action_plan.md"
+    )
+    assert manifest["operator_action_plan"]["ok"] is True
+    assert manifest["operator_action_plan"]["status"] == action_plan["status"]
+    assert manifest["operator_action_plan"]["action_count"] == (
+        action_plan["summary"]["action_count"]
+    )
+    assert action_plan["schema_version"] == OPERATOR_ACTION_PLAN_SCHEMA_VERSION
+    assert action_plan["ok"] is True
+    assert action_plan["source_closeout"]["file"]["path"].endswith(
+        "run_closeout.json"
+    )
+    assert action_plan["source_closeout"]["file"]["sha256"]
+    assert action_plan["summary"]["action_count"] >= 1
+    assert action_plan["summary"]["command_candidate_count"] >= 1
+    assert action_plan["policy"]["does_not_execute_commands"] is True
+    assert action_plan["policy"]["does_not_write_config"] is True
+    assert action_plan["policy"]["does_not_promote_champion"] is True
+    assert action_plan["policy"]["commands_require_explicit_operator_invocation"] is True
+    assert any(
+        command["requires_explicit_operator_invocation"] is True
+        and command["executed_by_plan"] is False
+        for action in action_plan["actions"]
+        for command in action["command_candidates"]
+    )
+    assert "# Operator Action Plan" in action_plan_markdown
+    assert "Every command candidate requires explicit operator invocation" in (
+        action_plan_markdown
+    )
+    assert_matches_schema(run_dir / "operator_action_plan.json", "operator_action_plan")
+    assert validate_operator_action_plan_file(
+        payload_path=run_dir / "operator_action_plan.json",
         repo_root=Path.cwd(),
     ) == ()
     assert manifest["artifact_health_history"]["path"] == (
@@ -13664,6 +13713,16 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         experiments_dir=repo / "experiments",
     )
     review_markdown = render_operator_run_review_markdown(review)
+    action_plan = operator_action_plan_report(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+    )
+    action_plan_markdown = render_operator_action_plan_markdown(action_plan)
+    dynamic_action_plan = build_operator_action_plan(
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
     result = subprocess.run(
         [
             sys.executable,
@@ -13704,6 +13763,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "--experiments-dir",
             "experiments",
             "review",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    action_plan_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-plan",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    action_plan_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-plan",
             "cli-candidates",
             "--markdown",
         ],
@@ -14000,6 +14090,21 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "# Operator Run Review" in review_markdown
     assert "## Config" in review_markdown
     assert "Final acceptance authority" in review_markdown
+    assert action_plan["from_artifact"] is True
+    assert action_plan["schema_version"] == OPERATOR_ACTION_PLAN_SCHEMA_VERSION
+    assert action_plan["source_closeout"]["file"]["path"].endswith(
+        "run_closeout.json"
+    )
+    assert action_plan["summary"]["action_count"] >= 1
+    assert action_plan["summary"]["command_candidate_count"] >= 1
+    assert action_plan["policy"]["does_not_execute_commands"] is True
+    assert action_plan["policy"]["commands_require_explicit_operator_invocation"] is True
+    assert "# Operator Action Plan" in action_plan_markdown
+    assert "Every command candidate requires explicit operator invocation" in (
+        action_plan_markdown
+    )
+    assert dynamic_action_plan["schema_version"] == OPERATOR_ACTION_PLAN_SCHEMA_VERSION
+    assert dynamic_action_plan["source_closeout"]["from_artifact"] is True
     assert stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
     assert "avg_holdout_ev_delta" in stats["agents"][0]
     assert stats["round_replays"]["round_count"] == 1
@@ -14027,6 +14132,17 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "# Operator Run Review" in review_markdown_result.stdout
     assert "Lineage status" in review_markdown_result.stdout
     assert "Executes agents: `False`" in review_markdown_result.stdout
+    assert action_plan_result.returncode == 0, action_plan_result.stderr
+    action_plan_payload = json.loads(action_plan_result.stdout)
+    assert action_plan_payload["schema_version"] == OPERATOR_ACTION_PLAN_SCHEMA_VERSION
+    assert action_plan_payload["from_artifact"] is True
+    assert action_plan_payload["summary"]["command_candidate_count"] >= 1
+    assert action_plan_payload["policy"]["does_not_execute_commands"] is True
+    assert action_plan_markdown_result.returncode == 0, (
+        action_plan_markdown_result.stderr
+    )
+    assert "# Operator Action Plan" in action_plan_markdown_result.stdout
+    assert "execute commands" in action_plan_markdown_result.stdout
     assert stats_result.returncode == 0, stats_result.stderr
     stats_payload = json.loads(stats_result.stdout)
     assert stats_payload["schema_version"] == "agent_result_stats_v1"

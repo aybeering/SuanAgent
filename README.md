@@ -54,6 +54,13 @@ python -m orchestrator.iteration_loop --config config/file_protocol_guarded.json
 python -m orchestrator.iteration_loop --config config/file_protocol_demo.json --run-id file-protocol-local-demo --max-rounds 1
 ```
 
+Useful inspection:
+
+```bash
+python -m orchestrator.experiments review <run_id> --markdown
+python -m orchestrator.experiments action-plan <run_id> --markdown
+```
+
 More commands and artifact details live in `docs/artifact_reference.md`.
 
 The V0.5 prototype does not call exchanges, wallets, or external APIs.

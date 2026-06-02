@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Operator Action Plan",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "status",
+    "ok",
+    "source_closeout",
+    "summary",
+    "actions",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "operator_action_plan_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ready_for_review",
+        "operator_approval_required",
+        "missing_closeout",
+        "no_actions"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "source_closeout": {
+      "type": "object",
+      "required": [
+        "artifact_name",
+        "from_artifact",
+        "file"
+      ],
+      "properties": {
+        "artifact_name": {
+          "type": "string"
+        },
+        "from_artifact": {
+          "type": "boolean"
+        },
+        "file": {
+          "$ref": "#/$defs/file_record"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "action_count",
+        "command_candidate_count",
+        "guarded_command_candidate_count",
+        "ready_action_count",
+        "approval_required_action_count"
+      ],
+      "properties": {
+        "action_count": {
+          "type": "integer"
+        },
+        "command_candidate_count": {
+          "type": "integer"
+        },
+        "guarded_command_candidate_count": {
+          "type": "integer"
+        },
+        "ready_action_count": {
+          "type": "integer"
+        },
+        "approval_required_action_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/action"
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_commands",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+        "commands_require_explicit_operator_invocation"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_saved_artifacts_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_commands": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_write_config": {
+          "type": "boolean"
+        },
+        "does_not_promote_champion": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_route_agents": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "commands_require_explicit_operator_invocation": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "action": {
+      "type": "object",
+      "required": [
+        "action_id",
+        "action_type",
+        "source_text",
+        "status",
+        "reason_codes",
+        "command_candidates",
+        "authority"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action_type": {
+          "type": "string"
+        },
+        "source_text": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "command_candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/command_candidate"
+          }
+        },
+        "authority": {
+          "type": "object",
+          "required": [
+            "plan_can_execute",
+            "plan_can_write_config",
+            "plan_can_promote_champion",
+            "final_acceptance_authority"
+          ],
+          "properties": {
+            "plan_can_execute": {
+              "type": "boolean"
+            },
+            "plan_can_write_config": {
+              "type": "boolean"
+            },
+            "plan_can_promote_champion": {
+              "type": "boolean"
+            },
+            "final_acceptance_authority": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "command_candidate": {
+      "type": "object",
+      "required": [
+        "label",
+        "command",
+        "command_sha256",
+        "expected_artifact",
+        "writes_repository",
+        "promotes_champion",
+        "runs_backtests",
+        "requires_explicit_operator_invocation",
+        "executed_by_plan"
+      ],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "command_sha256": {
+          "type": "string"
+        },
+        "expected_artifact": {
+          "type": "string"
+        },
+        "writes_repository": {
+          "type": "boolean"
+        },
+        "promotes_champion": {
+          "type": "boolean"
+        },
+        "runs_backtests": {
+          "type": "boolean"
+        },
+        "requires_explicit_operator_invocation": {
+          "type": "boolean"
+        },
+        "executed_by_plan": {
+          "type": "boolean"
+        }
+      }
+    },
+    "file_record": {
+      "type": "object",
+      "required": [
+        "path",
+        "exists",
+        "sha256",
+        "byte_count"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "byte_count": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

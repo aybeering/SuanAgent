@@ -89,6 +89,7 @@ from orchestrator.outcome_memory import (
 )
 from orchestrator.memory_hygiene import write_memory_hygiene
 from orchestrator.memory_scope_recommendation import write_memory_scope_recommendation
+from orchestrator.operator_action_plan import write_operator_action_plan
 from orchestrator.operator_config_review import write_operator_config_review
 from orchestrator.overfit_validator import write_overfit_validation
 from orchestrator.policy_gate import (
@@ -257,6 +258,13 @@ def run_iteration_loop(
             "markdown_path": "run_closeout.md",
             "ok": False,
             "status": "pending",
+        },
+        "operator_action_plan": {
+            "path": "operator_action_plan.json",
+            "markdown_path": "operator_action_plan.md",
+            "ok": False,
+            "status": "pending",
+            "action_count": 0,
         },
         "candidate_challenger_report": {
             "path": "candidate_challenger_report.json",
@@ -862,6 +870,25 @@ def finalize_iteration_run(
         experiments_dir=experiments_dir,
         repo_root=repo_root,
     )
+    _, _, action_plan_payload = write_operator_action_plan(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
+    action_plan_summary = action_plan_payload.get("summary", {})
+    manifest["operator_action_plan"] = {
+        "path": "operator_action_plan.json",
+        "markdown_path": "operator_action_plan.md",
+        "ok": bool(action_plan_payload.get("ok", False)),
+        "status": str(action_plan_payload.get("status", "unknown")),
+        "action_count": int(
+            action_plan_summary.get("action_count", 0)
+            if isinstance(action_plan_summary, dict)
+            else 0
+        ),
+    }
+    write_json(run_dir / "manifest.json", manifest)
+    write_iteration_summary(run_dir=run_dir, manifest=manifest)
 
 
 def run_round(

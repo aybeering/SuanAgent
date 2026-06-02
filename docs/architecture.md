@@ -173,6 +173,10 @@ promotion review, watchlist status, action items, and deterministic authority.
 without requiring the operator to inspect the full closeout file. It is an
 inspection view only; it cannot write config, promote champions, route
 candidates, run backtests, apply patches, execute agents, or change acceptance.
+`operator_action_plan.json` and `operator_action_plan.md` sit immediately after
+closeout and turn dashboard action items into reviewed command candidates. They
+bind to `run_closeout.json`, mark guarded candidates, and require explicit
+operator invocation; they do not execute commands or change repository state.
 
 ## Champion Registry
 

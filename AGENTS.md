@@ -195,6 +195,9 @@ action, challenger, champion promotion, and scope-health state into one
 human-facing page. They must remain read-only and must not record approval,
 execute commands, write config, promote champions, run agents, run backtests,
 apply patches, route agents, or change acceptance.
+The iteration loop writes the final operator action dashboard and cockpit
+during closeout, and explicit commands may refresh them after later operator
+artifacts are written.
 
 ## Strategy Policy
 

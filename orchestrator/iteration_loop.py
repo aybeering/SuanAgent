@@ -89,7 +89,9 @@ from orchestrator.outcome_memory import (
 )
 from orchestrator.memory_hygiene import write_memory_hygiene
 from orchestrator.memory_scope_recommendation import write_memory_scope_recommendation
+from orchestrator.operator_action_dashboard import write_operator_action_dashboard
 from orchestrator.operator_action_plan import write_operator_action_plan
+from orchestrator.operator_cockpit import write_operator_cockpit
 from orchestrator.operator_config_review import write_operator_config_review
 from orchestrator.overfit_validator import write_overfit_validation
 from orchestrator.policy_gate import (
@@ -265,6 +267,20 @@ def run_iteration_loop(
             "ok": False,
             "status": "pending",
             "action_count": 0,
+        },
+        "operator_action_dashboard": {
+            "path": "operator_action_dashboard.json",
+            "markdown_path": "operator_action_dashboard.md",
+            "ok": False,
+            "status": "pending",
+            "current_step": "",
+        },
+        "operator_cockpit": {
+            "path": "operator_cockpit.json",
+            "markdown_path": "operator_cockpit.md",
+            "ok": False,
+            "status": "pending",
+            "primary_focus": "",
         },
         "candidate_challenger_report": {
             "path": "candidate_challenger_report.json",
@@ -886,6 +902,34 @@ def finalize_iteration_run(
             if isinstance(action_plan_summary, dict)
             else 0
         ),
+    }
+    write_json(run_dir / "manifest.json", manifest)
+    write_iteration_summary(run_dir=run_dir, manifest=manifest)
+    _, _, action_dashboard_payload = write_operator_action_dashboard(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
+    manifest["operator_action_dashboard"] = {
+        "path": "operator_action_dashboard.json",
+        "markdown_path": "operator_action_dashboard.md",
+        "ok": bool(action_dashboard_payload.get("ok", False)),
+        "status": str(action_dashboard_payload.get("status", "unknown")),
+        "current_step": str(action_dashboard_payload.get("current_step", "")),
+    }
+    write_json(run_dir / "manifest.json", manifest)
+    write_iteration_summary(run_dir=run_dir, manifest=manifest)
+    _, _, cockpit_payload = write_operator_cockpit(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
+    manifest["operator_cockpit"] = {
+        "path": "operator_cockpit.json",
+        "markdown_path": "operator_cockpit.md",
+        "ok": bool(cockpit_payload.get("ok", False)),
+        "status": str(cockpit_payload.get("status", "unknown")),
+        "primary_focus": str(cockpit_payload.get("primary_focus", "")),
     }
     write_json(run_dir / "manifest.json", manifest)
     write_iteration_summary(run_dir=run_dir, manifest=manifest)

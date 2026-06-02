@@ -198,6 +198,52 @@ def write_iteration_summary(
             f"- Markdown: `{display_value(run_closeout.get('markdown_path'))}`"
         )
 
+    action_plan = manifest.get("operator_action_plan")
+    if isinstance(action_plan, dict):
+        lines.extend(["", "## Operator Action Plan", ""])
+        lines.append(f"- Status: `{display_value(action_plan.get('status'))}`")
+        lines.append(f"- OK: `{display_value(action_plan.get('ok'))}`")
+        lines.append(
+            "- Action count: "
+            f"`{display_value(action_plan.get('action_count'))}`"
+        )
+        lines.append(f"- Artifact: `{display_value(action_plan.get('path'))}`")
+        lines.append(
+            f"- Markdown: `{display_value(action_plan.get('markdown_path'))}`"
+        )
+
+    action_dashboard = manifest.get("operator_action_dashboard")
+    if isinstance(action_dashboard, dict):
+        lines.extend(["", "## Operator Action Dashboard", ""])
+        lines.append(
+            f"- Status: `{display_value(action_dashboard.get('status'))}`"
+        )
+        lines.append(f"- OK: `{display_value(action_dashboard.get('ok'))}`")
+        lines.append(
+            "- Current step: "
+            f"`{display_value(action_dashboard.get('current_step'))}`"
+        )
+        lines.append(
+            f"- Artifact: `{display_value(action_dashboard.get('path'))}`"
+        )
+        lines.append(
+            f"- Markdown: `{display_value(action_dashboard.get('markdown_path'))}`"
+        )
+
+    cockpit = manifest.get("operator_cockpit")
+    if isinstance(cockpit, dict):
+        lines.extend(["", "## Operator Cockpit", ""])
+        lines.append(f"- Status: `{display_value(cockpit.get('status'))}`")
+        lines.append(f"- OK: `{display_value(cockpit.get('ok'))}`")
+        lines.append(
+            "- Primary focus: "
+            f"`{display_value(cockpit.get('primary_focus'))}`"
+        )
+        lines.append(f"- Artifact: `{display_value(cockpit.get('path'))}`")
+        lines.append(
+            f"- Markdown: `{display_value(cockpit.get('markdown_path'))}`"
+        )
+
     lines.extend(["", "## Best Validation Delta", ""])
     if best_round is None:
         lines.append("No completed rounds.")

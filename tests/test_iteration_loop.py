@@ -376,6 +376,21 @@ def copy_repo_fixture(tmp_path: Path) -> Path:
     return repo
 
 
+def refresh_operator_views(repo: Path, run_id: str) -> None:
+    """Refresh source-hash-bound operator views after operator artifacts change."""
+    run_dir = repo / "experiments" / run_id
+    write_operator_action_dashboard(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    write_operator_cockpit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+
 def assert_matches_schema(payload_path: Path, schema_name: str) -> None:
     """Assert a JSON artifact matches one repository contract schema."""
     schema_path = Path.cwd() / "schemas" / f"{schema_name}.schema.json"
@@ -1777,6 +1792,7 @@ def test_operator_action_approval_records_intent_without_executing_command(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
+    refresh_operator_views(repo, "operator-action-approval")
     assert validate_run_artifacts(
         run_id="operator-action-approval",
         experiments_dir=repo / "experiments",
@@ -1857,6 +1873,7 @@ def test_operator_action_execution_receipt_runs_only_approved_read_only_commands
         payload_path=run_dir / "operator_action_execution_receipt.json",
         repo_root=repo,
     ) == ()
+    refresh_operator_views(repo, run_id)
     assert validate_run_artifacts(
         run_id=run_id,
         experiments_dir=repo / "experiments",
@@ -1905,11 +1922,15 @@ def test_operator_action_execution_receipt_runs_only_approved_read_only_commands
         payload_path=run_dir / "operator_action_execution_receipt.json",
         repo_root=repo,
     ) == ()
-    assert validate_run_artifacts(
+    refresh_operator_views(repo, run_id)
+    dangerous_report = validate_run_artifacts(
         run_id=run_id,
         experiments_dir=repo / "experiments",
         repo_root=repo,
-    )["ok"] is True
+    )
+    assert dangerous_report["ok"] is False
+    assert "operator_action_dashboard.json ok false" in dangerous_report["errors"]
+    assert "operator_action_dashboard.json chain not ok" in dangerous_report["errors"]
     assert (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     ) == strategy_before
@@ -2010,6 +2031,7 @@ def test_operator_action_audit_tracks_plan_approval_execution_chain(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
+    refresh_operator_views(repo, run_id)
     assert validate_run_artifacts(
         run_id=run_id,
         experiments_dir=repo / "experiments",
@@ -2134,6 +2156,11 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
+    write_operator_cockpit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
     assert validate_run_artifacts(
         run_id=run_id,
         experiments_dir=repo / "experiments",
@@ -3441,6 +3468,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "champion_promotion_approval.md").exists()
     assert (run_dir / "run_closeout.json").exists()
     assert (run_dir / "run_closeout.md").exists()
+    assert (run_dir / "operator_action_plan.json").exists()
+    assert (run_dir / "operator_action_plan.md").exists()
+    assert (run_dir / "operator_action_dashboard.json").exists()
+    assert (run_dir / "operator_action_dashboard.md").exists()
+    assert (run_dir / "operator_cockpit.json").exists()
+    assert (run_dir / "operator_cockpit.md").exists()
     assert (repo / "experiments/run_artifact_health_history.jsonl").exists()
 
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
@@ -3576,6 +3609,14 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     action_plan_markdown = (run_dir / "operator_action_plan.md").read_text(
         encoding="utf-8"
     )
+    action_dashboard = json.loads(
+        (run_dir / "operator_action_dashboard.json").read_text(encoding="utf-8")
+    )
+    action_dashboard_markdown = (
+        run_dir / "operator_action_dashboard.md"
+    ).read_text(encoding="utf-8")
+    cockpit = json.loads((run_dir / "operator_cockpit.json").read_text("utf-8"))
+    cockpit_markdown = (run_dir / "operator_cockpit.md").read_text(encoding="utf-8")
     history_records = [
         json.loads(line)
         for line in (repo / "experiments/run_artifact_health_history.jsonl")
@@ -3927,6 +3968,54 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert_matches_schema(run_dir / "operator_action_plan.json", "operator_action_plan")
     assert validate_operator_action_plan_file(
         payload_path=run_dir / "operator_action_plan.json",
+        repo_root=Path.cwd(),
+    ) == ()
+    assert manifest["operator_action_dashboard"]["path"] == (
+        "operator_action_dashboard.json"
+    )
+    assert manifest["operator_action_dashboard"]["markdown_path"] == (
+        "operator_action_dashboard.md"
+    )
+    assert manifest["operator_action_dashboard"]["ok"] is True
+    assert manifest["operator_action_dashboard"]["status"] == action_dashboard["status"]
+    assert manifest["operator_action_dashboard"]["current_step"] == (
+        action_dashboard["current_step"]
+    )
+    assert action_dashboard["schema_version"] == (
+        OPERATOR_ACTION_DASHBOARD_SCHEMA_VERSION
+    )
+    assert action_dashboard["ok"] is True
+    assert action_dashboard["source_artifacts"]["action_plan"]["file"][
+        "path"
+    ].endswith("operator_action_plan.json")
+    assert action_dashboard["policy"]["does_not_execute_commands"] is True
+    assert action_dashboard["policy"]["does_not_change_acceptance"] is True
+    assert "# Operator Action Dashboard" in action_dashboard_markdown
+    assert_matches_schema(
+        run_dir / "operator_action_dashboard.json",
+        "operator_action_dashboard",
+    )
+    assert validate_operator_action_dashboard_file(
+        payload_path=run_dir / "operator_action_dashboard.json",
+        repo_root=Path.cwd(),
+    ) == ()
+    assert manifest["operator_cockpit"]["path"] == "operator_cockpit.json"
+    assert manifest["operator_cockpit"]["markdown_path"] == "operator_cockpit.md"
+    assert manifest["operator_cockpit"]["ok"] is True
+    assert manifest["operator_cockpit"]["status"] == cockpit["status"]
+    assert manifest["operator_cockpit"]["primary_focus"] == cockpit["primary_focus"]
+    assert cockpit["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION
+    assert cockpit["ok"] is True
+    assert cockpit["source_artifacts"]["operator_action_dashboard"]["file"][
+        "path"
+    ].endswith("operator_action_dashboard.json")
+    assert cockpit["summary"]["run_status"] == manifest["status"]
+    assert cockpit["policy"]["does_not_execute_commands"] is True
+    assert cockpit["policy"]["does_not_change_acceptance"] is True
+    assert "# Operator Cockpit" in cockpit_markdown
+    assert_matches_schema(run_dir / "operator_cockpit.json", "operator_cockpit")
+    assert validate_operator_cockpit_file(
+        payload_path=run_dir / "operator_cockpit.json",
         repo_root=Path.cwd(),
     ) == ()
     assert manifest["artifact_health_history"]["path"] == (

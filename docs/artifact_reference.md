@@ -167,10 +167,10 @@ experiments/<run_id>/
   operator_action_execution_receipt.md    # after guarded read-only action execution
   operator_action_audit.json  # after optional operator action audit command
   operator_action_audit.md    # after optional operator action audit command
-  operator_action_dashboard.json  # after optional operator action dashboard command
-  operator_action_dashboard.md    # after optional operator action dashboard command
-  operator_cockpit.json  # after optional operator cockpit command
-  operator_cockpit.md    # after optional operator cockpit command
+  operator_action_dashboard.json
+  operator_action_dashboard.md
+  operator_cockpit.json
+  operator_cockpit.md
 ```
 
 It also updates append-only experiment indexes:
@@ -232,21 +232,24 @@ chain. `python -m orchestrator.experiments action-audit <run_id>` and
 commands, writing config, promoting champions, running agents, running
 backtests, applying patches, routing agents, or changing acceptance.
 `operator_action_dashboard.json` and `operator_action_dashboard.md` summarize
-the same chain into a compact next-step view. `python -m
+the same chain into a compact next-step view. The iteration loop writes the
+final dashboard during closeout after `operator_action_plan.json`; `python -m
 orchestrator.experiments action-dashboard <run_id>` and `action-dashboard
---markdown` show the current step, timeline, selected command, safe command
-counts, blockers, and suggested read-only/guarded commands without recording
-approval, executing commands, writing config, promoting champions, running
-agents, running backtests, applying patches, routing agents, or changing
-acceptance.
+--markdown` show or derive the current step, timeline, selected command, safe
+command counts, blockers, and suggested read-only/guarded commands without
+recording approval, executing commands, writing config, promoting champions,
+running agents, running backtests, applying patches, routing agents, or
+changing acceptance.
 `operator_cockpit.json` and `operator_cockpit.md` collect the run closeout,
 config lineage, operator action dashboard, candidate challenger report,
 champion-promotion dry-run, promotion approval, and scope-health status into a
-single read-only operator page. `python -m orchestrator.experiments cockpit
-<run_id>` and `cockpit --markdown` expose panel rows, blockers, primary focus,
-and command hints without recording approval, executing commands, writing
-config, promoting champions, running agents, running backtests, applying
-patches, routing agents, or changing acceptance.
+single read-only operator page. The iteration loop writes the final cockpit
+after the dashboard so source hashes bind to the final closeout artifacts;
+`python -m orchestrator.experiments cockpit <run_id>` and `cockpit --markdown`
+expose panel rows, blockers, primary focus, and command hints without recording
+approval, executing commands, writing config, promoting champions, running
+agents, running backtests, applying patches, routing agents, or changing
+acceptance.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.
@@ -497,13 +500,16 @@ Replay artifacts:
   next recommended operator step while remaining read-only.
 - `operator_action_dashboard.json` and `operator_action_dashboard.md` turn the
   action plan, approval, execution receipt, and audit state into a compact
-  operator next-step view. They list the timeline, selected command, safe
-  command counts, blockers, and command hints, but cannot approve or execute
-  anything.
+  operator next-step view. The iteration loop writes them during run closeout,
+  and the explicit command can refresh them after later operator action
+  artifacts. They list the timeline, selected command, safe command counts,
+  blockers, and command hints, but cannot approve or execute anything.
 - `operator_cockpit.json` and `operator_cockpit.md` aggregate run review,
   config lineage, operator action, challenger comparison, promotion review,
-  promotion approval, and scope-health state into one read-only cockpit. They
-  list panels, blockers, primary focus, and command hints while preserving
+  promotion approval, and scope-health state into one read-only cockpit. The
+  iteration loop writes them after the action dashboard, and the explicit
+  command can refresh source hashes after later operator inspection artifacts.
+  They list panels, blockers, primary focus, and command hints while preserving
   deterministic acceptance authority.
 - `candidate_leaderboard.json` records every proposal attempt with stable
   quality metadata. `quality_breakdown` decomposes the pre-backtest candidate

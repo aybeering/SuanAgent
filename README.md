@@ -66,6 +66,10 @@ python -m orchestrator.experiments action-dashboard <run_id> --markdown
 python -m orchestrator.experiments cockpit <run_id> --markdown
 ```
 
+`iteration_loop` writes the final action dashboard and cockpit during closeout;
+the inspection commands can also refresh or render those read-only views after
+later operator artifacts are written.
+
 More commands and artifact details live in `docs/artifact_reference.md`.
 
 The V0.5 prototype does not call exchanges, wallets, or external APIs.

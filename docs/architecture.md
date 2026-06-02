@@ -198,14 +198,19 @@ that chain for the operator. They show the current step, timeline, selected
 command, safe command counts, blockers, and suggested guarded commands while
 remaining read-only: they do not record approval, execute commands, write
 config, promote champions, run agents, run backtests, route agents, apply
-patches, or change acceptance.
+patches, or change acceptance. The iteration loop writes the final dashboard
+during closeout after the action plan; the explicit dashboard command is still
+available to refresh the view after later approval or execution artifacts.
 `operator_cockpit.json` and `operator_cockpit.md` are the broader operator
 entrypoint. They collect the run closeout, config lineage, operator action
 dashboard, challenger comparison, champion-promotion review, promotion approval,
 and scope-health status into one read-only page with panel rows and command
 hints. The cockpit is an inspection artifact only; it cannot record approvals,
 execute commands, write config, promote champions, run agents, run backtests,
-route agents, apply patches, or change acceptance.
+route agents, apply patches, or change acceptance. The iteration loop writes
+the final cockpit after the dashboard so source hashes bind to the completed
+operator-facing artifacts; the explicit cockpit command can refresh that
+binding after later operator inspection artifacts are rewritten.
 
 ## Champion Registry
 

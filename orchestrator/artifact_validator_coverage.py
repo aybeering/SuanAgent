@@ -59,6 +59,10 @@ KNOWN_ARTIFACT_NAMES = {
         "config_application_receipt.json",
         "config_application_receipt.md",
     ),
+    "config_application_rollback_preview": (
+        "config_application_rollback_preview.json",
+        "config_application_rollback_preview.md",
+    ),
     "experiment_scope_health": ("experiment_scope_health.json",),
     "run_closeout": ("run_closeout.json", "run_closeout.md"),
     "candidate_challenger_report": (
@@ -133,6 +137,10 @@ INSPECTION_COMMANDS = {
     "config_application_receipt": (
         "python -m orchestrator.config_application_executor",
         "python -m orchestrator.experiments apply-config-approved",
+    ),
+    "config_application_rollback_preview": (
+        "python -m orchestrator.config_application_rollback_preview",
+        "python -m orchestrator.experiments config-application-rollback-preview",
     ),
     "experiment_scope_health": (
         "python -m orchestrator.experiment_scope_health",

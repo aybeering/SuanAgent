@@ -153,6 +153,10 @@ not apply config changes.
 created by the explicit guarded apply command. That command binds the current
 config digest, the approved dry-run digest, and the operator-review digest
 before writing config, and it still does not run agents or change acceptance.
+`config_application_rollback_preview.json` and
+`config_application_rollback_preview.md` then provide a read-only manual
+restore plan and next-run impact summary from the receipt and current config.
+They never restore config automatically.
 
 ## Champion Registry
 

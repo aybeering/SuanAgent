@@ -42,6 +42,7 @@ python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
 python -m orchestrator.experiments lineage
 python -m orchestrator.experiments apply-config-approved <run_id> --dry-run-path experiments/<run_id>/config_application_dry_run.json
+python -m orchestrator.experiments config-application-rollback-preview <run_id> --receipt-path experiments/<run_id>/config_application_receipt.json
 python -m orchestrator.experiments promote-approved <candidate_run_id> --approval-path experiments/<run_id>/champion_promotion_approval.json
 ```
 
@@ -117,6 +118,8 @@ experiments/<run_id>/
   config_application_dry_run.md
   config_application_receipt.json  # after guarded config application
   config_application_receipt.md    # after guarded config application
+  config_application_rollback_preview.json  # after rollback preview command
+  config_application_rollback_preview.md    # after rollback preview command
   agent_result_stats.json
   candidate_challenger_report.json
   candidate_challenger_report.md
@@ -350,6 +353,10 @@ Replay artifacts:
   config only when the saved dry-run is ready, the operator-review digest still
   matches, and the current config digest still matches the reviewed dry-run.
   Blocked attempts write a receipt but leave config unchanged.
+- `config_application_rollback_preview.json` and
+  `config_application_rollback_preview.md` read a saved application receipt and
+  current config to preview manual restore rows and next-run impact. They are
+  read-only and never restore config automatically.
 - `experiment_scope_health.json` combines current artifact health,
   artifact-health history, and memory diagnostics for one `--created-at-from`
   scope. It is a read-only status page and marks the scope unhealthy if any

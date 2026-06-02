@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Config Application Rollback Preview",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "status",
+    "ok",
+    "source_receipt_path",
+    "source_receipt_sha256",
+    "source_receipt_schema_errors",
+    "source_receipt_status",
+    "source_receipt_applied",
+    "config_path",
+    "current_config_sha256",
+    "receipt_config_after_sha256",
+    "rollback_gate",
+    "rollback_plan",
+    "next_run_impact",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "config_application_rollback_preview_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "rollback_ready",
+        "rollback_blocked",
+        "no_applied_config_change"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "source_receipt_path": {
+      "type": "string"
+    },
+    "source_receipt_sha256": {
+      "type": "string"
+    },
+    "source_receipt_schema_errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "source_receipt_status": {
+      "type": "string"
+    },
+    "source_receipt_applied": {
+      "type": "boolean"
+    },
+    "config_path": {
+      "type": "string"
+    },
+    "current_config_sha256": {
+      "type": "string"
+    },
+    "receipt_config_after_sha256": {
+      "type": "string"
+    },
+    "rollback_gate": {
+      "type": "object",
+      "required": [
+        "eligible_for_manual_restore",
+        "blockers",
+        "matching_applied_config_digest",
+        "applied_change_count",
+        "restorable_change_count"
+      ],
+      "properties": {
+        "eligible_for_manual_restore": {
+          "type": "boolean"
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "matching_applied_config_digest": {
+          "type": "boolean"
+        },
+        "applied_change_count": {
+          "type": "integer"
+        },
+        "restorable_change_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "rollback_plan": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "candidate_id",
+          "config_path",
+          "current_value",
+          "expected_applied_value",
+          "restore_value",
+          "current_matches_expected_applied",
+          "can_restore",
+          "source_artifact"
+        ],
+        "properties": {
+          "candidate_id": {
+            "type": "string"
+          },
+          "config_path": {
+            "type": "string"
+          },
+          "current_value": {},
+          "expected_applied_value": {},
+          "restore_value": {},
+          "current_matches_expected_applied": {
+            "type": "boolean"
+          },
+          "can_restore": {
+            "type": "boolean"
+          },
+          "source_artifact": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "next_run_impact": {
+      "type": "object",
+      "required": [
+        "affected_config_paths",
+        "impact_rows",
+        "summary"
+      ],
+      "properties": {
+        "affected_config_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "impact_rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "config_path",
+              "current_value",
+              "restore_value",
+              "likely_runtime_effect"
+            ],
+            "properties": {
+              "config_path": {
+                "type": "string"
+              },
+              "current_value": {},
+              "restore_value": {},
+              "likely_runtime_effect": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "summary": {
+          "type": "string"
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "requires_config_application_receipt",
+        "read_only",
+        "does_not_write_config",
+        "does_not_delete_memory",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_route_candidates",
+        "does_not_apply_patches",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "requires_config_application_receipt": {
+          "type": "boolean"
+        },
+        "read_only": {
+          "type": "boolean"
+        },
+        "does_not_write_config": {
+          "type": "boolean"
+        },
+        "does_not_delete_memory": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_route_candidates": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

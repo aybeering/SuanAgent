@@ -851,6 +851,37 @@ def config_application_dry_run_report(
     return payload
 
 
+def config_application_rollback_preview_report(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+    receipt_path: Path | None = None,
+    config_path: Path = Path("config/default.json"),
+) -> dict[str, object]:
+    """Return config application rollback preview for one iteration run."""
+    run_dir = experiments_dir / run_id
+    path = run_dir / "config_application_rollback_preview.json"
+    if path.exists() and receipt_path is None:
+        payload = load_json(path)
+        payload["from_artifact"] = True
+        return payload
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    from orchestrator.config_application_rollback_preview import (
+        build_config_application_rollback_preview,
+    )
+
+    payload = build_config_application_rollback_preview(
+        run_id=run_id,
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+        receipt_path=receipt_path or run_dir / "config_application_receipt.json",
+        config_path=config_path,
+    )
+    payload["from_artifact"] = False
+    return payload
+
+
 def agent_slot_health_report(
     *,
     run_id: str,
@@ -1702,6 +1733,18 @@ def main() -> None:
         default=Path("config/default.json"),
     )
 
+    config_rollback_parser = subparsers.add_parser(
+        "config-application-rollback-preview",
+        help="Show read-only config rollback preview for one iteration run.",
+    )
+    config_rollback_parser.add_argument("run_id")
+    config_rollback_parser.add_argument("--receipt-path", type=Path)
+    config_rollback_parser.add_argument(
+        "--config",
+        type=Path,
+        default=Path("config/default.json"),
+    )
+
     scope_health_parser = subparsers.add_parser(
         "scope-health",
         help="Summarize artifact, history, and memory health for one scope.",
@@ -1878,6 +1921,13 @@ def main() -> None:
         payload = config_application_dry_run_report(
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
+            config_path=args.config,
+        )
+    elif args.command == "config-application-rollback-preview":
+        payload = config_application_rollback_preview_report(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
+            receipt_path=args.receipt_path,
             config_path=args.config,
         )
     elif args.command == "scope-health":

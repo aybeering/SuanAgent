@@ -214,6 +214,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_config_application_rollback_preview(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_optional_run_closeout(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -3967,6 +3972,113 @@ def validate_optional_config_application_receipt(
     ):
         if policy.get(key) is not True:
             add_error(report, f"config_application_receipt.json policy false: {key}")
+
+
+def validate_optional_config_application_rollback_preview(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate config_application_rollback_preview.json when present."""
+    path = run_dir / "config_application_rollback_preview.json"
+    md_path = run_dir / "config_application_rollback_preview.md"
+    if not path.exists():
+        if md_path.exists():
+            add_error(
+                report,
+                "config_application_rollback_preview.md exists without JSON",
+            )
+        return
+    checked_files(report).append(str(path))
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    else:
+        add_error(
+            report,
+            "config_application_rollback_preview.json missing markdown pair",
+        )
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root
+        / "schemas/config_application_rollback_preview.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            "config_application_rollback_preview.json run_id does not match report",
+        )
+    receipt_path = resolve_path(
+        Path(str(payload.get("source_receipt_path", ""))),
+        repo_root,
+    )
+    if payload.get("source_receipt_sha256") != file_sha256(receipt_path):
+        add_error(
+            report,
+            "config_application_rollback_preview.json receipt digest mismatch",
+        )
+    config_path = resolve_path(Path(str(payload.get("config_path", ""))), repo_root)
+    if payload.get("current_config_sha256") != file_sha256(config_path):
+        add_error(
+            report,
+            "config_application_rollback_preview.json config digest mismatch",
+        )
+    gate = payload.get("rollback_gate", {})
+    if not isinstance(gate, dict):
+        add_error(report, "config_application_rollback_preview.json gate invalid")
+    else:
+        eligible = gate.get("eligible_for_manual_restore") is True
+        blockers = gate.get("blockers", [])
+        status = payload.get("status")
+        if status == "rollback_ready" and not eligible:
+            add_error(
+                report,
+                "config_application_rollback_preview.json ready status mismatch",
+            )
+        if status == "rollback_ready" and blockers:
+            add_error(
+                report,
+                "config_application_rollback_preview.json ready with blockers",
+            )
+        if status == "no_applied_config_change" and payload.get(
+            "source_receipt_applied",
+        ):
+            add_error(
+                report,
+                "config_application_rollback_preview.json no-change status mismatch",
+            )
+    rollback_plan = payload.get("rollback_plan", [])
+    if not isinstance(rollback_plan, list):
+        add_error(report, "config_application_rollback_preview.json plan invalid")
+    elif payload.get("status") == "rollback_ready" and not rollback_plan:
+        add_error(report, "config_application_rollback_preview.json ready without plan")
+    impact = payload.get("next_run_impact", {})
+    if not isinstance(impact, dict):
+        add_error(report, "config_application_rollback_preview.json impact invalid")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "config_application_rollback_preview.json policy invalid")
+        return
+    for key in (
+        "requires_config_application_receipt",
+        "read_only",
+        "does_not_write_config",
+        "does_not_delete_memory",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_route_candidates",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            add_error(
+                report,
+                f"config_application_rollback_preview.json policy false: {key}",
+            )
 
 
 def validate_optional_champion_comparison(

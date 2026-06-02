@@ -155,6 +155,11 @@ from orchestrator.config_application_executor import (
     apply_config_with_approval,
     validate_config_application_receipt_file,
 )
+from orchestrator.config_application_rollback_preview import (
+    CONFIG_APPLICATION_ROLLBACK_PREVIEW_SCHEMA_VERSION,
+    validate_config_application_rollback_preview_file,
+    write_config_application_rollback_preview,
+)
 from orchestrator.operator_config_review import (
     OPERATOR_CONFIG_REVIEW_SCHEMA_VERSION,
     REQUIRED_APPROVAL_PHRASE as CONFIG_REVIEW_APPROVAL_PHRASE,
@@ -1704,6 +1709,24 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
     ]
     assert config_payload["memory_filter"]["recent_record_limit"] == 0
     assert_matches_schema_payload(blocked_receipt, "config_application_receipt")
+    _, _, blocked_preview = write_config_application_rollback_preview(
+        run_id="config-apply-approved",
+        receipt_path=run_dir / "config_application_receipt.json",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+    )
+    assert blocked_preview["schema_version"] == (
+        CONFIG_APPLICATION_ROLLBACK_PREVIEW_SCHEMA_VERSION
+    )
+    assert blocked_preview["status"] == "no_applied_config_change"
+    assert blocked_preview["source_receipt_applied"] is False
+    assert "receipt_not_applied" in blocked_preview["rollback_gate"]["blockers"]
+    assert blocked_preview["rollback_plan"] == []
+    assert_matches_schema_payload(
+        blocked_preview,
+        "config_application_rollback_preview",
+    )
 
     write_operator_config_review(
         run_dir=run_dir,
@@ -1756,6 +1779,40 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
         payload_path=run_dir / "config_application_receipt.json",
         repo_root=repo,
     ) == ()
+    _, _, preview = write_config_application_rollback_preview(
+        run_id="config-apply-approved",
+        receipt_path=run_dir / "config_application_receipt.json",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+    )
+    assert preview["status"] == "rollback_ready"
+    assert preview["rollback_gate"]["eligible_for_manual_restore"] is True
+    assert preview["rollback_gate"]["blockers"] == []
+    assert preview["rollback_plan"][0]["config_path"] == (
+        "memory_filter.recent_record_limit"
+    )
+    assert preview["rollback_plan"][0]["current_value"] == 100
+    assert preview["rollback_plan"][0]["restore_value"] == 0
+    assert preview["rollback_plan"][0]["can_restore"] is True
+    assert preview["next_run_impact"]["affected_config_paths"] == [
+        "memory_filter.recent_record_limit"
+    ]
+    assert preview["policy"]["read_only"] is True
+    assert preview["policy"]["does_not_write_config"] is True
+    assert (run_dir / "config_application_rollback_preview.json").exists()
+    assert (run_dir / "config_application_rollback_preview.md").exists()
+    assert "# Config Application Rollback Preview" in (
+        run_dir / "config_application_rollback_preview.md"
+    ).read_text(encoding="utf-8")
+    assert_matches_schema(
+        run_dir / "config_application_rollback_preview.json",
+        "config_application_rollback_preview",
+    )
+    assert validate_config_application_rollback_preview_file(
+        payload_path=run_dir / "config_application_rollback_preview.json",
+        repo_root=repo,
+    ) == ()
 
     report = validate_run_artifacts(
         run_id="config-apply-approved",
@@ -1765,6 +1822,10 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
     assert report["ok"] is False
     assert not any(
         "config_application_receipt.json" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+    assert not any(
+        "config_application_rollback_preview.json" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 
@@ -13570,6 +13631,23 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    rollback_preview_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "config-application-rollback-preview",
+            "cli-candidates",
+            "--receipt-path",
+            "experiments/cli-candidates/config_application_receipt.json",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     challenger_result = subprocess.run(
         [
             sys.executable,
@@ -13725,6 +13803,21 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         "blockers"
     ]
     assert_matches_schema_payload(apply_config_payload, "config_application_receipt")
+    assert rollback_preview_result.returncode == 0, rollback_preview_result.stderr
+    rollback_preview_payload = json.loads(rollback_preview_result.stdout)
+    assert rollback_preview_payload["schema_version"] == (
+        CONFIG_APPLICATION_ROLLBACK_PREVIEW_SCHEMA_VERSION
+    )
+    assert rollback_preview_payload["status"] == "no_applied_config_change"
+    assert rollback_preview_payload["from_artifact"] is False
+    assert "receipt_not_applied" in rollback_preview_payload["rollback_gate"][
+        "blockers"
+    ]
+    assert rollback_preview_payload["policy"]["read_only"] is True
+    assert_matches_schema_payload(
+        rollback_preview_payload,
+        "config_application_rollback_preview",
+    )
     assert challenger_result.returncode == 0, challenger_result.stderr
     challenger_payload = json.loads(challenger_result.stdout)
     assert challenger_payload["schema_version"] == CANDIDATE_CHALLENGER_SCHEMA_VERSION

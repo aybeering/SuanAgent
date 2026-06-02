@@ -491,6 +491,7 @@ jobs:
           assert diff["policy"]["startup_preflight_keeps_execution_authority"] is True
           assert diff["policy"]["does_not_execute_codex_cli"] is True
           PY
+          python -m orchestrator.operator_cockpit experiments/ci-codex-guarded
           python -m orchestrator.artifact_validator ci-codex-guarded
           python -m orchestrator.artifact_validator ci-codex-canary
           python -m orchestrator.artifact_validator ci-adaptive

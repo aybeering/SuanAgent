@@ -2715,6 +2715,14 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert refresh["cockpit_snapshot_freshness"]["ok"] is True
     assert refresh["policy"]["does_not_execute_agents"] is True
     assert refresh["policy"]["does_not_change_acceptance"] is True
+    assert refresh["policy_summary"] == {
+        "ok": True,
+        "true_count": len(refresh["policy"]),
+        "false_count": 0,
+        "false_keys": [],
+    }
+    assert "Safety policy OK: `True`" in refresh_markdown
+    assert "Safety policy false keys: `0`" in refresh_markdown
     assert refreshed["snapshot_freshness"]["ok"] is True
     refreshed_blockers = refreshed["blockers"]
     if refreshed_blockers:
@@ -2789,6 +2797,11 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     assert "Cockpit freshness: `fresh`" in refresh_markdown
     assert refresh["pre_refresh_snapshot_freshness"]["ok"] is True
     assert refresh["pre_refresh_snapshot_freshness"]["stale_count"] == 0
+    assert refresh["policy_summary"]["ok"] is True
+    assert refresh["policy_summary"]["false_keys"] == []
+    assert refresh["policy_summary"]["true_count"] == len(refresh["policy"])
+    assert "Safety policy OK: `True`" in refresh_markdown
+    assert "Safety policy false keys: `0`" in refresh_markdown
     assert refresh["operator_summary"]["cockpit_status"] in {
         "needs_operator_review",
         "ready_for_review",

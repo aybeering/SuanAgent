@@ -1327,6 +1327,19 @@ def refresh_operator_views(
         experiments_dir=experiments_dir,
     )
     operator_summary = operator_view_refresh_summary(cockpit)
+    policy = {
+        "writes_existing_read_only_operator_artifacts": True,
+        "does_not_record_approval": True,
+        "does_not_execute_commands": True,
+        "does_not_execute_codex_cli": True,
+        "does_not_execute_agents": True,
+        "does_not_run_backtests": True,
+        "does_not_write_config": True,
+        "does_not_promote_champion": True,
+        "does_not_apply_patches": True,
+        "does_not_route_agents": True,
+        "does_not_change_acceptance": True,
+    }
     return {
         "schema_version": "operator_view_refresh_v1",
         "run_id": run_id,
@@ -1341,19 +1354,8 @@ def refresh_operator_views(
         "refreshed_artifacts": refreshed,
         "operator_summary": operator_summary,
         "cockpit_snapshot_freshness": cockpit.get("snapshot_freshness", {}),
-        "policy": {
-            "writes_existing_read_only_operator_artifacts": True,
-            "does_not_record_approval": True,
-            "does_not_execute_commands": True,
-            "does_not_execute_codex_cli": True,
-            "does_not_execute_agents": True,
-            "does_not_run_backtests": True,
-            "does_not_write_config": True,
-            "does_not_promote_champion": True,
-            "does_not_apply_patches": True,
-            "does_not_route_agents": True,
-            "does_not_change_acceptance": True,
-        },
+        "policy": policy,
+        "policy_summary": operator_view_refresh_policy_summary(policy),
     }
 
 
@@ -1375,6 +1377,19 @@ def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, objec
     }
 
 
+def operator_view_refresh_policy_summary(
+    policy: dict[str, bool],
+) -> dict[str, object]:
+    """Return a compact safety-policy summary for a refresh receipt."""
+    false_keys = [key for key in sorted(policy) if policy.get(key) is not True]
+    return {
+        "ok": not false_keys,
+        "true_count": len(policy) - len(false_keys),
+        "false_count": len(false_keys),
+        "false_keys": false_keys,
+    }
+
+
 def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     """Render the operator-view refresh receipt as a compact markdown summary."""
     config_record = dict_payload(payload.get("config_record", {}))
@@ -1382,6 +1397,7 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     freshness = dict_payload(payload.get("cockpit_snapshot_freshness", {}))
     operator_summary = dict_payload(payload.get("operator_summary", {}))
     policy = dict_payload(payload.get("policy", {}))
+    policy_summary = dict_payload(payload.get("policy_summary", {}))
     lines = [
         "# Operator View Refresh",
         "",
@@ -1402,6 +1418,8 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Next command: `{operator_summary.get('next_command_label', '')}`",
         f"- Next command text: `{operator_summary.get('next_command', '')}`",
         f"- Next command reason: {operator_summary.get('next_command_reason', '')}",
+        f"- Safety policy OK: `{policy_summary.get('ok', False)}`",
+        f"- Safety policy false keys: `{policy_summary.get('false_count', 0)}`",
         "",
         "## Refreshed Artifacts",
         "",
@@ -1446,6 +1464,12 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     if not stale_sources:
         lines.append("- none")
     lines.extend(["", "## Safety Policy", ""])
+    false_keys = policy_summary.get("false_keys", [])
+    if false_keys:
+        lines.append("### False Keys")
+        for key in false_keys if isinstance(false_keys, list) else []:
+            lines.append(f"- `{key}`")
+        lines.append("")
     for key in sorted(policy):
         lines.append(f"- `{key}`: `{policy.get(key)}`")
     return "\n".join(lines) + "\n"

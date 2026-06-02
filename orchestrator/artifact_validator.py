@@ -256,6 +256,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_operator_action_dashboard(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_optional_agent_slot_health(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -4154,6 +4159,130 @@ def validate_optional_operator_action_audit(
             add_error(report, f"operator_action_audit.json policy false: {key}")
 
 
+def validate_optional_operator_action_dashboard(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate operator_action_dashboard.json/md when present."""
+    path = run_dir / "operator_action_dashboard.json"
+    md_path = run_dir / "operator_action_dashboard.md"
+    if not path.exists() and not md_path.exists():
+        return
+    if not path.exists():
+        add_error(report, f"missing operator action dashboard JSON: {path}")
+        return
+    if not md_path.exists():
+        add_error(report, f"missing operator action dashboard markdown: {md_path}")
+    checked_files(report).append(str(path))
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/operator_action_dashboard.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(report, "operator_action_dashboard.json run_id mismatch")
+
+    sources = payload.get("source_artifacts", {})
+    if not isinstance(sources, dict):
+        add_error(report, "operator_action_dashboard.json source_artifacts invalid")
+        sources = {}
+    for source_key, expected_name in (
+        ("action_plan", "operator_action_plan.json"),
+        ("action_approval", "operator_action_approval.json"),
+        ("execution_receipt", "operator_action_execution_receipt.json"),
+        ("action_audit", "operator_action_audit.json"),
+    ):
+        source = sources.get(source_key, {})
+        if not isinstance(source, dict):
+            add_error(report, f"operator_action_dashboard source invalid: {source_key}")
+            continue
+        source_file = source.get("file", {})
+        if not isinstance(source_file, dict):
+            add_error(
+                report,
+                f"operator_action_dashboard source file invalid: {source_key}",
+            )
+            continue
+        if source_file.get("exists") is True:
+            validate_recorded_file_hash(
+                record=source_file,
+                repo_root=repo_root,
+                report=report,
+                label=f"operator_action_dashboard {source_key}",
+            )
+            source_path = resolve_path(Path(str(source_file.get("path", ""))), repo_root)
+            if source_path.name != expected_name:
+                add_error(
+                    report,
+                    f"operator_action_dashboard source path invalid: {source_key}",
+                )
+    for row in list_of_dicts(payload.get("timeline", [])):
+        artifact_path = resolve_path(Path(str(row.get("artifact_path", ""))), repo_root)
+        if bool(row.get("artifact_exists", False)) != artifact_path.exists():
+            add_error(
+                report,
+                "operator_action_dashboard timeline artifact existence mismatch",
+            )
+
+    summary = payload.get("summary", {})
+    if not isinstance(summary, dict):
+        add_error(report, "operator_action_dashboard.json summary invalid")
+        summary = {}
+    if payload.get("ok") is not True:
+        add_error(report, "operator_action_dashboard.json ok false")
+    if summary.get("chain_ok") is not True:
+        add_error(report, "operator_action_dashboard.json chain not ok")
+    if int(summary.get("blocker_count", 0) or 0) != len(
+        string_list(payload.get("blockers", []))
+    ):
+        add_error(report, "operator_action_dashboard blocker count mismatch")
+
+    authority = payload.get("authority", {})
+    if not isinstance(authority, dict):
+        add_error(report, "operator_action_dashboard.json authority invalid")
+        authority = {}
+    for key in (
+        "approval_required_before_execution",
+        "execution_must_use_guarded_executor",
+    ):
+        if authority.get(key) is not True:
+            add_error(report, f"operator_action_dashboard authority false: {key}")
+    for key in (
+        "dashboard_can_execute_commands",
+        "dashboard_can_approve_commands",
+        "dashboard_can_change_repository",
+    ):
+        if authority.get(key) is not False:
+            add_error(report, f"operator_action_dashboard authority true: {key}")
+
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "operator_action_dashboard.json policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_record_approval",
+        "does_not_execute_commands",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"operator_action_dashboard.json policy false: {key}")
+
+
 def validate_optional_candidate_challenger_report(
     *,
     run_dir: Path,
@@ -7467,6 +7596,13 @@ def list_of_dicts(value: object) -> list[dict[str, object]]:
     if not isinstance(value, list | tuple):
         return []
     return [row for row in value if isinstance(row, dict)]
+
+
+def string_list(value: object) -> list[str]:
+    """Return string rows from a JSON list-like value."""
+    if not isinstance(value, list | tuple):
+        return []
+    return [str(row) for row in value]
 
 
 def round_ids_from_manifest(manifest: dict[str, Any]) -> list[str]:

@@ -124,6 +124,7 @@ Implemented or allowed V0.5 components:
 110. A deterministic `operator_action_approval.json` and `operator_action_approval.md` report pair, exposed through `python -m orchestrator.experiments action-approval <run_id>` and written by `python -m orchestrator.operator_action_approval`, that records explicit operator approval for one action-plan command candidate, binds to `operator_action_plan.json` and the selected command digest, and requires a confirmation phrase without executing commands, writing config, promoting champions, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 111. A guarded `operator_action_execution_receipt.json` and `operator_action_execution_receipt.md` report pair, written by `python -m orchestrator.operator_action_executor` and exposed through `python -m orchestrator.experiments action-execution <run_id>`, that executes only approval-backed allowlisted read-only inspection commands, binds to `operator_action_approval.json` and the selected command digest, records stdout/stderr hashes and tracked workspace mutation evidence, and blocks commands that write repository state, promote champions, execute agents, rerun backtests, route candidates, apply patches, or change acceptance.
 112. A read-only `operator_action_audit.json` and `operator_action_audit.md` report pair, written by `python -m orchestrator.operator_action_audit` and exposed through `python -m orchestrator.experiments action-audit <run_id>`, that connects the saved operator action plan, approval, and execution receipt into one digest-checked chain, reports source schema errors, selected-command consistency, chain status, and next operator steps, without executing commands, writing config, promoting champions, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
+113. A read-only `operator_action_dashboard.json` and `operator_action_dashboard.md` report pair, written by `python -m orchestrator.operator_action_dashboard` and exposed through `python -m orchestrator.experiments action-dashboard <run_id>`, that summarizes the operator action plan, approval, execution receipt, and audit state into one compact next-step view with timeline rows, selected command state, safe command counts, blockers, and command hints, without recording approval, executing commands, writing config, promoting champions, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 
 ## Contract Families
 
@@ -182,6 +183,7 @@ Agent-slot contracts:
 - Operator action execution receipt:
   `schemas/operator_action_execution_receipt.schema.json`
 - Operator action audit: `schemas/operator_action_audit.schema.json`
+- Operator action dashboard: `schemas/operator_action_dashboard.schema.json`
 - Candidate quality trace: `schemas/candidate_quality_trace.schema.json`
 - Candidate challenger report: `schemas/candidate_challenger_report.schema.json`
 - Champion promotion dry-run: `schemas/champion_promotion_dry_run.schema.json`

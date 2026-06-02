@@ -59,6 +59,9 @@ python -m orchestrator.experiments action-execution <run_id> --markdown
 python -m orchestrator.operator_action_audit experiments/<run_id>
 python -m orchestrator.experiments action-audit <run_id>
 python -m orchestrator.experiments action-audit <run_id> --markdown
+python -m orchestrator.operator_action_dashboard experiments/<run_id>
+python -m orchestrator.experiments action-dashboard <run_id>
+python -m orchestrator.experiments action-dashboard <run_id> --markdown
 ```
 
 Replay and validation:
@@ -161,6 +164,8 @@ experiments/<run_id>/
   operator_action_execution_receipt.md    # after guarded read-only action execution
   operator_action_audit.json  # after optional operator action audit command
   operator_action_audit.md    # after optional operator action audit command
+  operator_action_dashboard.json  # after optional operator action dashboard command
+  operator_action_dashboard.md    # after optional operator action dashboard command
 ```
 
 It also updates append-only experiment indexes:
@@ -221,6 +226,14 @@ chain. `python -m orchestrator.experiments action-audit <run_id>` and
 `action-audit --markdown` expose the saved or derived audit without executing
 commands, writing config, promoting champions, running agents, running
 backtests, applying patches, routing agents, or changing acceptance.
+`operator_action_dashboard.json` and `operator_action_dashboard.md` summarize
+the same chain into a compact next-step view. `python -m
+orchestrator.experiments action-dashboard <run_id>` and `action-dashboard
+--markdown` show the current step, timeline, selected command, safe command
+counts, blockers, and suggested read-only/guarded commands without recording
+approval, executing commands, writing config, promoting champions, running
+agents, running backtests, applying patches, routing agents, or changing
+acceptance.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.
@@ -469,6 +482,11 @@ Replay artifacts:
   action plan, approval, and execution receipt chain. They validate source
   artifact schema state, source file hashes, selected command consistency, and
   next recommended operator step while remaining read-only.
+- `operator_action_dashboard.json` and `operator_action_dashboard.md` turn the
+  action plan, approval, execution receipt, and audit state into a compact
+  operator next-step view. They list the timeline, selected command, safe
+  command counts, blockers, and command hints, but cannot approve or execute
+  anything.
 - `candidate_leaderboard.json` records every proposal attempt with stable
   quality metadata. `quality_breakdown` decomposes the pre-backtest candidate
   score into named components, selected rows also record validation and

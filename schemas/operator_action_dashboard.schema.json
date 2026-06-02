@@ -1,0 +1,423 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Operator Action Dashboard",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "status",
+    "ok",
+    "current_step",
+    "primary_prompt",
+    "source_artifacts",
+    "summary",
+    "timeline",
+    "selected_action",
+    "selected_command",
+    "available_actions",
+    "blockers",
+    "recommended_commands",
+    "authority",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "operator_action_dashboard_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "missing_action_plan",
+        "pending_approval",
+        "approval_blocked",
+        "ready_for_execution",
+        "execution_completed",
+        "execution_blocked",
+        "execution_failed",
+        "chain_inconsistent",
+        "needs_chain_repair"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "current_step": {
+      "type": "string"
+    },
+    "primary_prompt": {
+      "type": "string"
+    },
+    "source_artifacts": {
+      "type": "object",
+      "required": [
+        "action_plan",
+        "action_approval",
+        "execution_receipt",
+        "action_audit"
+      ],
+      "properties": {
+        "action_plan": {
+          "$ref": "#/$defs/source_artifact"
+        },
+        "action_approval": {
+          "$ref": "#/$defs/source_artifact"
+        },
+        "execution_receipt": {
+          "$ref": "#/$defs/source_artifact"
+        },
+        "action_audit": {
+          "$ref": "#/$defs/source_artifact"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "action_count",
+        "command_candidate_count",
+        "safe_command_count",
+        "approval_present",
+        "approval_recorded",
+        "execution_present",
+        "execution_completed",
+        "chain_ok",
+        "blocker_count"
+      ],
+      "properties": {
+        "action_count": {
+          "type": "integer"
+        },
+        "command_candidate_count": {
+          "type": "integer"
+        },
+        "safe_command_count": {
+          "type": "integer"
+        },
+        "approval_present": {
+          "type": "boolean"
+        },
+        "approval_recorded": {
+          "type": "boolean"
+        },
+        "execution_present": {
+          "type": "boolean"
+        },
+        "execution_completed": {
+          "type": "boolean"
+        },
+        "chain_ok": {
+          "type": "boolean"
+        },
+        "blocker_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "timeline": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/timeline_row"
+      }
+    },
+    "selected_action": {
+      "type": "object"
+    },
+    "selected_command": {
+      "type": "object"
+    },
+    "available_actions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/action_row"
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recommended_commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/recommended_command"
+      }
+    },
+    "authority": {
+      "type": "object",
+      "required": [
+        "approval_required_before_execution",
+        "execution_must_use_guarded_executor",
+        "final_acceptance_authority",
+        "dashboard_can_execute_commands",
+        "dashboard_can_approve_commands",
+        "dashboard_can_change_repository"
+      ],
+      "properties": {
+        "approval_required_before_execution": {
+          "type": "boolean"
+        },
+        "execution_must_use_guarded_executor": {
+          "type": "boolean"
+        },
+        "final_acceptance_authority": {
+          "type": "string"
+        },
+        "dashboard_can_execute_commands": {
+          "type": "boolean"
+        },
+        "dashboard_can_approve_commands": {
+          "type": "boolean"
+        },
+        "dashboard_can_change_repository": {
+          "type": "boolean"
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_record_approval",
+        "does_not_execute_commands",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_saved_artifacts_only": {
+          "type": "boolean"
+        },
+        "does_not_record_approval": {
+          "type": "boolean"
+        },
+        "does_not_execute_commands": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_write_config": {
+          "type": "boolean"
+        },
+        "does_not_promote_champion": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_route_agents": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "source_artifact": {
+      "type": "object",
+      "required": [
+        "artifact_name",
+        "from_artifact",
+        "file",
+        "schema_errors"
+      ],
+      "properties": {
+        "artifact_name": {
+          "type": "string"
+        },
+        "from_artifact": {
+          "type": "boolean"
+        },
+        "file": {
+          "$ref": "#/$defs/file_record"
+        },
+        "schema_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "file_record": {
+      "type": "object",
+      "required": [
+        "path",
+        "exists",
+        "sha256",
+        "byte_count"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "byte_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "timeline_row": {
+      "type": "object",
+      "required": [
+        "step",
+        "label",
+        "status",
+        "artifact_path",
+        "artifact_exists"
+      ],
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "artifact_path": {
+          "type": "string"
+        },
+        "artifact_exists": {
+          "type": "boolean"
+        }
+      }
+    },
+    "action_row": {
+      "type": "object",
+      "required": [
+        "action_id",
+        "action_type",
+        "status",
+        "source_text",
+        "command_count",
+        "safe_command_count",
+        "commands"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string"
+        },
+        "action_type": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "source_text": {
+          "type": "string"
+        },
+        "command_count": {
+          "type": "integer"
+        },
+        "safe_command_count": {
+          "type": "integer"
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/command_row"
+          }
+        }
+      }
+    },
+    "command_row": {
+      "type": "object",
+      "required": [
+        "label",
+        "command",
+        "command_sha256",
+        "expected_artifact",
+        "writes_repository",
+        "promotes_champion",
+        "runs_backtests",
+        "allowlisted_for_guarded_execution",
+        "guarded_read_only"
+      ],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "command_sha256": {
+          "type": "string"
+        },
+        "expected_artifact": {
+          "type": "string"
+        },
+        "writes_repository": {
+          "type": "boolean"
+        },
+        "promotes_champion": {
+          "type": "boolean"
+        },
+        "runs_backtests": {
+          "type": "boolean"
+        },
+        "allowlisted_for_guarded_execution": {
+          "type": "boolean"
+        },
+        "guarded_read_only": {
+          "type": "boolean"
+        }
+      }
+    },
+    "recommended_command": {
+      "type": "object",
+      "required": [
+        "label",
+        "command",
+        "reason",
+        "writes_artifact"
+      ],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "writes_artifact": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

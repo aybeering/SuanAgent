@@ -55,8 +55,8 @@ application receipt artifacts, read-only config rollback preview artifacts, and
 guarded config restore receipt artifacts, read-only config lineage artifacts,
 read-only run closeout operator dashboard summaries, read-only operator action
 plans, read-only operator action approval receipts, guarded read-only operator
-action execution receipts, read-only operator action audit artifacts, and Codex
-CLI readiness evidence.
+action execution receipts, read-only operator action audit artifacts, read-only
+operator action dashboard artifacts, and Codex CLI readiness evidence.
 
 Still out of scope:
 
@@ -185,6 +185,10 @@ Operator action audit artifacts may connect the saved action plan, approval,
 and execution receipt into one digest-checked chain. They must remain read-only
 and must not execute commands, write config, promote champions, run agents,
 run backtests, apply patches, route agents, or change acceptance.
+Operator action dashboard artifacts may summarize that action chain into a
+human-facing next-step view. They must remain read-only and must not record
+approval, execute commands, write config, promote champions, run agents, run
+backtests, apply patches, route agents, or change acceptance.
 
 ## Strategy Policy
 

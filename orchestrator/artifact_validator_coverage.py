@@ -67,6 +67,10 @@ KNOWN_ARTIFACT_NAMES = {
         "operator_action_audit.json",
         "operator_action_audit.md",
     ),
+    "operator_action_dashboard": (
+        "operator_action_dashboard.json",
+        "operator_action_dashboard.md",
+    ),
     "config_application_dry_run": (
         "config_application_dry_run.json",
         "config_application_dry_run.md",
@@ -166,6 +170,10 @@ INSPECTION_COMMANDS = {
     "operator_action_audit": (
         "python -m orchestrator.operator_action_audit",
         "python -m orchestrator.experiments action-audit",
+    ),
+    "operator_action_dashboard": (
+        "python -m orchestrator.operator_action_dashboard",
+        "python -m orchestrator.experiments action-dashboard",
     ),
     "config_application_dry_run": (
         "python -m orchestrator.config_application_dry_run",

@@ -31,6 +31,10 @@ from orchestrator.operator_action_audit import (
     build_operator_action_audit,
     render_operator_action_audit_markdown,
 )
+from orchestrator.operator_action_dashboard import (
+    build_operator_action_dashboard,
+    render_operator_action_dashboard_markdown,
+)
 from orchestrator.operator_action_executor import (
     render_receipt_markdown as render_operator_action_execution_markdown,
 )
@@ -1150,6 +1154,29 @@ def operator_action_audit_report(
     return payload
 
 
+def operator_action_dashboard_report(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+) -> dict[str, object]:
+    """Return the saved or derived operator action dashboard for one run."""
+    run_dir = experiments_dir / run_id
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    dashboard_path = run_dir / "operator_action_dashboard.json"
+    if dashboard_path.exists():
+        payload = load_json(dashboard_path)
+        payload["from_artifact"] = True
+        return payload
+    payload = build_operator_action_dashboard(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=experiments_dir.parent,
+    )
+    payload["from_artifact"] = False
+    return payload
+
+
 def agent_slot_health_report(
     *,
     run_id: str,
@@ -1891,6 +1918,17 @@ def main() -> None:
         help="Render the operator action audit as markdown.",
     )
 
+    action_dashboard_parser = subparsers.add_parser(
+        "action-dashboard",
+        help="Show the read-only operator action dashboard.",
+    )
+    action_dashboard_parser.add_argument("run_id")
+    action_dashboard_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the operator action dashboard as markdown.",
+    )
+
     leaderboard_parser = subparsers.add_parser(
         "leaderboard",
         help="Rank experiments by validation EV improvement.",
@@ -2164,6 +2202,14 @@ def main() -> None:
         )
         if args.markdown:
             print(render_operator_action_audit_markdown(payload), end="")
+            return
+    elif args.command == "action-dashboard":
+        payload = operator_action_dashboard_report(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
+        )
+        if args.markdown:
+            print(render_operator_action_dashboard_markdown(payload), end="")
             return
     elif args.command == "leaderboard":
         payload = experiment_leaderboard(

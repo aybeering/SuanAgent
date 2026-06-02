@@ -281,6 +281,13 @@ from orchestrator.operator_action_audit import (
     validate_operator_action_audit_file,
     write_operator_action_audit,
 )
+from orchestrator.operator_action_dashboard import (
+    OPERATOR_ACTION_DASHBOARD_SCHEMA_VERSION,
+    build_operator_action_dashboard,
+    render_operator_action_dashboard_markdown,
+    validate_operator_action_dashboard_file,
+    write_operator_action_dashboard,
+)
 from orchestrator.run_diagnosis import diagnose_run
 from orchestrator.proposal_intent import build_proposal_intent
 from orchestrator.preflight import run_preflight
@@ -301,6 +308,7 @@ from orchestrator.experiments import (
     operator_config_review_report,
     operator_action_approval_report,
     operator_action_audit_report,
+    operator_action_dashboard_report,
     operator_action_execution_report,
     operator_action_plan_report,
     operator_run_review,
@@ -1991,6 +1999,130 @@ def test_operator_action_audit_tracks_plan_approval_execution_chain(
     assert built["status"] == "execution_completed"
     assert_matches_schema_payload(completed, "operator_action_audit")
     assert validate_operator_action_audit_file(
+        payload_path=json_path,
+        repo_root=repo,
+    ) == ()
+    assert validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )["ok"] is True
+
+
+def test_operator_action_dashboard_summarizes_next_operator_step(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "operator-action-dashboard"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / f"experiments/{run_id}"
+    plan = json.loads((run_dir / "operator_action_plan.json").read_text("utf-8"))
+    action, read_only_command = next(
+        (action, command)
+        for action in plan["actions"]
+        for command in action["command_candidates"]
+        if command.get("writes_repository") is False
+        and command.get("promotes_champion") is False
+        and command.get("runs_backtests") is False
+        and command_is_allowlisted(parse_command(command["command"]))
+    )
+
+    json_path, md_path, pending = write_operator_action_dashboard(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert pending["schema_version"] == OPERATOR_ACTION_DASHBOARD_SCHEMA_VERSION
+    assert pending["status"] == "pending_approval"
+    assert pending["current_step"] == "record_operator_approval"
+    assert pending["ok"] is True
+    assert pending["summary"]["chain_ok"] is True
+    assert pending["summary"]["safe_command_count"] >= 1
+    assert pending["source_artifacts"]["action_audit"]["from_artifact"] is False
+    assert pending["recommended_commands"][0]["label"] == "write_action_audit"
+    assert any(
+        row["label"] == "record_operator_approval"
+        for row in pending["recommended_commands"]
+    )
+    assert pending["authority"]["dashboard_can_execute_commands"] is False
+    assert pending["policy"]["does_not_record_approval"] is True
+    assert "# Operator Action Dashboard" in md_path.read_text(encoding="utf-8")
+    assert_matches_schema_payload(pending, "operator_action_dashboard")
+    assert validate_operator_action_dashboard_file(
+        payload_path=json_path,
+        repo_root=repo,
+    ) == ()
+
+    write_operator_action_audit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    approval_path, _, _ = write_operator_action_approval(
+        run_dir=run_dir,
+        repo_root=repo,
+        operator_id="test-operator",
+        action_id=action["action_id"],
+        command_label=read_only_command["label"],
+        explicit_approval=True,
+        confirmation_phrase=OPERATOR_ACTION_CONFIRMATION_PHRASE,
+    )
+    _, _, ready = write_operator_action_dashboard(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert ready["status"] == "ready_for_execution"
+    assert ready["current_step"] == "execute_approved_command"
+    assert ready["source_artifacts"]["action_audit"]["from_artifact"] is True
+    assert ready["selected_command"]["label"] == read_only_command["label"]
+    assert any(
+        row["label"] == "execute_approved_command"
+        for row in ready["recommended_commands"]
+    )
+
+    execute_operator_action_with_approval(
+        run_id=run_id,
+        approval_path=approval_path,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        timeout_seconds=10,
+    )
+    write_operator_action_audit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    json_path, _, completed = write_operator_action_dashboard(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    markdown = render_operator_action_dashboard_markdown(completed)
+    built = build_operator_action_dashboard(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert completed["status"] == "execution_completed"
+    assert completed["current_step"] == "review_execution_receipt"
+    assert completed["summary"]["execution_completed"] is True
+    assert completed["summary"]["blocker_count"] == 0
+    assert completed["blockers"] == []
+    assert completed["timeline"][2]["status"] == "complete"
+    assert any(
+        row["label"] == "review_execution_receipt"
+        for row in completed["recommended_commands"]
+    )
+    assert "# Operator Action Dashboard" in markdown
+    assert built["status"] == "execution_completed"
+    assert_matches_schema_payload(completed, "operator_action_dashboard")
+    assert validate_operator_action_dashboard_file(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
@@ -14121,6 +14253,18 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         experiments_dir=repo / "experiments",
     )
     action_audit_markdown = render_operator_action_audit_markdown(action_audit)
+    write_operator_action_dashboard(
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    action_dashboard = operator_action_dashboard_report(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+    )
+    action_dashboard_markdown = render_operator_action_dashboard_markdown(
+        action_dashboard
+    )
     result = subprocess.run(
         [
             sys.executable,
@@ -14304,6 +14448,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "--experiments-dir",
             "experiments",
             "action-audit",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    action_dashboard_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-dashboard",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    action_dashboard_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-dashboard",
             "cli-candidates",
             "--markdown",
         ],
@@ -14648,6 +14823,18 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert action_audit["chain_checks"]["consistency_errors"] == []
     assert action_audit["policy"]["does_not_execute_commands"] is True
     assert "# Operator Action Audit" in action_audit_markdown
+    assert action_dashboard["from_artifact"] is True
+    assert (
+        action_dashboard["schema_version"]
+        == OPERATOR_ACTION_DASHBOARD_SCHEMA_VERSION
+    )
+    assert action_dashboard["status"] == "execution_completed"
+    assert action_dashboard["current_step"] == "review_execution_receipt"
+    assert action_dashboard["summary"]["execution_completed"] is True
+    assert action_dashboard["summary"]["safe_command_count"] >= 1
+    assert action_dashboard["policy"]["does_not_record_approval"] is True
+    assert action_dashboard["authority"]["dashboard_can_execute_commands"] is False
+    assert "# Operator Action Dashboard" in action_dashboard_markdown
     assert stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
     assert "avg_holdout_ev_delta" in stats["agents"][0]
     assert stats["round_replays"]["round_count"] == 1
@@ -14736,6 +14923,23 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         action_audit_markdown_result.stderr
     )
     assert "# Operator Action Audit" in action_audit_markdown_result.stdout
+    assert action_dashboard_result.returncode == 0, action_dashboard_result.stderr
+    action_dashboard_payload = json.loads(action_dashboard_result.stdout)
+    assert (
+        action_dashboard_payload["schema_version"]
+        == OPERATOR_ACTION_DASHBOARD_SCHEMA_VERSION
+    )
+    assert action_dashboard_payload["from_artifact"] is True
+    assert action_dashboard_payload["status"] == "execution_completed"
+    assert action_dashboard_payload["summary"]["blocker_count"] == 0
+    assert_matches_schema_payload(
+        action_dashboard_payload,
+        "operator_action_dashboard",
+    )
+    assert action_dashboard_markdown_result.returncode == 0, (
+        action_dashboard_markdown_result.stderr
+    )
+    assert "# Operator Action Dashboard" in action_dashboard_markdown_result.stdout
     assert stats_result.returncode == 0, stats_result.stderr
     stats_payload = json.loads(stats_result.stdout)
     assert stats_payload["schema_version"] == "agent_result_stats_v1"

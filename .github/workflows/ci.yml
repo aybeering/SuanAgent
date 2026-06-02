@@ -704,6 +704,25 @@ jobs:
           assert audit["policy"]["does_not_execute_commands"] is True
           assert "# Operator Action Audit" in markdown
           PY
+          python -m orchestrator.operator_action_dashboard experiments/ci-adaptive
+          test -f experiments/ci-adaptive/operator_action_dashboard.json
+          test -f experiments/ci-adaptive/operator_action_dashboard.md
+          python -m orchestrator.experiments action-dashboard ci-adaptive > /tmp/operator_action_dashboard.json
+          python -m orchestrator.experiments action-dashboard ci-adaptive --markdown > /tmp/operator_action_dashboard.md
+          python - <<'PY'
+          import json
+          dashboard = json.load(open("/tmp/operator_action_dashboard.json"))
+          markdown = open("/tmp/operator_action_dashboard.md").read()
+          assert dashboard["schema_version"] == "operator_action_dashboard_v1"
+          assert dashboard["from_artifact"] is True
+          assert dashboard["status"] == "execution_completed"
+          assert dashboard["current_step"] == "review_execution_receipt"
+          assert dashboard["summary"]["chain_ok"] is True
+          assert dashboard["summary"]["safe_command_count"] >= 1
+          assert dashboard["policy"]["does_not_record_approval"] is True
+          assert dashboard["authority"]["dashboard_can_execute_commands"] is False
+          assert "# Operator Action Dashboard" in markdown
+          PY
           python -m orchestrator.artifact_validator ci-adaptive
 
       - name: Diagnose iteration runs

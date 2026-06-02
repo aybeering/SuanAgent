@@ -62,6 +62,7 @@ python -m orchestrator.experiments action-plan <run_id> --markdown
 python -m orchestrator.experiments action-approval <run_id> --markdown
 python -m orchestrator.experiments action-execution <run_id> --markdown
 python -m orchestrator.experiments action-audit <run_id> --markdown
+python -m orchestrator.experiments action-dashboard <run_id> --markdown
 ```
 
 More commands and artifact details live in `docs/artifact_reference.md`.

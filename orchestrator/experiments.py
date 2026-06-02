@@ -15,6 +15,7 @@ from orchestrator.experiment_index import read_experiment_index, recent_experime
 from orchestrator.external_agent_sandbox_drill import (
     build_external_agent_sandbox_drill,
 )
+from orchestrator.experiment_scope_health import build_experiment_scope_health
 from orchestrator.memory_diagnostics import build_memory_diagnostics
 from orchestrator.outcome_memory import recent_outcomes
 from orchestrator.run_artifact_health import (
@@ -853,6 +854,15 @@ def main() -> None:
     memory_diagnostics_parser.add_argument("--history-path", type=Path)
     memory_diagnostics_parser.add_argument("--created-at-from", default="")
 
+    scope_health_parser = subparsers.add_parser(
+        "scope-health",
+        help="Summarize artifact, history, and memory health for one scope.",
+    )
+    scope_health_parser.add_argument("--limit", type=int, default=20)
+    scope_health_parser.add_argument("--history-path", type=Path)
+    scope_health_parser.add_argument("--created-at-from", default="")
+    scope_health_parser.add_argument("--strict", action="store_true")
+
     subparsers.add_parser("summary", help="Summarize experiment history.")
 
     args = parser.parse_args()
@@ -952,10 +962,21 @@ def main() -> None:
             limit=args.limit,
             created_at_from=args.created_at_from,
         )
+    elif args.command == "scope-health":
+        payload = build_experiment_scope_health(
+            experiments_dir=args.experiments_dir,
+            repo_root=args.experiments_dir.parent,
+            history_path=args.history_path
+            or args.experiments_dir / DEFAULT_HISTORY_FILENAME,
+            limit=args.limit,
+            created_at_from=args.created_at_from,
+        )
     else:
         payload = summarize_experiments(experiments_dir=args.experiments_dir)
     print(json.dumps(payload, indent=2, sort_keys=True))
     if args.command == "validate" and args.strict and not payload.get("ok", False):
+        raise SystemExit(1)
+    if args.command == "scope-health" and args.strict and not payload.get("ok", False):
         raise SystemExit(1)
 
 

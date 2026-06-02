@@ -61,6 +61,8 @@ python -m orchestrator.experiments validate --limit 10 --strict
 python -m orchestrator.experiments health-history
 python -m orchestrator.memory_diagnostics --strict
 python -m orchestrator.memory_diagnostics --created-at-from 2026-06-02T00:00:00Z --strict
+python -m orchestrator.experiment_scope_health --created-at-from 2026-06-02T00:00:00Z --strict
+python -m orchestrator.experiments scope-health --created-at-from 2026-06-02T00:00:00Z --strict
 python -m orchestrator.artifact_validator_coverage --output artifact_validator_coverage.json --markdown artifact_validator_coverage.md
 python -m orchestrator.artifact_validator_coverage --strict
 python -m orchestrator.experiments coverage
@@ -247,6 +249,11 @@ Replay artifacts:
   `--created-at-from` applies the same current-contract scope to outcome memory
   and indexed health runs. It is inspection-only and cannot execute agents, run
   backtests, route agents, apply patches, or change acceptance.
+- `experiment_scope_health.json` combines current artifact health,
+  artifact-health history, and memory diagnostics for one `--created-at-from`
+  scope. It is a read-only status page and marks the scope unhealthy if any
+  component has read errors, current artifact failures, historical scoped
+  failure observations, or memory-linked failed health runs.
 - `artifact_validator_coverage.json` reports schema, validator, documentation,
   test, and inspection/replay coverage for repository artifact contracts.
 

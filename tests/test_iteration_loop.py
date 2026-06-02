@@ -154,6 +154,12 @@ from orchestrator.memory_diagnostics import (
     validate_memory_diagnostics_file,
     write_memory_diagnostics,
 )
+from orchestrator.experiment_scope_health import (
+    SCHEMA_VERSION as EXPERIMENT_SCOPE_HEALTH_SCHEMA_VERSION,
+    build_experiment_scope_health,
+    validate_experiment_scope_health_file,
+    write_experiment_scope_health,
+)
 from orchestrator.config import (
     ProjectConfig,
     load_project_config,
@@ -970,6 +976,143 @@ def test_memory_diagnostics_cli_and_experiments_command(
     assert direct_payload["policy"]["does_not_execute_agents"] is True
     assert experiments_payload["policy"]["does_not_run_backtests"] is True
     assert_matches_schema(repo / "memory_diagnostics.json", "memory_diagnostics")
+    assert (
+        repo / "strategies/current_strategy.py"
+    ).read_text(encoding="utf-8") == strategy_before
+
+
+def test_experiment_scope_health_summarizes_current_scope(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    history_path = repo / "experiments/run_artifact_health_history.jsonl"
+    run_iteration_loop(
+        run_id="scope-health",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    health = build_run_artifact_health(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        run_ids=["scope-health"],
+    )
+    append_run_artifact_health_history(
+        payload=health,
+        history_path=history_path,
+        recorded_at="2026-01-01T00:00:00Z",
+    )
+
+    payload = build_experiment_scope_health(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        history_path=history_path,
+        created_at_from="2026-01-01T00:00:00Z",
+    )
+    output_path = repo / "experiment_scope_health.json"
+    written = write_experiment_scope_health(
+        output_path=output_path,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        history_path=history_path,
+        created_at_from="2026-01-01T00:00:00Z",
+    )
+
+    assert payload["schema_version"] == EXPERIMENT_SCOPE_HEALTH_SCHEMA_VERSION
+    assert written["schema_version"] == EXPERIMENT_SCOPE_HEALTH_SCHEMA_VERSION
+    assert payload["ok"] is True
+    assert payload["status"] == "healthy"
+    assert payload["summary"]["scoped_run_count"] == 1
+    assert payload["summary"]["artifact_failed_run_count"] == 0
+    assert payload["summary"]["history_failed_run_observation_count"] == 0
+    assert payload["summary"]["memory_outcome_record_count"] >= 1
+    assert payload["component_status"]["history_scope_clean"] is True
+    assert payload["component_status"]["memory_scope_clean"] is True
+    assert payload["components"]["run_artifact_health"]["failed_run_ids"] == []
+    assert payload["policy"]["does_not_execute_agents"] is True
+    assert payload["policy"]["does_not_route_agents"] is True
+    assert_matches_schema_payload(payload, "experiment_scope_health")
+    assert_matches_schema(output_path, "experiment_scope_health")
+    assert validate_experiment_scope_health_file(
+        payload_path=output_path,
+        repo_root=Path.cwd(),
+    ) == ()
+
+
+def test_experiment_scope_health_cli_and_experiments_command(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    history_path = repo / "experiments/run_artifact_health_history.jsonl"
+    run_iteration_loop(
+        run_id="scope-health-cli",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    health = build_run_artifact_health(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        run_ids=["scope-health-cli"],
+    )
+    append_run_artifact_health_history(
+        payload=health,
+        history_path=history_path,
+        recorded_at="2026-01-01T00:00:00Z",
+    )
+    strategy_before = (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+    direct_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiment_scope_health",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "--repo-root",
+            str(repo),
+            "--history-path",
+            str(history_path),
+            "--created-at-from",
+            "2026-01-01T00:00:00Z",
+            "--output",
+            str(repo / "experiment_scope_health.json"),
+            "--strict",
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    experiments_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "scope-health",
+            "--history-path",
+            str(history_path),
+            "--created-at-from",
+            "2026-01-01T00:00:00Z",
+            "--strict",
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    direct_payload = json.loads(direct_result.stdout)
+    experiments_payload = json.loads(experiments_result.stdout)
+
+    assert direct_payload["schema_version"] == EXPERIMENT_SCOPE_HEALTH_SCHEMA_VERSION
+    assert experiments_payload["schema_version"] == EXPERIMENT_SCOPE_HEALTH_SCHEMA_VERSION
+    assert direct_payload["scope"]["created_at_from"] == "2026-01-01T00:00:00Z"
+    assert experiments_payload["scope"]["created_at_from"] == "2026-01-01T00:00:00Z"
+    assert direct_payload["ok"] is True
+    assert experiments_payload["ok"] is True
+    assert direct_payload["policy"]["does_not_run_backtests"] is True
+    assert experiments_payload["policy"]["does_not_change_acceptance"] is True
+    assert_matches_schema(repo / "experiment_scope_health.json", "experiment_scope_health")
     assert (
         repo / "strategies/current_strategy.py"
     ).read_text(encoding="utf-8") == strategy_before

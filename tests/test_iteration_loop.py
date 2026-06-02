@@ -349,6 +349,7 @@ from orchestrator.experiments import (
     codex_cli_execution_readiness_diff_report,
     operator_unlock_checklist_report,
     operator_run_review,
+    operator_view_refresh_blocker_delta,
     promote_champion,
     refresh_operator_views as refresh_operator_views_command,
     render_operator_view_refresh_markdown,
@@ -2721,6 +2722,13 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
         "false_count": 0,
         "false_keys": [],
     }
+    assert refresh["blocker_delta"]["schema_version"] == (
+        "operator_view_refresh_blocker_delta_v1"
+    )
+    assert refresh["blocker_delta"]["before_count"] == len(stale["blockers"])
+    assert refresh["blocker_delta"]["after_count"] == len(refreshed["blockers"])
+    assert "Blocker delta changed:" in refresh_markdown
+    assert "## Blocker Delta" in refresh_markdown
     assert "Safety policy OK: `True`" in refresh_markdown
     assert "Safety policy false keys: `0`" in refresh_markdown
     assert refreshed["snapshot_freshness"]["ok"] is True
@@ -2800,6 +2808,17 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     assert refresh["policy_summary"]["ok"] is True
     assert refresh["policy_summary"]["false_keys"] == []
     assert refresh["policy_summary"]["true_count"] == len(refresh["policy"])
+    assert refresh["blocker_delta"]["schema_version"] == (
+        "operator_view_refresh_blocker_delta_v1"
+    )
+    assert refresh["blocker_delta"]["before_count"] == refresh[
+        "blocker_delta"
+    ]["after_count"]
+    assert refresh["blocker_delta"]["added_count"] == 0
+    assert refresh["blocker_delta"]["removed_count"] == 0
+    assert "Blocker delta changed: `False`" in refresh_markdown
+    assert "Blockers added: `0`" in refresh_markdown
+    assert "Blockers removed: `0`" in refresh_markdown
     assert "Safety policy OK: `True`" in refresh_markdown
     assert "Safety policy false keys: `0`" in refresh_markdown
     assert refresh["operator_summary"]["cockpit_status"] in {
@@ -2875,6 +2894,26 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     assert override_diff["current_expected_execution"]["source_config"][
         "path"
     ].endswith("config/default.json")
+
+
+def test_operator_view_refresh_blocker_delta_tracks_added_removed() -> None:
+    delta = operator_view_refresh_blocker_delta(
+        before=["config_lineage_not_ok", "operator_approval_not_recorded"],
+        after=["operator_approval_not_recorded", "scope_health_not_ok"],
+    )
+
+    assert delta == {
+        "schema_version": "operator_view_refresh_blocker_delta_v1",
+        "changed": True,
+        "before_count": 2,
+        "after_count": 2,
+        "added_count": 1,
+        "removed_count": 1,
+        "persisted_count": 1,
+        "added_blockers": ["scope_health_not_ok"],
+        "removed_blockers": ["config_lineage_not_ok"],
+        "persisted_blocker_preview": ["operator_approval_not_recorded"],
+    }
 
 
 def test_config_application_receipt_applies_only_from_approved_dry_run(

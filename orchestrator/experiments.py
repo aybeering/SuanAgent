@@ -1263,6 +1263,7 @@ def refresh_operator_views(
     pre_refresh_freshness = dict_payload(
         pre_refresh_cockpit.get("snapshot_freshness", {})
     )
+    pre_refresh_blockers = string_payload(pre_refresh_cockpit.get("blockers", []))
     refreshed: list[dict[str, object]] = []
     for artifact_name, writer in (
         (
@@ -1327,6 +1328,10 @@ def refresh_operator_views(
         experiments_dir=experiments_dir,
     )
     operator_summary = operator_view_refresh_summary(cockpit)
+    blocker_delta = operator_view_refresh_blocker_delta(
+        before=pre_refresh_blockers,
+        after=string_payload(cockpit.get("blockers", [])),
+    )
     policy = {
         "writes_existing_read_only_operator_artifacts": True,
         "does_not_record_approval": True,
@@ -1353,6 +1358,7 @@ def refresh_operator_views(
         "refreshed_count": len(refreshed),
         "refreshed_artifacts": refreshed,
         "operator_summary": operator_summary,
+        "blocker_delta": blocker_delta,
         "cockpit_snapshot_freshness": cockpit.get("snapshot_freshness", {}),
         "policy": policy,
         "policy_summary": operator_view_refresh_policy_summary(policy),
@@ -1377,6 +1383,31 @@ def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, objec
     }
 
 
+def operator_view_refresh_blocker_delta(
+    *,
+    before: list[str],
+    after: list[str],
+) -> dict[str, object]:
+    """Return blocker changes caused by refreshing operator views."""
+    before_set = set(before)
+    after_set = set(after)
+    added = [blocker for blocker in after if blocker not in before_set]
+    removed = [blocker for blocker in before if blocker not in after_set]
+    persisted = [blocker for blocker in after if blocker in before_set]
+    return {
+        "schema_version": "operator_view_refresh_blocker_delta_v1",
+        "changed": bool(added or removed),
+        "before_count": len(before),
+        "after_count": len(after),
+        "added_count": len(added),
+        "removed_count": len(removed),
+        "persisted_count": len(persisted),
+        "added_blockers": added,
+        "removed_blockers": removed,
+        "persisted_blocker_preview": persisted[:5],
+    }
+
+
 def operator_view_refresh_policy_summary(
     policy: dict[str, bool],
 ) -> dict[str, object]:
@@ -1396,6 +1427,7 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     pre_freshness = dict_payload(payload.get("pre_refresh_snapshot_freshness", {}))
     freshness = dict_payload(payload.get("cockpit_snapshot_freshness", {}))
     operator_summary = dict_payload(payload.get("operator_summary", {}))
+    blocker_delta = dict_payload(payload.get("blocker_delta", {}))
     policy = dict_payload(payload.get("policy", {}))
     policy_summary = dict_payload(payload.get("policy_summary", {}))
     lines = [
@@ -1414,6 +1446,9 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Cockpit status: `{operator_summary.get('cockpit_status', '')}`",
         f"- Primary focus: `{operator_summary.get('primary_focus', '')}`",
         f"- Blockers: `{operator_summary.get('blocker_count', 0)}`",
+        f"- Blocker delta changed: `{blocker_delta.get('changed', False)}`",
+        f"- Blockers added: `{blocker_delta.get('added_count', 0)}`",
+        f"- Blockers removed: `{blocker_delta.get('removed_count', 0)}`",
         f"- Primary blocker: `{operator_summary.get('primary_blocker', '')}`",
         f"- Next command: `{operator_summary.get('next_command_label', '')}`",
         f"- Next command text: `{operator_summary.get('next_command', '')}`",
@@ -1453,6 +1488,18 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         lines.append(f"- `{blocker}`")
     if not blocker_preview:
         lines.append("- none")
+    lines.extend(["", "## Blocker Delta", ""])
+    lines.append(f"- Before: `{blocker_delta.get('before_count', 0)}`")
+    lines.append(f"- After: `{blocker_delta.get('after_count', 0)}`")
+    lines.append(f"- Changed: `{blocker_delta.get('changed', False)}`")
+    added_blockers = blocker_delta.get("added_blockers", [])
+    removed_blockers = blocker_delta.get("removed_blockers", [])
+    lines.append(f"- Added: `{blocker_delta.get('added_count', 0)}`")
+    for blocker in added_blockers if isinstance(added_blockers, list) else []:
+        lines.append(f"  - `{blocker}`")
+    lines.append(f"- Removed: `{blocker_delta.get('removed_count', 0)}`")
+    for blocker in removed_blockers if isinstance(removed_blockers, list) else []:
+        lines.append(f"  - `{blocker}`")
     stale_sources = freshness.get("stale_sources", [])
     lines.extend(["", "## Snapshot Freshness", ""])
     lines.append(f"- Stale sources: `{freshness.get('stale_count', 0)}`")

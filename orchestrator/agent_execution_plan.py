@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from orchestrator.agent_executor import AgentCandidate, executor_policy_payload
+from orchestrator.agent_io import build_proposal_intent_summary
 from orchestrator.workspace_manager import safe_workspace_segment
 
 
@@ -23,6 +24,7 @@ def write_agent_execution_plan(
     round_id: str,
     queue: tuple[AgentCandidate, ...],
     executor_config: dict[str, object],
+    proposal_intent: dict[str, object],
 ) -> Path:
     """Write the queue plan before any candidate agent is invoked."""
     payload = agent_execution_plan_payload(
@@ -32,6 +34,7 @@ def write_agent_execution_plan(
         round_id=round_id,
         queue=queue,
         executor_config=executor_config,
+        proposal_intent=proposal_intent,
     )
     output_path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
@@ -49,8 +52,10 @@ def agent_execution_plan_payload(
     round_id: str,
     queue: tuple[AgentCandidate, ...],
     executor_config: dict[str, object],
+    proposal_intent: dict[str, object],
 ) -> dict[str, object]:
     """Return a deterministic pre-execution plan for one round."""
+    proposal_intent_summary = build_proposal_intent_summary(proposal_intent)
     attempts = [
         candidate_plan_row(
             candidate=candidate,
@@ -58,6 +63,7 @@ def agent_execution_plan_payload(
             round_dir=round_dir,
             run_id=run_id,
             round_id=round_id,
+            proposal_intent_summary=proposal_intent_summary,
         )
         for candidate in queue
     ]
@@ -68,6 +74,7 @@ def agent_execution_plan_payload(
         "round_dir": relative_path(round_dir, repo_root),
         "queue_count": len(attempts),
         "execution_policy": executor_policy_payload(executor_config),
+        "proposal_intent_summary": proposal_intent_summary,
         "attempts": attempts,
         "policy": {
             "plan_only": True,
@@ -86,6 +93,7 @@ def candidate_plan_row(
     round_dir: Path,
     run_id: str,
     round_id: str,
+    proposal_intent_summary: dict[str, object],
 ) -> dict[str, object]:
     """Return one planned candidate attempt row."""
     runner = dict_or_empty(candidate.runner_capability)
@@ -125,6 +133,7 @@ def candidate_plan_row(
                 round_dir / "agent_input_bundle",
                 repo_root,
             ),
+            "proposal_intent_summary": proposal_intent_summary,
         },
         "output_contract": output_contract(
             runner=runner,

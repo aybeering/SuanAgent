@@ -793,44 +793,14 @@ def validate_agent_input_proposal_intent_summary(
 ) -> None:
     """Validate compact proposal-intent summary exposed in agent input."""
     summary = payload.get("proposal_intent_summary", {})
-    if not isinstance(summary, dict):
-        add_error(report, f"agent_input.json proposal_intent_summary invalid: {path}")
+    if not validate_proposal_intent_summary_contract(
+        summary=summary,
+        artifact_name="agent_input.json",
+        report=report,
+    ):
         return
-    if summary.get("schema_version") != "proposal_intent_summary_v1":
-        add_error(report, f"agent_input.json proposal_intent_summary schema mismatch: {path}")
     recommended = str(summary.get("recommended_direction", ""))
-    selected = str(summary.get("selected_direction", ""))
-    if recommended != selected:
-        add_error(report, f"agent_input.json proposal intent summary direction mismatch: {path}")
     candidate_order = string_values(summary.get("candidate_order", []))
-    candidate_rows = summary.get("candidate_rows", [])
-    if not isinstance(candidate_rows, list):
-        add_error(report, f"agent_input.json proposal intent candidate rows invalid: {path}")
-        candidate_rows = []
-    row_directions: list[str] = []
-    selected_rows = 0
-    for index, row in enumerate(candidate_rows, start=1):
-        if not isinstance(row, dict):
-            add_error(report, f"agent_input.json proposal intent candidate row invalid: {path}")
-            continue
-        row_directions.append(str(row.get("direction_tag", "")))
-        if row.get("rank") != index:
-            add_error(report, f"agent_input.json proposal intent candidate rank mismatch: {path}")
-        if bool(row.get("selected", False)):
-            selected_rows += 1
-            if str(row.get("direction_tag", "")) != selected:
-                add_error(report, f"agent_input.json proposal intent selected row mismatch: {path}")
-    if row_directions != candidate_order:
-        add_error(report, f"agent_input.json proposal intent candidate order mismatch: {path}")
-    if selected in row_directions and selected_rows != 1:
-        add_error(report, f"agent_input.json proposal intent selected row count invalid: {path}")
-    policy = summary.get("policy", {})
-    if not isinstance(policy, dict):
-        add_error(report, f"agent_input.json proposal intent summary policy invalid: {path}")
-    else:
-        for key in ("advisory_only", "does_not_route_agents", "does_not_change_acceptance"):
-            if policy.get(key) is not True:
-                add_error(report, f"agent_input.json proposal intent summary policy false: {key}")
     artifacts = payload.get("artifacts", {})
     if not isinstance(artifacts, dict):
         return
@@ -852,6 +822,54 @@ def validate_agent_input_proposal_intent_summary(
         add_error(report, f"agent_input.json proposal intent reason drift: {path}")
     if string_values(trace.get("candidate_order", [])) != candidate_order:
         add_error(report, f"agent_input.json proposal intent order drift: {path}")
+
+
+def validate_proposal_intent_summary_contract(
+    *,
+    summary: object,
+    artifact_name: str,
+    report: dict[str, object],
+) -> bool:
+    """Validate compact proposal-intent summary shape and authority policy."""
+    if not isinstance(summary, dict):
+        add_error(report, f"{artifact_name} proposal_intent_summary invalid")
+        return False
+    if summary.get("schema_version") != "proposal_intent_summary_v1":
+        add_error(report, f"{artifact_name} proposal_intent_summary schema mismatch")
+    recommended = str(summary.get("recommended_direction", ""))
+    selected = str(summary.get("selected_direction", ""))
+    if recommended != selected:
+        add_error(report, f"{artifact_name} proposal intent summary direction mismatch")
+    candidate_order = string_values(summary.get("candidate_order", []))
+    candidate_rows = summary.get("candidate_rows", [])
+    if not isinstance(candidate_rows, list):
+        add_error(report, f"{artifact_name} proposal intent candidate rows invalid")
+        candidate_rows = []
+    row_directions: list[str] = []
+    selected_rows = 0
+    for index, row in enumerate(candidate_rows, start=1):
+        if not isinstance(row, dict):
+            add_error(report, f"{artifact_name} proposal intent candidate row invalid")
+            continue
+        row_directions.append(str(row.get("direction_tag", "")))
+        if row.get("rank") != index:
+            add_error(report, f"{artifact_name} proposal intent candidate rank mismatch")
+        if bool(row.get("selected", False)):
+            selected_rows += 1
+            if str(row.get("direction_tag", "")) != selected:
+                add_error(report, f"{artifact_name} proposal intent selected row mismatch")
+    if row_directions != candidate_order:
+        add_error(report, f"{artifact_name} proposal intent candidate order mismatch")
+    if selected in row_directions and selected_rows != 1:
+        add_error(report, f"{artifact_name} proposal intent selected row count invalid")
+    policy = summary.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, f"{artifact_name} proposal intent summary policy invalid")
+    else:
+        for key in ("advisory_only", "does_not_route_agents", "does_not_change_acceptance"):
+            if policy.get(key) is not True:
+                add_error(report, f"{artifact_name} proposal intent summary policy false: {key}")
+    return True
 
 
 def validate_proposal_intent_trace(*, path: Path, report: dict[str, object]) -> None:
@@ -1143,6 +1161,12 @@ def validate_agent_execution_plan(
         return
     if payload.get("queue_count") != len(attempts):
         add_error(report, "agent_execution_plan.json queue_count mismatch")
+    plan_summary = payload.get("proposal_intent_summary", {})
+    validate_proposal_intent_summary_contract(
+        summary=plan_summary,
+        artifact_name="agent_execution_plan.json",
+        report=report,
+    )
     attempt_ids: set[str] = set()
     primary_count = 0
     for attempt in attempts:
@@ -1176,6 +1200,7 @@ def validate_agent_execution_plan(
         )
         validate_execution_plan_input_contract(
             attempt=attempt,
+            plan_summary=plan_summary,
             repo_root=repo_root,
             report=report,
         )
@@ -1220,6 +1245,7 @@ def validate_execution_plan_direction_capability(
 def validate_execution_plan_input_contract(
     *,
     attempt: dict[str, object],
+    plan_summary: object,
     repo_root: Path,
     report: dict[str, object],
 ) -> None:
@@ -1228,12 +1254,32 @@ def validate_execution_plan_input_contract(
     if not isinstance(input_contract, dict):
         add_error(report, "agent_execution_plan.json input_contract invalid")
         return
+    attempt_summary = input_contract.get("proposal_intent_summary", {})
+    if attempt_summary != plan_summary:
+        add_error(report, "agent_execution_plan.json input summary not plan-bound")
+    validate_proposal_intent_summary_contract(
+        summary=attempt_summary,
+        artifact_name="agent_execution_plan.json input_contract",
+        report=report,
+    )
     for key in ("round_agent_input", "input_bundle_dir"):
         contract_path = resolve_path(Path(str(input_contract.get(key, ""))), repo_root)
         if not contract_path.exists():
             add_error(
                 report,
                 f"agent_execution_plan.json input contract path missing: {key}",
+            )
+    round_input_path = resolve_path(
+        Path(str(input_contract.get("round_agent_input", ""))),
+        repo_root,
+    )
+    round_input = load_json_object(round_input_path, report)
+    if round_input is not None:
+        round_summary = round_input.get("proposal_intent_summary", {})
+        if round_summary != plan_summary:
+            add_error(
+                report,
+                "agent_execution_plan.json input summary drift from agent_input",
             )
 
 

@@ -2557,6 +2557,18 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_execution_plan["attempts"][0]["input_contract"][
         "round_agent_input"
     ].endswith("agent_input.json")
+    assert agent_execution_plan["proposal_intent_summary"]["schema_version"] == (
+        "proposal_intent_summary_v1"
+    )
+    assert agent_execution_plan["proposal_intent_summary"]["recommended_direction"] == (
+        intent["recommended_direction"]
+    )
+    assert agent_execution_plan["proposal_intent_summary"]["selection_reason_code"] == (
+        intent["direction_decision_trace"]["selection_reason_code"]
+    )
+    assert agent_execution_plan["attempts"][0]["input_contract"][
+        "proposal_intent_summary"
+    ] == agent_execution_plan["proposal_intent_summary"]
     assert agent_execution_plan["attempts"][0]["planned_artifacts"][
         "attempt_output"
     ].endswith("attempt_output.json")
@@ -2637,6 +2649,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_input["proposal_intent_summary"]["policy"][
         "does_not_route_agents"
     ] is True
+    assert agent_execution_plan["proposal_intent_summary"] == (
+        agent_input["proposal_intent_summary"]
+    )
     assert agent_input["agent_roles"][0]["role_name"] == "strategy_modifier"
     assert agent_input["agent_roles"][0]["decision_authority"] == "proposal_only"
     assert agent_input["agent_roles"][1]["execution_mode"] == "stub_contract"

@@ -1577,6 +1577,7 @@ def select_proposal_candidate(
         round_id=current_round_id,
         queue=agent_queue,
         executor_config=executor_config,
+        proposal_intent=proposal_intent,
     )
     write_agent_input_bundle(round_dir=round_dir)
     agent_results = execute_agent_queue(

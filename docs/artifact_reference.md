@@ -251,7 +251,9 @@ Context and planning artifacts:
   candidate order, avoid-source summary, and advisory-only policy from one
   input contract.
 - `agent_execution_plan.json` records the planned candidate queue and each
-  profile's declared direction capability before any modifier runs.
+  profile's declared direction capability before any modifier runs. It also
+  binds the same `proposal_intent_summary` into each attempt input contract so
+  planned candidates can be audited against the planner context they will see.
 - `agent_routing_policy.json` explains deterministic candidate ranking,
   including whether each proposal direction matched the profile's declared
   capability and whether it matched or auditably deviated from

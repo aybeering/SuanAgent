@@ -111,6 +111,7 @@ It also updates append-only experiment indexes:
 ```text
 experiments/index.jsonl
 experiments/memory.jsonl
+experiments/run_artifact_health_history.jsonl
 experiments/champion_history.jsonl
 ```
 
@@ -241,10 +242,11 @@ Replay artifacts:
   `--created-at-from` scopes indexed runs to a current contract era without
   deleting older experiment directories.
 - `run_artifact_health_history.jsonl` appends compact health snapshots when
-  explicitly requested, and `run_artifact_health_history_v1` summaries show
-  repeated failing runs and artifact filenames. The same `--created-at-from`
-  scope can exclude legacy failed runs from the summary without rewriting
-  history.
+  explicitly requested or when the iteration loop completes, and
+  `run_artifact_health_history_v1` summaries show repeated failing runs and
+  artifact filenames. Automatic iteration records use the run's startup
+  timestamp as the scope boundary. The same `--created-at-from` scope can
+  exclude legacy failed runs from the summary without rewriting history.
 - `memory_diagnostics.json` cross-references proposal outcome memory with
   artifact-health history by run id, agent, profile, direction, and patch hash.
   `--created-at-from` applies the same current-contract scope to outcome memory

@@ -94,6 +94,11 @@ from orchestrator.proposal import (
 )
 from orchestrator.research_brief import write_research_brief
 from orchestrator.run_diagnosis import write_run_diagnosis
+from orchestrator.run_artifact_health import (
+    DEFAULT_HISTORY_FILENAME,
+    append_run_artifact_health_history,
+    build_run_artifact_health,
+)
 from orchestrator.run_loop import run_and_write, write_json
 from orchestrator.run_metadata import write_run_metadata
 from orchestrator.run_summary import write_iteration_summary
@@ -226,6 +231,14 @@ def run_iteration_loop(
             "status": "pending",
             "created_at_from": scope_health_created_at_from,
             "scoped_run_count": 0,
+        },
+        "artifact_health_history": {
+            "path": DEFAULT_HISTORY_FILENAME,
+            "recorded": False,
+            "created_at_from": scope_health_created_at_from,
+            "ok": False,
+            "scoped_run_count": 0,
+            "failed_run_count": 0,
         },
         "memory_filter_policy": {
             "failed_patch_threshold": active_config.memory_failed_patch_threshold,
@@ -507,6 +520,33 @@ def finalize_iteration_run(
             experiments_dir=experiments_dir,
             repo_root=repo_root,
         )
+    artifact_health = build_run_artifact_health(
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+        all_runs=True,
+        created_at_from=scope_health_created_at_from,
+    )
+    history_record = append_run_artifact_health_history(
+        payload=artifact_health,
+        history_path=experiments_dir / DEFAULT_HISTORY_FILENAME,
+    )
+    artifact_totals = artifact_health.get("totals", {})
+    manifest["artifact_health_history"] = {
+        "path": DEFAULT_HISTORY_FILENAME,
+        "recorded": True,
+        "created_at_from": scope_health_created_at_from,
+        "ok": bool(history_record.get("ok", False)),
+        "scoped_run_count": int(
+            artifact_totals.get("run_count", 0)
+            if isinstance(artifact_totals, dict)
+            else 0
+        ),
+        "failed_run_count": int(
+            artifact_totals.get("failed_count", 0)
+            if isinstance(artifact_totals, dict)
+            else 0
+        ),
+    }
     scope_health = write_experiment_scope_health(
         output_path=run_dir / "experiment_scope_health.json",
         experiments_dir=experiments_dir,

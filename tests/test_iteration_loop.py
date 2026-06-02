@@ -648,7 +648,7 @@ def test_run_artifact_health_history_summarizes_failures(tmp_path: Path) -> None
     assert summary["schema_version"] == RUN_ARTIFACT_HEALTH_HISTORY_SCHEMA_VERSION
     assert_matches_schema_payload(summary, "run_artifact_health_history")
     assert summary["ok"] is True
-    assert summary["totals"]["record_count"] == 2
+    assert summary["totals"]["record_count"] == 3
     assert summary["totals"]["records_with_failures"] == 1
     assert summary["run_failures"][0]["run_id"] == "history-bad"
     assert summary["artifact_failures"][0]["artifact_name"] == "agent_input.json"
@@ -731,7 +731,10 @@ def test_run_artifact_health_history_filters_by_created_at(tmp_path: Path) -> No
     assert scoped["totals"]["failed_run_observation_count"] == 1
     assert scoped["run_failures"][0]["run_id"] == "history-current-bad"
     assert scoped["recent_records"][0]["failed_run_ids"] == []
-    assert scoped["recent_records"][1]["failed_run_ids"] == ["history-current-bad"]
+    assert any(
+        record["failed_run_ids"] == ["history-current-bad"]
+        for record in scoped["recent_records"]
+    )
     assert cli_scoped["run_failures"][0]["run_id"] == "history-current-bad"
 
 
@@ -872,7 +875,7 @@ def test_memory_diagnostics_links_outcomes_to_artifact_health(
     assert_matches_schema_payload(empty_scope_payload, "memory_diagnostics")
     assert payload["ok"] is True
     assert payload["totals"]["outcome_record_count"] == 1
-    assert payload["totals"]["health_history_record_count"] == 2
+    assert payload["totals"]["health_history_record_count"] == 3
     assert payload["totals"]["matched_failed_health_run_count"] == 1
     assert payload["totals"]["unmatched_failed_health_run_count"] == 1
     assert payload["matched_failed_run_ids"] == ["diagnostics-outcome-bad"]
@@ -1954,6 +1957,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "research_brief.json").exists()
     assert (run_dir / "research_brief.md").exists()
     assert (run_dir / "experiment_scope_health.json").exists()
+    assert (repo / "experiments/run_artifact_health_history.jsonl").exists()
 
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
     agent_activation = json.loads(
@@ -2020,7 +2024,29 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     scope_health = json.loads(
         (run_dir / "experiment_scope_health.json").read_text(encoding="utf-8")
     )
+    history_records = [
+        json.loads(line)
+        for line in (repo / "experiments/run_artifact_health_history.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip()
+    ]
     selected_attempt = next(attempt for attempt in attempts if attempt["selected"])
+    assert manifest["artifact_health_history"]["path"] == (
+        "run_artifact_health_history.jsonl"
+    )
+    assert manifest["artifact_health_history"]["recorded"] is True
+    assert manifest["artifact_health_history"]["ok"] is True
+    assert manifest["artifact_health_history"]["scoped_run_count"] == 1
+    assert manifest["artifact_health_history"]["failed_run_count"] == 0
+    assert manifest["artifact_health_history"]["created_at_from"]
+    assert len(history_records) == 1
+    assert history_records[0]["schema_version"] == "run_artifact_health_history_record_v1"
+    assert history_records[0]["ok"] is True
+    assert history_records[0]["totals"]["run_count"] == 1
+    assert history_records[0]["selection"]["filters"]["created_at_from"] == (
+        manifest["artifact_health_history"]["created_at_from"]
+    )
     assert manifest["experiment_scope_health"]["path"] == "experiment_scope_health.json"
     assert manifest["experiment_scope_health"]["ok"] is True
     assert manifest["experiment_scope_health"]["status"] == "healthy"
@@ -2031,6 +2057,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert scope_health["status"] == "healthy"
     assert scope_health["summary"]["scoped_run_count"] == 1
     assert scope_health["summary"]["artifact_failed_run_count"] == 0
+    assert scope_health["summary"]["history_record_count"] == 1
+    assert scope_health["summary"]["history_failed_run_observation_count"] == 0
     assert scope_health["summary"]["memory_outcome_record_count"] >= 1
     assert scope_health["components"]["run_artifact_health"]["selection"][
         "selected_run_ids"
@@ -2787,6 +2815,8 @@ def test_iteration_loop_writes_research_brief(tmp_path: Path) -> None:
     assert "Experiment Summary" in summary_text
     assert "Experiment Scope Health" in summary_text
     assert "experiment_scope_health.json" in summary_text
+    assert "Artifact Health History" in summary_text
+    assert "run_artifact_health_history.jsonl" in summary_text
     assert "round_001" in summary_text
     assert "strategy_modifier_stub" in summary_text
     assert "ev improvement" in summary_text

@@ -495,14 +495,19 @@ jobs:
           import json
           payload = json.load(open("experiments/ci-adaptive/research_brief.json"))
           scope = json.load(open("experiments/ci-adaptive/experiment_scope_health.json"))
+          manifest = json.load(open("experiments/ci-adaptive/manifest.json"))
           summary = open("experiments/ci-adaptive/summary.md").read()
           assert payload["schema_version"] == "research_brief_v1"
           assert payload["run_id"] == "ci-adaptive"
           assert payload["top_candidates"]
           assert scope["schema_version"] == "experiment_scope_health_v1"
           assert scope["ok"] is True
+          assert manifest["artifact_health_history"]["recorded"] is True
+          assert manifest["artifact_health_history"]["ok"] is True
           assert scope["summary"]["scoped_run_count"] >= 1
+          assert scope["summary"]["history_record_count"] >= 1
           assert "Experiment Scope Health" in summary
+          assert "Artifact Health History" in summary
           PY
 
       - name: Diagnose iteration runs
@@ -555,7 +560,7 @@ jobs:
           assert health["totals"]["run_count"] >= 6
           assert history["schema_version"] == "run_artifact_health_history_v1"
           assert history["ok"] is True
-          assert history["record_count"] == 1
+          assert history["record_count"] >= 6
           assert history["totals"]["records_with_failures"] == 0
           assert experiment_history["schema_version"] == "run_artifact_health_history_v1"
           assert diagnostics["schema_version"] == "memory_diagnostics_v1"

@@ -98,6 +98,31 @@ def write_iteration_summary(
         )
         lines.append(f"- Artifact: `{display_value(scope_health.get('path'))}`")
 
+    artifact_health_history = manifest.get("artifact_health_history")
+    if isinstance(artifact_health_history, dict):
+        lines.extend(["", "## Artifact Health History", ""])
+        lines.append(
+            f"- Recorded: `{display_value(artifact_health_history.get('recorded'))}`"
+        )
+        lines.append(
+            f"- OK: `{display_value(artifact_health_history.get('ok'))}`"
+        )
+        lines.append(
+            "- Scope created_at_from: "
+            f"`{display_value(artifact_health_history.get('created_at_from'))}`"
+        )
+        lines.append(
+            "- Scoped run count: "
+            f"`{display_value(artifact_health_history.get('scoped_run_count'))}`"
+        )
+        lines.append(
+            "- Failed run count: "
+            f"`{display_value(artifact_health_history.get('failed_run_count'))}`"
+        )
+        lines.append(
+            f"- History: `{display_value(artifact_health_history.get('path'))}`"
+        )
+
     lines.extend(["", "## Best Validation Delta", ""])
     if best_round is None:
         lines.append("No completed rounds.")

@@ -93,10 +93,25 @@ jobs:
           PY
           python -m orchestrator.operator_unlock_checklist experiments/ci-codex-startup-block
           python - <<'PY'
+          import json
           from pathlib import Path
           import shutil
 
+          probe_run_id = "ci-codex-startup-block"
           shutil.rmtree("experiments/ci-codex-startup-block")
+          index_path = Path("experiments/index.jsonl")
+          if index_path.exists():
+              kept_lines = []
+              for line in index_path.read_text(encoding="utf-8").splitlines():
+                  if not line.strip():
+                      continue
+                  payload = json.loads(line)
+                  if payload.get("run_id") != probe_run_id:
+                      kept_lines.append(line)
+              index_path.write_text(
+                  "\n".join(kept_lines) + ("\n" if kept_lines else ""),
+                  encoding="utf-8",
+              )
           Path("experiments/run_artifact_health_history.jsonl").unlink(
               missing_ok=True,
           )

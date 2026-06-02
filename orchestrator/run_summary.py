@@ -123,6 +123,16 @@ def write_iteration_summary(
             f"- History: `{display_value(artifact_health_history.get('path'))}`"
         )
 
+    challenger = manifest.get("candidate_challenger_report")
+    if isinstance(challenger, dict):
+        lines.extend(["", "## Candidate Challenger Report", ""])
+        lines.append(f"- Status: `{display_value(challenger.get('status'))}`")
+        lines.append(f"- OK: `{display_value(challenger.get('ok'))}`")
+        lines.append(f"- Artifact: `{display_value(challenger.get('path'))}`")
+        lines.append(
+            f"- Markdown: `{display_value(challenger.get('markdown_path'))}`"
+        )
+
     run_closeout = manifest.get("run_closeout")
     if isinstance(run_closeout, dict):
         lines.extend(["", "## Run Closeout", ""])

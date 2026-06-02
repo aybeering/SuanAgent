@@ -101,6 +101,8 @@ experiments/<run_id>/
   agent_activation_preflight.md
   candidate_leaderboard.json
   agent_result_stats.json
+  candidate_challenger_report.json
+  candidate_challenger_report.md
   research_brief.json
   research_brief.md
   experiment_scope_health.json
@@ -271,6 +273,11 @@ Replay artifacts:
   score into named components, and selected rows also record validation and
   holdout EV deltas. These fields explain candidate routing only; final
   acceptance remains controlled by deterministic policy and holdout gates.
+- `candidate_challenger_report.json` and `candidate_challenger_report.md`
+  compare saved candidate rows with the current champion registry when one
+  exists. They expose validation gap, holdout stability flags, and top
+  candidates for operator inspection only; they cannot promote champions,
+  route agents, run backtests, apply patches, or change acceptance.
 - `artifact_validator_coverage.json` reports schema, validator, documentation,
   test, and inspection/replay coverage for repository artifact contracts.
 

@@ -40,6 +40,10 @@ KNOWN_ARTIFACT_NAMES = {
     "memory_diagnostics": ("memory_diagnostics.json",),
     "experiment_scope_health": ("experiment_scope_health.json",),
     "run_closeout": ("run_closeout.json", "run_closeout.md"),
+    "candidate_challenger_report": (
+        "candidate_challenger_report.json",
+        "candidate_challenger_report.md",
+    ),
 }
 
 INSPECTION_COMMANDS = {
@@ -70,6 +74,9 @@ INSPECTION_COMMANDS = {
         "python -m orchestrator.experiments scope-health",
     ),
     "run_closeout": ("python -m orchestrator.run_closeout",),
+    "candidate_challenger_report": (
+        "python -m orchestrator.candidate_challenger_report",
+    ),
     "champion": ("python -m orchestrator.experiments champion",),
     "champion_comparison": ("python -m orchestrator.experiments compare",),
     "codex_cli_replay_gate": ("python -m orchestrator.codex_cli_replay_gate",),

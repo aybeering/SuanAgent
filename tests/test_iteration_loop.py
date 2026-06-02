@@ -165,6 +165,10 @@ from orchestrator.config import (
     load_project_config,
     normalize_runner_capability,
 )
+from orchestrator.candidate_challenger_report import (
+    CANDIDATE_CHALLENGER_SCHEMA_VERSION,
+    validate_candidate_challenger_report_file,
+)
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
 from orchestrator.iteration_loop import run_iteration_loop
 from orchestrator.outcome_memory import (
@@ -1961,6 +1965,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "research_brief.json").exists()
     assert (run_dir / "research_brief.md").exists()
     assert (run_dir / "experiment_scope_health.json").exists()
+    assert (run_dir / "candidate_challenger_report.json").exists()
+    assert (run_dir / "candidate_challenger_report.md").exists()
     assert (run_dir / "run_closeout.json").exists()
     assert (run_dir / "run_closeout.md").exists()
     assert (repo / "experiments/run_artifact_health_history.jsonl").exists()
@@ -2030,6 +2036,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     scope_health = json.loads(
         (run_dir / "experiment_scope_health.json").read_text(encoding="utf-8")
     )
+    challenger = json.loads(
+        (run_dir / "candidate_challenger_report.json").read_text(encoding="utf-8")
+    )
+    challenger_markdown = (run_dir / "candidate_challenger_report.md").read_text(
+        encoding="utf-8"
+    )
     closeout = json.loads((run_dir / "run_closeout.json").read_text(encoding="utf-8"))
     closeout_markdown = (run_dir / "run_closeout.md").read_text(encoding="utf-8")
     history_records = [
@@ -2040,6 +2052,29 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         if line.strip()
     ]
     selected_attempt = next(attempt for attempt in attempts if attempt["selected"])
+    assert manifest["candidate_challenger_report"]["path"] == (
+        "candidate_challenger_report.json"
+    )
+    assert manifest["candidate_challenger_report"]["markdown_path"] == (
+        "candidate_challenger_report.md"
+    )
+    assert manifest["candidate_challenger_report"]["ok"] is True
+    assert challenger["schema_version"] == CANDIDATE_CHALLENGER_SCHEMA_VERSION
+    assert challenger["ok"] is True
+    assert challenger["status"] == "no_champion"
+    assert challenger["champion"]["exists"] is False
+    assert challenger["top_candidates"]
+    assert challenger["top_candidates"][0]["comparison_status"] == "no_champion"
+    assert challenger["policy"]["does_not_promote_champion"] is True
+    assert "# Candidate Challenger Report" in challenger_markdown
+    assert_matches_schema(
+        run_dir / "candidate_challenger_report.json",
+        "candidate_challenger_report",
+    )
+    assert validate_candidate_challenger_report_file(
+        payload_path=run_dir / "candidate_challenger_report.json",
+        repo_root=Path.cwd(),
+    ) == ()
     assert manifest["run_closeout"]["path"] == "run_closeout.json"
     assert manifest["run_closeout"]["markdown_path"] == "run_closeout.md"
     assert manifest["run_closeout"]["ok"] is True
@@ -2868,6 +2903,14 @@ def test_iteration_loop_writes_research_brief(tmp_path: Path) -> None:
         for path in report["checked_files"]  # type: ignore[union-attr]
     )
     assert any(
+        path.endswith("candidate_challenger_report.json")
+        for path in report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
+        path.endswith("candidate_challenger_report.md")
+        for path in report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
         path.endswith("run_closeout.json")
         for path in report["checked_files"]  # type: ignore[union-attr]
     )
@@ -2881,6 +2924,8 @@ def test_iteration_loop_writes_research_brief(tmp_path: Path) -> None:
     assert "experiment_scope_health.json" in summary_text
     assert "Artifact Health History" in summary_text
     assert "run_artifact_health_history.jsonl" in summary_text
+    assert "Candidate Challenger Report" in summary_text
+    assert "candidate_challenger_report.json" in summary_text
     assert "Run Closeout" in summary_text
     assert "run_closeout.json" in summary_text
     assert "round_001" in summary_text
@@ -10568,8 +10613,12 @@ def test_iteration_loop_writes_champion_comparison_when_champion_exists(
         repo_root=repo,
     )
     comparison_path = repo / "experiments/auto-challenger/champion_comparison.json"
+    challenger_path = (
+        repo / "experiments/auto-challenger/candidate_challenger_report.json"
+    )
     brief_path = repo / "experiments/auto-challenger/research_brief.json"
     comparison = json.loads(comparison_path.read_text(encoding="utf-8"))
+    challenger = json.loads(challenger_path.read_text(encoding="utf-8"))
     brief = json.loads(brief_path.read_text(encoding="utf-8"))
     markdown = (repo / "experiments/auto-challenger/research_brief.md").read_text(
         encoding="utf-8"
@@ -10586,14 +10635,29 @@ def test_iteration_loop_writes_champion_comparison_when_champion_exists(
     assert comparison["champion_run_id"] == "auto-champion-current"
     assert comparison["comparison"]["base_run_id"] == "auto-champion-current"
     assert comparison["comparison"]["candidate_run_id"] == "auto-challenger"
+    assert challenger["schema_version"] == CANDIDATE_CHALLENGER_SCHEMA_VERSION
+    assert challenger["champion"]["exists"] is True
+    assert challenger["champion"]["champion_run_id"] == "auto-champion-current"
+    assert challenger["status"] == "champion_not_beaten"
+    assert challenger["top_candidates"]
+    assert challenger["top_candidates"][0]["champion_validation_ev_delta"] == 0.4
+    assert challenger["top_candidates"][0]["comparison_status"] == (
+        "trails_champion_validation"
+    )
+    assert challenger["policy"]["does_not_promote_champion"] is True
     assert brief["champion_comparison"]["exists"] is True
     assert brief["champion_comparison"]["champion_run_id"] == "auto-champion-current"
     assert "## Champion Comparison" in markdown
     assert_matches_schema(comparison_path, "champion_comparison")
+    assert_matches_schema(challenger_path, "candidate_challenger_report")
     assert_matches_schema(brief_path, "research_brief")
     assert report["ok"] is True
     assert any(
         path.endswith("champion_comparison.json")
+        for path in report["checked_files"]  # type: ignore[union-attr]
+    )
+    assert any(
+        path.endswith("candidate_challenger_report.json")
         for path in report["checked_files"]  # type: ignore[union-attr]
     )
 
@@ -10965,6 +11029,18 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    challenger_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.candidate_challenger_report",
+            "experiments/cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
     assert rows
     assert rows[0]["run_id"] == "cli-candidates"
@@ -10997,6 +11073,15 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert stats_payload["round_replays"]["rounds"][0]["attempts"][0][
         "replay_path"
     ].endswith("attempt_replay.json")
+    assert challenger_result.returncode == 0, challenger_result.stderr
+    challenger_payload = json.loads(challenger_result.stdout)
+    assert challenger_payload["schema_version"] == CANDIDATE_CHALLENGER_SCHEMA_VERSION
+    assert challenger_payload["status"] == "no_champion"
+    assert challenger_payload["policy"]["does_not_promote_champion"] is True
+    assert validate_candidate_challenger_report_file(
+        payload_path=repo / "experiments/cli-candidates/candidate_challenger_report.json",
+        repo_root=repo,
+    ) == ()
 
 
 def test_summary_markdown_is_written_for_single_and_iteration_runs(tmp_path: Path) -> None:
@@ -11026,6 +11111,7 @@ def test_summary_markdown_is_written_for_single_and_iteration_runs(tmp_path: Pat
     assert "| Round | Accepted | Proposal |" in iteration_summary
     assert "Best Validation Delta" in iteration_summary
     assert "Proposal Quality" in iteration_summary
+    assert "Candidate Challenger Report" in iteration_summary
     assert "Candidate Leaderboard" in iteration_summary
     assert "Expected Change" in iteration_summary
     assert "Probe EV" in iteration_summary

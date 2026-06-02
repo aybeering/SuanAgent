@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Candidate Challenger Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "experiments_dir",
+    "status",
+    "ok",
+    "checks",
+    "champion",
+    "champion_comparison",
+    "summary",
+    "selected_candidates",
+    "top_candidates",
+    "recommended_next_actions",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "candidate_challenger_report_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "experiments_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "needs_artifacts",
+        "no_champion",
+        "candidate_beats_champion",
+        "champion_not_beaten"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "checks": {
+      "type": "object",
+      "required": [
+        "manifest_present",
+        "leaderboard_present",
+        "champion_present",
+        "candidate_rows_present",
+        "selected_candidate_present",
+        "read_only"
+      ],
+      "properties": {
+        "manifest_present": {
+          "type": "boolean"
+        },
+        "leaderboard_present": {
+          "type": "boolean"
+        },
+        "champion_present": {
+          "type": "boolean"
+        },
+        "candidate_rows_present": {
+          "type": "boolean"
+        },
+        "selected_candidate_present": {
+          "type": "boolean"
+        },
+        "read_only": {
+          "type": "boolean"
+        }
+      }
+    },
+    "champion": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "champion_run_id",
+        "validation_ev_delta",
+        "trade_count_delta",
+        "source_status"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "champion_run_id": {
+          "type": "string"
+        },
+        "validation_ev_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "trade_count_delta": {
+          "type": [
+            "number",
+            "integer",
+            "null"
+          ]
+        },
+        "source_status": {
+          "type": "string"
+        },
+        "source_best_round": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "strategy_commit": {
+          "type": "string"
+        },
+        "comparison_summary": {
+          "type": "string"
+        }
+      }
+    },
+    "champion_comparison": {
+      "type": "object"
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "candidate_count",
+        "selected_candidate_count",
+        "top_candidate_status",
+        "top_candidate_round",
+        "top_candidate_direction",
+        "top_candidate_validation_ev_delta",
+        "top_candidate_holdout_ev_delta",
+        "champion_run_id"
+      ],
+      "properties": {
+        "candidate_count": {
+          "type": "integer"
+        },
+        "selected_candidate_count": {
+          "type": "integer"
+        },
+        "top_candidate_status": {
+          "type": "string"
+        },
+        "top_candidate_round": {
+          "type": "string"
+        },
+        "top_candidate_direction": {
+          "type": "string"
+        },
+        "top_candidate_validation_ev_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "top_candidate_holdout_ev_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "champion_run_id": {
+          "type": "string"
+        }
+      }
+    },
+    "selected_candidates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/candidate"
+      }
+    },
+    "top_candidates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/candidate"
+      }
+    },
+    "recommended_next_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_promote_champion",
+        "does_not_change_acceptance",
+        "final_acceptance_authority"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_saved_artifacts_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_route_agents": {
+          "type": "boolean"
+        },
+        "does_not_promote_champion": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "final_acceptance_authority": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "candidate": {
+      "type": "object",
+      "required": [
+        "run_id",
+        "round_id",
+        "attempt_index",
+        "role",
+        "profile_name",
+        "agent_name",
+        "direction_tag",
+        "selected",
+        "status",
+        "candidate_score",
+        "quality_breakdown",
+        "probe_ev_delta",
+        "validation_ev_delta",
+        "holdout_ev_delta",
+        "champion_validation_ev_delta",
+        "validation_gap_vs_champion",
+        "probe_validation_gap",
+        "validation_holdout_gap",
+        "comparison_status",
+        "stability_flags",
+        "selection_reason",
+        "failure_code",
+        "patch_sha256"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string"
+        },
+        "round_id": {
+          "type": "string"
+        },
+        "attempt_index": {
+          "type": "integer"
+        },
+        "role": {
+          "type": "string"
+        },
+        "profile_name": {
+          "type": "string"
+        },
+        "agent_name": {
+          "type": "string"
+        },
+        "direction_tag": {
+          "type": "string"
+        },
+        "selected": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string"
+        },
+        "candidate_score": {
+          "type": "integer"
+        },
+        "quality_breakdown": {
+          "type": "object"
+        },
+        "probe_ev_delta": {
+          "type": "number"
+        },
+        "validation_ev_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "holdout_ev_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "champion_validation_ev_delta": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "validation_gap_vs_champion": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "probe_validation_gap": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "validation_holdout_gap": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "comparison_status": {
+          "type": "string"
+        },
+        "stability_flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "selection_reason": {
+          "type": "string"
+        },
+        "failure_code": {
+          "type": "string"
+        },
+        "patch_sha256": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

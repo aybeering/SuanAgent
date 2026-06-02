@@ -45,6 +45,7 @@ from orchestrator.agent_routing import write_agent_routing_policy
 from orchestrator.agent_role_readiness import write_agent_role_readiness
 from orchestrator.agent_roles import write_agent_role_contracts
 from orchestrator.analysis_stub import write_analysis_notes
+from orchestrator.candidate_challenger_report import write_candidate_challenger_report
 from orchestrator.config import (
     ProjectConfig,
     load_project_config,
@@ -244,6 +245,12 @@ def run_iteration_loop(
         "run_closeout": {
             "path": "run_closeout.json",
             "markdown_path": "run_closeout.md",
+            "ok": False,
+            "status": "pending",
+        },
+        "candidate_challenger_report": {
+            "path": "candidate_challenger_report.json",
+            "markdown_path": "candidate_challenger_report.md",
             "ok": False,
             "status": "pending",
         },
@@ -527,6 +534,19 @@ def finalize_iteration_run(
             experiments_dir=experiments_dir,
             repo_root=repo_root,
         )
+    _, _, challenger_payload = write_candidate_challenger_report(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
+    manifest["candidate_challenger_report"] = {
+        "path": "candidate_challenger_report.json",
+        "markdown_path": "candidate_challenger_report.md",
+        "ok": bool(challenger_payload.get("ok", False)),
+        "status": str(challenger_payload.get("status", "unknown")),
+    }
+    write_json(run_dir / "manifest.json", manifest)
+    write_iteration_summary(run_dir=run_dir, manifest=manifest)
     artifact_health = build_run_artifact_health(
         experiments_dir=experiments_dir,
         repo_root=repo_root,

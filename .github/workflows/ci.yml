@@ -357,6 +357,11 @@ jobs:
           selected = next(row for row in leaderboard if row["selected"])
           assert selected["holdout_ev_delta"] is not None
           assert selected["quality_breakdown"]["signals"]["holdout_ev_delta"] == selected["holdout_ev_delta"]
+          challenger = json.load(open("experiments/ci-adaptive/candidate_challenger_report.json"))
+          assert challenger["schema_version"] == "candidate_challenger_report_v1"
+          assert challenger["ok"] is True
+          assert challenger["top_candidates"]
+          assert challenger["policy"]["does_not_promote_champion"] is True
           stats = json.load(open("experiments/ci-adaptive/agent_result_stats.json"))
           assert stats["schema_version"] == "agent_result_stats_v1"
           assert stats["agents"]
@@ -497,12 +502,15 @@ jobs:
           test -f experiments/ci-adaptive/research_brief.json
           test -f experiments/ci-adaptive/research_brief.md
           test -f experiments/ci-adaptive/experiment_scope_health.json
+          test -f experiments/ci-adaptive/candidate_challenger_report.json
+          test -f experiments/ci-adaptive/candidate_challenger_report.md
           test -f experiments/ci-adaptive/run_closeout.json
           test -f experiments/ci-adaptive/run_closeout.md
           python - <<'PY'
           import json
           payload = json.load(open("experiments/ci-adaptive/research_brief.json"))
           scope = json.load(open("experiments/ci-adaptive/experiment_scope_health.json"))
+          challenger = json.load(open("experiments/ci-adaptive/candidate_challenger_report.json"))
           closeout = json.load(open("experiments/ci-adaptive/run_closeout.json"))
           manifest = json.load(open("experiments/ci-adaptive/manifest.json"))
           summary = open("experiments/ci-adaptive/summary.md").read()
@@ -515,12 +523,15 @@ jobs:
           assert manifest["artifact_health_history"]["ok"] is True
           assert scope["summary"]["scoped_run_count"] >= 1
           assert scope["summary"]["history_record_count"] >= 1
+          assert challenger["schema_version"] == "candidate_challenger_report_v1"
+          assert challenger["policy"]["does_not_change_acceptance"] is True
           assert closeout["schema_version"] == "run_closeout_v1"
           assert closeout["ok"] is True
           assert closeout["decision_record"]["final_acceptance_authority"] == "deterministic_code"
           assert closeout["policy"]["does_not_execute_agents"] is True
           assert "Experiment Scope Health" in summary
           assert "Artifact Health History" in summary
+          assert "Candidate Challenger Report" in summary
           assert "Run Closeout" in summary
           PY
 

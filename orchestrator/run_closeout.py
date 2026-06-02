@@ -156,6 +156,11 @@ def artifact_rows(*, run_dir: Path, experiments_dir: Path) -> list[dict[str, obj
             required=True,
         ),
         artifact_row(
+            run_dir / "candidate_challenger_report.json",
+            label="candidate_challenger_report",
+            required=True,
+        ),
+        artifact_row(
             experiments_dir / "run_artifact_health_history.jsonl",
             label="run_artifact_health_history",
             required=True,

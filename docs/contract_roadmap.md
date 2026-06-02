@@ -92,6 +92,7 @@ Implemented or allowed V0.5 components:
 78. A deterministic `experiment_scope_health.json` report that combines scoped artifact health, health-history, and memory diagnostics into one read-only status page without running agents, running backtests, routing agents, applying patches, or changing acceptance. The iteration loop writes this report automatically at run completion using the run's startup timestamp as the scope boundary.
 79. A deterministic `run_closeout.json` and `run_closeout.md` report pair that summarizes completed iteration status, health, selected candidates, deterministic acceptance authority, and recommended next actions without running agents, running backtests, applying patches, routing agents, or changing acceptance.
 80. Deterministic candidate quality breakdown fields that decompose proposal prefilter scores into named components and carry selected validation and holdout signals across leaderboard, routing, selection, brief, and closeout artifacts without changing final acceptance authority.
+81. A deterministic `candidate_challenger_report.json` and `candidate_challenger_report.md` report pair that compares saved candidate rows with the current champion registry, including validation gap and holdout stability flags, without promoting champions, routing agents, running backtests, applying patches, or changing acceptance.
 
 ## Contract Families
 
@@ -131,6 +132,7 @@ Agent-slot contracts:
 - Memory diagnostics: `schemas/memory_diagnostics.schema.json`
 - Experiment scope health: `schemas/experiment_scope_health.schema.json`
 - Run closeout: `schemas/run_closeout.schema.json`
+- Candidate challenger report: `schemas/candidate_challenger_report.schema.json`
 
 Codex CLI readiness contracts:
 
@@ -187,6 +189,10 @@ Codex CLI readiness contracts:
 15. Candidate quality breakdowns explain proposal ranking only. They can expose
     score components and post-evaluation signals, but they cannot override the
     deterministic policy gate or holdout veto.
+16. Candidate challenger reports are read-only comparison summaries. They can
+    highlight validation gaps and holdout stability against the current
+    champion, but they cannot promote champions, route candidates, apply
+    patches, run backtests, or change strategy acceptance.
 
 ## Near-Term Development Order
 

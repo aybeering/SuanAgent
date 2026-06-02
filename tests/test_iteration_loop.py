@@ -11607,6 +11607,11 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
     assert pipeline["options"]["execute_dry_invocation"] is False
     assert pipeline["policy"]["pipeline_only"] is True
     assert pipeline["policy"]["does_not_apply_patches"] is True
+    assert pipeline["consistency_checks"]["blocking_reasons"] == []
+    assert all(pipeline["consistency_checks"]["checks"].values())
+    assert pipeline["consistency_checks"]["actual_steps"] == (
+        pipeline["consistency_checks"]["expected_steps"]
+    )
     assert any(
         reason
         == "codex_cli_real_execution_dry_run:execution_candidate_not_ready"
@@ -11648,6 +11653,18 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         run_dir / "codex_cli_readiness_pipeline.json",
         "codex_cli_readiness_pipeline",
     )
+    invalid_pipeline = json.loads(json.dumps(pipeline))
+    del invalid_pipeline["consistency_checks"]
+    pipeline_schema = json.loads(
+        (Path.cwd() / "schemas/codex_cli_readiness_pipeline.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    pipeline_errors = validate_json_payload(
+        payload=invalid_pipeline,
+        schema=pipeline_schema,
+    )
+    assert "$: missing required property consistency_checks" in pipeline_errors
     assert_matches_schema(
         run_dir / "codex_cli_operator_unlock_request.json",
         "codex_cli_operator_unlock_request",
@@ -11899,6 +11916,11 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert pipeline["steps"][-1]["ready"] is True
     assert pipeline["options"]["execute_dry_invocation"] is True
     assert pipeline["policy"]["does_not_change_acceptance"] is True
+    assert pipeline["consistency_checks"]["blocking_reasons"] == []
+    assert all(pipeline["consistency_checks"]["checks"].values())
+    assert pipeline["consistency_checks"]["actual_steps"] == (
+        pipeline["consistency_checks"]["expected_steps"]
+    )
     assert operator_request["schema_version"] == (
         CODEX_CLI_OPERATOR_UNLOCK_REQUEST_SCHEMA_VERSION
     )
@@ -17473,6 +17495,32 @@ def canonical_readiness_pipeline_fixture(
         json.dumps({"final_ready": True}, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    step_rows[-1]["artifacts"]["json"] = file_record(final_summary_path, repo)
+    generated_artifacts = {
+        f"fixture_step_{index:03d}.json": step["artifacts"]["json"]
+        for index, step in enumerate(step_rows, start=1)
+    }
+    generated_artifacts.update(
+        {
+            f"fixture_step_{index:03d}.markdown": step["artifacts"]["markdown"]
+            for index, step in enumerate(step_rows, start=1)
+        }
+    )
+    generated_artifacts["fixture_generated"] = file_record(generated_path, repo)
+    generated_artifacts["codex_cli_readiness_summary.json"] = file_record(
+        final_summary_path,
+        repo,
+    )
+    expected_steps = [str(step["step"]) for step in step_rows]
+    expected_generated_keys = [
+        key
+        for index in range(1, 10)
+        for key in (
+            f"fixture_step_{index:03d}.json",
+            f"fixture_step_{index:03d}.markdown",
+        )
+    ]
+    expected_generated_keys.append("codex_cli_readiness_summary.json")
     return {
         "schema_version": "codex_cli_readiness_pipeline_v1",
         "run_id": run_dir.name,
@@ -17485,8 +17533,26 @@ def canonical_readiness_pipeline_fixture(
         "readiness_status": "ready_for_operator_review",
         "blocking_reasons": [],
         "steps": step_rows,
-        "generated_artifacts": {
-            "fixture_generated": file_record(generated_path, repo),
+        "generated_artifacts": generated_artifacts,
+        "consistency_checks": {
+            "expected_steps": expected_steps,
+            "actual_steps": expected_steps,
+            "expected_generated_keys": expected_generated_keys,
+            "checks": {
+                "step_count_matches_expected": True,
+                "step_order_matches_expected": True,
+                "all_step_json_artifacts_exist": True,
+                "all_step_markdown_artifacts_exist": True,
+                "generated_artifacts_include_all_steps": True,
+                "final_summary_file_exists": True,
+                "final_summary_path_matches_generated_artifact": True,
+                "final_summary_sha_matches_generated_artifact": True,
+                "final_summary_sha_matches_step_artifact": True,
+                "final_ready_matches_summary": True,
+                "readiness_status_matches_final_ready": True,
+                "blocking_reasons_match_summary": True,
+            },
+            "blocking_reasons": [],
         },
         "final_summary": {
             "path": str(final_summary_path.relative_to(repo)),

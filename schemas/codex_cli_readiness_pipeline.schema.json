@@ -15,6 +15,7 @@
     "blocking_reasons",
     "steps",
     "generated_artifacts",
+    "consistency_checks",
     "final_summary",
     "options",
     "policy"
@@ -27,16 +28,20 @@
       ]
     },
     "run_id": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "run_dir": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "canary_run_dir": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "config_path": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "ok": {
       "type": "boolean"
@@ -55,28 +60,198 @@
       ]
     },
     "blocking_reasons": {
+      "$ref": "#/$defs/string_array"
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/pipeline_step"
+      }
+    },
+    "generated_artifacts": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/file_record"
+      }
+    },
+    "consistency_checks": {
+      "$ref": "#/$defs/consistency_checks"
+    },
+    "final_summary": {
+      "$ref": "#/$defs/final_summary"
+    },
+    "options": {
+      "$ref": "#/$defs/options"
+    },
+    "policy": {
+      "$ref": "#/$defs/policy"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "string_array": {
       "type": "array",
       "items": {
         "type": "string"
       }
     },
-    "steps": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "step",
-          "schema_version",
-          "ok",
-          "ready_key",
-          "ready",
-          "blocking_reasons",
-          "artifacts"
-        ]
-      }
+    "file_record": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     },
-    "generated_artifacts": {
-      "type": "object"
+    "pipeline_step": {
+      "type": "object",
+      "required": [
+        "step",
+        "schema_version",
+        "ok",
+        "ready_key",
+        "ready",
+        "blocking_reasons",
+        "artifacts"
+      ],
+      "properties": {
+        "step": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema_version": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "ready_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "blocking_reasons": {
+          "$ref": "#/$defs/string_array"
+        },
+        "artifacts": {
+          "type": "object",
+          "required": [
+            "json",
+            "markdown"
+          ],
+          "properties": {
+            "json": {
+              "$ref": "#/$defs/file_record"
+            },
+            "markdown": {
+              "$ref": "#/$defs/file_record"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "consistency_checks": {
+      "type": "object",
+      "required": [
+        "expected_steps",
+        "actual_steps",
+        "expected_generated_keys",
+        "checks",
+        "blocking_reasons"
+      ],
+      "properties": {
+        "expected_steps": {
+          "$ref": "#/$defs/string_array"
+        },
+        "actual_steps": {
+          "$ref": "#/$defs/string_array"
+        },
+        "expected_generated_keys": {
+          "$ref": "#/$defs/string_array"
+        },
+        "checks": {
+          "type": "object",
+          "required": [
+            "step_count_matches_expected",
+            "step_order_matches_expected",
+            "all_step_json_artifacts_exist",
+            "all_step_markdown_artifacts_exist",
+            "generated_artifacts_include_all_steps",
+            "final_summary_file_exists",
+            "final_summary_path_matches_generated_artifact",
+            "final_summary_sha_matches_generated_artifact",
+            "final_summary_sha_matches_step_artifact",
+            "final_ready_matches_summary",
+            "readiness_status_matches_final_ready",
+            "blocking_reasons_match_summary"
+          ],
+          "properties": {
+            "step_count_matches_expected": {
+              "type": "boolean"
+            },
+            "step_order_matches_expected": {
+              "type": "boolean"
+            },
+            "all_step_json_artifacts_exist": {
+              "type": "boolean"
+            },
+            "all_step_markdown_artifacts_exist": {
+              "type": "boolean"
+            },
+            "generated_artifacts_include_all_steps": {
+              "type": "boolean"
+            },
+            "final_summary_file_exists": {
+              "type": "boolean"
+            },
+            "final_summary_path_matches_generated_artifact": {
+              "type": "boolean"
+            },
+            "final_summary_sha_matches_generated_artifact": {
+              "type": "boolean"
+            },
+            "final_summary_sha_matches_step_artifact": {
+              "type": "boolean"
+            },
+            "final_ready_matches_summary": {
+              "type": "boolean"
+            },
+            "readiness_status_matches_final_ready": {
+              "type": "boolean"
+            },
+            "blocking_reasons_match_summary": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "blocking_reasons": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
     },
     "final_summary": {
       "type": "object",
@@ -87,7 +262,33 @@
         "missing_stages",
         "blocked_stages",
         "file"
-      ]
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "final_ready": {
+          "type": "boolean"
+        },
+        "readiness_status": {
+          "type": "string",
+          "enum": [
+            "blocked",
+            "ready_for_operator_review"
+          ]
+        },
+        "missing_stages": {
+          "$ref": "#/$defs/string_array"
+        },
+        "blocked_stages": {
+          "$ref": "#/$defs/string_array"
+        },
+        "file": {
+          "$ref": "#/$defs/file_record"
+        }
+      },
+      "additionalProperties": false
     },
     "options": {
       "type": "object",
@@ -98,7 +299,30 @@
         "preflight_timeout_seconds",
         "dry_invocation_timeout_seconds",
         "execute_dry_invocation"
-      ]
+      ],
+      "properties": {
+        "approved": {
+          "type": "boolean"
+        },
+        "approved_by": {
+          "type": "string"
+        },
+        "confirmation_phrase_matches_required": {
+          "type": "boolean"
+        },
+        "preflight_timeout_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dry_invocation_timeout_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "execute_dry_invocation": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
     },
     "policy": {
       "type": "object",
@@ -115,7 +339,46 @@
         "requires_existing_replay_gate",
         "requires_existing_canary_gate",
         "deterministic_code_keeps_acceptance_authority"
-      ]
+      ],
+      "properties": {
+        "pipeline_only": {
+          "type": "boolean"
+        },
+        "read_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_real_codex_strategy_modification": {
+          "type": "boolean"
+        },
+        "does_not_create_real_execution_workspace": {
+          "type": "boolean"
+        },
+        "does_not_send_strategy_prompt": {
+          "type": "boolean"
+        },
+        "does_not_modify_config": {
+          "type": "boolean"
+        },
+        "does_not_select_candidate": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "requires_existing_replay_gate": {
+          "type": "boolean"
+        },
+        "requires_existing_canary_gate": {
+          "type": "boolean"
+        },
+        "deterministic_code_keeps_acceptance_authority": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

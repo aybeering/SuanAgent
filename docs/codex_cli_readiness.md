@@ -139,6 +139,12 @@ Run the read-only readiness pipeline:
 python -m orchestrator.codex_cli_readiness_pipeline experiments/guarded-demo --config config/codex_cli_enable_candidate.json --canary-run-dir experiments/canary-demo --approved --approved-by local-review --confirmation-phrase "I approve this Codex CLI candidate for manual enablement"
 ```
 
+The pipeline writes the readiness chain in dependency order and records a
+`consistency_checks` section that binds expected step order, generated artifact
+records, the final readiness summary file, and the pipeline-level status fields.
+Those checks are schema-validated and read-only; they do not execute Codex,
+create workspaces, apply patches, or change acceptance.
+
 Generate the read-only unlock runbook:
 
 ```bash

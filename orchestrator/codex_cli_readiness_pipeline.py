@@ -10,6 +10,7 @@ from typing import Any
 from orchestrator.codex_cli_dry_invocation_guard import (
     file_record,
     load_json_object,
+    object_value,
     relative_path,
     resolve_path,
     string_list,
@@ -178,6 +179,13 @@ def build_codex_cli_readiness_pipeline(
         run_dir=run_dir,
         repo_root=repo_root,
     )
+    consistency_checks = pipeline_consistency_checks(
+        summary=summary,
+        steps=steps,
+        generated_artifacts=generated_artifacts,
+        run_dir=run_dir,
+        repo_root=repo_root,
+    )
     final_ready = bool(summary.get("final_ready", False))
     return {
         "schema_version": CODEX_CLI_READINESS_PIPELINE_SCHEMA_VERSION,
@@ -185,7 +193,7 @@ def build_codex_cli_readiness_pipeline(
         "run_dir": str(run_dir),
         "canary_run_dir": str(canary_run_dir),
         "config_path": relative_path(config_path, repo_root),
-        "ok": True,
+        "ok": not consistency_checks["blocking_reasons"],
         "pipeline_completed": True,
         "final_ready": final_ready,
         "readiness_status": str(summary.get("readiness_status", "")),
@@ -194,6 +202,7 @@ def build_codex_cli_readiness_pipeline(
         ),
         "steps": steps,
         "generated_artifacts": generated_artifacts,
+        "consistency_checks": consistency_checks,
         "final_summary": {
             "path": relative_path(
                 run_dir / "codex_cli_readiness_summary.json",
@@ -328,6 +337,90 @@ def generated_artifact_records(
         if path.exists():
             records[key] = file_record(path, repo_root)
     return records
+
+
+def pipeline_consistency_checks(
+    *,
+    summary: dict[str, Any],
+    steps: list[dict[str, Any]],
+    generated_artifacts: dict[str, dict[str, object]],
+    run_dir: Path,
+    repo_root: Path,
+) -> dict[str, Any]:
+    """Return deterministic consistency checks for pipeline summary binding."""
+    expected_steps = [step_name for step_name, *_rest in PIPELINE_STEPS]
+    actual_steps = [str(step.get("step", "")) for step in steps]
+    final_summary_record = file_record(
+        run_dir / "codex_cli_readiness_summary.json",
+        repo_root,
+    )
+    generated_final_summary = object_value(
+        generated_artifacts.get("codex_cli_readiness_summary.json", {})
+    )
+    final_step = steps[-1] if steps else {}
+    final_step_artifacts = object_value(final_step.get("artifacts", {}))
+    final_step_json = object_value(final_step_artifacts.get("json", {}))
+    expected_generated_keys = [
+        key
+        for step_name, _json_name, _markdown_name, _ready_key in PIPELINE_STEPS
+        for key in (f"{step_name}.json", f"{step_name}.markdown")
+    ]
+    checks = {
+        "step_count_matches_expected": len(steps) == len(PIPELINE_STEPS),
+        "step_order_matches_expected": actual_steps == expected_steps,
+        "all_step_json_artifacts_exist": all(
+            bool(
+                object_value(
+                    object_value(step.get("artifacts", {})).get("json", {})
+                ).get("exists")
+            )
+            for step in steps
+        ),
+        "all_step_markdown_artifacts_exist": all(
+            bool(
+                object_value(
+                    object_value(step.get("artifacts", {})).get("markdown", {})
+                ).get("exists")
+            )
+            for step in steps
+        ),
+        "generated_artifacts_include_all_steps": all(
+            key in generated_artifacts for key in expected_generated_keys
+        ),
+        "final_summary_file_exists": bool(final_summary_record.get("exists")),
+        "final_summary_path_matches_generated_artifact": final_summary_record.get("path")
+        == generated_final_summary.get("path"),
+        "final_summary_sha_matches_generated_artifact": final_summary_record.get("sha256")
+        == generated_final_summary.get("sha256"),
+        "final_summary_sha_matches_step_artifact": final_summary_record.get("sha256")
+        == final_step_json.get("sha256"),
+        "final_ready_matches_summary": bool(summary.get("final_ready", False))
+        == bool(final_step.get("ready", False)),
+        "readiness_status_matches_final_ready": str(
+            summary.get("readiness_status", "")
+        )
+        == (
+            "ready_for_operator_review"
+            if bool(summary.get("final_ready", False))
+            else "blocked"
+        ),
+        "blocking_reasons_match_summary": string_list(
+            summary.get("aggregate_blocking_reasons", [])
+        )
+        == string_list(final_step.get("blocking_reasons", [])),
+    }
+    blocking_reasons = [
+        f"pipeline_consistency:{name}"
+        for name, passed in checks.items()
+        if not passed
+    ]
+    return {
+        "expected_steps": expected_steps,
+        "actual_steps": actual_steps,
+        "expected_generated_keys": expected_generated_keys,
+        "checks": checks,
+        "blocking_reasons": blocking_reasons,
+    }
 
 
 def codex_cli_readiness_pipeline_markdown(payload: dict[str, Any]) -> str:

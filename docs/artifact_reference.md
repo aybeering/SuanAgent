@@ -288,6 +288,12 @@ known labels, artifact ids, write flags, command prefixes, and simple
 shell-control-token guards. If real Codex execute=true startup preflight is
 blocked before any round starts, the failed run still writes this checklist and
 the run summary points at the primary blocker.
+`codex_cli_readiness_pipeline.json` records a read-only dependency-order
+readiness run and includes `consistency_checks` that bind expected step order,
+generated artifact file records, the final summary artifact hash, and
+pipeline-level readiness fields. These checks are schema-validated audit
+evidence only; they cannot execute Codex, create workspaces, route agents,
+apply patches, or change acceptance.
 `codex_cli_unlock_runbook.json` and `codex_cli_unlock_runbook.md` convert the
 same Codex CLI unlock chain into an ordered operator guide. `python -m
 orchestrator.codex_cli_unlock_runbook experiments/<run_id>` writes the

@@ -581,8 +581,40 @@ jobs:
           assert payload["policy"]["requires_approval_artifact"] is True
           assert payload["policy"]["does_not_execute_agents"] is True
           PY
-          python -m orchestrator.champion_promotion_approval experiments/ci-adaptive --approve --operator-id ci --confirmation-phrase "APPROVE CHAMPION PROMOTION"
-          python -m orchestrator.experiments promote-approved ci-adaptive --approval-path experiments/ci-adaptive/champion_promotion_approval.json
+          python -m orchestrator.run_loop --run-id ci-approved-base
+          python -m orchestrator.run_loop --run-id ci-approved-champion
+          python -m orchestrator.run_loop --run-id ci-approved-candidate
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          def accept_with_lift(run_id, ev_lift):
+              metrics_path = Path(f"experiments/{run_id}/metrics_after.json")
+              metrics = json.load(open(metrics_path))
+              metrics["ev"] = round(float(metrics["ev"]) + ev_lift, 6)
+              metrics_path.write_text(json.dumps(metrics, indent=2, sort_keys=True) + "\n")
+              decision_path = Path(f"experiments/{run_id}/decision.json")
+              decision = json.load(open(decision_path))
+              decision["accepted"] = True
+              decision["reasons"] = []
+              decision_path.write_text(json.dumps(decision, indent=2, sort_keys=True) + "\n")
+          accept_with_lift("ci-approved-champion", 0.2)
+          accept_with_lift("ci-approved-candidate", 0.5)
+          PY
+          python -m orchestrator.experiments promote ci-approved-base ci-approved-champion
+          python -m orchestrator.champion_promotion_dry_run experiments/ci-approved-candidate
+          python -m orchestrator.champion_promotion_approval experiments/ci-approved-candidate --approve --operator-id ci --confirmation-phrase "APPROVE CHAMPION PROMOTION"
+          python -m orchestrator.experiments promote-approved ci-approved-candidate --approval-path experiments/ci-approved-candidate/champion_promotion_approval.json > /tmp/promote_approved_receipt.json
+          python - <<'PY'
+          import json
+          receipt = json.load(open("/tmp/promote_approved_receipt.json"))
+          assert receipt["schema_version"] == "champion_promotion_receipt_v1"
+          assert receipt["status"] == "promoted"
+          assert receipt["promoted"] is True
+          assert receipt["base_run_id"] == "ci-approved-champion"
+          assert receipt["evidence_checks"]["blockers"] == []
+          assert receipt["policy"]["requires_approval_artifact"] is True
+          assert receipt["policy"]["does_not_execute_agents"] is True
+          PY
           python -m orchestrator.experiments champion
 
       - name: Summarize local experiments

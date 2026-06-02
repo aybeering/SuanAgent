@@ -214,6 +214,21 @@ jobs:
           assert quarantine["release_to_apply"] is True
           assert quarantine["selected_attempt"]["adapter_name"] == "file_protocol"
           PY
+          python -m orchestrator.agent_golden_replay experiments/ci-file-protocol-demo/round_001
+          test -f experiments/ci-file-protocol-demo/round_001/agent_golden_replay.json
+          test -f experiments/ci-file-protocol-demo/round_001/agent_golden_replay.md
+          test -f experiments/ci-file-protocol-demo/round_001/agent_attempts/attempt_001_primary/golden_agent_output.json
+          test -f experiments/ci-file-protocol-demo/round_001/agent_attempts/attempt_001_primary/golden_agent_validation.json
+          python - <<'PY'
+          import json
+          golden = json.load(open("experiments/ci-file-protocol-demo/round_001/agent_golden_replay.json"))
+          assert golden["schema_version"] == "agent_golden_replay_v1"
+          assert golden["ok"] is True
+          assert golden["failure_code"] == "none"
+          assert golden["checks"]["replayed_output_validation_ok"] is True
+          assert golden["checks"]["patch_sha_matches_saved_proposal"] is True
+          assert golden["comparison"]["saved_patch_sha256"] == golden["comparison"]["replayed_patch_sha256"]
+          PY
           python -m orchestrator.artifact_validator ci-file-protocol-demo
 
       - name: Inspect research brief artifacts

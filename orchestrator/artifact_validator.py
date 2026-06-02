@@ -374,6 +374,22 @@ def validate_round_dir(
     round_replay_markdown_path = round_dir / "round_replay.md"
     if round_replay_markdown_path.exists():
         checked_files(report).append(str(round_replay_markdown_path))
+    golden_replay_path = round_dir / "agent_golden_replay.json"
+    if golden_replay_path.exists():
+        checked_files(report).append(str(golden_replay_path))
+        validate_contract_file(
+            payload_path=golden_replay_path,
+            schema_path=repo_root / "schemas/agent_golden_replay.schema.json",
+            report=report,
+        )
+        validate_agent_golden_replay(
+            path=golden_replay_path,
+            repo_root=repo_root,
+            report=report,
+        )
+    golden_replay_markdown_path = round_dir / "agent_golden_replay.md"
+    if golden_replay_markdown_path.exists():
+        checked_files(report).append(str(golden_replay_markdown_path))
 
     proposal = load_json_object(round_dir / "proposal.json", report)
     if proposal and proposal.get("agent_name") in {"file_protocol_agent", "codex_cli"}:
@@ -1473,6 +1489,80 @@ def validate_round_replay(
             schema_path=repo_root / "schemas/attempt_replay.schema.json",
             report=report,
         )
+
+
+def validate_agent_golden_replay(
+    *,
+    path: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate a golden replay report points at replayed protocol fixtures."""
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    checks = payload.get("checks", {})
+    if not isinstance(checks, dict):
+        add_error(report, f"agent_golden_replay checks invalid: {path}")
+        return
+    if bool(payload.get("ok", False)):
+        for key in (
+            "attempt_present",
+            "replayed_output_validation_ok",
+            "patch_sha_matches_saved_proposal",
+            "direction_tag_matches_saved_proposal",
+        ):
+            if not bool(checks.get(key, False)):
+                add_error(report, f"agent_golden_replay check false: {key}")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, f"agent_golden_replay policy invalid: {path}")
+        return
+    for key in (
+        "does_not_execute_external_agents",
+        "does_not_select_candidate",
+        "does_not_apply_final_patch",
+        "does_not_change_acceptance",
+        "replays_saved_agent_input_contract",
+        "requires_replayed_output_validation",
+        "requires_patch_hash_match",
+    ):
+        if not bool(policy.get(key, False)):
+            add_error(report, f"agent_golden_replay policy false: {key}")
+    artifacts = payload.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        add_error(report, f"agent_golden_replay artifacts invalid: {path}")
+        return
+    for key in (
+        "attempt_input",
+        "saved_raw_output",
+        "saved_proposal",
+        "golden_output",
+        "golden_validation",
+        "golden_proposal",
+    ):
+        record = artifacts.get(key, {})
+        if not isinstance(record, dict):
+            add_error(report, f"agent_golden_replay artifact invalid: {key}")
+            continue
+        if bool(payload.get("ok", False)) and not bool(record.get("exists", False)):
+            add_error(report, f"agent_golden_replay artifact missing: {key}")
+            continue
+        artifact_path = resolve_path(Path(str(record.get("path", ""))), repo_root)
+        if bool(record.get("exists", False)):
+            if not artifact_path.exists() or not artifact_path.is_file():
+                add_error(
+                    report,
+                    f"agent_golden_replay artifact does not exist: {artifact_path}",
+                )
+                continue
+            checked_files(report).append(str(artifact_path))
+            if key == "golden_validation":
+                validate_contract_file(
+                    payload_path=artifact_path,
+                    schema_path=repo_root / "schemas/agent_validation.schema.json",
+                    report=report,
+                )
 
 
 def validate_attempt_output_artifacts(

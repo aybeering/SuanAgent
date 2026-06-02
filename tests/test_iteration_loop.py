@@ -40,6 +40,10 @@ from orchestrator.agent_output_intake import (
     AGENT_VALIDATION_SCHEMA_VERSION,
     verify_agent_output,
 )
+from orchestrator.agent_golden_replay import (
+    AGENT_GOLDEN_REPLAY_SCHEMA_VERSION,
+    write_agent_golden_replay,
+)
 from orchestrator.agent_output_quarantine import AGENT_OUTPUT_QUARANTINE_SCHEMA_VERSION
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
@@ -4236,6 +4240,111 @@ def test_external_agent_sandbox_drill_reports_file_protocol_execution(
     assert quarantine["quarantine_status"] == "released"
     assert quarantine["selected_attempt"]["adapter_name"] == "file_protocol"
     assert quarantine["selected_attempt"]["external_adapter"] is True
+
+
+def test_agent_golden_replay_freezes_file_protocol_fixture(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+    run_iteration_loop(
+        run_id="golden-file-protocol",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/golden-file-protocol"
+    round_dir = run_dir / "round_001"
+
+    golden = write_agent_golden_replay(round_dir=round_dir, repo_root=repo)
+    validation_report = validate_run_artifacts(
+        run_id="golden-file-protocol",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.agent_golden_replay",
+            "experiments/golden-file-protocol/round_001",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert golden["schema_version"] == AGENT_GOLDEN_REPLAY_SCHEMA_VERSION
+    assert golden["ok"] is True
+    assert golden["failure_code"] == "none"
+    assert golden["attempt_id"] == "attempt_001_primary"
+    assert golden["checks"]["replayed_output_validation_ok"] is True
+    assert golden["checks"]["patch_sha_matches_saved_proposal"] is True
+    assert golden["checks"]["direction_tag_matches_saved_proposal"] is True
+    assert golden["comparison"]["saved_patch_sha256"] == (
+        golden["comparison"]["replayed_patch_sha256"]
+    )
+    assert golden["artifacts"]["golden_output"]["exists"] is True
+    assert golden["artifacts"]["golden_validation"]["exists"] is True
+    assert golden["artifacts"]["golden_proposal"]["exists"] is True
+    assert (round_dir / "agent_golden_replay.json").exists()
+    assert (round_dir / "agent_golden_replay.md").exists()
+    assert (
+        round_dir
+        / "agent_attempts/attempt_001_primary/golden_agent_output.json"
+    ).exists()
+    assert_matches_schema(round_dir / "agent_golden_replay.json", "agent_golden_replay")
+    assert validation_report["ok"] is True
+    assert cli_result.returncode == 0, cli_result.stderr
+    assert cli_payload["schema_version"] == AGENT_GOLDEN_REPLAY_SCHEMA_VERSION
+    assert cli_payload["ok"] is True
+
+
+def test_agent_golden_replay_blocks_missing_attempt(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+    run_iteration_loop(
+        run_id="golden-missing-attempt",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    round_dir = repo / "experiments/golden-missing-attempt/round_001"
+
+    golden = write_agent_golden_replay(
+        round_dir=round_dir,
+        repo_root=repo,
+        attempt_id="attempt_999_missing",
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.agent_golden_replay",
+            "experiments/golden-missing-attempt/round_001",
+            "--attempt-id",
+            "attempt_999_missing",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert golden["schema_version"] == AGENT_GOLDEN_REPLAY_SCHEMA_VERSION
+    assert golden["ok"] is False
+    assert golden["failure_code"] == "attempt_missing"
+    assert golden["checks"]["attempt_present"] is False
+    assert golden["checks"]["replayed_output_validation_ok"] is False
+    assert golden["artifacts"]["golden_output"]["exists"] is False
+    assert_matches_schema(round_dir / "agent_golden_replay.json", "agent_golden_replay")
+    assert cli_result.returncode == 1
+    assert cli_payload["failure_code"] == "attempt_missing"
 
 
 def test_external_agent_sandbox_drill_blocks_missing_workspace_manifest(

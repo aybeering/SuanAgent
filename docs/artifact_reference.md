@@ -279,9 +279,11 @@ orchestrator.codex_cli_unlock_runbook experiments/<run_id>` writes the
 artifacts, and `python -m orchestrator.experiments unlock-runbook <run_id>` or
 `unlock-runbook --markdown` shows the saved or derived guide. The runbook lists
 the required evidence artifacts, readiness fields, status, and command hints,
-but every command still requires explicit operator invocation. It cannot record
-approval, execute commands, execute Codex, create workspaces, route agents,
-apply patches, or change acceptance.
+and artifact validation checks those operator commands through the shared
+operator command-hint validator for known labels, write flags, command prefixes,
+and simple shell-control-token guards. Every command still requires explicit
+operator invocation. It cannot record approval, execute commands, execute
+Codex, create workspaces, route agents, apply patches, or change acceptance.
 `codex_cli_execution_readiness_diff.json` and
 `codex_cli_execution_readiness_diff.md` compare the current config-derived real
 Codex command, command digest, workspace path, target file, mutation allowlist,

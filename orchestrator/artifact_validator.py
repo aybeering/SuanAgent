@@ -7999,6 +7999,10 @@ def validate_optional_codex_cli_unlock_runbook(
     if not isinstance(commands, list):
         add_error(report, "codex_cli_unlock_runbook.json commands invalid")
     else:
+        validate_codex_cli_unlock_runbook_operator_commands(
+            payload=payload,
+            report=report,
+        )
         if len(commands) != len(steps):
             add_error(report, "codex_cli_unlock_runbook.json command count mismatch")
         for command in commands:
@@ -8038,6 +8042,54 @@ def validate_optional_codex_cli_unlock_runbook(
                     report,
                     f"codex_cli_unlock_runbook.json policy false: {key}",
                 )
+
+
+def codex_cli_unlock_runbook_command_artifacts() -> dict[str, str]:
+    """Return expected command-label to artifact-id bindings for the runbook."""
+    return {
+        "run_execution_preflight": "codex_cli_execution_preflight",
+        "run_readiness_pipeline": "codex_cli_readiness_pipeline",
+        "write_execution_candidate": "codex_cli_execution_candidate",
+        "write_real_execution_dry_run": "codex_cli_real_execution_dry_run",
+        "write_operator_unlock_request": "codex_cli_operator_unlock_request",
+    }
+
+
+def validate_codex_cli_unlock_runbook_operator_commands(
+    *,
+    payload: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate Codex unlock runbook command hints are bounded."""
+    allowed_artifact_ids = codex_cli_unlock_runbook_command_artifacts()
+    validate_recommended_command_hints(
+        payload=payload,
+        report=report,
+        artifact_label="codex_cli_unlock_runbook",
+        allowed_writes={label: True for label in allowed_artifact_ids},
+        unsafe_tokens=("&&", "||", "|", "`", "$(", "\n", ";"),
+        commands_field="operator_commands",
+        writes_field="writes_artifacts",
+        command_noun="operator command",
+    )
+    for index, step in enumerate(list_of_dicts(payload.get("steps", []))):
+        command = step.get("command", {})
+        if not isinstance(command, dict):
+            continue
+        label = str(command.get("label", ""))
+        expected_artifact_id = allowed_artifact_ids.get(label, "")
+        if not expected_artifact_id:
+            add_error(
+                report,
+                f"codex_cli_unlock_runbook.json step command unknown: {label}",
+            )
+        elif str(step.get("artifact_id", "")) != expected_artifact_id:
+            add_error(
+                report,
+                "codex_cli_unlock_runbook.json step command artifact mismatch: "
+                f"{index}",
+            )
+
 
 def validate_optional_codex_cli_execution_readiness_diff(
     *,

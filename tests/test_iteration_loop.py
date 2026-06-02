@@ -141,6 +141,7 @@ from orchestrator.attempt_replay import replay_attempt
 from orchestrator.round_replay import ROUND_REPLAY_SCHEMA_VERSION, replay_round
 from orchestrator.artifact_validator import (
     snapshot_digest_from_payload,
+    validate_optional_codex_cli_unlock_runbook,
     validate_optional_operator_unlock_checklist,
     validate_recommended_command_hints,
     validate_run_artifacts,
@@ -13476,6 +13477,42 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
+    runbook_validation: dict[str, object] = {
+        "run_id": "codex-unlock-runbook-startup-block",
+        "checked_files": [],
+        "errors": [],
+        "warnings": [],
+    }
+    validate_optional_codex_cli_unlock_runbook(
+        run_dir=run_dir,
+        repo_root=repo,
+        report=runbook_validation,
+    )
+    assert runbook_validation["errors"] == []
+
+    tampered_runbook = json.loads(json_path.read_text(encoding="utf-8"))
+    tampered_label = tampered_runbook["operator_commands"][0]["label"]
+    tampered_runbook["operator_commands"][0]["command"] += (
+        " && python -m orchestrator.run_loop"
+    )
+    json_path.write_text(
+        json.dumps(tampered_runbook, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    tampered_validation: dict[str, object] = {
+        "run_id": "codex-unlock-runbook-startup-block",
+        "checked_files": [],
+        "errors": [],
+        "warnings": [],
+    }
+    validate_optional_codex_cli_unlock_runbook(
+        run_dir=run_dir,
+        repo_root=repo,
+        report=tampered_validation,
+    )
+    assert (
+        f"codex_cli_unlock_runbook operator command unsafe token: {tampered_label}"
+    ) in tampered_validation["errors"]
 
 
 def test_codex_cli_execution_readiness_diff_reports_missing_startup_evidence(

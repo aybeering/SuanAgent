@@ -39,6 +39,9 @@ jobs:
       - name: Run guarded Codex CLI audit iteration
         run: python -m orchestrator.iteration_loop --config config/codex_cli_guarded.json --run-id ci-codex-guarded --max-rounds 1
 
+      - name: Run Codex CLI canary iteration
+        run: python -m orchestrator.iteration_loop --config config/codex_cli_canary.json --run-id ci-codex-canary --max-rounds 1
+
       - name: Run adaptive stub iteration
         run: python -m orchestrator.iteration_loop --config config/adaptive_stub.json --run-id ci-adaptive
 
@@ -143,7 +146,29 @@ jobs:
           assert approval["checks"]["confirmation_phrase_matches"] is True
           assert approval["policy"]["does_not_execute_codex_cli"] is True
           PY
+          python -m orchestrator.codex_cli_canary_gate experiments/ci-codex-canary --config config/codex_cli_canary.json
+          test -f experiments/ci-codex-canary/codex_cli_canary_gate.json
+          test -f experiments/ci-codex-canary/codex_cli_canary_gate.md
+          python - <<'PY'
+          import json
+          gate = json.load(open("experiments/ci-codex-canary/codex_cli_canary_gate.json"))
+          audit = json.load(open("experiments/ci-codex-canary/round_001/agent_executions/attempt_001_primary.json"))
+          quarantine = json.load(open("experiments/ci-codex-canary/round_001/agent_output_quarantine.json"))
+          decision = json.load(open("experiments/ci-codex-canary/round_001/decision.json"))
+          assert gate["schema_version"] == "codex_cli_canary_gate_v1"
+          assert gate["ok"] is True
+          assert gate["controlled_execution_ready"] is True
+          assert gate["checks"]["execute_true"] is True
+          assert gate["checks"]["strategy_rolled_back"] is True
+          assert gate["totals"]["ready_count"] == 1
+          assert audit["status"] == "completed"
+          assert audit["execution_enabled"] is True
+          assert audit["command"][0] == "agents/codex_cli_canary.py"
+          assert quarantine["release_to_apply"] is True
+          assert decision["accepted"] is False
+          PY
           python -m orchestrator.artifact_validator ci-codex-guarded
+          python -m orchestrator.artifact_validator ci-codex-canary
           python -m orchestrator.artifact_validator ci-adaptive
           python -m orchestrator.artifact_validator ci-file-protocol-demo
           python - <<'PY'

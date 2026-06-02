@@ -98,6 +98,7 @@ Allowed components:
 47. A deterministic `codex_cli_replay_gate.json` report that gates Codex CLI enablement using saved execution, fixture, quarantine, and replay artifacts.
 48. A deterministic `codex_cli_enablement_gate.json` report that checks an explicit execute=true candidate config without executing Codex or modifying config files.
 49. A deterministic `codex_cli_manual_approval.json` report that records explicit approval for a passing enablement gate without executing Codex.
+50. A deterministic `codex_cli_canary_gate.json` report that validates a checked-in local Codex CLI canary executable through the guarded execution path without running real Codex.
 
 Still out of scope:
 
@@ -150,6 +151,7 @@ Current structure:
 │   ├── codex_cli_replay_gate.schema.json
 │   ├── codex_cli_enablement_gate.schema.json
 │   ├── codex_cli_manual_approval.schema.json
+│   ├── codex_cli_canary_gate.schema.json
 │   ├── agent_execution.schema.json
 │   ├── agent_activation_preflight.schema.json
 │   ├── agent_execution_plan.schema.json
@@ -179,6 +181,7 @@ Current structure:
 ├── agents/
 │   ├── strategy_modifier_adaptive_stub.py
 │   ├── codex_dry_run_adapter.py
+│   ├── codex_cli_canary.py
 │   ├── file_protocol_demo_agent.py
 │   ├── registry.py
 │   └── strategy_modifier_stub.py
@@ -211,6 +214,7 @@ Current structure:
 │   ├── codex_cli_replay_gate.py
 │   ├── codex_cli_enablement_gate.py
 │   ├── codex_cli_manual_approval.py
+│   ├── codex_cli_canary_gate.py
 │   ├── outcome_memory.py
 │   ├── policy_gate.py
 │   ├── proposal.py

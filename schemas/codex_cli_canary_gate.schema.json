@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Codex CLI Canary Gate",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "config_path",
+    "ok",
+    "controlled_execution_ready",
+    "blocking_reasons",
+    "checks",
+    "config",
+    "totals",
+    "slots",
+    "artifacts",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "codex_cli_canary_gate_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "config_path": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "controlled_execution_ready": {
+      "type": "boolean"
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "checks": {
+      "type": "object",
+      "required": [
+        "config_exists",
+        "strategy_modifier_is_codex_cli",
+        "canary_enabled",
+        "local_fixture_only",
+        "real_codex_cli_false",
+        "execute_true",
+        "executable_is_canary",
+        "manifest_present",
+        "rounds_present",
+        "all_slots_ready",
+        "strategy_rolled_back"
+      ]
+    },
+    "config": {
+      "type": "object",
+      "required": [
+        "strategy_modifier",
+        "codex_cli",
+        "canary"
+      ]
+    },
+    "totals": {
+      "type": "object",
+      "required": [
+        "round_count",
+        "ready_count",
+        "blocked_count"
+      ]
+    },
+    "slots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "slot_id",
+          "round_id",
+          "attempt_id",
+          "ready",
+          "gate_status",
+          "blocking_issues",
+          "requirements",
+          "evidence",
+          "artifacts"
+        ]
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": [
+        "manifest",
+        "candidate_config",
+        "strategy_file"
+      ]
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "gate_only",
+        "executes_only_checked_in_canary",
+        "does_not_execute_real_codex_cli",
+        "does_not_modify_config",
+        "does_not_select_candidate",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "requires_guarded_execution_audit",
+        "requires_quarantine_release",
+        "requires_deterministic_reject_and_rollback",
+        "deterministic_code_keeps_acceptance_authority"
+      ]
+    }
+  }
+}

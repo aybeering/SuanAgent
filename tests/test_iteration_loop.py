@@ -62,6 +62,10 @@ from orchestrator.codex_cli_manual_approval import (
     REQUIRED_CONFIRMATION_PHRASE,
     write_codex_cli_manual_approval,
 )
+from orchestrator.codex_cli_canary_gate import (
+    CODEX_CLI_CANARY_GATE_SCHEMA_VERSION,
+    write_codex_cli_canary_gate,
+)
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
 from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSION
 from orchestrator.agent_slot_readiness_gate import (
@@ -474,6 +478,7 @@ def test_agent_executor_builds_stable_attempt_queue(tmp_path: Path) -> None:
 def test_example_configs_load_modifier_modes() -> None:
     dry_run = load_project_config(Path.cwd(), Path("config/codex_dry_run.json"))
     guarded = load_project_config(Path.cwd(), Path("config/codex_cli_guarded.json"))
+    canary = load_project_config(Path.cwd(), Path("config/codex_cli_canary.json"))
     adaptive = load_project_config(Path.cwd(), Path("config/adaptive_stub.json"))
     file_protocol = load_project_config(
         Path.cwd(),
@@ -486,11 +491,14 @@ def test_example_configs_load_modifier_modes() -> None:
 
     assert dry_run.strategy_modifier == "codex_cli_dry_run"
     assert guarded.strategy_modifier == "codex_cli"
+    assert canary.strategy_modifier == "codex_cli"
     assert adaptive.strategy_modifier == "adaptive_stub"
     assert file_protocol.strategy_modifier == "file_protocol"
     assert file_protocol_demo.strategy_modifier == "file_protocol"
     assert adaptive.max_rounds == 2
     assert guarded.modifier_settings["execute"] is False
+    assert canary.modifier_settings["execute"] is True
+    assert canary.modifier_settings["executable"] == "agents/codex_cli_canary.py"
     assert file_protocol.modifier_settings["execute"] is False
     assert file_protocol_demo.modifier_settings["execute"] is True
     assert file_protocol_demo.modifier_settings["args"] == [
@@ -5934,6 +5942,149 @@ print(json.dumps({
     )
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
+    )
+
+
+def test_codex_cli_canary_config_runs_controlled_execution_gate(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_canary.json")
+
+    manifest = run_iteration_loop(
+        run_id="codex-canary",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/codex-canary"
+    round_dir = run_dir / "round_001"
+    gate = write_codex_cli_canary_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_canary.json",
+    )
+    validation_report = validate_run_artifacts(
+        run_id="codex-canary",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_canary_gate",
+            "experiments/codex-canary",
+            "--config",
+            "config/codex_cli_canary.json",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+    proposal = json.loads((round_dir / "proposal.json").read_text(encoding="utf-8"))
+    quarantine = json.loads(
+        (round_dir / "agent_output_quarantine.json").read_text(encoding="utf-8")
+    )
+    audit = json.loads(
+        (
+            round_dir / "agent_executions/attempt_001_primary.json"
+        ).read_text(encoding="utf-8")
+    )
+    decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
+
+    assert manifest["completed_rounds"] == 1
+    assert manifest["status"] == "stopped_max_rounds"
+    assert proposal["agent_name"] == "codex_cli"
+    assert proposal["summary"] == "Canary Codex CLI fixture lowered MIN_EDGE."
+    assert proposal["direction_tag"] == "codex_cli_canary_lower_min_edge"
+    assert proposal["applicable"] is True
+    assert quarantine["release_to_apply"] is True
+    assert quarantine["quarantine_status"] == "released"
+    assert audit["runner_name"] == CODEX_CLI_GUARDED_RUNNER_NAME
+    assert audit["status"] == "completed"
+    assert audit["execution_enabled"] is True
+    assert audit["command"][0] == "agents/codex_cli_canary.py"
+    assert audit["returncode"] == 0
+    assert audit["mutation_guard"]["passed"] is True
+    assert decision["accepted"] is False
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+    assert gate["schema_version"] == CODEX_CLI_CANARY_GATE_SCHEMA_VERSION
+    assert gate["ok"] is True
+    assert gate["controlled_execution_ready"] is True
+    assert gate["blocking_reasons"] == []
+    assert gate["checks"]["execute_true"] is True
+    assert gate["checks"]["strategy_rolled_back"] is True
+    assert gate["totals"]["ready_count"] == 1
+    slot = gate["slots"][0]
+    assert slot["ready"] is True
+    assert slot["requirements"]["execution_completed"] is True
+    assert slot["requirements"]["quarantine_released"] is True
+    assert slot["requirements"]["decision_rejected"] is True
+    assert_matches_schema(
+        run_dir / "codex_cli_canary_gate.json",
+        "codex_cli_canary_gate",
+    )
+    assert (run_dir / "codex_cli_canary_gate.md").exists()
+    assert validation_report["ok"] is True
+    assert cli_result.returncode == 0, cli_result.stderr
+    assert cli_payload["schema_version"] == CODEX_CLI_CANARY_GATE_SCHEMA_VERSION
+    assert cli_payload["controlled_execution_ready"] is True
+
+
+def test_codex_cli_canary_gate_blocks_missing_execution(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-canary-missing-execution",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/codex-canary-missing-execution"
+
+    gate = write_codex_cli_canary_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_canary.json",
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.codex_cli_canary_gate",
+            "experiments/codex-canary-missing-execution",
+            "--config",
+            "config/codex_cli_canary.json",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert gate["schema_version"] == CODEX_CLI_CANARY_GATE_SCHEMA_VERSION
+    assert gate["ok"] is False
+    assert gate["controlled_execution_ready"] is False
+    assert "slot_not_ready" in gate["blocking_reasons"]
+    assert gate["checks"]["execute_true"] is True
+    slot = gate["slots"][0]
+    assert slot["ready"] is False
+    assert "execution_not_enabled" in slot["blocking_issues"]
+    assert "execution_not_completed" in slot["blocking_issues"]
+    assert "quarantine_not_released" in slot["blocking_issues"]
+    assert cli_result.returncode == 1
+    assert cli_payload["controlled_execution_ready"] is False
+    assert_matches_schema(
+        run_dir / "codex_cli_canary_gate.json",
+        "codex_cli_canary_gate",
     )
 
 

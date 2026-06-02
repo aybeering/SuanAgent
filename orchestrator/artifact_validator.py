@@ -172,6 +172,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_codex_cli_canary_gate(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     report["ok"] = not report["errors"]
     return report
 
@@ -2452,6 +2457,145 @@ def validate_optional_codex_cli_manual_approval(
             elif artifact_path.exists():
                 checked_files(report).append(str(artifact_path))
     markdown_path = run_dir / "codex_cli_manual_approval.md"
+    if markdown_path.exists():
+        checked_files(report).append(str(markdown_path))
+
+
+def validate_optional_codex_cli_canary_gate(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate codex_cli_canary_gate.json when a run has one."""
+    path = run_dir / "codex_cli_canary_gate.json"
+    if not path.exists():
+        return
+    checked_files(report).append(str(path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/codex_cli_canary_gate.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            f"codex_cli_canary_gate.json run_id does not match report: {path}",
+        )
+    blockers = payload.get("blocking_reasons", [])
+    if not isinstance(blockers, list):
+        add_error(report, "codex_cli_canary_gate.json blocking_reasons invalid")
+        return
+    ready = bool(payload.get("controlled_execution_ready", False))
+    if bool(payload.get("ok", False)) != ready:
+        add_error(report, "codex_cli_canary_gate.json ok/ready mismatch")
+    if ready and blockers:
+        add_error(report, "codex_cli_canary_gate.json ready with blockers")
+    if not ready and not blockers:
+        add_error(report, "codex_cli_canary_gate.json blocked without reason")
+    checks = payload.get("checks", {})
+    if not isinstance(checks, dict):
+        add_error(report, "codex_cli_canary_gate.json checks invalid")
+    elif ready:
+        for key, value in checks.items():
+            if not bool(value):
+                add_error(report, f"codex_cli_canary_gate.json check false: {key}")
+    totals = payload.get("totals", {})
+    slots = payload.get("slots", [])
+    if not isinstance(totals, dict):
+        add_error(report, "codex_cli_canary_gate.json totals invalid")
+    if not isinstance(slots, list) or not slots:
+        add_error(report, "codex_cli_canary_gate.json slots empty or invalid")
+        slots = []
+    if isinstance(totals, dict):
+        if totals.get("round_count") != len(slots):
+            add_error(report, "codex_cli_canary_gate.json round_count mismatch")
+        ready_count = sum(
+            1 for slot in slots if isinstance(slot, dict) and slot.get("ready") is True
+        )
+        if totals.get("ready_count") != ready_count:
+            add_error(report, "codex_cli_canary_gate.json ready_count mismatch")
+        if totals.get("blocked_count") != len(slots) - ready_count:
+            add_error(report, "codex_cli_canary_gate.json blocked_count mismatch")
+    for slot in slots:
+        if not isinstance(slot, dict):
+            add_error(report, "codex_cli_canary_gate.json slot is non-object")
+            continue
+        slot_ready = bool(slot.get("ready", False))
+        slot_blockers = slot.get("blocking_issues", [])
+        if not isinstance(slot_blockers, list):
+            add_error(report, "codex_cli_canary_gate.json slot blockers invalid")
+            continue
+        if slot_ready and slot_blockers:
+            add_error(
+                report,
+                f"codex_cli_canary_gate.json ready slot has blockers: {slot.get('slot_id', '')}",
+            )
+        if slot_ready != (slot.get("gate_status") == "ready"):
+            add_error(
+                report,
+                f"codex_cli_canary_gate.json slot ready/status mismatch: {slot.get('slot_id', '')}",
+            )
+        requirements = slot.get("requirements", {})
+        if not isinstance(requirements, dict):
+            add_error(report, "codex_cli_canary_gate.json requirements invalid")
+        elif slot_ready:
+            for key, value in requirements.items():
+                if not bool(value):
+                    add_error(
+                        report,
+                        f"codex_cli_canary_gate.json requirement false: {key}",
+                    )
+        artifacts = slot.get("artifacts", {})
+        if isinstance(artifacts, dict):
+            for key, value in artifacts.items():
+                artifact_path = resolve_path(Path(str(value)), repo_root)
+                if slot_ready and not artifact_path.exists():
+                    add_error(
+                        report,
+                        f"codex_cli_canary_gate artifact missing: {key}={artifact_path}",
+                    )
+                elif artifact_path.exists():
+                    checked_files(report).append(str(artifact_path))
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "codex_cli_canary_gate.json policy invalid")
+    else:
+        for key in (
+            "gate_only",
+            "executes_only_checked_in_canary",
+            "does_not_execute_real_codex_cli",
+            "does_not_modify_config",
+            "does_not_select_candidate",
+            "does_not_apply_patches",
+            "does_not_change_acceptance",
+            "requires_guarded_execution_audit",
+            "requires_quarantine_release",
+            "requires_deterministic_reject_and_rollback",
+            "deterministic_code_keeps_acceptance_authority",
+        ):
+            if not bool(policy.get(key, False)):
+                add_error(report, f"codex_cli_canary_gate.json policy false: {key}")
+    artifacts = payload.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        add_error(report, "codex_cli_canary_gate.json artifacts invalid")
+    else:
+        for key, record in artifacts.items():
+            if not isinstance(record, dict):
+                add_error(report, f"codex_cli_canary_gate artifact invalid: {key}")
+                continue
+            artifact_path = resolve_path(Path(str(record.get("path", ""))), repo_root)
+            if ready and not artifact_path.exists():
+                add_error(
+                    report,
+                    f"codex_cli_canary_gate artifact missing: {key}={artifact_path}",
+                )
+            elif artifact_path.exists():
+                checked_files(report).append(str(artifact_path))
+    markdown_path = run_dir / "codex_cli_canary_gate.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
 

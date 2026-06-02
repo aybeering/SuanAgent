@@ -1,0 +1,83 @@
+{
+  "baseline_strategy_module": "strategies.baseline_strategy",
+  "current_strategy_module": "strategies.current_strategy",
+  "experiments_dir": "experiments",
+  "max_rounds": 1,
+  "datasets": {
+    "train": "data/train/sample_markets.csv",
+    "validation": "data/validation/sample_markets.csv",
+    "holdout": "data/holdout/sample_markets.csv"
+  },
+  "policy": {
+    "min_trade_count": 20,
+    "min_ev_improvement": 0.01,
+    "max_drawdown_worsening": 0.01,
+    "max_slippage_worsening": 0.005
+  },
+  "holdout_policy": {
+    "enabled": true,
+    "min_trade_count": 1,
+    "min_ev_delta": -0.01,
+    "max_drawdown_worsening": 0.02,
+    "max_slippage_worsening": 0.005
+  },
+  "strategy_path": "strategies/current_strategy.py",
+  "strategy_modifier": "codex_cli",
+  "stop_on_repeated_proposal": true,
+  "memory_filter": {
+    "failed_patch_threshold": 0,
+    "failed_direction_threshold": 99,
+    "fallback_modifiers": []
+  },
+  "exploration": {
+    "stop_after_no_improvement_rounds": 0,
+    "min_probe_ev_delta": 0.0,
+    "min_validation_ev_delta": 0.0,
+    "explore_after_no_improvement_rounds": 0,
+    "explore_low_sample_threshold": 1,
+    "explore_bonus": 0
+  },
+  "candidate_selection": {
+    "base_selectable_score": 100,
+    "primary_modifier_bonus": 2,
+    "expected_metric_weight": 1.0,
+    "risk_weight": 1.0,
+    "direction_prior_weight": 1.0,
+    "exploration_bonus_weight": 1.0,
+    "probe_weight": 1.0,
+    "routing_prior_weight": 1.0,
+    "routing_prefer_bonus": 8,
+    "routing_downweight_penalty": 12,
+    "probe_ev_multiplier": 1000,
+    "probe_ev_cap": 25,
+    "probe_trade_count_cap": 5
+  },
+  "codex_cli": {
+    "executable": "agents/codex_cli_canary.py",
+    "model": "canary-fixture",
+    "sandbox": "workspace-write",
+    "workspace_root": "workspaces",
+    "execute": true,
+    "timeout_seconds": 20
+  },
+  "codex_cli_canary": {
+    "enabled": true,
+    "local_fixture_only": true,
+    "real_codex_cli": false,
+    "expected_executable": "agents/codex_cli_canary.py",
+    "expected_direction_tag": "codex_cli_canary_lower_min_edge",
+    "expected_final_decision": "rejected",
+    "requires_quarantine_release": true,
+    "requires_strategy_rollback": true
+  },
+  "stub": {
+    "old_threshold": "MIN_EDGE = 0.05",
+    "new_threshold": "MIN_EDGE = 0.04"
+  },
+  "executor": {
+    "mode": "sequential",
+    "max_candidates": 0,
+    "per_agent_timeout_seconds": 20,
+    "allow_disabled_adapters": false
+  }
+}

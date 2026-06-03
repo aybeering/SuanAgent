@@ -7,7 +7,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 CANDIDATE_CHALLENGER_SCHEMA_VERSION = "candidate_challenger_report_v1"
@@ -379,10 +383,185 @@ def validate_candidate_challenger_report_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved candidate challenger report."""
-    return validate_json_file(
+    schema_errors = validate_json_file(
         payload_path=payload_path,
         schema_path=repo_root / SCHEMA_PATH,
     )
+    if schema_errors:
+        return schema_errors
+    return schema_errors + validate_candidate_challenger_report_consistency(
+        load_json_object(payload_path)
+    )
+
+
+def validate_candidate_challenger_report_payload(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate an in-memory candidate challenger report payload."""
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    return validate_json_payload(
+        payload=payload,
+        schema=schema,
+        schema_dir=(repo_root / SCHEMA_PATH).parent,
+    ) + validate_candidate_challenger_report_consistency(payload)
+
+
+def validate_candidate_challenger_report_consistency(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate derived candidate challenger report fields."""
+    errors: list[str] = []
+    checks = object_field(payload, "checks")
+    champion = object_field(payload, "champion")
+    summary = object_field(payload, "summary")
+    candidates = list_of_dicts(payload.get("top_candidates", []))
+    selected_candidates = list_of_dicts(payload.get("selected_candidates", []))
+    top_candidate = candidates[0] if candidates else {}
+
+    manifest_present = bool(checks.get("manifest_present", False))
+    leaderboard_present = bool(checks.get("leaderboard_present", False))
+    expected_ok = manifest_present and leaderboard_present
+    champion_exists = bool(champion.get("exists", False))
+    selected_rows = [row for row in candidates if row.get("selected") is True]
+
+    if bool(payload.get("ok", False)) != expected_ok:
+        errors.append("candidate_challenger_report ok mismatch")
+    if bool(checks.get("champion_present", False)) != champion_exists:
+        errors.append("candidate_challenger_report champion_present mismatch")
+    if bool(checks.get("candidate_rows_present", False)) != bool(candidates):
+        errors.append("candidate_challenger_report candidate_rows_present mismatch")
+    if bool(checks.get("selected_candidate_present", False)) != bool(selected_rows):
+        errors.append("candidate_challenger_report selected_candidate_present mismatch")
+    if checks.get("read_only") is not True:
+        errors.append("candidate_challenger_report read_only false")
+
+    if int(summary.get("candidate_count", -1)) != len(candidates):
+        errors.append("candidate_challenger_report candidate_count mismatch")
+    if int(summary.get("selected_candidate_count", -1)) != len(selected_candidates):
+        errors.append("candidate_challenger_report selected count mismatch")
+    if selected_candidates != selected_rows:
+        errors.append("candidate_challenger_report selected candidates mismatch")
+    if str(summary.get("top_candidate_status", "")) != str(
+        top_candidate.get("comparison_status", "none")
+    ):
+        errors.append("candidate_challenger_report top status mismatch")
+    if str(summary.get("top_candidate_round", "")) != str(
+        top_candidate.get("round_id", "")
+    ):
+        errors.append("candidate_challenger_report top round mismatch")
+    if str(summary.get("top_candidate_direction", "")) != str(
+        top_candidate.get("direction_tag", "")
+    ):
+        errors.append("candidate_challenger_report top direction mismatch")
+    if summary.get("top_candidate_validation_ev_delta") != top_candidate.get(
+        "validation_ev_delta",
+        None,
+    ):
+        errors.append("candidate_challenger_report top validation mismatch")
+    if summary.get("top_candidate_holdout_ev_delta") != top_candidate.get(
+        "holdout_ev_delta",
+        None,
+    ):
+        errors.append("candidate_challenger_report top holdout mismatch")
+    if str(summary.get("champion_run_id", "")) != str(
+        champion.get("champion_run_id", "")
+    ):
+        errors.append("candidate_challenger_report champion run mismatch")
+
+    expected_status = challenger_status(
+        ok=expected_ok,
+        champion_exists=champion_exists,
+        candidates=candidates,
+    )
+    if str(payload.get("status", "")) != expected_status:
+        errors.append("candidate_challenger_report status mismatch")
+    expected_actions = recommended_next_actions(
+        champion=champion,
+        candidates=candidates,
+        selected_candidates=selected_candidates,
+    )
+    if string_list(payload.get("recommended_next_actions", [])) != expected_actions:
+        errors.append("candidate_challenger_report next actions mismatch")
+
+    errors.extend(validate_candidate_rows(candidates))
+    errors.extend(validate_candidate_challenger_policy(payload))
+    return tuple(errors)
+
+
+def validate_candidate_rows(candidates: list[dict[str, Any]]) -> tuple[str, ...]:
+    """Validate derived fields on candidate challenger rows."""
+    errors: list[str] = []
+    sorted_candidates = sorted(candidates, key=candidate_sort_key, reverse=True)
+    if candidates != sorted_candidates:
+        errors.append("candidate_challenger_report candidate sort mismatch")
+    for row in candidates:
+        validation_ev = optional_float(row.get("validation_ev_delta"))
+        holdout_ev = optional_float(row.get("holdout_ev_delta"))
+        probe_ev = float(row.get("probe_ev_delta", 0.0) or 0.0)
+        champion_ev = optional_float(row.get("champion_validation_ev_delta"))
+        expected_gap = (
+            round(validation_ev - champion_ev, 6)
+            if validation_ev is not None and champion_ev is not None
+            else None
+        )
+        expected_probe_gap = (
+            round(probe_ev - validation_ev, 6) if validation_ev is not None else None
+        )
+        expected_holdout_gap = (
+            round(validation_ev - holdout_ev, 6)
+            if validation_ev is not None and holdout_ev is not None
+            else None
+        )
+        if row.get("validation_gap_vs_champion") != expected_gap:
+            errors.append("candidate_challenger_report validation gap mismatch")
+        if row.get("probe_validation_gap") != expected_probe_gap:
+            errors.append("candidate_challenger_report probe gap mismatch")
+        if row.get("validation_holdout_gap") != expected_holdout_gap:
+            errors.append("candidate_challenger_report holdout gap mismatch")
+        expected_status = candidate_comparison_status(
+            validation_gap=expected_gap,
+            validation_ev=validation_ev,
+            champion_ev=champion_ev,
+        )
+        if str(row.get("comparison_status", "")) != expected_status:
+            errors.append("candidate_challenger_report comparison status mismatch")
+        expected_flags = stability_flags(
+            validation_ev=validation_ev,
+            holdout_ev=holdout_ev,
+            probe_validation_gap=expected_probe_gap,
+            validation_holdout_gap=expected_holdout_gap,
+        )
+        if string_list(row.get("stability_flags", [])) != expected_flags:
+            errors.append("candidate_challenger_report stability flags mismatch")
+    return tuple(errors)
+
+
+def validate_candidate_challenger_policy(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate candidate challenger policy flags preserve read-only behavior."""
+    errors: list[str] = []
+    policy = object_field(payload, "policy")
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_promote_champion",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            errors.append(f"candidate_challenger_report policy false: {key}")
+    if (
+        policy.get("final_acceptance_authority")
+        != "deterministic_policy_and_holdout_gates"
+    ):
+        errors.append("candidate_challenger_report acceptance authority mismatch")
+    return tuple(errors)
 
 
 def candidate_sort_key(row: dict[str, object]) -> tuple[object, ...]:

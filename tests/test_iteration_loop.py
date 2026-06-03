@@ -16392,6 +16392,118 @@ def test_iteration_loop_writes_champion_comparison_when_champion_exists(
     assert "## Champion Comparison" in markdown
     assert_matches_schema(comparison_path, "champion_comparison")
     assert_matches_schema(challenger_path, "candidate_challenger_report")
+    assert validate_candidate_challenger_report_file(
+        payload_path=challenger_path,
+        repo_root=repo,
+    ) == ()
+    tampered_challenger = json.loads(challenger_path.read_text(encoding="utf-8"))
+    tampered_challenger["ok"] = False
+    tampered_challenger["status"] = "no_champion"
+    tampered_challenger["checks"]["champion_present"] = False
+    tampered_challenger["checks"]["candidate_rows_present"] = False
+    tampered_challenger["checks"]["selected_candidate_present"] = False
+    tampered_challenger["checks"]["read_only"] = False
+    tampered_challenger["summary"]["candidate_count"] = 99
+    tampered_challenger["summary"]["selected_candidate_count"] = 99
+    tampered_challenger["summary"]["top_candidate_status"] = "wrong"
+    tampered_challenger["summary"]["top_candidate_round"] = "wrong"
+    tampered_challenger["summary"]["top_candidate_direction"] = "wrong"
+    tampered_challenger["summary"]["top_candidate_validation_ev_delta"] = 123.0
+    tampered_challenger["summary"]["top_candidate_holdout_ev_delta"] = 123.0
+    tampered_challenger["summary"]["champion_run_id"] = "wrong"
+    tampered_challenger["selected_candidates"] = []
+    tampered_challenger["top_candidates"][0]["selected"] = True
+    tampered_challenger["top_candidates"][0]["validation_gap_vs_champion"] = 999.0
+    tampered_challenger["top_candidates"][0]["probe_validation_gap"] = 999.0
+    tampered_challenger["top_candidates"][0]["validation_holdout_gap"] = 999.0
+    tampered_challenger["top_candidates"][0]["comparison_status"] = (
+        "beats_champion_validation"
+    )
+    tampered_challenger["top_candidates"][0]["stability_flags"] = ["wrong"]
+    tampered_challenger["recommended_next_actions"] = ["wrong"]
+    tampered_challenger["policy"]["does_not_promote_champion"] = False
+    tampered_challenger["policy"]["final_acceptance_authority"] = "natural_language"
+    challenger_path.write_text(
+        json.dumps(tampered_challenger, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    challenger_consistency_errors = validate_candidate_challenger_report_file(
+        payload_path=challenger_path,
+        repo_root=repo,
+    )
+    assert "candidate_challenger_report ok mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report champion_present mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report candidate_rows_present mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report selected_candidate_present mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report read_only false" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report candidate_count mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report selected count mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report selected candidates mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report top status mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report top round mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report top direction mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report top validation mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report top holdout mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report champion run mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report status mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report next actions mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report validation gap mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report probe gap mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report holdout gap mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report comparison status mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report stability flags mismatch" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report policy false: does_not_promote_champion" in (
+        challenger_consistency_errors
+    )
+    assert "candidate_challenger_report acceptance authority mismatch" in (
+        challenger_consistency_errors
+    )
+    challenger_path.write_text(
+        json.dumps(challenger, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     assert_matches_schema(promotion_path, "champion_promotion_dry_run")
     assert_matches_schema(approval_path, "champion_promotion_approval")
     assert_matches_schema(brief_path, "research_brief")

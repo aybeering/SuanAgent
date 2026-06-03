@@ -731,8 +731,12 @@ Replay artifacts:
 - `candidate_challenger_report.json` and `candidate_challenger_report.md`
   compare saved candidate rows with the current champion registry when one
   exists. They expose validation gap, holdout stability flags, and top
-  candidates for operator inspection only; they cannot promote champions,
-  route agents, run backtests, apply patches, or change acceptance.
+  candidates for operator inspection only. The writer validates `ok` and
+  status derivation, checks summaries, selected/top candidate counts and rows,
+  top-candidate summary fields, per-candidate gap/status/stability derivations,
+  recommended next actions, and read-only policy flags before returning. They
+  cannot promote champions, route agents, run backtests, apply patches, or
+  change acceptance.
 - `champion_promotion_dry_run.json` and `champion_promotion_dry_run.md`
   preview whether the completed run would satisfy the deterministic champion
   promotion comparison against the current champion. They never write

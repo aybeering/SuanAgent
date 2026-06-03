@@ -10091,6 +10091,39 @@ def test_artifact_validator_reports_direction_alignment_drift(
     )
 
 
+def test_artifact_validator_reports_cross_artifact_direction_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-cross-direction-drift",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/artifact-cross-direction-drift/round_001"
+        / "agent_output.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["attempts"][0]["direction_intent_alignment"]["reason"] = (
+        "proposal direction alignment is informational"
+    )
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="artifact-cross-direction-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "agent_output.json direction binding mismatch: attempt_001_primary" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
 def test_artifact_validator_reports_candidate_quality_score_drift(
     tmp_path: Path,
 ) -> None:

@@ -1103,7 +1103,7 @@ def validate_round_candidate_quality_bindings(
     repo_root: Path,
     report: dict[str, object],
 ) -> None:
-    """Validate candidate quality metadata is identical across round artifacts."""
+    """Validate candidate metadata is identical across round artifacts."""
     reference_rows = list_of_dicts(load_json_list(round_dir / "proposal_attempts.json"))
     reference = candidate_quality_rows_by_attempt_id(
         rows=reference_rows,
@@ -1170,6 +1170,101 @@ def validate_round_candidate_quality_bindings(
             reference=reference,
             report=report,
         )
+    validate_round_candidate_direction_bindings(
+        round_dir=round_dir,
+        reference_rows=reference_rows,
+        report=report,
+    )
+
+
+def validate_round_candidate_direction_bindings(
+    *,
+    round_dir: Path,
+    reference_rows: list[dict[str, object]],
+    report: dict[str, object],
+) -> None:
+    """Validate candidate direction audit metadata against proposal attempts."""
+    full_keys = (
+        "direction_tag",
+        "supported_directions",
+        "direction_capability",
+        "direction_intent_alignment",
+    )
+    reference = candidate_direction_rows_by_attempt_id(
+        rows=reference_rows,
+        artifact_name="proposal_attempts.json",
+        keys=full_keys,
+        report=report,
+    )
+    if not reference:
+        return
+    source_rows_by_artifact: list[
+        tuple[str, list[dict[str, object]], tuple[str, ...]]
+    ] = [
+        (
+            "agent_executor_report.json",
+            list_of_dicts(
+                object_value(
+                    load_json_object(round_dir / "agent_executor_report.json", report)
+                ).get("attempts", [])
+            ),
+            full_keys,
+        ),
+        (
+            "agent_attempts_manifest.json",
+            list_of_dicts(
+                object_value(
+                    load_json_object(round_dir / "agent_attempts_manifest.json", report)
+                ).get("attempts", [])
+            ),
+            full_keys,
+        ),
+        (
+            "agent_selection_report.json",
+            list_of_dicts(
+                object_value(
+                    load_json_object(round_dir / "agent_selection_report.json", report)
+                ).get("attempts", [])
+            ),
+            full_keys,
+        ),
+        (
+            "agent_routing_policy.json",
+            list_of_dicts(
+                object_value(
+                    load_json_object(round_dir / "agent_routing_policy.json", report)
+                ).get("candidates", [])
+            ),
+            full_keys,
+        ),
+        (
+            "attempt_output.json",
+            attempt_output_direction_rows(round_dir=round_dir, report=report),
+            full_keys,
+        ),
+        (
+            "agent_output.json",
+            list_of_dicts(
+                object_value(
+                    load_json_object(round_dir / "agent_output.json", report)
+                ).get("attempts", [])
+            ),
+            ("direction_tag", "direction_intent_alignment"),
+        ),
+        (
+            "candidate_leaderboard.json",
+            leaderboard_rows_for_round(round_dir=round_dir),
+            ("direction_tag",),
+        ),
+    ]
+    for artifact_name, rows, keys in source_rows_by_artifact:
+        validate_candidate_direction_source_binding(
+            artifact_name=artifact_name,
+            rows=rows,
+            reference=reference,
+            keys=keys,
+            report=report,
+        )
 
 
 def candidate_quality_rows_by_attempt_id(
@@ -1232,6 +1327,89 @@ def candidate_quality_signature(row: dict[str, object]) -> dict[str, object]:
     }
 
 
+def candidate_direction_rows_by_attempt_id(
+    *,
+    rows: list[dict[str, object]],
+    artifact_name: str,
+    keys: tuple[str, ...],
+    report: dict[str, object],
+) -> dict[str, dict[str, object]]:
+    """Return candidate direction signatures keyed by attempt id."""
+    result: dict[str, dict[str, object]] = {}
+    for row in rows:
+        attempt_id = str(row.get("attempt_id", ""))
+        if not attempt_id:
+            add_error(report, f"{artifact_name} candidate direction row missing attempt_id")
+            continue
+        if attempt_id in result:
+            add_error(
+                report,
+                f"{artifact_name} duplicate candidate direction row: {attempt_id}",
+            )
+            continue
+        result[attempt_id] = candidate_direction_signature(row=row, keys=keys)
+    return result
+
+
+def validate_candidate_direction_source_binding(
+    *,
+    artifact_name: str,
+    rows: list[dict[str, object]],
+    reference: dict[str, dict[str, object]],
+    keys: tuple[str, ...],
+    report: dict[str, object],
+) -> None:
+    """Validate one artifact's candidate direction rows match proposal attempts."""
+    observed = candidate_direction_rows_by_attempt_id(
+        rows=rows,
+        artifact_name=artifact_name,
+        keys=keys,
+        report=report,
+    )
+    if not observed:
+        return
+    for attempt_id in sorted(reference):
+        if attempt_id not in observed:
+            add_error(report, f"{artifact_name} missing direction row: {attempt_id}")
+            continue
+        expected = {
+            key: value
+            for key, value in reference[attempt_id].items()
+            if key in keys
+        }
+        if observed[attempt_id] != expected:
+            add_error(
+                report,
+                f"{artifact_name} direction binding mismatch: {attempt_id}",
+            )
+    for attempt_id in sorted(set(observed) - set(reference)):
+        add_error(report, f"{artifact_name} unexpected direction row: {attempt_id}")
+
+
+def candidate_direction_signature(
+    *,
+    row: dict[str, object],
+    keys: tuple[str, ...],
+) -> dict[str, object]:
+    """Return direction fields that must remain stable across candidate artifacts."""
+    signature: dict[str, object] = {}
+    if "direction_tag" in keys:
+        signature["direction_tag"] = str(row.get("direction_tag", ""))
+    if "supported_directions" in keys:
+        signature["supported_directions"] = normalized_direction_list(
+            row.get("supported_directions", [])
+        )
+    if "direction_capability" in keys:
+        signature["direction_capability"] = object_value(
+            row.get("direction_capability", {})
+        )
+    if "direction_intent_alignment" in keys:
+        signature["direction_intent_alignment"] = object_value(
+            row.get("direction_intent_alignment", {})
+        )
+    return signature
+
+
 def leaderboard_rows_for_round(*, round_dir: Path) -> list[dict[str, object]]:
     """Return candidate leaderboard rows for one round."""
     rows = list_of_dicts(load_json_list(round_dir.parent / "candidate_leaderboard.json"))
@@ -1257,6 +1435,35 @@ def attempt_output_quality_rows(
                 "score_reasons": list_value(selection.get("score_reasons", [])),
                 "quality_breakdown": object_value(
                     selection.get("quality_breakdown", {})
+                ),
+            }
+        )
+    return rows
+
+
+def attempt_output_direction_rows(
+    *,
+    round_dir: Path,
+    report: dict[str, object],
+) -> list[dict[str, object]]:
+    """Return normalized direction rows from attempt_output.json files."""
+    rows: list[dict[str, object]] = []
+    for path in sorted((round_dir / "agent_attempts").glob("*/attempt_output.json")):
+        payload = load_json_object(path, report)
+        if payload is None:
+            continue
+        rows.append(
+            {
+                "attempt_id": str(payload.get("attempt_id", "")),
+                "direction_tag": str(payload.get("direction_tag", "")),
+                "supported_directions": normalized_direction_list(
+                    payload.get("supported_directions", [])
+                ),
+                "direction_capability": object_value(
+                    payload.get("direction_capability", {})
+                ),
+                "direction_intent_alignment": object_value(
+                    payload.get("direction_intent_alignment", {})
                 ),
             }
         )

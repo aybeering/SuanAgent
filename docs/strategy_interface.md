@@ -129,8 +129,9 @@ Candidate artifacts also carry `candidate_score`, `score_reasons`, and
 `quality_breakdown` across executor, attempt, selection, routing, selected
 output, and leaderboard views. These fields explain deterministic candidate
 ranking and are validated for score consistency. The artifact validator also
-binds each row by `attempt_id` back to `proposal_attempts.json`, but final
-strategy acceptance still comes only from the policy gate and holdout gate.
+binds each row by `attempt_id` back to `proposal_attempts.json`, including
+direction metadata where a view carries it, but final strategy acceptance still
+comes only from the policy gate and holdout gate.
 `candidate_quality_trace.json` is the run-level read-only summary of those
 candidate score components, probe/validation/holdout signals, selected
 attempts, patch families, and failure codes for operator and adapter debugging.

@@ -549,8 +549,9 @@ Context and planning artifacts:
   score and `quality_breakdown` so the saved trace can prove why a candidate was
   selected without giving those artifacts final acceptance authority.
   Artifact validation binds those rows by `attempt_id` back to
-  `proposal_attempts.json`, including `candidate_score`, `score_reasons`, and
-  `quality_breakdown`.
+  `proposal_attempts.json`, including `candidate_score`, `score_reasons`,
+  `quality_breakdown`, and saved direction metadata where that artifact carries
+  it.
 
 Role and readiness artifacts:
 

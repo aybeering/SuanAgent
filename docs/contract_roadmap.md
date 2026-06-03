@@ -277,7 +277,8 @@ Codex CLI readiness contracts:
     `operator_run_review_v1` payload exposed by
     `python -m orchestrator.experiments review <run_id>` is validated against
     `schemas/operator_run_review.schema.json` before JSON or markdown output is
-    printed.
+    printed, with deterministic consistency checks for copied top-level status,
+    round, stop-reason, and config-lineage summary fields.
 15. Strategy search-space config is an advisory planning contract. It can name
     candidate direction tags, direction order, modifier hints, and a fallback
     direction for operator review and future agent input, but it cannot execute

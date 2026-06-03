@@ -15211,6 +15211,113 @@ def test_operator_run_review_schema_rejects_missing_dashboard() -> None:
     assert "$: missing required property dashboard" in errors
 
 
+def _minimal_operator_run_review_payload() -> dict[str, object]:
+    policy = {
+        "inspection_only": True,
+        "reads_saved_artifacts_only": True,
+        "does_not_execute_agents": True,
+        "does_not_run_backtests": True,
+        "does_not_write_config": True,
+        "does_not_promote_champion": True,
+        "does_not_apply_patches": True,
+        "does_not_route_agents": True,
+        "does_not_change_acceptance": True,
+    }
+    return {
+        "schema_version": "operator_run_review_v1",
+        "run_id": "run",
+        "run_dir": "experiments/run",
+        "from_artifact": True,
+        "closeout_path": "experiments/run/run_closeout.json",
+        "closeout_markdown_path": "experiments/run/run_closeout.md",
+        "run_status": "stopped_max_rounds",
+        "closeout_status": "ready_for_review",
+        "closeout_ok": True,
+        "summary": {
+            "completed_rounds": 1,
+            "accepted_round": None,
+            "stop_reason": "max_rounds reached",
+            "config_lineage_status": "partial",
+            "research_primary_focus": "close_champion_ev_gap",
+        },
+        "dashboard": {
+            "schema_version": "operator_dashboard_v1",
+            "status_summary": {
+                "run_status": "stopped_max_rounds",
+                "closeout_status": "ready_for_review",
+                "accepted": False,
+                "accepted_round": None,
+                "completed_rounds": 1,
+                "selected_candidate_count": 0,
+                "stop_reason": "max_rounds reached",
+            },
+            "config_review": {
+                "lineage_status": "partial",
+                "lineage_ok": True,
+                "existing_stage_count": 1,
+                "current_config_matches_latest_stage": True,
+                "applied": False,
+                "restored": False,
+            },
+            "champion_review": {
+                "challenger_status": "not_applicable",
+                "promotion_status": "not_requested",
+                "would_promote": False,
+                "approval_status": "not_requested",
+                "approval_recorded": False,
+            },
+            "watchlist": {
+                "status": "ok",
+                "alert_count": 0,
+            },
+            "gates": [],
+            "operator_action_items": [],
+            "authority": {
+                "final_acceptance_authority": "deterministic_code",
+                "agent_language_can_accept": False,
+                "config_changes_require_guarded_command": True,
+                "champion_promotion_requires_explicit_command": True,
+            },
+            "policy": dict(policy),
+        },
+        "policy": dict(policy),
+    }
+
+
+def test_operator_run_review_payload_validation_reports_summary_drift() -> None:
+    payload = _minimal_operator_run_review_payload()
+
+    assert validate_operator_run_review_payload(
+        payload,
+        repo_root=Path(__file__).resolve().parents[1],
+    ) == ()
+
+    summary = payload["summary"]
+    dashboard = payload["dashboard"]
+    assert isinstance(summary, dict)
+    assert isinstance(dashboard, dict)
+    status_summary = dashboard["status_summary"]
+    config_review = dashboard["config_review"]
+    assert isinstance(status_summary, dict)
+    assert isinstance(config_review, dict)
+    payload["run_status"] = "accepted"
+    summary["completed_rounds"] = 2
+    summary["accepted_round"] = "round_001"
+    summary["stop_reason"] = "accepted"
+    summary["config_lineage_status"] = "complete"
+
+    errors = validate_operator_run_review_payload(
+        payload,
+        repo_root=Path(__file__).resolve().parents[1],
+    )
+
+    assert "operator_run_review summary run_status mismatch" in errors
+    assert "operator_run_review summary completed_rounds mismatch" in errors
+    assert "operator_run_review summary accepted_round mismatch" in errors
+    assert "operator_run_review summary stop_reason mismatch" in errors
+    assert "operator_run_review summary config_lineage_status mismatch" in errors
+
+
 def test_compare_experiments_recommends_accepted_metric_winner(
     tmp_path: Path,
 ) -> None:

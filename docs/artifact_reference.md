@@ -241,9 +241,11 @@ Markdown report without writing artifacts.
 `run_closeout.json` operator dashboard directly. `review --markdown` renders
 the same dashboard for terminal inspection. The terminal review payload is
 validated in memory against `schemas/operator_run_review.schema.json` before it
-is printed. The command is read-only: it does not write config, promote
-champions, execute agents, run backtests, route candidates, apply patches, or
-change acceptance.
+is printed, with deterministic consistency checks that the copied top-level
+run status, closeout status, completed rounds, accepted round, stop reason, and
+config-lineage summary still match the embedded dashboard. The command is
+read-only: it does not write config, promote champions, execute agents, run
+backtests, route candidates, apply patches, or change acceptance.
 `operator_action_plan.json` and `operator_action_plan.md` translate the saved
 closeout dashboard action items into explicit command candidates for human
 review. `python -m orchestrator.experiments action-plan <run_id>` and

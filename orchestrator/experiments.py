@@ -1161,7 +1161,62 @@ def validate_operator_run_review_payload(
 ) -> tuple[str, ...]:
     """Validate an in-memory operator run review payload."""
     schema = load_schema(repo_root / OPERATOR_RUN_REVIEW_SCHEMA_PATH)
-    return validate_json_payload(payload=payload, schema=schema)
+    errors = list(validate_json_payload(payload=payload, schema=schema))
+    errors.extend(validate_operator_run_review_consistency(payload))
+    return tuple(errors)
+
+
+def validate_operator_run_review_consistency(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate copied run-review summaries match the embedded dashboard."""
+    errors: list[str] = []
+    dashboard = dict_payload(payload.get("dashboard", {}))
+    status_summary = dict_payload(dashboard.get("status_summary", {}))
+    summary = dict_payload(payload.get("summary", {}))
+    config_review = dict_payload(dashboard.get("config_review", {}))
+
+    def scalar_equal(left: object, right: object) -> bool:
+        if left is None or right is None:
+            return left is right
+        return str(left) == str(right)
+
+    summary_pairs = (
+        (
+            "run_status",
+            payload.get("run_status", ""),
+            status_summary.get("run_status", ""),
+        ),
+        (
+            "closeout_status",
+            payload.get("closeout_status", ""),
+            status_summary.get("closeout_status", ""),
+        ),
+        (
+            "completed_rounds",
+            summary.get("completed_rounds", 0),
+            status_summary.get("completed_rounds", 0),
+        ),
+        (
+            "accepted_round",
+            summary.get("accepted_round"),
+            status_summary.get("accepted_round"),
+        ),
+        (
+            "stop_reason",
+            summary.get("stop_reason"),
+            status_summary.get("stop_reason"),
+        ),
+        (
+            "config_lineage_status",
+            summary.get("config_lineage_status", ""),
+            config_review.get("lineage_status", ""),
+        ),
+    )
+    for key, left, right in summary_pairs:
+        if not scalar_equal(left, right):
+            errors.append(f"operator_run_review summary {key} mismatch")
+    return tuple(errors)
 
 
 def operator_action_plan_report(

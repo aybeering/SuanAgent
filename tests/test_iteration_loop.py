@@ -2914,6 +2914,16 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     else:
         assert refresh["operator_summary"]["primary_blocker"] == ""
         assert refresh["operator_summary"]["blocker_preview"] == []
+    refreshed_priority = refreshed["review_priority"]
+    assert refresh["operator_summary"]["next_command_label"] == refreshed_priority[
+        "recommended_command_label"
+    ]
+    assert refresh["operator_summary"]["next_command"] == refreshed_priority[
+        "recommended_command"
+    ]
+    assert refresh["operator_summary"]["next_command_reason"] == refreshed_priority[
+        "recommended_command_reason"
+    ]
     assert refresh["operator_summary"]["next_command_reason"]
     assert (
         f"Next command reason: {refresh['operator_summary']['next_command_reason']}"
@@ -3031,19 +3041,35 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
         "promotion_pending_approval",
     }
     assert refresh["operator_summary"]["primary_focus"]
-    assert refresh["operator_summary"]["next_command_label"] == "review_cockpit"
+    cockpit = operator_cockpit_report(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+    )
+    review_priority = cockpit["review_priority"]
+    assert refresh["operator_summary"]["next_command_label"] == review_priority[
+        "recommended_command_label"
+    ]
+    assert refresh["operator_summary"]["next_command"] == review_priority[
+        "recommended_command"
+    ]
+    assert refresh["operator_summary"]["next_command_reason"] == review_priority[
+        "recommended_command_reason"
+    ]
     assert (
-        f"cockpit {run_id} --markdown"
+        f"{run_id}"
         in refresh["operator_summary"]["next_command"]
     )
     assert "primary_blocker" in refresh["operator_summary"]
     assert "blocker_preview" in refresh["operator_summary"]
     assert "Primary blocker:" in refresh_markdown
     assert "## Current Blockers" in refresh_markdown
-    assert "Next command: `review_cockpit`" in refresh_markdown
+    assert (
+        f"Next command: `{review_priority['recommended_command_label']}`"
+        in refresh_markdown
+    )
     assert "Next command reason:" in refresh_markdown
     assert refresh["operator_summary"]["next_command_reason"] in refresh_markdown
-    assert f"cockpit {run_id} --markdown" in refresh_markdown
+    assert str(review_priority["recommended_command"]) in refresh_markdown
     for row in refresh["refreshed_artifacts"]:
         json_file = row["json_file"]
         markdown_file = row["markdown_file"]

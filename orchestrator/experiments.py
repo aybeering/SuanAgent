@@ -1468,8 +1468,7 @@ def refresh_operator_views(
 
 def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, object]:
     """Return the next operator-facing checkpoint after refreshing views."""
-    commands = list_payload(cockpit.get("recommended_commands", []))
-    next_command = commands[0] if commands else {}
+    next_command = operator_view_refresh_next_command(cockpit)
     blockers = string_payload(cockpit.get("blockers", []))
     return {
         "cockpit_status": str(cockpit.get("status", "")),
@@ -1482,6 +1481,27 @@ def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, objec
         "next_command": str(next_command.get("command", "")),
         "next_command_reason": str(next_command.get("reason", "")),
     }
+
+
+def operator_view_refresh_next_command(
+    cockpit: dict[str, object],
+) -> dict[str, object]:
+    """Return the cockpit review-priority command, falling back to first hint."""
+    priority = dict_payload(cockpit.get("review_priority", {}))
+    priority_label = str(priority.get("recommended_command_label", ""))
+    priority_command = str(priority.get("recommended_command", ""))
+    priority_reason = str(priority.get("recommended_command_reason", ""))
+    priority_writes = str(priority.get("recommended_command_writes_artifact", ""))
+    if priority_label and priority_command:
+        return {
+            "label": priority_label,
+            "command": priority_command,
+            "writes_artifact": priority_writes,
+            "reason": priority_reason,
+        }
+
+    commands = list_payload(cockpit.get("recommended_commands", []))
+    return commands[0] if commands else {}
 
 
 def operator_view_refresh_blocker_delta(

@@ -390,8 +390,9 @@ pre-refresh stale sources, and post-refresh snapshot freshness. The receipt
 also includes a derived operator summary from the refreshed cockpit: cockpit
 status, primary focus, blocker count, primary blocker, a short blocker preview,
 refresh-effect details including whether operator review is still required,
-primary review reason codes, before/after blocker delta details, the first
-recommended next command with its reason, and a compact safety-policy summary.
+primary review reason codes, before/after blocker delta details, the
+review-priority recommended next command with its reason, and a compact
+safety-policy summary.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.

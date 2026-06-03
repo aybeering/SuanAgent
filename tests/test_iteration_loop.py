@@ -10340,6 +10340,12 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     assert diagnosis["rounds"][0]["failure_code"] == "policy_ev_improvement_low"  # type: ignore[index]
     assert diagnosis["rounds"][0]["candidate_failure_code"] == "policy_ev_improvement_low"  # type: ignore[index]
     assert diagnosis["rounds"][0]["agent_validation_ok"] is True  # type: ignore[index]
+    assert diagnosis["rounds"][0]["agent_intake_status"] == "passed"  # type: ignore[index]
+    assert diagnosis["rounds"][0]["agent_intake_primary_code"] == "none"  # type: ignore[index]
+    assert diagnosis["agent_intake_summary"]["round_count"] == 1  # type: ignore[index]
+    assert diagnosis["agent_intake_summary"]["passed_round_count"] == 1  # type: ignore[index]
+    assert diagnosis["agent_intake_summary"]["blocked_round_count"] == 0  # type: ignore[index]
+    assert diagnosis["agent_intake_summary"]["primary_code"] == "none"  # type: ignore[index]
     assert diagnosis["rounds"][0]["agent_bundle_present"] is True  # type: ignore[index]
     assert diagnosis["rounds"][0]["agent_bundle_input_file_count"] > 0  # type: ignore[index]
     assert diagnosis["rounds"][0]["agent_attempt_trace_present"] is True  # type: ignore[index]
@@ -10353,6 +10359,18 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
         )
     )
     assert saved["best_round"]["round_id"] == "round_001"
+    saved_manifest = json.loads(
+        (repo / "experiments/diagnose-iteration/manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert saved_manifest["rounds"][0]["agent_intake_diagnosis"]["status"] == "passed"
+    assert saved_manifest["agent_intake_summary"]["top_blocking_code"] == "none"
+    summary_markdown = (
+        repo / "experiments/diagnose-iteration/summary.md"
+    ).read_text(encoding="utf-8")
+    assert "## Agent Intake Summary" in summary_markdown
+    assert "- Primary code: `none`" in summary_markdown
 
 
 def test_run_diagnosis_includes_file_protocol_execution_status(
@@ -14536,6 +14554,16 @@ print(json.dumps({
     agent_validation = json.loads(
         (round_dir / "agent_validation.json").read_text(encoding="utf-8")
     )
+    manifest = json.loads(
+        (repo / "experiments/codex-mutation-guard/manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    diagnosis = json.loads(
+        (repo / "experiments/codex-mutation-guard/diagnosis.json").read_text(
+            encoding="utf-8"
+        )
+    )
 
     assert proposal["applicable"] is False
     assert proposal["contract_errors"] == [
@@ -14550,6 +14578,22 @@ print(json.dumps({
     assert agent_validation["intake_diagnosis"]["blocking_codes"] == [
         "workspace_mutation_detected"
     ]
+    assert manifest["rounds"][0]["agent_intake_diagnosis"]["primary_code"] == (
+        "workspace_mutation_detected"
+    )
+    assert manifest["agent_intake_summary"]["blocked_round_count"] == 1
+    assert manifest["agent_intake_summary"]["primary_code"] == (
+        "workspace_mutation_detected"
+    )
+    assert manifest["agent_intake_summary"]["code_counts"] == {
+        "workspace_mutation_detected": 1
+    }
+    assert diagnosis["agent_intake_summary"]["primary_code"] == (
+        "workspace_mutation_detected"
+    )
+    assert diagnosis["rounds"][0]["agent_intake_primary_code"] == (  # type: ignore[index]
+        "workspace_mutation_detected"
+    )
     assert decision["reasons"][0].startswith("agent output validation failed")
     assert "workspace modified disallowed file" in decision["reasons"][0]
     audit = json.loads(

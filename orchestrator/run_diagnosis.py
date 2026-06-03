@@ -128,6 +128,7 @@ def diagnose_iteration_run(
         "final_strategy_commit": manifest.get("final_strategy_commit"),
         "best_round": best_round,
         "rounds": round_diagnostics,
+        "agent_intake_summary": agent_intake_summary(round_diagnostics),
         "selected_candidates": compact_candidates(selected_candidates),
         "summary": iteration_summary(manifest, round_diagnostics, best_round),
     }
@@ -144,6 +145,9 @@ def diagnose_round(
     proposal = load_json_object(round_dir / "proposal.json") or {}
     decision = load_json_object(round_dir / "decision.json") or {}
     agent_validation = load_json_object(round_dir / "agent_validation.json") or {}
+    intake_diagnosis = compact_agent_intake_diagnosis(
+        agent_validation.get("intake_diagnosis", {})
+    )
     agent_bundle = load_json_object(round_dir / "agent_bundle_manifest.json") or {}
     agent_attempts = load_json_object(round_dir / "agent_attempts_manifest.json") or {}
     agent_selection = load_json_object(round_dir / "agent_selection_report.json") or {}
@@ -180,6 +184,9 @@ def diagnose_round(
         "contract_errors": proposal.get("contract_errors", []),
         "agent_validation_ok": agent_validation.get("ok"),
         "agent_validation_errors": agent_validation.get("errors", []),
+        "agent_intake_diagnosis": intake_diagnosis,
+        "agent_intake_status": intake_diagnosis["status"],
+        "agent_intake_primary_code": intake_diagnosis["primary_code"],
         "agent_bundle_present": bool(agent_bundle),
         "agent_bundle_input_file_count": len(agent_bundle.get("input_files", []))
         if isinstance(agent_bundle.get("input_files", []), list)
@@ -248,6 +255,84 @@ def compact_candidates(rows: list[dict[str, Any]]) -> list[dict[str, object]]:
             }
         )
     return compact
+
+
+def compact_agent_intake_diagnosis(value: object) -> dict[str, object]:
+    """Return stable diagnosis fields from an agent_validation intake payload."""
+    diagnosis = value if isinstance(value, dict) else {}
+    blocking_raw = diagnosis.get("blocking_codes", [])
+    blocking_codes = (
+        [str(code) for code in blocking_raw] if isinstance(blocking_raw, list) else []
+    )
+    return {
+        "schema_version": str(
+            diagnosis.get("schema_version", "agent_intake_diagnosis_v1")
+        ),
+        "status": str(diagnosis.get("status", "unknown")),
+        "primary_stage": str(diagnosis.get("primary_stage", "none")),
+        "primary_code": str(diagnosis.get("primary_code", "none")),
+        "primary_message": str(diagnosis.get("primary_message", "")),
+        "blocking_codes": blocking_codes,
+        "blocking_count": int(diagnosis.get("blocking_count", len(blocking_codes)) or 0),
+        "retryable": bool(diagnosis.get("retryable", False)),
+        "git_apply_status": str(diagnosis.get("git_apply_status", "not_checked")),
+    }
+
+
+def agent_intake_summary(rounds: list[dict[str, object]]) -> dict[str, object]:
+    """Return run-level counts for agent output intake diagnoses."""
+    code_counts: dict[str, int] = {}
+    status_counts: dict[str, int] = {}
+    blocked_round_count = 0
+    retryable_round_count = 0
+    primary_stage = "none"
+    primary_code = "none"
+    primary_message = ""
+    round_rows: list[dict[str, object]] = []
+    for row in rounds:
+        diagnosis = compact_agent_intake_diagnosis(row.get("agent_intake_diagnosis", {}))
+        status = str(diagnosis.get("status", "unknown"))
+        code = str(diagnosis.get("primary_code", "none"))
+        status_counts[status] = status_counts.get(status, 0) + 1
+        if code and code != "none":
+            code_counts[code] = code_counts.get(code, 0) + 1
+        if status == "blocked":
+            blocked_round_count += 1
+            if primary_code == "none":
+                primary_stage = str(diagnosis.get("primary_stage", "none"))
+                primary_code = code
+                primary_message = str(diagnosis.get("primary_message", ""))
+        if bool(diagnosis.get("retryable", False)):
+            retryable_round_count += 1
+        round_rows.append({
+            "round_id": str(row.get("round_id", "")),
+            "status": status,
+            "primary_stage": str(diagnosis.get("primary_stage", "none")),
+            "primary_code": code,
+            "blocking_codes": diagnosis.get("blocking_codes", []),
+            "retryable": bool(diagnosis.get("retryable", False)),
+        })
+    return {
+        "schema_version": "agent_intake_summary_v1",
+        "round_count": len(round_rows),
+        "blocked_round_count": blocked_round_count,
+        "passed_round_count": int(status_counts.get("passed", 0)),
+        "retryable_round_count": retryable_round_count,
+        "primary_stage": primary_stage,
+        "primary_code": primary_code,
+        "primary_message": primary_message,
+        "top_blocking_code": top_count_key(code_counts),
+        "code_counts": code_counts,
+        "status_counts": status_counts,
+        "rounds": round_rows,
+    }
+
+
+def top_count_key(counts: dict[str, int]) -> str:
+    """Return the highest-count key using stable lexical tie-breaking."""
+    if not counts:
+        return "none"
+    return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
 
 
 def compact_metadata(metadata: dict[str, Any] | None) -> dict[str, object]:

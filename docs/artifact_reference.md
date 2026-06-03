@@ -203,6 +203,16 @@ experiments/champion_lineage.json
 experiments/champion_lineage.md
 ```
 
+`manifest.json` records the run status, stop reason, completed rounds, linked
+run-level artifact paths, and `agent_intake_summary`, a compact aggregation of
+per-round agent-output intake status, blocking reason codes, retryable counts,
+and the primary blocked-code navigation hint.
+`diagnosis.json` is a compact machine-readable review artifact built from the
+saved run artifacts. For iteration runs, it includes per-round policy results,
+selected candidates, the best validation round, and the same agent-intake
+summary so adapter/proposal failures can be grouped without changing
+acceptance.
+
 `champion_history.jsonl` exists after guarded champion promotion.
 `champion_lineage.json` and `champion_lineage.md` are written by the lineage
 inspection command and summarize champion history, current champion identity,

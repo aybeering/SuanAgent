@@ -443,11 +443,87 @@ def validate_iteration_run(
     if not round_ids:
         add_error(report, "manifest.rounds is empty or invalid")
         return
+    validate_manifest_agent_intake_summary(manifest=manifest, report=report)
 
     for round_id in round_ids:
         round_dir = run_dir / round_id
         validate_round_dir(round_dir=round_dir, repo_root=repo_root, report=report)
     report["rounds_checked"] = len(round_ids)
+
+
+def validate_manifest_agent_intake_summary(
+    *,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate manifest-level agent-intake summary consistency when present."""
+    summary = manifest.get("agent_intake_summary")
+    if not isinstance(summary, dict):
+        return
+    expected = expected_agent_intake_summary(manifest.get("rounds", []))
+    for key in (
+        "round_count",
+        "blocked_round_count",
+        "passed_round_count",
+        "retryable_round_count",
+        "primary_stage",
+        "primary_code",
+        "top_blocking_code",
+    ):
+        if summary.get(key) != expected.get(key):
+            add_error(report, f"manifest.agent_intake_summary {key} mismatch")
+    if summary.get("code_counts") != expected.get("code_counts"):
+        add_error(report, "manifest.agent_intake_summary code_counts mismatch")
+    if summary.get("status_counts") != expected.get("status_counts"):
+        add_error(report, "manifest.agent_intake_summary status_counts mismatch")
+
+
+def expected_agent_intake_summary(rounds: object) -> dict[str, object]:
+    """Return expected manifest-level agent-intake counters from round rows."""
+    rows = rounds if isinstance(rounds, list) else []
+    code_counts: dict[str, int] = {}
+    status_counts: dict[str, int] = {}
+    round_count = 0
+    blocked_round_count = 0
+    retryable_round_count = 0
+    primary_stage = "none"
+    primary_code = "none"
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        diagnosis = row.get("agent_intake_diagnosis", {})
+        diagnosis = diagnosis if isinstance(diagnosis, dict) else {}
+        round_count += 1
+        status = str(diagnosis.get("status", "unknown"))
+        code = str(diagnosis.get("primary_code", "none"))
+        status_counts[status] = status_counts.get(status, 0) + 1
+        if code and code != "none":
+            code_counts[code] = code_counts.get(code, 0) + 1
+        if status == "blocked":
+            blocked_round_count += 1
+            if primary_code == "none":
+                primary_code = code
+                primary_stage = str(diagnosis.get("primary_stage", "none"))
+        if bool(diagnosis.get("retryable", False)):
+            retryable_round_count += 1
+    return {
+        "round_count": round_count,
+        "blocked_round_count": blocked_round_count,
+        "passed_round_count": int(status_counts.get("passed", 0)),
+        "retryable_round_count": retryable_round_count,
+        "primary_stage": primary_stage,
+        "primary_code": primary_code,
+        "top_blocking_code": top_count_key(code_counts),
+        "code_counts": code_counts,
+        "status_counts": status_counts,
+    }
+
+
+def top_count_key(counts: dict[str, int]) -> str:
+    """Return the highest-count key using stable lexical tie-breaking."""
+    if not counts:
+        return "none"
+    return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
 
 
 def validate_candidate_leaderboard_quality(

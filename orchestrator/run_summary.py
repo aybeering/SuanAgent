@@ -83,6 +83,30 @@ def write_iteration_summary(
             if split in datasets:
                 lines.append(f"- {split}: `{datasets[split]}`")
 
+    intake_summary = manifest.get("agent_intake_summary")
+    if isinstance(intake_summary, dict):
+        lines.extend(["", "## Agent Intake Summary", ""])
+        lines.append(
+            "- Blocked rounds: "
+            f"`{display_value(intake_summary.get('blocked_round_count'))}`"
+        )
+        lines.append(
+            "- Passed rounds: "
+            f"`{display_value(intake_summary.get('passed_round_count'))}`"
+        )
+        lines.append(
+            "- Primary code: "
+            f"`{display_value(intake_summary.get('primary_code'))}`"
+        )
+        lines.append(
+            "- Top blocking code: "
+            f"`{display_value(intake_summary.get('top_blocking_code'))}`"
+        )
+        lines.append(
+            "- Retryable rounds: "
+            f"`{display_value(intake_summary.get('retryable_round_count'))}`"
+        )
+
     scope_health = manifest.get("experiment_scope_health")
     if isinstance(scope_health, dict):
         lines.extend(["", "## Experiment Scope Health", ""])
@@ -295,9 +319,9 @@ def write_iteration_summary(
     else:
         lines.extend(
             [
-                "| Round | Accepted | Proposal | Train EV | Validation EV | "
+                "| Round | Accepted | Proposal | Intake | Train EV | Validation EV | "
                 "Holdout EV | Trades | Reasons |",
-                "| --- | --- | --- | ---: | ---: | ---: | ---: | --- |",
+                "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- |",
             ]
         )
         for round_payload in rounds:
@@ -368,6 +392,7 @@ def round_table_row(run_dir: Path, round_payload: dict[str, object]) -> str:
         f"| {escape_cell(round_id)} "
         f"| `{accepted}` "
         f"| {escape_cell(agent_label(agent_name, proposal_summary))} "
+        f"| {escape_cell(agent_intake_label(round_payload))} "
         f"| {delta_cell(round_payload, 'train_ev_before', 'train_ev_after')} "
         f"| {delta_cell(round_payload, 'validation_ev_before', 'validation_ev_after')} "
         f"| {delta_cell(round_payload, 'holdout_ev_before', 'holdout_ev_after')} "
@@ -375,6 +400,18 @@ def round_table_row(run_dir: Path, round_payload: dict[str, object]) -> str:
         f"{round_payload.get('after_trade_count', 0)} "
         f"| {escape_cell(reason_text or 'none')} |"
     )
+
+
+def agent_intake_label(round_payload: dict[str, object]) -> str:
+    """Return compact agent-intake status for a round table row."""
+    diagnosis = round_payload.get("agent_intake_diagnosis", {})
+    if not isinstance(diagnosis, dict):
+        return "unknown"
+    status = str(diagnosis.get("status", "unknown"))
+    code = str(diagnosis.get("primary_code", "none"))
+    if status == "passed" and code == "none":
+        return "passed"
+    return f"{status}: {code}"
 
 
 def proposal_quality_row(run_dir: Path, round_payload: dict[str, object]) -> str:

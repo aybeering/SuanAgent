@@ -19,7 +19,7 @@ from orchestrator.operator_unlock_checklist import (
     build_codex_unlock_checklist,
     build_operator_unlock_checklist,
 )
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import validate_json_file, validate_json_payload
 
 
 OPERATOR_COCKPIT_SCHEMA_VERSION = "operator_cockpit_v1"
@@ -1164,12 +1164,200 @@ def validate_operator_cockpit_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved operator cockpit artifact."""
+    schema_errors = tuple(
+        validate_json_file(payload_path=payload_path, schema_path=repo_root / SCHEMA_PATH)
+    )
+    if schema_errors:
+        return schema_errors
+    return schema_errors + validate_operator_cockpit_consistency(
+        load_json_object(payload_path)
+    )
+
+
+def validate_operator_cockpit_payload(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate an in-memory operator cockpit payload."""
+    schema = load_json_object(repo_root / SCHEMA_PATH)
     return tuple(
-        validate_json_file(
-            payload_path=payload_path,
-            schema_path=repo_root / SCHEMA_PATH,
+        validate_json_payload(
+            payload=payload,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    ) + validate_operator_cockpit_consistency(payload)
+
+
+def validate_operator_cockpit_consistency(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate derived operator cockpit fields against the saved payload."""
+    errors: list[str] = []
+    summary = object_field(payload, "summary")
+    status = str(payload.get("status", ""))
+    blockers = string_rows(payload.get("blockers", []))
+    panels = list_of_dicts(payload.get("panels", []))
+    commands = list_of_dicts(payload.get("recommended_commands", []))
+    action_failure_reasons = list_of_dicts(payload.get("action_failure_reasons", []))
+    unlock_checklist = object_field(payload, "codex_unlock_checklist")
+
+    if bool(payload.get("ok", False)) != (
+        status not in {"needs_repair", "missing_closeout"}
+    ):
+        errors.append("operator_cockpit ok status mismatch")
+    if str(payload.get("primary_focus", "")) != primary_focus(
+        status=status,
+        summary=summary,
+    ):
+        errors.append("operator_cockpit primary_focus mismatch")
+    if status != cockpit_status(summary=summary, blockers=blockers):
+        errors.append("operator_cockpit status summary mismatch")
+
+    expected_failure_count = len(action_failure_reasons)
+    if int(summary.get("action_failure_reason_count", 0) or 0) != expected_failure_count:
+        errors.append(
+            "operator_cockpit summary action_failure_reason_count mismatch"
+        )
+    expected_first_failure_stage = (
+        str(action_failure_reasons[0].get("stage", ""))
+        if action_failure_reasons
+        else "none"
+    )
+    if (
+        str(summary.get("action_first_failure_stage", "none"))
+        != expected_first_failure_stage
+    ):
+        errors.append(
+            "operator_cockpit summary action_first_failure_stage mismatch"
+        )
+    for reason in action_failure_reasons:
+        reason_code = str(reason.get("code", ""))
+        if reason_code and f"operator_action:{reason_code}" not in blockers:
+            errors.append("operator_cockpit action failure blocker missing")
+            break
+
+    if len(blockers) > 0 and status != "needs_operator_review":
+        errors.append("operator_cockpit blockers status mismatch")
+    if status == "action_pending" and summary.get("action_status") not in {
+        "pending_approval",
+        "ready_for_execution",
+    }:
+        errors.append("operator_cockpit action_pending summary mismatch")
+    if (
+        status == "promotion_pending_approval"
+        and summary.get("promotion_would_promote") is not True
+    ):
+        errors.append("operator_cockpit promotion_pending summary mismatch")
+
+    checklist_items = list_of_dicts(unlock_checklist.get("items", []))
+    checklist_passed_items = [
+        row for row in checklist_items if str(row.get("status", "")) == "passed"
+    ]
+    checklist_failed_items = [
+        row for row in checklist_items if str(row.get("status", "")) == "failed"
+    ]
+    if int(unlock_checklist.get("item_count", 0) or 0) != len(checklist_items):
+        errors.append("operator_cockpit codex unlock item_count mismatch")
+    if int(unlock_checklist.get("passed_count", 0) or 0) != len(
+        checklist_passed_items
+    ):
+        errors.append("operator_cockpit codex unlock passed_count mismatch")
+    if int(unlock_checklist.get("failed_count", 0) or 0) != len(
+        checklist_failed_items
+    ):
+        errors.append("operator_cockpit codex unlock failed_count mismatch")
+    if bool(unlock_checklist.get("ready", False)) and checklist_failed_items:
+        errors.append("operator_cockpit codex unlock ready mismatch")
+
+    errors.extend(
+        validate_operator_cockpit_review_priority_consistency(
+            payload=payload,
+            panels=panels,
+            commands=commands,
         )
     )
+    return tuple(errors)
+
+
+def validate_operator_cockpit_review_priority_consistency(
+    *,
+    payload: dict[str, object],
+    panels: list[dict[str, Any]],
+    commands: list[dict[str, Any]],
+) -> tuple[str, ...]:
+    """Validate cockpit review priority references saved panel and command rows."""
+    errors: list[str] = []
+    priority = object_field(payload, "review_priority")
+    target_panel_id = str(priority.get("target_panel_id", ""))
+    target_panel = next(
+        (row for row in panels if str(row.get("panel_id", "")) == target_panel_id),
+        None,
+    )
+    if target_panel is None:
+        errors.append("operator_cockpit review_priority target panel missing")
+    else:
+        for priority_key, panel_key, error in (
+            (
+                "target_panel_title",
+                "title",
+                "operator_cockpit review_priority target panel title mismatch",
+            ),
+            (
+                "target_panel_status",
+                "status",
+                "operator_cockpit review_priority target panel status mismatch",
+            ),
+            (
+                "target_artifact_path",
+                "artifact_path",
+                "operator_cockpit review_priority target artifact path mismatch",
+            ),
+            (
+                "next_step",
+                "next_step",
+                "operator_cockpit review_priority next step mismatch",
+            ),
+        ):
+            if str(priority.get(priority_key, "")) != str(target_panel.get(panel_key, "")):
+                errors.append(error)
+        if bool(priority.get("target_artifact_exists", False)) != bool(
+            target_panel.get("artifact_exists", False)
+        ):
+            errors.append(
+                "operator_cockpit review_priority target artifact exists mismatch"
+            )
+
+    command_label = str(priority.get("recommended_command_label", ""))
+    command = next(
+        (row for row in commands if str(row.get("label", "")) == command_label),
+        None,
+    )
+    if command is None:
+        errors.append("operator_cockpit review_priority command label missing")
+    else:
+        for priority_key, command_key, error in (
+            (
+                "recommended_command",
+                "command",
+                "operator_cockpit review_priority command mismatch",
+            ),
+            (
+                "recommended_command_writes_artifact",
+                "writes_artifact",
+                "operator_cockpit review_priority command write target mismatch",
+            ),
+            (
+                "recommended_command_reason",
+                "reason",
+                "operator_cockpit review_priority command reason mismatch",
+            ),
+        ):
+            if str(priority.get(priority_key, "")) != str(command.get(command_key, "")):
+                errors.append(error)
+
+    return tuple(errors)
 
 
 def list_of_dicts(value: object) -> list[dict[str, Any]]:

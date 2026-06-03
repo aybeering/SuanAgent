@@ -370,7 +370,10 @@ command-hint validator for known labels, expected write targets, the required
 `review_cockpit` first command, and simple shell-control-token guards. It also
 cross-checks the `review_priority` navigation object against the saved panel
 row and saved command hint so the priority target cannot drift from the
-cockpit payload it summarizes.
+cockpit payload it summarizes. The cockpit writer itself also validates
+status-derived OK and focus fields, action failure-reason summaries,
+`operator_action:<code>` blocker coverage, Codex unlock checklist counts, and
+review-priority panel and command references before returning.
 When the inspection command reads a saved
 cockpit artifact, it adds a transient `snapshot_freshness` section that compares
 recorded source hashes with the current source files and names stale sources

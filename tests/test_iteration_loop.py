@@ -2759,6 +2759,55 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
         repo_root=repo,
     ) == ()
 
+    tampered_cockpit_summary = json.loads(json_path.read_text(encoding="utf-8"))
+    tampered_cockpit_summary["status"] = "ready_for_review"
+    tampered_cockpit_summary["ok"] = False
+    tampered_cockpit_summary["primary_focus"] = "inspect_blockers"
+    tampered_cockpit_summary["summary"]["action_failure_reason_count"] = 0
+    tampered_cockpit_summary["summary"]["action_first_failure_stage"] = "none"
+    tampered_cockpit_summary["codex_unlock_checklist"]["item_count"] = 1
+    tampered_cockpit_summary["review_priority"]["target_panel_status"] = "stale"
+    tampered_cockpit_summary["review_priority"]["recommended_command"] = (
+        "python -m orchestrator.experiments cockpit stale --markdown"
+    )
+    json_path.write_text(
+        json.dumps(tampered_cockpit_summary, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    cockpit_consistency_errors = validate_operator_cockpit_file(
+        payload_path=json_path,
+        repo_root=repo,
+    )
+    assert "operator_cockpit ok status mismatch" in cockpit_consistency_errors
+    assert "operator_cockpit primary_focus mismatch" in cockpit_consistency_errors
+    assert "operator_cockpit status summary mismatch" in cockpit_consistency_errors
+    assert "operator_cockpit blockers status mismatch" in cockpit_consistency_errors
+    assert (
+        "operator_cockpit summary action_failure_reason_count mismatch"
+        in cockpit_consistency_errors
+    )
+    assert (
+        "operator_cockpit summary action_first_failure_stage mismatch"
+        in cockpit_consistency_errors
+    )
+    assert (
+        "operator_cockpit codex unlock item_count mismatch"
+        in cockpit_consistency_errors
+    )
+    assert (
+        "operator_cockpit review_priority target panel status mismatch"
+        in cockpit_consistency_errors
+    )
+    assert (
+        "operator_cockpit review_priority command mismatch"
+        in cockpit_consistency_errors
+    )
+
+    json_path.write_text(
+        json.dumps(cockpit_with_action_break, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
     tampered_priority = json.loads(json_path.read_text(encoding="utf-8"))
     tampered_priority["review_priority"]["target_panel_id"] = "missing_panel"
     json_path.write_text(

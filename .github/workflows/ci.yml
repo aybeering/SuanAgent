@@ -1167,10 +1167,22 @@ jobs:
           assert "config/adaptive_stub.json" in refresh_markdown
           assert "Cockpit freshness: `fresh`" in refresh_markdown
           assert refresh["operator_summary"]["primary_focus"]
-          assert refresh["operator_summary"]["next_command_label"] == "review_cockpit"
-          assert "cockpit ci-adaptive --markdown" in refresh["operator_summary"]["next_command"]
-          assert "Next command: `review_cockpit`" in refresh_markdown
-          assert "cockpit ci-adaptive --markdown" in refresh_markdown
+          review_priority = cockpit["review_priority"]
+          assert refresh["operator_summary"]["next_command_label"] == review_priority[
+              "recommended_command_label"
+          ]
+          assert refresh["operator_summary"]["next_command"] == review_priority[
+              "recommended_command"
+          ]
+          assert refresh["operator_summary"]["next_command_reason"] == review_priority[
+              "recommended_command_reason"
+          ]
+          assert "ci-adaptive" in refresh["operator_summary"]["next_command"]
+          assert (
+              f"Next command: `{review_priority['recommended_command_label']}`"
+              in refresh_markdown
+          )
+          assert review_priority["recommended_command"] in refresh_markdown
           assert refresh["refreshed_count"] == 5
           assert [
               row["artifact_name"] for row in refresh["refreshed_artifacts"]

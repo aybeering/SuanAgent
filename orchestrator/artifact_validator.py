@@ -9,6 +9,7 @@ import shlex
 from pathlib import Path
 from typing import Any
 
+from orchestrator.run_outcome import build_run_outcome_summary
 from orchestrator.schema_validation import validate_json_file
 
 
@@ -444,11 +445,40 @@ def validate_iteration_run(
         add_error(report, "manifest.rounds is empty or invalid")
         return
     validate_manifest_agent_intake_summary(manifest=manifest, report=report)
+    validate_manifest_run_outcome_summary(manifest=manifest, report=report)
 
     for round_id in round_ids:
         round_dir = run_dir / round_id
         validate_round_dir(round_dir=round_dir, repo_root=repo_root, report=report)
     report["rounds_checked"] = len(round_ids)
+
+
+def validate_manifest_run_outcome_summary(
+    *,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate manifest-level run outcome summary consistency when present."""
+    summary = manifest.get("run_outcome_summary")
+    if not isinstance(summary, dict):
+        return
+    expected = build_run_outcome_summary(manifest=manifest)
+    for key in (
+        "status",
+        "accepted",
+        "category",
+        "primary_stage",
+        "primary_code",
+        "primary_message",
+        "completed_rounds",
+        "accepted_round",
+        "final_strategy_commit",
+        "category_counts",
+        "stage_counts",
+        "code_counts",
+    ):
+        if summary.get(key) != expected.get(key):
+            add_error(report, f"manifest.run_outcome_summary {key} mismatch")
 
 
 def validate_manifest_agent_intake_summary(

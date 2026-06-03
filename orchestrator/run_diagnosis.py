@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from orchestrator.artifact_validator import validate_run_artifacts
+from orchestrator.run_outcome import build_run_outcome_summary
 
 
 def diagnose_run(
@@ -129,6 +130,13 @@ def diagnose_iteration_run(
         "best_round": best_round,
         "rounds": round_diagnostics,
         "agent_intake_summary": agent_intake_summary(round_diagnostics),
+        "run_outcome_summary": build_run_outcome_summary(
+            manifest=manifest,
+            artifact_ok=bool(base.get("artifact_ok", False)),
+            artifact_error_count=len(base.get("artifact_errors", []))
+            if isinstance(base.get("artifact_errors", []), list)
+            else 0,
+        ),
         "selected_candidates": compact_candidates(selected_candidates),
         "summary": iteration_summary(manifest, round_diagnostics, best_round),
     }

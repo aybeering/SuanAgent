@@ -120,6 +120,7 @@ from orchestrator.run_artifact_health import (
 from orchestrator.run_closeout import write_run_closeout
 from orchestrator.run_loop import run_and_write, write_json
 from orchestrator.run_metadata import write_run_metadata
+from orchestrator.run_outcome import build_run_outcome_summary
 from orchestrator.run_summary import write_iteration_summary
 from orchestrator.visual_artifacts import write_visual_artifacts_manifest
 from orchestrator.visual_review_stub import write_visual_review
@@ -526,6 +527,9 @@ def run_iteration_loop(
                 manifest["agent_intake_summary"] = agent_intake_summary_from_rounds(
                     manifest["rounds"],  # type: ignore[arg-type]
                 )
+                manifest["run_outcome_summary"] = build_run_outcome_summary(
+                    manifest=manifest,
+                )
                 write_json(run_dir / "manifest.json", manifest)
                 write_candidate_leaderboard(run_dir=run_dir, repo_root=repo_root)
 
@@ -649,6 +653,7 @@ def finalize_iteration_run(
     manifest["agent_intake_summary"] = agent_intake_summary_from_rounds(
         manifest.get("rounds", []),
     )
+    manifest["run_outcome_summary"] = build_run_outcome_summary(manifest=manifest)
     write_json(run_dir / "manifest.json", manifest)
     write_candidate_leaderboard(run_dir=run_dir, repo_root=repo_root)
     quality_trace = json.loads(

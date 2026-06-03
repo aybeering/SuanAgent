@@ -4589,6 +4589,19 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         if line.strip()
     ]
     selected_attempt = next(attempt for attempt in attempts if attempt["selected"])
+    assert manifest["run_outcome_summary"]["schema_version"] == (  # type: ignore[index]
+        "run_outcome_summary_v1"
+    )
+    assert manifest["run_outcome_summary"]["category"] == "policy_reject"  # type: ignore[index]
+    assert manifest["run_outcome_summary"]["primary_stage"] == "policy_gate"  # type: ignore[index]
+    assert manifest["run_outcome_summary"]["primary_code"] == (  # type: ignore[index]
+        "policy_ev_improvement_low"
+    )
+    assert manifest["run_outcome_summary"]["code_counts"] == {  # type: ignore[index]
+        "policy_ev_improvement_low": 1
+    }
+    assert "## Run Outcome Summary" in summary_markdown
+    assert "- Category: `policy_reject`" in summary_markdown
     assert manifest["candidate_quality_trace"]["path"] == "candidate_quality_trace.json"
     assert manifest["candidate_quality_trace"]["markdown_path"] == (
         "candidate_quality_trace.md"
@@ -6325,6 +6338,11 @@ def test_iteration_loop_holdout_gate_rejects_relaxed_validation_acceptance(
     assert decision["reasons"][0].endswith(" < 0.02")
     assert decision["holdout_policy"]["enabled"] is True
     assert saved_manifest["holdout_policy"]["min_ev_delta"] == 0.02
+    assert saved_manifest["run_outcome_summary"]["category"] == "holdout_veto"
+    assert saved_manifest["run_outcome_summary"]["primary_stage"] == "holdout_gate"
+    assert saved_manifest["run_outcome_summary"]["primary_code"] == (
+        "holdout_ev_delta_low"
+    )
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
@@ -6404,6 +6422,9 @@ def test_iteration_loop_stops_on_repeated_proposal_by_default(tmp_path: Path) ->
 
     assert saved_manifest["status"] == "stopped_repeated_proposal"
     assert saved_manifest["stop_reason"] == "round_002 repeated patch from round_001"
+    assert saved_manifest["run_outcome_summary"]["category"] == "repeated_proposal"
+    assert saved_manifest["run_outcome_summary"]["primary_stage"] == "proposal"
+    assert saved_manifest["run_outcome_summary"]["primary_code"] == "repeated_proposal"
     assert proposal["is_repeat_patch"] is True
     assert brief["watchlist_summary"]["schema_version"] == "research_watchlist_v1"
     assert brief["watchlist_summary"]["status"] == "attention"
@@ -6426,6 +6447,7 @@ def test_iteration_loop_stops_on_repeated_proposal_by_default(tmp_path: Path) ->
     assert proposal["patch_sha256"][:12] in context_text
     assert "yes (round_001)" in summary_text
     assert "- Stop reason: `round_002 repeated patch from round_001`" in summary_text
+    assert "- Category: `repeated_proposal`" in summary_text
 
 
 def test_iteration_loop_stops_after_no_improvement_window(tmp_path: Path) -> None:
@@ -10346,6 +10368,11 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     assert diagnosis["agent_intake_summary"]["passed_round_count"] == 1  # type: ignore[index]
     assert diagnosis["agent_intake_summary"]["blocked_round_count"] == 0  # type: ignore[index]
     assert diagnosis["agent_intake_summary"]["primary_code"] == "none"  # type: ignore[index]
+    assert diagnosis["run_outcome_summary"]["category"] == "policy_reject"  # type: ignore[index]
+    assert diagnosis["run_outcome_summary"]["artifact_ok"] is True  # type: ignore[index]
+    assert diagnosis["run_outcome_summary"]["primary_code"] == (  # type: ignore[index]
+        "policy_ev_improvement_low"
+    )
     assert diagnosis["rounds"][0]["agent_bundle_present"] is True  # type: ignore[index]
     assert diagnosis["rounds"][0]["agent_bundle_input_file_count"] > 0  # type: ignore[index]
     assert diagnosis["rounds"][0]["agent_attempt_trace_present"] is True  # type: ignore[index]
@@ -10366,10 +10393,12 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     )
     assert saved_manifest["rounds"][0]["agent_intake_diagnosis"]["status"] == "passed"
     assert saved_manifest["agent_intake_summary"]["top_blocking_code"] == "none"
+    assert saved_manifest["run_outcome_summary"]["category"] == "policy_reject"
     summary_markdown = (
         repo / "experiments/diagnose-iteration/summary.md"
     ).read_text(encoding="utf-8")
     assert "## Agent Intake Summary" in summary_markdown
+    assert "## Run Outcome Summary" in summary_markdown
     assert "- Primary code: `none`" in summary_markdown
 
 

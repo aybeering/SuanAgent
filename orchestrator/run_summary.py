@@ -83,6 +83,29 @@ def write_iteration_summary(
             if split in datasets:
                 lines.append(f"- {split}: `{datasets[split]}`")
 
+    outcome_summary = manifest.get("run_outcome_summary")
+    if isinstance(outcome_summary, dict):
+        lines.extend(["", "## Run Outcome Summary", ""])
+        lines.append(
+            f"- Category: `{display_value(outcome_summary.get('category'))}`"
+        )
+        lines.append(
+            "- Primary code: "
+            f"`{display_value(outcome_summary.get('primary_code'))}`"
+        )
+        lines.append(
+            "- Primary stage: "
+            f"`{display_value(outcome_summary.get('primary_stage'))}`"
+        )
+        lines.append(
+            "- Primary message: "
+            f"{escape_text(display_value(outcome_summary.get('primary_message')))}"
+        )
+        lines.append(
+            "- Artifact OK: "
+            f"`{display_value(outcome_summary.get('artifact_ok'))}`"
+        )
+
     intake_summary = manifest.get("agent_intake_summary")
     if isinstance(intake_summary, dict):
         lines.extend(["", "## Agent Intake Summary", ""])

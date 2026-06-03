@@ -359,7 +359,10 @@ challenger, promotion, scope-health, and run-outcome state; it is a read-only
 ordering hint and cannot execute the command or change acceptance.
 Artifact validation checks cockpit command hints through the shared operator
 command-hint validator for known labels, expected write targets, the required
-`review_cockpit` first command, and simple shell-control-token guards.
+`review_cockpit` first command, and simple shell-control-token guards. It also
+cross-checks the `review_priority` navigation object against the saved panel
+row and saved command hint so the priority target cannot drift from the
+cockpit payload it summarizes.
 When the inspection command reads a saved
 cockpit artifact, it adds a transient `snapshot_freshness` section that compares
 recorded source hashes with the current source files and names stale sources

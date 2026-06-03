@@ -2709,6 +2709,28 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
         repo_root=repo,
     ) == ()
 
+    tampered_priority = json.loads(json_path.read_text(encoding="utf-8"))
+    tampered_priority["review_priority"]["target_panel_id"] = "missing_panel"
+    json_path.write_text(
+        json.dumps(tampered_priority, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    tampered_priority_validation = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert tampered_priority_validation["ok"] is False
+    assert "operator_cockpit review_priority target panel missing" in (
+        tampered_priority_validation["errors"]
+    )
+
+    json_path, _, cockpit_with_action_break = write_operator_cockpit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
     tampered_cockpit = json.loads(json_path.read_text(encoding="utf-8"))
     tampered_cockpit["recommended_commands"][0]["command"] = (
         f"python -m orchestrator.experiments cockpit {run_id} --markdown && "

@@ -5460,6 +5460,7 @@ def validate_optional_operator_cockpit(
         run_id=str(report.get("run_id", "")),
         report=report,
     )
+    validate_operator_cockpit_review_priority(payload=payload, report=report)
 
     authority = payload.get("authority", {})
     if not isinstance(authority, dict):
@@ -5529,6 +5530,109 @@ def validate_operator_cockpit_recommended_commands(
         first_command=expected_first,
         first_command_error="operator_cockpit review_cockpit command mismatch",
     )
+
+
+def validate_operator_cockpit_review_priority(
+    *,
+    payload: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate cockpit review priority points to saved panel and command rows."""
+    priority = payload.get("review_priority", {})
+    if not isinstance(priority, dict):
+        add_error(report, "operator_cockpit review_priority invalid")
+        return
+
+    panels = list_of_dicts(payload.get("panels", []))
+    commands = list_of_dicts(payload.get("recommended_commands", []))
+
+    target_panel_id = str(priority.get("target_panel_id", ""))
+    target_panel = next(
+        (row for row in panels if str(row.get("panel_id", "")) == target_panel_id),
+        None,
+    )
+    if target_panel is None:
+        add_error(report, "operator_cockpit review_priority target panel missing")
+    else:
+        for priority_key, panel_key, error in (
+            (
+                "target_panel_title",
+                "title",
+                "operator_cockpit review_priority target panel title mismatch",
+            ),
+            (
+                "target_panel_status",
+                "status",
+                "operator_cockpit review_priority target panel status mismatch",
+            ),
+            (
+                "target_artifact_path",
+                "artifact_path",
+                "operator_cockpit review_priority target artifact path mismatch",
+            ),
+            (
+                "next_step",
+                "next_step",
+                "operator_cockpit review_priority next step mismatch",
+            ),
+        ):
+            priority_value = str(priority.get(priority_key, ""))
+            panel_value = str(target_panel.get(panel_key, ""))
+            if priority_value != panel_value:
+                add_error(report, error)
+        if bool(priority.get("target_artifact_exists", False)) != bool(
+            target_panel.get("artifact_exists", False)
+        ):
+            add_error(
+                report,
+                "operator_cockpit review_priority target artifact exists mismatch",
+            )
+
+    command_label = str(priority.get("recommended_command_label", ""))
+    command = next(
+        (row for row in commands if str(row.get("label", "")) == command_label),
+        None,
+    )
+    if command is None:
+        add_error(report, "operator_cockpit review_priority command label missing")
+    else:
+        for priority_key, command_key, error in (
+            (
+                "recommended_command",
+                "command",
+                "operator_cockpit review_priority command mismatch",
+            ),
+            (
+                "recommended_command_writes_artifact",
+                "writes_artifact",
+                "operator_cockpit review_priority command write target mismatch",
+            ),
+            (
+                "recommended_command_reason",
+                "reason",
+                "operator_cockpit review_priority command reason mismatch",
+            ),
+        ):
+            priority_value = str(priority.get(priority_key, ""))
+            command_value = str(command.get(command_key, ""))
+            if priority_value != command_value:
+                add_error(report, error)
+
+    reason_codes = priority.get("reason_codes", [])
+    if not isinstance(reason_codes, list) or not reason_codes:
+        add_error(report, "operator_cockpit review_priority reason codes invalid")
+
+    policy = priority.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "operator_cockpit review_priority policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "does_not_execute_commands",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"operator_cockpit review_priority policy false: {key}")
 
 
 def validate_operator_cockpit_unlock_checklist(

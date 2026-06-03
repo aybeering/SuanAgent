@@ -14,7 +14,7 @@ from orchestrator.operator_action_audit import (
     resolve_path,
     schema_errors,
 )
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import validate_json_file, validate_json_payload
 
 
 OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION = "operator_unlock_checklist_v1"
@@ -868,12 +868,191 @@ def validate_operator_unlock_checklist_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved operator unlock checklist artifact."""
+    schema_errors = tuple(
+        validate_json_file(payload_path=payload_path, schema_path=repo_root / SCHEMA_PATH)
+    )
+    if schema_errors:
+        return schema_errors
+    return schema_errors + validate_operator_unlock_checklist_consistency(
+        load_json_object(payload_path)
+    )
+
+
+def validate_operator_unlock_checklist_payload(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate an in-memory operator unlock checklist payload."""
+    schema = load_json_object(repo_root / SCHEMA_PATH)
     return tuple(
-        validate_json_file(
-            payload_path=payload_path,
-            schema_path=repo_root / SCHEMA_PATH,
+        validate_json_payload(
+            payload=payload,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    ) + validate_operator_unlock_checklist_consistency(payload)
+
+
+def validate_operator_unlock_checklist_consistency(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate derived operator unlock checklist fields against the payload."""
+    errors: list[str] = []
+    status = str(payload.get("status", ""))
+    ready = bool(payload.get("ready", False))
+    items = list_of_dicts(payload.get("items", []))
+    passed_items = [item for item in items if item.get("status") == "passed"]
+    failed_items = [item for item in items if item.get("status") == "failed"]
+
+    if int(payload.get("item_count", -1)) != len(items):
+        errors.append("operator_unlock_checklist item_count mismatch")
+    if int(payload.get("passed_count", -1)) != len(passed_items):
+        errors.append("operator_unlock_checklist passed_count mismatch")
+    if int(payload.get("failed_count", -1)) != len(failed_items):
+        errors.append("operator_unlock_checklist failed_count mismatch")
+    if status == "ready" and ready is not True:
+        errors.append("operator_unlock_checklist ready status mismatch")
+    if status in {"missing_preflight", "not_requested", "blocked"} and ready:
+        errors.append("operator_unlock_checklist blocked ready mismatch")
+    if status == "canary_exempt" and ready is not True:
+        errors.append("operator_unlock_checklist canary ready mismatch")
+
+    for item in items:
+        errors.extend(validate_unlock_item_consistency(item))
+    errors.extend(
+        validate_unlock_navigation_consistency(
+            payload=payload,
+            items=items,
         )
     )
+    return tuple(errors)
+
+
+def validate_unlock_item_consistency(item: dict[str, Any]) -> tuple[str, ...]:
+    """Validate one grouped unlock checklist item."""
+    errors: list[str] = []
+    status = str(item.get("status", ""))
+    failed_checks = string_rows(item.get("failed_checks", []))
+    total_count = int(item.get("total_check_count", 0) or 0)
+    passed_count = int(item.get("passed_check_count", 0) or 0)
+    if passed_count + len(failed_checks) != total_count:
+        errors.append("operator_unlock_checklist item check count mismatch")
+    if status == "passed" and failed_checks:
+        errors.append("operator_unlock_checklist passed item has failures")
+    if status == "failed" and not failed_checks:
+        errors.append("operator_unlock_checklist failed item lacks failures")
+    expected_blockers = [
+        blocker_code_for_check(check)
+        for check in failed_checks
+        if blocker_code_for_check(check)
+    ]
+    if string_rows(item.get("blocking_reason_codes", [])) != expected_blockers:
+        errors.append("operator_unlock_checklist item blocker codes mismatch")
+    expected_artifacts = artifact_ids_for_group(str(item.get("group_id", "")))
+    if string_rows(item.get("related_artifacts", [])) != expected_artifacts:
+        errors.append("operator_unlock_checklist item related artifacts mismatch")
+
+    command_hints = list_of_dicts(item.get("command_hints", []))
+    expected_hint_ids = expected_artifacts
+    hint_ids = [str(command.get("artifact_id", "")) for command in command_hints]
+    if hint_ids != expected_hint_ids:
+        errors.append("operator_unlock_checklist item command hints mismatch")
+    for command in command_hints:
+        if command.get("executes_codex_cli") is not False:
+            errors.append("operator_unlock_checklist item command executes codex")
+        if command.get("requires_explicit_operator_invocation") is not True:
+            errors.append("operator_unlock_checklist item command lacks explicit gate")
+    return tuple(errors)
+
+
+def validate_unlock_navigation_consistency(
+    *,
+    payload: dict[str, object],
+    items: list[dict[str, Any]],
+) -> tuple[str, ...]:
+    """Validate unlock navigation rows summarize checklist blockers."""
+    errors: list[str] = []
+    navigation = object_field(payload, "navigation")
+    blocking_items = list_of_dicts(navigation.get("blocking_items", []))
+    failed_items = [item for item in items if item.get("status") == "failed"]
+    expected_blocking_count = len(failed_items)
+    if str(payload.get("status", "")) == "missing_preflight":
+        expected_blocking_count += 1
+
+    if str(navigation.get("status", "")) != str(payload.get("status", "")):
+        errors.append("operator_unlock_checklist navigation status mismatch")
+    if bool(navigation.get("ready", False)) != bool(payload.get("ready", False)):
+        errors.append("operator_unlock_checklist navigation ready mismatch")
+    if int(navigation.get("blocking_count", -1)) != expected_blocking_count:
+        errors.append("operator_unlock_checklist blocking_count mismatch")
+
+    expected_primary = (
+        str(blocking_items[0].get("check_id", "")) if blocking_items else ""
+    )
+    if str(navigation.get("primary_blocker", "")) != expected_primary:
+        errors.append("operator_unlock_checklist primary blocker mismatch")
+
+    expected_artifact_ids = [
+        "codex_cli_readiness_pipeline",
+        "codex_cli_execution_candidate",
+        "codex_cli_real_execution_dry_run",
+        "codex_cli_operator_unlock_request",
+        "codex_cli_execution_preflight",
+    ]
+    artifact_ids = [
+        str(row.get("artifact_id", ""))
+        for row in list_of_dicts(navigation.get("expected_artifacts", []))
+    ]
+    if artifact_ids != expected_artifact_ids:
+        errors.append("operator_unlock_checklist expected artifacts mismatch")
+
+    expected_blocker_ids = [str(item.get("check_id", "")) for item in failed_items]
+    if str(payload.get("status", "")) == "missing_preflight":
+        expected_blocker_ids = ["codex_cli_execution_preflight", *expected_blocker_ids]
+    blocker_ids = [str(row.get("check_id", "")) for row in blocking_items]
+    if blocker_ids != expected_blocker_ids:
+        errors.append("operator_unlock_checklist blocking item ids mismatch")
+
+    failed_by_id = {str(item.get("check_id", "")): item for item in failed_items}
+    for row in blocking_items:
+        check_id = str(row.get("check_id", ""))
+        if check_id == "codex_cli_execution_preflight":
+            continue
+        source_item = failed_by_id.get(check_id)
+        if source_item is None:
+            errors.append("operator_unlock_checklist blocking item missing source")
+            continue
+        if string_rows(row.get("blocking_reason_codes", [])) != string_rows(
+            source_item.get("blocking_reason_codes", [])
+        ):
+            errors.append("operator_unlock_checklist blocking reason mismatch")
+        if string_rows(row.get("failed_checks", [])) != string_rows(
+            source_item.get("failed_checks", [])
+        ):
+            errors.append("operator_unlock_checklist blocking failed checks mismatch")
+
+    expected_command_labels = unique_command_labels(blocking_items)
+    command_labels = [
+        str(command.get("label", ""))
+        for command in list_of_dicts(navigation.get("commands", []))
+    ]
+    if command_labels != expected_command_labels:
+        errors.append("operator_unlock_checklist navigation commands mismatch")
+    return tuple(errors)
+
+
+def unique_command_labels(blocking_items: list[dict[str, Any]]) -> list[str]:
+    """Return deduplicated command labels from blocking item command hints."""
+    labels: list[str] = []
+    seen: set[str] = set()
+    for item in blocking_items:
+        for command in list_of_dicts(item.get("command_hints", [])):
+            label = str(command.get("label", ""))
+            if label and label not in seen:
+                labels.append(label)
+                seen.add(label)
+    return labels
 
 
 def list_of_dicts(value: object) -> list[dict[str, Any]]:

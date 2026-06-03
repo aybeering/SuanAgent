@@ -311,7 +311,10 @@ blocking reason codes, related artifact paths, and command hints that still
 require explicit operator invocation. Artifact validation checks those
 navigation command hints through the shared operator command-hint validator for
 known labels, artifact ids, write flags, command prefixes, and simple
-shell-control-token guards. If real Codex execute=true startup preflight is
+shell-control-token guards. The checklist writer also validates top-level item
+counts, item-level failed-check and blocker-code mappings, navigation blocking
+counts, primary blocker, expected artifact ordering, and command-hint coverage
+before returning. If real Codex execute=true startup preflight is
 blocked before any round starts, the failed run still writes this checklist and
 the run summary points at the primary blocker.
 `codex_cli_readiness_pipeline.json` records a read-only dependency-order

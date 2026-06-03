@@ -14505,6 +14505,76 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
         payload_path=run_dir / "operator_unlock_checklist.json",
         repo_root=repo,
     ) == ()
+    tampered_summary = json.loads(checklist_path.read_text(encoding="utf-8"))
+    tampered_summary["ready"] = True
+    tampered_summary["item_count"] = 0
+    tampered_summary["passed_count"] = 99
+    tampered_summary["failed_count"] = 0
+    tampered_summary["items"][0]["passed_check_count"] = 0
+    tampered_summary["items"][0]["total_check_count"] = 99
+    tampered_summary["items"][0]["blocking_reason_codes"] = []
+    tampered_summary["items"][0]["related_artifacts"] = []
+    tampered_summary["items"][0]["command_hints"] = []
+    tampered_summary["navigation"]["status"] = "ready"
+    tampered_summary["navigation"]["ready"] = False
+    tampered_summary["navigation"]["blocking_count"] = 0
+    tampered_summary["navigation"]["primary_blocker"] = ""
+    tampered_summary["navigation"]["expected_artifacts"] = []
+    tampered_summary["navigation"]["commands"] = []
+    checklist_path.write_text(
+        json.dumps(tampered_summary, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    checklist_consistency_errors = validate_operator_unlock_checklist_file(
+        payload_path=checklist_path,
+        repo_root=repo,
+    )
+    assert "operator_unlock_checklist item_count mismatch" in (
+        checklist_consistency_errors
+    )
+    assert "operator_unlock_checklist passed_count mismatch" in (
+        checklist_consistency_errors
+    )
+    assert "operator_unlock_checklist failed_count mismatch" in (
+        checklist_consistency_errors
+    )
+    assert "operator_unlock_checklist blocked ready mismatch" in (
+        checklist_consistency_errors
+    )
+    assert "operator_unlock_checklist item check count mismatch" in (
+        checklist_consistency_errors
+    )
+    assert "operator_unlock_checklist item blocker codes mismatch" in (
+        checklist_consistency_errors
+    )
+    assert "operator_unlock_checklist item related artifacts mismatch" in (
+        checklist_consistency_errors
+    )
+    assert "operator_unlock_checklist item command hints mismatch" in (
+        checklist_consistency_errors
+    )
+    assert "operator_unlock_checklist navigation status mismatch" in (
+        checklist_consistency_errors
+    )
+    assert "operator_unlock_checklist navigation ready mismatch" in (
+        checklist_consistency_errors
+    )
+    assert "operator_unlock_checklist blocking_count mismatch" in (
+        checklist_consistency_errors
+    )
+    assert "operator_unlock_checklist primary blocker mismatch" in (
+        checklist_consistency_errors
+    )
+    assert "operator_unlock_checklist expected artifacts mismatch" in (
+        checklist_consistency_errors
+    )
+    assert "operator_unlock_checklist navigation commands mismatch" in (
+        checklist_consistency_errors
+    )
+    checklist_path.write_text(
+        json.dumps(full_checklist, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     assert preflight["policy"]["does_not_execute_codex_cli"] is True
     assert preflight["policy"]["does_not_create_workspace"] is True
     assert_matches_schema(

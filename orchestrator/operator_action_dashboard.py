@@ -20,7 +20,7 @@ from orchestrator.operator_action_audit import (
 )
 from orchestrator.operator_action_executor import command_is_allowlisted, parse_command
 from orchestrator.operator_action_plan import build_operator_action_plan
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import validate_json_file, validate_json_payload
 
 
 OPERATOR_ACTION_DASHBOARD_SCHEMA_VERSION = "operator_action_dashboard_v1"
@@ -609,12 +609,82 @@ def validate_operator_action_dashboard_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved operator action dashboard artifact."""
-    return tuple(
+    errors = list(
         validate_json_file(
             payload_path=payload_path,
             schema_path=repo_root / SCHEMA_PATH,
         )
     )
+    if payload_path.exists():
+        errors.extend(
+            validate_operator_action_dashboard_consistency(load_json_object(payload_path))
+        )
+    return tuple(errors)
+
+
+def validate_operator_action_dashboard_payload(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate an in-memory operator action dashboard payload."""
+    schema = load_json_object(repo_root / SCHEMA_PATH)
+    errors = list(validate_json_payload(payload=payload, schema=schema))
+    errors.extend(validate_operator_action_dashboard_consistency(payload))
+    return tuple(errors)
+
+
+def validate_operator_action_dashboard_consistency(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate derived dashboard summaries remain internally consistent."""
+    def int_value(value: object, default: int = -1) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    errors: list[str] = []
+    status = str(payload.get("status", ""))
+    summary = object_field(payload, "summary")
+    actions = list_of_dicts(payload.get("available_actions", []))
+    failure_reasons = list_of_dicts(payload.get("failure_reasons", []))
+    blockers = string_list(payload.get("blockers", []))
+
+    if bool(payload.get("ok", False)) != (
+        status not in {"needs_chain_repair", "missing_action_plan"}
+    ):
+        errors.append("operator_action_dashboard ok status mismatch")
+    if str(payload.get("current_step", "")) != dashboard_current_step(status=status):
+        errors.append("operator_action_dashboard current_step mismatch")
+    if str(payload.get("primary_prompt", "")) != primary_prompt(status=status):
+        errors.append("operator_action_dashboard primary_prompt mismatch")
+    if int_value(summary.get("action_count", -1)) != len(actions):
+        errors.append("operator_action_dashboard summary action_count mismatch")
+    command_count = sum(
+        int_value(action.get("command_count", 0), 0) for action in actions
+    )
+    if int_value(summary.get("command_candidate_count", -1)) != command_count:
+        errors.append(
+            "operator_action_dashboard summary command_candidate_count mismatch"
+        )
+    safe_command_count = sum(
+        int_value(action.get("safe_command_count", 0), 0) for action in actions
+    )
+    if int_value(summary.get("safe_command_count", -1)) != safe_command_count:
+        errors.append("operator_action_dashboard summary safe_command_count mismatch")
+    if int_value(summary.get("failure_reason_count", -1)) != len(failure_reasons):
+        errors.append(
+            "operator_action_dashboard summary failure_reason_count mismatch"
+        )
+    first_stage = (
+        str(failure_reasons[0].get("stage", "none")) if failure_reasons else "none"
+    )
+    if str(summary.get("first_failure_stage", "")) != first_stage:
+        errors.append("operator_action_dashboard summary first_failure_stage mismatch")
+    if int_value(summary.get("blocker_count", -1)) != len(blockers):
+        errors.append("operator_action_dashboard summary blocker_count mismatch")
+    return tuple(errors)
 
 
 def relative_path(path: Path, repo_root: Path) -> str:

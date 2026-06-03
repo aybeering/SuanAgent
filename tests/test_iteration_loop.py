@@ -2426,6 +2426,56 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         repo_root=repo,
     ) == ()
 
+    tampered_summary_dashboard = json.loads(json_path.read_text(encoding="utf-8"))
+    tampered_summary_dashboard["ok"] = True
+    tampered_summary_dashboard["current_step"] = "review_execution_receipt"
+    tampered_summary_dashboard["primary_prompt"] = "Review execution."
+    tampered_summary_dashboard["summary"]["action_count"] = 0
+    tampered_summary_dashboard["summary"]["command_candidate_count"] = 0
+    tampered_summary_dashboard["summary"]["safe_command_count"] = 0
+    tampered_summary_dashboard["summary"]["failure_reason_count"] = 0
+    tampered_summary_dashboard["summary"]["first_failure_stage"] = "none"
+    tampered_summary_dashboard["summary"]["blocker_count"] = 0
+    json_path.write_text(
+        json.dumps(tampered_summary_dashboard, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    dashboard_errors = validate_operator_action_dashboard_file(
+        payload_path=json_path,
+        repo_root=repo,
+    )
+    assert "operator_action_dashboard ok status mismatch" in dashboard_errors
+    assert "operator_action_dashboard current_step mismatch" in dashboard_errors
+    assert "operator_action_dashboard primary_prompt mismatch" in dashboard_errors
+    assert (
+        "operator_action_dashboard summary action_count mismatch"
+        in dashboard_errors
+    )
+    assert (
+        "operator_action_dashboard summary command_candidate_count mismatch"
+        in dashboard_errors
+    )
+    assert (
+        "operator_action_dashboard summary safe_command_count mismatch"
+        in dashboard_errors
+    )
+    assert (
+        "operator_action_dashboard summary failure_reason_count mismatch"
+        in dashboard_errors
+    )
+    assert (
+        "operator_action_dashboard summary first_failure_stage mismatch"
+        in dashboard_errors
+    )
+    assert (
+        "operator_action_dashboard summary blocker_count mismatch"
+        in dashboard_errors
+    )
+    json_path.write_text(
+        json.dumps(inconsistent, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
     tampered_dashboard = json.loads(json_path.read_text(encoding="utf-8"))
     tampered_label = tampered_dashboard["recommended_commands"][0]["label"]
     tampered_dashboard["recommended_commands"][0]["command"] = (

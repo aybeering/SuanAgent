@@ -292,6 +292,10 @@ command counts, audit failure reasons, blockers derived from those reason
 codes, and suggested read-only/guarded commands without recording approval,
 executing commands, writing config, promoting champions, running agents,
 running backtests, applying patches, routing agents, or changing acceptance.
+The dashboard writer validates the saved payload against
+`schemas/operator_action_dashboard.schema.json` and checks that status-derived
+fields plus action, command, failure-reason, and blocker counts still match the
+embedded rows.
 Artifact validation checks dashboard command hints through the shared operator
 command-hint validator for known labels, expected write
 targets, current-step coverage, and simple shell-control-token guards.

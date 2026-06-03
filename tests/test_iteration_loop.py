@@ -5720,6 +5720,17 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_validation["checks"]["contract_valid"] is True
     assert agent_validation["checks"]["git_apply_check"] == "passed"
     assert agent_validation["proposal_patch_sha256"] == proposal["patch_sha256"]
+    assert agent_validation["consistency_checks"]["blocking_reasons"] == []
+    assert all(agent_validation["consistency_checks"]["checks"].values())
+    assert agent_validation["consistency_checks"]["proposal_patch_sha256"] == (
+        proposal["patch_sha256"]
+    )
+    assert agent_validation["consistency_checks"]["checks"][
+        "patch_hash_matches_patch_diff"
+    ] is True
+    assert agent_validation["consistency_checks"]["checks"][
+        "raw_output_matches_proposal"
+    ] is True
     assert agent_output_quarantine["schema_version"] == (
         AGENT_OUTPUT_QUARANTINE_SCHEMA_VERSION
     )
@@ -9427,6 +9438,45 @@ def test_artifact_validator_reports_agent_validation_intent_summary_drift(
     assert report["ok"] is False
     assert any(
         "agent_validation proposal intent summary drift" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_agent_validation_consistency_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-agent-validation-consistency-drift",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/artifact-agent-validation-consistency-drift/round_001"
+        / "agent_validation.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["proposal_patch_sha256"] = "0" * 64
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id="artifact-agent-validation-consistency-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "agent_validation consistency recompute mismatch: "
+        "proposal_patch_hash_matches_top_level" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+    assert any(
+        "agent_validation consistency recomputed false" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 

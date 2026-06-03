@@ -22,6 +22,7 @@
     "proposal_direction_tag",
     "proposal_patch_sha256",
     "checks",
+    "consistency_checks",
     "proposal"
   ],
   "properties": {
@@ -130,11 +131,113 @@
         }
       }
     },
+    "consistency_checks": {
+      "$ref": "#/$defs/consistency_checks"
+    },
     "proposal": {
       "type": "object"
     }
   },
   "$defs": {
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "consistency_checks": {
+      "type": "object",
+      "required": [
+        "agent_output_path",
+        "proposal_patch_sha256",
+        "checks",
+        "blocking_reasons"
+      ],
+      "properties": {
+        "agent_output_path": {
+          "type": "string"
+        },
+        "proposal_patch_sha256": {
+          "type": "string"
+        },
+        "checks": {
+          "type": "object",
+          "required": [
+            "ok_matches_errors",
+            "failure_code_matches_ok",
+            "proposal_intent_matches_agent_input",
+            "expected_round_matches_agent_input",
+            "expected_target_matches_agent_input",
+            "proposal_round_matches_expected",
+            "proposal_target_matches_expected",
+            "proposal_protocol_matches_top_level",
+            "proposal_applicable_matches_top_level",
+            "proposal_direction_matches_top_level",
+            "proposal_patch_hash_matches_top_level",
+            "patch_hash_matches_patch_diff",
+            "raw_output_matches_proposal",
+            "contract_check_matches_errors",
+            "git_apply_error_matches_errors",
+            "strategy_only_matches_contract_errors"
+          ],
+          "properties": {
+            "ok_matches_errors": {
+              "type": "boolean"
+            },
+            "failure_code_matches_ok": {
+              "type": "boolean"
+            },
+            "proposal_intent_matches_agent_input": {
+              "type": "boolean"
+            },
+            "expected_round_matches_agent_input": {
+              "type": "boolean"
+            },
+            "expected_target_matches_agent_input": {
+              "type": "boolean"
+            },
+            "proposal_round_matches_expected": {
+              "type": "boolean"
+            },
+            "proposal_target_matches_expected": {
+              "type": "boolean"
+            },
+            "proposal_protocol_matches_top_level": {
+              "type": "boolean"
+            },
+            "proposal_applicable_matches_top_level": {
+              "type": "boolean"
+            },
+            "proposal_direction_matches_top_level": {
+              "type": "boolean"
+            },
+            "proposal_patch_hash_matches_top_level": {
+              "type": "boolean"
+            },
+            "patch_hash_matches_patch_diff": {
+              "type": "boolean"
+            },
+            "raw_output_matches_proposal": {
+              "type": "boolean"
+            },
+            "contract_check_matches_errors": {
+              "type": "boolean"
+            },
+            "git_apply_error_matches_errors": {
+              "type": "boolean"
+            },
+            "strategy_only_matches_contract_errors": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "blocking_reasons": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    },
     "proposal_intent_summary": {
       "type": "object",
       "required": [

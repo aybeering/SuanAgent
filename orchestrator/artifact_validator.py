@@ -2138,6 +2138,150 @@ def validate_agent_validation(
         "proposal_intent_summary", {}
     ) != payload.get("proposal_intent_summary", {}):
         add_error(report, "agent_validation proposal intent summary drift")
+    if agent_input is not None:
+        validate_agent_validation_consistency_checks(
+            payload=payload,
+            agent_input=agent_input,
+            repo_root=repo_root,
+            report=report,
+        )
+
+
+def validate_agent_validation_consistency_checks(
+    *,
+    payload: dict[str, Any],
+    agent_input: dict[str, Any],
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate agent_validation consistency checks and recompute them."""
+    consistency = payload.get("consistency_checks", {})
+    if not isinstance(consistency, dict):
+        add_error(report, "agent_validation consistency invalid")
+        return
+    blockers = consistency.get("blocking_reasons", [])
+    if not isinstance(blockers, list):
+        add_error(report, "agent_validation consistency blockers invalid")
+    elif blockers:
+        add_error(report, "agent_validation consistency failed")
+    checks = consistency.get("checks", {})
+    if not isinstance(checks, dict):
+        add_error(report, "agent_validation consistency checks invalid")
+        return
+    if any(not bool(passed) for passed in checks.values()):
+        add_error(report, "agent_validation consistency check false")
+    recomputed = recompute_agent_validation_consistency_checks(
+        payload=payload,
+        agent_input=agent_input,
+        repo_root=repo_root,
+    )
+    for key, expected in recomputed.items():
+        if key in checks and bool(checks[key]) != expected:
+            add_error(
+                report,
+                f"agent_validation consistency recompute mismatch: {key}",
+            )
+    if any(not passed for passed in recomputed.values()):
+        add_error(report, "agent_validation consistency recomputed false")
+
+
+def recompute_agent_validation_consistency_checks(
+    *,
+    payload: dict[str, Any],
+    agent_input: dict[str, Any],
+    repo_root: Path,
+) -> dict[str, bool]:
+    """Recompute agent_validation consistency checks from saved sources."""
+    proposal = object_value(payload.get("proposal", {}))
+    checks = object_value(payload.get("checks", {}))
+    errors = string_list(payload.get("errors", []))
+    raw_output = read_optional_text(
+        resolve_path(Path(str(payload.get("agent_output_path", ""))), repo_root)
+    )
+    patch_diff = str(proposal.get("patch_diff", ""))
+    patch_sha256 = str(payload.get("proposal_patch_sha256", ""))
+    return {
+        "ok_matches_errors": bool(payload.get("ok", False)) == (not errors),
+        "failure_code_matches_ok": (
+            (
+                bool(payload.get("ok", False))
+                and str(payload.get("failure_code", "")) == "none"
+            )
+            or (
+                not bool(payload.get("ok", False))
+                and str(payload.get("failure_code", "")) != "none"
+            )
+        ),
+        "proposal_intent_matches_agent_input": (
+            payload.get("proposal_intent_summary", {})
+            == agent_input.get("proposal_intent_summary", {})
+        ),
+        "expected_round_matches_agent_input": (
+            int(payload.get("expected_round_index", -1))
+            == int(agent_input.get("round_index", -2))
+        ),
+        "expected_target_matches_agent_input": (
+            str(payload.get("expected_target_file", ""))
+            == str(agent_input.get("target_file", ""))
+        ),
+        "proposal_round_matches_expected": (
+            int(proposal.get("round_index", -1))
+            == int(payload.get("expected_round_index", -2))
+        ),
+        "proposal_target_matches_expected": (
+            str(proposal.get("target_file", ""))
+            == str(payload.get("expected_target_file", ""))
+        ),
+        "proposal_protocol_matches_top_level": (
+            str(proposal.get("protocol_version", ""))
+            == str(payload.get("proposal_protocol_version", ""))
+        ),
+        "proposal_applicable_matches_top_level": (
+            bool(proposal.get("applicable", False))
+            == bool(payload.get("proposal_applicable", False))
+        ),
+        "proposal_direction_matches_top_level": (
+            str(proposal.get("direction_tag", ""))
+            == str(payload.get("proposal_direction_tag", ""))
+        ),
+        "proposal_patch_hash_matches_top_level": (
+            str(proposal.get("patch_sha256", "")) == patch_sha256
+        ),
+        "patch_hash_matches_patch_diff": (
+            (not patch_diff and not patch_sha256)
+            or sha256_text(patch_diff) == patch_sha256
+        ),
+        "raw_output_matches_proposal": (
+            not raw_output
+            or raw_output.rstrip("\n")
+            == str(proposal.get("raw_response", "")).rstrip("\n")
+        ),
+        "contract_check_matches_errors": (
+            bool(checks.get("contract_valid", False))
+            == (not bool(agent_validation_contract_errors(errors)))
+        ),
+        "git_apply_error_matches_errors": (
+            not str(checks.get("git_apply_error", ""))
+            or any(error.startswith("git apply check failed:") for error in errors)
+        ),
+        "strategy_only_matches_contract_errors": (
+            bool(checks.get("strategy_only_patch", False))
+            == (
+                not any(
+                    "patch_diff target validation failed" in error for error in errors
+                )
+            )
+        ),
+    }
+
+
+def agent_validation_contract_errors(errors: list[str]) -> list[str]:
+    """Return agent validation errors that came from proposal contract checks."""
+    return [
+        error
+        for error in errors
+        if not error.startswith("git apply check failed:")
+    ]
 
 
 def validate_quarantine_intent_summary_bindings(
@@ -9051,6 +9195,14 @@ def load_json_object(path: Path, report: dict[str, object]) -> dict[str, Any] | 
         add_error(report, f"JSON artifact must be an object: {path}")
         return None
     return payload
+
+
+def read_optional_text(path: Path) -> str:
+    """Read optional UTF-8 text and return an empty string when absent."""
+    try:
+        return path.read_text(encoding="utf-8")
+    except (FileNotFoundError, IsADirectoryError):
+        return ""
 
 
 def object_value(value: object) -> dict[str, object]:

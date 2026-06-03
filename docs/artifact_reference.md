@@ -455,7 +455,9 @@ Proposal and intake artifacts:
 - `agent_output.json` stores normalized selected proposal data and the
   proposal intent summary used by the round-level agent input.
 - `agent_validation.json` records contract, patch-target, `git apply` checks,
-  and the proposal intent summary used by the validated agent input.
+  and the proposal intent summary used by the validated agent input. It also
+  records schema-validated consistency checks that bind the raw output,
+  normalized proposal fields, patch hash, and validation result.
 - `agent_output_quarantine.json` records whether selected output is held or
   released before git apply, including the same proposal intent summary used by
   `agent_output.json`. It also records schema-validated consistency checks that

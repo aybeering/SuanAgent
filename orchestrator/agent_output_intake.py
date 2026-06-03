@@ -130,8 +130,114 @@ def validate_agent_proposal(
         contract_errors=contract_errors,
         git_apply_error=git_apply_error,
     ))
+    report["consistency_checks"] = agent_validation_consistency_checks(
+        report=report,
+        agent_input=agent_input,
+        agent_output_path=agent_output_path,
+        proposal=normalized_proposal,
+    )
     write_optional_json(output_path, report)
     return report
+
+
+def agent_validation_consistency_checks(
+    *,
+    report: dict[str, object],
+    agent_input: dict[str, Any],
+    agent_output_path: Path | None,
+    proposal: StrategyProposal,
+) -> dict[str, object]:
+    """Return deterministic self-checks for the validation report."""
+    proposal_payload = dict_or_empty(report.get("proposal", {}))
+    checks_payload = dict_or_empty(report.get("checks", {}))
+    errors = string_list(report.get("errors", []))
+    raw_output = read_text_or_empty(agent_output_path)
+    patch_sha256 = str(report.get("proposal_patch_sha256", ""))
+    patch_diff = str(proposal_payload.get("patch_diff", ""))
+    checks = {
+        "ok_matches_errors": bool(report.get("ok", False)) == (not errors),
+        "failure_code_matches_ok": (
+            (
+                bool(report.get("ok", False))
+                and str(report.get("failure_code", "")) == "none"
+            )
+            or (
+                not bool(report.get("ok", False))
+                and str(report.get("failure_code", "")) != "none"
+            )
+        ),
+        "proposal_intent_matches_agent_input": (
+            report.get("proposal_intent_summary", {})
+            == agent_input.get("proposal_intent_summary", {})
+        ),
+        "expected_round_matches_agent_input": (
+            int(report.get("expected_round_index", -1))
+            == int(agent_input.get("round_index", -2))
+        ),
+        "expected_target_matches_agent_input": (
+            str(report.get("expected_target_file", ""))
+            == str(agent_input.get("target_file", ""))
+        ),
+        "proposal_round_matches_expected": (
+            int(proposal_payload.get("round_index", -1))
+            == int(report.get("expected_round_index", -2))
+        ),
+        "proposal_target_matches_expected": (
+            str(proposal_payload.get("target_file", ""))
+            == str(report.get("expected_target_file", ""))
+        ),
+        "proposal_protocol_matches_top_level": (
+            str(proposal_payload.get("protocol_version", ""))
+            == str(report.get("proposal_protocol_version", ""))
+        ),
+        "proposal_applicable_matches_top_level": (
+            bool(proposal_payload.get("applicable", False))
+            == bool(report.get("proposal_applicable", False))
+        ),
+        "proposal_direction_matches_top_level": (
+            str(proposal_payload.get("direction_tag", ""))
+            == str(report.get("proposal_direction_tag", ""))
+        ),
+        "proposal_patch_hash_matches_top_level": (
+            str(proposal_payload.get("patch_sha256", "")) == patch_sha256
+        ),
+        "patch_hash_matches_patch_diff": (
+            (not patch_diff and not patch_sha256)
+            or sha256_text(patch_diff) == patch_sha256
+        ),
+        "raw_output_matches_proposal": (
+            not raw_output
+            or raw_output.rstrip("\n")
+            == str(proposal_payload.get("raw_response", "")).rstrip("\n")
+        ),
+        "contract_check_matches_errors": (
+            bool(checks_payload.get("contract_valid", False))
+            == (not bool(contract_error_rows(errors)))
+        ),
+        "git_apply_error_matches_errors": (
+            not str(checks_payload.get("git_apply_error", ""))
+            or any(error.startswith("git apply check failed:") for error in errors)
+        ),
+        "strategy_only_matches_contract_errors": (
+            bool(checks_payload.get("strategy_only_patch", False))
+            == (
+                not any(
+                    "patch_diff target validation failed" in error for error in errors
+                )
+            )
+        ),
+    }
+    blocking_reasons = [
+        f"agent_validation_consistency:{name}"
+        for name, passed in checks.items()
+        if not passed
+    ]
+    return {
+        "agent_output_path": str(agent_output_path or ""),
+        "proposal_patch_sha256": patch_sha256,
+        "checks": checks,
+        "blocking_reasons": blocking_reasons,
+    }
 
 
 def proposal_from_raw_agent_output(
@@ -259,6 +365,32 @@ def string_tuple(value: object) -> tuple[str, ...]:
     if not isinstance(value, list | tuple):
         return ()
     return tuple(str(item) for item in value if str(item).strip())
+
+
+def string_list(value: object) -> list[str]:
+    """Return list items as strings."""
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value]
+
+
+def read_text_or_empty(path: Path | None) -> str:
+    """Return file text when a path is present and readable."""
+    if path is None:
+        return ""
+    try:
+        return path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return ""
+
+
+def contract_error_rows(errors: list[str]) -> list[str]:
+    """Return validation errors that came from proposal contract checks."""
+    return [
+        error
+        for error in errors
+        if not error.startswith("git apply check failed:")
+    ]
 
 
 def main() -> None:

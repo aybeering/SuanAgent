@@ -5750,6 +5750,34 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_output_quarantine["artifacts"]["agent_input"]["path"].endswith(
         "agent_input.json"
     )
+    assert agent_output_quarantine["consistency_checks"]["blocking_reasons"] == []
+    assert all(agent_output_quarantine["consistency_checks"]["checks"].values())
+    assert agent_output_quarantine["consistency_checks"]["expected_status"] == (
+        agent_output_quarantine["quarantine_status"]
+    )
+    assert agent_output_quarantine["consistency_checks"][
+        "proposal_patch_sha256"
+    ] == proposal["patch_sha256"]
+    quarantine_attempt_id = agent_output_quarantine["consistency_checks"][
+        "selected_attempt_id"
+    ]
+    assert any(
+        attempt["attempt_id"] == quarantine_attempt_id
+        and attempt["patch_sha256"] == proposal["patch_sha256"]
+        for attempt in agent_output["attempts"]
+    )
+    invalid_quarantine = json.loads(json.dumps(agent_output_quarantine))
+    del invalid_quarantine["consistency_checks"]
+    quarantine_schema = json.loads(
+        (Path.cwd() / "schemas/agent_output_quarantine.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    quarantine_errors = validate_json_payload(
+        payload=invalid_quarantine,
+        schema=quarantine_schema,
+    )
+    assert "$: missing required property consistency_checks" in quarantine_errors
     assert agent_output_quarantine["policy"]["quarantine_before_git_apply"] is True
     assert (
         agent_output_quarantine["policy"][
@@ -9496,6 +9524,45 @@ def test_artifact_validator_reports_quarantine_intent_summary_drift(
     assert report["ok"] is False
     assert any(
         "agent_output_quarantine proposal intent summary drift" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_quarantine_consistency_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-quarantine-consistency-drift",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/artifact-quarantine-consistency-drift/round_001"
+        / "agent_output_quarantine.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["proposal"]["patch_sha256"] = "0" * 64
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id="artifact-quarantine-consistency-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "agent_output_quarantine consistency recompute mismatch: "
+        "proposal_hash_matches_agent_output" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+    assert any(
+        "agent_output_quarantine consistency recomputed false" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 

@@ -16,6 +16,7 @@
     "proposal",
     "agent_validation",
     "artifacts",
+    "consistency_checks",
     "policy"
   ],
   "properties": {
@@ -26,16 +27,20 @@
       ]
     },
     "run_id": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "round_id": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "round_index": {
-      "type": "integer"
+      "type": "integer",
+      "minimum": 1
     },
     "round_dir": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "proposal_intent_summary": {
       "$ref": "#/$defs/proposal_intent_summary"
@@ -52,10 +57,65 @@
       "type": "boolean"
     },
     "blocking_reasons": {
+      "$ref": "#/$defs/string_array"
+    },
+    "selected_attempt": {
+      "$ref": "#/$defs/selected_attempt"
+    },
+    "proposal": {
+      "$ref": "#/$defs/proposal"
+    },
+    "agent_validation": {
+      "$ref": "#/$defs/agent_validation"
+    },
+    "artifacts": {
+      "$ref": "#/$defs/artifacts"
+    },
+    "consistency_checks": {
+      "$ref": "#/$defs/consistency_checks"
+    },
+    "policy": {
+      "$ref": "#/$defs/policy"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "string_array": {
       "type": "array",
       "items": {
         "type": "string"
       }
+    },
+    "string_object": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "file_record": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     },
     "selected_attempt": {
       "type": "object",
@@ -70,7 +130,41 @@
         "external_adapter",
         "candidate_status",
         "selected"
-      ]
+      ],
+      "properties": {
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string"
+        },
+        "profile_name": {
+          "type": "string"
+        },
+        "adapter_name": {
+          "type": "string"
+        },
+        "agent_role": {
+          "type": "string"
+        },
+        "runner_name": {
+          "type": "string"
+        },
+        "execution_enabled": {
+          "type": "boolean"
+        },
+        "external_adapter": {
+          "type": "boolean"
+        },
+        "candidate_status": {
+          "type": "string"
+        },
+        "selected": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
     },
     "proposal": {
       "type": "object",
@@ -82,7 +176,31 @@
         "patch_sha256",
         "contract_errors",
         "rejection_reason"
-      ]
+      ],
+      "properties": {
+        "agent_name": {
+          "type": "string"
+        },
+        "target_file": {
+          "type": "string"
+        },
+        "applicable": {
+          "type": "boolean"
+        },
+        "direction_tag": {
+          "type": "string"
+        },
+        "patch_sha256": {
+          "type": "string"
+        },
+        "contract_errors": {
+          "$ref": "#/$defs/string_array"
+        },
+        "rejection_reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     },
     "agent_validation": {
       "type": "object",
@@ -93,10 +211,183 @@
         "failure_code",
         "checks",
         "errors"
-      ]
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "failure_stage": {
+          "type": "string"
+        },
+        "failure_code": {
+          "type": "string"
+        },
+        "checks": {
+          "type": "object",
+          "required": [
+            "contract_valid",
+            "git_apply_check",
+            "git_apply_error",
+            "strategy_only_patch"
+          ],
+          "properties": {
+            "contract_valid": {
+              "type": "boolean"
+            },
+            "git_apply_check": {
+              "type": "string"
+            },
+            "git_apply_error": {
+              "type": "string"
+            },
+            "strategy_only_patch": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "errors": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
     },
     "artifacts": {
-      "type": "object"
+      "type": "object",
+      "required": [
+        "agent_input",
+        "raw_agent_output",
+        "patch",
+        "proposal",
+        "agent_output",
+        "agent_validation"
+      ],
+      "properties": {
+        "agent_input": {
+          "$ref": "#/$defs/file_record"
+        },
+        "raw_agent_output": {
+          "$ref": "#/$defs/file_record"
+        },
+        "patch": {
+          "$ref": "#/$defs/file_record"
+        },
+        "proposal": {
+          "$ref": "#/$defs/file_record"
+        },
+        "agent_output": {
+          "$ref": "#/$defs/file_record"
+        },
+        "agent_validation": {
+          "$ref": "#/$defs/file_record"
+        }
+      },
+      "additionalProperties": false
+    },
+    "consistency_checks": {
+      "type": "object",
+      "required": [
+        "expected_status",
+        "selected_attempt_id",
+        "proposal_patch_sha256",
+        "artifact_paths",
+        "checks",
+        "blocking_reasons"
+      ],
+      "properties": {
+        "expected_status": {
+          "type": "string",
+          "enum": [
+            "released",
+            "blocked",
+            "not_applicable"
+          ]
+        },
+        "selected_attempt_id": {
+          "type": "string"
+        },
+        "proposal_patch_sha256": {
+          "type": "string"
+        },
+        "artifact_paths": {
+          "$ref": "#/$defs/string_object"
+        },
+        "checks": {
+          "type": "object",
+          "required": [
+            "release_status_matches_blockers",
+            "quarantine_status_matches_release",
+            "proposal_intent_matches_agent_input",
+            "proposal_intent_matches_agent_output",
+            "proposal_intent_matches_agent_validation",
+            "selected_attempt_matches_agent_output",
+            "round_index_matches_agent_input",
+            "proposal_hash_matches_agent_output",
+            "proposal_hash_matches_agent_validation",
+            "proposal_hash_matches_proposal_file",
+            "patch_artifact_hash_matches_proposal",
+            "agent_validation_path_matches_artifact",
+            "agent_validation_ok_matches_source",
+            "contract_valid_matches_validation",
+            "git_apply_check_matches_validation"
+          ],
+          "properties": {
+            "release_status_matches_blockers": {
+              "type": "boolean"
+            },
+            "quarantine_status_matches_release": {
+              "type": "boolean"
+            },
+            "proposal_intent_matches_agent_input": {
+              "type": "boolean"
+            },
+            "proposal_intent_matches_agent_output": {
+              "type": "boolean"
+            },
+            "proposal_intent_matches_agent_validation": {
+              "type": "boolean"
+            },
+            "selected_attempt_matches_agent_output": {
+              "type": "boolean"
+            },
+            "round_index_matches_agent_input": {
+              "type": "boolean"
+            },
+            "proposal_hash_matches_agent_output": {
+              "type": "boolean"
+            },
+            "proposal_hash_matches_agent_validation": {
+              "type": "boolean"
+            },
+            "proposal_hash_matches_proposal_file": {
+              "type": "boolean"
+            },
+            "patch_artifact_hash_matches_proposal": {
+              "type": "boolean"
+            },
+            "agent_validation_path_matches_artifact": {
+              "type": "boolean"
+            },
+            "agent_validation_ok_matches_source": {
+              "type": "boolean"
+            },
+            "contract_valid_matches_validation": {
+              "type": "boolean"
+            },
+            "git_apply_check_matches_validation": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "blocking_reasons": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
     },
     "policy": {
       "type": "object",
@@ -131,10 +422,9 @@
         "deterministic_policy_gate_keeps_acceptance_authority": {
           "type": "boolean"
         }
-      }
-    }
-  },
-  "$defs": {
+      },
+      "additionalProperties": false
+    },
     "proposal_intent_summary": {
       "type": "object",
       "required": [
@@ -168,19 +458,13 @@
           "type": "string"
         },
         "avoid_directions": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+          "$ref": "#/$defs/string_array"
         },
         "reason": {
           "type": "string"
         },
         "evidence": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+          "$ref": "#/$defs/string_array"
         },
         "trace_schema_version": {
           "type": "string"
@@ -198,10 +482,7 @@
           "type": "boolean"
         },
         "candidate_order": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+          "$ref": "#/$defs/string_array"
         },
         "candidate_rows": {
           "type": "array",
@@ -231,10 +512,7 @@
                 "type": "boolean"
               },
               "avoid_sources": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
+                "$ref": "#/$defs/string_array"
               },
               "reason": {
                 "type": "string"
@@ -242,16 +520,14 @@
               "modifier_hint": {
                 "type": "string"
               }
-            }
+            },
+            "additionalProperties": false
           }
         },
         "avoid_source_summary": {
           "type": "object",
           "additionalProperties": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "$ref": "#/$defs/string_array"
           }
         },
         "policy": {
@@ -274,9 +550,11 @@
               "type": "boolean",
               "const": true
             }
-          }
+          },
+          "additionalProperties": false
         }
-      }
+      },
+      "additionalProperties": false
     }
   }
 }

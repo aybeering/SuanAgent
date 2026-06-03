@@ -458,7 +458,9 @@ Proposal and intake artifacts:
   and the proposal intent summary used by the validated agent input.
 - `agent_output_quarantine.json` records whether selected output is held or
   released before git apply, including the same proposal intent summary used by
-  `agent_output.json`.
+  `agent_output.json`. It also records schema-validated consistency checks that
+  bind release status, selected attempt id, patch hash, validation status, and
+  source artifact hashes before any patch can be applied.
 - `proposal.json` is the auditable proposal used by the loop.
 - `patch.diff` is the validated strategy patch.
 

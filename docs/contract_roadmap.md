@@ -55,7 +55,7 @@ Implemented or allowed V0.5 components:
 41. A deterministic `agent_slot_readiness_gate.json` report that blocks future external agent slots until input, output, workspace, audit, and replay artifacts are present.
 42. A deterministic `external_agent_sandbox_drill.json` report that audits external slot command, workspace, input, output, subprocess, and mutation-guard evidence without executing agents.
 43. A unified `agent_execution.json` contract for guarded Codex CLI attempts, including disabled, completed, failed, timed-out, and mutation-guard outcomes.
-44. A deterministic `agent_output_quarantine.json` report that quarantines selected agent output before git apply and releases only validated strategy patches.
+44. A deterministic `agent_output_quarantine.json` report that quarantines selected agent output before git apply and releases only validated strategy patches, with schema-validated consistency checks that bind release status, selected attempt id, patch hash, validation status, and source artifact hashes.
 45. A deterministic `agent_golden_replay.json` report that freezes one saved agent input/output pair as a replayable protocol fixture.
 46. A deterministic `codex_cli_contract_fixture.json` report that freezes guarded Codex CLI stdin/stdout expectations without executing Codex.
 47. A deterministic `codex_cli_replay_gate.json` report that gates Codex CLI enablement using saved execution, fixture, quarantine, and replay artifacts.
@@ -295,11 +295,12 @@ Codex CLI readiness contracts:
     contracts to the same context recorded in round-level agent input. They can
     prove output/input consistency, but they cannot route agents, score
     candidates, apply patches, or change acceptance.
-23. Proposal intent summaries in `agent_output_quarantine.json` bind pre-apply
-    quarantine reports to the same context recorded in selected output and
-    round-level agent input. They can prove quarantine/output/input
-    consistency, but they cannot change quarantine release rules, apply patches,
-    or change acceptance.
+23. Proposal intent summaries and consistency checks in
+    `agent_output_quarantine.json` bind pre-apply quarantine reports to the same
+    context, selected attempt, patch hash, validation result, and source
+    artifacts recorded in selected output and round-level agent input. They can
+    prove quarantine/output/input consistency, but they cannot change
+    quarantine release rules, apply patches, or change acceptance.
 24. Proposal intent summaries in `agent_validation.json` bind raw-output
     validation reports to the same context recorded in round-level agent input.
     They can prove validation/input consistency, but they cannot change

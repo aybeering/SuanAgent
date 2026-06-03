@@ -1882,6 +1882,11 @@ def validate_agent_output_quarantine(
         add_error(report, f"agent_output_quarantine release/status mismatch: {path}")
     if not release_to_apply and status == "released":
         add_error(report, f"agent_output_quarantine status released but blocked: {path}")
+    validate_quarantine_consistency_checks(
+        payload=payload,
+        repo_root=repo_root,
+        report=report,
+    )
     policy = payload.get("policy", {})
     if not isinstance(policy, dict):
         add_error(report, f"agent_output_quarantine policy invalid: {path}")
@@ -1897,6 +1902,210 @@ def validate_agent_output_quarantine(
     ):
         if not bool(policy.get(key, False)):
             add_error(report, f"agent_output_quarantine policy false: {key}")
+
+
+def validate_quarantine_consistency_checks(
+    *,
+    payload: dict[str, Any],
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate quarantine consistency checks and recorded artifact hashes."""
+    consistency = payload.get("consistency_checks", {})
+    if not isinstance(consistency, dict):
+        add_error(report, "agent_output_quarantine consistency invalid")
+        return
+    blockers = consistency.get("blocking_reasons", [])
+    if not isinstance(blockers, list):
+        add_error(report, "agent_output_quarantine consistency blockers invalid")
+    elif blockers:
+        add_error(report, "agent_output_quarantine consistency failed")
+    checks = consistency.get("checks", {})
+    if not isinstance(checks, dict):
+        add_error(report, "agent_output_quarantine consistency checks invalid")
+    else:
+        if any(not bool(passed) for passed in checks.values()):
+            add_error(report, "agent_output_quarantine consistency check false")
+        recomputed = recompute_quarantine_consistency_checks(
+            payload=payload,
+            repo_root=repo_root,
+            report=report,
+        )
+        for key, expected in recomputed.items():
+            if key in checks and bool(checks[key]) != expected:
+                add_error(
+                    report,
+                    f"agent_output_quarantine consistency recompute mismatch: {key}",
+                )
+        if any(not passed for passed in recomputed.values()):
+            add_error(report, "agent_output_quarantine consistency recomputed false")
+    if consistency.get("expected_status") != payload.get("quarantine_status"):
+        add_error(report, "agent_output_quarantine expected status mismatch")
+
+    artifacts = payload.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        return
+    for artifact_key, record in artifacts.items():
+        if not isinstance(record, dict):
+            add_error(
+                report,
+                f"agent_output_quarantine artifact record invalid: {artifact_key}",
+            )
+            continue
+        if record.get("exists") is True:
+            validate_recorded_file_hash(
+                record=record,
+                repo_root=repo_root,
+                report=report,
+                label=f"agent_output_quarantine {artifact_key}",
+            )
+
+
+def recompute_quarantine_consistency_checks(
+    *,
+    payload: dict[str, Any],
+    repo_root: Path,
+    report: dict[str, object],
+) -> dict[str, bool]:
+    """Recompute quarantine consistency checks from source artifacts."""
+    artifacts = object_value(payload.get("artifacts", {}))
+    proposal = object_value(payload.get("proposal", {}))
+    selected_attempt = object_value(payload.get("selected_attempt", {}))
+    agent_validation = object_value(payload.get("agent_validation", {}))
+    proposal_intent_summary = payload.get("proposal_intent_summary", {})
+    agent_input = load_quarantine_source_payload(
+        artifacts=artifacts,
+        key="agent_input",
+        repo_root=repo_root,
+        report=report,
+    )
+    agent_output = load_quarantine_source_payload(
+        artifacts=artifacts,
+        key="agent_output",
+        repo_root=repo_root,
+        report=report,
+    )
+    validation = load_quarantine_source_payload(
+        artifacts=artifacts,
+        key="agent_validation",
+        repo_root=repo_root,
+        report=report,
+    )
+    proposal_file = load_quarantine_source_payload(
+        artifacts=artifacts,
+        key="proposal",
+        repo_root=repo_root,
+        report=report,
+    )
+    patch_record = object_value(artifacts.get("patch", {}))
+    validation_record = object_value(artifacts.get("agent_validation", {}))
+    patch_sha256 = str(proposal.get("patch_sha256", ""))
+    release_to_apply = bool(payload.get("release_to_apply", False))
+    proposal_applicable = bool(proposal.get("applicable", False))
+    blocking_reasons = string_list(payload.get("blocking_reasons", []))
+    expected_status = expected_quarantine_status(
+        proposal_applicable=proposal_applicable,
+        release_to_apply=release_to_apply,
+    )
+    return {
+        "release_status_matches_blockers": (
+            release_to_apply == (not blocking_reasons and proposal_applicable)
+        ),
+        "quarantine_status_matches_release": (
+            str(payload.get("quarantine_status", "")) == expected_status
+        ),
+        "proposal_intent_matches_agent_input": (
+            agent_input.get("proposal_intent_summary", {}) == proposal_intent_summary
+        ),
+        "proposal_intent_matches_agent_output": (
+            agent_output.get("proposal_intent_summary", {}) == proposal_intent_summary
+        ),
+        "proposal_intent_matches_agent_validation": (
+            validation.get("proposal_intent_summary", {}) == proposal_intent_summary
+        ),
+        "selected_attempt_matches_agent_output": any(
+            str(row.get("attempt_id", "")) == str(selected_attempt.get("attempt_id", ""))
+            and str(row.get("patch_sha256", "")) == patch_sha256
+            for row in list_of_dicts(agent_output.get("attempts", []))
+        ),
+        "round_index_matches_agent_input": (
+            int(agent_input.get("round_index", -1))
+            == int(payload.get("round_index", -2))
+        ),
+        "proposal_hash_matches_agent_output": (
+            nested_string(agent_output, ("selected_proposal", "patch_sha256"))
+            == patch_sha256
+        ),
+        "proposal_hash_matches_agent_validation": (
+            str(validation.get("proposal_patch_sha256", "")) == patch_sha256
+        ),
+        "proposal_hash_matches_proposal_file": (
+            str(proposal_file.get("patch_sha256", "")) == patch_sha256
+        ),
+        "patch_artifact_hash_matches_proposal": (
+            (
+                not patch_sha256
+                and (
+                    not bool(patch_record.get("exists", False))
+                    or int(patch_record.get("bytes", 0) or 0) == 0
+                )
+            )
+            or str(patch_record.get("sha256", "")) == patch_sha256
+        ),
+        "agent_validation_path_matches_artifact": (
+            str(agent_validation.get("path", ""))
+            == str(validation_record.get("path", ""))
+        ),
+        "agent_validation_ok_matches_source": (
+            bool(validation.get("ok", False)) == bool(agent_validation.get("ok", False))
+        ),
+        "contract_valid_matches_validation": (
+            object_value(validation.get("checks", {})).get("contract_valid")
+            == object_value(agent_validation.get("checks", {})).get("contract_valid")
+        ),
+        "git_apply_check_matches_validation": (
+            object_value(validation.get("checks", {})).get("git_apply_check")
+            == object_value(agent_validation.get("checks", {})).get("git_apply_check")
+        ),
+    }
+
+
+def load_quarantine_source_payload(
+    *,
+    artifacts: dict[str, object],
+    key: str,
+    repo_root: Path,
+    report: dict[str, object],
+) -> dict[str, Any]:
+    """Load a quarantine source artifact from its recorded file path."""
+    record = object_value(artifacts.get(key, {}))
+    source_path = resolve_path(Path(str(record.get("path", ""))), repo_root)
+    if not source_path.exists() or not source_path.is_file():
+        return {}
+    return load_json_object(source_path, report) or {}
+
+
+def expected_quarantine_status(
+    *,
+    proposal_applicable: bool,
+    release_to_apply: bool,
+) -> str:
+    """Return expected quarantine status from persisted release fields."""
+    if release_to_apply:
+        return "released"
+    if proposal_applicable:
+        return "blocked"
+    return "not_applicable"
+
+
+def nested_string(payload: dict[str, Any], keys: tuple[str, ...]) -> str:
+    """Return a nested string from a JSON object."""
+    current: object = payload
+    for key in keys:
+        if not isinstance(current, dict):
+            return ""
+        current = current.get(key, "")
+    return current if isinstance(current, str) else ""
 
 
 def validate_agent_validation(

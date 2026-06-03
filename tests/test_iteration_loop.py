@@ -16225,6 +16225,63 @@ def test_champion_promote_approved_requires_recorded_approval(
         payload_path=lineage_path,
         repo_root=repo,
     ) == ()
+    tampered_lineage = json.loads(lineage_path.read_text(encoding="utf-8"))
+    tampered_lineage["ok"] = False
+    tampered_lineage["history"]["event_count"] = 99
+    tampered_lineage["history"]["parse_error_count"] = 99
+    tampered_lineage["history"]["parse_errors"] = []
+    tampered_lineage["checks"]["ok"] = False
+    tampered_lineage["checks"]["current_champion_matches_last_history"] = False
+    tampered_lineage["checks"]["history_parse_error_count"] = 99
+    tampered_lineage["checks"]["lineage_event_count"] = 99
+    tampered_lineage["checks"]["current_champion_run_id"] = "wrong-current"
+    tampered_lineage["checks"]["last_history_champion_run_id"] = "wrong-last"
+    tampered_lineage["lineage"][0]["index"] = 99
+    tampered_lineage["lineage"][0]["promotion_source"] = "approved_receipt"
+    tampered_lineage["lineage"][0]["evidence"]["receipt_promoted"] = False
+    tampered_lineage["lineage"][1]["evidence"]["receipt"]["exists"] = False
+    tampered_lineage["policy"]["does_not_promote_champion"] = False
+    lineage_path.write_text(
+        json.dumps(tampered_lineage, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    lineage_consistency_errors = validate_champion_lineage_file(
+        payload_path=lineage_path,
+        repo_root=repo,
+    )
+    assert "champion_lineage history event_count mismatch" in (
+        lineage_consistency_errors
+    )
+    assert "champion_lineage history parse_error_count mismatch" in (
+        lineage_consistency_errors
+    )
+    assert "champion_lineage row index mismatch" in lineage_consistency_errors
+    assert "champion_lineage current match mismatch" in lineage_consistency_errors
+    assert "champion_lineage check parse_error_count mismatch" in (
+        lineage_consistency_errors
+    )
+    assert "champion_lineage check event_count mismatch" in (
+        lineage_consistency_errors
+    )
+    assert "champion_lineage check current run mismatch" in (
+        lineage_consistency_errors
+    )
+    assert "champion_lineage check last run mismatch" in lineage_consistency_errors
+    assert "champion_lineage check ok mismatch" in lineage_consistency_errors
+    assert "champion_lineage ok mismatch" in lineage_consistency_errors
+    assert "champion_lineage promotion_source mismatch" in (
+        lineage_consistency_errors
+    )
+    assert "champion_lineage receipt promoted without receipt" in (
+        lineage_consistency_errors
+    )
+    assert "champion_lineage policy false: does_not_promote_champion" in (
+        lineage_consistency_errors
+    )
+    lineage_path.write_text(
+        json.dumps(lineage, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     lineage_report = validate_run_artifacts(
         run_id="receipt-candidate",
         experiments_dir=repo / "experiments",

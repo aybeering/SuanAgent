@@ -13,7 +13,11 @@ from orchestrator.experiments import (
     champion_history_path,
     champion_path,
 )
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 CHAMPION_LINEAGE_SCHEMA_VERSION = "champion_lineage_v1"
@@ -277,10 +281,122 @@ def validate_champion_lineage_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved champion lineage report."""
-    return validate_json_file(
+    schema_errors = validate_json_file(
         payload_path=payload_path,
         schema_path=repo_root / SCHEMA_PATH,
     )
+    if schema_errors:
+        return schema_errors
+    return schema_errors + validate_champion_lineage_consistency(
+        load_json_object(payload_path)
+    )
+
+
+def validate_champion_lineage_payload(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate an in-memory champion lineage payload."""
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    return validate_json_payload(
+        payload=payload,
+        schema=schema,
+        schema_dir=(repo_root / SCHEMA_PATH).parent,
+    ) + validate_champion_lineage_consistency(payload)
+
+
+def validate_champion_lineage_consistency(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate derived champion lineage fields against the payload."""
+    errors: list[str] = []
+    current = object_field(payload, "current_champion")
+    history = object_field(payload, "history")
+    checks = object_field(payload, "checks")
+    lineage = list_of_dicts(payload.get("lineage", []))
+    parse_errors = string_list(history.get("parse_errors", []))
+
+    if int(history.get("event_count", -1)) != len(lineage):
+        errors.append("champion_lineage history event_count mismatch")
+    if int(history.get("parse_error_count", -1)) != len(parse_errors):
+        errors.append("champion_lineage history parse_error_count mismatch")
+
+    expected_indexes = list(range(1, len(lineage) + 1))
+    observed_indexes = [int(row.get("index", 0) or 0) for row in lineage]
+    if observed_indexes != expected_indexes:
+        errors.append("champion_lineage row index mismatch")
+
+    current_exists = bool(current.get("exists", False))
+    current_run_id = str(current.get("champion_run_id", ""))
+    last_run_id = str(lineage[-1].get("champion_run_id", "")) if lineage else ""
+    current_matches_last = (
+        not current_exists or bool(lineage) and current_run_id == last_run_id
+    )
+    expected_ok = not parse_errors and current_matches_last
+
+    if bool(checks.get("current_champion_matches_last_history", False)) != (
+        current_matches_last
+    ):
+        errors.append("champion_lineage current match mismatch")
+    if int(checks.get("history_parse_error_count", -1)) != len(parse_errors):
+        errors.append("champion_lineage check parse_error_count mismatch")
+    if int(checks.get("lineage_event_count", -1)) != len(lineage):
+        errors.append("champion_lineage check event_count mismatch")
+    if str(checks.get("current_champion_run_id", "")) != current_run_id:
+        errors.append("champion_lineage check current run mismatch")
+    if str(checks.get("last_history_champion_run_id", "")) != last_run_id:
+        errors.append("champion_lineage check last run mismatch")
+    if bool(checks.get("ok", False)) != expected_ok:
+        errors.append("champion_lineage check ok mismatch")
+    if bool(payload.get("ok", False)) != expected_ok:
+        errors.append("champion_lineage ok mismatch")
+
+    errors.extend(validate_champion_lineage_rows(lineage))
+    errors.extend(validate_champion_lineage_policy(payload))
+    return tuple(errors)
+
+
+def validate_champion_lineage_rows(
+    lineage: list[dict[str, Any]],
+) -> tuple[str, ...]:
+    """Validate row-level champion lineage derivations."""
+    errors: list[str] = []
+    for row in lineage:
+        evidence = object_field(row, "evidence")
+        receipt = object_field(evidence, "receipt")
+        receipt_exists = bool(receipt.get("exists", False))
+        expected_source = (
+            "approved_receipt"
+            if bool(evidence.get("receipt_promoted", False))
+            else "legacy_direct"
+        )
+        if str(row.get("promotion_source", "")) != expected_source:
+            errors.append("champion_lineage promotion_source mismatch")
+        if bool(evidence.get("receipt_promoted", False)) and not receipt_exists:
+            errors.append("champion_lineage receipt promoted without receipt")
+    return tuple(errors)
+
+
+def validate_champion_lineage_policy(payload: dict[str, object]) -> tuple[str, ...]:
+    """Validate champion lineage policy flags preserve read-only behavior."""
+    errors: list[str] = []
+    policy = object_field(payload, "policy")
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+        "does_not_write_champion_registry",
+        "does_not_append_champion_history",
+        "does_not_promote_champion",
+    ):
+        if policy.get(key) is not True:
+            errors.append(f"champion_lineage policy false: {key}")
+    return tuple(errors)
 
 
 def file_record(path: Path) -> dict[str, object]:
@@ -312,6 +428,13 @@ def object_field(payload: dict[str, Any] | dict[str, object], key: str) -> dict[
     """Return a nested object field."""
     value = payload.get(key, {})
     return value if isinstance(value, dict) else {}
+
+
+def list_of_dicts(value: object) -> list[dict[str, Any]]:
+    """Return dictionaries from a JSON list value."""
+    if not isinstance(value, list):
+        return []
+    return [row for row in value if isinstance(row, dict)]
 
 
 def string_list(value: object) -> list[str]:

@@ -391,8 +391,8 @@ also includes a derived operator summary from the refreshed cockpit: cockpit
 status, primary focus, blocker count, primary blocker, a short blocker preview,
 refresh-effect details including whether operator review is still required,
 primary review reason codes, before/after blocker delta details, the
-review-priority recommended next command with its reason, and a compact
-safety-policy summary.
+review-priority recommended next command with an explicit source marker and
+reason, and a compact safety-policy summary.
 
 `champion_comparison.json` exists inside a completed iteration run when a
 champion registry is already present.

@@ -95,6 +95,14 @@
     "boolean_map": {
       "type": "object"
     },
+    "next_command_source": {
+      "type": "string",
+      "enum": [
+        "review_priority",
+        "recommended_commands_fallback",
+        "none"
+      ]
+    },
     "string_array": {
       "type": "array",
       "items": {
@@ -207,6 +215,7 @@
         "blocker_count",
         "primary_blocker",
         "blocker_preview",
+        "next_command_source",
         "next_command_label",
         "next_command",
         "next_command_reason"
@@ -229,6 +238,9 @@
         },
         "blocker_preview": {
           "$ref": "#/$defs/string_array"
+        },
+        "next_command_source": {
+          "$ref": "#/$defs/next_command_source"
         },
         "next_command_label": {
           "type": "string"
@@ -351,6 +363,7 @@
         "reason_codes",
         "primary_blocker",
         "post_blocker_count",
+        "next_command_source",
         "next_command_label",
         "next_command",
         "next_command_reason"
@@ -379,6 +392,9 @@
         },
         "post_blocker_count": {
           "type": "integer"
+        },
+        "next_command_source": {
+          "$ref": "#/$defs/next_command_source"
         },
         "next_command_label": {
           "type": "string"

@@ -202,7 +202,8 @@ hash prefixes by eye. The summary also surfaces the refreshed cockpit status,
 primary focus, blocker count, primary blocker, blocker preview, refresh-effect
 status, operator-review-required flag, primary review reason codes,
 before/after blocker delta counts, and the review-priority recommended next
-command with its reason, plus a compact safety-policy summary.
+command with its source marker and reason, plus a compact safety-policy
+summary.
 
 Record operator review intent:
 

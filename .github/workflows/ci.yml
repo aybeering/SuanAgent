@@ -1168,6 +1168,7 @@ jobs:
           assert "Cockpit freshness: `fresh`" in refresh_markdown
           assert refresh["operator_summary"]["primary_focus"]
           review_priority = cockpit["review_priority"]
+          assert refresh["operator_summary"]["next_command_source"] == "review_priority"
           assert refresh["operator_summary"]["next_command_label"] == review_priority[
               "recommended_command_label"
           ]
@@ -1182,6 +1183,7 @@ jobs:
               f"Next command: `{review_priority['recommended_command_label']}`"
               in refresh_markdown
           )
+          assert "Next command source: `review_priority`" in refresh_markdown
           assert review_priority["recommended_command"] in refresh_markdown
           assert refresh["refreshed_count"] == 5
           assert [

@@ -1477,6 +1477,7 @@ def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, objec
         "blocker_count": len(blockers),
         "primary_blocker": blockers[0] if blockers else "",
         "blocker_preview": blockers[:5],
+        "next_command_source": str(next_command.get("source", "")),
         "next_command_label": str(next_command.get("label", "")),
         "next_command": str(next_command.get("command", "")),
         "next_command_reason": str(next_command.get("reason", "")),
@@ -1494,6 +1495,7 @@ def operator_view_refresh_next_command(
     priority_writes = str(priority.get("recommended_command_writes_artifact", ""))
     if priority_label and priority_command:
         return {
+            "source": "review_priority",
             "label": priority_label,
             "command": priority_command,
             "writes_artifact": priority_writes,
@@ -1501,7 +1503,11 @@ def operator_view_refresh_next_command(
         }
 
     commands = list_payload(cockpit.get("recommended_commands", []))
-    return commands[0] if commands else {}
+    if commands:
+        command = dict(commands[0])
+        command["source"] = "recommended_commands_fallback"
+        return command
+    return {"source": "none"}
 
 
 def operator_view_refresh_blocker_delta(
@@ -1609,6 +1615,7 @@ def operator_view_refresh_review_summary(
         "reason_codes": reason_codes,
         "primary_blocker": str(operator_summary.get("primary_blocker", "")),
         "post_blocker_count": post_blocker_count,
+        "next_command_source": str(operator_summary.get("next_command_source", "")),
         "next_command_label": str(operator_summary.get("next_command_label", "")),
         "next_command": str(operator_summary.get("next_command", "")),
         "next_command_reason": str(operator_summary.get("next_command_reason", "")),
@@ -1673,6 +1680,7 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Blockers added: `{blocker_delta.get('added_count', 0)}`",
         f"- Blockers removed: `{blocker_delta.get('removed_count', 0)}`",
         f"- Primary blocker: `{operator_summary.get('primary_blocker', '')}`",
+        f"- Next command source: `{operator_summary.get('next_command_source', '')}`",
         f"- Next command: `{operator_summary.get('next_command_label', '')}`",
         f"- Next command text: `{operator_summary.get('next_command', '')}`",
         f"- Next command reason: {operator_summary.get('next_command_reason', '')}",
@@ -1734,6 +1742,9 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     if not reason_codes:
         lines.append("  - none")
     lines.append(f"- Primary blocker: `{review_summary.get('primary_blocker', '')}`")
+    lines.append(
+        f"- Next command source: `{review_summary.get('next_command_source', '')}`",
+    )
     lines.append(f"- Next command: `{review_summary.get('next_command_label', '')}`")
     lines.append(f"- Next command text: `{review_summary.get('next_command', '')}`")
     blocker_preview = operator_summary.get("blocker_preview", [])

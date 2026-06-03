@@ -2895,6 +2895,9 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert refresh["review_summary"]["primary_blocker"] == (
         refreshed["blockers"][0] if refreshed["blockers"] else ""
     )
+    assert refresh["review_summary"]["next_command_source"] == (
+        refresh["operator_summary"]["next_command_source"]
+    )
     assert "Refresh effect:" in refresh_markdown
     assert "## Refresh Effect" in refresh_markdown
     assert "Operator review required: `True`" in refresh_markdown
@@ -2904,6 +2907,7 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert "## Blocker Delta" in refresh_markdown
     assert "Safety policy OK: `True`" in refresh_markdown
     assert "Safety policy false keys: `0`" in refresh_markdown
+    assert "Next command source: `review_priority`" in refresh_markdown
     assert refreshed["snapshot_freshness"]["ok"] is True
     refreshed_blockers = refreshed["blockers"]
     if refreshed_blockers:
@@ -2915,6 +2919,7 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
         assert refresh["operator_summary"]["primary_blocker"] == ""
         assert refresh["operator_summary"]["blocker_preview"] == []
     refreshed_priority = refreshed["review_priority"]
+    assert refresh["operator_summary"]["next_command_source"] == "review_priority"
     assert refresh["operator_summary"]["next_command_label"] == refreshed_priority[
         "recommended_command_label"
     ]
@@ -3046,6 +3051,7 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
         experiments_dir=repo / "experiments",
     )
     review_priority = cockpit["review_priority"]
+    assert refresh["operator_summary"]["next_command_source"] == "review_priority"
     assert refresh["operator_summary"]["next_command_label"] == review_priority[
         "recommended_command_label"
     ]
@@ -3067,6 +3073,7 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
         f"Next command: `{review_priority['recommended_command_label']}`"
         in refresh_markdown
     )
+    assert "Next command source: `review_priority`" in refresh_markdown
     assert "Next command reason:" in refresh_markdown
     assert refresh["operator_summary"]["next_command_reason"] in refresh_markdown
     assert str(review_priority["recommended_command"]) in refresh_markdown
@@ -3174,6 +3181,7 @@ def test_operator_view_refresh_review_summary_prioritizes_safety() -> None:
         operator_summary={
             "cockpit_ok": True,
             "primary_blocker": "",
+            "next_command_source": "review_priority",
             "next_command_label": "review_cockpit",
             "next_command": "python -m orchestrator.experiments cockpit run --markdown",
             "next_command_reason": "Review this read-only cockpit.",
@@ -3190,6 +3198,7 @@ def test_operator_view_refresh_review_summary_prioritizes_safety() -> None:
         "reason_codes": ["safety_policy_attention"],
         "primary_blocker": "",
         "post_blocker_count": 0,
+        "next_command_source": "review_priority",
         "next_command_label": "review_cockpit",
         "next_command": "python -m orchestrator.experiments cockpit run --markdown",
         "next_command_reason": "Review this read-only cockpit.",
@@ -3236,6 +3245,7 @@ def test_operator_view_refresh_payload_schema_rejects_missing_review_summary(
             "blocker_count": 0,
             "primary_blocker": "",
             "blocker_preview": [],
+            "next_command_source": "review_priority",
             "next_command_label": "review_cockpit",
             "next_command": "python -m orchestrator.experiments cockpit run --markdown",
             "next_command_reason": "Review this read-only cockpit.",

@@ -10027,6 +10027,70 @@ def test_artifact_validator_reports_agent_validation_consistency_drift(
     )
 
 
+def test_artifact_validator_reports_direction_capability_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-direction-capability-drift",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/artifact-direction-capability-drift/round_001"
+        / "agent_selection_report.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["attempts"][0]["direction_capability"]["supported_by_profile"] = False
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="artifact-direction-capability-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "agent_selection_report.json direction_capability recompute mismatch: "
+        "supported_by_profile" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_direction_alignment_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-direction-alignment-drift",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/artifact-direction-alignment-drift/round_001"
+        / "agent_routing_policy.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["candidates"][0]["direction_intent_alignment"]["deviation_allowed"] = True
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="artifact-direction-alignment-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "agent_routing_policy.json direction_intent_alignment recompute mismatch: "
+        "deviation_allowed" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
 def test_artifact_validator_reports_candidate_quality_score_drift(
     tmp_path: Path,
 ) -> None:

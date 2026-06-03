@@ -122,7 +122,9 @@ Candidate artifacts also include `direction_intent_alignment`, which compares
 the proposal intent's recommended direction, the profile capability, and the
 actual proposal direction. It records whether a proposal matched or deviated
 from the recommendation and whether that deviation was allowed, but it is
-audit-only.
+audit-only. Artifact validation recomputes the saved direction capability and
+alignment fields from the candidate row to catch schema-valid drift without
+changing routing, scoring, patch application, or acceptance.
 Candidate artifacts also carry `candidate_score`, `score_reasons`, and
 `quality_breakdown` across executor, attempt, selection, routing, selected
 output, and leaderboard views. These fields explain deterministic candidate

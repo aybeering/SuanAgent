@@ -4012,6 +4012,37 @@ def validate_direction_capability_row(
     status = str(row.get("status", ""))
     capability_ok = bool(capability.get("ok", False))
     reason = str(capability.get("reason", ""))
+    expected = recompute_direction_capability_from_row(row=row)
+    capability_supported = normalized_direction_list(
+        capability.get("supported_directions", [])
+    )
+    row_supported = normalized_direction_list(supported)
+    if capability_supported != row_supported:
+        add_error(
+            report,
+            f"{artifact_name} direction_capability supported_directions mismatch",
+        )
+    for key in (
+        "wildcard",
+        "supported_by_profile",
+        "in_strategy_search_space",
+        "ok",
+    ):
+        if capability.get(key) != expected[key]:
+            add_error(
+                report,
+                f"{artifact_name} direction_capability recompute mismatch: {key}",
+            )
+    if reason != expected["reason"]:
+        add_error(
+            report,
+            f"{artifact_name} direction_capability recompute mismatch: reason",
+        )
+    if str(row.get("direction_capability_reason", reason)) != reason:
+        add_error(
+            report,
+            f"{artifact_name} direction_capability_reason does not match capability",
+        )
     if status == "direction_not_supported" and capability_ok:
         add_error(
             report,
@@ -4060,6 +4091,29 @@ def validate_direction_intent_alignment_row(
             report,
             f"{artifact_name} direction_intent_alignment proposal direction mismatch",
         )
+    expected = recompute_direction_intent_alignment_from_row(row=row)
+    alignment_supported = normalized_direction_list(
+        alignment.get("supported_directions", [])
+    )
+    if alignment_supported != expected["supported_directions"]:
+        add_error(
+            report,
+            f"{artifact_name} direction_intent_alignment supported_directions mismatch",
+        )
+    for key in (
+        "profile_covers_recommended_direction",
+        "proposal_matches_recommended_direction",
+        "proposal_avoids_blocked_direction",
+        "proposal_supported_by_profile",
+        "proposal_deviates_from_recommended",
+        "deviation_allowed",
+        "reason",
+    ):
+        if alignment.get(key) != expected[key]:
+            add_error(
+                report,
+                f"{artifact_name} direction_intent_alignment recompute mismatch: {key}",
+            )
     recommended = str(alignment.get("recommended_direction", ""))
     matches = bool(alignment.get("proposal_matches_recommended_direction", False))
     deviates = bool(alignment.get("proposal_deviates_from_recommended", False))
@@ -4069,6 +4123,145 @@ def validate_direction_intent_alignment_row(
         add_error(report, f"{artifact_name} alignment incorrectly marks match")
     if matches and deviates:
         add_error(report, f"{artifact_name} alignment cannot both match and deviate")
+
+
+def recompute_direction_capability_from_row(
+    *,
+    row: dict[str, object],
+) -> dict[str, object]:
+    """Recompute direction-capability fields from the saved candidate row."""
+    capability = row.get("direction_capability", {})
+    capability = capability if isinstance(capability, dict) else {}
+    supported = normalized_direction_list(row.get("supported_directions", []))
+    search_space = normalized_direction_list(
+        capability.get("strategy_search_space_directions", [])
+    )
+    proposal_direction = str(row.get("direction_tag", ""))
+    wildcard = "*" in supported
+    supported_by_profile = bool(proposal_direction) and (
+        wildcard or proposal_direction in supported
+    )
+    in_search_space = (
+        proposal_direction in search_space if search_space else bool(proposal_direction)
+    )
+    ok = supported_by_profile and in_search_space
+    reason = ""
+    if not proposal_direction:
+        reason = "proposal direction_tag is empty"
+    elif not in_search_space:
+        reason = (
+            "proposal direction is outside configured strategy_search_space: "
+            f"{proposal_direction}"
+        )
+    elif not supported_by_profile:
+        supported_text = ", ".join(supported) or "none"
+        reason = (
+            "profile does not support proposal direction "
+            f"{proposal_direction}; supported={supported_text}"
+        )
+    return {
+        "supported_directions": supported,
+        "wildcard": wildcard,
+        "supported_by_profile": supported_by_profile,
+        "in_strategy_search_space": in_search_space,
+        "ok": ok,
+        "reason": reason,
+    }
+
+
+def recompute_direction_intent_alignment_from_row(
+    *,
+    row: dict[str, object],
+) -> dict[str, object]:
+    """Recompute audit-only planner/profile/proposal direction alignment."""
+    alignment = row.get("direction_intent_alignment", {})
+    alignment = alignment if isinstance(alignment, dict) else {}
+    capability = row.get("direction_capability", {})
+    capability = capability if isinstance(capability, dict) else {}
+    recommended_direction = str(alignment.get("recommended_direction", ""))
+    proposal_direction = str(row.get("direction_tag", ""))
+    supported_directions = normalized_direction_list(row.get("supported_directions", []))
+    avoid_directions = string_list(alignment.get("avoid_directions", []))
+    wildcard = "*" in supported_directions
+    profile_covers_recommended = bool(recommended_direction) and (
+        wildcard or recommended_direction in supported_directions
+    )
+    proposal_matches_recommended = (
+        bool(recommended_direction) and proposal_direction == recommended_direction
+    )
+    proposal_avoids_blocked = proposal_direction not in avoid_directions
+    proposal_supported = bool(capability.get("ok", False))
+    deviation = bool(
+        recommended_direction
+        and proposal_direction
+        and proposal_direction != recommended_direction
+    )
+    deviation_allowed = bool(
+        deviation and proposal_supported and proposal_avoids_blocked
+    )
+    reason = recomputed_direction_intent_alignment_reason(
+        recommended_direction=recommended_direction,
+        proposal_direction=proposal_direction,
+        proposal_supported=proposal_supported,
+        proposal_matches_recommended=proposal_matches_recommended,
+        proposal_avoids_blocked=proposal_avoids_blocked,
+        profile_covers_recommended=profile_covers_recommended,
+        deviation=deviation,
+        deviation_allowed=deviation_allowed,
+    )
+    return {
+        "supported_directions": supported_directions,
+        "profile_covers_recommended_direction": profile_covers_recommended,
+        "proposal_matches_recommended_direction": proposal_matches_recommended,
+        "proposal_avoids_blocked_direction": proposal_avoids_blocked,
+        "proposal_supported_by_profile": proposal_supported,
+        "proposal_deviates_from_recommended": deviation,
+        "deviation_allowed": deviation_allowed,
+        "reason": reason,
+    }
+
+
+def recomputed_direction_intent_alignment_reason(
+    *,
+    recommended_direction: str,
+    proposal_direction: str,
+    proposal_supported: bool,
+    proposal_matches_recommended: bool,
+    proposal_avoids_blocked: bool,
+    profile_covers_recommended: bool,
+    deviation: bool,
+    deviation_allowed: bool,
+) -> str:
+    """Return the expected direction-intent alignment reason text."""
+    if not recommended_direction:
+        return "proposal intent has no recommended direction"
+    if not proposal_direction:
+        return "proposal direction_tag is empty"
+    if not proposal_supported:
+        return "proposal direction is outside profile capability"
+    if not proposal_avoids_blocked:
+        return f"proposal uses avoided direction {proposal_direction}"
+    if proposal_matches_recommended:
+        return "proposal matches recommended direction"
+    if deviation and deviation_allowed:
+        if not profile_covers_recommended:
+            return (
+                "profile does not cover recommended direction "
+                f"{recommended_direction}; proposal uses supported "
+                f"non-recommended direction {proposal_direction}"
+            )
+        return (
+            "proposal uses supported non-recommended direction "
+            f"{proposal_direction}"
+        )
+    if not profile_covers_recommended:
+        return f"profile does not cover recommended direction {recommended_direction}"
+    return "proposal direction alignment is informational"
+
+
+def normalized_direction_list(value: object) -> list[str]:
+    """Return non-empty direction strings from a JSON list-like value."""
+    return [direction for direction in string_list(value) if direction]
 
 
 def validate_required_files(

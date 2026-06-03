@@ -540,7 +540,9 @@ Context and planning artifacts:
 - `agent_routing_policy.json` explains deterministic candidate ranking,
   including whether each proposal direction matched the profile's declared
   capability and whether it matched or auditably deviated from
-  `proposal_intent.json`.
+  `proposal_intent.json`. Artifact validation recomputes the capability and
+  alignment booleans from each saved candidate row so schema-valid drift in
+  those audit fields is reported.
 - `agent_executor_report.json`, `agent_attempts_manifest.json`,
   `attempt_output.json`, `agent_selection_report.json`, `agent_routing_policy.json`,
   `agent_output.json`, and `candidate_leaderboard.json` all carry the candidate

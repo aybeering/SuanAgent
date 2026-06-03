@@ -349,12 +349,16 @@ breaks are visible from the top page. The iteration loop writes the final
 cockpit after the dashboard, standalone checklist, and readiness diff so source
 hashes bind to the final closeout artifacts;
 `python -m orchestrator.experiments cockpit <run_id>` and `cockpit --markdown`
-expose panel rows, blockers, primary focus, and command hints without recording
-approval, executing commands, writing config, promoting champions, running
-agents, running backtests, applying patches, routing agents, or changing
-acceptance. Artifact validation checks cockpit command hints through the shared
-operator command-hint validator for known labels, expected write targets, the
-required `review_cockpit` first command, and simple shell-control-token guards.
+expose panel rows, blockers, primary focus, a deterministic `review_priority`
+navigation object, and command hints without recording approval, executing
+commands, writing config, promoting champions, running agents, running
+backtests, applying patches, routing agents, or changing acceptance. The
+`review_priority` object chooses the first panel and existing saved command
+hint to inspect from blocker, action, promotion, and run-outcome state; it is a
+read-only ordering hint and cannot execute the command or change acceptance.
+Artifact validation checks cockpit command hints through the shared operator
+command-hint validator for known labels, expected write targets, the required
+`review_cockpit` first command, and simple shell-control-token guards.
 When the inspection command reads a saved
 cockpit artifact, it adds a transient `snapshot_freshness` section that compares
 recorded source hashes with the current source files and names stale sources

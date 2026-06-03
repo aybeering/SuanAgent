@@ -227,6 +227,20 @@ def build_operator_cockpit(
         scope_health=scope_health,
     )
     status = cockpit_status(summary=summary, blockers=blockers)
+    commands = recommended_commands(
+        run_id=run_id,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        summary=summary,
+        status=status,
+    )
+    review_priority = cockpit_review_priority(
+        status=status,
+        summary=summary,
+        blockers=blockers,
+        panels=panels,
+        commands=commands,
+    )
     return {
         "schema_version": OPERATOR_COCKPIT_SCHEMA_VERSION,
         "run_id": run_id,
@@ -240,13 +254,8 @@ def build_operator_cockpit(
         "action_failure_reasons": action_failure_reasons,
         "blockers": blockers,
         "codex_unlock_checklist": codex_unlock_checklist,
-        "recommended_commands": recommended_commands(
-            run_id=run_id,
-            run_dir=run_dir,
-            repo_root=repo_root,
-            summary=summary,
-            status=status,
-        ),
+        "review_priority": review_priority,
+        "recommended_commands": commands,
         "authority": {
             "final_acceptance_authority": "deterministic_policy_gate",
             "cockpit_can_record_approval": False,
@@ -621,6 +630,134 @@ def cockpit_blockers(
     return unique_strings(blockers)
 
 
+def cockpit_review_priority(
+    *,
+    status: str,
+    summary: dict[str, object],
+    blockers: list[str],
+    panels: list[dict[str, object]],
+    commands: list[dict[str, object]],
+) -> dict[str, object]:
+    """Return the first operator review target without changing authority."""
+    primary_blocker = blockers[0] if blockers else ""
+    outcome_category = str(summary.get("run_outcome_category", ""))
+    outcome_code = str(summary.get("run_outcome_primary_code", ""))
+    if primary_blocker:
+        priority = "critical"
+        primary_reason = "blocker_present"
+        reason_codes = [f"blocker:{primary_blocker}"]
+        target_panel_id = panel_for_blocker(primary_blocker)
+    elif status == "missing_closeout":
+        priority = "critical"
+        primary_reason = "missing_closeout"
+        reason_codes = ["missing_closeout"]
+        target_panel_id = "run_review"
+    elif status == "action_pending":
+        priority = "action_required"
+        primary_reason = "operator_action_pending"
+        reason_codes = ["operator_action_pending"]
+        target_panel_id = "operator_action"
+    elif status == "promotion_pending_approval":
+        priority = "action_required"
+        primary_reason = "promotion_pending_approval"
+        reason_codes = ["promotion_pending_approval"]
+        target_panel_id = "promotion_approval"
+    elif outcome_category and outcome_category != "accepted":
+        priority = "review"
+        primary_reason = f"run_outcome:{outcome_category}"
+        reason_codes = [f"outcome:{outcome_category}"]
+        if outcome_code:
+            reason_codes.append(f"outcome_code:{outcome_code}")
+        target_panel_id = "run_outcome"
+    else:
+        priority = "clean"
+        primary_reason = "ready_for_review"
+        reason_codes = ["ready_for_review"]
+        target_panel_id = "run_review"
+
+    target_panel = panel_by_id(panels, target_panel_id)
+    command = command_for_panel(commands=commands, panel_id=target_panel_id)
+    return {
+        "schema_version": "operator_review_priority_v1",
+        "priority": priority,
+        "primary_reason": primary_reason,
+        "reason_codes": reason_codes,
+        "target_panel_id": target_panel_id,
+        "target_panel_title": str(target_panel.get("title", "")),
+        "target_panel_status": str(target_panel.get("status", "")),
+        "target_artifact_path": str(target_panel.get("artifact_path", "")),
+        "target_artifact_exists": bool(target_panel.get("artifact_exists", False)),
+        "next_step": str(target_panel.get("next_step", "")),
+        "recommended_command_label": str(command.get("label", "")),
+        "recommended_command": str(command.get("command", "")),
+        "recommended_command_writes_artifact": str(
+            command.get("writes_artifact", "")
+        ),
+        "recommended_command_reason": str(command.get("reason", "")),
+        "policy": {
+            "inspection_only": True,
+            "does_not_execute_commands": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+
+def panel_for_blocker(blocker: str) -> str:
+    """Map a blocker code to the cockpit panel that should be inspected first."""
+    if blocker.startswith("operator_action:"):
+        return "operator_action"
+    if blocker.startswith("codex_cli_preflight:"):
+        return "codex_cli_unlock"
+    if blocker.startswith("codex_cli_readiness_diff:"):
+        return "codex_cli_readiness_diff"
+    if blocker == "config_lineage_not_ok":
+        return "config_lineage"
+    if blocker == "scope_health_not_ok":
+        return "scope_health"
+    if "approval" in blocker:
+        return "promotion_approval"
+    if "promotion" in blocker:
+        return "promotion"
+    return "run_review"
+
+
+def panel_by_id(
+    panels: list[dict[str, object]],
+    panel_id: str,
+) -> dict[str, object]:
+    """Return a cockpit panel by id, or a stable empty panel row."""
+    for row in panels:
+        if str(row.get("panel_id", "")) == panel_id:
+            return row
+    return {
+        "panel_id": panel_id,
+        "title": "",
+        "status": "missing",
+        "artifact_path": "",
+        "artifact_exists": False,
+        "next_step": "",
+    }
+
+
+def command_for_panel(
+    *,
+    commands: list[dict[str, object]],
+    panel_id: str,
+) -> dict[str, object]:
+    """Return the most relevant saved command hint for a cockpit panel."""
+    labels_by_panel = {
+        "operator_action": "review_action_dashboard",
+        "codex_cli_unlock": "review_codex_cli_preflight",
+        "codex_cli_readiness_diff": "review_codex_cli_readiness_diff",
+        "promotion_approval": "review_promotion_approval",
+    }
+    wanted = labels_by_panel.get(panel_id, "review_cockpit")
+    for command in commands:
+        if str(command.get("label", "")) == wanted:
+            return command
+    return commands[0] if commands else {}
+
+
 def cockpit_action_failure_reasons(
     action_dashboard: dict[str, Any],
 ) -> list[dict[str, object]]:
@@ -868,6 +1005,7 @@ def codex_readiness_diff_next_step(payload: dict[str, Any]) -> str:
 def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
     """Render an operator cockpit as markdown."""
     summary = object_field(payload, "summary")
+    priority = object_field(payload, "review_priority")
     lines = [
         "# Operator Cockpit",
         "",
@@ -883,6 +1021,16 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         f"- Codex CLI preflight: `{summary.get('codex_preflight_status', '')}`",
         f"- Codex CLI readiness diff: `{summary.get('codex_readiness_diff_status', '')}`",
         f"- Promotion: `{summary.get('promotion_status', '')}`",
+        "",
+        "## Review Priority",
+        "",
+        f"- Priority: `{priority.get('priority', '')}`",
+        f"- Primary reason: `{priority.get('primary_reason', '')}`",
+        f"- Target panel: `{priority.get('target_panel_title', '')}` "
+        f"(`{priority.get('target_panel_status', '')}`)",
+        f"- Target artifact: `{priority.get('target_artifact_path', '')}`",
+        f"- Next step: {priority.get('next_step', '')}",
+        f"- Recommended command: `{priority.get('recommended_command', '')}`",
         "",
         "## Panels",
         "",

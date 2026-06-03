@@ -2500,6 +2500,22 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["summary"]["action_failure_reason_count"] == 0
     assert cockpit["summary"]["action_first_failure_stage"] == "none"
     assert cockpit["action_failure_reasons"] == []
+    assert cockpit["review_priority"]["schema_version"] == (
+        "operator_review_priority_v1"
+    )
+    assert cockpit["review_priority"]["priority"] in {
+        "critical",
+        "action_required",
+    }
+    assert cockpit["review_priority"]["target_panel_id"] in {
+        row["panel_id"] for row in cockpit["panels"]
+    }
+    assert cockpit["review_priority"]["recommended_command_label"] in {
+        "review_cockpit",
+        "review_action_dashboard",
+    }
+    assert cockpit["review_priority"]["policy"]["does_not_execute_commands"] is True
+    assert cockpit["review_priority"]["policy"]["does_not_change_acceptance"] is True
     assert cockpit["summary"]["config_lineage_status"] == "partial"
     assert cockpit["source_artifacts"]["run_closeout"]["file"]["exists"] is True
     assert cockpit["source_artifacts"]["operator_action_dashboard"]["file"][
@@ -2574,6 +2590,7 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["policy"]["does_not_record_approval"] is True
     assert cockpit["policy"]["does_not_change_acceptance"] is True
     assert "# Operator Cockpit" in markdown
+    assert "## Review Priority" in markdown
     assert "Run outcome: `policy_reject` (`policy_ev_improvement_low`)" in markdown
     assert "# Operator Cockpit" in md_path.read_text(encoding="utf-8")
     assert built["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION
@@ -2646,6 +2663,19 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert "operator_action:execution_command_digest_mismatch" in (
         cockpit_with_action_break["blockers"]
     )
+    assert cockpit_with_action_break["review_priority"]["priority"] == "critical"
+    assert cockpit_with_action_break["review_priority"]["primary_reason"] == (
+        "blocker_present"
+    )
+    assert cockpit_with_action_break["review_priority"]["reason_codes"] == [
+        "blocker:operator_action:execution_command_digest_mismatch"
+    ]
+    assert cockpit_with_action_break["review_priority"]["target_panel_id"] == (
+        "operator_action"
+    )
+    assert cockpit_with_action_break["review_priority"][
+        "recommended_command_label"
+    ] == "review_action_dashboard"
     assert "## Action Failure Reasons" in cockpit_break_markdown
     assert_matches_schema_payload(cockpit_with_action_break, "operator_cockpit")
     assert validate_operator_cockpit_file(

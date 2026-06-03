@@ -15,6 +15,7 @@
     "action_failure_reasons",
     "blockers",
     "codex_unlock_checklist",
+    "review_priority",
     "recommended_commands",
     "authority",
     "policy"
@@ -243,6 +244,9 @@
     "codex_unlock_checklist": {
       "$ref": "#/$defs/codex_unlock_checklist"
     },
+    "review_priority": {
+      "$ref": "#/$defs/review_priority"
+    },
     "recommended_commands": {
       "type": "array",
       "items": {
@@ -433,6 +437,104 @@
         },
         "writes_artifact": {
           "type": "string"
+        }
+      }
+    },
+    "review_priority": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "priority",
+        "primary_reason",
+        "reason_codes",
+        "target_panel_id",
+        "target_panel_title",
+        "target_panel_status",
+        "target_artifact_path",
+        "target_artifact_exists",
+        "next_step",
+        "recommended_command_label",
+        "recommended_command",
+        "recommended_command_writes_artifact",
+        "recommended_command_reason",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "operator_review_priority_v1"
+          ]
+        },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "action_required",
+            "review",
+            "clean"
+          ]
+        },
+        "primary_reason": {
+          "type": "string"
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "target_panel_id": {
+          "type": "string"
+        },
+        "target_panel_title": {
+          "type": "string"
+        },
+        "target_panel_status": {
+          "type": "string"
+        },
+        "target_artifact_path": {
+          "type": "string"
+        },
+        "target_artifact_exists": {
+          "type": "boolean"
+        },
+        "next_step": {
+          "type": "string"
+        },
+        "recommended_command_label": {
+          "type": "string"
+        },
+        "recommended_command": {
+          "type": "string"
+        },
+        "recommended_command_writes_artifact": {
+          "type": "string"
+        },
+        "recommended_command_reason": {
+          "type": "string"
+        },
+        "policy": {
+          "$ref": "#/$defs/review_priority_policy"
+        }
+      }
+    },
+    "review_priority_policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "does_not_execute_commands",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_commands": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
         }
       }
     },

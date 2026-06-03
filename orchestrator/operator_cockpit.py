@@ -746,10 +746,15 @@ def command_for_panel(
 ) -> dict[str, object]:
     """Return the most relevant saved command hint for a cockpit panel."""
     labels_by_panel = {
+        "run_outcome": "review_run_diagnosis",
+        "config_lineage": "review_config_lineage",
         "operator_action": "review_action_dashboard",
         "codex_cli_unlock": "review_codex_cli_preflight",
         "codex_cli_readiness_diff": "review_codex_cli_readiness_diff",
+        "champion_review": "review_challenger_report",
+        "promotion": "review_promotion_dry_run",
         "promotion_approval": "review_promotion_approval",
+        "scope_health": "review_scope_health",
     }
     wanted = labels_by_panel.get(panel_id, "review_cockpit")
     for command in commands:
@@ -880,6 +885,18 @@ def recommended_commands(
             writes_artifact="",
         ),
         command_hint(
+            label="review_run_diagnosis",
+            command=f"python -m orchestrator.experiments diagnose {run_id}",
+            reason="Inspect deterministic run outcome and artifact diagnosis.",
+            writes_artifact="",
+        ),
+        command_hint(
+            label="review_config_lineage",
+            command=f"python -m orchestrator.experiments config-lineage {run_id}",
+            reason="Inspect config candidate, review, dry-run, and receipt lineage.",
+            writes_artifact="config_lineage.json",
+        ),
+        command_hint(
             label="review_action_dashboard",
             command=f"python -m orchestrator.experiments action-dashboard {run_id} --markdown",
             reason="Inspect operator action state and guarded next commands.",
@@ -901,6 +918,30 @@ def recommended_commands(
                 f"execution-readiness-diff {run_id} --markdown"
             ),
             reason="Inspect current-vs-reviewed Codex CLI execution evidence.",
+            writes_artifact="",
+        ),
+        command_hint(
+            label="review_challenger_report",
+            command=(
+                "python -m orchestrator.candidate_challenger_report "
+                f"{relative_path(run_dir, repo_root)}"
+            ),
+            reason="Inspect whether this run beats the current champion.",
+            writes_artifact="candidate_challenger_report.json",
+        ),
+        command_hint(
+            label="review_promotion_dry_run",
+            command=(
+                "python -m orchestrator.champion_promotion_dry_run "
+                f"{relative_path(run_dir, repo_root)}"
+            ),
+            reason="Preview champion promotion eligibility without promoting.",
+            writes_artifact="champion_promotion_dry_run.json",
+        ),
+        command_hint(
+            label="review_scope_health",
+            command="python -m orchestrator.experiments scope-health --limit 20",
+            reason="Inspect experiment-scope artifact and memory health.",
             writes_artifact="",
         ),
     ]

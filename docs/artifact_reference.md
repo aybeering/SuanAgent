@@ -354,8 +354,9 @@ navigation object, and command hints without recording approval, executing
 commands, writing config, promoting champions, running agents, running
 backtests, applying patches, routing agents, or changing acceptance. The
 `review_priority` object chooses the first panel and existing saved command
-hint to inspect from blocker, action, promotion, and run-outcome state; it is a
-read-only ordering hint and cannot execute the command or change acceptance.
+hint to inspect from blocker, config lineage, action, Codex readiness,
+challenger, promotion, scope-health, and run-outcome state; it is a read-only
+ordering hint and cannot execute the command or change acceptance.
 Artifact validation checks cockpit command hints through the shared operator
 command-hint validator for known labels, expected write targets, the required
 `review_cockpit` first command, and simple shell-control-token guards.

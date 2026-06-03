@@ -2512,7 +2512,13 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     }
     assert cockpit["review_priority"]["recommended_command_label"] in {
         "review_cockpit",
+        "review_run_diagnosis",
+        "review_config_lineage",
         "review_action_dashboard",
+        "review_challenger_report",
+        "review_promotion_dry_run",
+        "review_promotion_approval",
+        "review_scope_health",
     }
     assert cockpit["review_priority"]["policy"]["does_not_execute_commands"] is True
     assert cockpit["review_priority"]["policy"]["does_not_change_acceptance"] is True
@@ -2578,11 +2584,31 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     )
     assert any(row["label"] == "review_cockpit" for row in cockpit["recommended_commands"])
     assert any(
+        row["label"] == "review_run_diagnosis"
+        for row in cockpit["recommended_commands"]
+    )
+    assert any(
+        row["label"] == "review_config_lineage"
+        for row in cockpit["recommended_commands"]
+    )
+    assert any(
         row["label"] == "review_codex_cli_readiness_diff"
         for row in cockpit["recommended_commands"]
     )
     assert any(
         row["label"] == "review_codex_cli_preflight"
+        for row in cockpit["recommended_commands"]
+    )
+    assert any(
+        row["label"] == "review_challenger_report"
+        for row in cockpit["recommended_commands"]
+    )
+    assert any(
+        row["label"] == "review_promotion_dry_run"
+        for row in cockpit["recommended_commands"]
+    )
+    assert any(
+        row["label"] == "review_scope_health"
         for row in cockpit["recommended_commands"]
     )
     assert cockpit["authority"]["cockpit_can_execute_commands"] is False

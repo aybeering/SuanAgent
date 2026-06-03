@@ -16295,6 +16295,48 @@ def test_champion_promote_approved_requires_recorded_approval(
         payload_path=receipt_path,
         repo_root=repo,
     ) == ()
+    original_receipt_text = receipt_path.read_text(encoding="utf-8")
+    tampered_receipt = json.loads(original_receipt_text)
+    tampered_receipt["ok"] = False
+    tampered_receipt["status"] = "blocked"
+    tampered_receipt["approval_sha256"] = "wrong"
+    tampered_receipt["source_dry_run_sha256"] = "wrong"
+    tampered_receipt["evidence_checks"]["ok"] = False
+    tampered_receipt["evidence_checks"]["blockers"] = ["wrong"]
+    tampered_receipt["evidence_checks"]["expected_command"] = "wrong"
+    tampered_receipt["evidence_checks"]["reviewed_command"] = "wrong"
+    tampered_receipt["evidence_checks"]["current_champion_run_id"] = "wrong"
+    tampered_receipt["comparison"]["recommendation"] = "keep_base"
+    tampered_receipt["promotion_result"]["promoted"] = False
+    tampered_receipt["promotion_result"]["comparison"]["candidate_run_id"] = "wrong"
+    tampered_receipt["promotion_result"]["comparison"]["base_run_id"] = "wrong"
+    tampered_receipt["policy"]["requires_approval_artifact"] = False
+    receipt_path.write_text(
+        json.dumps(tampered_receipt, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    receipt_consistency_errors = validate_champion_promotion_receipt_file(
+        payload_path=receipt_path,
+        repo_root=repo,
+    )
+    for expected_error in (
+        "champion_promotion_receipt ok false",
+        "champion_promotion_receipt status mismatch",
+        "champion_promotion_receipt promoted without evidence ok",
+        "champion_promotion_receipt promoted with blockers",
+        "champion_promotion_receipt approval digest mismatch",
+        "champion_promotion_receipt dry-run digest mismatch",
+        "champion_promotion_receipt expected command mismatch",
+        "champion_promotion_receipt reviewed command mismatch",
+        "champion_promotion_receipt base champion mismatch",
+        "champion_promotion_receipt comparison recommendation mismatch",
+        "champion_promotion_receipt promotion result mismatch",
+        "champion_promotion_receipt promotion candidate mismatch",
+        "champion_promotion_receipt promotion base mismatch",
+        "champion_promotion_receipt policy false: requires_approval_artifact",
+    ):
+        assert expected_error in receipt_consistency_errors
+    receipt_path.write_text(original_receipt_text, encoding="utf-8")
     artifact_report = validate_run_artifacts(
         run_id="receipt-candidate",
         experiments_dir=repo / "experiments",

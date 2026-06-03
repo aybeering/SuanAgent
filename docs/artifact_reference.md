@@ -758,7 +758,12 @@ Replay artifacts:
   the result of the guarded promote-approved command. The command writes
   `champion.json` and appends `champion_history.jsonl` only when the approval
   artifact, reviewed command digest, dry-run digest, current champion identity,
-  and current deterministic comparison still match.
+  and current deterministic comparison still match. The writer checks receipt
+  status/promoted consistency, approval and dry-run digests, expected/reviewed
+  commands, pre-promotion champion identity, promotion comparison/result fields,
+  and guarded-write policy flags. The artifact validator reuses the non-source
+  consistency checks without treating older blocked receipts as unhealthy after
+  a later approval artifact refresh.
 - `champion_lineage.json` and `champion_lineage.md` are read-only global
   experiment reports that connect `champion.json`, `champion_history.jsonl`,
   promotion receipts, approval artifacts, dry-run reports, and comparison

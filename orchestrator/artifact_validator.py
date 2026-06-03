@@ -5901,6 +5901,15 @@ def validate_optional_champion_promotion_receipt(
             report,
             f"champion_promotion_receipt.json run_id does not match report: {path}",
         )
+    from orchestrator.champion_promotion_executor import (
+        validate_champion_promotion_receipt_consistency,
+    )
+
+    for error in validate_champion_promotion_receipt_consistency(
+        payload,
+        verify_source_digests=False,
+    ):
+        add_error(report, error)
     if not bool(payload.get("ok", False)):
         add_error(report, f"champion_promotion_receipt.json ok false: {path}")
     policy = payload.get("policy", {})

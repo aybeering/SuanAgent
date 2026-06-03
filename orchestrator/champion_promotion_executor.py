@@ -20,7 +20,11 @@ from orchestrator.experiments import (
     promote_champion,
     show_champion,
 )
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 CHAMPION_PROMOTION_RECEIPT_SCHEMA_VERSION = "champion_promotion_receipt_v1"
@@ -314,10 +318,120 @@ def validate_champion_promotion_receipt_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved champion promotion execution receipt."""
-    return validate_json_file(
+    schema_errors = validate_json_file(
         payload_path=payload_path,
         schema_path=repo_root / SCHEMA_PATH,
     )
+    if schema_errors:
+        return schema_errors
+    return validate_champion_promotion_receipt_consistency(load_json_object(payload_path))
+
+
+def validate_champion_promotion_receipt_payload(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate an in-memory champion promotion execution receipt."""
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    schema_errors = validate_json_payload(
+        payload=payload,
+        schema=schema,
+        schema_dir=(repo_root / SCHEMA_PATH).parent,
+    )
+    if schema_errors:
+        return schema_errors
+    return validate_champion_promotion_receipt_consistency(payload)
+
+
+def validate_champion_promotion_receipt_consistency(
+    payload: dict[str, object],
+    *,
+    verify_source_digests: bool = True,
+) -> tuple[str, ...]:
+    """Validate derived champion promotion receipt fields."""
+    errors: list[str] = []
+    checks = object_field(payload, "evidence_checks")
+    comparison = object_field(payload, "comparison")
+    promotion_result = object_field(payload, "promotion_result")
+    promotion_comparison = object_field(promotion_result, "comparison")
+    approval_path = Path(str(payload.get("approval_path", "")))
+    dry_run_path = Path(str(payload.get("source_dry_run_path", "")))
+    approval = load_json_object(approval_path)
+    reviewed = object_field(approval, "reviewed_command")
+
+    promoted = bool(payload.get("promoted", False))
+    expected_status = "promoted" if promoted else "blocked"
+    expected_command = approved_promotion_command(
+        candidate_run_id=str(payload.get("candidate_run_id", "")),
+        approval_path=approval_path,
+    )
+
+    if payload.get("ok") is not True:
+        errors.append("champion_promotion_receipt ok false")
+    if str(payload.get("status", "")) != expected_status:
+        errors.append("champion_promotion_receipt status mismatch")
+    if promoted and checks.get("ok") is not True:
+        errors.append("champion_promotion_receipt promoted without evidence ok")
+    if promoted and string_list(checks.get("blockers", [])):
+        errors.append("champion_promotion_receipt promoted with blockers")
+    if not promoted and str(payload.get("status", "")) != "blocked":
+        errors.append("champion_promotion_receipt blocked status mismatch")
+    if verify_source_digests and str(payload.get("approval_sha256", "")) != file_sha256(
+        approval_path
+    ):
+        errors.append("champion_promotion_receipt approval digest mismatch")
+    if verify_source_digests and str(payload.get("source_dry_run_sha256", "")) != file_sha256(
+        dry_run_path
+    ):
+        errors.append("champion_promotion_receipt dry-run digest mismatch")
+    if str(checks.get("expected_command", "")) != expected_command:
+        errors.append("champion_promotion_receipt expected command mismatch")
+    if approval and str(checks.get("reviewed_command", "")) != str(
+        reviewed.get("command", "")
+    ):
+        errors.append("champion_promotion_receipt reviewed command mismatch")
+    if str(payload.get("base_run_id", "")) != str(checks.get("current_champion_run_id", "")):
+        errors.append("champion_promotion_receipt base champion mismatch")
+    if promoted and str(comparison.get("recommendation", "")) != "promote_candidate":
+        errors.append("champion_promotion_receipt comparison recommendation mismatch")
+    if promoted and promotion_result.get("promoted") is not True:
+        errors.append("champion_promotion_receipt promotion result mismatch")
+    if promoted and str(promotion_comparison.get("candidate_run_id", "")) != str(
+        payload.get("candidate_run_id", "")
+    ):
+        errors.append("champion_promotion_receipt promotion candidate mismatch")
+    if promoted and str(promotion_comparison.get("base_run_id", "")) != str(
+        payload.get("base_run_id", "")
+    ):
+        errors.append("champion_promotion_receipt promotion base mismatch")
+    errors.extend(validate_champion_promotion_receipt_policy(payload))
+    return tuple(errors)
+
+
+def validate_champion_promotion_receipt_policy(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate promotion receipt policy flags."""
+    errors: list[str] = []
+    policy = object_field(payload, "policy")
+    for key in (
+        "requires_approval_artifact",
+        "requires_approval_recorded",
+        "requires_command_digest_match",
+        "requires_source_dry_run_digest_match",
+        "requires_current_champion_match",
+        "requires_current_comparison_recommendation",
+        "writes_only_champion_registry_and_history",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            errors.append(f"champion_promotion_receipt policy false: {key}")
+    return tuple(errors)
 
 
 def load_json_object(path: Path) -> dict[str, Any]:

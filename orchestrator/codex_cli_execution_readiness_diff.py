@@ -27,7 +27,7 @@ from orchestrator.codex_cli_execution_preflight import (
     stable_digest,
     workspace_prefix,
 )
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import validate_json_file, validate_json_payload
 
 
 CODEX_CLI_EXECUTION_READINESS_DIFF_SCHEMA_VERSION = (
@@ -671,12 +671,130 @@ def validate_codex_cli_execution_readiness_diff_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved Codex CLI execution readiness diff artifact."""
-    return tuple(
-        validate_json_file(
-            payload_path=payload_path,
-            schema_path=repo_root / SCHEMA_PATH,
-        )
+    schema_errors = tuple(
+        validate_json_file(payload_path=payload_path, schema_path=repo_root / SCHEMA_PATH)
     )
+    if schema_errors:
+        return schema_errors
+    return schema_errors + validate_codex_cli_execution_readiness_diff_consistency(
+        load_json_object(payload_path)
+    )
+
+
+def validate_codex_cli_execution_readiness_diff_payload(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate an in-memory Codex CLI execution readiness diff payload."""
+    schema = load_json_object(repo_root / SCHEMA_PATH)
+    return tuple(
+        validate_json_payload(
+            payload=payload,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    ) + validate_codex_cli_execution_readiness_diff_consistency(payload)
+
+
+def validate_codex_cli_execution_readiness_diff_consistency(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate readiness diff summary, status, and blockers are self-consistent."""
+    errors: list[str] = []
+    status = str(payload.get("status", ""))
+    ready = bool(payload.get("ready", False))
+    summary = object_value(payload.get("summary", {}))
+    sources = object_value(payload.get("source_artifacts", {}))
+    comparisons = list_value(payload.get("comparisons", []))
+
+    if ready != (status == "ready"):
+        errors.append("codex_cli_execution_readiness_diff ready/status mismatch")
+    if status != readiness_diff_status(summary):
+        errors.append("codex_cli_execution_readiness_diff status summary mismatch")
+
+    missing_artifacts = readiness_diff_missing_artifacts(sources)
+    comparison_counts = readiness_diff_comparison_counts(comparisons)
+    if int(summary.get("comparison_count", -1)) != len(comparisons):
+        errors.append("codex_cli_execution_readiness_diff comparison count mismatch")
+    if int(summary.get("matched_count", -1)) != comparison_counts["matched_count"]:
+        errors.append("codex_cli_execution_readiness_diff matched count mismatch")
+    if int(summary.get("drift_count", -1)) != comparison_counts["drift_count"]:
+        errors.append("codex_cli_execution_readiness_diff drift count mismatch")
+    if int(summary.get("missing_comparison_count", -1)) != comparison_counts[
+        "missing_count"
+    ]:
+        errors.append("codex_cli_execution_readiness_diff missing count mismatch")
+    if int(summary.get("missing_artifact_count", -1)) != len(missing_artifacts):
+        errors.append("codex_cli_execution_readiness_diff missing artifact mismatch")
+    if sorted(string_list(summary.get("missing_artifacts", []))) != sorted(
+        missing_artifacts
+    ):
+        errors.append("codex_cli_execution_readiness_diff missing artifact list mismatch")
+    if sorted(string_list(summary.get("drift_comparisons", []))) != sorted(
+        comparison_counts["drift_ids"]
+    ):
+        errors.append("codex_cli_execution_readiness_diff drift list mismatch")
+    if sorted(string_list(summary.get("missing_comparisons", []))) != sorted(
+        comparison_counts["missing_ids"]
+    ):
+        errors.append("codex_cli_execution_readiness_diff missing list mismatch")
+
+    for comparison in comparisons:
+        row_status = str(comparison.get("status", ""))
+        missing_sides = comparison.get("missing_sides", [])
+        if row_status == "missing" and not missing_sides:
+            errors.append("codex_cli_execution_readiness_diff missing row lacks side")
+        if row_status != "missing" and missing_sides:
+            errors.append("codex_cli_execution_readiness_diff non-missing row has side")
+
+    expected_blockers = blocking_reasons(summary=summary, comparisons=comparisons)
+    blockers = string_list(payload.get("blocking_reasons", []))
+    if blockers != expected_blockers:
+        errors.append("codex_cli_execution_readiness_diff blocking reasons mismatch")
+    return tuple(errors)
+
+
+def readiness_diff_missing_artifacts(
+    sources: dict[str, Any],
+) -> list[str]:
+    """Return required source artifact ids whose recorded files are missing."""
+    return [
+        artifact_id
+        for artifact_id, artifact in sources.items()
+        if isinstance(artifact, dict)
+        and bool(artifact.get("required_for_ready_diff", False))
+        and not bool(object_value(artifact.get("file", {})).get("exists", False))
+    ]
+
+
+def readiness_diff_comparison_counts(
+    comparisons: list[dict[str, Any]],
+) -> dict[str, object]:
+    """Return status counts and comparison-id lists from readiness rows."""
+    matched_count = 0
+    drift_count = 0
+    missing_count = 0
+    drift_ids: list[str] = []
+    missing_ids: list[str] = []
+    for comparison in comparisons:
+        row_status = str(comparison.get("status", ""))
+        comparison_id = str(comparison.get("comparison_id", ""))
+        if row_status == "matched":
+            matched_count += 1
+        elif row_status == "drift":
+            drift_count += 1
+            drift_ids.append(comparison_id)
+        elif row_status == "missing":
+            missing_count += 1
+            missing_ids.append(comparison_id)
+    return {
+        "matched_count": matched_count,
+        "drift_count": drift_count,
+        "missing_count": missing_count,
+        "drift_ids": drift_ids,
+        "missing_ids": missing_ids,
+    }
 
 
 def main() -> None:

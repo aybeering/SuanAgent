@@ -14725,6 +14725,52 @@ def test_codex_cli_execution_readiness_diff_reports_missing_startup_evidence(
         repo_root=repo,
     ) == ()
 
+    tampered_diff = json.loads(json_path.read_text(encoding="utf-8"))
+    tampered_diff["status"] = "ready"
+    tampered_diff["ready"] = True
+    tampered_diff["summary"]["comparison_count"] = 0
+    tampered_diff["summary"]["matched_count"] = 0
+    tampered_diff["summary"]["missing_artifact_count"] = 0
+    tampered_diff["summary"]["missing_artifacts"] = []
+    tampered_diff["comparisons"][0]["status"] = "matched"
+    tampered_diff["blocking_reasons"] = []
+    json_path.write_text(
+        json.dumps(tampered_diff, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    diff_consistency_errors = validate_codex_cli_execution_readiness_diff_file(
+        payload_path=json_path,
+        repo_root=repo,
+    )
+    assert (
+        "codex_cli_execution_readiness_diff status summary mismatch"
+        in diff_consistency_errors
+    )
+    assert (
+        "codex_cli_execution_readiness_diff comparison count mismatch"
+        in diff_consistency_errors
+    )
+    assert (
+        "codex_cli_execution_readiness_diff matched count mismatch"
+        in diff_consistency_errors
+    )
+    assert (
+        "codex_cli_execution_readiness_diff missing artifact mismatch"
+        in diff_consistency_errors
+    )
+    assert (
+        "codex_cli_execution_readiness_diff missing artifact list mismatch"
+        in diff_consistency_errors
+    )
+    assert (
+        "codex_cli_execution_readiness_diff non-missing row has side"
+        in diff_consistency_errors
+    )
+    assert (
+        "codex_cli_execution_readiness_diff blocking reasons mismatch"
+        in diff_consistency_errors
+    )
+
 
 def test_iteration_loop_still_rejects_existing_run_dir_without_operator_request(
     tmp_path: Path,

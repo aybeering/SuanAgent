@@ -135,7 +135,9 @@ comes only from the policy gate and holdout gate.
 `candidate_quality_trace.json` is the run-level read-only summary of those
 candidate score components, probe/validation/holdout signals, selected
 attempts, patch families, and failure codes for operator and adapter debugging.
-It reads saved artifacts only and cannot route candidates or change acceptance.
+It reads saved artifacts only, and artifact validation recomputes it from
+`candidate_leaderboard.json` so saved summaries cannot drift independently. It
+cannot route candidates or change acceptance.
 The corresponding JSON Schema files are:
 
 ```text

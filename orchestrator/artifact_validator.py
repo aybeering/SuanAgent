@@ -664,6 +664,16 @@ def validate_candidate_quality_trace(
         add_error(report, "candidate_quality_trace.json summary invalid")
     elif int(summary.get("candidate_count", -1) or -1) != len(candidates):
         add_error(report, "candidate_quality_trace.json candidate_count mismatch")
+    from orchestrator.candidate_quality_trace import (
+        validate_candidate_quality_trace_consistency,
+    )
+
+    for error in validate_candidate_quality_trace_consistency(
+        payload=payload,
+        run_dir=run_dir,
+        repo_root=repo_root,
+    ):
+        add_error(report, error)
     policy = payload.get("policy", {})
     if not isinstance(policy, dict):
         add_error(report, "candidate_quality_trace.json policy invalid")

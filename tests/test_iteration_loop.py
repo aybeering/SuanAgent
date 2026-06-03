@@ -9776,6 +9776,33 @@ def test_artifact_validator_reports_candidate_quality_trace_policy_violation(
     )
 
 
+def test_artifact_validator_reports_candidate_quality_trace_summary_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="quality-trace-summary-drift",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = repo / "experiments/quality-trace-summary-drift/candidate_quality_trace.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["summary"]["selected_count"] = 99
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="quality-trace-summary-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "candidate_quality_trace recompute mismatch: summary" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
 def test_artifact_validator_reports_memory_scope_policy_violation(
     tmp_path: Path,
 ) -> None:

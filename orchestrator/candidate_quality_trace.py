@@ -280,6 +280,30 @@ def validate_candidate_quality_trace_file(
     return tuple(validate_json_file(payload_path=payload_path, schema_path=schema_path))
 
 
+def validate_candidate_quality_trace_consistency(
+    *,
+    payload: dict[str, object],
+    run_dir: Path,
+    repo_root: Path,
+) -> tuple[str, ...]:
+    """Return consistency errors after recomputing the trace from leaderboard rows."""
+    expected = build_candidate_quality_trace(run_dir=run_dir, repo_root=repo_root)
+    errors: list[str] = []
+    for key in (
+        "schema_version",
+        "run_id",
+        "run_dir",
+        "source",
+        "summary",
+        "rounds",
+        "candidates",
+        "policy",
+    ):
+        if payload.get(key) != expected.get(key):
+            errors.append(f"candidate_quality_trace recompute mismatch: {key}")
+    return tuple(errors)
+
+
 def load_json_list(path: Path) -> list[dict[str, object]]:
     """Load a JSON list of objects."""
     if not path.exists():

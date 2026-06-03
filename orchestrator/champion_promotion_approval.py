@@ -11,7 +11,11 @@ from typing import Any
 from orchestrator.champion_promotion_dry_run import (
     CHAMPION_PROMOTION_DRY_RUN_SCHEMA_VERSION,
 )
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 CHAMPION_PROMOTION_APPROVAL_SCHEMA_VERSION = "champion_promotion_approval_v1"
@@ -314,10 +318,196 @@ def validate_champion_promotion_approval_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved champion promotion approval artifact."""
-    return validate_json_file(
+    schema_errors = validate_json_file(
         payload_path=payload_path,
         schema_path=repo_root / SCHEMA_PATH,
     )
+    if schema_errors:
+        return schema_errors
+    return validate_champion_promotion_approval_consistency(
+        load_json_object(payload_path)
+    )
+
+
+def validate_champion_promotion_approval_payload(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate an in-memory champion promotion approval payload."""
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    schema_errors = validate_json_payload(
+        payload=payload,
+        schema=schema,
+        schema_dir=(repo_root / SCHEMA_PATH).parent,
+    )
+    if schema_errors:
+        return schema_errors
+    return validate_champion_promotion_approval_consistency(payload)
+
+
+def validate_champion_promotion_approval_consistency(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate derived champion promotion approval fields."""
+    errors: list[str] = []
+    intent = object_field(payload, "operator_intent")
+    command = object_field(payload, "reviewed_command")
+    dry_summary = object_field(payload, "dry_run_summary")
+    gate = object_field(payload, "approval_gate")
+    source_dry_run_path = Path(str(command.get("source_dry_run_path", "")))
+    source_dry_run = load_json_object(source_dry_run_path)
+    source_decision = object_field(source_dry_run, "dry_run_decision")
+    reviewed_command = str(command.get("command", ""))
+    command_digest = sha256_text(reviewed_command) if reviewed_command else ""
+    dry_run_recommended = bool(dry_summary.get("would_promote", False))
+    eligible_for_approval = bool(
+        source_dry_run
+        and source_dry_run.get("schema_version") == CHAMPION_PROMOTION_DRY_RUN_SCHEMA_VERSION
+        and source_dry_run.get("ok") is True
+        and dry_run_recommended
+        and reviewed_command
+    )
+    approval_recorded = bool(
+        intent.get("explicit_approval", False)
+        and intent.get("confirmation_phrase_matches", False)
+        and eligible_for_approval
+    )
+    blockers = approval_blockers(
+        dry_run=source_dry_run,
+        dry_run_recommended=dry_run_recommended,
+        reviewed_command=reviewed_command,
+        explicit_approval=bool(intent.get("explicit_approval", False)),
+        phrase_matches=bool(intent.get("confirmation_phrase_matches", False)),
+        eligible_for_approval=eligible_for_approval,
+    )
+    expected_status = approval_status(
+        dry_run=source_dry_run,
+        eligible_for_approval=eligible_for_approval,
+        approval_recorded=approval_recorded,
+        explicit_approval=bool(intent.get("explicit_approval", False)),
+    )
+
+    if bool(payload.get("ok", False)) != bool(source_dry_run):
+        errors.append("champion_promotion_approval ok mismatch")
+    if str(payload.get("run_id", "")) != str(source_dry_run.get("run_id", "")):
+        errors.append("champion_promotion_approval run id mismatch")
+    if str(payload.get("status", "")) != expected_status:
+        errors.append("champion_promotion_approval status mismatch")
+    if intent.get("required_confirmation_phrase_hash") != sha256_text(
+        REQUIRED_CONFIRMATION_PHRASE
+    ):
+        errors.append("champion_promotion_approval required phrase hash mismatch")
+    if bool(intent.get("approval_recorded", False)) != approval_recorded:
+        errors.append("champion_promotion_approval recorded mismatch")
+    if command.get("command_sha256") != command_digest:
+        errors.append("champion_promotion_approval command digest mismatch")
+    if command.get("source_dry_run_sha256") != file_sha256(source_dry_run_path):
+        errors.append("champion_promotion_approval dry-run digest mismatch")
+    if str(dry_summary.get("schema_version", "")) != str(
+        source_dry_run.get("schema_version", "")
+    ):
+        errors.append("champion_promotion_approval dry-run schema mismatch")
+    if str(dry_summary.get("status", "")) != str(source_dry_run.get("status", "")):
+        errors.append("champion_promotion_approval dry-run status mismatch")
+    if bool(dry_summary.get("ok", False)) != bool(source_dry_run.get("ok", False)):
+        errors.append("champion_promotion_approval dry-run ok mismatch")
+    if dry_run_recommended != bool(source_decision.get("would_promote", False)):
+        errors.append("champion_promotion_approval dry-run recommendation mismatch")
+    if string_list(dry_summary.get("blocking_reasons", [])) != string_list(
+        source_decision.get("blocking_reasons", [])
+    ):
+        errors.append("champion_promotion_approval dry-run blockers mismatch")
+    if bool(gate.get("eligible_for_approval", False)) != eligible_for_approval:
+        errors.append("champion_promotion_approval eligibility mismatch")
+    if string_list(gate.get("approval_blockers", [])) != blockers:
+        errors.append("champion_promotion_approval blockers mismatch")
+    for key in (
+        "requires_operator_review",
+        "requires_matching_confirmation_phrase",
+        "requires_dry_run_recommendation",
+        "requires_nonempty_reviewed_command",
+    ):
+        if gate.get(key) is not True:
+            errors.append(f"champion_promotion_approval gate false: {key}")
+    expected_actions = recommended_next_actions(
+        eligible_for_approval=eligible_for_approval,
+        approval_recorded=approval_recorded,
+        blockers=blockers,
+    )
+    if string_list(payload.get("recommended_next_actions", [])) != expected_actions:
+        errors.append("champion_promotion_approval next actions mismatch")
+    errors.extend(validate_evidence_file_records(payload))
+    errors.extend(validate_champion_promotion_approval_policy(payload))
+    return tuple(errors)
+
+
+def validate_evidence_file_records(payload: dict[str, object]) -> tuple[str, ...]:
+    """Validate saved evidence file records.
+
+    The source dry-run is a guarded approval dependency and must still match
+    exactly. Other evidence files are review-time snapshots; some, such as the
+    run manifest, can be updated by later closeout steps in the same iteration.
+    """
+    errors: list[str] = []
+    seen: set[str] = set()
+    records = payload.get("evidence_files", [])
+    source_dry_run_path = str(
+        object_field(payload, "reviewed_command").get("source_dry_run_path", "")
+    )
+    if not isinstance(records, list):
+        return ("champion_promotion_approval evidence files invalid",)
+    for row in records:
+        if not isinstance(row, dict):
+            errors.append("champion_promotion_approval evidence file invalid")
+            continue
+        path_text = str(row.get("path", ""))
+        path = Path(path_text)
+        if path_text in seen:
+            errors.append("champion_promotion_approval duplicate evidence path")
+        seen.add(path_text)
+        if path_text == source_dry_run_path:
+            if bool(row.get("exists", False)) != path.exists():
+                errors.append("champion_promotion_approval evidence exists mismatch")
+            if row.get("sha256") != file_sha256(path):
+                errors.append("champion_promotion_approval evidence digest mismatch")
+            expected_size = path.stat().st_size if path.exists() else 0
+            if row.get("byte_count") != expected_size:
+                errors.append("champion_promotion_approval evidence size mismatch")
+            continue
+        if row.get("exists") is True:
+            if not row.get("sha256"):
+                errors.append("champion_promotion_approval evidence digest empty")
+            if int(row.get("byte_count", 0)) <= 0:
+                errors.append("champion_promotion_approval evidence size empty")
+        elif row.get("sha256") or row.get("byte_count") != 0:
+            errors.append("champion_promotion_approval missing evidence not empty")
+    return tuple(errors)
+
+
+def validate_champion_promotion_approval_policy(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate approval policy flags preserve non-promoting behavior."""
+    errors: list[str] = []
+    policy = object_field(payload, "policy")
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_write_champion_registry",
+        "does_not_append_champion_history",
+        "does_not_execute_promote_command",
+        "does_not_change_acceptance",
+        "approval_does_not_promote",
+        "promotion_still_requires_explicit_command",
+    ):
+        if policy.get(key) is not True:
+            errors.append(f"champion_promotion_approval policy false: {key}")
+    return tuple(errors)
 
 
 def file_record(path: Path) -> dict[str, object]:

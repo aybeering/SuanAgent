@@ -739,15 +739,21 @@ Replay artifacts:
   change acceptance.
 - `champion_promotion_dry_run.json` and `champion_promotion_dry_run.md`
   preview whether the completed run would satisfy the deterministic champion
-  promotion comparison against the current champion. They never write
-  `champion.json`, append `champion_history.jsonl`, execute agents, run
-  backtests, apply patches, route agents, or change acceptance. Actual
-  guarded promotion uses the explicit `experiments promote-approved` command.
+  promotion comparison against the current champion. The writer and artifact
+  validator check derived `ok`, status, blocking reasons, promotion command,
+  would-promote decision, recommended next actions, and read-only policy flags.
+  They never write `champion.json`, append `champion_history.jsonl`, execute
+  agents, run backtests, apply patches, route agents, or change acceptance.
+  Actual guarded promotion uses the explicit `experiments promote-approved`
+  command.
 - `champion_promotion_approval.json` and `champion_promotion_approval.md`
   record operator review intent, required confirmation phrase hashes, reviewed
-  promote command digests, and source evidence hashes. They do not execute the
-  promote command, write `champion.json`, append `champion_history.jsonl`, run
-  agents, run backtests, apply patches, route agents, or change acceptance.
+  promote command digests, and source evidence hashes. The writer and artifact
+  validator check dry-run summary binding, command and source digest binding,
+  approval eligibility, blockers, next actions, evidence file hashes, and
+  non-promoting policy flags. They do not execute the promote command, write
+  `champion.json`, append `champion_history.jsonl`, run agents, run backtests,
+  apply patches, route agents, or change acceptance.
 - `champion_promotion_receipt.json` and `champion_promotion_receipt.md` record
   the result of the guarded promote-approved command. The command writes
   `champion.json` and appends `champion_history.jsonl` only when the approval

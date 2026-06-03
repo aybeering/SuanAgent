@@ -9,7 +9,11 @@ from typing import Any
 
 from orchestrator.experiments import compare_experiments, show_champion
 from orchestrator.run_diagnosis import diagnose_run
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 CHAMPION_PROMOTION_DRY_RUN_SCHEMA_VERSION = "champion_promotion_dry_run_v1"
@@ -423,10 +427,153 @@ def validate_champion_promotion_dry_run_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved champion promotion dry-run report."""
-    return validate_json_file(
+    schema_errors = validate_json_file(
         payload_path=payload_path,
         schema_path=repo_root / SCHEMA_PATH,
     )
+    if schema_errors:
+        return schema_errors
+    return validate_champion_promotion_dry_run_consistency(
+        load_json_object(payload_path)
+    )
+
+
+def validate_champion_promotion_dry_run_payload(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate an in-memory champion promotion dry-run payload."""
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    schema_errors = validate_json_payload(
+        payload=payload,
+        schema=schema,
+        schema_dir=(repo_root / SCHEMA_PATH).parent,
+    )
+    if schema_errors:
+        return schema_errors
+    return validate_champion_promotion_dry_run_consistency(payload)
+
+
+def validate_champion_promotion_dry_run_consistency(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate derived champion promotion dry-run fields."""
+    errors: list[str] = []
+    checks = object_field(payload, "checks")
+    champion = object_field(payload, "champion")
+    candidate = object_field(payload, "candidate")
+    comparison = object_field(payload, "comparison")
+    decision = object_field(payload, "dry_run_decision")
+
+    expected_ok = bool(
+        checks.get("manifest_present", False)
+        and checks.get("diagnosis_present", False)
+    )
+    champion_exists = bool(champion.get("exists", False))
+    candidate_run_id = str(candidate.get("run_id", ""))
+    champion_run_id = str(champion.get("champion_run_id", ""))
+    blocking_reasons = promotion_blocking_reasons(
+        champion=champion,
+        candidate=candidate,
+        comparison=comparison,
+    )
+    expected_would_promote = (
+        bool(comparison.get("exists", False))
+        and comparison.get("recommendation") == "promote_candidate"
+        and not blocking_reasons
+    )
+    expected_status = dry_run_status(
+        manifest_present=bool(checks.get("manifest_present", False)),
+        champion=champion,
+        comparison=comparison,
+        would_promote=expected_would_promote,
+        blocking_reasons=blocking_reasons,
+    )
+
+    if bool(payload.get("ok", False)) != expected_ok:
+        errors.append("champion_promotion_dry_run ok mismatch")
+    if bool(checks.get("champion_present", False)) != champion_exists:
+        errors.append("champion_promotion_dry_run champion_present mismatch")
+    if bool(checks.get("candidate_is_current_champion", False)) != bool(
+        champion_run_id and champion_run_id == candidate_run_id
+    ):
+        errors.append("champion_promotion_dry_run current champion mismatch")
+    if bool(checks.get("comparison_available", False)) != bool(
+        comparison.get("exists", False)
+    ):
+        errors.append("champion_promotion_dry_run comparison_available mismatch")
+    if bool(checks.get("candidate_artifact_ok", False)) != bool(
+        candidate.get("artifact_ok", False)
+    ):
+        errors.append("champion_promotion_dry_run candidate_artifact_ok mismatch")
+    if bool(checks.get("candidate_accepted", False)) != bool(
+        candidate.get("accepted", False)
+    ):
+        errors.append("champion_promotion_dry_run candidate_accepted mismatch")
+    if checks.get("read_only") is not True:
+        errors.append("champion_promotion_dry_run read_only false")
+    if checks.get("would_write_champion_registry") is not False:
+        errors.append("champion_promotion_dry_run would write champion")
+    if checks.get("would_append_champion_history") is not False:
+        errors.append("champion_promotion_dry_run would append history")
+    if str(payload.get("status", "")) != expected_status:
+        errors.append("champion_promotion_dry_run status mismatch")
+    if bool(decision.get("eligible", False)) != expected_would_promote:
+        errors.append("champion_promotion_dry_run eligible mismatch")
+    if bool(decision.get("would_promote", False)) != expected_would_promote:
+        errors.append("champion_promotion_dry_run would_promote mismatch")
+    if str(decision.get("base_run_id", "")) != str(comparison.get("base_run_id", "")):
+        errors.append("champion_promotion_dry_run base run mismatch")
+    if str(decision.get("candidate_run_id", "")) != str(payload.get("run_id", "")):
+        errors.append("champion_promotion_dry_run candidate run mismatch")
+    if string_list(decision.get("blocking_reasons", [])) != blocking_reasons:
+        errors.append("champion_promotion_dry_run blocking reasons mismatch")
+    expected_command = promotion_command(
+        run_dir=Path(str(payload.get("run_dir", ""))),
+        champion_run_id=champion_run_id,
+        candidate_run_id=str(payload.get("run_id", "")),
+        recommended=expected_would_promote,
+    )
+    if str(decision.get("promotion_command", "")) != expected_command:
+        errors.append("champion_promotion_dry_run promotion command mismatch")
+    expected_actions = recommended_next_actions(
+        status=expected_status,
+        blocking_reasons=blocking_reasons,
+        would_promote=expected_would_promote,
+    )
+    if string_list(payload.get("recommended_next_actions", [])) != expected_actions:
+        errors.append("champion_promotion_dry_run next actions mismatch")
+    errors.extend(validate_champion_promotion_dry_run_policy(payload))
+    return tuple(errors)
+
+
+def validate_champion_promotion_dry_run_policy(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate dry-run policy flags preserve read-only behavior."""
+    errors: list[str] = []
+    policy = object_field(payload, "policy")
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_write_champion_registry",
+        "does_not_append_champion_history",
+        "does_not_change_acceptance",
+        "requires_explicit_promote_command",
+    ):
+        if policy.get(key) is not True:
+            errors.append(f"champion_promotion_dry_run policy false: {key}")
+    if (
+        policy.get("promotion_authority")
+        != "python -m orchestrator.experiments promote-approved"
+    ):
+        errors.append("champion_promotion_dry_run promotion authority mismatch")
+    return tuple(errors)
 
 
 def load_json_object(path: Path) -> dict[str, Any]:

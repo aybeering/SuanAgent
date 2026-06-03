@@ -5772,6 +5772,12 @@ def validate_optional_champion_promotion_dry_run(
             report,
             f"champion_promotion_dry_run.json run_id does not match report: {path}",
         )
+    from orchestrator.champion_promotion_dry_run import (
+        validate_champion_promotion_dry_run_consistency,
+    )
+
+    for error in validate_champion_promotion_dry_run_consistency(payload):
+        add_error(report, error)
     if not bool(payload.get("ok", False)):
         add_error(report, f"champion_promotion_dry_run.json ok false: {path}")
     checks = payload.get("checks", {})
@@ -5834,6 +5840,12 @@ def validate_optional_champion_promotion_approval(
             report,
             f"champion_promotion_approval.json run_id does not match report: {path}",
         )
+    from orchestrator.champion_promotion_approval import (
+        validate_champion_promotion_approval_consistency,
+    )
+
+    for error in validate_champion_promotion_approval_consistency(payload):
+        add_error(report, error)
     if not bool(payload.get("ok", False)):
         add_error(report, f"champion_promotion_approval.json ok false: {path}")
     policy = payload.get("policy", {})

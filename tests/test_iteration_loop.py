@@ -5094,6 +5094,59 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         payload_path=run_dir / "champion_promotion_dry_run.json",
         repo_root=Path.cwd(),
     ) == ()
+    promotion_path = run_dir / "champion_promotion_dry_run.json"
+    original_promotion_text = promotion_path.read_text(encoding="utf-8")
+    tampered_promotion = json.loads(original_promotion_text)
+    tampered_promotion["ok"] = False
+    tampered_promotion["status"] = "promotion_recommended"
+    tampered_promotion["checks"]["champion_present"] = True
+    tampered_promotion["checks"]["candidate_is_current_champion"] = True
+    tampered_promotion["checks"]["comparison_available"] = True
+    tampered_promotion["checks"]["candidate_artifact_ok"] = False
+    tampered_promotion["checks"]["candidate_accepted"] = True
+    tampered_promotion["checks"]["read_only"] = False
+    tampered_promotion["checks"]["would_write_champion_registry"] = True
+    tampered_promotion["checks"]["would_append_champion_history"] = True
+    tampered_promotion["dry_run_decision"]["eligible"] = True
+    tampered_promotion["dry_run_decision"]["would_promote"] = True
+    tampered_promotion["dry_run_decision"]["base_run_id"] = "wrong"
+    tampered_promotion["dry_run_decision"]["candidate_run_id"] = "wrong"
+    tampered_promotion["dry_run_decision"]["blocking_reasons"] = []
+    tampered_promotion["dry_run_decision"]["promotion_command"] = "wrong"
+    tampered_promotion["recommended_next_actions"] = ["wrong"]
+    tampered_promotion["policy"]["does_not_write_champion_registry"] = False
+    tampered_promotion["policy"]["promotion_authority"] = "natural_language"
+    promotion_path.write_text(
+        json.dumps(tampered_promotion, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    promotion_consistency_errors = validate_champion_promotion_dry_run_file(
+        payload_path=promotion_path,
+        repo_root=Path.cwd(),
+    )
+    for expected_error in (
+        "champion_promotion_dry_run ok mismatch",
+        "champion_promotion_dry_run champion_present mismatch",
+        "champion_promotion_dry_run current champion mismatch",
+        "champion_promotion_dry_run comparison_available mismatch",
+        "champion_promotion_dry_run candidate_artifact_ok mismatch",
+        "champion_promotion_dry_run candidate_accepted mismatch",
+        "champion_promotion_dry_run read_only false",
+        "champion_promotion_dry_run would write champion",
+        "champion_promotion_dry_run would append history",
+        "champion_promotion_dry_run status mismatch",
+        "champion_promotion_dry_run eligible mismatch",
+        "champion_promotion_dry_run would_promote mismatch",
+        "champion_promotion_dry_run base run mismatch",
+        "champion_promotion_dry_run candidate run mismatch",
+        "champion_promotion_dry_run blocking reasons mismatch",
+        "champion_promotion_dry_run promotion command mismatch",
+        "champion_promotion_dry_run next actions mismatch",
+        "champion_promotion_dry_run policy false: does_not_write_champion_registry",
+        "champion_promotion_dry_run promotion authority mismatch",
+    ):
+        assert expected_error in promotion_consistency_errors
+    promotion_path.write_text(original_promotion_text, encoding="utf-8")
     assert manifest["champion_promotion_approval"]["path"] == (
         "champion_promotion_approval.json"
     )
@@ -5123,6 +5176,61 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         payload_path=run_dir / "champion_promotion_approval.json",
         repo_root=Path.cwd(),
     ) == ()
+    approval_path = run_dir / "champion_promotion_approval.json"
+    original_approval_text = approval_path.read_text(encoding="utf-8")
+    tampered_approval = json.loads(original_approval_text)
+    tampered_approval["ok"] = False
+    tampered_approval["run_id"] = "wrong"
+    tampered_approval["status"] = "ready_for_operator_review"
+    tampered_approval["operator_intent"]["approval_recorded"] = True
+    tampered_approval["operator_intent"][
+        "required_confirmation_phrase_hash"
+    ] = "wrong"
+    tampered_approval["reviewed_command"]["command_sha256"] = "wrong"
+    tampered_approval["reviewed_command"]["source_dry_run_sha256"] = "wrong"
+    tampered_approval["dry_run_summary"]["schema_version"] = "wrong"
+    tampered_approval["dry_run_summary"]["status"] = "wrong"
+    tampered_approval["dry_run_summary"]["ok"] = False
+    tampered_approval["dry_run_summary"]["would_promote"] = True
+    tampered_approval["dry_run_summary"]["blocking_reasons"] = []
+    tampered_approval["approval_gate"]["eligible_for_approval"] = True
+    tampered_approval["approval_gate"]["approval_blockers"] = []
+    tampered_approval["approval_gate"]["requires_operator_review"] = False
+    tampered_approval["recommended_next_actions"] = ["wrong"]
+    tampered_approval["evidence_files"][0]["sha256"] = "wrong"
+    tampered_approval["evidence_files"][0]["byte_count"] = 999
+    tampered_approval["policy"]["approval_does_not_promote"] = False
+    approval_path.write_text(
+        json.dumps(tampered_approval, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    approval_consistency_errors = validate_champion_promotion_approval_file(
+        payload_path=approval_path,
+        repo_root=Path.cwd(),
+    )
+    for expected_error in (
+        "champion_promotion_approval ok mismatch",
+        "champion_promotion_approval run id mismatch",
+        "champion_promotion_approval status mismatch",
+        "champion_promotion_approval required phrase hash mismatch",
+        "champion_promotion_approval recorded mismatch",
+        "champion_promotion_approval command digest mismatch",
+        "champion_promotion_approval dry-run digest mismatch",
+        "champion_promotion_approval dry-run schema mismatch",
+        "champion_promotion_approval dry-run status mismatch",
+        "champion_promotion_approval dry-run ok mismatch",
+        "champion_promotion_approval dry-run recommendation mismatch",
+        "champion_promotion_approval dry-run blockers mismatch",
+        "champion_promotion_approval eligibility mismatch",
+        "champion_promotion_approval blockers mismatch",
+        "champion_promotion_approval gate false: requires_operator_review",
+        "champion_promotion_approval next actions mismatch",
+        "champion_promotion_approval evidence digest mismatch",
+        "champion_promotion_approval evidence size mismatch",
+        "champion_promotion_approval policy false: approval_does_not_promote",
+    ):
+        assert expected_error in approval_consistency_errors
+    approval_path.write_text(original_approval_text, encoding="utf-8")
     assert manifest["run_closeout"]["path"] == "run_closeout.json"
     assert manifest["run_closeout"]["markdown_path"] == "run_closeout.md"
     assert manifest["run_closeout"]["ok"] is True

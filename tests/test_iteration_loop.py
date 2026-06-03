@@ -5731,6 +5731,30 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_validation["consistency_checks"]["checks"][
         "raw_output_matches_proposal"
     ] is True
+    validation_schema = json.loads(
+        (Path.cwd() / "schemas/agent_validation.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    missing_patch_diff = json.loads(json.dumps(agent_validation))
+    del missing_patch_diff["proposal"]["patch_diff"]
+    missing_patch_diff_errors = validate_json_payload(
+        payload=missing_patch_diff,
+        schema=validation_schema,
+    )
+    assert (
+        "$.proposal: missing required property patch_diff"
+        in missing_patch_diff_errors
+    )
+    extra_proposal_field = json.loads(json.dumps(agent_validation))
+    extra_proposal_field["proposal"]["unexpected_field"] = True
+    extra_proposal_field_errors = validate_json_payload(
+        payload=extra_proposal_field,
+        schema=validation_schema,
+    )
+    assert "$.proposal: unexpected property unexpected_field" in (
+        extra_proposal_field_errors
+    )
     assert agent_output_quarantine["schema_version"] == (
         AGENT_OUTPUT_QUARANTINE_SCHEMA_VERSION
     )

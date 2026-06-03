@@ -376,7 +376,11 @@ from orchestrator.patch_parser import (
     extract_unified_diff,
     validate_patch_targets,
 )
-from orchestrator.proposal import StrategyProposal, validate_proposal_contract
+from orchestrator.proposal import (
+    StrategyProposal,
+    build_proposal_semantic_report,
+    validate_proposal_contract,
+)
 from orchestrator.workspace_manager import (
     WORKSPACE_MANIFEST_SCHEMA_VERSION,
     create_isolated_workspace,
@@ -5763,6 +5767,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert agent_validation["failure_code"] == "none"
     assert agent_validation["reason_codes"] == []
+    assert agent_validation["semantic_checks"]["ok"] is True
+    assert agent_validation["semantic_checks"]["errors"] == []
+    assert all(agent_validation["semantic_checks"]["checks"].values())
     assert agent_validation["checks"]["contract_valid"] is True
     assert agent_validation["checks"]["git_apply_check"] == "passed"
     assert agent_validation["proposal_patch_sha256"] == proposal["patch_sha256"]
@@ -5777,6 +5784,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     ] is True
     assert agent_validation["consistency_checks"]["checks"][
         "raw_output_matches_proposal"
+    ] is True
+    assert agent_validation["consistency_checks"]["checks"][
+        "semantic_check_matches_contract_valid"
+    ] is True
+    assert agent_validation["consistency_checks"]["checks"][
+        "semantic_errors_match_report_contract_errors"
     ] is True
     validation_schema = json.loads(
         (Path.cwd() / "schemas/agent_validation.schema.json").read_text(
@@ -7136,8 +7149,17 @@ def test_proposal_contract_rejects_invalid_patch_target() -> None:
         expected_target_file=Path("strategies/current_strategy.py"),
         expected_round_index=1,
     )
+    semantic_report = build_proposal_semantic_report(
+        proposal=proposal,
+        expected_target_file=Path("strategies/current_strategy.py"),
+        expected_round_index=1,
+    )
 
     assert any("disallowed files" in error for error in errors)
+    assert semantic_report["ok"] is False
+    assert semantic_report["errors"] == list(errors)
+    assert semantic_report["checks"]["patch_targets_valid"] is False  # type: ignore[index]
+    assert semantic_report["checks"]["protocol_version_valid"] is True  # type: ignore[index]
 
 
 def test_iteration_loop_rejects_contract_invalid_proposal(
@@ -7202,6 +7224,19 @@ def test_iteration_loop_rejects_contract_invalid_proposal(
     assert manifest["rounds"][0]["proposal_contract_valid"] is False  # type: ignore[index]
     assert proposal["applicable"] is False
     assert proposal["contract_errors"]
+    agent_validation = json.loads(
+        (round_dir / "agent_validation.json").read_text(encoding="utf-8")
+    )
+    assert agent_validation["semantic_checks"]["ok"] is False
+    assert agent_validation["semantic_checks"]["errors"] == proposal["contract_errors"]
+    assert agent_validation["semantic_checks"]["checks"]["patch_targets_valid"] is False
+    assert agent_validation["consistency_checks"]["checks"][
+        "semantic_check_matches_contract_valid"
+    ] is True
+    assert agent_validation["consistency_checks"]["checks"][
+        "semantic_errors_match_report_contract_errors"
+    ] is True
+    assert_matches_schema(round_dir / "agent_validation.json", "agent_validation")
     assert quarantine["schema_version"] == AGENT_OUTPUT_QUARANTINE_SCHEMA_VERSION
     assert quarantine["release_to_apply"] is False
     assert quarantine["quarantine_status"] == "not_applicable"
@@ -7212,7 +7247,8 @@ def test_iteration_loop_rejects_contract_invalid_proposal(
     )
     assert attempts[0]["status"] == "contract_invalid"
     assert attempts[0]["contract_errors"] == proposal["contract_errors"]
-    assert decision["reasons"][0].startswith("proposal contract invalid")
+    assert decision["reasons"][0].startswith("agent output validation failed")
+    assert "disallowed files" in decision["reasons"][0]
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
@@ -9103,6 +9139,9 @@ def test_agent_output_intake_rejects_disallowed_patch(tmp_path: Path) -> None:
     assert report["ok"] is False
     assert report["failure_code"] == "contract_invalid"
     assert report["reason_codes"][0]["code"] == "contract_invalid"
+    assert report["semantic_checks"]["ok"] is False  # type: ignore[index]
+    assert report["semantic_checks"]["checks"]["patch_targets_valid"] is False  # type: ignore[index]
+    assert report["semantic_checks"]["errors"] == report["errors"]  # type: ignore[index]
     assert report["checks"]["strategy_only_patch"] is False  # type: ignore[index]
     assert any("disallowed files" in error for error in report["errors"])  # type: ignore[union-attr]
     assert_matches_schema(round_dir / "bad_agent_validation.json", "agent_validation")
@@ -14475,7 +14514,8 @@ print(json.dumps({
     ]
     assert proposal["rejection_reason"].startswith("proposal contract invalid")
     assert attempts[0]["status"] == "contract_invalid"
-    assert decision["reasons"][0].startswith("proposal contract invalid")
+    assert decision["reasons"][0].startswith("agent output validation failed")
+    assert "workspace modified disallowed file" in decision["reasons"][0]
     audit = json.loads(
         (
             round_dir / "agent_executions/attempt_001_primary.json"

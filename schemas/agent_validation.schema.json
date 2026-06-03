@@ -21,6 +21,7 @@
     "proposal_target_file",
     "proposal_direction_tag",
     "proposal_patch_sha256",
+    "semantic_checks",
     "checks",
     "consistency_checks",
     "proposal"
@@ -108,6 +109,9 @@
     "proposal_patch_sha256": {
       "type": "string"
     },
+    "semantic_checks": {
+      "$ref": "#/$defs/semantic_checks"
+    },
     "checks": {
       "type": "object",
       "required": [
@@ -177,6 +181,8 @@
             "patch_hash_matches_patch_diff",
             "raw_output_matches_proposal",
             "contract_check_matches_errors",
+            "semantic_check_matches_contract_valid",
+            "semantic_errors_match_report_contract_errors",
             "git_apply_error_matches_errors",
             "strategy_only_matches_contract_errors"
           ],
@@ -223,6 +229,12 @@
             "contract_check_matches_errors": {
               "type": "boolean"
             },
+            "semantic_check_matches_contract_valid": {
+              "type": "boolean"
+            },
+            "semantic_errors_match_report_contract_errors": {
+              "type": "boolean"
+            },
             "git_apply_error_matches_errors": {
               "type": "boolean"
             },
@@ -234,6 +246,106 @@
         },
         "blocking_reasons": {
           "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    },
+    "semantic_checks": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "ok",
+        "errors",
+        "checks"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "proposal_semantic_checks_v1"
+          ]
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "errors": {
+          "$ref": "#/$defs/string_array"
+        },
+        "checks": {
+          "type": "object",
+          "required": [
+            "preexisting_contract_errors_absent",
+            "protocol_version_valid",
+            "agent_name_present",
+            "round_index_matches_expected",
+            "target_file_matches_expected",
+            "target_file_relative",
+            "summary_present",
+            "risk_notes_present",
+            "raw_response_present",
+            "direction_tag_present",
+            "direction_tag_format_valid",
+            "applicable_patch_present",
+            "rejection_reason_present_when_not_applicable",
+            "patch_targets_valid",
+            "expected_metric_change_valid",
+            "hypotheses_valid",
+            "command_valid"
+          ],
+          "properties": {
+            "preexisting_contract_errors_absent": {
+              "type": "boolean"
+            },
+            "protocol_version_valid": {
+              "type": "boolean"
+            },
+            "agent_name_present": {
+              "type": "boolean"
+            },
+            "round_index_matches_expected": {
+              "type": "boolean"
+            },
+            "target_file_matches_expected": {
+              "type": "boolean"
+            },
+            "target_file_relative": {
+              "type": "boolean"
+            },
+            "summary_present": {
+              "type": "boolean"
+            },
+            "risk_notes_present": {
+              "type": "boolean"
+            },
+            "raw_response_present": {
+              "type": "boolean"
+            },
+            "direction_tag_present": {
+              "type": "boolean"
+            },
+            "direction_tag_format_valid": {
+              "type": "boolean"
+            },
+            "applicable_patch_present": {
+              "type": "boolean"
+            },
+            "rejection_reason_present_when_not_applicable": {
+              "type": "boolean"
+            },
+            "patch_targets_valid": {
+              "type": "boolean"
+            },
+            "expected_metric_change_valid": {
+              "type": "boolean"
+            },
+            "hypotheses_valid": {
+              "type": "boolean"
+            },
+            "command_valid": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

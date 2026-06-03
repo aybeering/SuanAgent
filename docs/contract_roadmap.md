@@ -306,9 +306,12 @@ Codex CLI readiness contracts:
     round-level agent input, the normalized proposal, patch hash, and validation
     result. `agent_output.json` and `agent_validation.json` both reuse
     `schemas/strategy_proposal.schema.json` for the shared strategy proposal
-    field shape. These checks can prove raw-output/proposal/input consistency,
-    but they cannot change validation pass/fail rules, git apply checks,
-    quarantine release rules, patch application, or acceptance.
+    field shape. `agent_validation.json` also records `semantic_checks`, a
+    structured deterministic breakdown of protocol, expected round, target,
+    metadata, and patch-target contract rules. These checks can prove
+    raw-output/proposal/input consistency and explain contract pass/fail, but
+    they cannot change git apply checks, quarantine release rules, patch
+    application, policy-gate results, holdout vetoes, or acceptance.
 25. Candidate quality breakdowns explain proposal ranking only. They bind the
     same score total and component metadata across executor, attempt, selection,
     routing, output, leaderboard, brief, and closeout artifacts, but they cannot

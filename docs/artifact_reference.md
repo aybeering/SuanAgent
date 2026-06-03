@@ -458,9 +458,11 @@ Proposal and intake artifacts:
 - `agent_validation.json` records contract, patch-target, `git apply` checks,
   and the proposal intent summary used by the validated agent input. It also
   records schema-validated consistency checks that bind the raw output,
-  normalized proposal fields, patch hash, and validation result. Its embedded
-  proposal uses the same shared strategy proposal schema, while semantic
-  pass/fail remains controlled by deterministic contract checks.
+  normalized proposal fields, patch hash, semantic checks, and validation
+  result. Its embedded proposal uses the same shared strategy proposal schema;
+  the `semantic_checks` object records deterministic protocol, target, metadata,
+  and patch-target rule results that control contract pass/fail before `git
+  apply` can run.
 - `agent_output_quarantine.json` records whether selected output is held or
   released before git apply, including the same proposal intent summary used by
   `agent_output.json`. It also records schema-validated consistency checks that

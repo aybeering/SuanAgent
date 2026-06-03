@@ -92,54 +92,112 @@ def validate_proposal_contract(
     expected_round_index: int,
 ) -> tuple[str, ...]:
     """Return deterministic schema/protocol errors for an agent proposal."""
+    report = build_proposal_semantic_report(
+        proposal=proposal,
+        expected_target_file=expected_target_file,
+        expected_round_index=expected_round_index,
+    )
+    return tuple(str(error) for error in report["errors"])
+
+
+def build_proposal_semantic_report(
+    *,
+    proposal: StrategyProposal,
+    expected_target_file: Path,
+    expected_round_index: int,
+) -> dict[str, object]:
+    """Return structured deterministic semantic checks for a proposal."""
     errors: list[str] = []
     expected_target = str(expected_target_file)
+    target_path = Path(proposal.target_file)
+    preexisting_errors = list(proposal.contract_errors)
+    checks: dict[str, bool] = {
+        "preexisting_contract_errors_absent": not preexisting_errors,
+        "protocol_version_valid": proposal.protocol_version == PROPOSAL_PROTOCOL_VERSION,
+        "agent_name_present": bool(proposal.agent_name.strip()),
+        "round_index_matches_expected": proposal.round_index == expected_round_index,
+        "target_file_matches_expected": proposal.target_file == expected_target,
+        "target_file_relative": (
+            not target_path.is_absolute() and ".." not in target_path.parts
+        ),
+        "summary_present": bool(proposal.summary.strip()),
+        "risk_notes_present": bool(proposal.risk_notes.strip()),
+        "raw_response_present": bool(proposal.raw_response.strip()),
+        "direction_tag_present": bool(proposal.direction_tag.strip()),
+        "direction_tag_format_valid": (
+            bool(proposal.direction_tag.strip())
+            and DIRECTION_TAG_PATTERN.fullmatch(proposal.direction_tag) is not None
+        ),
+        "applicable_patch_present": (
+            not proposal.applicable or bool(proposal.patch_diff.strip())
+        ),
+        "rejection_reason_present_when_not_applicable": (
+            proposal.applicable or bool(proposal.rejection_reason.strip())
+        ),
+        "patch_targets_valid": True,
+    }
 
-    if proposal.protocol_version != PROPOSAL_PROTOCOL_VERSION:
+    if not checks["protocol_version_valid"]:
         errors.append(
             f"protocol_version must be {PROPOSAL_PROTOCOL_VERSION}, "
             f"got {proposal.protocol_version or 'empty'}"
         )
-    if not proposal.agent_name.strip():
+    if not checks["agent_name_present"]:
         errors.append("agent_name must be non-empty")
-    if proposal.round_index != expected_round_index:
+    if not checks["round_index_matches_expected"]:
         errors.append(
             f"round_index must be {expected_round_index}, got {proposal.round_index}"
         )
-    if proposal.target_file != expected_target:
+    if not checks["target_file_matches_expected"]:
         errors.append(f"target_file must be {expected_target}, got {proposal.target_file}")
-    if Path(proposal.target_file).is_absolute() or ".." in Path(proposal.target_file).parts:
+    if not checks["target_file_relative"]:
         errors.append("target_file must be a relative path inside the repository")
-    if not proposal.summary.strip():
+    if not checks["summary_present"]:
         errors.append("summary must be non-empty")
-    if not proposal.risk_notes.strip():
+    if not checks["risk_notes_present"]:
         errors.append("risk_notes must be non-empty")
-    if not proposal.raw_response.strip():
+    if not checks["raw_response_present"]:
         errors.append("raw_response must be non-empty")
-    if not proposal.direction_tag.strip():
+    if not checks["direction_tag_present"]:
         errors.append("direction_tag must be non-empty")
-    elif DIRECTION_TAG_PATTERN.fullmatch(proposal.direction_tag) is None:
+    elif not checks["direction_tag_format_valid"]:
         errors.append(
             "direction_tag must match [a-z][a-z0-9_]{1,63}: "
             f"{proposal.direction_tag}"
         )
 
-    errors.extend(validate_expected_metric_change(proposal.expected_metric_change))
-    errors.extend(validate_hypotheses(proposal.hypotheses))
-    errors.extend(validate_command(proposal.command))
+    metric_errors = validate_expected_metric_change(proposal.expected_metric_change)
+    checks["expected_metric_change_valid"] = not metric_errors
+    errors.extend(metric_errors)
+    hypothesis_errors = validate_hypotheses(proposal.hypotheses)
+    checks["hypotheses_valid"] = not hypothesis_errors
+    errors.extend(hypothesis_errors)
+    command_errors = validate_command(proposal.command)
+    checks["command_valid"] = not command_errors
+    errors.extend(command_errors)
 
-    if proposal.applicable:
-        if not proposal.patch_diff.strip():
-            errors.append("applicable proposals must include patch_diff")
-        else:
-            try:
-                validate_patch_targets(proposal.patch_diff, expected_target_file)
-            except PatchParseError as exc:
-                errors.append(f"patch_diff target validation failed: {exc}")
-    elif not proposal.rejection_reason.strip():
+    if proposal.patch_diff.strip():
+        try:
+            validate_patch_targets(proposal.patch_diff, expected_target_file)
+        except PatchParseError as exc:
+            checks["patch_targets_valid"] = False
+            errors.append(f"patch_diff target validation failed: {exc}")
+    if proposal.applicable and not checks["applicable_patch_present"]:
+        checks["patch_targets_valid"] = False
+        errors.append("applicable proposals must include patch_diff")
+    elif not proposal.applicable and not checks["rejection_reason_present_when_not_applicable"]:
         errors.append("non-applicable proposals must include rejection_reason")
 
-    return tuple(errors)
+    for error in preexisting_errors:
+        if error not in errors:
+            errors.append(error)
+
+    return {
+        "schema_version": "proposal_semantic_checks_v1",
+        "ok": not errors,
+        "errors": errors,
+        "checks": checks,
+    }
 
 
 def reject_invalid_proposal(

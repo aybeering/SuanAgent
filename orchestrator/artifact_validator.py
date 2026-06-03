@@ -2194,7 +2194,9 @@ def recompute_agent_validation_consistency_checks(
     """Recompute agent_validation consistency checks from saved sources."""
     proposal = object_value(payload.get("proposal", {}))
     checks = object_value(payload.get("checks", {}))
+    semantic_checks = object_value(payload.get("semantic_checks", {}))
     errors = string_list(payload.get("errors", []))
+    semantic_errors = string_list(semantic_checks.get("errors", []))
     raw_output = read_optional_text(
         resolve_path(Path(str(payload.get("agent_output_path", ""))), repo_root)
     )
@@ -2259,6 +2261,13 @@ def recompute_agent_validation_consistency_checks(
         "contract_check_matches_errors": (
             bool(checks.get("contract_valid", False))
             == (not bool(agent_validation_contract_errors(errors)))
+        ),
+        "semantic_check_matches_contract_valid": (
+            bool(semantic_checks.get("ok", False))
+            == bool(checks.get("contract_valid", False))
+        ),
+        "semantic_errors_match_report_contract_errors": (
+            semantic_errors == agent_validation_contract_errors(errors)
         ),
         "git_apply_error_matches_errors": (
             not str(checks.get("git_apply_error", ""))

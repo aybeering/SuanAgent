@@ -21,8 +21,8 @@ from orchestrator.patch_parser import (
 from orchestrator.proposal import (
     PROPOSAL_PROTOCOL_VERSION,
     StrategyProposal,
+    build_proposal_semantic_report,
     sha256_text,
-    validate_proposal_contract,
 )
 
 
@@ -78,11 +78,12 @@ def validate_agent_proposal(
         agent_input.get("proposal_intent_summary", {})
     )
     normalized_proposal = proposal_with_patch_hash(proposal)
-    contract_errors = validate_proposal_contract(
+    semantic_checks = build_proposal_semantic_report(
         proposal=normalized_proposal,
         expected_target_file=expected_target,
         expected_round_index=expected_round_index,
     )
+    contract_errors = tuple(str(error) for error in semantic_checks["errors"])
     git_apply_status = "skipped"
     git_apply_error = ""
     if normalized_proposal.applicable and not contract_errors and check_git_apply:
@@ -116,6 +117,7 @@ def validate_agent_proposal(
         "proposal_target_file": normalized_proposal.target_file,
         "proposal_direction_tag": normalized_proposal.direction_tag,
         "proposal_patch_sha256": normalized_proposal.patch_sha256,
+        "semantic_checks": semantic_checks,
         "checks": {
             "contract_valid": not contract_errors,
             "git_apply_check": git_apply_status,
@@ -150,7 +152,9 @@ def agent_validation_consistency_checks(
     """Return deterministic self-checks for the validation report."""
     proposal_payload = dict_or_empty(report.get("proposal", {}))
     checks_payload = dict_or_empty(report.get("checks", {}))
+    semantic_payload = dict_or_empty(report.get("semantic_checks", {}))
     errors = string_list(report.get("errors", []))
+    semantic_errors = string_list(semantic_payload.get("errors", []))
     raw_output = read_text_or_empty(agent_output_path)
     patch_sha256 = str(report.get("proposal_patch_sha256", ""))
     patch_diff = str(proposal_payload.get("patch_diff", ""))
@@ -213,6 +217,13 @@ def agent_validation_consistency_checks(
         "contract_check_matches_errors": (
             bool(checks_payload.get("contract_valid", False))
             == (not bool(contract_error_rows(errors)))
+        ),
+        "semantic_check_matches_contract_valid": (
+            bool(semantic_payload.get("ok", False))
+            == bool(checks_payload.get("contract_valid", False))
+        ),
+        "semantic_errors_match_report_contract_errors": (
+            semantic_errors == contract_error_rows(errors)
         ),
         "git_apply_error_matches_errors": (
             not str(checks_payload.get("git_apply_error", ""))

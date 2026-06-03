@@ -203,7 +203,9 @@ primary focus, blocker count, primary blocker, blocker preview, refresh-effect
 status, operator-review-required flag, primary review reason codes,
 before/after blocker delta counts, and the review-priority recommended next
 command with its source marker and reason, plus a compact safety-policy
-summary.
+summary. The terminal receipt is checked with schema validation plus
+deterministic consistency checks for the copied next-command and review-reason
+summary fields before anything is printed.
 
 Record operator review intent:
 

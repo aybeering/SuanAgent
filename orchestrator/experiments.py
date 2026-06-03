@@ -1642,7 +1642,50 @@ def validate_operator_view_refresh_payload(
 ) -> tuple[str, ...]:
     """Validate an in-memory operator view refresh receipt payload."""
     schema = load_schema(repo_root / OPERATOR_VIEW_REFRESH_SCHEMA_PATH)
-    return validate_json_payload(payload=payload, schema=schema)
+    errors = list(validate_json_payload(payload=payload, schema=schema))
+    errors.extend(validate_operator_view_refresh_consistency(payload))
+    return tuple(errors)
+
+
+def validate_operator_view_refresh_consistency(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate derived refresh summaries remain internally consistent."""
+    def int_value(value: object, default: int = -1) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    errors: list[str] = []
+    operator_summary = dict_payload(payload.get("operator_summary", {}))
+    review_summary = dict_payload(payload.get("review_summary", {}))
+    for key in (
+        "next_command_source",
+        "next_command_label",
+        "next_command",
+        "next_command_reason",
+    ):
+        if str(operator_summary.get(key, "")) != str(review_summary.get(key, "")):
+            errors.append(f"operator_view_refresh review_summary {key} mismatch")
+
+    reason_codes = string_payload(review_summary.get("reason_codes", []))
+    reason_count = int_value(review_summary.get("reason_count", -1))
+    if reason_count != len(reason_codes):
+        errors.append("operator_view_refresh review_summary reason_count mismatch")
+    primary_reason = str(review_summary.get("primary_reason", ""))
+    expected_primary_reason = reason_codes[0] if reason_codes else ""
+    if primary_reason != expected_primary_reason:
+        errors.append("operator_view_refresh review_summary primary_reason mismatch")
+
+    refresh_effect = dict_payload(payload.get("refresh_effect", {}))
+    effect_blocker_count = int_value(refresh_effect.get("post_blocker_count", -1))
+    review_blocker_count = int_value(review_summary.get("post_blocker_count", -1))
+    if effect_blocker_count != review_blocker_count:
+        errors.append(
+            "operator_view_refresh review_summary post_blocker_count mismatch"
+        )
+    return tuple(errors)
 
 
 def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:

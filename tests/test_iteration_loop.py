@@ -3205,16 +3205,18 @@ def test_operator_view_refresh_review_summary_prioritizes_safety() -> None:
     }
 
 
-def test_operator_view_refresh_payload_schema_rejects_missing_review_summary(
-    tmp_path: Path,
-) -> None:
+def _copy_operator_view_refresh_schema(tmp_path: Path) -> None:
     schema_dir = tmp_path / "schemas"
     schema_dir.mkdir()
     shutil.copyfile(
-        Path(__file__).resolve().parents[1] / "schemas/operator_view_refresh.schema.json",
+        Path(__file__).resolve().parents[1]
+        / "schemas/operator_view_refresh.schema.json",
         schema_dir / "operator_view_refresh.schema.json",
     )
-    payload = {
+
+
+def _minimal_operator_view_refresh_payload() -> dict[str, object]:
+    return {
         "schema_version": "operator_view_refresh_v1",
         "run_id": "run",
         "run_dir": "experiments/run",
@@ -3234,7 +3236,9 @@ def test_operator_view_refresh_payload_schema_rejects_missing_review_summary(
             "ok": True,
             "stale_count": 0,
             "stale_sources": [],
-            "recommended_command": "python -m orchestrator.experiments refresh-operator-views run",
+            "recommended_command": (
+                "python -m orchestrator.experiments refresh-operator-views run"
+            ),
         },
         "refreshed_count": 0,
         "refreshed_artifacts": [],
@@ -3247,7 +3251,9 @@ def test_operator_view_refresh_payload_schema_rejects_missing_review_summary(
             "blocker_preview": [],
             "next_command_source": "review_priority",
             "next_command_label": "review_cockpit",
-            "next_command": "python -m orchestrator.experiments cockpit run --markdown",
+            "next_command": (
+                "python -m orchestrator.experiments cockpit run --markdown"
+            ),
             "next_command_reason": "Review this read-only cockpit.",
         },
         "blocker_delta": {
@@ -3269,8 +3275,23 @@ def test_operator_view_refresh_payload_schema_rejects_missing_review_summary(
             "stale_sources_fixed": False,
             "blockers_changed": False,
             "safety_policy_ok": True,
-            "operator_review_required": False,
+            "operator_review_required": True,
             "post_blocker_count": 0,
+        },
+        "review_summary": {
+            "schema_version": "operator_view_refresh_review_summary_v1",
+            "required": True,
+            "primary_reason": "blockers_present",
+            "reason_count": 1,
+            "reason_codes": ["blockers_present"],
+            "primary_blocker": "",
+            "post_blocker_count": 0,
+            "next_command_source": "review_priority",
+            "next_command_label": "review_cockpit",
+            "next_command": (
+                "python -m orchestrator.experiments cockpit run --markdown"
+            ),
+            "next_command_reason": "Review this read-only cockpit.",
         },
         "cockpit_snapshot_freshness": {
             "schema_version": "operator_cockpit_snapshot_freshness_v1",
@@ -3278,7 +3299,9 @@ def test_operator_view_refresh_payload_schema_rejects_missing_review_summary(
             "ok": True,
             "stale_count": 0,
             "stale_sources": [],
-            "recommended_command": "python -m orchestrator.experiments refresh-operator-views run",
+            "recommended_command": (
+                "python -m orchestrator.experiments refresh-operator-views run"
+            ),
         },
         "policy": {"does_not_execute_agents": True},
         "policy_summary": {
@@ -3289,9 +3312,46 @@ def test_operator_view_refresh_payload_schema_rejects_missing_review_summary(
         },
     }
 
+
+def test_operator_view_refresh_payload_schema_rejects_missing_review_summary(
+    tmp_path: Path,
+) -> None:
+    _copy_operator_view_refresh_schema(tmp_path)
+    payload = _minimal_operator_view_refresh_payload()
+    payload.pop("review_summary")
+
     errors = validate_operator_view_refresh_payload(payload, repo_root=tmp_path)
 
     assert "$: missing required property review_summary" in errors
+
+
+def test_operator_view_refresh_payload_validation_reports_summary_drift(
+    tmp_path: Path,
+) -> None:
+    _copy_operator_view_refresh_schema(tmp_path)
+    payload = _minimal_operator_view_refresh_payload()
+
+    assert validate_operator_view_refresh_payload(payload, repo_root=tmp_path) == ()
+
+    review_summary = payload["review_summary"]
+    assert isinstance(review_summary, dict)
+    review_summary["next_command_label"] = "review_action_dashboard"
+    review_summary["reason_count"] = 2
+    review_summary["primary_reason"] = "stale_sources_fixed"
+    review_summary["post_blocker_count"] = 1
+
+    errors = validate_operator_view_refresh_payload(payload, repo_root=tmp_path)
+
+    assert (
+        "operator_view_refresh review_summary next_command_label mismatch"
+        in errors
+    )
+    assert "operator_view_refresh review_summary reason_count mismatch" in errors
+    assert "operator_view_refresh review_summary primary_reason mismatch" in errors
+    assert (
+        "operator_view_refresh review_summary post_blocker_count mismatch"
+        in errors
+    )
 
 
 def test_config_application_receipt_applies_only_from_approved_dry_run(

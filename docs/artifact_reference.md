@@ -382,8 +382,10 @@ per-artifact JSON/Markdown output hashes, and still does not execute commands,
 execute Codex, run agents, run backtests, write config, promote champions,
 apply patches, route agents, or change acceptance.
 The receipt is validated in memory against
-`schemas/operator_view_refresh.schema.json` before it is printed, even though it
-is not written as a new artifact family.
+`schemas/operator_view_refresh.schema.json` before it is printed, with an
+additional deterministic consistency check for the copied review-summary next
+command, reason count, primary reason, and post-refresh blocker count fields,
+even though it is not written as a new artifact family.
 Add `--markdown` to render the same terminal-only receipt as a compact operator
 summary with refreshed artifact paths, hash prefixes, config provenance,
 pre-refresh stale sources, and post-refresh snapshot freshness. The receipt

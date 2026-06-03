@@ -233,7 +233,9 @@ run has an iteration diagnosis. It is inspection-only and does not execute
 agents, run backtests, apply patches, promote champions, or change acceptance.
 The embedded dashboard is validated in memory against
 `schemas/experiment_summary_dashboard.schema.json` before JSON or markdown is
-printed.
+printed, with deterministic consistency checks for recent failure/outcome
+counts, top recent code/category fields, latest accepted/rejected status
+summaries, and watchlist alert counts, severity counts, and status.
 `python -m orchestrator.experiments summary --markdown` renders the same
 summary payload, including the watchlist, as a compact terminal-friendly
 Markdown report without writing artifacts.

@@ -15172,6 +15172,133 @@ def test_experiment_summary_dashboard_schema_rejects_missing_watchlist() -> None
     assert "$: missing required property watchlist" in errors
 
 
+def _minimal_experiment_summary_dashboard_payload() -> dict[str, object]:
+    return {
+        "schema_version": "experiment_summary_dashboard_v1",
+        "total_runs": 1,
+        "recent_limit": 5,
+        "latest_run": {
+            "run_id": "run-001",
+            "kind": "iteration_loop",
+            "status": "rejected",
+            "created_at": "2026-01-01T00:00:00Z",
+        },
+        "latest_accepted_run": None,
+        "latest_rejected_run": {
+            "run_id": "run-001",
+            "kind": "iteration_loop",
+            "status": "rejected",
+            "created_at": "2026-01-01T00:00:00Z",
+        },
+        "recent_runs": [
+            {
+                "run_id": "run-001",
+                "kind": "iteration_loop",
+                "status": "rejected",
+                "artifact_ok": True,
+                "accepted": False,
+                "validation_ev_delta": 0.0,
+                "best_round": "round_001",
+                "accepted_round": None,
+                "completed_rounds": 1,
+                "stop_reason": "policy rejected",
+                "failure_code": "policy_ev_improvement_low",
+                "failure_stage": "policy_gate",
+                "outcome_category": "policy_reject",
+                "outcome_primary_code": "policy_ev_improvement_low",
+                "outcome_primary_stage": "policy_gate",
+                "selected_direction_tag": "lower_min_edge",
+                "summary": "Rejected by deterministic policy gate.",
+            },
+        ],
+        "recent_failure_codes": {"policy_ev_improvement_low": 1},
+        "top_recent_failure_code": "policy_ev_improvement_low",
+        "recent_outcome_categories": {"policy_reject": 1},
+        "top_recent_outcome_category": "policy_reject",
+        "champion_gap": {
+            "active": False,
+            "status": "no_champion",
+            "champion_run_id": "",
+            "comparison_run_id": "run-001",
+            "gap_to_champion": None,
+        },
+        "watchlist": {
+            "schema_version": "experiment_watchlist_v1",
+            "status": "informational",
+            "alert_count": 1,
+            "severity_counts": {
+                "critical": 0,
+                "warning": 0,
+                "info": 1,
+            },
+            "alerts": [
+                {
+                    "severity": "info",
+                    "code": "no_accepted_run_indexed",
+                    "title": "No accepted run indexed yet",
+                    "detail": (
+                        "The current experiment history has not recorded "
+                        "an accepted run."
+                    ),
+                    "run_id": "",
+                },
+            ],
+            "policy": {
+                "inspection_only": True,
+                "does_not_execute_agents": True,
+                "does_not_run_backtests": True,
+                "does_not_apply_patches": True,
+                "does_not_change_acceptance": True,
+            },
+        },
+        "policy": {
+            "inspection_only": True,
+            "reads_saved_artifacts_only": True,
+            "does_not_execute_agents": True,
+            "does_not_run_backtests": True,
+            "does_not_apply_patches": True,
+            "does_not_promote_champion": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+
+def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None:
+    payload = _minimal_experiment_summary_dashboard_payload()
+
+    assert validate_experiment_summary_dashboard_payload(
+        payload,
+        repo_root=Path(__file__).resolve().parents[1],
+    ) == ()
+
+    payload["recent_failure_codes"] = {"other_failure": 1}
+    payload["top_recent_failure_code"] = "other_failure"
+    payload["recent_outcome_categories"] = {"other_category": 1}
+    payload["top_recent_outcome_category"] = "other_category"
+    latest_rejected = payload["latest_rejected_run"]
+    watchlist = payload["watchlist"]
+    assert isinstance(latest_rejected, dict)
+    assert isinstance(watchlist, dict)
+    latest_rejected["status"] = "accepted"
+    watchlist["alert_count"] = 2
+    watchlist["severity_counts"] = {"critical": 1, "warning": 0, "info": 0}
+    watchlist["status"] = "critical"
+
+    errors = validate_experiment_summary_dashboard_payload(
+        payload,
+        repo_root=Path(__file__).resolve().parents[1],
+    )
+
+    assert "experiment_summary_dashboard recent_failure_codes mismatch" in errors
+    assert "experiment_summary_dashboard top_recent_failure_code mismatch" in errors
+    assert "experiment_summary_dashboard recent_outcome_categories mismatch" in errors
+    assert "experiment_summary_dashboard top_recent_outcome_category mismatch" in errors
+    assert "experiment_summary_dashboard latest_rejected_run status mismatch" in errors
+    assert "experiment_summary_dashboard watchlist alert_count mismatch" in errors
+    assert "experiment_summary_dashboard watchlist severity_counts mismatch" in errors
+    assert "experiment_summary_dashboard watchlist status mismatch" in errors
+
+
 def test_operator_run_review_schema_rejects_missing_dashboard() -> None:
     payload = {
         "schema_version": "operator_run_review_v1",

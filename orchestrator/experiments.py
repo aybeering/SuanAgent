@@ -237,7 +237,98 @@ def validate_experiment_summary_dashboard_payload(
 ) -> tuple[str, ...]:
     """Validate an in-memory experiment summary dashboard payload."""
     schema = load_schema(repo_root / EXPERIMENT_SUMMARY_DASHBOARD_SCHEMA_PATH)
-    return validate_json_payload(payload=payload, schema=schema)
+    errors = list(validate_json_payload(payload=payload, schema=schema))
+    errors.extend(validate_experiment_summary_dashboard_consistency(payload))
+    return tuple(errors)
+
+
+def validate_experiment_summary_dashboard_consistency(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate derived dashboard counters and copied summary fields."""
+    errors: list[str] = []
+    recent_runs = list_payload(payload.get("recent_runs", []))
+    recent_limit = int_value(payload.get("recent_limit", 0))
+    total_runs = int_value(payload.get("total_runs", 0))
+    if len(recent_runs) > max(recent_limit, 0):
+        errors.append("experiment_summary_dashboard recent_runs exceeds recent_limit")
+    if len(recent_runs) > total_runs:
+        errors.append("experiment_summary_dashboard recent_runs exceeds total_runs")
+
+    failure_counts = Counter(
+        str(row.get("failure_code", ""))
+        for row in recent_runs
+        if str(row.get("failure_code", "")) not in {"", "none"}
+    )
+    if dict(sorted(failure_counts.items())) != int_mapping_payload(
+        payload.get("recent_failure_codes", {})
+    ):
+        errors.append("experiment_summary_dashboard recent_failure_codes mismatch")
+    if str(payload.get("top_recent_failure_code", "")) != top_counter_key(
+        failure_counts,
+    ):
+        errors.append("experiment_summary_dashboard top_recent_failure_code mismatch")
+
+    outcome_counts = Counter(
+        str(row.get("outcome_category", ""))
+        for row in recent_runs
+        if str(row.get("outcome_category", ""))
+    )
+    if dict(sorted(outcome_counts.items())) != int_mapping_payload(
+        payload.get("recent_outcome_categories", {})
+    ):
+        errors.append("experiment_summary_dashboard recent_outcome_categories mismatch")
+    if str(payload.get("top_recent_outcome_category", "")) != top_counter_key(
+        outcome_counts,
+    ):
+        errors.append(
+            "experiment_summary_dashboard top_recent_outcome_category mismatch"
+        )
+
+    latest_accepted = dict_or_none_payload(payload.get("latest_accepted_run"))
+    if latest_accepted is not None and latest_accepted.get("status") != "accepted":
+        errors.append("experiment_summary_dashboard latest_accepted_run status mismatch")
+    latest_rejected = dict_or_none_payload(payload.get("latest_rejected_run"))
+    if latest_rejected is not None and latest_rejected.get("status") != "rejected":
+        errors.append("experiment_summary_dashboard latest_rejected_run status mismatch")
+
+    watchlist = dict_payload(payload.get("watchlist", {}))
+    alerts = list_payload(watchlist.get("alerts", []))
+    expected_severity_counts = severity_counts(alerts)
+    if int_value(watchlist.get("alert_count", -1)) != len(alerts):
+        errors.append("experiment_summary_dashboard watchlist alert_count mismatch")
+    if dict_payload(watchlist.get("severity_counts", {})) != expected_severity_counts:
+        errors.append(
+            "experiment_summary_dashboard watchlist severity_counts mismatch"
+        )
+    if str(watchlist.get("status", "")) != watchlist_status(alerts):
+        errors.append("experiment_summary_dashboard watchlist status mismatch")
+    return tuple(errors)
+
+
+def int_value(value: object, default: int = -1) -> int:
+    """Return an int for validation without raising on malformed payloads."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def int_mapping_payload(value: object) -> dict[str, int]:
+    """Return a stable string-to-int mapping for validator comparisons."""
+    if not isinstance(value, dict):
+        return {}
+    result: dict[str, int] = {}
+    for key, row_value in value.items():
+        result[str(key)] = int_value(row_value)
+    return dict(sorted(result.items()))
+
+
+def dict_or_none_payload(value: object) -> dict[str, object] | None:
+    """Return an object payload or None for optional object fields."""
+    if value is None:
+        return None
+    return value if isinstance(value, dict) else {}
 
 
 def diagnose_record(

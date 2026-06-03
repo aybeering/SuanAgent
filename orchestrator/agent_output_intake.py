@@ -11,6 +11,7 @@ from typing import Any
 from orchestrator.failure_taxonomy import (
     agent_validation_reason_codes,
     attach_failure_metadata,
+    primary_failure,
 )
 from orchestrator.git_manager import GitError, check_patch
 from orchestrator.patch_parser import (
@@ -101,6 +102,15 @@ def validate_agent_proposal(
     errors = list(contract_errors)
     if git_apply_error:
         errors.append(f"git apply check failed: {git_apply_error}")
+    reason_codes = agent_validation_reason_codes(
+        contract_errors=contract_errors,
+        git_apply_error=git_apply_error,
+    )
+    intake_diagnosis = build_agent_intake_diagnosis(
+        reason_codes=reason_codes,
+        errors=errors,
+        git_apply_status=git_apply_status,
+    )
 
     report: dict[str, object] = attach_failure_metadata({
         "schema_version": AGENT_VALIDATION_SCHEMA_VERSION,
@@ -118,6 +128,7 @@ def validate_agent_proposal(
         "proposal_direction_tag": normalized_proposal.direction_tag,
         "proposal_patch_sha256": normalized_proposal.patch_sha256,
         "semantic_checks": semantic_checks,
+        "intake_diagnosis": intake_diagnosis,
         "checks": {
             "contract_valid": not contract_errors,
             "git_apply_check": git_apply_status,
@@ -128,10 +139,7 @@ def validate_agent_proposal(
             ),
         },
         "proposal": normalized_proposal.to_dict(),
-    }, agent_validation_reason_codes(
-        contract_errors=contract_errors,
-        git_apply_error=git_apply_error,
-    ))
+    }, reason_codes)
     report["consistency_checks"] = agent_validation_consistency_checks(
         report=report,
         agent_input=agent_input,
@@ -153,8 +161,10 @@ def agent_validation_consistency_checks(
     proposal_payload = dict_or_empty(report.get("proposal", {}))
     checks_payload = dict_or_empty(report.get("checks", {}))
     semantic_payload = dict_or_empty(report.get("semantic_checks", {}))
+    diagnosis_payload = dict_or_empty(report.get("intake_diagnosis", {}))
     errors = string_list(report.get("errors", []))
     semantic_errors = string_list(semantic_payload.get("errors", []))
+    reason_codes = reason_code_rows(report.get("reason_codes", []))
     raw_output = read_text_or_empty(agent_output_path)
     patch_sha256 = str(report.get("proposal_patch_sha256", ""))
     patch_diff = str(proposal_payload.get("patch_diff", ""))
@@ -225,6 +235,18 @@ def agent_validation_consistency_checks(
         "semantic_errors_match_report_contract_errors": (
             semantic_errors == contract_error_rows(errors)
         ),
+        "intake_diagnosis_matches_failure_metadata": (
+            str(diagnosis_payload.get("primary_stage", ""))
+            == str(report.get("failure_stage", ""))
+            and str(diagnosis_payload.get("primary_code", ""))
+            == str(report.get("failure_code", ""))
+            and str(diagnosis_payload.get("primary_message", ""))
+            == str(report.get("failure_message", ""))
+        ),
+        "intake_diagnosis_codes_match_reason_codes": (
+            string_list(diagnosis_payload.get("blocking_codes", []))
+            == [row["code"] for row in reason_codes]
+        ),
         "git_apply_error_matches_errors": (
             not str(checks_payload.get("git_apply_error", ""))
             or any(error.startswith("git apply check failed:") for error in errors)
@@ -248,6 +270,35 @@ def agent_validation_consistency_checks(
         "proposal_patch_sha256": patch_sha256,
         "checks": checks,
         "blocking_reasons": blocking_reasons,
+    }
+
+
+def build_agent_intake_diagnosis(
+    *,
+    reason_codes: list[dict[str, str]],
+    errors: list[str],
+    git_apply_status: str,
+) -> dict[str, object]:
+    """Return a compact stable diagnosis for raw agent-output intake."""
+    failure = primary_failure(reason_codes)
+    blocking_codes = [
+        str(row.get("code", ""))
+        for row in reason_codes
+        if str(row.get("code", "")) and str(row.get("code", "")) != "none"
+    ]
+    retryable_codes = {
+        "patch_check_failed",
+    }
+    return {
+        "schema_version": "agent_intake_diagnosis_v1",
+        "status": "passed" if not errors else "blocked",
+        "primary_stage": failure["stage"],
+        "primary_code": failure["code"],
+        "primary_message": failure["message"],
+        "blocking_codes": blocking_codes,
+        "blocking_count": len(blocking_codes),
+        "retryable": any(code in retryable_codes for code in blocking_codes),
+        "git_apply_status": git_apply_status,
     }
 
 
@@ -383,6 +434,22 @@ def string_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value]
+
+
+def reason_code_rows(value: object) -> list[dict[str, str]]:
+    """Return valid reason-code rows from a JSON-like value."""
+    if not isinstance(value, list):
+        return []
+    rows: list[dict[str, str]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        rows.append({
+            "stage": str(item.get("stage", "")),
+            "code": str(item.get("code", "")),
+            "message": str(item.get("message", "")),
+        })
+    return rows
 
 
 def read_text_or_empty(path: Path | None) -> str:

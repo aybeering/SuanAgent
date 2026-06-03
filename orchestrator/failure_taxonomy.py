@@ -231,14 +231,9 @@ def agent_validation_reason_codes(
 ) -> list[dict[str, str]]:
     """Classify deterministic raw-agent validation failures."""
     reasons: list[dict[str, str]] = []
-    if contract_errors:
-        reasons.append(
-            reason_code(
-                stage="contract",
-                code="contract_invalid",
-                message="; ".join(contract_errors),
-            )
-        )
+    reasons.extend(
+        agent_validation_contract_reason_codes(contract_errors=contract_errors)
+    )
     if git_apply_error:
         reasons.append(
             reason_code(
@@ -248,6 +243,111 @@ def agent_validation_reason_codes(
             )
         )
     return reasons
+
+
+def agent_validation_contract_reason_codes(
+    *,
+    contract_errors: tuple[str, ...],
+) -> list[dict[str, str]]:
+    """Classify proposal contract errors into stable intake reason codes."""
+    rows: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for error in contract_errors:
+        row = classify_agent_validation_contract_error(str(error))
+        key = (row["stage"], row["code"], row["message"])
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append(row)
+    return rows
+
+
+def classify_agent_validation_contract_error(error: str) -> dict[str, str]:
+    """Return one stable reason code for a proposal contract error string."""
+    normalized = error.lower()
+    if "workspace modified disallowed file" in normalized:
+        return reason_code(
+            stage="workspace",
+            code="workspace_mutation_detected",
+            message=error,
+        )
+    if "patch_diff target validation failed" in normalized:
+        return reason_code(
+            stage="contract",
+            code="patch_target_invalid",
+            message=error,
+        )
+    if "must include patch_diff" in normalized or "did not include a patch" in normalized:
+        return reason_code(
+            stage="proposal",
+            code="patch_missing",
+            message=error,
+        )
+    if normalized.startswith("protocol_version"):
+        return reason_code(
+            stage="protocol",
+            code="protocol_version_invalid",
+            message=error,
+        )
+    if normalized.startswith("round_index"):
+        return reason_code(
+            stage="contract",
+            code="round_index_mismatch",
+            message=error,
+        )
+    if normalized.startswith("target_file must be"):
+        return reason_code(
+            stage="contract",
+            code="target_file_invalid",
+            message=error,
+        )
+    if normalized.startswith("summary") or normalized.startswith("risk_notes"):
+        return reason_code(
+            stage="metadata",
+            code="proposal_metadata_missing",
+            message=error,
+        )
+    if normalized.startswith("raw_response"):
+        return reason_code(
+            stage="metadata",
+            code="raw_response_missing",
+            message=error,
+        )
+    if normalized.startswith("direction_tag"):
+        return reason_code(
+            stage="metadata",
+            code="direction_tag_invalid",
+            message=error,
+        )
+    if normalized.startswith("expected_metric_change"):
+        return reason_code(
+            stage="metadata",
+            code="expected_metric_change_invalid",
+            message=error,
+        )
+    if normalized.startswith("hypotheses"):
+        return reason_code(
+            stage="metadata",
+            code="hypotheses_invalid",
+            message=error,
+        )
+    if normalized.startswith("command"):
+        return reason_code(
+            stage="metadata",
+            code="command_invalid",
+            message=error,
+        )
+    if normalized.startswith("non-applicable proposals"):
+        return reason_code(
+            stage="proposal",
+            code="rejection_reason_missing",
+            message=error,
+        )
+    return reason_code(
+        stage="contract",
+        code="contract_invalid",
+        message=error,
+    )
 
 
 def apply_error_reason_code(apply_error: str) -> dict[str, str]:

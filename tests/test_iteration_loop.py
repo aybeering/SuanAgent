@@ -5767,6 +5767,11 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert agent_validation["failure_code"] == "none"
     assert agent_validation["reason_codes"] == []
+    assert agent_validation["intake_diagnosis"]["status"] == "passed"
+    assert agent_validation["intake_diagnosis"]["primary_code"] == "none"
+    assert agent_validation["intake_diagnosis"]["blocking_codes"] == []
+    assert agent_validation["intake_diagnosis"]["blocking_count"] == 0
+    assert agent_validation["intake_diagnosis"]["retryable"] is False
     assert agent_validation["semantic_checks"]["ok"] is True
     assert agent_validation["semantic_checks"]["errors"] == []
     assert all(agent_validation["semantic_checks"]["checks"].values())
@@ -5790,6 +5795,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     ] is True
     assert agent_validation["consistency_checks"]["checks"][
         "semantic_errors_match_report_contract_errors"
+    ] is True
+    assert agent_validation["consistency_checks"]["checks"][
+        "intake_diagnosis_matches_failure_metadata"
+    ] is True
+    assert agent_validation["consistency_checks"]["checks"][
+        "intake_diagnosis_codes_match_reason_codes"
     ] is True
     validation_schema = json.loads(
         (Path.cwd() / "schemas/agent_validation.schema.json").read_text(
@@ -7230,11 +7241,24 @@ def test_iteration_loop_rejects_contract_invalid_proposal(
     assert agent_validation["semantic_checks"]["ok"] is False
     assert agent_validation["semantic_checks"]["errors"] == proposal["contract_errors"]
     assert agent_validation["semantic_checks"]["checks"]["patch_targets_valid"] is False
+    assert agent_validation["failure_code"] == "patch_target_invalid"
+    assert agent_validation["reason_codes"][0]["code"] == "patch_target_invalid"
+    assert agent_validation["intake_diagnosis"]["status"] == "blocked"
+    assert agent_validation["intake_diagnosis"]["primary_code"] == "patch_target_invalid"
+    assert agent_validation["intake_diagnosis"]["blocking_codes"] == [
+        "patch_target_invalid"
+    ]
     assert agent_validation["consistency_checks"]["checks"][
         "semantic_check_matches_contract_valid"
     ] is True
     assert agent_validation["consistency_checks"]["checks"][
         "semantic_errors_match_report_contract_errors"
+    ] is True
+    assert agent_validation["consistency_checks"]["checks"][
+        "intake_diagnosis_matches_failure_metadata"
+    ] is True
+    assert agent_validation["consistency_checks"]["checks"][
+        "intake_diagnosis_codes_match_reason_codes"
     ] is True
     assert_matches_schema(round_dir / "agent_validation.json", "agent_validation")
     assert quarantine["schema_version"] == AGENT_OUTPUT_QUARANTINE_SCHEMA_VERSION
@@ -9137,8 +9161,10 @@ def test_agent_output_intake_rejects_disallowed_patch(tmp_path: Path) -> None:
     )
 
     assert report["ok"] is False
-    assert report["failure_code"] == "contract_invalid"
-    assert report["reason_codes"][0]["code"] == "contract_invalid"
+    assert report["failure_code"] == "patch_target_invalid"
+    assert report["reason_codes"][0]["code"] == "patch_target_invalid"
+    assert report["intake_diagnosis"]["primary_code"] == "patch_target_invalid"  # type: ignore[index]
+    assert report["intake_diagnosis"]["blocking_codes"] == ["patch_target_invalid"]  # type: ignore[index]
     assert report["semantic_checks"]["ok"] is False  # type: ignore[index]
     assert report["semantic_checks"]["checks"]["patch_targets_valid"] is False  # type: ignore[index]
     assert report["semantic_checks"]["errors"] == report["errors"]  # type: ignore[index]
@@ -14507,6 +14533,9 @@ print(json.dumps({
         (round_dir / "proposal_attempts.json").read_text(encoding="utf-8")
     )
     decision = json.loads((round_dir / "decision.json").read_text(encoding="utf-8"))
+    agent_validation = json.loads(
+        (round_dir / "agent_validation.json").read_text(encoding="utf-8")
+    )
 
     assert proposal["applicable"] is False
     assert proposal["contract_errors"] == [
@@ -14514,6 +14543,13 @@ print(json.dumps({
     ]
     assert proposal["rejection_reason"].startswith("proposal contract invalid")
     assert attempts[0]["status"] == "contract_invalid"
+    assert agent_validation["failure_code"] == "workspace_mutation_detected"
+    assert agent_validation["intake_diagnosis"]["primary_code"] == (
+        "workspace_mutation_detected"
+    )
+    assert agent_validation["intake_diagnosis"]["blocking_codes"] == [
+        "workspace_mutation_detected"
+    ]
     assert decision["reasons"][0].startswith("agent output validation failed")
     assert "workspace modified disallowed file" in decision["reasons"][0]
     audit = json.loads(

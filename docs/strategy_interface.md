@@ -107,7 +107,9 @@ the selected-output contract back to the planner context in `agent_input.json`.
 `agent_validation.json` records the same summary while checking contract shape,
 patch target, and git-apply viability. Its `semantic_checks` object exposes the
 deterministic protocol, target, metadata, and patch-target checks that explain
-contract pass/fail before `git apply` is allowed to run.
+contract pass/fail before `git apply` is allowed to run. Its
+`intake_diagnosis` object turns those failures into stable reason codes for
+operator review and later adapter debugging.
 `agent_output_quarantine.json` preserves the same summary before patch
 application, so pre-apply audits can detect context drift without changing the
 quarantine release rules.

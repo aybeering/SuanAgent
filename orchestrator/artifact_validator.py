@@ -2195,8 +2195,10 @@ def recompute_agent_validation_consistency_checks(
     proposal = object_value(payload.get("proposal", {}))
     checks = object_value(payload.get("checks", {}))
     semantic_checks = object_value(payload.get("semantic_checks", {}))
+    diagnosis = object_value(payload.get("intake_diagnosis", {}))
     errors = string_list(payload.get("errors", []))
     semantic_errors = string_list(semantic_checks.get("errors", []))
+    reason_codes = reason_code_rows(payload.get("reason_codes", []))
     raw_output = read_optional_text(
         resolve_path(Path(str(payload.get("agent_output_path", ""))), repo_root)
     )
@@ -2268,6 +2270,18 @@ def recompute_agent_validation_consistency_checks(
         ),
         "semantic_errors_match_report_contract_errors": (
             semantic_errors == agent_validation_contract_errors(errors)
+        ),
+        "intake_diagnosis_matches_failure_metadata": (
+            str(diagnosis.get("primary_stage", ""))
+            == str(payload.get("failure_stage", ""))
+            and str(diagnosis.get("primary_code", ""))
+            == str(payload.get("failure_code", ""))
+            and str(diagnosis.get("primary_message", ""))
+            == str(payload.get("failure_message", ""))
+        ),
+        "intake_diagnosis_codes_match_reason_codes": (
+            string_list(diagnosis.get("blocking_codes", []))
+            == [row["code"] for row in reason_codes]
         ),
         "git_apply_error_matches_errors": (
             not str(checks.get("git_apply_error", ""))
@@ -9236,6 +9250,22 @@ def string_list(value: object) -> list[str]:
     if not isinstance(value, list | tuple):
         return []
     return [str(row) for row in value]
+
+
+def reason_code_rows(value: object) -> list[dict[str, str]]:
+    """Return valid reason-code rows from a JSON list-like value."""
+    rows: list[dict[str, str]] = []
+    if not isinstance(value, list | tuple):
+        return rows
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        rows.append({
+            "stage": str(item.get("stage", "")),
+            "code": str(item.get("code", "")),
+            "message": str(item.get("message", "")),
+        })
+    return rows
 
 
 def round_ids_from_manifest(manifest: dict[str, Any]) -> list[str]:

@@ -462,7 +462,9 @@ Proposal and intake artifacts:
   result. Its embedded proposal uses the same shared strategy proposal schema;
   the `semantic_checks` object records deterministic protocol, target, metadata,
   and patch-target rule results that control contract pass/fail before `git
-  apply` can run.
+  apply` can run. The `intake_diagnosis` object summarizes the primary stable
+  failure code, all blocking codes, retryability, and git-apply status so
+  external-adapter failures can be grouped without parsing free-form text.
 - `agent_output_quarantine.json` records whether selected output is held or
   released before git apply, including the same proposal intent summary used by
   `agent_output.json`. It also records schema-validated consistency checks that

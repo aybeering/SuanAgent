@@ -22,6 +22,7 @@
     "proposal_direction_tag",
     "proposal_patch_sha256",
     "semantic_checks",
+    "intake_diagnosis",
     "checks",
     "consistency_checks",
     "proposal"
@@ -112,6 +113,9 @@
     "semantic_checks": {
       "$ref": "#/$defs/semantic_checks"
     },
+    "intake_diagnosis": {
+      "$ref": "#/$defs/intake_diagnosis"
+    },
     "checks": {
       "type": "object",
       "required": [
@@ -183,6 +187,8 @@
             "contract_check_matches_errors",
             "semantic_check_matches_contract_valid",
             "semantic_errors_match_report_contract_errors",
+            "intake_diagnosis_matches_failure_metadata",
+            "intake_diagnosis_codes_match_reason_codes",
             "git_apply_error_matches_errors",
             "strategy_only_matches_contract_errors"
           ],
@@ -235,6 +241,12 @@
             "semantic_errors_match_report_contract_errors": {
               "type": "boolean"
             },
+            "intake_diagnosis_matches_failure_metadata": {
+              "type": "boolean"
+            },
+            "intake_diagnosis_codes_match_reason_codes": {
+              "type": "boolean"
+            },
             "git_apply_error_matches_errors": {
               "type": "boolean"
             },
@@ -246,6 +258,57 @@
         },
         "blocking_reasons": {
           "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    },
+    "intake_diagnosis": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "primary_stage",
+        "primary_code",
+        "primary_message",
+        "blocking_codes",
+        "blocking_count",
+        "retryable",
+        "git_apply_status"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "agent_intake_diagnosis_v1"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "passed",
+            "blocked"
+          ]
+        },
+        "primary_stage": {
+          "type": "string"
+        },
+        "primary_code": {
+          "type": "string"
+        },
+        "primary_message": {
+          "type": "string"
+        },
+        "blocking_codes": {
+          "$ref": "#/$defs/string_array"
+        },
+        "blocking_count": {
+          "type": "integer"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "git_apply_status": {
+          "type": "string"
         }
       },
       "additionalProperties": false

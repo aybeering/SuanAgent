@@ -387,6 +387,129 @@ def validate_memory_hygiene_file(
     )
 
 
+def validate_memory_hygiene_consistency(payload: dict[str, Any]) -> tuple[str, ...]:
+    """Return stable internal consistency errors for a saved hygiene report."""
+    errors: list[str] = []
+    scope = object_value(payload.get("scope", {}))
+    thresholds = object_value(payload.get("thresholds", {}))
+    totals = object_value(payload.get("totals", {}))
+    patch_rows = list_of_dicts(payload.get("top_blocked_patches", []))
+    direction_rows = list_of_dicts(payload.get("top_blocked_directions", []))
+    if bool(scope.get("uses_full_history", False)) != (
+        not str(scope.get("created_at_from", ""))
+        and int(scope.get("recent_record_limit", 0) or 0) <= 0
+    ):
+        errors.append("memory_hygiene consistency mismatch: uses_full_history")
+    if int(totals.get("active_record_count", 0) or 0) != (
+        int(totals.get("active_failed_count", 0) or 0)
+        + int(totals.get("active_accepted_count", 0) or 0)
+    ):
+        errors.append("memory_hygiene consistency mismatch: active totals")
+    for field in (
+        "active_record_count",
+        "active_failed_count",
+        "active_accepted_count",
+        "ignored_by_created_at_count",
+        "ignored_by_recent_limit_count",
+        "ignored_by_excluded_run_count",
+        "patch_block_count",
+        "direction_block_count",
+        "overblocked_patch_count",
+    ):
+        if int(totals.get(field, 0) or 0) < 0:
+            errors.append(f"memory_hygiene consistency mismatch: negative {field}")
+    validate_hygiene_rows_consistency(
+        rows=patch_rows,
+        label_field="patch_sha256",
+        threshold=int(thresholds.get("failed_patch_threshold", 0) or 0),
+        artifact_label="patch",
+        errors=errors,
+    )
+    validate_hygiene_rows_consistency(
+        rows=direction_rows,
+        label_field="direction_tag",
+        threshold=int(thresholds.get("failed_direction_threshold", 0) or 0),
+        artifact_label="direction",
+        errors=errors,
+    )
+    visible_patch_blocks = sum(1 for row in patch_rows if bool(row.get("would_reject")))
+    visible_direction_blocks = sum(
+        1 for row in direction_rows if bool(row.get("would_reject"))
+    )
+    visible_overblocked = sum(
+        1
+        for row in patch_rows
+        if bool(row.get("would_reject"))
+        and int(row.get("active_failed_count", 0) or 0)
+        == int(row.get("total_failed_count", 0) or 0)
+    )
+    if int(totals.get("patch_block_count", 0) or 0) < visible_patch_blocks:
+        errors.append("memory_hygiene consistency mismatch: patch_block_count")
+    if int(totals.get("direction_block_count", 0) or 0) < visible_direction_blocks:
+        errors.append("memory_hygiene consistency mismatch: direction_block_count")
+    if int(totals.get("overblocked_patch_count", 0) or 0) < visible_overblocked:
+        errors.append("memory_hygiene consistency mismatch: overblocked_patch_count")
+    expected_recommendations = recommendations(
+        patch_rows=patch_rows,
+        direction_rows=direction_rows,
+        created_at_from=str(scope.get("created_at_from", "")),
+        recent_record_limit=int(scope.get("recent_record_limit", 0) or 0),
+    )
+    if list_of_dicts(payload.get("recommendations", [])) != expected_recommendations:
+        errors.append("memory_hygiene consistency mismatch: recommendations")
+    return tuple(errors)
+
+
+def validate_hygiene_rows_consistency(
+    *,
+    rows: list[dict[str, Any]],
+    label_field: str,
+    threshold: int,
+    artifact_label: str,
+    errors: list[str],
+) -> None:
+    """Append consistency errors for saved patch or direction hygiene rows."""
+    for index, row in enumerate(rows, start=1):
+        key = str(row.get("key", ""))
+        if str(row.get(label_field, "")) != key:
+            errors.append(
+                f"memory_hygiene consistency mismatch: {artifact_label} row label {index}"
+            )
+        if str(row.get("short_key", "")) != key[:12]:
+            errors.append(
+                f"memory_hygiene consistency mismatch: {artifact_label} short_key {index}"
+            )
+        active_records = int(row.get("active_record_count", 0) or 0)
+        total_records = int(row.get("total_record_count", 0) or 0)
+        active_failed = int(row.get("active_failed_count", 0) or 0)
+        total_failed = int(row.get("total_failed_count", 0) or 0)
+        active_accepted = int(row.get("active_accepted_count", 0) or 0)
+        if active_failed + active_accepted > active_records:
+            errors.append(
+                f"memory_hygiene consistency mismatch: {artifact_label} active counts {index}"
+            )
+        if active_records > total_records or total_failed > total_records:
+            errors.append(
+                f"memory_hygiene consistency mismatch: {artifact_label} total counts {index}"
+            )
+        if int(row.get("threshold", 0) or 0) != threshold:
+            errors.append(
+                f"memory_hygiene consistency mismatch: {artifact_label} threshold {index}"
+            )
+        if bool(row.get("would_reject", False)) != bool(
+            threshold > 0 and active_failed >= threshold
+        ):
+            errors.append(
+                f"memory_hygiene consistency mismatch: {artifact_label} would_reject {index}"
+            )
+        if label_field == "direction_tag" and active_records > 0 and str(
+            row.get("top_direction", "")
+        ) != key:
+            errors.append(
+                f"memory_hygiene consistency mismatch: {artifact_label} top_direction {index}"
+            )
+
+
 def top_counter_key(counter: Counter[str]) -> str:
     """Return the most frequent key with deterministic tie-breaks."""
     if not counter:
@@ -399,6 +522,11 @@ def list_of_dicts(value: object) -> list[dict[str, Any]]:
     if not isinstance(value, list | tuple):
         return []
     return [row for row in value if isinstance(row, dict)]
+
+
+def object_value(value: object) -> dict[str, Any]:
+    """Return a dictionary value or an empty object."""
+    return value if isinstance(value, dict) else {}
 
 
 def resolve_path(path: Path, repo_root: Path) -> Path:

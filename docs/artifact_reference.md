@@ -593,8 +593,10 @@ Replay artifacts:
   memory scope used by memory filters. They report total versus active records,
   ignored records from `created_at_from` or `recent_record_limit`, patch and
   direction groups that would trigger deterministic rejection, and advisory
-  hygiene recommendations. They never delete memory, run backtests, route
-  agents, apply patches, or change acceptance.
+  hygiene recommendations. Artifact validation checks saved scope, totals,
+  visible rows, and recommendations for internal consistency without binding
+  old reports to future append-only memory records. They never delete memory,
+  run backtests, route agents, apply patches, or change acceptance.
 - `memory_scope_recommendation.json` and `memory_scope_recommendation.md`
   summarize whether the current outcome-memory scope should remain full-history
   or be narrowed for future runs with a recent-record limit. They read saved

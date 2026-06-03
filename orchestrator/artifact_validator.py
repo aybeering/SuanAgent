@@ -714,6 +714,10 @@ def validate_memory_hygiene(
     totals = payload.get("totals", {})
     if not isinstance(totals, dict):
         add_error(report, "memory_hygiene.json totals invalid")
+    from orchestrator.memory_hygiene import validate_memory_hygiene_consistency
+
+    for error in validate_memory_hygiene_consistency(payload):
+        add_error(report, error)
     policy = payload.get("policy", {})
     if not isinstance(policy, dict):
         add_error(report, "memory_hygiene.json policy invalid")

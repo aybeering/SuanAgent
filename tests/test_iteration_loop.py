@@ -9803,6 +9803,33 @@ def test_artifact_validator_reports_candidate_quality_trace_summary_drift(
     )
 
 
+def test_artifact_validator_reports_memory_hygiene_scope_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="memory-hygiene-scope-drift",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = repo / "experiments/memory-hygiene-scope-drift/memory_hygiene.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["scope"]["uses_full_history"] = not payload["scope"]["uses_full_history"]
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="memory-hygiene-scope-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "memory_hygiene consistency mismatch: uses_full_history" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
 def test_artifact_validator_reports_memory_scope_policy_violation(
     tmp_path: Path,
 ) -> None:

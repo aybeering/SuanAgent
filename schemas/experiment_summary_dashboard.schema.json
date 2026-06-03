@@ -12,6 +12,8 @@
     "recent_runs",
     "recent_failure_codes",
     "top_recent_failure_code",
+    "recent_outcome_categories",
+    "top_recent_outcome_category",
     "champion_gap",
     "watchlist",
     "policy"
@@ -48,6 +50,12 @@
       "type": "object"
     },
     "top_recent_failure_code": {
+      "type": "string"
+    },
+    "recent_outcome_categories": {
+      "type": "object"
+    },
+    "top_recent_outcome_category": {
       "type": "string"
     },
     "champion_gap": {
@@ -103,6 +111,9 @@
         "stop_reason",
         "failure_code",
         "failure_stage",
+        "outcome_category",
+        "outcome_primary_code",
+        "outcome_primary_stage",
         "selected_direction_tag",
         "summary"
       ],
@@ -145,6 +156,15 @@
           "type": "string"
         },
         "failure_stage": {
+          "type": "string"
+        },
+        "outcome_category": {
+          "type": "string"
+        },
+        "outcome_primary_code": {
+          "type": "string"
+        },
+        "outcome_primary_stage": {
           "type": "string"
         },
         "selected_direction_tag": {

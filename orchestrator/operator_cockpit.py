@@ -168,6 +168,8 @@ def build_operator_cockpit(
     experiments_dir = resolve_path(experiments_dir, repo_root)
     run_id = run_dir.name
 
+    manifest = load_json_object(run_dir / "manifest.json")
+    diagnosis = load_json_object(run_dir / "diagnosis.json")
     closeout = load_json_object(run_dir / "run_closeout.json")
     config_lineage = load_json_object(run_dir / "config_lineage.json")
     challenger = load_json_object(run_dir / "candidate_challenger_report.json")
@@ -199,9 +201,12 @@ def build_operator_cockpit(
         codex_readiness_diff=codex_readiness_diff,
         action_dashboard=action_dashboard,
         scope_health=scope_health,
+        manifest=manifest,
+        diagnosis=diagnosis,
     )
     panels = cockpit_panels(
         run_dir=run_dir,
+        diagnosis=diagnosis,
         closeout=closeout,
         config_lineage=config_lineage,
         challenger=challenger,
@@ -329,15 +334,21 @@ def cockpit_summary(
     codex_readiness_diff: dict[str, Any],
     action_dashboard: dict[str, Any],
     scope_health: dict[str, Any],
+    manifest: dict[str, Any],
+    diagnosis: dict[str, Any],
 ) -> dict[str, object]:
     """Return compact cockpit summary fields."""
     closeout_summary = object_field(closeout, "summary")
+    outcome = cockpit_run_outcome_summary(manifest=manifest, diagnosis=diagnosis)
     action_summary = object_field(action_dashboard, "summary")
     codex_summary = object_field(codex_preflight, "summary")
     diff_summary = object_field(codex_readiness_diff, "summary")
     codex_blockers = string_rows(codex_preflight.get("blocking_errors", []))
     return {
         "run_status": str(closeout.get("status", "unknown")),
+        "run_outcome_category": str(outcome.get("category", "")),
+        "run_outcome_primary_code": str(outcome.get("primary_code", "")),
+        "run_outcome_primary_stage": str(outcome.get("primary_stage", "")),
         "artifact_health_ok": bool(
             closeout.get("ok", False)
             or closeout_summary.get("artifact_health_history_ok", False)
@@ -426,6 +437,7 @@ def primary_focus(*, status: str, summary: dict[str, object]) -> str:
 def cockpit_panels(
     *,
     run_dir: Path,
+    diagnosis: dict[str, Any],
     closeout: dict[str, Any],
     config_lineage: dict[str, Any],
     challenger: dict[str, Any],
@@ -446,6 +458,24 @@ def cockpit_panels(
             ok=bool(closeout.get("ok", False)),
             artifact_path=run_dir / "run_closeout.json",
             next_step="review run closeout dashboard",
+        ),
+        panel(
+            panel_id="run_outcome",
+            title="Run Outcome",
+            status=str(
+                object_field(diagnosis, "run_outcome_summary").get(
+                    "category",
+                    "missing",
+                )
+            ),
+            ok=bool(
+                object_field(diagnosis, "run_outcome_summary").get(
+                    "artifact_ok",
+                    False,
+                )
+            ),
+            artifact_path=run_dir / "diagnosis.json",
+            next_step="review deterministic outcome category and primary code",
         ),
         panel(
             panel_id="config_lineage",
@@ -606,6 +636,18 @@ def cockpit_action_failure_reasons(
             }
         )
     return rows
+
+
+def cockpit_run_outcome_summary(
+    *,
+    manifest: dict[str, Any],
+    diagnosis: dict[str, Any],
+) -> dict[str, Any]:
+    """Return the saved run outcome summary from diagnosis or manifest."""
+    diagnosis_outcome = object_field(diagnosis, "run_outcome_summary")
+    if diagnosis_outcome:
+        return diagnosis_outcome
+    return object_field(manifest, "run_outcome_summary")
 
 
 def source_artifacts(*, run_dir: Path, repo_root: Path) -> dict[str, object]:
@@ -834,6 +876,8 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         f"- OK: `{payload.get('ok', False)}`",
         f"- Primary focus: `{payload.get('primary_focus', '')}`",
         f"- Run status: `{summary.get('run_status', '')}`",
+        f"- Run outcome: `{summary.get('run_outcome_category', '')}` "
+        f"(`{summary.get('run_outcome_primary_code', '')}`)",
         f"- Config lineage: `{summary.get('config_lineage_status', '')}`",
         f"- Action: `{summary.get('action_status', '')}`",
         f"- Codex CLI preflight: `{summary.get('codex_preflight_status', '')}`",

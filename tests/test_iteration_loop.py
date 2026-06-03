@@ -2490,6 +2490,11 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION
     assert cockpit["status"] in {"action_pending", "needs_operator_review"}
     assert cockpit["summary"]["run_status"] == "stopped_max_rounds"
+    assert cockpit["summary"]["run_outcome_category"] == "policy_reject"
+    assert cockpit["summary"]["run_outcome_primary_stage"] == "policy_gate"
+    assert cockpit["summary"]["run_outcome_primary_code"] == (
+        "policy_ev_improvement_low"
+    )
     assert cockpit["summary"]["action_status"] == "pending_approval"
     assert cockpit["summary"]["action_safe_command_count"] >= 1
     assert cockpit["summary"]["action_failure_reason_count"] == 0
@@ -2549,6 +2554,7 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     ] is False
     assert len(cockpit["panels"]) >= 7
     assert any(row["panel_id"] == "operator_action" for row in cockpit["panels"])
+    assert any(row["panel_id"] == "run_outcome" for row in cockpit["panels"])
     assert any(row["panel_id"] == "codex_cli_unlock" for row in cockpit["panels"])
     assert any(
         row["panel_id"] == "codex_cli_readiness_diff"
@@ -2568,6 +2574,7 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["policy"]["does_not_record_approval"] is True
     assert cockpit["policy"]["does_not_change_acceptance"] is True
     assert "# Operator Cockpit" in markdown
+    assert "Run outcome: `policy_reject` (`policy_ev_improvement_low`)" in markdown
     assert "# Operator Cockpit" in md_path.read_text(encoding="utf-8")
     assert built["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION
     assert_matches_schema_payload(unlock_checklist, "operator_unlock_checklist")
@@ -14930,8 +14937,13 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     assert len(summary["dashboard"]["recent_runs"]) == 2  # type: ignore[index]
     assert summary["dashboard"]["recent_runs"][-1]["run_id"] == "iteration-rank"  # type: ignore[index]
     assert summary["dashboard"]["recent_runs"][-1]["failure_code"] == "policy_ev_improvement_low"  # type: ignore[index]
+    assert summary["dashboard"]["recent_runs"][-1]["outcome_category"] == "policy_reject"  # type: ignore[index]
+    assert summary["dashboard"]["recent_runs"][-1]["outcome_primary_stage"] == "policy_gate"  # type: ignore[index]
+    assert summary["dashboard"]["recent_runs"][-1]["outcome_primary_code"] == "policy_ev_improvement_low"  # type: ignore[index]
     assert summary["dashboard"]["recent_failure_codes"]["policy_ev_improvement_low"] == 1  # type: ignore[index]
     assert summary["dashboard"]["top_recent_failure_code"] == "policy_ev_improvement_low"  # type: ignore[index]
+    assert summary["dashboard"]["recent_outcome_categories"]["policy_reject"] == 1  # type: ignore[index]
+    assert summary["dashboard"]["top_recent_outcome_category"] == "policy_reject"  # type: ignore[index]
     assert summary["dashboard"]["champion_gap"]["status"] == "no_champion"  # type: ignore[index]
     assert summary["dashboard"]["watchlist"]["schema_version"] == "experiment_watchlist_v1"  # type: ignore[index]
     assert summary["dashboard"]["watchlist"]["status"] == "informational"  # type: ignore[index]
@@ -14958,6 +14970,8 @@ def test_experiment_summary_dashboard_schema_rejects_missing_watchlist() -> None
         "recent_runs": [],
         "recent_failure_codes": {},
         "top_recent_failure_code": "none",
+        "recent_outcome_categories": {},
+        "top_recent_outcome_category": "none",
         "champion_gap": {
             "active": False,
             "status": "no_champion",
@@ -15788,6 +15802,7 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
     assert summary["dashboard"]["latest_rejected_run"]["run_id"] == "cli-summary"
     assert summary["dashboard"]["latest_accepted_run"] is None
     assert summary["dashboard"]["top_recent_failure_code"] == "none"
+    assert summary["dashboard"]["top_recent_outcome_category"] == "none"
     assert summary["dashboard"]["watchlist"]["schema_version"] == "experiment_watchlist_v1"
     assert summary["dashboard"]["watchlist"]["status"] == "informational"
     assert summary["dashboard"]["watchlist"]["alerts"][0]["code"] == "no_accepted_run_indexed"
@@ -15798,6 +15813,7 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
     assert "## Watchlist" in markdown_result.stdout
     assert "no_accepted_run_indexed" in markdown_result.stdout
     assert "## Recent Runs" in markdown_result.stdout
+    assert "## Recent Outcome Categories" in markdown_result.stdout
     assert "## Champion Lineage" in markdown_result.stdout
     assert "Executes agents: `False`" in markdown_result.stdout
     assert "cli-summary" in markdown_result.stdout

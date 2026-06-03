@@ -225,10 +225,12 @@ promotion receipts, approval hashes, dry-run hashes, and metric deltas.
 lineage summary without writing lineage artifacts.
 `python -m orchestrator.experiments summary` additionally embeds a compact
 dashboard with the latest indexed run, latest accepted and rejected runs, recent
-diagnosis rows, recent failure-code counts, a best-run-to-champion gap, and an
-operator watchlist for repeated proposals, artifact-health failures, and
-champion-gap alerts. It is inspection-only and does not execute agents, run
-backtests, apply patches, promote champions, or change acceptance.
+diagnosis rows, recent failure-code counts, recent outcome-category counts, a
+best-run-to-champion gap, and an operator watchlist for repeated proposals,
+artifact-health failures, and champion-gap alerts. Recent rows include the
+saved `run_outcome_summary` category, primary stage, and primary code when the
+run has an iteration diagnosis. It is inspection-only and does not execute
+agents, run backtests, apply patches, promote champions, or change acceptance.
 The embedded dashboard is validated in memory against
 `schemas/experiment_summary_dashboard.schema.json` before JSON or markdown is
 printed.

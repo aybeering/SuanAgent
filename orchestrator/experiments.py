@@ -190,6 +190,7 @@ def experiment_summary_dashboard(
     ]
     recent_rows = [compact_diagnosis_row(diagnosis) for diagnosis in recent_diagnoses]
     failure_codes = recent_failure_code_counts(recent_diagnoses)
+    outcome_categories = recent_outcome_category_counts(recent_diagnoses)
     latest_run = compact_record_row(records[-1]) if records else None
     latest_accepted = latest_record_with_status(records, status="accepted")
     latest_rejected = latest_record_with_status(records, status="rejected")
@@ -207,6 +208,8 @@ def experiment_summary_dashboard(
         "recent_runs": recent_rows,
         "recent_failure_codes": dict(sorted(failure_codes.items())),
         "top_recent_failure_code": top_counter_key(failure_codes),
+        "recent_outcome_categories": dict(sorted(outcome_categories.items())),
+        "top_recent_outcome_category": top_counter_key(outcome_categories),
         "champion_gap": champion_gap,
         "watchlist": dashboard_watchlist(
             recent_runs=recent_rows,
@@ -298,6 +301,7 @@ def compact_record_row(record: dict[str, object]) -> dict[str, object]:
 def compact_diagnosis_row(diagnosis: dict[str, object]) -> dict[str, object]:
     """Return one compact dashboard row from a diagnosis payload."""
     best_round = dict_payload(diagnosis.get("best_round", {}))
+    outcome = dict_payload(diagnosis.get("run_outcome_summary", {}))
     selected_candidates = list_payload(diagnosis.get("selected_candidates", []))
     selected = selected_candidates[0] if selected_candidates else {}
     return {
@@ -314,6 +318,9 @@ def compact_diagnosis_row(diagnosis: dict[str, object]) -> dict[str, object]:
         "stop_reason": str(diagnosis.get("stop_reason", "")),
         "failure_code": diagnosis_failure_code(diagnosis),
         "failure_stage": diagnosis_failure_stage(diagnosis),
+        "outcome_category": str(outcome.get("category", "")),
+        "outcome_primary_code": str(outcome.get("primary_code", "")),
+        "outcome_primary_stage": str(outcome.get("primary_stage", "")),
         "selected_direction_tag": str(selected.get("direction_tag", "")),
         "summary": str(diagnosis.get("summary", "")),
     }
@@ -364,6 +371,19 @@ def recent_failure_code_counts(
         code = diagnosis_failure_code(diagnosis)
         if code and code != "none":
             counts[code] += 1
+    return counts
+
+
+def recent_outcome_category_counts(
+    diagnoses: list[dict[str, object]],
+) -> Counter[str]:
+    """Count run-outcome categories among recent diagnoses."""
+    counts: Counter[str] = Counter()
+    for diagnosis in diagnoses:
+        outcome = dict_payload(diagnosis.get("run_outcome_summary", {}))
+        category = str(outcome.get("category", ""))
+        if category:
+            counts[category] += 1
     return counts
 
 
@@ -576,6 +596,7 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
     latest_rejected = dict_payload(dashboard.get("latest_rejected_run", {}))
     recent_runs = list_payload(dashboard.get("recent_runs", []))
     failure_counts = dict_payload(dashboard.get("recent_failure_codes", {}))
+    outcome_counts = dict_payload(dashboard.get("recent_outcome_categories", {}))
     lines = [
         "# Experiment Summary",
         "",
@@ -590,6 +611,7 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         f"- Champion gap: `{champion_gap.get('status', 'unknown')}` "
         f"({number_text(champion_gap.get('gap_to_champion'))})",
         f"- Top recent failure: `{dashboard.get('top_recent_failure_code', 'none')}`",
+        f"- Top recent outcome: `{dashboard.get('top_recent_outcome_category', 'none')}`",
         f"- Watchlist: `{watchlist.get('status', 'clean')}` "
         f"({watchlist.get('alert_count', 0)} alert(s))",
         "",
@@ -630,14 +652,24 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
     lines.extend(
         [
             "",
+            "## Recent Outcome Categories",
+            "",
+            "| Outcome Category | Count |",
+            "| --- | ---: |",
+        ]
+    )
+    lines.extend(counter_markdown_rows(outcome_counts))
+    lines.extend(
+        [
+            "",
             "## Recent Runs",
             "",
-            "| Run | Kind | Status | EV Delta | Failure |",
-            "| --- | --- | --- | ---: | --- |",
+            "| Run | Kind | Status | Outcome | EV Delta | Failure |",
+            "| --- | --- | --- | --- | ---: | --- |",
         ]
     )
     if not recent_runs:
-        lines.append("| none |  |  |  |  |")
+        lines.append("| none |  |  |  |  |  |")
     else:
         for row in recent_runs:
             lines.append(
@@ -645,6 +677,7 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
                 f"`{markdown_cell(row.get('run_id', ''))}` | "
                 f"{markdown_cell(row.get('kind', ''))} | "
                 f"{markdown_cell(row.get('status', ''))} | "
+                f"`{markdown_cell(row.get('outcome_category', ''))}` | "
                 f"{number_text(row.get('validation_ev_delta'))} | "
                 f"`{markdown_cell(row.get('failure_code', 'none'))}` |"
             )

@@ -101,6 +101,9 @@
       "type": "object",
       "required": [
         "run_status",
+        "run_outcome_category",
+        "run_outcome_primary_code",
+        "run_outcome_primary_stage",
         "artifact_health_ok",
         "scope_health_ok",
         "config_lineage_status",
@@ -128,6 +131,15 @@
       ],
       "properties": {
         "run_status": {
+          "type": "string"
+        },
+        "run_outcome_category": {
+          "type": "string"
+        },
+        "run_outcome_primary_code": {
+          "type": "string"
+        },
+        "run_outcome_primary_stage": {
           "type": "string"
         },
         "artifact_health_ok": {

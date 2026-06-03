@@ -133,6 +133,7 @@ The corresponding JSON Schema files are:
 
 ```text
 schemas/agent_input.schema.json
+schemas/strategy_proposal.schema.json
 schemas/agent_output.schema.json
 schemas/agent_execution.schema.json
 ```

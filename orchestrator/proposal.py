@@ -13,6 +13,7 @@ from orchestrator.patch_parser import PatchParseError, validate_patch_targets
 
 
 PROPOSAL_PROTOCOL_VERSION = "proposal_v1"
+STRATEGY_PROPOSAL_SCHEMA_PATH = Path("schemas/strategy_proposal.schema.json")
 KNOWN_METRIC_KEYS = {
     "avg_slippage",
     "ev",

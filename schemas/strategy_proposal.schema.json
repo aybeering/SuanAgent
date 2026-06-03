@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Strategy Proposal Contract",
+  "$ref": "#/$defs/strategy_proposal",
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "strategy_proposal": {
+      "type": "object",
+      "required": [
+        "agent_name",
+        "round_index",
+        "target_file",
+        "summary",
+        "risk_notes",
+        "expected_metric_change",
+        "raw_response",
+        "patch_diff",
+        "applicable",
+        "protocol_version",
+        "direction_tag",
+        "hypotheses",
+        "patch_sha256",
+        "is_repeat_patch",
+        "repeat_of_round",
+        "quality_checks",
+        "rejection_reason",
+        "prompt",
+        "command",
+        "workspace_path",
+        "contract_errors"
+      ],
+      "properties": {
+        "agent_name": {
+          "type": "string"
+        },
+        "round_index": {
+          "type": "integer"
+        },
+        "target_file": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "risk_notes": {
+          "type": "string"
+        },
+        "expected_metric_change": {
+          "type": "object"
+        },
+        "raw_response": {
+          "type": "string"
+        },
+        "patch_diff": {
+          "type": "string"
+        },
+        "applicable": {
+          "type": "boolean"
+        },
+        "protocol_version": {
+          "type": "string"
+        },
+        "direction_tag": {
+          "type": "string"
+        },
+        "hypotheses": {
+          "$ref": "#/$defs/string_array"
+        },
+        "patch_sha256": {
+          "type": "string"
+        },
+        "is_repeat_patch": {
+          "type": "boolean"
+        },
+        "repeat_of_round": {
+          "type": "string"
+        },
+        "quality_checks": {
+          "$ref": "#/$defs/proposal_quality_checks"
+        },
+        "rejection_reason": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "command": {
+          "$ref": "#/$defs/string_array"
+        },
+        "workspace_path": {
+          "type": "string"
+        },
+        "contract_errors": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    },
+    "proposal_quality_checks": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "has_patch",
+        "has_hypotheses",
+        "has_expected_metric_change",
+        "has_risk_notes",
+        "repeat_patch"
+      ],
+      "properties": {
+        "has_patch": {
+          "type": "boolean"
+        },
+        "has_hypotheses": {
+          "type": "boolean"
+        },
+        "has_expected_metric_change": {
+          "type": "boolean"
+        },
+        "has_risk_notes": {
+          "type": "boolean"
+        },
+        "repeat_patch": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

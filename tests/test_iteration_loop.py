@@ -474,6 +474,47 @@ def test_schema_validator_resolves_local_defs_refs() -> None:
     assert "$.record.ok: expected boolean, got string" in errors
 
 
+def test_schema_validator_resolves_same_directory_schema_refs(tmp_path: Path) -> None:
+    defs_schema = {
+        "$defs": {
+            "record": {
+                "type": "object",
+                "required": ["ok"],
+                "properties": {
+                    "ok": {
+                        "type": "boolean",
+                    },
+                },
+                "additionalProperties": False,
+            },
+        },
+    }
+    wrapper_schema = {
+        "type": "object",
+        "required": ["record"],
+        "properties": {
+            "record": {
+                "$ref": "defs.schema.json#/$defs/record",
+            },
+        },
+    }
+    defs_path = tmp_path / "defs.schema.json"
+    wrapper_path = tmp_path / "wrapper.schema.json"
+    payload_path = tmp_path / "payload.json"
+    defs_path.write_text(json.dumps(defs_schema), encoding="utf-8")
+    wrapper_path.write_text(json.dumps(wrapper_schema), encoding="utf-8")
+    payload_path.write_text(json.dumps({"record": {"ok": True}}), encoding="utf-8")
+
+    assert validate_json_file(payload_path=payload_path, schema_path=wrapper_path) == ()
+    errors = validate_json_payload(
+        payload={"record": {"ok": "yes"}},
+        schema=wrapper_schema,
+        schema_dir=tmp_path,
+    )
+
+    assert "$.record.ok: expected boolean, got string" in errors
+
+
 def test_artifact_validator_coverage_reports_repo_contracts(tmp_path: Path) -> None:
     payload = build_artifact_validator_coverage(repo_root=Path.cwd())
 
@@ -488,6 +529,10 @@ def test_artifact_validator_coverage_reports_repo_contracts(tmp_path: Path) -> N
     }
     assert rows["agent_input"]["validator_covered"] is True
     assert rows["agent_input"]["docs_covered"] is True
+    assert rows["strategy_proposal"]["validator_covered"] is True
+    assert rows["strategy_proposal"]["docs_covered"] is True
+    assert rows["strategy_proposal"]["tests_covered"] is True
+    assert rows["strategy_proposal"]["inspection_or_replay_supported"] is True
     assert rows["artifact_validator_coverage"]["tests_covered"] is True
     assert rows["artifact_validator_coverage"]["docs_covered"] is True
     assert rows["champion"]["validator_covered"] is True
@@ -5678,6 +5723,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_output["selected_role"] == selected_attempt["role"]
     assert agent_output["selected_agent_role"] == "strategy_modifier"
     assert agent_output["selected_proposal"]["patch_sha256"] == proposal["patch_sha256"]
+    assert_matches_schema_payload(agent_output["selected_proposal"], "strategy_proposal")
     assert agent_output["attempt_count"] == len(attempts)
     assert agent_output["attempts"][0]["attempt_id"] == "attempt_001_primary"
     assert agent_output["attempts"][0]["attempt_index"] == 1
@@ -5720,6 +5766,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_validation["checks"]["contract_valid"] is True
     assert agent_validation["checks"]["git_apply_check"] == "passed"
     assert agent_validation["proposal_patch_sha256"] == proposal["patch_sha256"]
+    assert_matches_schema_payload(agent_validation["proposal"], "strategy_proposal")
     assert agent_validation["consistency_checks"]["blocking_reasons"] == []
     assert all(agent_validation["consistency_checks"]["checks"].values())
     assert agent_validation["consistency_checks"]["proposal_patch_sha256"] == (

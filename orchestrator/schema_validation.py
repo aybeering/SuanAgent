@@ -21,13 +21,18 @@ def validate_json_file(*, payload_path: Path, schema_path: Path) -> tuple[str, .
     """Validate one JSON file against one local contract schema."""
     payload = json.loads(payload_path.read_text(encoding="utf-8"))
     schema = load_schema(schema_path)
-    return validate_json_payload(payload=payload, schema=schema)
+    return validate_json_payload(
+        payload=payload,
+        schema=schema,
+        schema_dir=schema_path.parent,
+    )
 
 
 def validate_json_payload(
     *,
     payload: Any,
     schema: dict[str, Any],
+    schema_dir: Path = Path("schemas"),
 ) -> tuple[str, ...]:
     """Return validation errors for the supported JSON Schema subset."""
     errors: list[str] = []
@@ -37,6 +42,7 @@ def validate_json_payload(
         path="$",
         errors=errors,
         root_schema=schema,
+        schema_dir=schema_dir,
     )
     return tuple(errors)
 
@@ -48,11 +54,16 @@ def validate_node(
     path: str,
     errors: list[str],
     root_schema: dict[str, Any],
+    schema_dir: Path,
 ) -> None:
     """Validate a JSON value against a schema node."""
     ref = schema.get("$ref")
     if isinstance(ref, str):
-        resolved = resolve_local_ref(root_schema=root_schema, ref=ref)
+        resolved, resolved_root_schema = resolve_ref(
+            root_schema=root_schema,
+            ref=ref,
+            schema_dir=schema_dir,
+        )
         if not isinstance(resolved, dict):
             errors.append(f"{path}: unsupported or unresolved schema ref {ref!r}")
             return
@@ -61,7 +72,8 @@ def validate_node(
             schema=resolved,
             path=path,
             errors=errors,
-            root_schema=root_schema,
+            root_schema=resolved_root_schema,
+            schema_dir=schema_dir,
         )
         return
 
@@ -86,6 +98,7 @@ def validate_node(
             path=path,
             errors=errors,
             root_schema=root_schema,
+            schema_dir=schema_dir,
         )
     elif isinstance(value, list):
         validate_array(
@@ -94,6 +107,7 @@ def validate_node(
             path=path,
             errors=errors,
             root_schema=root_schema,
+            schema_dir=schema_dir,
         )
 
 
@@ -104,6 +118,7 @@ def validate_object(
     path: str,
     errors: list[str],
     root_schema: dict[str, Any],
+    schema_dir: Path,
 ) -> None:
     """Validate object-specific schema keywords."""
     required = schema.get("required", [])
@@ -122,6 +137,7 @@ def validate_object(
                     path=f"{path}.{key}",
                     errors=errors,
                     root_schema=root_schema,
+                    schema_dir=schema_dir,
                 )
 
     if schema.get("additionalProperties") is False and isinstance(properties, dict):
@@ -137,6 +153,7 @@ def validate_array(
     path: str,
     errors: list[str],
     root_schema: dict[str, Any],
+    schema_dir: Path,
 ) -> None:
     """Validate array-specific schema keywords."""
     min_items = schema.get("minItems")
@@ -152,7 +169,38 @@ def validate_array(
                 path=f"{path}[{index}]",
                 errors=errors,
                 root_schema=root_schema,
+                schema_dir=schema_dir,
             )
+
+
+def resolve_ref(
+    *,
+    root_schema: dict[str, Any],
+    ref: str,
+    schema_dir: Path,
+) -> tuple[Any, dict[str, Any]]:
+    """Resolve local or same-directory schema JSON references."""
+    if ref.startswith("#/"):
+        return resolve_local_ref(root_schema=root_schema, ref=ref), root_schema
+    if "#" not in ref:
+        return None, root_schema
+    schema_file, local_ref = ref.split("#", 1)
+    schema_path = Path(schema_file)
+    if schema_path.is_absolute() or ".." in schema_path.parts:
+        return None, root_schema
+    external_path = schema_dir / schema_path
+    if not external_path.is_file():
+        return None, root_schema
+    try:
+        external_schema = load_schema(external_path)
+    except json.JSONDecodeError:
+        return None, root_schema
+    if not local_ref:
+        return external_schema, external_schema
+    return (
+        resolve_local_ref(root_schema=external_schema, ref=f"#{local_ref}"),
+        external_schema,
+    )
 
 
 def resolve_local_ref(*, root_schema: dict[str, Any], ref: str) -> Any:

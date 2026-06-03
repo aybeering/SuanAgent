@@ -304,10 +304,11 @@ Codex CLI readiness contracts:
 24. Proposal intent summaries and consistency checks in `agent_validation.json`
     bind raw-output validation reports to the same context recorded in
     round-level agent input, the normalized proposal, patch hash, and validation
-    result. The embedded proposal is schema-checked for the shared strategy
-    proposal field shape. These checks can prove raw-output/proposal/input
-    consistency, but they cannot change validation pass/fail rules, git apply
-    checks, quarantine release rules, patch application, or acceptance.
+    result. `agent_output.json` and `agent_validation.json` both reuse
+    `schemas/strategy_proposal.schema.json` for the shared strategy proposal
+    field shape. These checks can prove raw-output/proposal/input consistency,
+    but they cannot change validation pass/fail rules, git apply checks,
+    quarantine release rules, patch application, or acceptance.
 25. Candidate quality breakdowns explain proposal ranking only. They bind the
     same score total and component metadata across executor, attempt, selection,
     routing, output, leaderboard, brief, and closeout artifacts, but they cannot

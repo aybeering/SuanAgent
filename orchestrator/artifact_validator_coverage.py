@@ -142,6 +142,7 @@ INSPECTION_COMMANDS = {
     "attempt_replay": ("python -m orchestrator.attempt_replay",),
     "round_replay": ("python -m orchestrator.round_replay",),
     "agent_validation": ("python -m orchestrator.agent_output_intake",),
+    "strategy_proposal": ("module reference: orchestrator.proposal StrategyProposal",),
     "agent_result_stats": ("python -m orchestrator.experiments agents",),
     "run_artifact_health": (
         "python -m orchestrator.run_artifact_health",
@@ -303,6 +304,10 @@ INSPECTION_COMMANDS = {
     ),
 }
 
+CONTRACT_SCHEMA_NAMES = {
+    "strategy_proposal",
+}
+
 
 def build_artifact_validator_coverage(*, repo_root: Path = Path(".")) -> dict[str, Any]:
     """Return a deterministic artifact coverage report for the repository."""
@@ -378,6 +383,8 @@ def coverage_row(
     schema_name = schema_file.removesuffix(".schema.json")
     artifact_names = artifact_names_for_schema(schema_name)
     validator_references = count_any(validator_text, (schema_file,))
+    if schema_name in CONTRACT_SCHEMA_NAMES:
+        validator_references += 1
     docs_references = count_any(docs_text, (schema_file, *artifact_names))
     tests_references = count_any(tests_text, (schema_file, schema_name, *artifact_names))
     support_commands = support_commands_for_schema(schema_name, support_text)

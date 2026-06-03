@@ -47,76 +47,7 @@
       "$ref": "#/$defs/proposal_intent_summary"
     },
     "selected_proposal": {
-      "type": "object",
-      "required": [
-        "protocol_version",
-        "agent_name",
-        "round_index",
-        "target_file",
-        "summary",
-        "risk_notes",
-        "expected_metric_change",
-        "raw_response",
-        "patch_diff",
-        "applicable",
-        "direction_tag",
-        "hypotheses",
-        "patch_sha256",
-        "contract_errors"
-      ],
-      "properties": {
-        "protocol_version": {
-          "type": "string",
-          "enum": [
-            "proposal_v1"
-          ]
-        },
-        "agent_name": {
-          "type": "string"
-        },
-        "round_index": {
-          "type": "integer"
-        },
-        "target_file": {
-          "type": "string"
-        },
-        "summary": {
-          "type": "string"
-        },
-        "risk_notes": {
-          "type": "string"
-        },
-        "expected_metric_change": {
-          "type": "object"
-        },
-        "raw_response": {
-          "type": "string"
-        },
-        "patch_diff": {
-          "type": "string"
-        },
-        "applicable": {
-          "type": "boolean"
-        },
-        "direction_tag": {
-          "type": "string"
-        },
-        "hypotheses": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "patch_sha256": {
-          "type": "string"
-        },
-        "contract_errors": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
+      "$ref": "strategy_proposal.schema.json#/$defs/strategy_proposal"
     },
     "attempt_count": {
       "type": "integer"

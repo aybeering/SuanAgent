@@ -16,7 +16,11 @@ from orchestrator.operator_unlock_checklist import (
     display_path,
     render_operator_unlock_checklist_markdown,
 )
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 CODEX_CLI_UNLOCK_RUNBOOK_SCHEMA_VERSION = "codex_cli_unlock_runbook_v1"
@@ -365,12 +369,229 @@ def validate_codex_cli_unlock_runbook_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved Codex CLI unlock runbook artifact."""
-    return tuple(
+    schema_errors = tuple(
         validate_json_file(
             payload_path=payload_path,
             schema_path=repo_root / SCHEMA_PATH,
         )
     )
+    if schema_errors:
+        return schema_errors
+    return schema_errors + validate_codex_cli_unlock_runbook_consistency(
+        load_json_object(payload_path)
+    )
+
+
+def validate_codex_cli_unlock_runbook_payload(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate an in-memory Codex CLI unlock runbook payload."""
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    return tuple(
+        validate_json_payload(
+            payload=payload,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    ) + validate_codex_cli_unlock_runbook_consistency(payload)
+
+
+def validate_codex_cli_unlock_runbook_consistency(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate derived Codex CLI unlock runbook fields against the payload."""
+    errors: list[str] = []
+    steps = list_of_dicts(payload.get("steps", []))
+    summary = dict_field(payload, "summary")
+    checklist = dict_field(payload, "source_checklist")
+    commands = list_of_dicts(payload.get("operator_commands", []))
+
+    expected_artifact_ids = [spec["artifact_id"] for spec in RUNBOOK_STEPS]
+    expected_step_ids = [spec["step_id"] for spec in RUNBOOK_STEPS]
+    artifact_ids = [str(step.get("artifact_id", "")) for step in steps]
+    step_ids = [str(step.get("step_id", "")) for step in steps]
+    if artifact_ids != expected_artifact_ids:
+        errors.append("codex_cli_unlock_runbook step order mismatch")
+    if step_ids != expected_step_ids:
+        errors.append("codex_cli_unlock_runbook step ids mismatch")
+
+    ready_steps = [
+        str(step.get("step_id", ""))
+        for step in steps
+        if step.get("status") == "ready"
+    ]
+    missing_steps = [
+        str(step.get("step_id", ""))
+        for step in steps
+        if step.get("status") == "missing"
+    ]
+    blocked_steps = [
+        str(step.get("step_id", ""))
+        for step in steps
+        if step.get("status") == "blocked"
+    ]
+    if int(summary.get("step_count", -1)) != len(steps):
+        errors.append("codex_cli_unlock_runbook step count mismatch")
+    if int(summary.get("ready_step_count", -1)) != len(ready_steps):
+        errors.append("codex_cli_unlock_runbook ready count mismatch")
+    if int(summary.get("missing_step_count", -1)) != len(missing_steps):
+        errors.append("codex_cli_unlock_runbook missing count mismatch")
+    if int(summary.get("blocked_step_count", -1)) != len(blocked_steps):
+        errors.append("codex_cli_unlock_runbook blocked count mismatch")
+    if string_rows(summary.get("ready_steps", [])) != ready_steps:
+        errors.append("codex_cli_unlock_runbook ready steps mismatch")
+    if string_rows(summary.get("missing_steps", [])) != missing_steps:
+        errors.append("codex_cli_unlock_runbook missing steps mismatch")
+    if string_rows(summary.get("blocked_steps", [])) != blocked_steps:
+        errors.append("codex_cli_unlock_runbook blocked steps mismatch")
+    expected_next_step = first_step_id(steps, statuses={"missing", "blocked"})
+    if str(summary.get("next_step_id", "")) != expected_next_step:
+        errors.append("codex_cli_unlock_runbook next step mismatch")
+    if int(summary.get("operator_command_count", -1)) != len(commands):
+        errors.append("codex_cli_unlock_runbook command count mismatch")
+
+    checklist_ready = bool(checklist.get("ready", False))
+    expected_status = runbook_status(summary=summary, checklist=checklist)
+    expected_ready = checklist_ready and len(blocked_steps) == 0
+    if str(payload.get("status", "")) != expected_status:
+        errors.append("codex_cli_unlock_runbook status mismatch")
+    if bool(payload.get("ready", False)) != expected_ready:
+        errors.append("codex_cli_unlock_runbook ready mismatch")
+    if str(summary.get("checklist_status", "")) != str(checklist.get("status", "")):
+        errors.append("codex_cli_unlock_runbook checklist status mismatch")
+    if bool(summary.get("checklist_ready", False)) != checklist_ready:
+        errors.append("codex_cli_unlock_runbook checklist ready mismatch")
+    if int(summary.get("checklist_failed_count", -1)) != int(
+        checklist.get("failed_count", 0) or 0
+    ):
+        errors.append("codex_cli_unlock_runbook checklist failed count mismatch")
+
+    errors.extend(validate_runbook_steps(steps=steps))
+    errors.extend(validate_runbook_commands(payload=payload, steps=steps))
+    errors.extend(validate_runbook_policy(payload=payload))
+    return tuple(errors)
+
+
+def validate_runbook_steps(*, steps: list[dict[str, Any]]) -> tuple[str, ...]:
+    """Validate each Codex CLI unlock runbook step."""
+    errors: list[str] = []
+    for step in steps:
+        status = str(step.get("status", ""))
+        ready = bool(step.get("ready", False))
+        if status == "ready" and not ready:
+            errors.append("codex_cli_unlock_runbook ready step false")
+        if status in {"missing", "blocked"} and ready:
+            errors.append("codex_cli_unlock_runbook blocked step ready true")
+        artifact = dict_field(step, "artifact")
+        if str(artifact.get("artifact_id", "")) != str(step.get("artifact_id", "")):
+            errors.append("codex_cli_unlock_runbook step artifact mismatch")
+        if str(artifact.get("write_command_label", "")) != str(
+            dict_field(step, "command").get("label", "")
+        ):
+            errors.append("codex_cli_unlock_runbook step command label mismatch")
+        authority = dict_field(step, "authority")
+        for key in (
+            "step_can_execute_command",
+            "step_can_execute_codex_cli",
+            "step_can_create_workspace",
+            "step_can_apply_patches",
+            "step_can_change_acceptance",
+        ):
+            if bool(authority.get(key, True)):
+                errors.append(f"codex_cli_unlock_runbook authority true: {key}")
+    return tuple(errors)
+
+
+def validate_runbook_commands(
+    *,
+    payload: dict[str, object],
+    steps: list[dict[str, Any]],
+) -> tuple[str, ...]:
+    """Validate operator command hints stay bounded and match ordered steps."""
+    errors: list[str] = []
+    commands = list_of_dicts(payload.get("operator_commands", []))
+    step_commands = [dict_field(step, "command") for step in steps]
+    if commands != step_commands:
+        errors.append("codex_cli_unlock_runbook operator commands mismatch")
+
+    expected_artifacts = command_artifacts()
+    unsafe_tokens = ("&&", "||", "|", "`", "$(", "\n", ";")
+    for index, command in enumerate(commands):
+        label = str(command.get("label", ""))
+        expected_artifact = expected_artifacts.get(label, "")
+        if not expected_artifact:
+            errors.append(f"codex_cli_unlock_runbook command unknown: {label}")
+        elif (
+            index < len(steps)
+            and str(steps[index].get("artifact_id", "")) != expected_artifact
+        ):
+            errors.append("codex_cli_unlock_runbook command artifact mismatch")
+        if bool(command.get("executes_codex_cli", True)):
+            errors.append("codex_cli_unlock_runbook command executes Codex")
+        if not bool(command.get("requires_explicit_operator_invocation", False)):
+            errors.append("codex_cli_unlock_runbook command lacks explicit gate")
+        if not bool(command.get("writes_artifacts", False)):
+            errors.append("codex_cli_unlock_runbook command write flag mismatch")
+        command_text = str(command.get("command", ""))
+        if any(token in command_text for token in unsafe_tokens):
+            errors.append("codex_cli_unlock_runbook command unsafe token")
+    return tuple(errors)
+
+
+def validate_runbook_policy(payload: dict[str, object]) -> tuple[str, ...]:
+    """Validate runbook policy flags preserve read-only authority."""
+    errors: list[str] = []
+    policy = dict_field(payload, "policy")
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "runbook_only",
+        "does_not_execute_commands",
+        "does_not_execute_codex_cli",
+        "does_not_record_operator_approval",
+        "does_not_create_workspace",
+        "does_not_send_strategy_prompt",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+        "commands_require_explicit_operator_invocation",
+    ):
+        if not bool(policy.get(key, False)):
+            errors.append(f"codex_cli_unlock_runbook policy false: {key}")
+    return tuple(errors)
+
+
+def command_artifacts() -> dict[str, str]:
+    """Return expected command-label to artifact-id bindings for the runbook."""
+    return {
+        "run_execution_preflight": "codex_cli_execution_preflight",
+        "run_readiness_pipeline": "codex_cli_readiness_pipeline",
+        "write_execution_candidate": "codex_cli_execution_candidate",
+        "write_real_execution_dry_run": "codex_cli_real_execution_dry_run",
+        "write_operator_unlock_request": "codex_cli_operator_unlock_request",
+    }
+
+
+def dict_field(payload: dict[str, Any], key: str) -> dict[str, Any]:
+    """Return a nested dictionary field or an empty dictionary."""
+    value = payload.get(key, {})
+    return value if isinstance(value, dict) else {}
+
+
+def list_of_dicts(value: object) -> list[dict[str, Any]]:
+    """Return dictionaries from a JSON list value."""
+    if not isinstance(value, list):
+        return []
+    return [row for row in value if isinstance(row, dict)]
+
+
+def string_rows(value: object) -> list[str]:
+    """Return strings from a JSON list value."""
+    if not isinstance(value, list):
+        return []
+    return [str(row) for row in value]
 
 
 def main() -> None:

@@ -14699,6 +14699,129 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
+    tampered_summary = json.loads(json_path.read_text(encoding="utf-8"))
+    tampered_summary["status"] = "ready_for_operator_review"
+    tampered_summary["ready"] = True
+    tampered_summary["summary"]["step_count"] = 0
+    tampered_summary["summary"]["ready_step_count"] = 99
+    tampered_summary["summary"]["missing_step_count"] = 0
+    tampered_summary["summary"]["blocked_step_count"] = 99
+    tampered_summary["summary"]["operator_command_count"] = 0
+    tampered_summary["summary"]["checklist_status"] = "ready"
+    tampered_summary["summary"]["checklist_ready"] = True
+    tampered_summary["summary"]["checklist_failed_count"] = 99
+    tampered_summary["summary"]["next_step_id"] = ""
+    tampered_summary["summary"]["ready_steps"] = ["not_a_step"]
+    tampered_summary["summary"]["missing_steps"] = []
+    tampered_summary["summary"]["blocked_steps"] = ["not_a_step"]
+    tampered_summary["steps"][0]["status"] = "ready"
+    tampered_summary["steps"][0]["ready"] = False
+    tampered_summary["steps"][0]["artifact"]["artifact_id"] = "wrong_artifact"
+    tampered_summary["steps"][0]["command"]["label"] = "wrong_command"
+    tampered_summary["steps"][0]["authority"]["step_can_execute_codex_cli"] = True
+    tampered_summary["steps"][1]["step_id"] = "wrong_step"
+    tampered_summary["steps"][1]["artifact_id"] = "wrong_artifact"
+    tampered_summary["operator_commands"][0]["label"] = "wrong_command"
+    tampered_summary["operator_commands"][0]["command"] += (
+        " && python -m orchestrator.run_loop"
+    )
+    tampered_summary["operator_commands"][0]["writes_artifacts"] = False
+    tampered_summary["operator_commands"][0]["executes_codex_cli"] = True
+    tampered_summary["operator_commands"][0][
+        "requires_explicit_operator_invocation"
+    ] = False
+    tampered_summary["policy"]["does_not_execute_codex_cli"] = False
+    json_path.write_text(
+        json.dumps(tampered_summary, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    runbook_consistency_errors = validate_codex_cli_unlock_runbook_file(
+        payload_path=json_path,
+        repo_root=repo,
+    )
+    assert "codex_cli_unlock_runbook step order mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook step ids mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook step count mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook ready count mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook missing count mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook blocked count mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook ready steps mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook missing steps mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook blocked steps mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook next step mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook command count mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook status mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook ready mismatch" in runbook_consistency_errors
+    assert "codex_cli_unlock_runbook checklist status mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook checklist ready mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook checklist failed count mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook ready step false" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook step artifact mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook step command label mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook authority true: step_can_execute_codex_cli" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook operator commands mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook command unknown: wrong_command" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook command executes Codex" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook command lacks explicit gate" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook command write flag mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook command unsafe token" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook policy false: does_not_execute_codex_cli" in (
+        runbook_consistency_errors
+    )
+    json_path.write_text(
+        json.dumps(runbook, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     runbook_validation: dict[str, object] = {
         "run_id": "codex-unlock-runbook-startup-block",
         "checked_files": [],

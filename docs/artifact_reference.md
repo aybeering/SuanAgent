@@ -331,9 +331,12 @@ artifacts, and `python -m orchestrator.experiments unlock-runbook <run_id>` or
 the required evidence artifacts, readiness fields, status, and command hints,
 and artifact validation checks those operator commands through the shared
 operator command-hint validator for known labels, write flags, command prefixes,
-and simple shell-control-token guards. Every command still requires explicit
-operator invocation. It cannot record approval, execute commands, execute
-Codex, create workspaces, route agents, apply patches, or change acceptance.
+and simple shell-control-token guards. The runbook writer also validates step
+order, summary counters and step lists, status and readiness fields, source
+checklist summaries, operator-command bindings, authority flags, and read-only
+policy flags before returning. Every command still requires explicit operator
+invocation. It cannot record approval, execute commands, execute Codex, create
+workspaces, route agents, apply patches, or change acceptance.
 `codex_cli_execution_readiness_diff.json` and
 `codex_cli_execution_readiness_diff.md` compare the current config-derived real
 Codex command, command digest, workspace path, target file, mutation allowlist,

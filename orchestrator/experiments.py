@@ -2858,6 +2858,19 @@ def operator_view_refresh_home_summary(
         "action_step": str(action_home.get("active_step_id", "")),
         "action_guide_status": str(action_home.get("guide_status", "")),
         "codex_preflight_status": str(codex_home.get("preflight_status", "")),
+        "codex_unlock_runbook_status": str(
+            codex_home.get("unlock_runbook_status", "")
+        ),
+        "codex_unlock_runbook_ready": bool(
+            codex_home.get("unlock_runbook_ready", False)
+        ),
+        "codex_unlock_runbook_blocked_step_count": int(
+            codex_home.get("unlock_runbook_blocked_step_count", 0) or 0
+        ),
+        "codex_unlock_runbook_command_label": str(
+            codex_home.get("runbook_command_label", "")
+        ),
+        "codex_unlock_runbook_command": str(codex_home.get("runbook_command", "")),
         "codex_readiness_diff_status": str(
             codex_home.get("readiness_diff_status", "")
         ),
@@ -3159,6 +3172,8 @@ def validate_operator_view_refresh_consistency(
         errors.append("operator_view_refresh home_summary boundary mismatch")
     if bool(home_summary.get("home_command_is_hint_only", False)) is not True:
         errors.append("operator_view_refresh home_summary hint-only mismatch")
+    if int_value(home_summary.get("codex_unlock_runbook_blocked_step_count", -1)) < 0:
+        errors.append("operator_view_refresh home_summary runbook blocker mismatch")
 
     added_blockers = string_payload(blocker_delta.get("added_blockers", []))
     removed_blockers = string_payload(blocker_delta.get("removed_blockers", []))
@@ -3309,6 +3324,7 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Home status: `{home_summary.get('status', '')}`",
         f"- Home command: `{home_summary.get('home_command_label', '')}`",
         f"- Home command text: `{home_summary.get('home_command', '')}`",
+        f"- Home Codex unlock runbook: `{home_summary.get('codex_unlock_runbook_status', '')}`",
         f"- Home Codex intake: `{home_summary.get('codex_intake_readiness_status', '')}`",
         f"- Safety policy OK: `{policy_summary.get('ok', False)}`",
         f"- Safety policy false keys: `{policy_summary.get('false_count', 0)}`",
@@ -3382,6 +3398,20 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     lines.append(f"- Headline: {home_summary.get('headline', '')}")
     lines.append(f"- Primary focus: `{home_summary.get('primary_focus', '')}`")
     lines.append(f"- Action step: `{home_summary.get('action_step', '')}`")
+    lines.append(
+        f"- Codex unlock runbook: `{home_summary.get('codex_unlock_runbook_status', '')}`"
+    )
+    lines.append(
+        f"- Codex unlock runbook ready: `{home_summary.get('codex_unlock_runbook_ready', False)}`"
+    )
+    lines.append(
+        "- Codex unlock runbook blocked steps: "
+        f"`{home_summary.get('codex_unlock_runbook_blocked_step_count', 0)}`"
+    )
+    lines.append(
+        "- Codex unlock runbook command: "
+        f"`{home_summary.get('codex_unlock_runbook_command_label', '')}`"
+    )
     lines.append(
         f"- Codex readiness diff: `{home_summary.get('codex_readiness_diff_status', '')}`"
     )

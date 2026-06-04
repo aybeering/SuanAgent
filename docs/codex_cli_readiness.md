@@ -216,7 +216,8 @@ cockpit in dependency order. It uses the run's recorded config path unless
 `--config` is provided and
 returns a terminal-only receipt with the config source, path, existence flag,
 SHA-256 digest, pre-refresh cockpit stale-source evidence, post-refresh
-freshness, operator-home navigation status, Codex intake readiness status, and
+freshness, operator-home navigation status, Codex unlock-runbook status and
+command hint, Codex readiness-diff status, Codex intake readiness status, and
 per-artifact JSON/Markdown output hashes; it does not execute
 Codex, record approval, create workspaces, modify config, apply patches, or
 change acceptance.

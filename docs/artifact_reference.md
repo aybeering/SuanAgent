@@ -536,6 +536,7 @@ post-refresh cockpit freshness, refresh-effect status, operator-review-required
 flag, deterministic review reason codes, refreshed-cockpit operator digest
 headline/priority/target-panel state, digest-backed next-command boundary,
 action execution-readiness status, operator-home navigation status, Codex
+unlock-runbook status and command hint, Codex readiness-diff status, Codex
 intake readiness status, blocker delta counts, and per-artifact JSON/Markdown
 output hashes, and still does not execute commands, execute Codex, run agents,
 run backtests, write config, promote champions, apply patches, route agents, or

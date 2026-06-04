@@ -3949,8 +3949,20 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert refresh["home_summary"]["primary_focus"] == (
         refresh["operator_summary"]["primary_focus"]
     )
+    assert refresh["home_summary"]["codex_unlock_runbook_status"] in {
+        "needs_artifacts",
+        "blocked",
+        "ready",
+    }
+    assert refresh["home_summary"]["codex_unlock_runbook_ready"] is False
+    assert refresh["home_summary"]["codex_unlock_runbook_blocked_step_count"] >= 0
+    assert refresh["home_summary"]["codex_unlock_runbook_command_label"] == (
+        "review_codex_cli_unlock_runbook"
+    )
     assert "## Operator Home" in refresh_markdown
     assert "Home command: `review_operator_home`" in refresh_markdown
+    assert "Home Codex unlock runbook:" in refresh_markdown
+    assert "Codex unlock runbook command:" in refresh_markdown
     assert "Refresh effect:" in refresh_markdown
     assert "## Refresh Effect" in refresh_markdown
     assert "Operator review required: `True`" in refresh_markdown
@@ -4435,6 +4447,14 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             "action_step": "dashboard_review",
             "action_guide_status": "path_closed",
             "codex_preflight_status": "no_real_execution_profiles",
+            "codex_unlock_runbook_status": "needs_artifacts",
+            "codex_unlock_runbook_ready": False,
+            "codex_unlock_runbook_blocked_step_count": 0,
+            "codex_unlock_runbook_command_label": "review_codex_cli_unlock_runbook",
+            "codex_unlock_runbook_command": (
+                "python -m orchestrator.experiments "
+                "unlock-runbook run --markdown"
+            ),
             "codex_readiness_diff_status": "missing_evidence",
             "codex_intake_readiness_status": "not_available",
             "codex_intake_ready": False,

@@ -17,7 +17,11 @@ from orchestrator.run_artifact_health import (
     resolve_path,
     string_list,
 )
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 SCHEMA_VERSION = "memory_diagnostics_v1"
@@ -335,17 +339,53 @@ def write_memory_diagnostics(
         limit=limit,
         created_at_from=created_at_from,
     )
+    errors = validate_memory_diagnostics_payload(
+        payload,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+        history_path=history_path,
+        limit=limit,
+        created_at_from=created_at_from,
+    )
+    if errors:
+        raise ValueError(f"memory diagnostics failed schema validation: {errors}")
     output_path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    errors = validate_memory_diagnostics_file(
-        payload_path=output_path,
-        repo_root=repo_root,
-    )
-    if errors:
-        raise ValueError(f"memory diagnostics failed schema validation: {errors}")
     return payload
+
+
+def validate_memory_diagnostics_payload(
+    payload: dict[str, Any],
+    *,
+    experiments_dir: Path = Path("experiments"),
+    repo_root: Path = Path("."),
+    history_path: Path | None = None,
+    limit: int = 20,
+    created_at_from: str = "",
+) -> tuple[str, ...]:
+    """Validate an in-memory memory diagnostics payload."""
+    repo_root = repo_root.resolve()
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=payload,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(
+        validate_memory_diagnostics_consistency(
+            payload,
+            experiments_dir=experiments_dir,
+            repo_root=repo_root,
+            history_path=history_path,
+            limit=limit,
+            created_at_from=created_at_from,
+        )
+    )
+    return tuple(errors)
 
 
 def validate_memory_diagnostics_file(
@@ -358,6 +398,28 @@ def validate_memory_diagnostics_file(
         payload_path=payload_path,
         schema_path=repo_root / SCHEMA_PATH,
     )
+
+
+def validate_memory_diagnostics_consistency(
+    payload: dict[str, Any],
+    *,
+    experiments_dir: Path,
+    repo_root: Path,
+    history_path: Path | None,
+    limit: int,
+    created_at_from: str,
+) -> tuple[str, ...]:
+    """Validate that diagnostics output matches current source artifacts."""
+    expected = build_memory_diagnostics(
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+        history_path=history_path,
+        limit=limit,
+        created_at_from=created_at_from,
+    )
+    if payload != expected:
+        return ("memory_diagnostics current evidence mismatch",)
+    return ()
 
 
 def main() -> None:
@@ -405,6 +467,16 @@ def main() -> None:
             limit=args.limit,
             created_at_from=args.created_at_from,
         )
+        errors = validate_memory_diagnostics_payload(
+            payload,
+            experiments_dir=args.experiments_dir,
+            repo_root=args.repo_root,
+            history_path=args.history_path,
+            limit=args.limit,
+            created_at_from=args.created_at_from,
+        )
+        if errors:
+            raise ValueError(f"memory diagnostics failed schema validation: {errors}")
     print(json.dumps(payload, indent=2, sort_keys=True))
     if args.strict and not payload["ok"]:
         raise SystemExit(1)

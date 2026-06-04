@@ -21,7 +21,10 @@ from orchestrator.external_agent_sandbox_drill import (
 )
 from orchestrator.experiment_scope_health import build_experiment_scope_health
 from orchestrator.config_application_dry_run import build_config_application_dry_run
-from orchestrator.memory_diagnostics import build_memory_diagnostics
+from orchestrator.memory_diagnostics import (
+    build_memory_diagnostics,
+    validate_memory_diagnostics_payload,
+)
 from orchestrator.memory_hygiene import build_memory_hygiene
 from orchestrator.memory_scope_recommendation import build_memory_scope_recommendation
 from orchestrator.operator_action_approval import (
@@ -4189,6 +4192,19 @@ def main() -> None:
             limit=args.limit,
             created_at_from=args.created_at_from,
         )
+        errors = validate_memory_diagnostics_payload(
+            payload,
+            experiments_dir=args.experiments_dir,
+            repo_root=args.experiments_dir.parent,
+            history_path=args.history_path
+            or args.experiments_dir / DEFAULT_HISTORY_FILENAME,
+            limit=args.limit,
+            created_at_from=args.created_at_from,
+        )
+        if errors:
+            raise ValueError(
+                "memory diagnostics failed schema validation: " + "; ".join(errors)
+            )
     elif args.command == "memory-hygiene":
         payload = memory_hygiene_report(
             experiments_dir=args.experiments_dir,

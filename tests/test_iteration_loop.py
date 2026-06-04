@@ -209,6 +209,7 @@ from orchestrator.memory_diagnostics import (
     SCHEMA_VERSION as MEMORY_DIAGNOSTICS_SCHEMA_VERSION,
     build_memory_diagnostics,
     validate_memory_diagnostics_file,
+    validate_memory_diagnostics_payload,
     write_memory_diagnostics,
 )
 from orchestrator.memory_hygiene import (
@@ -1120,6 +1121,22 @@ def test_memory_diagnostics_links_outcomes_to_artifact_health(
     assert payload["schema_version"] == MEMORY_DIAGNOSTICS_SCHEMA_VERSION
     assert_matches_schema_payload(payload, "memory_diagnostics")
     assert_matches_schema_payload(empty_scope_payload, "memory_diagnostics")
+    assert validate_memory_diagnostics_payload(
+        payload,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        history_path=history_path,
+        limit=5,
+    ) == ()
+    drift_payload = json.loads(json.dumps(payload))
+    drift_payload["totals"]["outcome_record_count"] = 999
+    assert validate_memory_diagnostics_payload(
+        drift_payload,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        history_path=history_path,
+        limit=5,
+    ) == ("memory_diagnostics current evidence mismatch",)
     assert payload["ok"] is True
     assert payload["totals"]["outcome_record_count"] == 1
     assert payload["totals"]["health_history_record_count"] == 3
@@ -1221,6 +1238,22 @@ def test_memory_diagnostics_cli_and_experiments_command(
 
     assert direct_payload["schema_version"] == MEMORY_DIAGNOSTICS_SCHEMA_VERSION
     assert experiments_payload["schema_version"] == MEMORY_DIAGNOSTICS_SCHEMA_VERSION
+    assert_matches_schema_payload(direct_payload, "memory_diagnostics")
+    assert_matches_schema_payload(experiments_payload, "memory_diagnostics")
+    assert validate_memory_diagnostics_payload(
+        direct_payload,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        history_path=history_path,
+        created_at_from="2026-01-01T00:00:00Z",
+    ) == ()
+    assert validate_memory_diagnostics_payload(
+        experiments_payload,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        history_path=history_path,
+        created_at_from="2026-01-01T00:00:00Z",
+    ) == ()
     assert direct_payload["scope"]["created_at_from"] == "2026-01-01T00:00:00Z"
     assert experiments_payload["scope"]["created_at_from"] == "2026-01-01T00:00:00Z"
     assert direct_payload["policy"]["does_not_execute_agents"] is True

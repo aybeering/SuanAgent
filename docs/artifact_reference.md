@@ -616,6 +616,10 @@ Replay artifacts:
   `--created-at-from` applies the same current-contract scope to outcome memory
   and indexed health runs. It is inspection-only and cannot execute agents, run
   backtests, route agents, apply patches, or change acceptance.
+  `python -m orchestrator.memory_diagnostics` and
+  `python -m orchestrator.experiments memory-diagnostics` validate the terminal
+  payload against `schemas/memory_diagnostics.schema.json` and the current
+  source artifacts before printing JSON.
 - `memory_hygiene.json` and `memory_hygiene.md` summarize the active outcome
   memory scope used by memory filters. They report total versus active records,
   ignored records from `created_at_from` or `recent_record_limit`, patch and

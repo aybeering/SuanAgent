@@ -14,13 +14,19 @@ from orchestrator.agent_slot_readiness_gate import build_agent_slot_readiness_ga
 from orchestrator.agent_slot_health import build_agent_slot_health
 from orchestrator.artifact_validator_coverage import build_artifact_validator_coverage
 from orchestrator.candidate_quality_trace import build_candidate_quality_trace
-from orchestrator.config_change_candidate import build_config_change_candidate
+from orchestrator.config_change_candidate import (
+    build_config_change_candidate,
+    validate_config_change_candidate_payload,
+)
 from orchestrator.experiment_index import read_experiment_index, recent_experiments
 from orchestrator.external_agent_sandbox_drill import (
     build_external_agent_sandbox_drill,
 )
 from orchestrator.experiment_scope_health import build_experiment_scope_health
-from orchestrator.config_application_dry_run import build_config_application_dry_run
+from orchestrator.config_application_dry_run import (
+    build_config_application_dry_run,
+    validate_config_application_dry_run_payload,
+)
 from orchestrator.memory_diagnostics import (
     build_memory_diagnostics,
     validate_memory_diagnostics_payload,
@@ -77,7 +83,10 @@ from orchestrator.operator_action_plan import (
     build_operator_action_plan,
     render_operator_action_plan_markdown,
 )
-from orchestrator.operator_config_review import build_operator_config_review
+from orchestrator.operator_config_review import (
+    build_operator_config_review,
+    validate_operator_config_review_payload,
+)
 from orchestrator.outcome_memory import read_outcome_memory, recent_outcomes
 from orchestrator.run_artifact_health import (
     DEFAULT_HISTORY_FILENAME,
@@ -1538,6 +1547,17 @@ def config_change_candidate_report(
     path = run_dir / "config_change_candidate.json"
     if path.exists():
         payload = load_json(path)
+        errors = validate_config_change_candidate_payload(
+            payload,
+            run_dir=run_dir,
+            repo_root=experiments_dir.parent,
+            experiments_dir=experiments_dir,
+        )
+        if errors:
+            raise ValueError(
+                "config change candidate failed schema validation: "
+                + "; ".join(errors)
+            )
         payload["from_artifact"] = True
         return payload
     if not run_dir.exists():
@@ -1547,6 +1567,17 @@ def config_change_candidate_report(
         repo_root=experiments_dir.parent,
         experiments_dir=experiments_dir,
     )
+    errors = validate_config_change_candidate_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+        experiments_dir=experiments_dir,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "config change candidate failed schema validation: " + "; ".join(errors)
+        )
     payload["from_artifact"] = False
     return payload
 
@@ -1561,6 +1592,17 @@ def operator_config_review_report(
     path = run_dir / "operator_config_review.json"
     if path.exists():
         payload = load_json(path)
+        errors = validate_operator_config_review_payload(
+            payload,
+            run_dir=run_dir,
+            repo_root=experiments_dir.parent,
+            experiments_dir=experiments_dir,
+        )
+        if errors:
+            raise ValueError(
+                "operator config review failed schema validation: "
+                + "; ".join(errors)
+            )
         payload["from_artifact"] = True
         return payload
     if not run_dir.exists():
@@ -1570,6 +1612,17 @@ def operator_config_review_report(
         repo_root=experiments_dir.parent,
         experiments_dir=experiments_dir,
     )
+    errors = validate_operator_config_review_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+        experiments_dir=experiments_dir,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "operator config review failed schema validation: " + "; ".join(errors)
+        )
     payload["from_artifact"] = False
     return payload
 
@@ -1585,6 +1638,18 @@ def config_application_dry_run_report(
     path = run_dir / "config_application_dry_run.json"
     if path.exists():
         payload = load_json(path)
+        errors = validate_config_application_dry_run_payload(
+            payload,
+            run_dir=run_dir,
+            repo_root=experiments_dir.parent,
+            experiments_dir=experiments_dir,
+            config_path=config_path,
+        )
+        if errors:
+            raise ValueError(
+                "config application dry run failed schema validation: "
+                + "; ".join(errors)
+            )
         payload["from_artifact"] = True
         return payload
     if not run_dir.exists():
@@ -1595,6 +1660,19 @@ def config_application_dry_run_report(
         experiments_dir=experiments_dir,
         config_path=config_path,
     )
+    errors = validate_config_application_dry_run_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+        experiments_dir=experiments_dir,
+        config_path=config_path,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "config application dry run failed schema validation: "
+            + "; ".join(errors)
+        )
     payload["from_artifact"] = False
     return payload
 

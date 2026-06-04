@@ -9,7 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from orchestrator.memory_scope_recommendation import build_memory_scope_recommendation
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 CONFIG_CHANGE_CANDIDATE_SCHEMA_VERSION = "config_change_candidate_v1"
@@ -28,6 +32,17 @@ def write_config_change_candidate(
         repo_root=repo_root,
         experiments_dir=experiments_dir,
     )
+    errors = validate_config_change_candidate_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        experiments_dir=experiments_dir,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "config change candidate failed schema validation: " + "; ".join(errors)
+        )
     json_path = run_dir / "config_change_candidate.json"
     md_path = run_dir / "config_change_candidate.md"
     json_path.write_text(
@@ -35,14 +50,6 @@ def write_config_change_candidate(
         encoding="utf-8",
     )
     md_path.write_text(render_config_change_candidate_markdown(payload), encoding="utf-8")
-    errors = validate_config_change_candidate_file(
-        payload_path=json_path,
-        repo_root=repo_root,
-    )
-    if errors:
-        raise ValueError(
-            "config change candidate failed schema validation: " + "; ".join(errors)
-        )
     return json_path, md_path, payload
 
 
@@ -214,6 +221,87 @@ def validate_config_change_candidate_file(
     """Validate a saved config change candidate report."""
     schema_path = repo_root / SCHEMA_PATH
     return tuple(validate_json_file(payload_path=payload_path, schema_path=schema_path))
+
+
+def validate_config_change_candidate_payload(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    experiments_dir: Path | None = None,
+    require_current_evidence: bool = False,
+) -> tuple[str, ...]:
+    """Validate an in-memory config change candidate payload."""
+    repo_root = repo_root.resolve()
+    run_dir = run_dir.resolve()
+    normalized = dict(payload)
+    normalized.pop("from_artifact", None)
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=normalized,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(
+        validate_config_change_candidate_consistency(
+            normalized,
+            run_dir=run_dir,
+            repo_root=repo_root,
+        )
+    )
+    if require_current_evidence:
+        expected = build_config_change_candidate(
+            run_dir=run_dir,
+            repo_root=repo_root,
+            experiments_dir=experiments_dir,
+        )
+        if normalized != expected:
+            errors.append("config_change_candidate current evidence mismatch")
+    return tuple(errors)
+
+
+def validate_config_change_candidate_consistency(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+    repo_root: Path,
+) -> tuple[str, ...]:
+    """Return stable internal consistency errors for config candidates."""
+    errors: list[str] = []
+    changes = list_of_objects(payload.get("changes", []))
+    summary = object_value(payload.get("summary", {}))
+    operator_review = object_value(payload.get("operator_review", {}))
+    if str(payload.get("run_id", "")) != run_dir.name:
+        errors.append("config_change_candidate run_id mismatch")
+    if str(payload.get("run_dir", "")) != relative_path(run_dir, repo_root):
+        errors.append("config_change_candidate run_dir mismatch")
+    if summary != summary_payload(changes=changes):
+        errors.append("config_change_candidate summary mismatch")
+    expected_operator_review = {
+        "required": bool(changes),
+        "status": "pending_review" if changes else "no_candidate_changes",
+        "instruction": (
+            "Review candidates before manually editing config; this artifact "
+            "does not modify repository files."
+        ),
+    }
+    if operator_review != expected_operator_review:
+        errors.append("config_change_candidate operator_review mismatch")
+    seen_ids: set[str] = set()
+    for change in changes:
+        candidate_id = str(change.get("candidate_id", ""))
+        if not candidate_id:
+            errors.append("config_change_candidate empty candidate_id")
+        elif candidate_id in seen_ids:
+            errors.append("config_change_candidate duplicate candidate_id")
+        seen_ids.add(candidate_id)
+        if bool(change.get("applied", True)):
+            errors.append("config_change_candidate applied flag must be false")
+        if not bool(change.get("requires_operator_review", False)):
+            errors.append("config_change_candidate requires_operator_review false")
+    return tuple(errors)
 
 
 def load_json_object(path: Path) -> dict[str, object]:

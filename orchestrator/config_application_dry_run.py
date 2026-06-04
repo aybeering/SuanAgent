@@ -12,7 +12,11 @@ from orchestrator.operator_config_review import (
     OPERATOR_CONFIG_REVIEW_SCHEMA_VERSION,
     build_operator_config_review,
 )
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 CONFIG_APPLICATION_DRY_RUN_SCHEMA_VERSION = "config_application_dry_run_v1"
@@ -34,6 +38,19 @@ def write_config_application_dry_run(
         experiments_dir=experiments_dir,
         config_path=config_path,
     )
+    errors = validate_config_application_dry_run_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        experiments_dir=experiments_dir,
+        config_path=config_path,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "config application dry run failed schema validation: "
+            + "; ".join(errors)
+        )
     json_path = run_dir / "config_application_dry_run.json"
     md_path = run_dir / "config_application_dry_run.md"
     json_path.write_text(
@@ -44,15 +61,6 @@ def write_config_application_dry_run(
         render_config_application_dry_run_markdown(payload),
         encoding="utf-8",
     )
-    errors = validate_config_application_dry_run_file(
-        payload_path=json_path,
-        repo_root=repo_root,
-    )
-    if errors:
-        raise ValueError(
-            "config application dry run failed schema validation: "
-            + "; ".join(errors)
-        )
     return json_path, md_path, payload
 
 
@@ -347,6 +355,117 @@ def validate_config_application_dry_run_file(
             schema_path=repo_root / SCHEMA_PATH,
         )
     )
+
+
+def validate_config_application_dry_run_payload(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    experiments_dir: Path | None = None,
+    config_path: Path | None = None,
+    require_current_evidence: bool = False,
+) -> tuple[str, ...]:
+    """Validate an in-memory config application dry-run payload."""
+    repo_root = repo_root.resolve()
+    run_dir = run_dir.resolve()
+    normalized = dict(payload)
+    normalized.pop("from_artifact", None)
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=normalized,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(
+        validate_config_application_dry_run_consistency(
+            normalized,
+            run_dir=run_dir,
+            repo_root=repo_root,
+        )
+    )
+    if require_current_evidence:
+        expected = build_config_application_dry_run(
+            run_dir=run_dir,
+            repo_root=repo_root,
+            experiments_dir=experiments_dir,
+            config_path=config_path,
+        )
+        if normalized != expected:
+            errors.append("config_application_dry_run current evidence mismatch")
+    return tuple(errors)
+
+
+def validate_config_application_dry_run_consistency(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+    repo_root: Path,
+) -> tuple[str, ...]:
+    """Return stable internal consistency errors for config application dry runs."""
+    errors: list[str] = []
+    if str(payload.get("run_id", "")) != run_dir.name:
+        errors.append("config_application_dry_run run_id mismatch")
+    if str(payload.get("run_dir", "")) != relative_path(run_dir, repo_root):
+        errors.append("config_application_dry_run run_dir mismatch")
+    intent = object_value(payload.get("operator_intent", {}))
+    gate = object_value(payload.get("application_gate", {}))
+    rows = list_of_objects(payload.get("planned_changes", []))
+    blockers = string_list(gate.get("application_blockers", []))
+    review_recorded = bool(intent.get("review_recorded", False))
+    decision_requested = str(intent.get("decision_requested", ""))
+    expected_eligible = bool(not blockers and rows)
+    if bool(gate.get("eligible_for_manual_application", False)) != expected_eligible:
+        errors.append("config_application_dry_run eligible mismatch")
+    expected_approved = sum(
+        1 for row in rows if row.get("review_decision") == "approved"
+    )
+    expected_ready = sum(1 for row in rows if row.get("ready_for_manual_edit"))
+    if int(gate.get("approved_change_count", -1) or 0) != expected_approved:
+        errors.append("config_application_dry_run approved count mismatch")
+    if int(gate.get("ready_change_count", -1) or 0) != expected_ready:
+        errors.append("config_application_dry_run ready count mismatch")
+    for row in rows:
+        selected = str(row.get("review_decision", "")) == "approved" and bool(
+            row.get("selected_for_application", False)
+        )
+        value_matches = row.get("current_config_value") == row.get(
+            "reviewed_current_value"
+        )
+        would_change = row.get("current_config_value") != row.get("proposed_value")
+        ready = bool(selected and value_matches)
+        if bool(row.get("value_matches_review", False)) != value_matches:
+            errors.append("config_application_dry_run value match mismatch")
+        if bool(row.get("would_change_config", False)) != would_change:
+            errors.append("config_application_dry_run would change mismatch")
+        if bool(row.get("ready_for_manual_edit", False)) != ready:
+            errors.append("config_application_dry_run ready row mismatch")
+        if bool(row.get("applied", True)):
+            errors.append("config_application_dry_run applied flag must be false")
+        if not bool(row.get("requires_manual_config_edit", False)):
+            errors.append("config_application_dry_run requires manual edit false")
+    expected_status = application_status(
+        review_payload={"schema_version": OPERATOR_CONFIG_REVIEW_SCHEMA_VERSION}
+        if bool(payload.get("ok", False))
+        else {},
+        reviewed_changes=rows,
+        planned_changes=rows,
+        blockers=blockers,
+    )
+    if str(payload.get("status", "")) != expected_status:
+        errors.append("config_application_dry_run status mismatch")
+    expected_actions = recommended_next_actions(
+        eligible=expected_eligible,
+        blockers=blockers,
+        planned_changes=rows,
+    )
+    if payload.get("recommended_next_actions") != expected_actions:
+        errors.append("config_application_dry_run next actions mismatch")
+    if review_recorded and decision_requested == "approve" and expected_approved == 0:
+        errors.append("config_application_dry_run approval count missing")
+    return tuple(errors)
 
 
 def resolve_config_path(*, repo_root: Path, config_path: Path | None) -> Path:

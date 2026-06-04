@@ -160,12 +160,14 @@ from orchestrator.config_change_candidate import (
     CONFIG_CHANGE_CANDIDATE_SCHEMA_VERSION,
     build_config_change_candidate,
     validate_config_change_candidate_file,
+    validate_config_change_candidate_payload,
     write_config_change_candidate,
 )
 from orchestrator.config_application_dry_run import (
     CONFIG_APPLICATION_DRY_RUN_SCHEMA_VERSION,
     build_config_application_dry_run,
     validate_config_application_dry_run_file,
+    validate_config_application_dry_run_payload,
     write_config_application_dry_run,
 )
 from orchestrator.config_application_executor import (
@@ -193,6 +195,7 @@ from orchestrator.operator_config_review import (
     REQUIRED_APPROVAL_PHRASE as CONFIG_REVIEW_APPROVAL_PHRASE,
     build_operator_config_review,
     validate_operator_config_review_file,
+    validate_operator_config_review_payload,
     write_operator_config_review,
 )
 from orchestrator.run_artifact_health import (
@@ -1676,6 +1679,26 @@ def test_config_change_candidate_records_manual_config_edits(
     assert "# Config Change Candidate" in md_path.read_text(encoding="utf-8")
     assert (repo / "config/default.json").read_text(encoding="utf-8") == config_before
     assert_matches_schema_payload(payload, "config_change_candidate")
+    assert validate_config_change_candidate_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        require_current_evidence=True,
+    ) == ()
+    drift_candidate = json.loads(json.dumps(payload))
+    drift_candidate["summary"]["candidate_count"] = 99
+    drift_candidate_errors = validate_config_change_candidate_payload(
+        drift_candidate,
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        require_current_evidence=True,
+    )
+    assert "config_change_candidate summary mismatch" in drift_candidate_errors
+    assert (
+        "config_change_candidate current evidence mismatch" in drift_candidate_errors
+    )
     assert validate_config_change_candidate_file(
         payload_path=json_path,
         repo_root=repo,
@@ -1757,6 +1780,24 @@ def test_operator_config_review_records_intent_without_applying_config(
     assert dynamic_payload["source"]["from_artifact"] is True
     assert "# Operator Config Review" in md_path.read_text(encoding="utf-8")
     assert_matches_schema_payload(payload, "operator_config_review")
+    assert validate_operator_config_review_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        require_current_evidence=True,
+    ) == ()
+    drift_review = json.loads(json.dumps(payload))
+    drift_review["candidate_summary"]["candidate_count"] = 44
+    drift_review_errors = validate_operator_config_review_payload(
+        drift_review,
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        require_current_evidence=True,
+    )
+    assert "operator_config_review candidate_summary mismatch" in drift_review_errors
+    assert "operator_config_review current evidence mismatch" in drift_review_errors
     assert validate_operator_config_review_file(
         payload_path=json_path,
         repo_root=repo,
@@ -1790,6 +1831,30 @@ def test_operator_config_review_records_intent_without_applying_config(
     assert dynamic_dry_payload["source_operator_review"]["from_artifact"] is True
     assert "# Config Application Dry Run" in dry_md_path.read_text(encoding="utf-8")
     assert_matches_schema_payload(dry_payload, "config_application_dry_run")
+    assert validate_config_application_dry_run_payload(
+        dry_payload,
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        require_current_evidence=True,
+    ) == ()
+    drift_dry_run = json.loads(json.dumps(dry_payload))
+    drift_dry_run["application_gate"]["approved_change_count"] = 88
+    drift_dry_run_errors = validate_config_application_dry_run_payload(
+        drift_dry_run,
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        require_current_evidence=True,
+    )
+    assert (
+        "config_application_dry_run approved count mismatch" in drift_dry_run_errors
+    )
+    assert (
+        "config_application_dry_run current evidence mismatch" in drift_dry_run_errors
+    )
     assert validate_config_application_dry_run_file(
         payload_path=dry_json_path,
         repo_root=repo,
@@ -18633,12 +18698,26 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert config_candidate["from_artifact"] is True
     assert config_candidate["schema_version"] == CONFIG_CHANGE_CANDIDATE_SCHEMA_VERSION
     assert config_candidate["policy"]["does_not_write_config"] is True
+    assert_matches_schema_payload(config_candidate, "config_change_candidate")
+    assert validate_config_change_candidate_payload(
+        config_candidate,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    ) == ()
     assert config_review["from_artifact"] is True
     assert config_review["schema_version"] == OPERATOR_CONFIG_REVIEW_SCHEMA_VERSION
     assert config_review["source"]["file"]["path"].endswith(
         "config_change_candidate.json"
     )
     assert config_review["policy"]["does_not_write_config"] is True
+    assert_matches_schema_payload(config_review, "operator_config_review")
+    assert validate_operator_config_review_payload(
+        config_review,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    ) == ()
     assert config_application["from_artifact"] is True
     assert (
         config_application["schema_version"]
@@ -18648,6 +18727,14 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         "operator_config_review.json"
     )
     assert config_application["policy"]["does_not_write_config"] is True
+    assert_matches_schema_payload(config_application, "config_application_dry_run")
+    assert validate_config_application_dry_run_payload(
+        config_application,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+    ) == ()
     assert review["schema_version"] == "operator_run_review_v1"
     assert validate_operator_run_review_payload(review, repo_root=repo) == ()
     assert review["from_artifact"] is True
@@ -18968,6 +19055,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert config_candidate_payload["sources"][0]["file"]["path"].endswith(
         "memory_scope_recommendation.json"
     )
+    assert_matches_schema_payload(config_candidate_payload, "config_change_candidate")
+    assert validate_config_change_candidate_payload(
+        config_candidate_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    ) == ()
     assert config_review_result.returncode == 0, config_review_result.stderr
     config_review_payload = json.loads(config_review_result.stdout)
     assert config_review_payload["schema_version"] == (
@@ -18978,6 +19072,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         "config_change_candidate.json"
     )
     assert_matches_schema_payload(config_review_payload, "operator_config_review")
+    assert validate_operator_config_review_payload(
+        config_review_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    ) == ()
     assert config_application_result.returncode == 0, config_application_result.stderr
     config_application_payload = json.loads(config_application_result.stdout)
     assert config_application_payload["schema_version"] == (
@@ -18991,6 +19091,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         config_application_payload,
         "config_application_dry_run",
     )
+    assert validate_config_application_dry_run_payload(
+        config_application_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+    ) == ()
     assert apply_config_result.returncode == 1
     apply_config_payload = json.loads(apply_config_result.stdout)
     assert apply_config_payload["schema_version"] == (

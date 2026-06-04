@@ -646,15 +646,24 @@ Replay artifacts:
   `memory_filter.recent_record_limit`. They include current value, proposed
   value, rationale, reason codes, and risk notes, but they never write config,
   route candidates, apply patches, run backtests, or change acceptance.
+  `python -m orchestrator.experiments config-change-candidate <run_id>` validates
+  schema, run binding, candidate summary, and operator-review status before
+  printing JSON.
 - `operator_config_review.json` and `operator_config_review.md` record
   operator approve or reject intent for saved config candidates. Approval
   requires the configured confirmation phrase, rejection can be recorded without
   applying anything, and both paths remain audit-only: they never edit config,
   route candidates, apply patches, run backtests, or change acceptance.
+  `python -m orchestrator.experiments operator-config-review <run_id>` validates
+  schema, candidate summary, review gate, reviewed-row decisions, and next
+  actions before printing JSON.
 - `config_application_dry_run.json` and `config_application_dry_run.md` preview
   whether approved config candidates still match the current config value and
   are ready for a later manual edit. They remain dry-run only and never edit
   config, route candidates, apply patches, run backtests, or change acceptance.
+  `python -m orchestrator.experiments config-application-dry-run <run_id>`
+  validates schema, application gate counts, planned-row readiness, status, and
+  next actions before printing JSON.
 - `config_application_receipt.json` and `config_application_receipt.md` record
   the result of the guarded apply-config-approved command. The command writes
   config only when the saved dry-run is ready, the operator-review digest still

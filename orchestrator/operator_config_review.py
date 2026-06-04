@@ -12,7 +12,11 @@ from orchestrator.config_change_candidate import (
     CONFIG_CHANGE_CANDIDATE_SCHEMA_VERSION,
     build_config_change_candidate,
 )
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 OPERATOR_CONFIG_REVIEW_SCHEMA_VERSION = "operator_config_review_v1"
@@ -41,6 +45,21 @@ def write_operator_config_review(
         confirmation_phrase=confirmation_phrase,
         candidate_ids=candidate_ids,
     )
+    errors = validate_operator_config_review_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        experiments_dir=experiments_dir,
+        operator_id=operator_id,
+        decision=decision,
+        confirmation_phrase=confirmation_phrase,
+        candidate_ids=candidate_ids,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "operator config review failed schema validation: " + "; ".join(errors)
+        )
     json_path = run_dir / "operator_config_review.json"
     md_path = run_dir / "operator_config_review.md"
     json_path.write_text(
@@ -48,14 +67,6 @@ def write_operator_config_review(
         encoding="utf-8",
     )
     md_path.write_text(render_operator_config_review_markdown(payload), encoding="utf-8")
-    errors = validate_operator_config_review_file(
-        payload_path=json_path,
-        repo_root=repo_root,
-    )
-    if errors:
-        raise ValueError(
-            "operator config review failed schema validation: " + "; ".join(errors)
-        )
     return json_path, md_path, payload
 
 
@@ -385,6 +396,147 @@ def validate_operator_config_review_file(
             schema_path=repo_root / SCHEMA_PATH,
         )
     )
+
+
+def validate_operator_config_review_payload(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    experiments_dir: Path | None = None,
+    operator_id: str = DEFAULT_OPERATOR_ID,
+    decision: str = "none",
+    confirmation_phrase: str = "",
+    candidate_ids: tuple[str, ...] = (),
+    require_current_evidence: bool = False,
+) -> tuple[str, ...]:
+    """Validate an in-memory operator config review payload."""
+    repo_root = repo_root.resolve()
+    run_dir = run_dir.resolve()
+    normalized = dict(payload)
+    normalized.pop("from_artifact", None)
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=normalized,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(
+        validate_operator_config_review_consistency(
+            normalized,
+            run_dir=run_dir,
+            repo_root=repo_root,
+        )
+    )
+    if require_current_evidence:
+        expected = build_operator_config_review(
+            run_dir=run_dir,
+            repo_root=repo_root,
+            experiments_dir=experiments_dir,
+            operator_id=operator_id,
+            decision=decision,
+            confirmation_phrase=confirmation_phrase,
+            candidate_ids=candidate_ids,
+        )
+        if normalized != expected:
+            errors.append("operator_config_review current evidence mismatch")
+    return tuple(errors)
+
+
+def validate_operator_config_review_consistency(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+    repo_root: Path,
+) -> tuple[str, ...]:
+    """Return stable internal consistency errors for operator config review."""
+    errors: list[str] = []
+    if str(payload.get("run_id", "")) != run_dir.name:
+        errors.append("operator_config_review run_id mismatch")
+    if str(payload.get("run_dir", "")) != relative_path(run_dir, repo_root):
+        errors.append("operator_config_review run_dir mismatch")
+    summary = object_value(payload.get("candidate_summary", {}))
+    intent = object_value(payload.get("operator_intent", {}))
+    gate = object_value(payload.get("review_gate", {}))
+    rows = list_of_objects(payload.get("reviewed_changes", []))
+    target_ids = tuple(string_list(intent.get("target_candidate_ids", [])))
+    decision = str(intent.get("decision_requested", "none"))
+    review_recorded = bool(intent.get("review_recorded", False))
+    selected_ids = tuple(
+        str(row.get("candidate_id", ""))
+        for row in rows
+        if bool(row.get("selected_for_review", False))
+    )
+    if target_ids != selected_ids:
+        errors.append("operator_config_review selected ids mismatch")
+    expected_summary = {
+        "schema_version": str(summary.get("schema_version", "")),
+        "status": str(summary.get("status", "")),
+        "candidate_count": len(rows),
+        "config_paths": sorted(
+            str(row.get("config_path", ""))
+            for row in rows
+            if str(row.get("config_path", ""))
+        ),
+    }
+    if summary != expected_summary:
+        errors.append("operator_config_review candidate_summary mismatch")
+    phrase_matches = bool(intent.get("confirmation_phrase_matches", False))
+    eligible = bool(
+        summary.get("schema_version") == CONFIG_CHANGE_CANDIDATE_SCHEMA_VERSION
+        and rows
+        and target_ids
+    )
+    if bool(gate.get("eligible_for_review", False)) != eligible:
+        errors.append("operator_config_review eligible_for_review mismatch")
+    if bool(gate.get("requires_operator_review", False)) != bool(rows):
+        errors.append("operator_config_review requires_operator_review mismatch")
+    if str(intent.get("required_approval_phrase_hash", "")) != sha256_text(
+        REQUIRED_APPROVAL_PHRASE
+    ):
+        errors.append("operator_config_review approval phrase hash mismatch")
+    if decision == "approve" and phrase_matches and not review_recorded and eligible:
+        errors.append("operator_config_review approval should be recorded")
+    if review_recorded and decision not in {"approve", "reject"}:
+        errors.append("operator_config_review invalid recorded decision")
+    expected_status = review_status(
+        candidate_payload={"schema_version": summary.get("schema_version", "")}
+        if bool(payload.get("ok", False))
+        else {},
+        changes=rows,
+        decision=decision,
+        review_recorded=review_recorded,
+        eligible_for_review=eligible,
+    )
+    if str(payload.get("status", "")) != expected_status:
+        errors.append("operator_config_review status mismatch")
+    for row in rows:
+        candidate_id = str(row.get("candidate_id", ""))
+        selected = candidate_id in set(target_ids)
+        expected_decision = "pending"
+        if selected and review_recorded and decision == "approve":
+            expected_decision = "approved"
+        elif selected and review_recorded and decision == "reject":
+            expected_decision = "rejected"
+        if bool(row.get("selected_for_review", False)) != selected:
+            errors.append("operator_config_review row selection mismatch")
+        if str(row.get("review_decision", "")) != expected_decision:
+            errors.append("operator_config_review reviewed row decision mismatch")
+        if bool(row.get("applied", True)):
+            errors.append("operator_config_review applied flag must be false")
+        if not bool(row.get("requires_manual_config_edit", False)):
+            errors.append("operator_config_review requires manual edit false")
+    expected_actions = recommended_next_actions(
+        changes=rows,
+        decision=decision,
+        review_recorded=review_recorded,
+        blockers=string_list(gate.get("review_blockers", [])),
+    )
+    if payload.get("recommended_next_actions") != expected_actions:
+        errors.append("operator_config_review next actions mismatch")
+    return tuple(errors)
 
 
 def load_json_object(path: Path) -> dict[str, object]:

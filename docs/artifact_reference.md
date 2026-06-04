@@ -847,9 +847,12 @@ Replay artifacts:
   probe/validation/holdout signals, selected attempts, patch families, and
   failure codes. They read `candidate_leaderboard.json` only, keep
   `proposal_attempts.json` as the round source of truth, and artifact
-  validation recomputes the saved summary, round rows, and candidate rows from
-  the leaderboard. They cannot route candidates, execute agents, run
-  backtests, apply patches, or change acceptance.
+  validation recomputes the saved source metadata, summary, round rows, and
+  candidate rows from the leaderboard. The same payload validator checks writer
+  and terminal output after stripping transient fields such as `from_artifact`,
+  and can rebuild from current run evidence to catch drift before returning.
+  They cannot route candidates, execute agents, run backtests, apply patches,
+  or change acceptance.
 - `candidate_challenger_report.json` and `candidate_challenger_report.md`
   compare saved candidate rows with the current champion registry when one
   exists. They expose validation gap, holdout stability flags, and top

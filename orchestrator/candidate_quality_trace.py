@@ -9,7 +9,11 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 CANDIDATE_QUALITY_TRACE_SCHEMA_VERSION = "candidate_quality_trace_v1"
@@ -22,7 +26,19 @@ def write_candidate_quality_trace(
     repo_root: Path,
 ) -> tuple[Path, Path, dict[str, object]]:
     """Write machine-readable and markdown candidate quality trace artifacts."""
+    repo_root = repo_root.resolve()
+    run_dir = resolve_path(run_dir, repo_root)
     payload = build_candidate_quality_trace(run_dir=run_dir, repo_root=repo_root)
+    errors = validate_candidate_quality_trace_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "candidate quality trace failed schema validation: " + "; ".join(errors)
+        )
     json_path = run_dir / "candidate_quality_trace.json"
     md_path = run_dir / "candidate_quality_trace.md"
     json_path.write_text(
@@ -35,7 +51,9 @@ def write_candidate_quality_trace(
         repo_root=repo_root,
     )
     if errors:
-        raise ValueError(f"candidate quality trace failed schema validation: {errors}")
+        raise ValueError(
+            "candidate quality trace failed schema validation: " + "; ".join(errors)
+        )
     return json_path, md_path, payload
 
 
@@ -277,7 +295,75 @@ def validate_candidate_quality_trace_file(
 ) -> tuple[str, ...]:
     """Validate a saved candidate quality trace report."""
     schema_path = repo_root / SCHEMA_PATH
-    return tuple(validate_json_file(payload_path=payload_path, schema_path=schema_path))
+    schema_errors = tuple(
+        validate_json_file(payload_path=payload_path, schema_path=schema_path)
+    )
+    if schema_errors:
+        return schema_errors
+    payload = load_json_object(payload_path)
+    return schema_errors + validate_candidate_quality_trace_payload(
+        payload,
+        run_dir=payload_path.parent,
+        repo_root=repo_root,
+        require_current_evidence=True,
+    )
+
+
+def validate_candidate_quality_trace_payload(
+    payload: dict[str, object],
+    *,
+    run_dir: Path | None = None,
+    repo_root: Path,
+    require_current_evidence: bool = False,
+) -> tuple[str, ...]:
+    """Validate an in-memory candidate quality trace report."""
+    repo_root = repo_root.resolve()
+    comparable_payload = strip_terminal_metadata(payload)
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=comparable_payload,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    )
+    if require_current_evidence:
+        resolved_run_dir = quality_trace_run_dir(
+            payload=comparable_payload,
+            run_dir=run_dir,
+            repo_root=repo_root,
+        )
+        if resolved_run_dir is None:
+            errors.append("candidate_quality_trace run_dir required")
+        else:
+            errors.extend(
+                validate_candidate_quality_trace_consistency(
+                    payload=comparable_payload,
+                    run_dir=resolved_run_dir,
+                    repo_root=repo_root,
+                )
+            )
+    return tuple(errors)
+
+
+def strip_terminal_metadata(payload: dict[str, object]) -> dict[str, object]:
+    """Return payload without terminal-only annotation fields."""
+    stripped = dict(payload)
+    stripped.pop("from_artifact", None)
+    return stripped
+
+
+def quality_trace_run_dir(
+    *,
+    payload: dict[str, object],
+    run_dir: Path | None,
+    repo_root: Path,
+) -> Path | None:
+    """Return the run directory used for current-evidence validation."""
+    if run_dir is not None:
+        return resolve_path(run_dir, repo_root)
+    raw_path = str(payload.get("run_dir", ""))
+    return resolve_path(Path(raw_path), repo_root) if raw_path else None
 
 
 def validate_candidate_quality_trace_consistency(
@@ -315,6 +401,17 @@ def load_json_list(path: Path) -> list[dict[str, object]]:
     if not isinstance(payload, list):
         return []
     return [row for row in payload if isinstance(row, dict)]
+
+
+def load_json_object(path: Path) -> dict[str, object]:
+    """Load a JSON object or return an empty mapping."""
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
 
 
 def object_value(value: object) -> dict[str, object]:
@@ -384,6 +481,11 @@ def relative_path(path: Path, root: Path) -> str:
         return path.resolve().relative_to(root.resolve()).as_posix()
     except ValueError:
         return path.as_posix()
+
+
+def resolve_path(path: Path, repo_root: Path) -> Path:
+    """Resolve a path relative to the repository root."""
+    return path if path.is_absolute() else repo_root / path
 
 
 def candidate_sort_key(row: dict[str, object]) -> tuple[object, ...]:

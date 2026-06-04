@@ -13,7 +13,10 @@ from orchestrator.agent_result_stats import build_agent_result_stats
 from orchestrator.agent_slot_readiness_gate import build_agent_slot_readiness_gate
 from orchestrator.agent_slot_health import build_agent_slot_health
 from orchestrator.artifact_validator_coverage import build_artifact_validator_coverage
-from orchestrator.candidate_quality_trace import build_candidate_quality_trace
+from orchestrator.candidate_quality_trace import (
+    build_candidate_quality_trace,
+    validate_candidate_quality_trace_payload,
+)
 from orchestrator.config_change_candidate import (
     build_config_change_candidate,
     validate_config_change_candidate_payload,
@@ -1427,6 +1430,17 @@ def candidate_quality_trace(
     path = run_dir / "candidate_quality_trace.json"
     if path.exists():
         payload = load_json(path)
+        errors = validate_candidate_quality_trace_payload(
+            payload,
+            run_dir=run_dir,
+            repo_root=experiments_dir.parent,
+            require_current_evidence=True,
+        )
+        if errors:
+            raise ValueError(
+                "candidate quality trace failed schema validation: "
+                + "; ".join(errors)
+            )
         payload["from_artifact"] = True
         return payload
     if not run_dir.exists():
@@ -1435,6 +1449,16 @@ def candidate_quality_trace(
         run_dir=run_dir,
         repo_root=experiments_dir.parent,
     )
+    errors = validate_candidate_quality_trace_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "candidate quality trace failed schema validation: " + "; ".join(errors)
+        )
     payload["from_artifact"] = False
     return payload
 

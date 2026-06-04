@@ -249,6 +249,10 @@ from orchestrator.candidate_challenger_report import (
     validate_candidate_challenger_report_file,
     validate_candidate_challenger_report_payload,
 )
+from orchestrator.candidate_quality_trace import (
+    validate_candidate_quality_trace_file,
+    validate_candidate_quality_trace_payload,
+)
 from orchestrator.champion_promotion_dry_run import (
     CHAMPION_PROMOTION_DRY_RUN_SCHEMA_VERSION,
     validate_champion_promotion_dry_run_file,
@@ -5265,6 +5269,24 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         run_dir / "candidate_quality_trace.json",
         "candidate_quality_trace",
     )
+    assert validate_candidate_quality_trace_file(
+        payload_path=run_dir / "candidate_quality_trace.json",
+        repo_root=repo,
+    ) == ()
+    assert validate_candidate_quality_trace_payload(
+        quality_trace,
+        run_dir=run_dir,
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    quality_trace_terminal_payload = dict(quality_trace)
+    quality_trace_terminal_payload["from_artifact"] = True
+    assert validate_candidate_quality_trace_payload(
+        quality_trace_terminal_payload,
+        run_dir=run_dir,
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     assert manifest["memory_hygiene"]["path"] == "memory_hygiene.json"
     assert manifest["memory_hygiene"]["markdown_path"] == "memory_hygiene.md"
     assert memory_hygiene["schema_version"] == MEMORY_HYGIENE_SCHEMA_VERSION
@@ -19409,6 +19431,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert trace_payload["schema_version"] == "candidate_quality_trace_v1"
     assert trace_payload["from_artifact"] is True
     assert trace_payload["summary"]["candidate_count"] == len(rows)
+    assert validate_candidate_quality_trace_payload(
+        trace_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     assert hygiene_result.returncode == 0, hygiene_result.stderr
     hygiene_payload = json.loads(hygiene_result.stdout)
     assert hygiene_payload["schema_version"] == MEMORY_HYGIENE_SCHEMA_VERSION

@@ -62,14 +62,15 @@ cockpit artifacts, read-only Codex CLI execution readiness diff artifacts, and
 Codex CLI readiness evidence, plus schema-validated terminal-only operator view
 refresh receipts, operator run review receipts, and experiment summary
 dashboards, champion status views, experiment leaderboard views, and candidate
-leaderboard views, candidate challenger report views, agent result stats views,
-champion lineage views, proposal outcome memory views, and memory diagnostics,
-memory hygiene, memory scope recommendation, config change candidate, operator
-config review, config application dry-run, config rollback preview, config
-lineage, operator action plan, and operator action dashboard views, plus
-operator action approval, operator action execution receipt, and operator
-action audit views, operator unlock checklist views, Codex CLI unlock runbook
-views, Codex CLI execution readiness diff views, and operator cockpit views.
+leaderboard views, candidate quality trace views, candidate challenger report
+views, agent result stats views, champion lineage views, proposal outcome
+memory views, and memory diagnostics, memory hygiene, memory scope
+recommendation, config change candidate, operator config review, config
+application dry-run, config rollback preview, config lineage, operator action
+plan, and operator action dashboard views, plus operator action approval,
+operator action execution receipt, and operator action audit views, operator
+unlock checklist views, Codex CLI unlock runbook views, Codex CLI execution
+readiness diff views, and operator cockpit views.
 
 Still out of scope:
 

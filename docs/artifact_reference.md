@@ -359,15 +359,19 @@ It also includes an `execution_readiness` summary that binds the current
 action-chain status, first recommended command boundary, required dependency
 artifacts, missing artifacts, blockers, selected-command digest status, and
 guarded-executor readiness into one pre-execution checkpoint for the operator.
+The companion `path_closure` summary records whether the operator action path
+has closed across action plan, approval, guarded execution receipt, audit, and
+dashboard evidence, with completed/required step counts and the same read-only
+policy boundary.
 The dashboard writer and terminal view validate the saved or derived payload
 against
 `schemas/operator_action_dashboard.schema.json` and checks that status-derived
 fields plus action, command, failure-reason, and blocker counts still match the
-embedded rows, including the execution-readiness summary.
+embedded rows, including the execution-readiness and path-closure summaries.
 Artifact validation checks dashboard command hints through the shared operator
 command-hint validator for known labels, expected write targets, boundary
 classification, current-step coverage, execution-readiness command binding,
-and simple shell-control-token guards.
+path-closure completion rules, and simple shell-control-token guards.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose the
 Codex CLI operator-unlock evidence chain as a standalone read-only checklist.
 The iteration loop writes it during closeout before the final cockpit so cockpit

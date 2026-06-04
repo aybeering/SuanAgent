@@ -227,6 +227,10 @@
         "action_execution_ready",
         "action_execution_next_command_boundary",
         "action_execution_missing_artifact_count",
+        "action_path_closure_status",
+        "action_path_closed",
+        "action_path_completed_step_count",
+        "action_path_required_step_count",
         "operator_digest_headline",
         "operator_digest_priority",
         "operator_digest_primary_reason",
@@ -264,6 +268,18 @@
           "$ref": "#/$defs/command_boundary_type"
         },
         "action_execution_missing_artifact_count": {
+          "type": "integer"
+        },
+        "action_path_closure_status": {
+          "type": "string"
+        },
+        "action_path_closed": {
+          "type": "boolean"
+        },
+        "action_path_completed_step_count": {
+          "type": "integer"
+        },
+        "action_path_required_step_count": {
           "type": "integer"
         },
         "operator_digest_headline": {

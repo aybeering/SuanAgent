@@ -374,6 +374,7 @@ def cockpit_summary(
     outcome = cockpit_run_outcome_summary(manifest=manifest, diagnosis=diagnosis)
     action_summary = object_field(action_dashboard, "summary")
     action_readiness = object_field(action_dashboard, "execution_readiness")
+    action_closure = object_field(action_dashboard, "path_closure")
     quality_summary = object_field(quality_trace, "summary")
     codex_summary = object_field(codex_preflight, "summary")
     diff_summary = object_field(codex_readiness_diff, "summary")
@@ -401,6 +402,14 @@ def cockpit_summary(
         ),
         "action_execution_missing_artifact_count": int(
             action_readiness.get("missing_artifact_count", 0) or 0
+        ),
+        "action_path_closure_status": str(action_closure.get("status", "")),
+        "action_path_closed": bool(action_closure.get("closed", False)),
+        "action_path_completed_step_count": int(
+            action_closure.get("completed_step_count", 0) or 0
+        ),
+        "action_path_required_step_count": int(
+            action_closure.get("required_step_count", 0) or 0
         ),
         "action_safe_command_count": int(
             action_summary.get("safe_command_count", 0) or 0
@@ -539,6 +548,16 @@ def cockpit_operator_digest(
         ),
         "action_execution_missing_artifact_count": int(
             summary.get("action_execution_missing_artifact_count", 0) or 0
+        ),
+        "action_path_closure_status": str(
+            summary.get("action_path_closure_status", "")
+        ),
+        "action_path_closed": bool(summary.get("action_path_closed", False)),
+        "action_path_completed_step_count": int(
+            summary.get("action_path_completed_step_count", 0) or 0
+        ),
+        "action_path_required_step_count": int(
+            summary.get("action_path_required_step_count", 0) or 0
         ),
         "candidate_quality_top_failure_code": str(
             summary.get("candidate_quality_top_failure_code", "")
@@ -1224,6 +1243,9 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         f"- Action execution readiness: "
         f"`{summary.get('action_execution_readiness_status', '')}`",
         f"- Action execution ready: `{summary.get('action_execution_ready', False)}`",
+        f"- Action path closure: "
+        f"`{summary.get('action_path_closure_status', '')}`",
+        f"- Action path closed: `{summary.get('action_path_closed', False)}`",
         f"- Candidate quality: `{summary.get('candidate_quality_status', '')}` "
         f"(`{summary.get('candidate_quality_top_failure_code', '')}`)",
         f"- Codex CLI preflight: `{summary.get('codex_preflight_status', '')}`",

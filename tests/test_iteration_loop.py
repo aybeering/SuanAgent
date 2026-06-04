@@ -2769,6 +2769,16 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending["execution_readiness"]["missing_artifacts"] == [
         "operator_action_audit"
     ]
+    assert pending["path_closure"]["schema_version"] == (
+        "operator_action_path_closure_v1"
+    )
+    assert pending["path_closure"]["status"] == "awaiting_operator_approval"
+    assert pending["path_closure"]["closed"] is False
+    assert pending["path_closure"]["approval_recorded"] is False
+    assert pending["path_closure"]["execution_completed"] is False
+    assert pending["path_closure"]["completed_step_count"] < pending[
+        "path_closure"
+    ]["required_step_count"]
     assert pending["recommended_commands"][0]["label"] == "write_action_audit"
     assert pending["recommended_commands"][0]["boundary"]["boundary_type"] == (
         "read_only_artifact_refresh"
@@ -2831,6 +2841,11 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert ready["execution_readiness"]["requires_operator_approval"] is True
     assert ready["execution_readiness"]["uses_guarded_executor"] is True
     assert ready["execution_readiness"]["missing_artifact_count"] == 0
+    assert ready["path_closure"]["status"] == "ready_for_guarded_execution"
+    assert ready["path_closure"]["closed"] is False
+    assert ready["path_closure"]["approval_recorded"] is True
+    assert ready["path_closure"]["execution_completed"] is False
+    assert ready["path_closure"]["selected_command_digest_matches_plan"] is True
     assert any(
         row["label"] == "execute_approved_command"
         for row in ready["recommended_commands"]
@@ -2887,6 +2902,24 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert completed["execution_readiness"]["next_command_boundary"] == (
         "read_only_inspection"
     )
+    assert completed["path_closure"]["status"] == "closed"
+    assert completed["path_closure"]["closed"] is True
+    assert completed["path_closure"]["approval_recorded"] is True
+    assert completed["path_closure"]["execution_completed"] is True
+    assert completed["path_closure"]["audit_chain_ok"] is True
+    assert completed["path_closure"]["dashboard_consistency_checked"] is True
+    assert completed["path_closure"]["completed_step_count"] == completed[
+        "path_closure"
+    ]["required_step_count"]
+    assert {
+        row["artifact_name"] for row in completed["path_closure"]["steps"]
+    } == {
+        "operator_action_plan",
+        "operator_action_approval",
+        "operator_action_execution_receipt",
+        "operator_action_audit",
+        "operator_action_dashboard",
+    }
     assert any(
         row["label"] == "review_execution_receipt"
         for row in completed["recommended_commands"]
@@ -2900,6 +2933,7 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert "# Operator Action Dashboard" in markdown
     assert "read_only_inspection" in markdown
     assert "## Execution Readiness" in markdown
+    assert "## Path Closure" in markdown
     assert built["status"] == "execution_completed"
     assert_matches_schema_payload(completed, "operator_action_dashboard")
     assert validate_operator_action_dashboard_file(
@@ -2945,6 +2979,8 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert inconsistent["summary"]["failure_reason_count"] == 1
     assert inconsistent["summary"]["first_failure_stage"] == "execution_receipt"
     assert "execution_command_digest_mismatch" in inconsistent["blockers"]
+    assert inconsistent["path_closure"]["status"] == "blocked"
+    assert inconsistent["path_closure"]["closed"] is False
     assert inconsistent["failure_reasons"] == [
         {
             "stage": "execution_receipt",
@@ -3086,6 +3122,13 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["summary"]["action_execution_ready"] is False
     assert cockpit["summary"]["action_execution_next_command_boundary"]
     assert cockpit["summary"]["action_execution_missing_artifact_count"] >= 0
+    assert cockpit["summary"]["action_path_closure_status"] == (
+        "awaiting_operator_approval"
+    )
+    assert cockpit["summary"]["action_path_closed"] is False
+    assert cockpit["summary"]["action_path_completed_step_count"] < cockpit[
+        "summary"
+    ]["action_path_required_step_count"]
     assert cockpit["summary"]["action_safe_command_count"] >= 1
     assert cockpit["summary"]["action_failure_reason_count"] == 0
     assert cockpit["summary"]["action_first_failure_stage"] == "none"
@@ -3154,6 +3197,12 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     )
     assert cockpit["operator_digest"]["action_execution_ready"] == (
         cockpit["summary"]["action_execution_ready"]
+    )
+    assert cockpit["operator_digest"]["action_path_closure_status"] == (
+        cockpit["summary"]["action_path_closure_status"]
+    )
+    assert cockpit["operator_digest"]["action_path_closed"] == (
+        cockpit["summary"]["action_path_closed"]
     )
     assert cockpit["operator_digest"]["policy"]["inspection_only"] is True
     assert cockpit["operator_digest"]["policy"]["command_is_hint_only"] is True
@@ -3644,6 +3693,8 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert "Safety policy OK: `True`" in refresh_markdown
     assert "Safety policy false keys: `0`" in refresh_markdown
     assert "Next command source: `operator_digest`" in refresh_markdown
+    assert "Action path closure:" in refresh_markdown
+    assert "Action path steps:" in refresh_markdown
     assert refreshed["snapshot_freshness"]["ok"] is True
     refreshed_blockers = refreshed["blockers"]
     if refreshed_blockers:
@@ -3660,6 +3711,18 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     )
     assert refresh["operator_summary"]["operator_digest_priority"] == (
         refreshed_digest["priority"]
+    )
+    assert refresh["operator_summary"]["action_path_closure_status"] == (
+        refreshed["summary"]["action_path_closure_status"]
+    )
+    assert refresh["operator_summary"]["action_path_closed"] == (
+        refreshed["summary"]["action_path_closed"]
+    )
+    assert refresh["operator_summary"]["action_path_completed_step_count"] == (
+        refreshed["summary"]["action_path_completed_step_count"]
+    )
+    assert refresh["operator_summary"]["action_path_required_step_count"] == (
+        refreshed["summary"]["action_path_required_step_count"]
     )
     assert refresh["operator_summary"]["operator_digest_target_panel_id"] == (
         refreshed_digest["target_panel_id"]
@@ -4062,6 +4125,10 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             "action_execution_ready": False,
             "action_execution_next_command_boundary": "read_only_inspection",
             "action_execution_missing_artifact_count": 0,
+            "action_path_closure_status": "closed",
+            "action_path_closed": True,
+            "action_path_completed_step_count": 5,
+            "action_path_required_step_count": 5,
             "operator_digest_headline": "Run is ready for operator review.",
             "operator_digest_priority": "clean",
             "operator_digest_primary_reason": "ready_for_review",

@@ -20,6 +20,7 @@
     "blockers",
     "recommended_commands",
     "execution_readiness",
+    "path_closure",
     "authority",
     "policy"
   ],
@@ -173,6 +174,9 @@
     },
     "execution_readiness": {
       "$ref": "#/$defs/execution_readiness"
+    },
+    "path_closure": {
+      "$ref": "#/$defs/path_closure"
     },
     "authority": {
       "type": "object",
@@ -644,6 +648,134 @@
         },
         "does_not_change_acceptance": {
           "type": "boolean"
+        }
+      }
+    },
+    "path_closure": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "closed",
+        "reason",
+        "current_step",
+        "completed_step_count",
+        "required_step_count",
+        "approval_recorded",
+        "execution_completed",
+        "audit_chain_ok",
+        "dashboard_consistency_checked",
+        "selected_command_label",
+        "selected_command_digest_matches_plan",
+        "blocker_count",
+        "blockers",
+        "steps",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "operator_action_path_closure_v1"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "missing_action_plan",
+            "awaiting_operator_approval",
+            "ready_for_guarded_execution",
+            "closed",
+            "needs_chain_repair",
+            "blocked",
+            "open"
+          ]
+        },
+        "closed": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "current_step": {
+          "type": "string"
+        },
+        "completed_step_count": {
+          "type": "integer"
+        },
+        "required_step_count": {
+          "type": "integer"
+        },
+        "approval_recorded": {
+          "type": "boolean"
+        },
+        "execution_completed": {
+          "type": "boolean"
+        },
+        "audit_chain_ok": {
+          "type": "boolean"
+        },
+        "dashboard_consistency_checked": {
+          "type": "boolean"
+        },
+        "selected_command_label": {
+          "type": "string"
+        },
+        "selected_command_digest_matches_plan": {
+          "type": "boolean"
+        },
+        "blocker_count": {
+          "type": "integer"
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/path_closure_step"
+          }
+        },
+        "policy": {
+          "$ref": "#/$defs/execution_readiness_policy"
+        }
+      }
+    },
+    "path_closure_step": {
+      "type": "object",
+      "required": [
+        "artifact_name",
+        "phase",
+        "required",
+        "complete",
+        "status",
+        "path",
+        "schema_error_count"
+      ],
+      "properties": {
+        "artifact_name": {
+          "type": "string"
+        },
+        "phase": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "schema_error_count": {
+          "type": "integer"
         }
       }
     },

@@ -2703,6 +2703,16 @@ def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, objec
         "action_execution_missing_artifact_count": int(
             cockpit_summary.get("action_execution_missing_artifact_count", 0) or 0
         ),
+        "action_path_closure_status": str(
+            cockpit_summary.get("action_path_closure_status", "")
+        ),
+        "action_path_closed": bool(cockpit_summary.get("action_path_closed", False)),
+        "action_path_completed_step_count": int(
+            cockpit_summary.get("action_path_completed_step_count", 0) or 0
+        ),
+        "action_path_required_step_count": int(
+            cockpit_summary.get("action_path_required_step_count", 0) or 0
+        ),
         "operator_digest_headline": str(digest.get("headline", "")),
         "operator_digest_priority": str(digest.get("priority", "")),
         "operator_digest_primary_reason": str(digest.get("primary_reason", "")),
@@ -3107,6 +3117,13 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"`{operator_summary.get('action_execution_ready', False)}`",
         "- Action execution missing artifacts: "
         f"`{operator_summary.get('action_execution_missing_artifact_count', 0)}`",
+        "- Action path closure: "
+        f"`{operator_summary.get('action_path_closure_status', '')}`",
+        f"- Action path closed: "
+        f"`{operator_summary.get('action_path_closed', False)}`",
+        "- Action path steps: "
+        f"`{operator_summary.get('action_path_completed_step_count', 0)}` / "
+        f"`{operator_summary.get('action_path_required_step_count', 0)}`",
         f"- Operator digest: {operator_summary.get('operator_digest_headline', '')}",
         f"- Digest priority: `{operator_summary.get('operator_digest_priority', '')}`",
         "- Digest target panel: "

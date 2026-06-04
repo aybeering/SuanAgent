@@ -900,6 +900,15 @@ jobs:
               "read_only_inspection"
           )
           assert dashboard["execution_readiness"]["policy"]["does_not_execute_commands"] is True
+          assert dashboard["path_closure"]["schema_version"] == (
+              "operator_action_path_closure_v1"
+          )
+          assert dashboard["path_closure"]["status"] == "closed"
+          assert dashboard["path_closure"]["closed"] is True
+          assert dashboard["path_closure"]["completed_step_count"] == (
+              dashboard["path_closure"]["required_step_count"]
+          )
+          assert dashboard["path_closure"]["policy"]["does_not_execute_commands"] is True
           assert any(
               command["boundary"]["boundary_type"] == "read_only_inspection"
               for command in dashboard["recommended_commands"]
@@ -980,6 +989,8 @@ jobs:
               "execution_completed"
           )
           assert cockpit["summary"]["action_execution_ready"] is False
+          assert cockpit["summary"]["action_path_closure_status"] == "closed"
+          assert cockpit["summary"]["action_path_closed"] is True
           assert cockpit["summary"]["config_lineage_status"] == "partial"
           assert cockpit["summary"]["codex_preflight_ok"] is True
           assert cockpit["operator_digest"]["schema_version"] == "operator_digest_v1"
@@ -1236,6 +1247,12 @@ jobs:
           assert refresh["operator_summary"]["action_execution_ready"] == (
               cockpit["summary"]["action_execution_ready"]
           )
+          assert refresh["operator_summary"]["action_path_closure_status"] == (
+              cockpit["summary"]["action_path_closure_status"]
+          )
+          assert refresh["operator_summary"]["action_path_closed"] == (
+              cockpit["summary"]["action_path_closed"]
+          )
           assert refresh["operator_summary"]["next_command_source"] == "operator_digest"
           assert refresh["operator_summary"]["next_command_label"] == operator_digest[
               "recommended_command_label"
@@ -1259,6 +1276,7 @@ jobs:
           )
           assert "Next command source: `operator_digest`" in refresh_markdown
           assert "Action execution readiness:" in refresh_markdown
+          assert "Action path closure:" in refresh_markdown
           assert "Next command boundary:" in refresh_markdown
           assert "Operator digest:" in refresh_markdown
           assert operator_digest["headline"] in refresh_markdown

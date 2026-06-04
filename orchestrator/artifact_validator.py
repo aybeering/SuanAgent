@@ -5574,6 +5574,10 @@ def validate_optional_operator_action_dashboard(
         payload=payload,
         report=report,
     )
+    validate_operator_action_dashboard_path_closure(
+        payload=payload,
+        report=report,
+    )
 
     authority = payload.get("authority", {})
     if not isinstance(authority, dict):
@@ -5710,6 +5714,70 @@ def validate_operator_action_dashboard_execution_readiness(
                 report,
                 f"operator_action_dashboard readiness policy false: {key}",
             )
+
+
+def validate_operator_action_dashboard_path_closure(
+    *,
+    payload: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate action-dashboard end-to-end path closure evidence."""
+    closure = payload.get("path_closure", {})
+    if not isinstance(closure, dict):
+        add_error(report, "operator_action_dashboard path_closure invalid")
+        return
+    status = str(payload.get("status", ""))
+    blockers = string_list(payload.get("blockers", []))
+    steps = list_of_dicts(closure.get("steps", []))
+    completed_step_count = sum(1 for row in steps if row.get("complete") is True)
+    required_step_count = sum(1 for row in steps if row.get("required") is True)
+    if closure.get("completed_step_count") != completed_step_count:
+        add_error(report, "operator_action_dashboard closure completed count mismatch")
+    if closure.get("required_step_count") != required_step_count:
+        add_error(report, "operator_action_dashboard closure required count mismatch")
+    if closure.get("blocker_count") != len(blockers):
+        add_error(report, "operator_action_dashboard closure blocker mismatch")
+    if closure.get("closed") is True:
+        if str(closure.get("status", "")) != "closed":
+            add_error(report, "operator_action_dashboard closure status mismatch")
+        if status != "execution_completed":
+            add_error(report, "operator_action_dashboard closure closed too early")
+        if blockers:
+            add_error(report, "operator_action_dashboard closure closed with blockers")
+        if closure.get("approval_recorded") is not True:
+            add_error(report, "operator_action_dashboard closure approval mismatch")
+        if closure.get("execution_completed") is not True:
+            add_error(report, "operator_action_dashboard closure execution mismatch")
+        if closure.get("audit_chain_ok") is not True:
+            add_error(report, "operator_action_dashboard closure audit mismatch")
+        if completed_step_count != required_step_count:
+            add_error(report, "operator_action_dashboard closure step mismatch")
+    elif str(closure.get("status", "")) == "closed":
+        add_error(report, "operator_action_dashboard closure closed flag mismatch")
+    if closure.get("dashboard_consistency_checked") is not True:
+        add_error(report, "operator_action_dashboard closure consistency missing")
+    expected_artifacts = {
+        "operator_action_plan",
+        "operator_action_approval",
+        "operator_action_execution_receipt",
+        "operator_action_audit",
+        "operator_action_dashboard",
+    }
+    observed_artifacts = {str(row.get("artifact_name", "")) for row in steps}
+    if observed_artifacts != expected_artifacts:
+        add_error(report, "operator_action_dashboard closure steps mismatch")
+    policy = closure.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "operator_action_dashboard closure policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "does_not_execute_commands",
+        "does_not_record_approval",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"operator_action_dashboard closure policy false: {key}")
 
 
 def validate_recommended_command_hints(

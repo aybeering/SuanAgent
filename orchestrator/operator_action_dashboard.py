@@ -188,6 +188,15 @@ def build_operator_action_dashboard(
             recommended_commands=commands,
             selected_command=selected_command,
         ),
+        "path_closure": path_closure_summary(
+            status=status,
+            current_step=current_step,
+            sources=sources,
+            timeline=timeline,
+            summary=dashboard_summary(audit=audit, actions=actions, blockers=blockers),
+            blockers=blockers,
+            selected_command=selected_command,
+        ),
         "authority": {
             "approval_required_before_execution": True,
             "execution_must_use_guarded_executor": True,
@@ -210,6 +219,164 @@ def build_operator_action_dashboard(
             "does_not_change_acceptance": True,
         },
     }
+
+
+def path_closure_summary(
+    *,
+    status: str,
+    current_step: str,
+    sources: dict[str, object],
+    timeline: list[dict[str, object]],
+    summary: dict[str, object],
+    blockers: list[str],
+    selected_command: dict[str, Any],
+) -> dict[str, object]:
+    """Return deterministic closure evidence for the operator action path."""
+    steps = path_closure_steps(
+        status=status,
+        sources=sources,
+        timeline=timeline,
+    )
+    completed_step_count = sum(1 for row in steps if row["complete"] is True)
+    required_step_count = sum(1 for row in steps if row["required"] is True)
+    closed = bool(
+        status == "execution_completed"
+        and not blockers
+        and completed_step_count == required_step_count
+        and summary.get("chain_ok") is True
+        and summary.get("approval_recorded") is True
+        and summary.get("execution_completed") is True
+    )
+    if blockers:
+        closure_status = "blocked"
+        reason = "operator action path has blockers"
+    elif closed:
+        closure_status = "closed"
+        reason = "approval, guarded execution, audit, and dashboard evidence agree"
+    elif status == "ready_for_execution":
+        closure_status = "ready_for_guarded_execution"
+        reason = "approval is recorded; guarded execution remains"
+    elif status == "pending_approval":
+        closure_status = "awaiting_operator_approval"
+        reason = "operator approval remains before guarded execution"
+    elif status == "missing_action_plan":
+        closure_status = "missing_action_plan"
+        reason = "action plan evidence is missing"
+    elif status in {"needs_chain_repair", "chain_inconsistent"}:
+        closure_status = "needs_chain_repair"
+        reason = "saved action artifacts disagree"
+    else:
+        closure_status = "open"
+        reason = "operator action path is not closed yet"
+    return {
+        "schema_version": "operator_action_path_closure_v1",
+        "status": closure_status,
+        "closed": closed,
+        "reason": reason,
+        "current_step": current_step,
+        "completed_step_count": completed_step_count,
+        "required_step_count": required_step_count,
+        "approval_recorded": bool(summary.get("approval_recorded", False)),
+        "execution_completed": bool(summary.get("execution_completed", False)),
+        "audit_chain_ok": bool(summary.get("chain_ok", False)),
+        "dashboard_consistency_checked": True,
+        "selected_command_label": str(selected_command.get("label", "")),
+        "selected_command_digest_matches_plan": bool(
+            selected_command.get("digest_matches_plan", False)
+        ),
+        "blocker_count": len(blockers),
+        "blockers": blockers[:5],
+        "steps": steps,
+        "policy": {
+            "inspection_only": True,
+            "does_not_execute_commands": True,
+            "does_not_record_approval": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+
+def path_closure_steps(
+    *,
+    status: str,
+    sources: dict[str, object],
+    timeline: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    """Return stable step rows for path closure evidence."""
+    timeline_by_step = {
+        str(row.get("step", "")): row for row in timeline if isinstance(row, dict)
+    }
+    artifact_to_source_key = {
+        "operator_action_plan": "action_plan",
+        "operator_action_approval": "action_approval",
+        "operator_action_execution_receipt": "execution_receipt",
+        "operator_action_audit": "action_audit",
+    }
+    artifact_to_step = {
+        "operator_action_plan": "action_plan",
+        "operator_action_approval": "operator_approval",
+        "operator_action_execution_receipt": "guarded_execution",
+        "operator_action_audit": "action_audit",
+    }
+    required_by_artifact = {
+        "operator_action_plan": True,
+        "operator_action_approval": status
+        in {
+            "ready_for_execution",
+            "execution_completed",
+            "execution_blocked",
+            "execution_failed",
+        },
+        "operator_action_execution_receipt": status == "execution_completed",
+        "operator_action_audit": status != "missing_action_plan",
+    }
+    complete_statuses = {
+        "operator_action_plan": {"complete", "derived"},
+        "operator_action_approval": {"complete"},
+        "operator_action_execution_receipt": {"complete"},
+        "operator_action_audit": {"complete", "derived"},
+    }
+    rows: list[dict[str, object]] = []
+    for artifact_name in (
+        "operator_action_plan",
+        "operator_action_approval",
+        "operator_action_execution_receipt",
+        "operator_action_audit",
+    ):
+        source = sources.get(artifact_to_source_key[artifact_name], {})
+        if not isinstance(source, dict):
+            source = {}
+        file_info = object_field(source, "file")
+        timeline_row = timeline_by_step.get(artifact_to_step[artifact_name], {})
+        timeline_status = str(timeline_row.get("status", ""))
+        required = bool(required_by_artifact.get(artifact_name, False))
+        complete = bool(
+            timeline_status in complete_statuses[artifact_name]
+            and not string_list(source.get("schema_errors", []))
+        )
+        rows.append(
+            {
+                "artifact_name": artifact_name,
+                "phase": artifact_to_step[artifact_name],
+                "required": required,
+                "complete": complete,
+                "status": timeline_status,
+                "path": str(file_info.get("path", "")),
+                "schema_error_count": len(string_list(source.get("schema_errors", []))),
+            }
+        )
+    rows.append(
+        {
+            "artifact_name": "operator_action_dashboard",
+            "phase": "dashboard",
+            "required": True,
+            "complete": status == "execution_completed",
+            "status": status,
+            "path": "operator_action_dashboard.json",
+            "schema_error_count": 0,
+        }
+    )
+    return rows
 
 
 def execution_readiness_summary(
@@ -729,6 +896,7 @@ def render_operator_action_dashboard_markdown(payload: dict[str, object]) -> str
     summary = object_field(payload, "summary")
     selected_command = object_field(payload, "selected_command")
     readiness = object_field(payload, "execution_readiness")
+    closure = object_field(payload, "path_closure")
     lines = [
         "# Operator Action Dashboard",
         "",
@@ -743,6 +911,8 @@ def render_operator_action_dashboard_markdown(payload: dict[str, object]) -> str
         f"- Chain OK: `{summary.get('chain_ok', False)}`",
         f"- Execution readiness: `{readiness.get('status', '')}`",
         f"- Ready for guarded execution: `{readiness.get('ready', False)}`",
+        f"- Path closure: `{closure.get('status', '')}`",
+        f"- Path closed: `{closure.get('closed', False)}`",
         "",
         "## Execution Readiness",
         "",
@@ -765,6 +935,32 @@ def render_operator_action_dashboard_markdown(payload: dict[str, object]) -> str
             f"`{row.get('exists', False)}` | "
             f"`{row.get('passed', False)}` | "
             f"`{row.get('timeline_status', '')}` |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Path Closure",
+            "",
+            f"- Status: `{closure.get('status', '')}`",
+            f"- Closed: `{closure.get('closed', False)}`",
+            f"- Reason: {closure.get('reason', '')}",
+            f"- Completed steps: `{closure.get('completed_step_count', 0)}` / "
+            f"`{closure.get('required_step_count', 0)}`",
+            f"- Dashboard consistency checked: "
+            f"`{closure.get('dashboard_consistency_checked', False)}`",
+            "",
+            "| Step | Required | Complete | Status | Schema errors |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+    for row in list_of_dicts(closure.get("steps", [])):
+        lines.append(
+            "| "
+            f"{row.get('artifact_name', '')} | "
+            f"`{row.get('required', False)}` | "
+            f"`{row.get('complete', False)}` | "
+            f"`{row.get('status', '')}` | "
+            f"`{row.get('schema_error_count', 0)}` |"
         )
     lines.extend(
         [
@@ -898,6 +1094,7 @@ def validate_operator_action_dashboard_consistency(
     sources = object_field(payload, "source_artifacts")
     timeline = list_of_dicts(payload.get("timeline", []))
     readiness = object_field(payload, "execution_readiness")
+    closure = object_field(payload, "path_closure")
     selected_command = object_field(payload, "selected_command")
 
     if bool(payload.get("ok", False)) != (
@@ -954,6 +1151,17 @@ def validate_operator_action_dashboard_consistency(
     )
     if readiness != expected_readiness:
         errors.append("operator_action_dashboard execution_readiness mismatch")
+    expected_closure = path_closure_summary(
+        status=status,
+        current_step=str(payload.get("current_step", "")),
+        sources=sources,
+        timeline=timeline,
+        summary=summary,
+        blockers=blockers,
+        selected_command=selected_command,
+    )
+    if closure != expected_closure:
+        errors.append("operator_action_dashboard path_closure mismatch")
     return tuple(errors)
 
 

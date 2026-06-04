@@ -258,8 +258,9 @@ and scope-health status into one read-only page with a first-screen operator
 digest, panel rows, command hints, and a deterministic review-priority object
 that selects the first panel and existing saved command hint to inspect. The
 digest mirrors the priority target, next command hint, outcome, blocker,
-config, action, candidate-quality, Codex, and promotion status without adding
-authority. The candidate-quality panel points operators to saved candidate
+config, action, action execution-readiness, action path-closure,
+candidate-quality, Codex, and promotion status without adding authority. The
+candidate-quality panel points operators to saved candidate
 scores and rejection reasons without routing or rerunning candidates. The operator-action panel
 surfaces dashboard failure reasons as cockpit action failure reasons and
 `operator_action:<code>` blockers. The Codex CLI panels expose unlock blockers,

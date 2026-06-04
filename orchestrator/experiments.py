@@ -42,6 +42,7 @@ from orchestrator.memory_scope_recommendation import (
 from orchestrator.operator_action_approval import (
     build_operator_action_approval,
     render_operator_action_approval_markdown,
+    validate_operator_action_approval_payload,
 )
 from orchestrator.operator_action_audit import (
     build_operator_action_audit,
@@ -79,6 +80,7 @@ from orchestrator.codex_cli_execution_preflight import (
 from orchestrator.config import load_project_config
 from orchestrator.operator_action_executor import (
     render_receipt_markdown as render_operator_action_execution_markdown,
+    validate_operator_action_execution_receipt_payload,
 )
 from orchestrator.operator_action_plan import (
     build_operator_action_plan,
@@ -2157,6 +2159,17 @@ def operator_action_approval_report(
     approval_path = run_dir / "operator_action_approval.json"
     if approval_path.exists() and not action_id and not command_label:
         payload = load_json(approval_path)
+        errors = validate_operator_action_approval_payload(
+            payload,
+            run_dir=run_dir,
+            repo_root=experiments_dir.parent,
+            experiments_dir=experiments_dir,
+        )
+        if errors:
+            raise ValueError(
+                "operator action approval failed schema validation: "
+                + "; ".join(errors)
+            )
         payload["from_artifact"] = True
         return payload
     payload = build_operator_action_approval(
@@ -2166,6 +2179,20 @@ def operator_action_approval_report(
         action_id=action_id,
         command_label=command_label,
     )
+    errors = validate_operator_action_approval_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+        experiments_dir=experiments_dir,
+        action_id=action_id,
+        command_label=command_label,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "operator action approval failed schema validation: "
+            + "; ".join(errors)
+        )
     payload["from_artifact"] = False
     return payload
 
@@ -2185,6 +2212,17 @@ def operator_action_execution_report(
             f"Operator action execution receipt not found: {receipt_path}"
         )
     payload = load_json(receipt_path)
+    errors = validate_operator_action_execution_receipt_payload(
+        payload,
+        run_id=run_id,
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+    )
+    if errors:
+        raise ValueError(
+            "operator action execution receipt failed schema validation: "
+            + "; ".join(errors)
+        )
     payload["from_artifact"] = True
     return payload
 

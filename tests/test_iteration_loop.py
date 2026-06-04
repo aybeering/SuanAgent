@@ -291,6 +291,7 @@ from orchestrator.operator_action_approval import (
     build_operator_action_approval,
     render_operator_action_approval_markdown,
     validate_operator_action_approval_file,
+    validate_operator_action_approval_payload,
     write_operator_action_approval,
 )
 from orchestrator.operator_action_executor import (
@@ -300,6 +301,7 @@ from orchestrator.operator_action_executor import (
     parse_command,
     render_receipt_markdown as render_operator_action_execution_markdown,
     validate_operator_action_execution_receipt_file,
+    validate_operator_action_execution_receipt_payload,
 )
 from orchestrator.operator_action_audit import (
     OPERATOR_ACTION_AUDIT_SCHEMA_VERSION,
@@ -1980,6 +1982,14 @@ def test_operator_action_approval_records_intent_without_executing_command(
     assert preview["selected_command"]["command_sha256_matches"] is True
     assert preview["selected_command"]["executed_by_approval"] is False
     assert preview["policy"]["does_not_execute_commands"] is True
+    assert validate_operator_action_approval_payload(
+        preview,
+        run_dir=run_dir,
+        repo_root=repo,
+        action_id=action["action_id"],
+        command_label=command["label"],
+        require_current_evidence=True,
+    ) == ()
 
     _, _, blocked = write_operator_action_approval(
         run_dir=run_dir,
@@ -2030,6 +2040,11 @@ def test_operator_action_approval_records_intent_without_executing_command(
     assert_matches_schema_payload(approval, "operator_action_approval")
     assert validate_operator_action_approval_file(
         payload_path=json_path,
+        repo_root=repo,
+    ) == ()
+    assert validate_operator_action_approval_payload(
+        approval,
+        run_dir=run_dir,
         repo_root=repo,
     ) == ()
     refresh_operator_views(repo, "operator-action-approval")
@@ -2134,6 +2149,12 @@ def test_operator_action_execution_receipt_runs_only_approved_read_only_commands
         payload_path=run_dir / "operator_action_execution_receipt.json",
         repo_root=repo,
     ) == ()
+    assert validate_operator_action_execution_receipt_payload(
+        receipt,
+        run_id=run_id,
+        run_dir=run_dir,
+        repo_root=repo,
+    ) == ()
     refresh_operator_views(repo, run_id)
     assert validate_run_artifacts(
         run_id=run_id,
@@ -2204,6 +2225,12 @@ def test_operator_action_execution_receipt_runs_only_approved_read_only_commands
     assert_matches_schema_payload(blocked, "operator_action_execution_receipt")
     assert validate_operator_action_execution_receipt_file(
         payload_path=run_dir / "operator_action_execution_receipt.json",
+        repo_root=repo,
+    ) == ()
+    assert validate_operator_action_execution_receipt_payload(
+        blocked,
+        run_id=run_id,
+        run_dir=run_dir,
         repo_root=repo,
     ) == ()
     refresh_operator_views(repo, run_id)
@@ -18857,6 +18884,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert action_approval["selected_command"]["label"] == command["label"]
     assert action_approval["selected_command"]["executed_by_approval"] is False
     assert action_approval["policy"]["does_not_execute_commands"] is True
+    assert validate_operator_action_approval_payload(
+        action_approval,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    ) == ()
     assert "# Operator Action Approval" in action_approval_markdown
     assert (
         dynamic_action_approval["schema_version"]
@@ -18864,6 +18897,15 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert dynamic_action_approval["from_artifact"] is False
     assert dynamic_action_approval["selected_command"]["label"] == command["label"]
+    assert validate_operator_action_approval_payload(
+        dynamic_action_approval,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        action_id=action["action_id"],
+        command_label=command["label"],
+        require_current_evidence=True,
+    ) == ()
     assert action_execution["from_artifact"] is True
     assert (
         action_execution["schema_version"]
@@ -18873,6 +18915,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert action_execution["executed"] is True
     assert action_execution["command_execution"]["returncode"] == 0
     assert action_execution["mutation_guard"]["ok"] is True
+    assert validate_operator_action_execution_receipt_payload(
+        action_execution,
+        run_id="cli-candidates",
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+    ) == ()
     assert "# Operator Action Execution Receipt" in action_execution_markdown
     assert action_audit["from_artifact"] is True
     assert action_audit["schema_version"] == OPERATOR_ACTION_AUDIT_SCHEMA_VERSION
@@ -18984,6 +19032,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert action_approval_payload["selected_command"]["label"] == command["label"]
     assert action_approval_payload["selected_command"]["executed_by_approval"] is False
     assert_matches_schema_payload(action_approval_payload, "operator_action_approval")
+    assert validate_operator_action_approval_payload(
+        action_approval_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    ) == ()
     assert action_approval_markdown_result.returncode == 0, (
         action_approval_markdown_result.stderr
     )
@@ -18994,6 +19048,15 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     dynamic_approval_payload = json.loads(dynamic_action_approval_result.stdout)
     assert dynamic_approval_payload["from_artifact"] is False
     assert dynamic_approval_payload["selected_command"]["label"] == command["label"]
+    assert validate_operator_action_approval_payload(
+        dynamic_approval_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        action_id=action["action_id"],
+        command_label=command["label"],
+        require_current_evidence=True,
+    ) == ()
     assert action_execution_result.returncode == 0, action_execution_result.stderr
     action_execution_payload = json.loads(action_execution_result.stdout)
     assert (
@@ -19007,6 +19070,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         action_execution_payload,
         "operator_action_execution_receipt",
     )
+    assert validate_operator_action_execution_receipt_payload(
+        action_execution_payload,
+        run_id="cli-candidates",
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+    ) == ()
     assert action_execution_markdown_result.returncode == 0, (
         action_execution_markdown_result.stderr
     )

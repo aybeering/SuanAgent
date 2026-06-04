@@ -13,8 +13,13 @@ from typing import Any
 
 from orchestrator.operator_action_approval import (
     OPERATOR_ACTION_APPROVAL_SCHEMA_VERSION,
+    validate_operator_action_approval_file,
 )
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 OPERATOR_ACTION_EXECUTION_RECEIPT_SCHEMA_VERSION = (
@@ -102,9 +107,9 @@ def execution_evidence_checks(
     """Return deterministic blockers for guarded operator action execution."""
     blockers: list[str] = []
     approval_errors = (
-        validate_json_file(
+        validate_operator_action_approval_file(
             payload_path=approval_path,
-            schema_path=repo_root / "schemas/operator_action_approval.schema.json",
+            repo_root=repo_root,
         )
         if approval_path.exists() and approval_path.is_file()
         else ("missing_approval_file",)
@@ -356,6 +361,17 @@ def write_receipt(
     repo_root: Path,
 ) -> tuple[Path, Path]:
     """Write machine-readable and markdown operator action execution receipts."""
+    errors = validate_operator_action_execution_receipt_payload(
+        payload,
+        run_id=str(payload.get("run_id", "")),
+        run_dir=run_dir,
+        repo_root=repo_root,
+    )
+    if errors:
+        raise ValueError(
+            "operator action execution receipt failed schema validation: "
+            + "; ".join(errors)
+        )
     json_path = run_dir / "operator_action_execution_receipt.json"
     md_path = run_dir / "operator_action_execution_receipt.md"
     json_path.write_text(
@@ -428,12 +444,174 @@ def validate_operator_action_execution_receipt_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved operator action execution receipt."""
-    return tuple(
+    errors = list(
         validate_json_file(
             payload_path=payload_path,
             schema_path=repo_root / SCHEMA_PATH,
         )
     )
+    if payload_path.exists():
+        errors.extend(
+            validate_operator_action_execution_receipt_consistency(
+                load_json_object(payload_path),
+                run_id=payload_path.parent.name,
+                run_dir=payload_path.parent,
+                repo_root=repo_root,
+            )
+        )
+    return tuple(errors)
+
+
+def validate_operator_action_execution_receipt_payload(
+    payload: dict[str, object],
+    *,
+    run_id: str,
+    run_dir: Path,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate an in-memory operator action execution receipt payload."""
+    repo_root = repo_root.resolve()
+    run_dir = resolve_path(run_dir, repo_root)
+    comparable_payload = strip_terminal_metadata(payload)
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=comparable_payload,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(
+        validate_operator_action_execution_receipt_consistency(
+            comparable_payload,
+            run_id=run_id,
+            run_dir=run_dir,
+            repo_root=repo_root,
+        )
+    )
+    return tuple(errors)
+
+
+def validate_operator_action_execution_receipt_consistency(
+    payload: dict[str, object],
+    *,
+    run_id: str,
+    run_dir: Path,
+    repo_root: Path,
+) -> tuple[str, ...]:
+    """Validate receipt status, source approval, command, evidence, and policy."""
+    errors: list[str] = []
+    repo_root = repo_root.resolve()
+    run_dir = resolve_path(run_dir, repo_root)
+    source = object_field(payload, "source_approval")
+    source_file = object_field(source, "file")
+    approval_path = resolve_path(Path(str(source_file.get("path", ""))), repo_root)
+    approval = load_json_object(approval_path)
+    selected_action = object_field(payload, "selected_action")
+    selected_command = object_field(payload, "selected_command")
+    checks = object_field(payload, "evidence_checks")
+    execution = object_field(payload, "command_execution")
+    mutation_guard = object_field(payload, "mutation_guard")
+    policy = object_field(payload, "policy")
+
+    if str(payload.get("run_id", "")) != run_id:
+        errors.append("operator_action_execution run_id mismatch")
+    if str(payload.get("run_dir", "")) != relative_path(run_dir, repo_root):
+        errors.append("operator_action_execution run_dir mismatch")
+    if source.get("artifact_name") != "operator_action_approval":
+        errors.append("operator_action_execution source artifact mismatch")
+    if str(source_file.get("sha256", "")) != file_sha256(approval_path):
+        errors.append("operator_action_execution source approval digest mismatch")
+    if str(source.get("approval_status", "")) != str(approval.get("status", "")):
+        errors.append("operator_action_execution approval status mismatch")
+    if bool(source.get("approval_recorded", False)) != bool(
+        object_field(approval, "operator_intent").get("approval_recorded", False)
+    ):
+        errors.append("operator_action_execution approval recorded mismatch")
+    if selected_action != object_field(approval, "selected_action"):
+        errors.append("operator_action_execution selected action mismatch")
+    if selected_command != object_field(approval, "selected_command"):
+        errors.append("operator_action_execution selected command mismatch")
+
+    expected_checks = execution_evidence_checks(
+        run_id=run_id,
+        approval_path=approval_path,
+        approval=approval,
+        repo_root=repo_root,
+    )
+    expected_evidence = {
+        "ok": bool(expected_checks.get("ok", False)),
+        "blockers": string_list(expected_checks.get("blockers", [])),
+        "approval_schema_errors": string_list(
+            expected_checks.get("approval_schema_errors", [])
+        ),
+        "selected_command_sha256": str(
+            expected_checks.get("selected_command_sha256", "")
+        ),
+        "computed_command_sha256": str(
+            expected_checks.get("computed_command_sha256", "")
+        ),
+        "source_action_plan_path": str(
+            expected_checks.get("source_action_plan_path", "")
+        ),
+        "source_action_plan_sha256": str(
+            expected_checks.get("source_action_plan_sha256", "")
+        ),
+        "allowed_experiments_subcommands": string_list(
+            expected_checks.get("allowed_experiments_subcommands", [])
+        ),
+    }
+    if checks != expected_evidence:
+        errors.append("operator_action_execution evidence checks mismatch")
+
+    command_text = str(selected_command.get("command", ""))
+    if str(execution.get("command", "")) != command_text:
+        errors.append("operator_action_execution command_execution command mismatch")
+    if string_list(execution.get("argv", [])) != parse_command(command_text):
+        errors.append("operator_action_execution command_execution argv mismatch")
+    expected_mutation_ok = bool(
+        mutation_guard.get("available", False)
+        and string_list(mutation_guard.get("tracked_status_before", []))
+        == string_list(mutation_guard.get("tracked_status_after", []))
+    )
+    if mutation_guard.get("tracked_status_unchanged") is not expected_mutation_ok:
+        errors.append("operator_action_execution mutation unchanged mismatch")
+    if mutation_guard.get("ok") is not expected_mutation_ok:
+        errors.append("operator_action_execution mutation ok mismatch")
+
+    expected_status = receipt_status(
+        checks_ok=bool(checks.get("ok", False)),
+        execution=execution,
+        mutation_guard=mutation_guard,
+    )
+    if str(payload.get("status", "")) != expected_status:
+        errors.append("operator_action_execution status mismatch")
+    if bool(payload.get("ok", False)) != (expected_status == "completed"):
+        errors.append("operator_action_execution ok mismatch")
+    if bool(payload.get("executed", False)) != bool(execution.get("executed", False)):
+        errors.append("operator_action_execution executed mismatch")
+
+    expected_policy = {
+        "requires_operator_action_approval": True,
+        "requires_approval_recorded": True,
+        "requires_command_digest_match": True,
+        "requires_source_action_plan_digest_match": True,
+        "executes_only_allowlisted_read_only_commands": True,
+        "blocks_repository_writing_commands": True,
+        "blocks_champion_promotion_commands": True,
+        "blocks_backtest_commands": True,
+        "records_stdout_stderr_hashes": True,
+        "checks_tracked_workspace_mutation": True,
+        "does_not_execute_agents": True,
+        "does_not_write_config": True,
+        "does_not_promote_champion": True,
+        "does_not_apply_patches": True,
+        "does_not_route_agents": True,
+        "does_not_change_acceptance": True,
+    }
+    if policy != expected_policy:
+        errors.append("operator_action_execution policy mismatch")
+    return tuple(errors)
 
 
 def mutation_guard_record(
@@ -576,6 +754,13 @@ def relative_path(path: Path, repo_root: Path) -> str:
         return str(resolved.relative_to(repo_root.resolve()))
     except ValueError:
         return str(resolved)
+
+
+def strip_terminal_metadata(payload: dict[str, object]) -> dict[str, object]:
+    """Return payload without CLI-only annotation fields."""
+    stripped = dict(payload)
+    stripped.pop("from_artifact", None)
+    return stripped
 
 
 def main() -> None:

@@ -443,6 +443,14 @@ Codex CLI readiness contracts:
     without recording approval, executing commands, writing config, promoting
     champions, running agents, rerunning backtests, routing candidates,
     applying patches, or changing acceptance.
+37. Operator action approval and operator action execution receipt terminal
+    outputs are schema-validated before JSON or markdown is emitted. Their
+    validators replay source action-plan or approval bindings, selected command
+    hashes, confirmation phrase evidence, approval gates, execution command
+    argv, evidence-check rows, mutation guard status, and read-only policy flags
+    without executing new commands from terminal inspection, writing config,
+    promoting champions, running agents, rerunning backtests, routing
+    candidates, applying patches, or changing acceptance.
 
 ## Near-Term Development Order
 

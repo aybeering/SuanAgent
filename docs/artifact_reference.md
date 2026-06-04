@@ -293,8 +293,12 @@ approval binds to `operator_action_plan.json`, records the selected action id,
 command label, command digest, operator id, and confirmation phrase hashes.
 Artifact validation replays the selected action and command lookup from the
 saved action plan so the approval cannot drift to a different command while
-keeping a valid source digest. Approval still does not execute the approved
-command. The approved command must be invoked separately by the operator.
+keeping a valid source digest. The writer and terminal view also validate the
+payload against `schemas/operator_action_approval.schema.json` and check the
+selected action, selected command, confirmation phrase hashes, approval gate,
+status, recommended next actions, and read-only policy before returning.
+Approval still does not execute the approved command. The approved command must
+be invoked separately by the operator.
 `operator_action_execution_receipt.json` and
 `operator_action_execution_receipt.md` can then record the guarded execution of
 an approved read-only inspection command. The receipt requires a saved approval
@@ -303,7 +307,11 @@ selected action, selected command, execution command, argv, and evidence hashes
 still match the saved approval, blocks commands that write repository state,
 promote champions, run backtests, execute agents, route agents, apply patches,
 or change acceptance, records stdout/stderr hashes, and checks tracked
-workspace mutation before writing the receipt.
+workspace mutation before writing the receipt. The writer and terminal view
+validate the payload against
+`schemas/operator_action_execution_receipt.schema.json` and check source
+approval binding, selected action and command equality, execution command and
+argv, evidence fields, mutation guard, status, and policy before returning.
 `operator_action_audit.json` and `operator_action_audit.md` connect the saved
 action plan, approval, and execution receipt into one digest-checked read-only
 chain. The audit records stable failure reasons with stage, code, severity, and

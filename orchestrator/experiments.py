@@ -1689,21 +1689,54 @@ def config_application_rollback_preview_report(
     path = run_dir / "config_application_rollback_preview.json"
     if path.exists() and receipt_path is None:
         payload = load_json(path)
+        from orchestrator.config_application_rollback_preview import (
+            validate_config_application_rollback_preview_payload,
+        )
+
+        errors = validate_config_application_rollback_preview_payload(
+            payload,
+            run_id=run_id,
+            run_dir=run_dir,
+            repo_root=experiments_dir.parent,
+            receipt_path=run_dir / "config_application_receipt.json",
+            config_path=config_path,
+        )
+        if errors:
+            raise ValueError(
+                "config application rollback preview failed schema validation: "
+                + "; ".join(errors)
+            )
         payload["from_artifact"] = True
         return payload
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
     from orchestrator.config_application_rollback_preview import (
         build_config_application_rollback_preview,
+        validate_config_application_rollback_preview_payload,
     )
 
+    resolved_receipt_path = receipt_path or run_dir / "config_application_receipt.json"
     payload = build_config_application_rollback_preview(
         run_id=run_id,
         run_dir=run_dir,
         repo_root=experiments_dir.parent,
-        receipt_path=receipt_path or run_dir / "config_application_receipt.json",
+        receipt_path=resolved_receipt_path,
         config_path=config_path,
     )
+    errors = validate_config_application_rollback_preview_payload(
+        payload,
+        run_id=run_id,
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+        receipt_path=resolved_receipt_path,
+        config_path=config_path,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "config application rollback preview failed schema validation: "
+            + "; ".join(errors)
+        )
     payload["from_artifact"] = False
     return payload
 
@@ -1719,11 +1752,27 @@ def config_lineage_report(
     path = run_dir / "config_lineage.json"
     if path.exists():
         payload = load_json(path)
+        from orchestrator.config_lineage import validate_config_lineage_payload
+
+        errors = validate_config_lineage_payload(
+            payload,
+            run_id=run_id,
+            run_dir=run_dir,
+            repo_root=experiments_dir.parent,
+            config_path=config_path,
+        )
+        if errors:
+            raise ValueError(
+                "config lineage failed schema validation: " + "; ".join(errors)
+            )
         payload["from_artifact"] = True
         return payload
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
-    from orchestrator.config_lineage import build_config_lineage
+    from orchestrator.config_lineage import (
+        build_config_lineage,
+        validate_config_lineage_payload,
+    )
 
     payload = build_config_lineage(
         run_id=run_id,
@@ -1731,6 +1780,18 @@ def config_lineage_report(
         repo_root=experiments_dir.parent,
         config_path=config_path,
     )
+    errors = validate_config_lineage_payload(
+        payload,
+        run_id=run_id,
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+        config_path=config_path,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "config lineage failed schema validation: " + "; ".join(errors)
+        )
     payload["from_artifact"] = False
     return payload
 

@@ -16,7 +16,11 @@ from orchestrator.config_application_executor import (
     resolve_path,
     string_list,
 )
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 CONFIG_LINEAGE_SCHEMA_VERSION = "config_lineage_v1"
@@ -51,6 +55,16 @@ def write_config_lineage(
         repo_root=repo_root,
         config_path=config_path,
     )
+    errors = validate_config_lineage_payload(
+        payload,
+        run_id=run_id,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        config_path=config_path,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError("config lineage failed schema validation: " + "; ".join(errors))
     json_path = run_dir / "config_lineage.json"
     md_path = run_dir / "config_lineage.md"
     json_path.write_text(
@@ -58,9 +72,6 @@ def write_config_lineage(
         encoding="utf-8",
     )
     md_path.write_text(render_config_lineage_markdown(payload), encoding="utf-8")
-    errors = validate_config_lineage_file(payload_path=json_path, repo_root=repo_root)
-    if errors:
-        raise ValueError("config lineage failed schema validation: " + "; ".join(errors))
     return json_path, md_path, payload
 
 
@@ -389,6 +400,126 @@ def validate_config_lineage_file(
             schema_path=repo_root / SCHEMA_PATH,
         )
     )
+
+
+def validate_config_lineage_payload(
+    payload: dict[str, object],
+    *,
+    run_id: str,
+    run_dir: Path,
+    repo_root: Path,
+    config_path: Path,
+    require_current_evidence: bool = False,
+) -> tuple[str, ...]:
+    """Validate an in-memory config lineage payload."""
+    repo_root = repo_root.resolve()
+    run_dir = run_dir.resolve()
+    normalized = dict(payload)
+    normalized.pop("from_artifact", None)
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=normalized,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(
+        validate_config_lineage_consistency(
+            normalized,
+            run_id=run_id,
+            run_dir=run_dir,
+            repo_root=repo_root,
+        )
+    )
+    if require_current_evidence:
+        expected = build_config_lineage(
+            run_id=run_id,
+            run_dir=run_dir,
+            repo_root=repo_root,
+            config_path=config_path,
+        )
+        if normalized != expected:
+            errors.append("config_lineage current evidence mismatch")
+    return tuple(errors)
+
+
+def validate_config_lineage_consistency(
+    payload: dict[str, object],
+    *,
+    run_id: str,
+    run_dir: Path,
+    repo_root: Path,
+) -> tuple[str, ...]:
+    """Return stable internal consistency errors for config lineage."""
+    errors: list[str] = []
+    if str(payload.get("run_id", "")) != run_id:
+        errors.append("config_lineage run_id mismatch")
+    if str(payload.get("run_dir", "")) != relative_path(run_dir, repo_root):
+        errors.append("config_lineage run_dir mismatch")
+    stages = [
+        row for row in payload.get("stages", []) if isinstance(row, dict)
+    ]
+    checks = object_field(payload, "checks")
+    expected_stage_names = [stage_name for stage_name, _ in STAGE_FILES]
+    stage_names = [str(row.get("stage_name", "")) for row in stages]
+    if stage_names != expected_stage_names:
+        errors.append("config_lineage stage order mismatch")
+    expected_paths = [
+        relative_path(run_dir / filename, repo_root) for _, filename in STAGE_FILES
+    ]
+    if [str(row.get("artifact_path", "")) for row in stages] != expected_paths:
+        errors.append("config_lineage stage path mismatch")
+    existing_count = sum(1 for row in stages if row.get("exists") is True)
+    if int(checks.get("stage_count", -1) or 0) != len(STAGE_FILES):
+        errors.append("config_lineage stage count mismatch")
+    if int(checks.get("existing_stage_count", -1) or 0) != existing_count:
+        errors.append("config_lineage existing stage count mismatch")
+    receipt_stage = stage_by_name(stages, "config_application_receipt")
+    restore_stage = stage_by_name(stages, "config_application_restore_receipt")
+    applied = bool(receipt_stage.get("action_succeeded", False))
+    restored = bool(restore_stage.get("action_succeeded", False))
+    if bool(checks.get("applied", False)) != applied:
+        errors.append("config_lineage applied mismatch")
+    if bool(checks.get("restored", False)) != restored:
+        errors.append("config_lineage restored mismatch")
+    if bool(payload.get("ok", False)) != bool(checks.get("ok", False)):
+        errors.append("config_lineage ok mismatch")
+    if bool(checks.get("ok", False)) != (not string_list(checks.get("errors", []))):
+        errors.append("config_lineage check ok mismatch")
+    current_config = object_field(payload, "current_config")
+    if str(checks.get("current_config_sha256", "")) != str(
+        current_config.get("sha256", "")
+    ):
+        errors.append("config_lineage current config sha mismatch")
+    expected_status = status_from_stage_rows(stages)
+    if str(payload.get("status", "")) != expected_status:
+        errors.append("config_lineage status mismatch")
+    return tuple(errors)
+
+
+def stage_by_name(
+    stages: list[dict[str, object]],
+    stage_name: str,
+) -> dict[str, object]:
+    """Return a stage row by name or an empty object."""
+    for row in stages:
+        if row.get("stage_name") == stage_name:
+            return row
+    return {}
+
+
+def status_from_stage_rows(stages: list[dict[str, object]]) -> str:
+    """Return lineage status derived from compact stage rows."""
+    restore = stage_by_name(stages, "config_application_restore_receipt")
+    receipt = stage_by_name(stages, "config_application_receipt")
+    if restore.get("action_succeeded") is True:
+        return "restored"
+    if receipt.get("action_succeeded") is True:
+        return "applied"
+    if restore.get("exists") is True or receipt.get("exists") is True:
+        return "blocked"
+    return "partial"
 
 
 def main() -> None:

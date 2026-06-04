@@ -673,6 +673,9 @@ Replay artifacts:
   `config_application_rollback_preview.md` read a saved application receipt and
   current config to preview manual restore rows and next-run impact. They are
   read-only and never restore config automatically.
+  `python -m orchestrator.experiments config-application-rollback-preview <run_id>`
+  validates schema, rollback gate counts, row restore readiness, next-run
+  impact, and optional current receipt/config evidence before printing JSON.
 - `config_application_restore_receipt.json` and
   `config_application_restore_receipt.md` record the result of the guarded
   restore-config-approved command. The command writes config only when the
@@ -682,6 +685,9 @@ Replay artifacts:
 - `config_lineage.json` and `config_lineage.md` connect config candidates,
   operator review, dry-run, apply receipt, rollback preview, and restore
   receipt artifacts into one read-only digest chain for the run.
+  `python -m orchestrator.experiments config-lineage <run_id>` validates schema,
+  stage order, stage counts, action flags, current-config summary, status, and
+  optional current artifact evidence before printing JSON.
 - `experiment_scope_health.json` combines current artifact health,
   artifact-health history, and memory diagnostics for one `--created-at-from`
   scope. It is a read-only status page and marks the scope unhealthy if any

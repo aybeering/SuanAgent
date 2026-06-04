@@ -178,6 +178,7 @@ from orchestrator.config_application_executor import (
 from orchestrator.config_application_rollback_preview import (
     CONFIG_APPLICATION_ROLLBACK_PREVIEW_SCHEMA_VERSION,
     validate_config_application_rollback_preview_file,
+    validate_config_application_rollback_preview_payload,
     write_config_application_rollback_preview,
 )
 from orchestrator.config_application_restore_executor import (
@@ -188,6 +189,7 @@ from orchestrator.config_application_restore_executor import (
 from orchestrator.config_lineage import (
     CONFIG_LINEAGE_SCHEMA_VERSION,
     validate_config_lineage_file,
+    validate_config_lineage_payload,
     write_config_lineage,
 )
 from orchestrator.operator_config_review import (
@@ -3757,6 +3759,15 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
         blocked_preview,
         "config_application_rollback_preview",
     )
+    assert validate_config_application_rollback_preview_payload(
+        blocked_preview,
+        run_id="config-apply-approved",
+        run_dir=run_dir,
+        repo_root=repo,
+        receipt_path=run_dir / "config_application_receipt.json",
+        config_path=repo / "config/default.json",
+        require_current_evidence=True,
+    ) == ()
     blocked_restore = restore_config_with_preview(
         run_id="config-apply-approved",
         preview_path=run_dir / "config_application_rollback_preview.json",
@@ -3860,6 +3871,34 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
         payload_path=run_dir / "config_application_rollback_preview.json",
         repo_root=repo,
     ) == ()
+    assert validate_config_application_rollback_preview_payload(
+        preview,
+        run_id="config-apply-approved",
+        run_dir=run_dir,
+        repo_root=repo,
+        receipt_path=run_dir / "config_application_receipt.json",
+        config_path=repo / "config/default.json",
+        require_current_evidence=True,
+    ) == ()
+    drift_preview = json.loads(json.dumps(preview))
+    drift_preview["rollback_gate"]["restorable_change_count"] = 99
+    drift_preview_errors = validate_config_application_rollback_preview_payload(
+        drift_preview,
+        run_id="config-apply-approved",
+        run_dir=run_dir,
+        repo_root=repo,
+        receipt_path=run_dir / "config_application_receipt.json",
+        config_path=repo / "config/default.json",
+        require_current_evidence=True,
+    )
+    assert (
+        "config_application_rollback_preview restorable count mismatch"
+        in drift_preview_errors
+    )
+    assert (
+        "config_application_rollback_preview current evidence mismatch"
+        in drift_preview_errors
+    )
     restore_receipt = restore_config_with_preview(
         run_id="config-apply-approved",
         preview_path=run_dir / "config_application_rollback_preview.json",
@@ -3929,6 +3968,26 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
         payload_path=run_dir / "config_lineage.json",
         repo_root=repo,
     ) == ()
+    assert validate_config_lineage_payload(
+        lineage,
+        run_id="config-apply-approved",
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+        require_current_evidence=True,
+    ) == ()
+    drift_lineage = json.loads(json.dumps(lineage))
+    drift_lineage["checks"]["existing_stage_count"] = 99
+    drift_lineage_errors = validate_config_lineage_payload(
+        drift_lineage,
+        run_id="config-apply-approved",
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+        require_current_evidence=True,
+    )
+    assert "config_lineage existing stage count mismatch" in drift_lineage_errors
+    assert "config_lineage current evidence mismatch" in drift_lineage_errors
 
     report = validate_run_artifacts(
         run_id="config-apply-approved",
@@ -19124,6 +19183,16 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         rollback_preview_payload,
         "config_application_rollback_preview",
     )
+    assert validate_config_application_rollback_preview_payload(
+        rollback_preview_payload,
+        run_id="cli-candidates",
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        receipt_path=repo
+        / "experiments/cli-candidates/config_application_receipt.json",
+        config_path=repo / "config/default.json",
+        require_current_evidence=True,
+    ) == ()
     assert write_rollback_preview_result.returncode == 0, (
         write_rollback_preview_result.stderr
     )
@@ -19154,6 +19223,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert config_lineage_payload["policy"]["inspection_only"] is True
     assert config_lineage_payload["policy"]["does_not_write_config"] is True
     assert_matches_schema_payload(config_lineage_payload, "config_lineage")
+    assert validate_config_lineage_payload(
+        config_lineage_payload,
+        run_id="cli-candidates",
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+    ) == ()
     assert challenger_result.returncode == 0, challenger_result.stderr
     challenger_payload = json.loads(challenger_result.stdout)
     assert challenger_payload["schema_version"] == CANDIDATE_CHALLENGER_SCHEMA_VERSION

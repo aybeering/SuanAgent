@@ -19,7 +19,11 @@ from orchestrator.config_application_executor import (
     string_list,
     unique_strings,
 )
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 CONFIG_APPLICATION_ROLLBACK_PREVIEW_SCHEMA_VERSION = (
@@ -50,6 +54,20 @@ def write_config_application_rollback_preview(
         receipt_path=receipt_path,
         config_path=config_path,
     )
+    errors = validate_config_application_rollback_preview_payload(
+        payload,
+        run_id=run_id,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        receipt_path=receipt_path,
+        config_path=config_path,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "config application rollback preview failed schema validation: "
+            + "; ".join(errors)
+        )
     json_path = run_dir / "config_application_rollback_preview.json"
     md_path = run_dir / "config_application_rollback_preview.md"
     json_path.write_text(
@@ -57,15 +75,6 @@ def write_config_application_rollback_preview(
         encoding="utf-8",
     )
     md_path.write_text(render_rollback_preview_markdown(payload), encoding="utf-8")
-    errors = validate_config_application_rollback_preview_file(
-        payload_path=json_path,
-        repo_root=repo_root,
-    )
-    if errors:
-        raise ValueError(
-            "config application rollback preview failed schema validation: "
-            + "; ".join(errors)
-        )
     return json_path, md_path, payload
 
 
@@ -336,6 +345,109 @@ def validate_config_application_rollback_preview_file(
             schema_path=repo_root / SCHEMA_PATH,
         )
     )
+
+
+def validate_config_application_rollback_preview_payload(
+    payload: dict[str, object],
+    *,
+    run_id: str,
+    run_dir: Path,
+    repo_root: Path,
+    receipt_path: Path,
+    config_path: Path,
+    require_current_evidence: bool = False,
+) -> tuple[str, ...]:
+    """Validate an in-memory config application rollback preview payload."""
+    repo_root = repo_root.resolve()
+    run_dir = run_dir.resolve()
+    normalized = dict(payload)
+    normalized.pop("from_artifact", None)
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=normalized,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(
+        validate_config_application_rollback_preview_consistency(
+            normalized,
+            run_id=run_id,
+            run_dir=run_dir,
+            repo_root=repo_root,
+        )
+    )
+    if require_current_evidence:
+        expected = build_config_application_rollback_preview(
+            run_id=run_id,
+            run_dir=run_dir,
+            repo_root=repo_root,
+            receipt_path=receipt_path,
+            config_path=config_path,
+        )
+        if normalized != expected:
+            errors.append(
+                "config_application_rollback_preview current evidence mismatch"
+            )
+    return tuple(errors)
+
+
+def validate_config_application_rollback_preview_consistency(
+    payload: dict[str, object],
+    *,
+    run_id: str,
+    run_dir: Path,
+    repo_root: Path,
+) -> tuple[str, ...]:
+    """Return stable internal consistency errors for rollback previews."""
+    errors: list[str] = []
+    if str(payload.get("run_id", "")) != run_id:
+        errors.append("config_application_rollback_preview run_id mismatch")
+    if str(payload.get("run_dir", "")) != relative_path(run_dir, repo_root):
+        errors.append("config_application_rollback_preview run_dir mismatch")
+    gate = object_field(payload, "rollback_gate")
+    plan = list_of_objects(payload.get("rollback_plan", []))
+    blockers = string_list(gate.get("blockers", []))
+    receipt_applied = bool(payload.get("source_receipt_applied", False))
+    eligible = not blockers
+    if bool(gate.get("eligible_for_manual_restore", False)) != eligible:
+        errors.append("config_application_rollback_preview eligible mismatch")
+    if bool(gate.get("matching_applied_config_digest", False)) != (
+        str(payload.get("current_config_sha256", ""))
+        == str(payload.get("receipt_config_after_sha256", ""))
+    ):
+        errors.append("config_application_rollback_preview digest match mismatch")
+    if int(gate.get("applied_change_count", -1) or 0) != len(plan):
+        errors.append("config_application_rollback_preview applied count mismatch")
+    restorable_count = sum(1 for row in plan if row.get("can_restore") is True)
+    if int(gate.get("restorable_change_count", -1) or 0) != restorable_count:
+        errors.append("config_application_rollback_preview restorable count mismatch")
+    expected_status = rollback_preview_status(
+        receipt_applied=receipt_applied,
+        eligible=eligible,
+    )
+    if str(payload.get("status", "")) != expected_status:
+        errors.append("config_application_rollback_preview status mismatch")
+    for row in plan:
+        current_matches = values_equal(
+            row.get("current_value"),
+            row.get("expected_applied_value"),
+        )
+        if bool(row.get("current_matches_expected_applied", False)) != current_matches:
+            errors.append("config_application_rollback_preview row match mismatch")
+        if bool(row.get("can_restore", False)) != bool(
+            receipt_applied and current_matches
+        ):
+            errors.append("config_application_rollback_preview row restore mismatch")
+    expected_impact = {
+        "affected_config_paths": [str(row.get("config_path", "")) for row in plan],
+        "impact_rows": build_impact_rows(plan),
+        "summary": impact_summary(plan),
+    }
+    if object_field(payload, "next_run_impact") != expected_impact:
+        errors.append("config_application_rollback_preview impact mismatch")
+    return tuple(errors)
 
 
 def value_at_path(payload: dict[str, Any], dotted_path: str) -> object:

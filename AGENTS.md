@@ -64,7 +64,8 @@ refresh receipts, operator run review receipts, and experiment summary
 dashboards, champion status views, experiment leaderboard views, and candidate
 leaderboard views, agent result stats views, proposal outcome memory views, and
 memory diagnostics, memory hygiene, memory scope recommendation, config change
-candidate, operator config review, and config application dry-run views.
+candidate, operator config review, config application dry-run, config rollback
+preview, and config lineage views.
 
 Still out of scope:
 

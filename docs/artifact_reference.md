@@ -262,10 +262,11 @@ The artifact validator checks that the top-level run fields printed in
 `summary.md` continue to mirror the same `manifest.json` values, including run
 id, status, completed rounds, accepted round, stop reason, and final strategy
 commit. It also checks the `summary.md` dataset, run-outcome, agent-intake,
-round-table, proposal-quality, and candidate-leaderboard sections against the
-corresponding manifest records and round artifacts, so operator-facing data
-split, outcome, per-round, proposal-quality, candidate-ranking, and
-agent-output diagnosis fields stay tied to the machine-readable record.
+health, round-table, proposal-quality, and candidate-leaderboard sections
+against the corresponding manifest records and round artifacts, so
+operator-facing data split, outcome, health, per-round, proposal-quality,
+candidate-ranking, and agent-output diagnosis fields stay tied to the
+machine-readable record.
 `diagnosis.json` is a compact machine-readable review artifact built from the
 saved run artifacts. For iteration runs, it includes per-round policy results,
 selected candidates, the best validation round, and the same agent-intake

@@ -508,6 +508,16 @@ def validate_iteration_run(
         manifest=manifest,
         report=report,
     )
+    validate_iteration_summary_scope_health(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
+    validate_iteration_summary_artifact_health_history(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
     validate_iteration_summary_rounds(
         run_dir=run_dir,
         manifest=manifest,
@@ -751,6 +761,91 @@ def validate_iteration_summary_agent_intake(
     for field_name, expected_line in expected_lines:
         if expected_line not in section:
             add_error(report, f"summary.md agent_intake_summary {field_name} mismatch")
+
+
+def validate_iteration_summary_scope_health(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md experiment-scope-health section mirrors manifest.json."""
+    scope_health = manifest.get("experiment_scope_health")
+    if not isinstance(scope_health, dict):
+        return
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Experiment Scope Health",
+    )
+    if not section:
+        add_error(report, "summary.md experiment_scope_health section missing")
+        return
+    expected_lines: tuple[tuple[str, str], ...] = (
+        ("status", f"- Status: `{markdown_display_value(scope_health.get('status'))}`"),
+        ("ok", f"- OK: `{markdown_display_value(scope_health.get('ok'))}`"),
+        (
+            "created_at_from",
+            "- Scope created_at_from: "
+            f"`{markdown_display_value(scope_health.get('created_at_from'))}`",
+        ),
+        (
+            "scoped_run_count",
+            "- Scoped run count: "
+            f"`{markdown_display_value(scope_health.get('scoped_run_count'))}`",
+        ),
+        ("path", f"- Artifact: `{markdown_display_value(scope_health.get('path'))}`"),
+    )
+    for field_name, expected_line in expected_lines:
+        if expected_line not in section:
+            add_error(report, f"summary.md experiment_scope_health {field_name} mismatch")
+
+
+def validate_iteration_summary_artifact_health_history(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md artifact-health-history section mirrors manifest.json."""
+    health_history = manifest.get("artifact_health_history")
+    if not isinstance(health_history, dict):
+        return
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Artifact Health History",
+    )
+    if not section:
+        add_error(report, "summary.md artifact_health_history section missing")
+        return
+    expected_lines: tuple[tuple[str, str], ...] = (
+        (
+            "recorded",
+            f"- Recorded: `{markdown_display_value(health_history.get('recorded'))}`",
+        ),
+        ("ok", f"- OK: `{markdown_display_value(health_history.get('ok'))}`"),
+        (
+            "created_at_from",
+            "- Scope created_at_from: "
+            f"`{markdown_display_value(health_history.get('created_at_from'))}`",
+        ),
+        (
+            "scoped_run_count",
+            "- Scoped run count: "
+            f"`{markdown_display_value(health_history.get('scoped_run_count'))}`",
+        ),
+        (
+            "failed_run_count",
+            "- Failed run count: "
+            f"`{markdown_display_value(health_history.get('failed_run_count'))}`",
+        ),
+        ("path", f"- History: `{markdown_display_value(health_history.get('path'))}`"),
+    )
+    for field_name, expected_line in expected_lines:
+        if expected_line not in section:
+            add_error(
+                report,
+                f"summary.md artifact_health_history {field_name} mismatch",
+            )
 
 
 def validate_iteration_summary_rounds(

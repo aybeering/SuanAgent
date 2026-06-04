@@ -12286,6 +12286,50 @@ def test_artifact_validator_reports_summary_dataset_drift(tmp_path: Path) -> Non
     assert "summary.md datasets validation mismatch" in report["errors"]
 
 
+def test_artifact_validator_reports_summary_health_section_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-summary-health-section-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments" / run_id
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    scope_health = manifest["experiment_scope_health"]
+    health_history = manifest["artifact_health_history"]
+    summary_path = run_dir / "summary.md"
+    summary_text = summary_path.read_text(encoding="utf-8")
+    summary_text = summary_text.replace(
+        f"- Scoped run count: `{scope_health['scoped_run_count']}`",
+        "- Scoped run count: `999`",
+        1,
+    )
+    summary_text = summary_text.replace(
+        f"- Failed run count: `{health_history['failed_run_count']}`",
+        "- Failed run count: `999`",
+    )
+    summary_path.write_text(summary_text, encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert (
+        "summary.md experiment_scope_health scoped_run_count mismatch"
+        in report["errors"]
+    )
+    assert (
+        "summary.md artifact_health_history failed_run_count mismatch"
+        in report["errors"]
+    )
+
+
 def test_artifact_validator_reports_summary_round_row_drift(
     tmp_path: Path,
 ) -> None:

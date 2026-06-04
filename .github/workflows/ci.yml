@@ -952,15 +952,27 @@ jobs:
           python -m orchestrator.operator_home experiments/ci-adaptive --markdown > /tmp/operator_home_module.md
           python - <<'PY'
           import json
+          from pathlib import Path
           home = json.load(open("/tmp/operator_home.json"))
           latest = json.load(open("/tmp/operator_home_latest.json"))
           markdown = open("/tmp/operator_home.md").read()
           latest_markdown = open("/tmp/operator_home_latest.md").read()
           module_markdown = open("/tmp/operator_home_module.md").read()
+          records = [
+              json.loads(line)
+              for line in Path("experiments/index.jsonl").read_text().splitlines()
+              if line.strip()
+          ]
+          expected_latest = next(
+              record["run_id"]
+              for record in reversed(records)
+              if record.get("kind") == "iteration_loop"
+              and Path("experiments", record["run_id"], "manifest.json").exists()
+          )
           assert home["schema_version"] == "operator_home_v1"
           assert home["from_artifact"] is False
           assert latest["schema_version"] == "operator_home_v1"
-          assert latest["run_id"] == "ci-adaptive"
+          assert latest["run_id"] == expected_latest
           assert latest["from_artifact"] is False
           assert home["ok"] is True
           assert home["status"] == "needs_operator_review"
@@ -975,7 +987,7 @@ jobs:
           assert "# Operator Home" in markdown
           assert "## Guided Path" in markdown
           assert "# Operator Home" in latest_markdown
-          assert "ci-adaptive" in latest_markdown
+          assert expected_latest in latest_markdown
           assert "# Operator Home" in module_markdown
           assert "## Guided Path" in module_markdown
           PY

@@ -389,9 +389,12 @@ Codex command, command digest, workspace path, target file, mutation allowlist,
 startup preflight expectation, execution candidate, real-execution dry-run, and
 operator request evidence. The report marks each comparison as `matched`,
 `missing`, or `drift` and summarizes whether evidence is missing or has drifted.
-The writer validates status-derived readiness, comparison summary counters,
-missing-artifact lists, drift/missing comparison ids, missing-side markers, and
-blocking-reason coverage before returning.
+The writer and terminal view validate saved or derived payloads against the
+schema and deterministic consistency checks before returning them, stripping
+terminal-only metadata before schema checks. Those checks include
+status-derived readiness, comparison summary counters, missing-artifact lists,
+drift/missing comparison ids, missing-side markers, blocking-reason coverage,
+and current-evidence drift for derived payloads.
 It is read-only and cannot record approval, execute commands, execute Codex,
 create workspaces, modify config, route agents, apply patches, or change
 acceptance. The iteration loop writes it automatically during closeout,

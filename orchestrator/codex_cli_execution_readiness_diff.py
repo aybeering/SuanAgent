@@ -52,6 +52,19 @@ def write_codex_cli_execution_readiness_diff(
         config_path=config_path,
         config_payload=config_payload,
     )
+    errors = validate_codex_cli_execution_readiness_diff_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        config_path=config_path,
+        config_payload=config_payload,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "Codex CLI execution readiness diff failed schema validation: "
+            + "; ".join(errors)
+        )
     json_path = run_dir / "codex_cli_execution_readiness_diff.json"
     md_path = run_dir / "codex_cli_execution_readiness_diff.md"
     write_json(json_path, payload)
@@ -684,17 +697,48 @@ def validate_codex_cli_execution_readiness_diff_file(
 def validate_codex_cli_execution_readiness_diff_payload(
     payload: dict[str, object],
     *,
+    run_dir: Path | None = None,
     repo_root: Path = Path("."),
+    config_path: Path = Path("config/codex_cli_enable_candidate.json"),
+    config_payload: dict[str, Any] | None = None,
+    require_current_evidence: bool = False,
 ) -> tuple[str, ...]:
     """Validate an in-memory Codex CLI execution readiness diff payload."""
+    repo_root = repo_root.resolve()
+    comparable_payload = strip_terminal_metadata(payload)
     schema = load_json_object(repo_root / SCHEMA_PATH)
-    return tuple(
+    errors = list(
         validate_json_payload(
-            payload=payload,
+            payload=comparable_payload,
             schema=schema,
             schema_dir=(repo_root / SCHEMA_PATH).parent,
         )
-    ) + validate_codex_cli_execution_readiness_diff_consistency(payload)
+    )
+    errors.extend(
+        validate_codex_cli_execution_readiness_diff_consistency(comparable_payload)
+    )
+    if require_current_evidence:
+        if run_dir is None:
+            errors.append("codex_cli_execution_readiness_diff run_dir required")
+        else:
+            expected = build_codex_cli_execution_readiness_diff(
+                run_dir=resolve_path(run_dir, repo_root),
+                repo_root=repo_root,
+                config_path=config_path,
+                config_payload=config_payload,
+            )
+            if comparable_payload != expected:
+                errors.append(
+                    "codex_cli_execution_readiness_diff current evidence mismatch"
+                )
+    return tuple(errors)
+
+
+def strip_terminal_metadata(payload: dict[str, object]) -> dict[str, object]:
+    """Return payload without terminal-only annotation fields."""
+    stripped = dict(payload)
+    stripped.pop("from_artifact", None)
+    return stripped
 
 
 def validate_codex_cli_execution_readiness_diff_consistency(

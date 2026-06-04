@@ -123,6 +123,7 @@ from orchestrator.codex_cli_execution_readiness_diff import (
     CODEX_CLI_EXECUTION_READINESS_DIFF_SCHEMA_VERSION,
     render_codex_cli_execution_readiness_diff_markdown,
     validate_codex_cli_execution_readiness_diff_file,
+    validate_codex_cli_execution_readiness_diff_payload,
     write_codex_cli_execution_readiness_diff,
 )
 from orchestrator.agent_replay import replay_agent_input, validate_replayed_proposal
@@ -15555,6 +15556,13 @@ def test_codex_cli_execution_readiness_diff_reports_missing_startup_evidence(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
+    assert validate_codex_cli_execution_readiness_diff_payload(
+        report,
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+        require_current_evidence=True,
+    ) == ()
 
     tampered_diff = json.loads(json_path.read_text(encoding="utf-8"))
     tampered_diff["status"] = "ready"
@@ -15601,6 +15609,15 @@ def test_codex_cli_execution_readiness_diff_reports_missing_startup_evidence(
         "codex_cli_execution_readiness_diff blocking reasons mismatch"
         in diff_consistency_errors
     )
+    with pytest.raises(
+        ValueError,
+        match="Codex CLI execution readiness diff failed schema validation",
+    ):
+        codex_cli_execution_readiness_diff_report(
+            run_id="codex-execution-diff-startup-block",
+            experiments_dir=repo / "experiments",
+            config_path=repo / "config/codex_cli_enable_candidate.json",
+        )
 
 
 def test_iteration_loop_still_rejects_existing_run_dir_without_operator_request(
@@ -19257,6 +19274,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert execution_diff["status"] == "missing_evidence"
     assert execution_diff["summary"]["comparison_count"] >= 5
     assert execution_diff["policy"]["does_not_execute_codex_cli"] is True
+    assert validate_codex_cli_execution_readiness_diff_payload(
+        execution_diff,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+        require_current_evidence=True,
+    ) == ()
     assert "# Codex CLI Execution Readiness Diff" in execution_diff_markdown
     assert execution_diff_result.returncode == 0, execution_diff_result.stderr
     execution_diff_payload = json.loads(execution_diff_result.stdout)
@@ -19268,6 +19292,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         execution_diff_payload,
         "codex_cli_execution_readiness_diff",
     )
+    assert validate_codex_cli_execution_readiness_diff_payload(
+        execution_diff_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+    ) == ()
     assert execution_diff_markdown_result.returncode == 0, (
         execution_diff_markdown_result.stderr
     )

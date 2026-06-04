@@ -75,6 +75,7 @@ from orchestrator.codex_cli_unlock_runbook import (
 from orchestrator.codex_cli_execution_readiness_diff import (
     build_codex_cli_execution_readiness_diff,
     render_codex_cli_execution_readiness_diff_markdown,
+    validate_codex_cli_execution_readiness_diff_payload,
     write_codex_cli_execution_readiness_diff,
 )
 from orchestrator.codex_cli_execution_preflight import (
@@ -3139,6 +3140,17 @@ def codex_cli_execution_readiness_diff_report(
     diff_path = run_dir / "codex_cli_execution_readiness_diff.json"
     if diff_path.exists():
         payload = load_json(diff_path)
+        errors = validate_codex_cli_execution_readiness_diff_payload(
+            payload,
+            run_dir=run_dir,
+            repo_root=experiments_dir.parent,
+            config_path=config_path,
+        )
+        if errors:
+            raise ValueError(
+                "Codex CLI execution readiness diff failed schema validation: "
+                + "; ".join(errors)
+            )
         payload["from_artifact"] = True
         return payload
     payload = build_codex_cli_execution_readiness_diff(
@@ -3146,6 +3158,18 @@ def codex_cli_execution_readiness_diff_report(
         repo_root=experiments_dir.parent,
         config_path=config_path,
     )
+    errors = validate_codex_cli_execution_readiness_diff_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+        config_path=config_path,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "Codex CLI execution readiness diff failed schema validation: "
+            + "; ".join(errors)
+        )
     payload["from_artifact"] = False
     return payload
 

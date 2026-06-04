@@ -235,7 +235,9 @@ The embedded dashboard is validated in memory against
 `schemas/experiment_summary_dashboard.schema.json` before JSON or markdown is
 printed, with deterministic consistency checks for recent failure/outcome
 counts, top recent code/category fields, latest accepted/rejected status
-summaries, and watchlist alert counts, severity counts, and status.
+summaries, latest-run to recent-tail binding, accepted-row flags, champion-gap
+status and delta invariants, watchlist alert counts, severity counts, status,
+alert codes, and read-only policy flags.
 `python -m orchestrator.experiments summary --markdown` renders the same
 summary payload, including the watchlist, as a compact terminal-friendly
 Markdown report without writing artifacts.

@@ -15934,14 +15934,38 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     payload["top_recent_failure_code"] = "other_failure"
     payload["recent_outcome_categories"] = {"other_category": 1}
     payload["top_recent_outcome_category"] = "other_category"
+    latest_run = payload["latest_run"]
     latest_rejected = payload["latest_rejected_run"]
+    recent_runs = payload["recent_runs"]
+    champion_gap = payload["champion_gap"]
     watchlist = payload["watchlist"]
+    policy = payload["policy"]
+    assert isinstance(latest_run, dict)
     assert isinstance(latest_rejected, dict)
+    assert isinstance(recent_runs, list)
+    assert isinstance(champion_gap, dict)
     assert isinstance(watchlist, dict)
+    assert isinstance(policy, dict)
+    latest_run["run_id"] = "other-run"
     latest_rejected["status"] = "accepted"
+    recent_runs[0]["accepted"] = False
+    recent_runs[0]["status"] = "accepted"
+    recent_runs[0]["completed_rounds"] = -1
+    champion_gap["active"] = True
+    champion_gap["champion_run_id"] = "champion"
+    champion_gap["gap_to_champion"] = -1.0
     watchlist["alert_count"] = 2
     watchlist["severity_counts"] = {"critical": 1, "warning": 0, "info": 0}
     watchlist["status"] = "critical"
+    alerts = watchlist["alerts"]
+    assert isinstance(alerts, list)
+    assert isinstance(alerts[0], dict)
+    alerts[0]["code"] = ""
+    watchlist_policy = watchlist["policy"]
+    assert isinstance(watchlist_policy, dict)
+    policy["does_not_run_backtests"] = False
+    policy["does_not_promote_champion"] = False
+    watchlist_policy["does_not_apply_patches"] = False
 
     errors = validate_experiment_summary_dashboard_payload(
         payload,
@@ -15952,10 +15976,32 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     assert "experiment_summary_dashboard top_recent_failure_code mismatch" in errors
     assert "experiment_summary_dashboard recent_outcome_categories mismatch" in errors
     assert "experiment_summary_dashboard top_recent_outcome_category mismatch" in errors
+    assert "experiment_summary_dashboard latest_run mismatch" in errors
+    assert "experiment_summary_dashboard accepted row mismatch" in errors
+    assert "experiment_summary_dashboard completed_rounds negative" in errors
     assert "experiment_summary_dashboard latest_rejected_run status mismatch" in errors
+    assert "experiment_summary_dashboard champion_gap no_champion mismatch" in errors
     assert "experiment_summary_dashboard watchlist alert_count mismatch" in errors
     assert "experiment_summary_dashboard watchlist severity_counts mismatch" in errors
     assert "experiment_summary_dashboard watchlist status mismatch" in errors
+    assert "experiment_summary_dashboard watchlist alert code missing" in errors
+    assert "experiment_summary_dashboard policy false: does_not_run_backtests" in errors
+    assert (
+        "experiment_summary_dashboard policy false: does_not_promote_champion"
+        in errors
+    )
+    assert (
+        "experiment_summary_dashboard watchlist policy false: does_not_apply_patches"
+        in errors
+    )
+    assert (
+        "experiment_summary_dashboard policy binding false: does_not_run_backtests"
+        in errors
+    )
+    assert (
+        "experiment_summary_dashboard policy binding false: does_not_apply_patches"
+        in errors
+    )
 
 
 def test_operator_run_review_schema_rejects_missing_dashboard() -> None:

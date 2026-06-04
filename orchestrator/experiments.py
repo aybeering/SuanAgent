@@ -254,6 +254,19 @@ def validate_experiment_summary_dashboard_consistency(
         errors.append("experiment_summary_dashboard recent_runs exceeds recent_limit")
     if len(recent_runs) > total_runs:
         errors.append("experiment_summary_dashboard recent_runs exceeds total_runs")
+    latest_run = dict_or_none_payload(payload.get("latest_run"))
+    if total_runs == 0:
+        if latest_run is not None or recent_runs:
+            errors.append("experiment_summary_dashboard empty history mismatch")
+    elif latest_run is None:
+        errors.append("experiment_summary_dashboard latest_run missing")
+    elif recent_runs and not same_run_identity(latest_run, recent_runs[-1]):
+        errors.append("experiment_summary_dashboard latest_run mismatch")
+    for row in recent_runs:
+        if str(row.get("status", "")) == "accepted" and row.get("accepted") is not True:
+            errors.append("experiment_summary_dashboard accepted row mismatch")
+        if int_value(row.get("completed_rounds", -1)) < 0:
+            errors.append("experiment_summary_dashboard completed_rounds negative")
 
     failure_counts = Counter(
         str(row.get("failure_code", ""))
@@ -291,6 +304,15 @@ def validate_experiment_summary_dashboard_consistency(
     latest_rejected = dict_or_none_payload(payload.get("latest_rejected_run"))
     if latest_rejected is not None and latest_rejected.get("status") != "rejected":
         errors.append("experiment_summary_dashboard latest_rejected_run status mismatch")
+    if latest_run is not None and latest_run.get("status") == "accepted":
+        if latest_accepted is None or not same_run_identity(latest_accepted, latest_run):
+            errors.append("experiment_summary_dashboard latest_accepted_run mismatch")
+    if latest_run is not None and latest_run.get("status") == "rejected":
+        if latest_rejected is None or not same_run_identity(latest_rejected, latest_run):
+            errors.append("experiment_summary_dashboard latest_rejected_run mismatch")
+
+    champion_gap = dict_payload(payload.get("champion_gap", {}))
+    errors.extend(validate_champion_gap_summary(champion_gap))
 
     watchlist = dict_payload(payload.get("watchlist", {}))
     alerts = list_payload(watchlist.get("alerts", []))
@@ -303,6 +325,76 @@ def validate_experiment_summary_dashboard_consistency(
         )
     if str(watchlist.get("status", "")) != watchlist_status(alerts):
         errors.append("experiment_summary_dashboard watchlist status mismatch")
+    for alert in alerts:
+        if str(alert.get("severity", "")) not in {"critical", "warning", "info"}:
+            errors.append("experiment_summary_dashboard watchlist severity invalid")
+        if not str(alert.get("code", "")):
+            errors.append("experiment_summary_dashboard watchlist alert code missing")
+    policy = dict_payload(payload.get("policy", {}))
+    watchlist_policy = dict_payload(watchlist.get("policy", {}))
+    for key, value in policy.items():
+        if value is not True:
+            errors.append(f"experiment_summary_dashboard policy false: {key}")
+    for key, value in watchlist_policy.items():
+        if value is not True:
+            errors.append(f"experiment_summary_dashboard watchlist policy false: {key}")
+    for key in (
+        "inspection_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True or watchlist_policy.get(key) is not True:
+            errors.append(f"experiment_summary_dashboard policy binding false: {key}")
+    return tuple(errors)
+
+
+def same_run_identity(left: dict[str, object], right: dict[str, object]) -> bool:
+    """Return whether two compact rows identify the same indexed run."""
+    return all(
+        str(left.get(key, "")) == str(right.get(key, ""))
+        for key in ("run_id", "kind")
+    )
+
+
+def validate_champion_gap_summary(champion_gap: dict[str, object]) -> tuple[str, ...]:
+    """Validate champion-gap fields are internally consistent."""
+    errors: list[str] = []
+    active = bool(champion_gap.get("active", False))
+    status = str(champion_gap.get("status", ""))
+    champion_run_id = str(champion_gap.get("champion_run_id", ""))
+    comparison_run_id = str(champion_gap.get("comparison_run_id", ""))
+    gap = optional_float_value(champion_gap.get("gap_to_champion"))
+    champion_ev = optional_float_value(champion_gap.get("champion_validation_ev_delta"))
+    comparison_ev = optional_float_value(
+        champion_gap.get("comparison_validation_ev_delta")
+    )
+    if status == "no_champion":
+        if active or champion_run_id or gap is not None:
+            errors.append("experiment_summary_dashboard champion_gap no_champion mismatch")
+    elif status == "no_comparison_run":
+        if active or not champion_run_id or comparison_run_id or gap is not None:
+            errors.append(
+                "experiment_summary_dashboard champion_gap no_comparison_run mismatch"
+            )
+    else:
+        if not active or not champion_run_id or not comparison_run_id or gap is None:
+            errors.append("experiment_summary_dashboard champion_gap active mismatch")
+        if champion_ev is not None and comparison_ev is not None and gap is not None:
+            expected_gap = round(comparison_ev - champion_ev, 6)
+            if round(gap, 6) != expected_gap:
+                errors.append("experiment_summary_dashboard champion_gap delta mismatch")
+        if status == "best_run_is_champion" and comparison_run_id != champion_run_id:
+            errors.append(
+                "experiment_summary_dashboard champion_gap champion identity mismatch"
+            )
+        if status == "best_run_beats_champion" and (gap is None or gap <= 0):
+            errors.append("experiment_summary_dashboard champion_gap beats mismatch")
+        if status == "best_run_trails_champion" and (gap is None or gap >= 0):
+            errors.append("experiment_summary_dashboard champion_gap trails mismatch")
+        if status == "best_run_ties_champion" and (gap is None or gap != 0):
+            errors.append("experiment_summary_dashboard champion_gap ties mismatch")
     return tuple(errors)
 
 

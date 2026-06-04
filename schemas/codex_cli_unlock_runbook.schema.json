@@ -10,6 +10,7 @@
     "ready",
     "summary",
     "source_checklist",
+    "codex_intake_readiness",
     "steps",
     "operator_commands",
     "policy"
@@ -52,6 +53,9 @@
         "checklist_status",
         "checklist_ready",
         "checklist_failed_count",
+        "codex_intake_readiness_status",
+        "codex_intake_ready",
+        "codex_intake_blocker_count",
         "next_step_id",
         "ready_steps",
         "missing_steps",
@@ -80,6 +84,15 @@
           "type": "boolean"
         },
         "checklist_failed_count": {
+          "type": "integer"
+        },
+        "codex_intake_readiness_status": {
+          "type": "string"
+        },
+        "codex_intake_ready": {
+          "type": "boolean"
+        },
+        "codex_intake_blocker_count": {
           "type": "integer"
         },
         "next_step_id": {
@@ -139,6 +152,9 @@
           "type": "string"
         }
       }
+    },
+    "codex_intake_readiness": {
+      "$ref": "#/$defs/codex_intake_readiness"
     },
     "steps": {
       "type": "array",
@@ -209,6 +225,84 @@
     }
   },
   "$defs": {
+    "codex_intake_readiness": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "ready",
+        "applicable",
+        "source",
+        "source_artifacts",
+        "canary_intake_binding_ready",
+        "requires_intake_binding",
+        "slot_count",
+        "bound_slot_count",
+        "blocked_slot_count",
+        "blocking_reason_count",
+        "blocking_reasons",
+        "next_step",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "codex_cli_intake_readiness_v1"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "not_available",
+            "blocked",
+            "ready"
+          ]
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "applicable": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string"
+        },
+        "source_artifacts": {
+          "type": "object"
+        },
+        "canary_intake_binding_ready": {
+          "type": "boolean"
+        },
+        "requires_intake_binding": {
+          "type": "boolean"
+        },
+        "slot_count": {
+          "type": "integer"
+        },
+        "bound_slot_count": {
+          "type": "integer"
+        },
+        "blocked_slot_count": {
+          "type": "integer"
+        },
+        "blocking_reason_count": {
+          "type": "integer"
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "next_step": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "object"
+        }
+      }
+    },
     "step": {
       "type": "object",
       "required": [

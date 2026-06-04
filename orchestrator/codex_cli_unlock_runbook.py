@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Any
 
 from orchestrator.codex_cli_dry_invocation_guard import load_json_object
+from orchestrator.codex_cli_intake_readiness import (
+    validate_codex_cli_intake_readiness,
+)
 from orchestrator.operator_action_audit import file_record, resolve_path
 from orchestrator.operator_unlock_checklist import (
     artifact_navigation_record,
@@ -111,6 +114,7 @@ def build_codex_cli_unlock_runbook(
     repo_root = repo_root.resolve()
     run_dir = resolve_path(run_dir, repo_root)
     checklist = build_operator_unlock_checklist(run_dir=run_dir, repo_root=repo_root)
+    intake_readiness = dict_field(checklist, "codex_intake_readiness")
     steps = [
         runbook_step(
             spec=spec,
@@ -119,7 +123,11 @@ def build_codex_cli_unlock_runbook(
         )
         for spec in RUNBOOK_STEPS
     ]
-    summary = runbook_summary(steps=steps, checklist=checklist)
+    summary = runbook_summary(
+        steps=steps,
+        checklist=checklist,
+        intake_readiness=intake_readiness,
+    )
     return {
         "schema_version": CODEX_CLI_UNLOCK_RUNBOOK_SCHEMA_VERSION,
         "run_id": run_dir.name,
@@ -137,6 +145,7 @@ def build_codex_cli_unlock_runbook(
             "markdown_preview": render_operator_unlock_checklist_markdown(checklist)
             .splitlines()[0],
         },
+        "codex_intake_readiness": intake_readiness,
         "steps": steps,
         "operator_commands": operator_commands(steps),
         "policy": {
@@ -249,6 +258,7 @@ def runbook_summary(
     *,
     steps: list[dict[str, object]],
     checklist: dict[str, object],
+    intake_readiness: dict[str, object],
 ) -> dict[str, object]:
     """Return summary counts for the operator runbook."""
     missing_steps = [
@@ -275,6 +285,11 @@ def runbook_summary(
         "checklist_status": str(checklist.get("status", "")),
         "checklist_ready": bool(checklist.get("ready", False)),
         "checklist_failed_count": int(checklist.get("failed_count", 0) or 0),
+        "codex_intake_readiness_status": str(intake_readiness.get("status", "")),
+        "codex_intake_ready": bool(intake_readiness.get("ready", False)),
+        "codex_intake_blocker_count": int(
+            intake_readiness.get("blocking_reason_count", 0) or 0
+        ),
         "next_step_id": first_step_id(steps, statuses={"missing", "blocked"}),
         "ready_steps": ready_steps,
         "missing_steps": missing_steps,
@@ -327,6 +342,7 @@ def render_codex_cli_unlock_runbook_markdown(payload: dict[str, object]) -> str:
     commands = [
         row for row in payload.get("operator_commands", []) if isinstance(row, dict)
     ]
+    intake = dict_field(payload, "codex_intake_readiness")
     lines = [
         "# Codex CLI Unlock Runbook",
         "",
@@ -334,6 +350,19 @@ def render_codex_cli_unlock_runbook_markdown(payload: dict[str, object]) -> str:
         f"- Status: `{payload.get('status', '')}`",
         f"- Ready: `{payload.get('ready', False)}`",
         f"- Next step: `{summary.get('next_step_id', '')}`",
+        f"- Codex intake: `{summary.get('codex_intake_readiness_status', '')}`",
+        f"- Codex intake ready: `{summary.get('codex_intake_ready', False)}`",
+        f"- Codex intake blockers: `{summary.get('codex_intake_blocker_count', 0)}`",
+        "",
+        "## Codex Intake Readiness",
+        "",
+        f"- Status: `{intake.get('status', '')}`",
+        f"- Ready: `{intake.get('ready', False)}`",
+        f"- Source: `{intake.get('source', '')}`",
+        f"- Bound slots: `{intake.get('bound_slot_count', 0)}`",
+        f"- Blocked slots: `{intake.get('blocked_slot_count', 0)}`",
+        f"- Blocking reasons: `{intake.get('blocking_reason_count', 0)}`",
+        f"- Next step: {intake.get('next_step', '')}",
         "",
         "| Step | Status | Artifact | Command |",
         "| --- | --- | --- | --- |",
@@ -439,6 +468,7 @@ def validate_codex_cli_unlock_runbook_consistency(
     steps = list_of_dicts(payload.get("steps", []))
     summary = dict_field(payload, "summary")
     checklist = dict_field(payload, "source_checklist")
+    intake = dict_field(payload, "codex_intake_readiness")
     commands = list_of_dicts(payload.get("operator_commands", []))
 
     expected_artifact_ids = [spec["artifact_id"] for spec in RUNBOOK_STEPS]
@@ -500,6 +530,20 @@ def validate_codex_cli_unlock_runbook_consistency(
         checklist.get("failed_count", 0) or 0
     ):
         errors.append("codex_cli_unlock_runbook checklist failed count mismatch")
+    for error in validate_codex_cli_intake_readiness(intake):
+        errors.append(f"codex_cli_unlock_runbook {error}")
+    if str(summary.get("codex_intake_readiness_status", "")) != str(
+        intake.get("status", "")
+    ):
+        errors.append("codex_cli_unlock_runbook intake status mismatch")
+    if bool(summary.get("codex_intake_ready", False)) != bool(
+        intake.get("ready", False)
+    ):
+        errors.append("codex_cli_unlock_runbook intake ready mismatch")
+    if int(summary.get("codex_intake_blocker_count", -1)) != int(
+        intake.get("blocking_reason_count", 0) or 0
+    ):
+        errors.append("codex_cli_unlock_runbook intake blocker count mismatch")
 
     errors.extend(validate_runbook_steps(steps=steps))
     errors.extend(validate_runbook_commands(payload=payload, steps=steps))

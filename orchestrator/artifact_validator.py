@@ -9883,6 +9883,12 @@ def validate_optional_codex_cli_unlock_runbook(
             add_error(report, "codex_cli_unlock_runbook.json missing count mismatch")
         if int(summary.get("blocked_step_count", -1)) != blocked_count:
             add_error(report, "codex_cli_unlock_runbook.json blocked count mismatch")
+        validate_codex_intake_readiness_artifact(
+            payload=payload,
+            report=report,
+            label="codex_cli_unlock_runbook.json",
+            summary=summary,
+        )
     source = payload.get("source_checklist", {})
     if not isinstance(source, dict):
         add_error(report, "codex_cli_unlock_runbook.json source checklist invalid")

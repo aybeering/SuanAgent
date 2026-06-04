@@ -233,11 +233,12 @@ When a real Codex execute=true startup preflight fails before round execution,
 the iteration loop still writes this checklist and records the blocker count,
 primary blocker, and command-hint count in `manifest.json` and `summary.md`.
 `codex_cli_unlock_runbook.json` and `codex_cli_unlock_runbook.md` are the
-ordered operator guide for that same unlock chain. They read the checklist and
-expected evidence artifacts, report each step as missing, blocked, or ready,
-and show command hints without executing those commands. The runbook is
-read-only: it cannot record operator approval, execute Codex, create
-workspaces, apply patches, route agents, or change acceptance.
+ordered operator guide for that same unlock chain. They read the checklist,
+expected evidence artifacts, and shared Codex intake-binding readiness block,
+report each step as missing, blocked, or ready, and show command hints without
+executing those commands. The runbook is read-only: it cannot record operator
+approval, execute Codex, create workspaces, apply patches, route agents, or
+change acceptance.
 `codex_cli_execution_readiness_diff.json` and
 `codex_cli_execution_readiness_diff.md` provide the companion drift audit. They
 compare the current candidate config-derived command, command digest, workspace
@@ -249,7 +250,7 @@ route agents, apply patches, or change acceptance.
 The iteration loop writes this diff during closeout, including failed
 execute=true startup-preflight runs that stop before any round starts, so the
 saved run always has a read-only current-vs-reviewed Codex evidence view.
-The unlock checklist, readiness diff, and cockpit share a
+The unlock checklist, unlock runbook, readiness diff, cockpit, and home share a
 `codex_intake_readiness` summary. It makes selected-attempt intake-binding
 state visible to operators without becoming an unlock approval, command
 executor, patch gate, or acceptance authority.

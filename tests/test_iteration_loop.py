@@ -17268,6 +17268,19 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
     assert runbook["summary"]["blocked_step_count"] == 1
     assert runbook["summary"]["missing_step_count"] == 4
     assert runbook["summary"]["next_step_id"] == "step_001_execution_preflight"
+    assert runbook["codex_intake_readiness"]["schema_version"] == (
+        "codex_cli_intake_readiness_v1"
+    )
+    assert runbook["codex_intake_readiness"]["status"] == "not_available"
+    assert runbook["summary"]["codex_intake_readiness_status"] == (
+        runbook["codex_intake_readiness"]["status"]
+    )
+    assert runbook["summary"]["codex_intake_ready"] == (
+        runbook["codex_intake_readiness"]["ready"]
+    )
+    assert runbook["summary"]["codex_intake_blocker_count"] == (
+        runbook["codex_intake_readiness"]["blocking_reason_count"]
+    )
     assert runbook["steps"][0]["artifact_id"] == "codex_cli_execution_preflight"
     assert runbook["steps"][0]["status"] == "blocked"
     assert any(
@@ -17282,6 +17295,7 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
     assert runbook["policy"]["does_not_execute_codex_cli"] is True
     assert runbook["policy"]["does_not_create_workspace"] is True
     assert "# Codex CLI Unlock Runbook" in markdown
+    assert "## Codex Intake Readiness" in markdown
     assert "Run startup execution preflight" in markdown
     assert report["from_artifact"] is True
     assert report["schema_version"] == CODEX_CLI_UNLOCK_RUNBOOK_SCHEMA_VERSION
@@ -17310,6 +17324,9 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
     tampered_summary["summary"]["checklist_status"] = "ready"
     tampered_summary["summary"]["checklist_ready"] = True
     tampered_summary["summary"]["checklist_failed_count"] = 99
+    tampered_summary["summary"]["codex_intake_readiness_status"] = "ready"
+    tampered_summary["summary"]["codex_intake_ready"] = True
+    tampered_summary["summary"]["codex_intake_blocker_count"] = 99
     tampered_summary["summary"]["next_step_id"] = ""
     tampered_summary["summary"]["ready_steps"] = ["not_a_step"]
     tampered_summary["summary"]["missing_steps"] = []
@@ -17383,6 +17400,15 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
         runbook_consistency_errors
     )
     assert "codex_cli_unlock_runbook checklist failed count mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook intake status mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook intake ready mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook intake blocker count mismatch" in (
         runbook_consistency_errors
     )
     assert "codex_cli_unlock_runbook ready step false" in (

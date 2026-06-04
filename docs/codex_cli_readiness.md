@@ -152,11 +152,11 @@ also exposes `canary_intake_binding_ready`, so a future real Codex enablement
 cannot rely on canary subprocess evidence unless that output was normalized
 through the shared proposal-intake path.
 Operator-facing views now surface the same condition as a shared
-`codex_intake_readiness` block in the unlock checklist, execution readiness
-diff, cockpit, and terminal-only operator home. It is read-only display
-evidence: `blocked` points to missing or dirty selected-attempt intake binding,
-while `not_available` means no canary or unlock evidence exists for that run
-yet.
+`codex_intake_readiness` block in the unlock checklist, unlock runbook,
+execution readiness diff, cockpit, and terminal-only operator home. It is
+read-only display evidence: `blocked` points to missing or dirty
+selected-attempt intake binding, while `not_available` means no canary or
+unlock evidence exists for that run yet.
 
 Run the read-only readiness pipeline:
 

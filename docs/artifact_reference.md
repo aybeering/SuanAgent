@@ -443,16 +443,19 @@ artifacts, and `python -m orchestrator.experiments unlock-runbook <run_id>` or
 the required evidence artifacts, readiness fields, status, and command hints,
 and artifact validation checks those operator commands through the shared
 operator command-hint validator for known labels, write flags, command prefixes,
-and simple shell-control-token guards. The runbook writer and terminal view
+and simple shell-control-token guards. It also embeds the shared read-only
+`codex_intake_readiness` block and binds its status, ready flag, and blocker
+count into the runbook summary so selected-attempt intake binding is visible
+from the ordered unlock guide. The runbook writer and terminal view
 validate saved or derived payloads against the schema and deterministic
 consistency checks before returning them, stripping terminal-only metadata
 before schema checks. Those checks include step order, summary counters and
-step lists, status and readiness fields, source checklist summaries,
-operator-command bindings, authority flags, read-only policy flags, and
-current-evidence drift for derived payloads. Every command still requires
-explicit operator invocation. It cannot record approval, execute commands,
-execute Codex, create workspaces, route agents, apply patches, or change
-acceptance.
+step lists, status and readiness fields, source checklist summaries, shared
+Codex intake-readiness summaries, operator-command bindings, authority flags,
+read-only policy flags, and current-evidence drift for derived payloads. Every
+command still requires explicit operator invocation. It cannot record approval,
+execute commands, execute Codex, create workspaces, route agents, apply
+patches, or change acceptance.
 `codex_cli_execution_readiness_diff.json` and
 `codex_cli_execution_readiness_diff.md` compare the current config-derived real
 Codex command, command digest, workspace path, target file, mutation allowlist,

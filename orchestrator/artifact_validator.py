@@ -488,6 +488,11 @@ def validate_iteration_run(
         manifest=manifest,
         report=report,
     )
+    validate_iteration_summary_datasets(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
     validate_iteration_summary_run_outcome(
         run_dir=run_dir,
         manifest=manifest,
@@ -605,6 +610,31 @@ def validate_iteration_summary_header(
     for field_name, expected_line in expected_lines:
         if expected_line not in summary_text:
             add_error(report, f"summary.md iteration header {field_name} mismatch")
+
+
+def validate_iteration_summary_datasets(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md dataset rows mirror manifest.datasets."""
+    datasets = manifest.get("datasets")
+    if not isinstance(datasets, dict):
+        return
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Datasets",
+    )
+    if not section:
+        add_error(report, "summary.md datasets section missing")
+        return
+    for split in ("train", "validation", "holdout"):
+        if split not in datasets:
+            continue
+        expected_line = f"- {split}: `{markdown_display_value(datasets.get(split))}`"
+        if expected_line not in section:
+            add_error(report, f"summary.md datasets {split} mismatch")
 
 
 def validate_iteration_summary_run_outcome(

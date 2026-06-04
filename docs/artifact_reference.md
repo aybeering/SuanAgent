@@ -91,15 +91,18 @@ python -m orchestrator.experiments refresh-operator-views <run_id>
 `python -m orchestrator.experiments list --limit N` returns recent append-only
 index rows with a derived `operator_home` hint on each row. Iteration-loop rows
 include the terminal-only `home <run_id> --markdown` command, status, boundary,
-and hint-only policy flags; single-run rows mark the hint unavailable. The
-command does not rewrite `index.jsonl`, create artifacts, execute commands, run
-agents, run backtests, apply patches, promote champions, or change acceptance.
+hint-only policy flags, and next-command blocker summary; single-run rows mark
+the hint and next-command state unavailable. The command does not rewrite
+`index.jsonl`, create artifacts, execute commands, run agents, run backtests,
+apply patches, promote champions, or change acceptance.
 
 `python -m orchestrator.experiments show <run_id>` includes the same derived
 `operator_home` hint in the compact run payload. Iteration-loop runs expose the
-terminal-only home markdown command; single-run payloads explicitly mark the
-home hint unavailable. This is a read-only convenience field and does not
-rewrite index rows or create an `operator_home.json` artifact.
+terminal-only home markdown command plus the next-command label, status,
+blocked flag, blocker count, and operator hint; single-run payloads explicitly
+mark the home hint and next-command state unavailable. This is a read-only
+convenience field and does not rewrite index rows or create an
+`operator_home.json` artifact.
 
 Replay and validation:
 

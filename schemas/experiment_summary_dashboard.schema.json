@@ -242,6 +242,11 @@
         "action_step",
         "codex_unlock_runbook_status",
         "codex_intake_readiness_status",
+        "next_command_label",
+        "next_command_status",
+        "next_command_blocked",
+        "next_command_blocker_count",
+        "next_command_operator_hint",
         "command_label",
         "command",
         "command_boundary",
@@ -287,6 +292,22 @@
           "type": "string"
         },
         "codex_intake_readiness_status": {
+          "type": "string"
+        },
+        "next_command_label": {
+          "type": "string"
+        },
+        "next_command_status": {
+          "type": "string"
+        },
+        "next_command_blocked": {
+          "type": "boolean"
+        },
+        "next_command_blocker_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "next_command_operator_hint": {
           "type": "string"
         },
         "command_label": {

@@ -468,6 +468,11 @@ def validate_experiment_operator_home_entry(
     run_id = str(operator_home.get("run_id", ""))
     run_kind = str(operator_home.get("run_kind", ""))
     command = str(operator_home.get("command", ""))
+    next_command_status = str(operator_home.get("next_command_status", ""))
+    next_command_blocked = bool(operator_home.get("next_command_blocked", False))
+    next_command_blocker_count = int_value(
+        operator_home.get("next_command_blocker_count", -1)
+    )
     expected_command = (
         f"python -m orchestrator.experiments home {run_id} --markdown"
         if run_id
@@ -487,11 +492,26 @@ def validate_experiment_operator_home_entry(
             if not available:
                 errors.append("experiment_summary_dashboard operator_home unavailable")
             if command != expected_command:
-                errors.append("experiment_summary_dashboard operator_home command mismatch")
-        elif available or command:
-            errors.append(
-                "experiment_summary_dashboard operator_home non-iteration mismatch"
-            )
+                errors.append(
+                    "experiment_summary_dashboard operator_home command mismatch"
+                )
+            if not next_command_status or next_command_status == "unavailable":
+                errors.append(
+                    "experiment_summary_dashboard operator_home next command unavailable"
+                )
+        else:
+            if available or command:
+                errors.append(
+                    "experiment_summary_dashboard operator_home non-iteration mismatch"
+                )
+            if next_command_status != "unavailable" or next_command_blocked:
+                errors.append(
+                    "experiment_summary_dashboard operator_home non-iteration next command"
+                )
+            if next_command_blocker_count != 0:
+                errors.append(
+                    "experiment_summary_dashboard operator_home non-iteration next command"
+                )
     if available:
         if str(operator_home.get("command_label", "")) != "review_operator_home":
             errors.append("experiment_summary_dashboard operator_home label mismatch")
@@ -503,6 +523,14 @@ def validate_experiment_operator_home_entry(
             errors.append("experiment_summary_dashboard operator_home terminal mismatch")
         if bool(operator_home.get("artifact_created", True)) is not False:
             errors.append("experiment_summary_dashboard operator_home artifact mismatch")
+        if next_command_blocked and next_command_blocker_count < 1:
+            errors.append(
+                "experiment_summary_dashboard operator_home blocker count mismatch"
+            )
+        if not next_command_blocked and next_command_blocker_count != 0:
+            errors.append(
+                "experiment_summary_dashboard operator_home blocker count mismatch"
+            )
     return tuple(errors)
 
 
@@ -663,6 +691,11 @@ def experiment_list_operator_home_hint(
         "terminal_only": True,
         "artifact_created": False,
         "command_is_hint_only": True,
+        "next_command_label": "",
+        "next_command_status": "unavailable",
+        "next_command_blocked": False,
+        "next_command_blocker_count": 0,
+        "next_command_operator_hint": "",
     }
     if kind != "iteration_loop" or not run_id:
         return base
@@ -680,6 +713,19 @@ def experiment_list_operator_home_hint(
         "command_label": "review_operator_home",
         "command": command,
         "command_boundary": "read_only_inspection",
+        "next_command_label": str(manifest_home.get("next_command_label", "")),
+        "next_command_status": str(
+            manifest_home.get("next_command_status", "unknown")
+        ),
+        "next_command_blocked": bool(
+            manifest_home.get("next_command_blocked", False)
+        ),
+        "next_command_blocker_count": int(
+            manifest_home.get("next_command_blocker_count", 0) or 0
+        ),
+        "next_command_operator_hint": str(
+            manifest_home.get("next_command_operator_hint", "")
+        ),
     }
 
 
@@ -700,6 +746,11 @@ def experiment_operator_home_entry(
         "action_step": "",
         "codex_unlock_runbook_status": "",
         "codex_intake_readiness_status": "",
+        "next_command_label": "",
+        "next_command_status": "unavailable",
+        "next_command_blocked": False,
+        "next_command_blocker_count": 0,
+        "next_command_operator_hint": "",
         "command_label": "",
         "command": "",
         "command_boundary": "",
@@ -740,6 +791,19 @@ def experiment_operator_home_entry(
             ),
             "codex_intake_readiness_status": str(
                 manifest_home.get("codex_intake_readiness_status", "")
+            ),
+            "next_command_label": str(manifest_home.get("next_command_label", "")),
+            "next_command_status": str(
+                manifest_home.get("next_command_status", "unknown")
+            ),
+            "next_command_blocked": bool(
+                manifest_home.get("next_command_blocked", False)
+            ),
+            "next_command_blocker_count": int(
+                manifest_home.get("next_command_blocker_count", 0) or 0
+            ),
+            "next_command_operator_hint": str(
+                manifest_home.get("next_command_operator_hint", "")
             ),
             "command_label": "review_operator_home",
             "command": command,
@@ -1092,6 +1156,15 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         f"({operator_home.get('reason', 'unknown')})",
         "- Operator home command: "
         f"`{operator_home.get('command', '') or 'unavailable'}`",
+        "- Operator home next command: "
+        f"`{operator_home.get('next_command_label', '') or 'unavailable'}`",
+        "- Operator home next command status: "
+        f"`{operator_home.get('next_command_status', 'unavailable')}`",
+        "- Operator home next command blocked: "
+        f"`{operator_home.get('next_command_blocked', False)}` "
+        f"({operator_home.get('next_command_blocker_count', 0)} blocker(s))",
+        "- Operator home next command hint: "
+        f"{operator_home.get('next_command_operator_hint', '') or 'none'}",
         "",
         "## Watchlist",
         "",

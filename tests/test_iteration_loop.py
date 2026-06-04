@@ -13232,6 +13232,8 @@ def test_codex_cli_contract_fixture_freezes_guarded_stdin_stdout(
     assert fixture["attempt_id"] == "attempt_001_primary"
     assert fixture["checks"]["adapter_is_codex_cli"] is True
     assert fixture["checks"]["runner_is_guarded_codex_cli"] is True
+    assert fixture["checks"]["intake_binding_bound"] is True
+    assert fixture["checks"]["intake_binding_clean"] is True
     assert fixture["checks"]["stdin_prompt_sha_matches_audit"] is True
     assert fixture["checks"]["fixture_stdout_validation_ok"] is True
     assert fixture["checks"]["fixture_patch_present"] is True
@@ -13241,6 +13243,8 @@ def test_codex_cli_contract_fixture_freezes_guarded_stdin_stdout(
     assert fixture["contract"]["prompt_sha256"] == (
         fixture["contract"]["audit_stdin_sha256"]
     )
+    assert fixture["contract"]["intake_binding_status"] == "bound"
+    assert fixture["contract"]["intake_binding_blocking_reasons"] == []
     assert fixture["contract"]["fixture_direction_tag"] == (
         "codex_cli_fixture_lower_min_edge"
     )
@@ -13311,6 +13315,48 @@ def test_codex_cli_contract_fixture_blocks_prompt_hash_mismatch(
     )
     assert cli_result.returncode == 1
     assert cli_payload["failure_code"] == "stdin_prompt_sha_mismatch"
+
+
+def test_codex_cli_contract_fixture_blocks_unbound_intake_binding(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-contract-unbound-intake",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    round_dir = repo / "experiments/codex-contract-unbound-intake/round_001"
+    for audit_path in (
+        round_dir / "agent_executions/attempt_001_primary.json",
+        round_dir / "agent_attempts/attempt_001_primary/agent_execution.json",
+    ):
+        audit = json.loads(audit_path.read_text(encoding="utf-8"))
+        audit["intake_binding"] = {
+            **audit["intake_binding"],
+            "status": "unbound",
+            "bound": False,
+            "blocking_reasons": ["test_unbound_intake"],
+        }
+        audit_path.write_text(
+            json.dumps(audit, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    fixture = write_codex_cli_contract_fixture(round_dir=round_dir, repo_root=repo)
+
+    assert fixture["schema_version"] == CODEX_CLI_CONTRACT_FIXTURE_SCHEMA_VERSION
+    assert fixture["ok"] is False
+    assert fixture["failure_code"] == "intake_binding_not_bound"
+    assert fixture["checks"]["intake_binding_bound"] is False
+    assert fixture["checks"]["intake_binding_clean"] is False
+    assert fixture["artifacts"]["fixture_stdout"]["exists"] is False
+    assert_matches_schema(
+        round_dir / "codex_cli_contract_fixture.json",
+        "codex_cli_contract_fixture",
+    )
 
 
 def test_codex_cli_replay_gate_passes_guarded_fixture_replay(
@@ -13941,6 +13987,8 @@ def test_codex_cli_canary_config_runs_controlled_execution_gate(
     ]
     assert audit["returncode"] == 0
     assert audit["mutation_guard"]["passed"] is True
+    assert audit["intake_binding"]["bound"] is True
+    assert audit["intake_binding"]["blocking_reasons"] == []
     assert decision["accepted"] is False
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
@@ -13955,8 +14003,13 @@ def test_codex_cli_canary_config_runs_controlled_execution_gate(
     slot = gate["slots"][0]
     assert slot["ready"] is True
     assert slot["requirements"]["execution_completed"] is True
+    assert slot["requirements"]["intake_binding_bound"] is True
+    assert slot["requirements"]["intake_binding_clean"] is True
     assert slot["requirements"]["quarantine_released"] is True
     assert slot["requirements"]["decision_rejected"] is True
+    assert slot["evidence"]["intake_binding_status"] == "bound"
+    assert slot["evidence"]["intake_binding_blocking_reasons"] == []
+    assert gate["policy"]["requires_intake_binding"] is True
     assert_matches_schema(
         run_dir / "codex_cli_canary_gate.json",
         "codex_cli_canary_gate",
@@ -14514,11 +14567,13 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
     assert "dry_invocation_not_ready" in gate["blocking_reasons"]
     assert "dry_invocation_not_executed" in gate["blocking_reasons"]
     assert gate["checks"]["canary_controlled_execution_ready"] is True
+    assert gate["checks"]["canary_intake_binding_ready"] is True
     assert gate["checks"]["candidate_config_binding_consistent"] is True
     assert gate["checks"]["does_not_execute_codex_cli"] is True
     assert gate["config_binding"]["all_matched"] is True
     assert gate["policy"]["read_only"] is True
     assert gate["policy"]["does_not_apply_patches"] is True
+    assert gate["policy"]["requires_canary_intake_binding"] is True
     assert gate["policy"]["requires_candidate_config_hash_binding"] is True
     assert snapshot["schema_version"] == CODEX_CLI_EXECUTION_UNLOCK_SNAPSHOT_SCHEMA_VERSION
     assert snapshot["ok"] is True
@@ -14834,9 +14889,11 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert all(gate["checks"].values())
     assert gate["gate_status"]["codex_cli_replay_gate"]["ready"] is True
     assert gate["gate_status"]["codex_cli_dry_invocation_guard"]["ready"] is True
+    assert gate["checks"]["canary_intake_binding_ready"] is True
     assert gate["config_binding"]["all_matched"] is True
     assert gate["config_binding"]["mismatched_gate_names"] == []
     assert gate["policy"]["does_not_execute_codex_cli"] is True
+    assert gate["policy"]["requires_canary_intake_binding"] is True
     assert gate["policy"]["requires_successful_dry_invocation"] is True
     assert gate["policy"]["requires_candidate_config_hash_binding"] is True
     assert snapshot["schema_version"] == CODEX_CLI_EXECUTION_UNLOCK_SNAPSHOT_SCHEMA_VERSION
@@ -14985,6 +15042,24 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert validation_report["ok"] is True
     assert cli_result.returncode == 0, cli_result.stderr
     assert cli_payload["real_codex_execution_unlocked"] is True
+    canary_gate_path = canary_run_dir / "codex_cli_canary_gate.json"
+    tampered_canary_gate = json.loads(canary_gate_path.read_text(encoding="utf-8"))
+    tampered_canary_gate["slots"][0]["requirements"]["intake_binding_bound"] = False
+    canary_gate_path.write_text(
+        json.dumps(tampered_canary_gate, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    tampered_gate = write_codex_cli_execution_unlock_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        canary_run_dir=canary_run_dir,
+        output_path=run_dir / "codex_cli_execution_unlock_gate_tampered_canary.json",
+        markdown_path=run_dir / "codex_cli_execution_unlock_gate_tampered_canary.md",
+    )
+    assert tampered_gate["real_codex_execution_unlocked"] is False
+    assert tampered_gate["checks"]["canary_intake_binding_ready"] is False
+    assert "canary_intake_binding_not_ready" in tampered_gate["blocking_reasons"]
     (run_dir / "codex_cli_real_preflight.json").write_text(
         "{}\n",
         encoding="utf-8",

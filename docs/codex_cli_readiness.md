@@ -146,6 +146,12 @@ python -m orchestrator.iteration_loop --config config/codex_cli_canary.json --ru
 python -m orchestrator.codex_cli_canary_gate experiments/canary-demo --config config/codex_cli_canary.json
 ```
 
+The canary gate requires each selected canary execution audit to have a bound,
+blocker-free `agent_execution.intake_binding`. The final execution unlock gate
+also exposes `canary_intake_binding_ready`, so a future real Codex enablement
+cannot rely on canary subprocess evidence unless that output was normalized
+through the shared proposal-intake path.
+
 Run the read-only readiness pipeline:
 
 ```bash

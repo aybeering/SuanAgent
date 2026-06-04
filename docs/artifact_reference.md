@@ -627,7 +627,10 @@ Proposal and intake artifacts:
   and is updated for the selected attempt after `agent_validation.json` is
   written, binding command, prompt/stdin, raw response, saved proposal, and
   validation evidence. This proves selected external output went through the
-  shared intake path before quarantine or patch application.
+  shared intake path before quarantine or patch application. Codex-specific
+  contract fixtures, local canary gates, and final execution unlock gates also
+  require this selected execution binding to be present and blocker-free before
+  they can report readiness.
 - `agent_output.json` stores normalized selected proposal data and the
   proposal intent summary used by the round-level agent input. Its selected
   proposal uses `schemas/strategy_proposal.schema.json`.

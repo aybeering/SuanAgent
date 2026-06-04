@@ -86,6 +86,8 @@ def build_codex_cli_contract_fixture(
     fixture_stdout_path = attempt_dir / "codex_cli_fixture_stdout.json"
     fixture_validation_path = attempt_dir / "codex_cli_fixture_validation.json"
     fixture_proposal_path = attempt_dir / "codex_cli_fixture_proposal.json"
+    intake_binding: dict[str, object] = {}
+    intake_binding_blockers: list[str] = []
 
     for name, path in (
         ("attempt_input", attempt_input_path),
@@ -125,6 +127,26 @@ def build_codex_cli_contract_fixture(
                     stage="codex_fixture",
                     code="adapter_not_codex_cli",
                     message=str(execution.get("adapter_name", "")),
+                )
+            )
+        intake_binding = dict_or_empty(execution.get("intake_binding", {}))
+        intake_binding_blockers = string_list(
+            intake_binding.get("blocking_reasons", [])
+        )
+        if not bool(intake_binding.get("bound", False)):
+            reason_codes.append(
+                reason_code(
+                    stage="codex_fixture",
+                    code="intake_binding_not_bound",
+                    message=str(execution_path),
+                )
+            )
+        if intake_binding_blockers:
+            reason_codes.append(
+                reason_code(
+                    stage="codex_fixture",
+                    code="intake_binding_blocked",
+                    message="; ".join(intake_binding_blockers),
                 )
             )
         prompt = str(proposal.get("prompt", ""))
@@ -193,6 +215,8 @@ def build_codex_cli_contract_fixture(
             "runner_is_guarded_codex_cli": (
                 str(execution.get("runner_name", "")) == CODEX_CLI_GUARDED_RUNNER_NAME
             ),
+            "intake_binding_bound": bool(intake_binding.get("bound", False)),
+            "intake_binding_clean": not intake_binding_blockers,
             "stdin_prompt_sha_matches_audit": (
                 bool(prompt_sha) and prompt_sha == audit_stdin_sha
             ),
@@ -216,6 +240,8 @@ def build_codex_cli_contract_fixture(
             "execution_enabled": bool(execution.get("execution_enabled", False)),
             "prompt_sha256": prompt_sha,
             "audit_stdin_sha256": audit_stdin_sha,
+            "intake_binding_status": str(intake_binding.get("status", "")),
+            "intake_binding_blocking_reasons": intake_binding_blockers,
             "fixture_stdout_sha256": file_sha256(fixture_stdout_path),
             "fixture_patch_sha256": fixture_patch_sha,
             "fixture_direction_tag": fixture_direction,
@@ -227,6 +253,7 @@ def build_codex_cli_contract_fixture(
             "does_not_change_acceptance": True,
             "freezes_stdin_stdout_contract": True,
             "requires_guarded_codex_runner": True,
+            "requires_intake_binding": True,
             "requires_prompt_hash_match": True,
             "requires_fixture_stdout_validation": True,
         },
@@ -370,6 +397,15 @@ def relative_path(path: Path, root: Path) -> str:
 def dict_or_empty(value: object) -> dict[str, object]:
     """Return a dict or an empty dict."""
     return value if isinstance(value, dict) else {}
+
+
+def string_list(value: object) -> list[str]:
+    """Return non-empty strings from a JSON value."""
+    if isinstance(value, str):
+        return [value] if value else []
+    if not isinstance(value, list | tuple):
+        return []
+    return [str(item) for item in value if str(item)]
 
 
 def main() -> None:

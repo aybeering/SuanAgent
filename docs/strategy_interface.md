@@ -123,7 +123,9 @@ attempt, the loop updates that binding after shared intake validation and
 checks that the audit command, prompt/stdin when used, raw response, saved
 proposal, patch hash, and `agent_validation.json` agree. The binding is
 evidence only; it cannot release quarantine, apply patches, or change
-acceptance.
+acceptance. Codex CLI contract fixtures and readiness gates treat a missing or
+blocked selected-attempt binding as a deterministic blocker before any future
+real execution unlock can be considered ready.
 `agent_output_quarantine.json` preserves the same summary before patch
 application, so pre-apply audits can detect context drift without changing the
 quarantine release rules.

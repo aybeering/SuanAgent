@@ -113,6 +113,7 @@
         "does_not_apply_patches",
         "does_not_change_acceptance",
         "requires_guarded_execution_audit",
+        "requires_intake_binding",
         "requires_quarantine_release",
         "requires_deterministic_reject_and_rollback",
         "deterministic_code_keeps_acceptance_authority"

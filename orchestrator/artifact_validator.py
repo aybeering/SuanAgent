@@ -4164,6 +4164,8 @@ def validate_codex_cli_contract_fixture(
             "attempt_present",
             "adapter_is_codex_cli",
             "runner_is_guarded_codex_cli",
+            "intake_binding_bound",
+            "intake_binding_clean",
             "stdin_prompt_sha_matches_audit",
             "fixture_stdout_validation_ok",
             "fixture_patch_present",
@@ -4182,6 +4184,7 @@ def validate_codex_cli_contract_fixture(
         "does_not_change_acceptance",
         "freezes_stdin_stdout_contract",
         "requires_guarded_codex_runner",
+        "requires_intake_binding",
         "requires_prompt_hash_match",
         "requires_fixture_stdout_validation",
     ):
@@ -4196,6 +4199,10 @@ def validate_codex_cli_contract_fixture(
             add_error(report, "codex_cli_contract_fixture prompt hash missing")
         if contract.get("prompt_sha256") != contract.get("audit_stdin_sha256"):
             add_error(report, "codex_cli_contract_fixture prompt hash mismatch")
+        if contract.get("intake_binding_status") != "bound":
+            add_error(report, "codex_cli_contract_fixture intake binding not bound")
+        if contract.get("intake_binding_blocking_reasons"):
+            add_error(report, "codex_cli_contract_fixture intake binding blocked")
         if not str(contract.get("fixture_patch_sha256", "")):
             add_error(report, "codex_cli_contract_fixture patch hash missing")
     artifacts = payload.get("artifacts", {})
@@ -8240,6 +8247,7 @@ def validate_optional_codex_cli_canary_gate(
             "does_not_apply_patches",
             "does_not_change_acceptance",
             "requires_guarded_execution_audit",
+            "requires_intake_binding",
             "requires_quarantine_release",
             "requires_deterministic_reject_and_rollback",
             "deterministic_code_keeps_acceptance_authority",
@@ -8718,6 +8726,7 @@ def validate_optional_codex_cli_execution_unlock_gate(
             "requires_enablement_gate",
             "requires_manual_approval",
             "requires_controlled_canary",
+            "requires_canary_intake_binding",
             "requires_real_preflight",
             "requires_successful_dry_invocation",
             "requires_candidate_config_hash_binding",

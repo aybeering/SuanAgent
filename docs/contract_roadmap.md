@@ -266,6 +266,9 @@ Codex CLI readiness contracts:
 2. Agent text can propose patches but cannot accept strategies.
 3. Strategy-improvement patches may only modify `strategies/current_strategy.py`.
 4. Data under `data/` is immutable experiment input.
+5. Codex CLI canary and unlock readiness require a bound, blocker-free selected
+   `agent_execution.intake_binding`; subprocess evidence alone is not enough to
+   unlock future real execution.
 5. V0.5 must not call real exchange, wallet, Polymarket, Binance, or network APIs.
 6. Real Codex CLI strategy execution remains out of scope until the full
    readiness chain, operator request, startup preflight, and artifact validator
@@ -360,6 +363,8 @@ Codex CLI readiness contracts:
     applicable, raw response, saved proposal, and validation artifacts back to
     the same shared intake path. This binding is audit evidence only and cannot
     route candidates, release quarantine, apply patches, or change acceptance.
+    Codex CLI contract fixtures, canary gates, and final unlock gates require
+    the selected binding to be present and clean before reporting readiness.
 25. Candidate quality breakdowns explain proposal ranking only. They bind the
     same score total and component metadata across executor, attempt, selection,
     routing, output, leaderboard, brief, and closeout artifacts, but they cannot

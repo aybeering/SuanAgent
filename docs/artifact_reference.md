@@ -744,6 +744,15 @@ Replay artifacts:
   leaderboard row matches the round-local `proposal_attempts.json` row for the
   same `attempt_id`. These fields explain candidate routing only; final
   acceptance remains controlled by deterministic policy and holdout gates.
+  `python -m orchestrator.experiments candidates <run_id> --limit N` reads the
+  saved leaderboard as a terminal-only inspection view and validates the
+  returned `candidate_leaderboard` payload against
+  `schemas/candidate_leaderboard.schema.json` before printing. Its consistency
+  checks enforce the requested limit, run identity, unique round/attempt pairs,
+  stable candidate sort order, positive attempt indexes, quality-score binding,
+  and selected-row validation/holdout signal presence without executing agents,
+  rerunning backtests, routing candidates, applying patches, or changing
+  acceptance.
 - `candidate_quality_trace.json` and `candidate_quality_trace.md` summarize
   the saved leaderboard into an inspection-only trace of score components,
   probe/validation/holdout signals, selected attempts, patch families, and

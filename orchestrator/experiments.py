@@ -86,6 +86,9 @@ SUMMARY_DASHBOARD_SCHEMA_VERSION = "experiment_summary_dashboard_v1"
 SUMMARY_DASHBOARD_RECENT_LIMIT = 5
 OPERATOR_VIEW_REFRESH_SCHEMA_PATH = Path("schemas/operator_view_refresh.schema.json")
 CHAMPION_STATUS_SCHEMA_PATH = Path("schemas/champion_status.schema.json")
+CANDIDATE_LEADERBOARD_SCHEMA_PATH = Path(
+    "schemas/candidate_leaderboard.schema.json"
+)
 EXPERIMENT_LEADERBOARD_SCHEMA_PATH = Path("schemas/experiment_leaderboard.schema.json")
 EXPERIMENT_SUMMARY_DASHBOARD_SCHEMA_PATH = Path(
     "schemas/experiment_summary_dashboard.schema.json"
@@ -1050,7 +1053,127 @@ def candidate_leaderboard(
     if not isinstance(payload, list):
         raise ValueError(f"Candidate leaderboard is not a list: {path}")
     rows = [row for row in payload if isinstance(row, dict)]
-    return rows[: max(limit, 0)]
+    limited_rows = rows[: max(limit, 0)]
+    errors = validate_candidate_leaderboard_payload(
+        limited_rows,
+        repo_root=experiments_dir.parent,
+        run_id=run_id,
+        limit=limit,
+    )
+    if errors:
+        raise ValueError(
+            "candidate leaderboard failed schema validation: " + "; ".join(errors)
+        )
+    return limited_rows
+
+
+def validate_candidate_leaderboard_payload(
+    payload: list[dict[str, object]],
+    *,
+    repo_root: Path,
+    run_id: str,
+    limit: int,
+) -> tuple[str, ...]:
+    """Validate the terminal-only candidate leaderboard output."""
+    schema = load_schema(repo_root / CANDIDATE_LEADERBOARD_SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=payload,
+            schema=schema,
+            schema_dir=(repo_root / CANDIDATE_LEADERBOARD_SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(
+        validate_candidate_leaderboard_consistency(
+            payload,
+            run_id=run_id,
+            limit=limit,
+        )
+    )
+    return tuple(errors)
+
+
+def validate_candidate_leaderboard_consistency(
+    payload: list[dict[str, object]],
+    *,
+    run_id: str,
+    limit: int,
+) -> tuple[str, ...]:
+    """Validate candidate leaderboard bounds, ordering, and selected-row signals."""
+    errors: list[str] = []
+    if len(payload) > max(limit, 0):
+        errors.append("candidate_leaderboard limit exceeded")
+    previous_key: tuple[object, ...] | None = None
+    seen_attempts: set[tuple[str, str]] = set()
+    for row in payload:
+        row_run_id = str(row.get("run_id", ""))
+        round_id = str(row.get("round_id", ""))
+        attempt_id = str(row.get("attempt_id", ""))
+        if row_run_id != run_id:
+            errors.append("candidate_leaderboard run_id mismatch")
+        if not round_id:
+            errors.append("candidate_leaderboard round_id missing")
+        if not attempt_id:
+            errors.append("candidate_leaderboard attempt_id missing")
+        attempt_key = (round_id, attempt_id)
+        if attempt_id and attempt_key in seen_attempts:
+            errors.append("candidate_leaderboard duplicate attempt")
+        seen_attempts.add(attempt_key)
+        if int_value(row.get("attempt_index", 0), 0) < 1:
+            errors.append("candidate_leaderboard attempt_index invalid")
+        current_key = candidate_leaderboard_validation_sort_key(row)
+        if previous_key is not None and current_key > previous_key:
+            errors.append("candidate_leaderboard sort order mismatch")
+        previous_key = current_key
+        quality = row.get("quality_breakdown", {})
+        if not isinstance(quality, dict):
+            errors.append("candidate_leaderboard quality_breakdown invalid")
+        else:
+            if quality.get("schema_version") != "candidate_quality_v1":
+                errors.append("candidate_leaderboard quality schema invalid")
+            total_score = optional_float_value(quality.get("total_score"))
+            candidate_score = optional_float_value(row.get("candidate_score"))
+            if total_score is not None and candidate_score is not None:
+                if round(total_score, 6) != round(candidate_score, 6):
+                    errors.append("candidate_leaderboard score mismatch")
+            signals = quality.get("signals", {})
+            if row.get("selected") is True:
+                validation_ev = row.get("validation_ev_delta")
+                holdout_ev = row.get("holdout_ev_delta")
+                if validation_ev is None:
+                    errors.append("candidate_leaderboard selected validation missing")
+                if holdout_ev is None:
+                    errors.append("candidate_leaderboard selected holdout missing")
+                if isinstance(signals, dict):
+                    if signals.get("validation_ev_delta") != validation_ev:
+                        errors.append(
+                            "candidate_leaderboard selected validation signal mismatch"
+                        )
+                    if signals.get("holdout_ev_delta") != holdout_ev:
+                        errors.append(
+                            "candidate_leaderboard selected holdout signal mismatch"
+                        )
+    return tuple(errors)
+
+
+def candidate_leaderboard_validation_sort_key(
+    row: dict[str, object],
+) -> tuple[object, ...]:
+    """Return the expected descending sort key for candidate leaderboard rows."""
+    validation_ev_delta = row.get("validation_ev_delta")
+    validation_value = (
+        float(validation_ev_delta)
+        if isinstance(validation_ev_delta, int | float)
+        else float("-inf")
+    )
+    return (
+        bool(row.get("selected", False)),
+        validation_value,
+        float_value(row.get("probe_ev_delta"), 0.0),
+        int_value(row.get("candidate_score", 0), 0),
+        str(row.get("round_id", "")),
+        -int_value(row.get("attempt_index", 0), 0),
+    )
 
 
 def agent_result_stats(

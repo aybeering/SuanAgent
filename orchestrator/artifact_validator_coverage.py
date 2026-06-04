@@ -144,6 +144,7 @@ INSPECTION_COMMANDS = {
     "agent_validation": ("python -m orchestrator.agent_output_intake",),
     "strategy_proposal": ("module reference: orchestrator.proposal StrategyProposal",),
     "agent_result_stats": ("python -m orchestrator.experiments agents",),
+    "candidate_leaderboard": ("python -m orchestrator.experiments candidates",),
     "run_artifact_health": (
         "python -m orchestrator.run_artifact_health",
         "python -m orchestrator.experiments validate",

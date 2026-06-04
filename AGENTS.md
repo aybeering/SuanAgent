@@ -61,7 +61,8 @@ artifacts, read-only Codex CLI unlock runbook artifacts, read-only operator
 cockpit artifacts, read-only Codex CLI execution readiness diff artifacts, and
 Codex CLI readiness evidence, plus schema-validated terminal-only operator view
 refresh receipts, operator run review receipts, and experiment summary
-dashboards, champion status views, and experiment leaderboard views.
+dashboards, champion status views, experiment leaderboard views, and candidate
+leaderboard views.
 
 Still out of scope:
 

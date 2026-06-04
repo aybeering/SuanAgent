@@ -359,6 +359,7 @@ from orchestrator.experiments import (
     show_experiment,
     show_champion,
     summarize_experiments,
+    validate_candidate_leaderboard_payload,
     validate_champion_status_payload,
     validate_experiment_leaderboard_payload,
     validate_experiment_summary_dashboard_payload,
@@ -17687,6 +17688,44 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         experiments_dir=repo / "experiments",
         limit=20,
     )
+    assert_matches_schema_payload(rows, "candidate_leaderboard")
+    assert validate_candidate_leaderboard_payload(
+        rows,
+        repo_root=repo,
+        run_id="cli-candidates",
+        limit=20,
+    ) == ()
+    drift_rows = [dict(rows[0]), dict(rows[0])]
+    drift_rows[0]["run_id"] = "other-run"
+    drift_rows[0]["selected"] = False
+    drift_rows[0]["validation_ev_delta"] = -10.0
+    drift_rows[0]["probe_ev_delta"] = -10.0
+    drift_rows[0]["candidate_score"] = 0
+    drift_rows[1]["selected"] = True
+    drift_rows[1]["validation_ev_delta"] = None
+    drift_rows[1]["holdout_ev_delta"] = None
+    drift_rows[1]["candidate_score"] = 999
+    drift_quality = dict(drift_rows[1]["quality_breakdown"])
+    drift_quality["total_score"] = 0
+    drift_quality["signals"] = {
+        **dict(drift_quality.get("signals", {})),
+        "validation_ev_delta": 123,
+        "holdout_ev_delta": 456,
+    }
+    drift_rows[1]["quality_breakdown"] = drift_quality
+    drift_errors = validate_candidate_leaderboard_payload(
+        drift_rows,
+        repo_root=repo,
+        run_id="cli-candidates",
+        limit=1,
+    )
+    assert "candidate_leaderboard limit exceeded" in drift_errors
+    assert "candidate_leaderboard run_id mismatch" in drift_errors
+    assert "candidate_leaderboard duplicate attempt" in drift_errors
+    assert "candidate_leaderboard sort order mismatch" in drift_errors
+    assert "candidate_leaderboard score mismatch" in drift_errors
+    assert "candidate_leaderboard selected validation missing" in drift_errors
+    assert "candidate_leaderboard selected holdout missing" in drift_errors
     stats = agent_result_stats(
         run_id="cli-candidates",
         experiments_dir=repo / "experiments",
@@ -18565,6 +18604,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert len(payload) == 1
+    assert_matches_schema_payload(payload, "candidate_leaderboard")
+    assert validate_candidate_leaderboard_payload(
+        payload,
+        repo_root=repo,
+        run_id="cli-candidates",
+        limit=1,
+    ) == ()
     assert payload[0]["run_id"] == "cli-candidates"
     assert "probe_ev_delta" in payload[0]
     assert "quality_breakdown" in payload[0]

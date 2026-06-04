@@ -154,6 +154,7 @@ Implemented or allowed V0.5 components:
 125. Strict local consistency validation for the terminal-only `experiment_summary_dashboard_v1` payload exposed by `python -m orchestrator.experiments summary`, including latest-run to recent-tail binding, accepted-row and completed-round invariants, champion-gap active/status/gap consistency, watchlist alert identity, alert summary counters, and outer/watchlist policy flags, applied before JSON or markdown output is printed, without writing config, promoting champions, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 126. Strict local schema and consistency validation for the terminal-only `champion_status_v1` payload exposed by `python -m orchestrator.experiments champion`, including current champion existence, registry schema version, champion-run binding to the embedded lineage summary, latest history champion and validation EV checks, lineage event counters, and read-only status/lineage policy flags, applied before JSON output is printed, without writing champion registry files, appending champion history, promoting champions, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 127. Strict local schema and consistency validation for the terminal-only `experiment_leaderboard` payload exposed by `python -m orchestrator.experiments leaderboard`, including bounded row count, unique run IDs, descending validation EV-delta and creation-time ordering, single-run EV delta arithmetic, and non-negative iteration completed-round counts, applied before JSON output is printed without executing agents, rerunning backtests, promoting champions, applying patches, or changing acceptance.
+128. Strict local schema and consistency validation for the terminal-only `candidate_leaderboard` payload exposed by `python -m orchestrator.experiments candidates <run_id>`, including bounded row count, run-id binding, unique round/attempt identity, stable candidate ranking order, positive attempt indexes, quality-score binding, and selected-row validation/holdout signal checks, applied before JSON output is printed without executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 
 ## Contract Families
 
@@ -398,6 +399,12 @@ Codex CLI readiness contracts:
     ranking order, single-run EV delta arithmetic, and iteration round-count
     sanity without executing agents, rerunning backtests, applying patches, or
     changing acceptance.
+    Candidate leaderboard terminal output is also schema-validated before JSON
+    is emitted. Its validator checks run-id binding, row bounds, round/attempt
+    uniqueness, ranking order, candidate score to quality-score binding, and
+    selected validation/holdout signal presence without executing agents,
+    rerunning backtests, routing candidates, applying patches, or changing
+    acceptance.
 33. Operator cockpit panels include Codex CLI execution preflight state as a
     read-only unlock visibility layer. They may summarize real-execution
     profile counts, operator-unlock-ready counts, and startup blockers, but

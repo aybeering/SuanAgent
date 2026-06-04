@@ -16,6 +16,7 @@
     "top_recent_outcome_category",
     "champion_gap",
     "operator_home_entry",
+    "operator_next_command_entry",
     "watchlist",
     "policy"
   ],
@@ -64,6 +65,9 @@
     },
     "operator_home_entry": {
       "$ref": "#/$defs/operator_home_entry"
+    },
+    "operator_next_command_entry": {
+      "$ref": "#/$defs/operator_next_command_entry"
     },
     "watchlist": {
       "$ref": "#/$defs/watchlist"
@@ -362,6 +366,129 @@
         },
         "source": {
           "type": "string"
+        }
+      }
+    },
+    "operator_next_command_entry": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "available",
+        "reason",
+        "run_id",
+        "run_kind",
+        "status",
+        "blocked",
+        "blocker_count",
+        "operator_hint",
+        "command_label",
+        "command",
+        "command_boundary",
+        "terminal_only",
+        "artifact_created",
+        "command_is_hint_only",
+        "selection_source",
+        "selected_command_label",
+        "selected_command",
+        "selected_command_status",
+        "selected_command_boundary",
+        "selected_command_writes_artifact",
+        "selected_command_requires_explicit_operator_invocation",
+        "selected_command_requires_operator_approval",
+        "selected_command_records_operator_approval",
+        "selected_command_uses_guarded_executor",
+        "selected_command_is_hint_only"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "experiment_operator_next_command_entry_v1"
+          ]
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "no_runs",
+            "not_iteration_run",
+            "operator_home_unavailable",
+            "latest_run_not_iteration",
+            "latest_iteration_run",
+            "iteration_run"
+          ]
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "run_kind": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "blocked": {
+          "type": "boolean"
+        },
+        "blocker_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "operator_hint": {
+          "type": "string"
+        },
+        "command_label": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "command_boundary": {
+          "type": "string"
+        },
+        "terminal_only": {
+          "type": "boolean"
+        },
+        "artifact_created": {
+          "type": "boolean"
+        },
+        "command_is_hint_only": {
+          "type": "boolean"
+        },
+        "selection_source": {
+          "type": "string"
+        },
+        "selected_command_label": {
+          "type": "string"
+        },
+        "selected_command": {
+          "type": "string"
+        },
+        "selected_command_status": {
+          "type": "string"
+        },
+        "selected_command_boundary": {
+          "type": "string"
+        },
+        "selected_command_writes_artifact": {
+          "type": "string"
+        },
+        "selected_command_requires_explicit_operator_invocation": {
+          "type": "boolean"
+        },
+        "selected_command_requires_operator_approval": {
+          "type": "boolean"
+        },
+        "selected_command_records_operator_approval": {
+          "type": "boolean"
+        },
+        "selected_command_uses_guarded_executor": {
+          "type": "boolean"
+        },
+        "selected_command_is_hint_only": {
+          "type": "boolean"
         }
       }
     },

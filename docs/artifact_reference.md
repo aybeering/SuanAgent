@@ -103,22 +103,24 @@ python -m orchestrator.experiments refresh-operator-views --latest --markdown
 ```
 
 `python -m orchestrator.experiments list --limit N` returns recent append-only
-index rows with a derived `operator_home` hint on each row. Iteration-loop rows
-include the terminal-only `home <run_id> --markdown` command, status, boundary,
-hint-only policy flags, next-command text, blocker summary, and next-command
-safety flags; single-run rows mark the hint and next-command state
-unavailable. The command does not rewrite `index.jsonl`, create artifacts,
-execute commands, run agents, run backtests, apply patches, promote champions,
-or change acceptance.
+index rows with derived `operator_home` and `operator_next_command` hints on
+each row. Iteration-loop rows include the terminal-only `home <run_id>
+--markdown` command, the narrower `next-command <run_id> --markdown`
+selector, status, boundary, hint-only policy flags, next-command text, blocker
+summary, and next-command safety flags; single-run rows mark both hints and
+next-command state unavailable. The command does not rewrite `index.jsonl`,
+create artifacts, execute commands, run agents, run backtests, apply patches,
+promote champions, or change acceptance.
 
 `python -m orchestrator.experiments show <run_id>` includes the same derived
-`operator_home` hint in the compact run payload. Iteration-loop runs expose the
-terminal-only home markdown command plus the next-command label, status,
-blocked flag, blocker count, operator hint, command text, boundary, write
-target, approval flags, guarded-executor flag, and hint-only flag; single-run
-payloads explicitly mark the home hint and next-command state unavailable.
-This is a read-only convenience field and does not rewrite index rows or
-create an `operator_home.json` artifact.
+`operator_home` and `operator_next_command` hints in the compact run payload.
+Iteration-loop runs expose the terminal-only home markdown command, the
+next-command selector command, and the selected command label, status, blocked
+flag, blocker count, operator hint, command text, boundary, write target,
+approval flags, guarded-executor flag, and hint-only flag; single-run payloads
+explicitly mark the home hint, selector hint, and next-command state
+unavailable. These are read-only convenience fields and do not rewrite index
+rows or create `operator_home.json` or `operator_next_command.json` artifacts.
 
 Replay and validation:
 
@@ -286,26 +288,31 @@ change acceptance.
 `python -m orchestrator.experiments summary` additionally embeds a compact
 dashboard with the latest indexed run, latest accepted and rejected runs, recent
 diagnosis rows, recent failure-code counts, recent outcome-category counts, a
-best-run-to-champion gap, a latest-run operator-home entry, and an operator
-watchlist for repeated proposals, artifact-health failures, and champion-gap
-alerts. Recent rows include the saved `run_outcome_summary` category, primary
-stage, and primary code when the run has an iteration diagnosis. The
-operator-home entry is available only when the latest indexed run is an
-iteration loop; it surfaces the read-only `home <run_id> --markdown` command,
-terminal-only flag, source, status, action step, and Codex readiness snippets
-without creating an artifact. It is inspection-only and does not execute
-agents, run backtests, apply patches, promote champions, or change acceptance.
+best-run-to-champion gap, a latest-run operator-home entry, a latest-run
+operator-next-command entry, and an operator watchlist for repeated proposals,
+artifact-health failures, and champion-gap alerts. Recent rows include the
+saved `run_outcome_summary` category, primary stage, and primary code when the
+run has an iteration diagnosis. The operator-home entry is available only when
+the latest indexed run is an iteration loop; it surfaces the read-only `home
+<run_id> --markdown` command, terminal-only flag, source, status, action step,
+and Codex readiness snippets without creating an artifact. The
+operator-next-command entry mirrors the home-selected next command and exposes
+the read-only `next-command <run_id> --markdown` selector, selected command,
+status, blocker summary, boundary, and write target without creating an
+artifact. The dashboard is inspection-only and does not execute agents, run
+backtests, apply patches, promote champions, or change acceptance.
 The embedded dashboard is validated in memory against
 `schemas/experiment_summary_dashboard.schema.json` before JSON or markdown is
 printed, with deterministic consistency checks for recent failure/outcome
 counts, top recent code/category fields, latest accepted/rejected status
 summaries, latest-run to recent-tail binding, accepted-row flags,
-operator-home run/command/boundary binding, champion-gap status and delta
-invariants, watchlist alert counts, severity counts, status, alert codes, and
-read-only policy flags.
+operator-home run/command/boundary binding, operator-next-command selector and
+selected-command binding, champion-gap status and delta invariants, watchlist
+alert counts, severity counts, status, alert codes, and read-only policy flags.
 `python -m orchestrator.experiments summary --markdown` renders the same
-summary payload, including the latest-run operator-home entry and watchlist, as
-a compact terminal-friendly Markdown report without writing artifacts.
+summary payload, including the latest-run operator-home entry,
+operator-next-command entry, and watchlist, as a compact terminal-friendly
+Markdown report without writing artifacts.
 `python -m orchestrator.experiments leaderboard --limit N` returns the same
 ranked run list shape as before, but validates the terminal-only
 `experiment_leaderboard` payload against
@@ -478,6 +485,11 @@ readiness summary fields, authority flags, and read-only policy. It creates no
 artifact and remains a hint; it does not record approval, execute commands,
 write config, promote champions, run agents, run backtests, apply patches,
 route agents, or change acceptance.
+The same selector command is also surfaced as a derived hint in
+`experiments list`, `experiments show`, and the `experiment_summary_dashboard`
+payload, so an operator can discover the narrow next-step view from recent run
+history, per-run inspection, or the summary dashboard without creating any run
+artifacts.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose the
 Codex CLI operator-unlock evidence chain as a standalone read-only checklist.
 The iteration loop writes it during closeout before the final cockpit so cockpit

@@ -160,16 +160,24 @@ def list_experiments(
     limit: int = 10,
 ) -> list[dict[str, object]]:
     """Return recent experiment records."""
-    return [
-        {
-            **record,
-            "operator_home": experiment_list_operator_home_hint(
-                record=record,
-                experiments_dir=experiments_dir,
-            ),
-        }
-        for record in recent_experiments(experiments_dir=experiments_dir, limit=limit)
-    ]
+    rows: list[dict[str, object]] = []
+    for record in recent_experiments(experiments_dir=experiments_dir, limit=limit):
+        operator_home = experiment_list_operator_home_hint(
+            record=record,
+            experiments_dir=experiments_dir,
+        )
+        rows.append(
+            {
+                **record,
+                "operator_home": operator_home,
+                "operator_next_command": experiment_operator_next_command_hint(
+                    operator_home=operator_home,
+                    run_id=str(record.get("run_id", "")),
+                    run_kind=str(record.get("kind", "")),
+                ),
+            }
+        )
+    return rows
 
 
 def latest_iteration_run_id(
@@ -200,28 +208,40 @@ def show_experiment(
     decision_path = run_dir / "decision.json"
     if manifest_path.exists():
         manifest = load_json(manifest_path)
+        operator_home = experiment_list_operator_home_hint(
+            record={"kind": "iteration_loop", "run_id": run_id},
+            experiments_dir=experiments_dir,
+        )
         return {
             "kind": "iteration_loop",
             "run_id": run_id,
             "run_dir": str(run_dir),
             "summary_path": str(run_dir / "summary.md"),
             "candidate_leaderboard_path": str(run_dir / "candidate_leaderboard.json"),
-            "operator_home": experiment_list_operator_home_hint(
-                record={"kind": "iteration_loop", "run_id": run_id},
-                experiments_dir=experiments_dir,
+            "operator_home": operator_home,
+            "operator_next_command": experiment_operator_next_command_hint(
+                operator_home=operator_home,
+                run_id=run_id,
+                run_kind="iteration_loop",
             ),
             "manifest": manifest,
         }
     if decision_path.exists():
         decision = load_json(decision_path)
+        operator_home = experiment_list_operator_home_hint(
+            record={"kind": "single_run", "run_id": run_id},
+            experiments_dir=experiments_dir,
+        )
         return {
             "kind": "single_run",
             "run_id": run_id,
             "run_dir": str(run_dir),
             "summary_path": str(run_dir / "summary.md"),
-            "operator_home": experiment_list_operator_home_hint(
-                record={"kind": "single_run", "run_id": run_id},
-                experiments_dir=experiments_dir,
+            "operator_home": operator_home,
+            "operator_next_command": experiment_operator_next_command_hint(
+                operator_home=operator_home,
+                run_id=run_id,
+                run_kind="single_run",
             ),
             "decision": decision,
         }
@@ -297,6 +317,12 @@ def experiment_summary_dashboard(
         latest_run=latest_run,
         experiments_dir=experiments_dir,
     )
+    operator_next_command_entry = experiment_operator_next_command_hint(
+        operator_home=operator_home_entry,
+        run_id=str(operator_home_entry.get("run_id", "")),
+        run_kind=str(operator_home_entry.get("run_kind", "")),
+        schema_version="experiment_operator_next_command_entry_v1",
+    )
     return {
         "schema_version": SUMMARY_DASHBOARD_SCHEMA_VERSION,
         "total_runs": len(records),
@@ -311,6 +337,7 @@ def experiment_summary_dashboard(
         "top_recent_outcome_category": top_counter_key(outcome_categories),
         "champion_gap": champion_gap,
         "operator_home_entry": operator_home_entry,
+        "operator_next_command_entry": operator_next_command_entry,
         "watchlist": dashboard_watchlist(
             recent_runs=recent_rows,
             latest_run=latest_run,
@@ -414,6 +441,17 @@ def validate_experiment_summary_dashboard_consistency(
     operator_home = dict_payload(payload.get("operator_home_entry", {}))
     errors.extend(
         validate_experiment_operator_home_entry(
+            operator_home=operator_home,
+            latest_run=latest_run,
+            total_runs=total_runs,
+        )
+    )
+    operator_next_command = dict_payload(
+        payload.get("operator_next_command_entry", {})
+    )
+    errors.extend(
+        validate_experiment_operator_next_command_entry(
+            operator_next_command=operator_next_command,
             operator_home=operator_home,
             latest_run=latest_run,
             total_runs=total_runs,
@@ -548,6 +586,165 @@ def validate_experiment_operator_home_entry(
             errors.append(
                 "experiment_summary_dashboard operator_home blocker count mismatch"
             )
+    return tuple(errors)
+
+
+def validate_experiment_operator_next_command_entry(
+    *,
+    operator_next_command: dict[str, object],
+    operator_home: dict[str, object],
+    latest_run: dict[str, object] | None,
+    total_runs: int,
+) -> tuple[str, ...]:
+    """Validate the dashboard's latest-run next-command selector hint."""
+    errors: list[str] = []
+    available = bool(operator_next_command.get("available", False))
+    run_id = str(operator_next_command.get("run_id", ""))
+    run_kind = str(operator_next_command.get("run_kind", ""))
+    command = str(operator_next_command.get("command", ""))
+    selected_command = str(operator_next_command.get("selected_command", ""))
+    selected_status = str(
+        operator_next_command.get("selected_command_status", "unavailable")
+    )
+    blocked = bool(operator_next_command.get("blocked", False))
+    blocker_count = int_value(operator_next_command.get("blocker_count", -1))
+    expected_command = (
+        f"python -m orchestrator.experiments next-command {run_id} --markdown"
+        if run_id
+        else ""
+    )
+    home_available = bool(operator_home.get("available", False))
+    if total_runs == 0:
+        if available or run_id or command:
+            errors.append(
+                "experiment_summary_dashboard operator_next_command empty mismatch"
+            )
+    elif latest_run is None:
+        errors.append("experiment_summary_dashboard operator_next_command latest missing")
+    else:
+        if run_id != str(latest_run.get("run_id", "")):
+            errors.append("experiment_summary_dashboard operator_next_command run mismatch")
+        if run_kind != str(latest_run.get("kind", "")):
+            errors.append(
+                "experiment_summary_dashboard operator_next_command kind mismatch"
+            )
+        if str(latest_run.get("kind", "")) == "iteration_loop" and home_available:
+            if not available:
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command unavailable"
+                )
+            if command != expected_command:
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command command mismatch"
+                )
+            if selected_status != str(
+                operator_home.get("next_command_status", "unavailable")
+            ):
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command status mismatch"
+                )
+            if selected_command != str(operator_home.get("next_command", "")):
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command selected mismatch"
+                )
+            if str(
+                operator_next_command.get("selected_command_label", "")
+            ) != str(operator_home.get("next_command_label", "")):
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command label mismatch"
+                )
+            if str(
+                operator_next_command.get("selected_command_boundary", "")
+            ) != str(operator_home.get("next_command_boundary", "")):
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command boundary mismatch"
+                )
+            if str(
+                operator_next_command.get("selected_command_writes_artifact", "")
+            ) != str(operator_home.get("next_command_writes_artifact", "")):
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command write mismatch"
+                )
+            if blocked != bool(operator_home.get("next_command_blocked", False)):
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command blocked mismatch"
+                )
+            if blocker_count != int_value(
+                operator_home.get("next_command_blocker_count", 0)
+            ):
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command blocker count mismatch"
+                )
+        else:
+            if available or command:
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command non-iteration mismatch"
+                )
+            if selected_status != "unavailable" or selected_command:
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command non-iteration selected"
+                )
+            if blocked or blocker_count != 0:
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command non-iteration selected"
+                )
+    if available:
+        if str(operator_next_command.get("command_label", "")) != (
+            "review_operator_next_command"
+        ):
+            errors.append("experiment_summary_dashboard operator_next_command label mismatch")
+        if str(operator_next_command.get("command_boundary", "")) != (
+            "read_only_inspection"
+        ):
+            errors.append(
+                "experiment_summary_dashboard operator_next_command boundary mismatch"
+            )
+        if bool(operator_next_command.get("terminal_only", False)) is not True:
+            errors.append(
+                "experiment_summary_dashboard operator_next_command terminal mismatch"
+            )
+        if bool(operator_next_command.get("artifact_created", True)) is not False:
+            errors.append(
+                "experiment_summary_dashboard operator_next_command artifact mismatch"
+            )
+        if bool(operator_next_command.get("command_is_hint_only", False)) is not True:
+            errors.append(
+                "experiment_summary_dashboard operator_next_command hint mismatch"
+            )
+        if str(operator_next_command.get("selection_source", "")) != (
+            "operator_home.next_command"
+        ):
+            errors.append(
+                "experiment_summary_dashboard operator_next_command source mismatch"
+            )
+        for entry_key, home_key in (
+            (
+                "selected_command_requires_explicit_operator_invocation",
+                "next_command_requires_explicit_operator_invocation",
+            ),
+            (
+                "selected_command_requires_operator_approval",
+                "next_command_requires_operator_approval",
+            ),
+            (
+                "selected_command_records_operator_approval",
+                "next_command_records_operator_approval",
+            ),
+            (
+                "selected_command_uses_guarded_executor",
+                "next_command_uses_guarded_executor",
+            ),
+            (
+                "selected_command_is_hint_only",
+                "next_command_is_hint_only",
+            ),
+        ):
+            if bool(operator_next_command.get(entry_key, False)) != bool(
+                operator_home.get(home_key, False)
+            ):
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command safety mismatch"
+                )
     return tuple(errors)
 
 
@@ -770,6 +967,94 @@ def experiment_list_operator_home_hint(
         ),
         "next_command_is_hint_only": bool(
             manifest_home.get("next_command_is_hint_only", True)
+        ),
+    }
+
+
+def experiment_operator_next_command_hint(
+    *,
+    operator_home: dict[str, object],
+    run_id: str,
+    run_kind: str,
+    schema_version: str = "experiment_operator_next_command_hint_v1",
+) -> dict[str, object]:
+    """Return a compact terminal-only next-command selector hint."""
+    home_available = bool(operator_home.get("available", False))
+    selected_status = str(operator_home.get("next_command_status", "unavailable"))
+    base = {
+        "schema_version": schema_version,
+        "available": False,
+        "reason": "operator_home_unavailable",
+        "run_id": run_id,
+        "run_kind": run_kind,
+        "status": "unavailable",
+        "blocked": False,
+        "blocker_count": 0,
+        "operator_hint": "",
+        "command_label": "",
+        "command": "",
+        "command_boundary": "",
+        "terminal_only": True,
+        "artifact_created": False,
+        "command_is_hint_only": True,
+        "selection_source": "operator_home.next_command",
+        "selected_command_label": "",
+        "selected_command": "",
+        "selected_command_status": selected_status,
+        "selected_command_boundary": "",
+        "selected_command_writes_artifact": "",
+        "selected_command_requires_explicit_operator_invocation": False,
+        "selected_command_requires_operator_approval": False,
+        "selected_command_records_operator_approval": False,
+        "selected_command_uses_guarded_executor": False,
+        "selected_command_is_hint_only": True,
+    }
+    if run_kind != "iteration_loop" or not run_id:
+        return {
+            **base,
+            "reason": "not_iteration_run" if run_id else "no_runs",
+        }
+    if not home_available:
+        return {
+            **base,
+            "reason": str(operator_home.get("reason", "operator_home_unavailable")),
+        }
+    return {
+        **base,
+        "available": True,
+        "reason": "iteration_run",
+        "status": selected_status,
+        "blocked": bool(operator_home.get("next_command_blocked", False)),
+        "blocker_count": int(
+            operator_home.get("next_command_blocker_count", 0) or 0
+        ),
+        "operator_hint": str(operator_home.get("next_command_operator_hint", "")),
+        "command_label": "review_operator_next_command",
+        "command": f"python -m orchestrator.experiments next-command {run_id} --markdown",
+        "command_boundary": "read_only_inspection",
+        "selected_command_label": str(operator_home.get("next_command_label", "")),
+        "selected_command": str(operator_home.get("next_command", "")),
+        "selected_command_status": selected_status,
+        "selected_command_boundary": str(
+            operator_home.get("next_command_boundary", "")
+        ),
+        "selected_command_writes_artifact": str(
+            operator_home.get("next_command_writes_artifact", "")
+        ),
+        "selected_command_requires_explicit_operator_invocation": bool(
+            operator_home.get("next_command_requires_explicit_operator_invocation", False)
+        ),
+        "selected_command_requires_operator_approval": bool(
+            operator_home.get("next_command_requires_operator_approval", False)
+        ),
+        "selected_command_records_operator_approval": bool(
+            operator_home.get("next_command_records_operator_approval", False)
+        ),
+        "selected_command_uses_guarded_executor": bool(
+            operator_home.get("next_command_uses_guarded_executor", False)
+        ),
+        "selected_command_is_hint_only": bool(
+            operator_home.get("next_command_is_hint_only", True)
         ),
     }
 
@@ -1212,6 +1497,9 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
     failure_counts = dict_payload(dashboard.get("recent_failure_codes", {}))
     outcome_counts = dict_payload(dashboard.get("recent_outcome_categories", {}))
     operator_home = dict_payload(dashboard.get("operator_home_entry", {}))
+    operator_next_command = dict_payload(
+        dashboard.get("operator_next_command_entry", {})
+    )
     lines = [
         "# Experiment Summary",
         "",
@@ -1258,6 +1546,24 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         f"`{operator_home.get('next_command_uses_guarded_executor', False)}`",
         "- Operator home next command hint-only: "
         f"`{operator_home.get('next_command_is_hint_only', False)}`",
+        "- Operator next-command selector: "
+        f"`{operator_next_command.get('status', 'unavailable')}` "
+        f"({operator_next_command.get('reason', 'unknown')})",
+        "- Operator next-command selector command: "
+        f"`{operator_next_command.get('command', '') or 'unavailable'}`",
+        "- Operator next-command selected label: "
+        f"`{operator_next_command.get('selected_command_label', '') or 'unavailable'}`",
+        "- Operator next-command selected command: "
+        f"`{operator_next_command.get('selected_command', '') or 'unavailable'}`",
+        "- Operator next-command selected status: "
+        f"`{operator_next_command.get('selected_command_status', 'unavailable')}`",
+        "- Operator next-command selected boundary: "
+        f"`{operator_next_command.get('selected_command_boundary', '') or 'unavailable'}`",
+        "- Operator next-command blocked: "
+        f"`{operator_next_command.get('blocked', False)}` "
+        f"({operator_next_command.get('blocker_count', 0)} blocker(s))",
+        "- Operator next-command selected writes: "
+        f"`{operator_next_command.get('selected_command_writes_artifact', '') or 'none'}`",
         "",
         "## Watchlist",
         "",

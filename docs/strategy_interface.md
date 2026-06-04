@@ -109,7 +109,9 @@ patch target, and git-apply viability. Its `semantic_checks` object exposes the
 deterministic protocol, target, metadata, and patch-target checks that explain
 contract pass/fail before `git apply` is allowed to run. Its
 `intake_diagnosis` object turns those failures into stable reason codes for
-operator review and later adapter debugging.
+operator review and later adapter debugging. Malformed JSON output and invalid
+metadata field types are normalized into rejected proposals with stable
+contract errors; they must not crash intake or reach patch application.
 `agent_output_quarantine.json` preserves the same summary before patch
 application, so pre-apply audits can detect context drift without changing the
 quarantine release rules.
@@ -158,7 +160,8 @@ summaries, and mutation-guard errors.
 Its execution `status` is deterministic: `disabled`, `completed`,
 `command_failed`, `timeout`, or `workspace_violation`. A completed command can
 still yield a rejected proposal when output is malformed or the patch touches a
-file other than `strategies/current_strategy.py`.
+file other than `strategies/current_strategy.py`, and bad JSON or metadata
+types are preserved as audited validation failures.
 
 `agents.file_protocol_demo_agent` is the deterministic reference command for
 this protocol. It can be run through `config/file_protocol_demo.json` to prove

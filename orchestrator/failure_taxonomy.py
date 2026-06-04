@@ -277,6 +277,20 @@ def classify_agent_validation_contract_error(error: str) -> dict[str, str]:
             code="patch_target_invalid",
             message=error,
         )
+    if normalized.startswith("agent output json parse failed"):
+        return reason_code(
+            stage="parse",
+            code="agent_output_parse_failed",
+            message=error,
+        )
+    if normalized.startswith("proposal must be a json object") or normalized.startswith(
+        "selected_proposal must be a json object"
+    ):
+        return reason_code(
+            stage="parse",
+            code="agent_output_parse_failed",
+            message=error,
+        )
     if "must include patch_diff" in normalized or "did not include a patch" in normalized:
         return reason_code(
             stage="proposal",
@@ -287,6 +301,12 @@ def classify_agent_validation_contract_error(error: str) -> dict[str, str]:
         return reason_code(
             stage="protocol",
             code="protocol_version_invalid",
+            message=error,
+        )
+    if normalized.startswith("round_index must be an integer"):
+        return reason_code(
+            stage="contract",
+            code="round_index_invalid",
             message=error,
         )
     if normalized.startswith("round_index"):

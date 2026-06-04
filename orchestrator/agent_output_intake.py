@@ -318,9 +318,12 @@ def proposal_from_raw_agent_output(
     """Convert raw agent output text into a standard strategy proposal."""
     expected_target = str(agent_input["target_file"])
     expected_round_index = int(agent_input["round_index"])
-    metadata = proposal_metadata_from_raw_output(raw_output)
+    metadata, metadata_errors = proposal_metadata_and_errors(raw_output)
+    contract_errors = list(metadata_errors)
     parse_error = ""
     patch_diff = string_value(metadata.get("patch_diff", ""))
+    if "patch_diff" in metadata and not isinstance(metadata.get("patch_diff"), str):
+        contract_errors.append("patch_diff must be a string")
     if patch_diff and not patch_diff.endswith("\n"):
         patch_diff += "\n"
     if not patch_diff:
@@ -334,11 +337,19 @@ def proposal_from_raw_agent_output(
     rejection_reason = string_value(metadata.get("rejection_reason", ""))
     if not applicable:
         rejection_reason = rejection_reason or parse_error or "agent output did not include a patch"
+    round_index, round_index_error = integer_metadata_value(
+        metadata.get("round_index", expected_round_index),
+        default=expected_round_index,
+        field_name="round_index",
+    )
+    if round_index_error:
+        contract_errors.append(round_index_error)
+    contract_errors.extend(proposal_metadata_type_errors(metadata))
 
     return proposal_with_patch_hash(
         StrategyProposal(
             agent_name=string_value(metadata.get("agent_name", "")) or agent_name,
-            round_index=int(metadata.get("round_index", expected_round_index)),
+            round_index=round_index,
             target_file=string_value(metadata.get("target_file", "")) or expected_target,
             summary=string_value(metadata.get("summary", "")) or default_summary,
             risk_notes=(
@@ -363,21 +374,40 @@ def proposal_from_raw_agent_output(
             prompt=prompt,
             command=command,
             workspace_path=workspace_path,
+            contract_errors=tuple(contract_errors),
         )
     )
 
 
 def proposal_metadata_from_raw_output(raw_output: str) -> dict[str, object]:
     """Return proposal metadata from JSON output, or an empty mapping for plain diffs."""
+    metadata, _errors = proposal_metadata_and_errors(raw_output)
+    return metadata
+
+
+def proposal_metadata_and_errors(raw_output: str) -> tuple[dict[str, object], tuple[str, ...]]:
+    """Return JSON proposal metadata plus stable parsing/type errors."""
     try:
         payload = extract_json_object(raw_output)
-    except PatchParseError:
-        return {}
+    except PatchParseError as exc:
+        if looks_like_json_agent_output(raw_output):
+            return {}, (f"agent output JSON parse failed: {exc}",)
+        return {}, ()
     if isinstance(payload.get("selected_proposal"), dict):
-        return payload["selected_proposal"]  # type: ignore[return-value]
+        return payload["selected_proposal"], ()  # type: ignore[return-value]
+    if "selected_proposal" in payload:
+        return {}, ("selected_proposal must be a JSON object",)
     if isinstance(payload.get("proposal"), dict):
-        return payload["proposal"]  # type: ignore[return-value]
-    return payload
+        return payload["proposal"], ()  # type: ignore[return-value]
+    if "proposal" in payload:
+        return {}, ("proposal must be a JSON object",)
+    return payload, ()
+
+
+def looks_like_json_agent_output(raw_output: str) -> bool:
+    """Return whether raw output was probably intended as JSON."""
+    stripped = raw_output.strip()
+    return stripped.startswith("{") or "```json" in raw_output.lower()
 
 
 def proposal_with_patch_hash(proposal: StrategyProposal) -> StrategyProposal:
@@ -418,6 +448,52 @@ def string_mapping(value: object) -> dict[str, str]:
     if not isinstance(value, dict):
         return {}
     return {str(key): str(item) for key, item in value.items()}
+
+
+def integer_metadata_value(
+    value: object,
+    *,
+    default: int,
+    field_name: str,
+) -> tuple[int, str]:
+    """Return an integer metadata field and a deterministic type error."""
+    if isinstance(value, bool):
+        return default, f"{field_name} must be an integer, got boolean"
+    if isinstance(value, int):
+        return value, ""
+    if isinstance(value, str):
+        try:
+            return int(value), ""
+        except ValueError:
+            return default, f"{field_name} must be an integer, got {value}"
+    return default, f"{field_name} must be an integer, got {type(value).__name__}"
+
+
+def proposal_metadata_type_errors(metadata: dict[str, object]) -> list[str]:
+    """Return contract errors for JSON metadata fields with invalid types."""
+    errors: list[str] = []
+    for field_name in (
+        "agent_name",
+        "target_file",
+        "summary",
+        "risk_notes",
+        "rejection_reason",
+        "protocol_version",
+        "direction_tag",
+    ):
+        if field_name in metadata and not isinstance(metadata[field_name], str):
+            errors.append(f"{field_name} must be a string")
+    if "expected_metric_change" in metadata and not isinstance(
+        metadata["expected_metric_change"],
+        dict,
+    ):
+        errors.append("expected_metric_change must be a mapping")
+    if "hypotheses" in metadata and not isinstance(
+        metadata["hypotheses"],
+        str | list | tuple,
+    ):
+        errors.append("hypotheses must be a tuple or list of strings")
+    return errors
 
 
 def string_tuple(value: object) -> tuple[str, ...]:

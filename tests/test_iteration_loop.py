@@ -11233,6 +11233,133 @@ def test_agent_output_intake_rejects_disallowed_patch(tmp_path: Path) -> None:
     assert_matches_schema(round_dir / "bad_agent_validation.json", "agent_validation")
 
 
+def test_agent_output_intake_rejects_bad_round_index_without_crashing(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="intake-bad-round-index",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    round_dir = repo / "experiments/intake-bad-round-index/round_001"
+    valid_patch = json.loads(
+        (round_dir / "proposal.json").read_text(encoding="utf-8")
+    )["patch_diff"]
+    bad_output_path = round_dir / "bad_round_index_agent_output.json"
+    bad_output_path.write_text(
+        json.dumps(
+            {
+                "proposal": {
+                    "protocol_version": "proposal_v1",
+                    "agent_name": "bad_round_index_agent",
+                    "round_index": "one",
+                    "target_file": "strategies/current_strategy.py",
+                    "summary": "Uses a non-integer round index.",
+                    "risk_notes": "The intake layer must reject this deterministically.",
+                    "direction_tag": "bad_round_index",
+                    "expected_metric_change": {"ev": "unknown"},
+                    "hypotheses": ["Bad metadata must not crash validation."],
+                    "patch_diff": valid_patch,
+                }
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    report = verify_agent_output(
+        agent_input_path=round_dir / "agent_input.json",
+        agent_output_path=bad_output_path,
+        repo_root=repo,
+        output_path=round_dir / "bad_round_index_agent_validation.json",
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.agent_output_intake",
+            str(round_dir / "agent_input.json"),
+            str(bad_output_path),
+            "--repo-root",
+            str(repo),
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+    reason_codes = [row["code"] for row in report["reason_codes"]]
+
+    assert report["ok"] is False
+    assert report["failure_code"] == "round_index_invalid"
+    assert "round_index_invalid" in reason_codes
+    assert report["checks"]["contract_valid"] is False  # type: ignore[index]
+    assert report["checks"]["git_apply_check"] == (  # type: ignore[index]
+        "skipped_contract_invalid"
+    )
+    assert report["proposal"]["applicable"] is True  # type: ignore[index]
+    assert (
+        "round_index must be an integer"
+        in report["proposal"]["contract_errors"][0]  # type: ignore[index]
+    )
+    assert cli_result.returncode == 1
+    assert cli_payload["failure_code"] == "round_index_invalid"
+    assert_matches_schema(
+        round_dir / "bad_round_index_agent_validation.json",
+        "agent_validation",
+    )
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_agent_output_intake_rejects_non_object_json_without_crashing(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="intake-non-object-json",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    round_dir = repo / "experiments/intake-non-object-json/round_001"
+    bad_output_path = round_dir / "bad_non_object_agent_output.txt"
+    bad_output_path.write_text(
+        "```json\n[]\n```\n",
+        encoding="utf-8",
+    )
+
+    report = verify_agent_output(
+        agent_input_path=round_dir / "agent_input.json",
+        agent_output_path=bad_output_path,
+        repo_root=repo,
+        output_path=round_dir / "bad_non_object_agent_validation.json",
+    )
+    reason_codes = [row["code"] for row in report["reason_codes"]]
+
+    assert report["ok"] is False
+    assert "agent_output_parse_failed" in reason_codes
+    assert report["proposal_applicable"] is False
+    assert report["proposal"]["patch_diff"] == ""  # type: ignore[index]
+    assert any(
+        "agent output JSON parse failed" in error
+        for error in report["proposal"]["contract_errors"]  # type: ignore[index]
+    )
+    assert report["intake_diagnosis"]["status"] == "blocked"  # type: ignore[index]
+    assert report["checks"]["git_apply_check"] == "skipped"  # type: ignore[index]
+    assert_matches_schema(
+        round_dir / "bad_non_object_agent_validation.json",
+        "agent_validation",
+    )
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
 def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
     tmp_path: Path,
 ) -> None:

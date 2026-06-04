@@ -12349,6 +12349,35 @@ def test_artifact_validator_reports_summary_proposal_quality_drift(
     )
 
 
+def test_artifact_validator_reports_summary_candidate_leaderboard_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-summary-candidate-leaderboard-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    summary_path = repo / "experiments" / run_id / "summary.md"
+    summary_text = summary_path.read_text(encoding="utf-8")
+    summary_text = summary_text.replace(
+        "| `true` |",
+        "| `false` |",
+        1,
+    )
+    summary_path.write_text(summary_text, encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert "summary.md candidate_leaderboard row_1 mismatch" in report["errors"]
+
+
 def test_artifact_validator_reports_summary_outcome_and_intake_drift(
     tmp_path: Path,
 ) -> None:

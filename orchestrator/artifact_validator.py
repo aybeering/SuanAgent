@@ -14,7 +14,11 @@ from orchestrator.codex_cli_intake_readiness import (
 )
 from orchestrator.operator_command_boundaries import classify_operator_command
 from orchestrator.run_outcome import build_run_outcome_summary
-from orchestrator.run_summary import proposal_quality_row, round_table_row
+from orchestrator.run_summary import (
+    candidate_leaderboard_row,
+    proposal_quality_row,
+    round_table_row,
+)
 from orchestrator.schema_validation import validate_json_file
 
 
@@ -514,6 +518,10 @@ def validate_iteration_run(
         manifest=manifest,
         report=report,
     )
+    validate_iteration_summary_candidate_leaderboard(
+        run_dir=run_dir,
+        report=report,
+    )
     validate_iteration_summary_operator_home(
         run_dir=run_dir,
         manifest=manifest,
@@ -799,6 +807,28 @@ def validate_iteration_summary_proposal_quality(
         expected_line = proposal_quality_row(run_dir, round_payload)
         if expected_line not in section:
             add_error(report, f"summary.md proposal_quality {round_id} row mismatch")
+
+
+def validate_iteration_summary_candidate_leaderboard(
+    *,
+    run_dir: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md candidate leaderboard rows mirror the JSON artifact."""
+    candidate_rows = list_of_dicts(load_json_list(run_dir / "candidate_leaderboard.json"))
+    if not candidate_rows:
+        return
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Candidate Leaderboard",
+    )
+    if not section:
+        add_error(report, "summary.md candidate_leaderboard section missing")
+        return
+    for index, row in enumerate(candidate_rows[:10], start=1):
+        expected_line = candidate_leaderboard_row(row)
+        if expected_line not in section:
+            add_error(report, f"summary.md candidate_leaderboard row_{index} mismatch")
 
 
 def validate_iteration_summary_operator_home(

@@ -210,6 +210,10 @@ INSPECTION_COMMANDS = {
         "python -m orchestrator.operator_home",
         "python -m orchestrator.experiments home",
     ),
+    "operator_next_command": (
+        "python -m orchestrator.operator_home --next-command",
+        "python -m orchestrator.experiments next-command",
+    ),
     "operator_unlock_checklist": (
         "python -m orchestrator.operator_unlock_checklist",
         "python -m orchestrator.experiments unlock-checklist",

@@ -82,8 +82,11 @@ from orchestrator.operator_cockpit import (
 )
 from orchestrator.operator_home import (
     build_operator_home,
+    build_operator_next_command,
     render_operator_home_markdown,
+    render_operator_next_command_markdown,
     validate_operator_home_payload,
+    validate_operator_next_command_payload,
 )
 from orchestrator.operator_unlock_checklist import (
     build_operator_unlock_checklist,
@@ -2989,6 +2992,36 @@ def operator_home_report(
     return payload
 
 
+def operator_next_command_report(
+    *,
+    run_id: str | None = None,
+    experiments_dir: Path = Path("experiments"),
+) -> dict[str, object]:
+    """Return the terminal-only next-command selector for one run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
+    run_dir = experiments_dir / run_id
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    payload = build_operator_next_command(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=experiments_dir.parent,
+    )
+    errors = validate_operator_next_command_payload(
+        payload,
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=experiments_dir.parent,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "operator next-command failed schema validation: " + "; ".join(errors)
+        )
+    payload["from_artifact"] = False
+    return payload
+
+
 def refresh_operator_views(
     *,
     run_id: str | None = None,
@@ -4991,6 +5024,26 @@ def main() -> None:
         help="Render the operator home as markdown.",
     )
 
+    next_command_parser = subparsers.add_parser(
+        "next-command",
+        help="Show the terminal-only recommended next command for one iteration run.",
+    )
+    next_command_parser.add_argument(
+        "run_id",
+        nargs="?",
+        help="Iteration run id. Defaults to the latest indexed iteration run.",
+    )
+    next_command_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Show the latest indexed iteration run even if a run id is provided.",
+    )
+    next_command_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the next-command selector as markdown.",
+    )
+
     refresh_views_parser = subparsers.add_parser(
         "refresh-operator-views",
         help="Refresh source-hash-bound read-only operator views in safe order.",
@@ -5464,6 +5517,14 @@ def main() -> None:
         )
         if args.markdown:
             print(render_operator_home_markdown(payload), end="")
+            return
+    elif args.command == "next-command":
+        payload = operator_next_command_report(
+            experiments_dir=args.experiments_dir,
+            run_id=None if args.latest else args.run_id,
+        )
+        if args.markdown:
+            print(render_operator_next_command_markdown(payload), end="")
             return
     elif args.command == "refresh-operator-views":
         payload = refresh_operator_views(

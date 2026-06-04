@@ -78,6 +78,9 @@ python -m orchestrator.operator_home experiments/<run_id>
 python -m orchestrator.experiments home <run_id>
 python -m orchestrator.experiments home <run_id> --markdown
 python -m orchestrator.experiments home --latest --markdown
+python -m orchestrator.operator_home experiments/<run_id> --next-command
+python -m orchestrator.experiments next-command <run_id>
+python -m orchestrator.experiments next-command --latest --markdown
 python -m orchestrator.operator_unlock_checklist experiments/<run_id>
 python -m orchestrator.experiments unlock-checklist <run_id>
 python -m orchestrator.experiments unlock-checklist <run_id> --markdown
@@ -464,6 +467,17 @@ fields are navigation hints only; they do not create an `operator_home.json`
 artifact or grant execution authority.
 When no run id is supplied, `home` resolves the latest indexed iteration-loop
 run with a saved `manifest.json`; `--latest` makes the same selection explicit.
+`python -m orchestrator.experiments next-command <run_id>`, `python -m
+orchestrator.experiments next-command --latest`, and `python -m
+orchestrator.operator_home experiments/<run_id> --next-command` expose a
+terminal-only `operator_next_command_v1` narrow view validated by
+`schemas/operator_next_command.schema.json`. It is derived from the same
+operator home payload and returns only the selected command, status, blocker
+count, boundary, write target, safety flags, source-home command, Codex
+readiness summary fields, authority flags, and read-only policy. It creates no
+artifact and remains a hint; it does not record approval, execute commands,
+write config, promote champions, run agents, run backtests, apply patches,
+route agents, or change acceptance.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose the
 Codex CLI operator-unlock evidence chain as a standalone read-only checklist.
 The iteration loop writes it during closeout before the final cockpit so cockpit

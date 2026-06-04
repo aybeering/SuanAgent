@@ -25,7 +25,9 @@ from orchestrator.schema_validation import load_schema, validate_json_payload
 
 
 OPERATOR_HOME_SCHEMA_VERSION = "operator_home_v1"
+OPERATOR_NEXT_COMMAND_SCHEMA_VERSION = "operator_next_command_v1"
 SCHEMA_PATH = Path("schemas/operator_home.schema.json")
+NEXT_COMMAND_SCHEMA_PATH = Path("schemas/operator_next_command.schema.json")
 
 
 def build_operator_home(
@@ -157,6 +159,104 @@ def build_operator_home(
         "policy": {
             "inspection_only": True,
             "terminal_only": True,
+            "does_not_record_approval": True,
+            "does_not_execute_commands": True,
+            "does_not_execute_agents": True,
+            "does_not_run_backtests": True,
+            "does_not_write_config": True,
+            "does_not_promote_champion": True,
+            "does_not_apply_patches": True,
+            "does_not_route_agents": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+
+def build_operator_next_command(
+    *,
+    run_dir: Path,
+    experiments_dir: Path = Path("experiments"),
+    repo_root: Path = Path("."),
+) -> dict[str, object]:
+    """Return the single next-command hint from the operator home view."""
+    home = build_operator_home(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
+    action_home = object_field(home, "action_home")
+    codex_home = object_field(home, "codex_home")
+    next_command = object_field(home, "next_command")
+    boundary = object_field(next_command, "boundary")
+    status = str(action_home.get("next_command_status", "unavailable"))
+    blocked = bool(action_home.get("next_command_blocked", True))
+    command = str(next_command.get("command", ""))
+    return {
+        "schema_version": OPERATOR_NEXT_COMMAND_SCHEMA_VERSION,
+        "run_id": str(home.get("run_id", run_dir.name)),
+        "run_dir": str(home.get("run_dir", run_dir)),
+        "status": status,
+        "ok": bool(home.get("ok", False)) and not blocked and bool(command),
+        "home_status": str(home.get("status", "")),
+        "primary_focus": str(home.get("primary_focus", "")),
+        "selection_source": "operator_home.next_command",
+        "label": str(next_command.get("label", "")),
+        "command": command,
+        "reason": str(next_command.get("reason", "")),
+        "boundary_type": str(boundary.get("boundary_type", "")),
+        "writes_artifact": str(next_command.get("writes_artifact", "")),
+        "blocked": blocked,
+        "blocker_count": int(action_home.get("next_command_blocker_count", 0) or 0),
+        "operator_hint": str(action_home.get("next_command_operator_hint", "")),
+        "action_step": str(action_home.get("active_step_id", "")),
+        "action_guide_status": str(action_home.get("guide_status", "")),
+        "codex_unlock_runbook_status": str(
+            codex_home.get("unlock_runbook_status", "")
+        ),
+        "codex_intake_readiness_status": str(
+            codex_home.get("intake_readiness_status", "")
+        ),
+        "safety": {
+            "command_is_hint_only": bool(
+                next_command.get("command_is_hint_only", False)
+            ),
+            "requires_explicit_operator_invocation": bool(
+                next_command.get("requires_explicit_operator_invocation", False)
+            ),
+            "requires_operator_approval": bool(
+                next_command.get("requires_operator_approval", False)
+            ),
+            "records_operator_approval": bool(
+                next_command.get("records_operator_approval", False)
+            ),
+            "uses_guarded_executor": bool(
+                next_command.get("uses_guarded_executor", False)
+            ),
+        },
+        "source_home": {
+            "schema_version": str(home.get("schema_version", "")),
+            "terminal_only": True,
+            "artifact_created": False,
+            "command_label": "review_operator_home",
+            "command": (
+                "python -m orchestrator.experiments "
+                f"home {home.get('run_id', run_dir.name)} --markdown"
+            ),
+            "boundary_type": "read_only_inspection",
+        },
+        "authority": {
+            "selector_can_record_approval": False,
+            "selector_can_execute_commands": False,
+            "selector_can_write_config": False,
+            "selector_can_promote_champion": False,
+            "selector_can_change_acceptance": False,
+            "approval_must_use_operator_action_approval": True,
+            "execution_must_use_guarded_executor": True,
+        },
+        "policy": {
+            "inspection_only": True,
+            "terminal_only": True,
+            "does_not_create_artifacts": True,
             "does_not_record_approval": True,
             "does_not_execute_commands": True,
             "does_not_execute_agents": True,
@@ -516,6 +616,56 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
+def render_operator_next_command_markdown(payload: dict[str, object]) -> str:
+    """Render the operator next-command selector as markdown."""
+    safety = object_field(payload, "safety")
+    source_home = object_field(payload, "source_home")
+    lines = [
+        "# Operator Next Command",
+        "",
+        f"- Run id: `{payload.get('run_id', '')}`",
+        f"- Status: `{payload.get('status', '')}`",
+        f"- OK: `{payload.get('ok', False)}`",
+        f"- Home status: `{payload.get('home_status', '')}`",
+        f"- Primary focus: `{payload.get('primary_focus', '')}`",
+        f"- Label: `{payload.get('label', '')}`",
+        f"- Boundary: `{payload.get('boundary_type', '')}`",
+        f"- Blocked: `{payload.get('blocked', False)}`",
+        f"- Blockers: `{payload.get('blocker_count', 0)}`",
+        f"- Operator hint: {payload.get('operator_hint', '')}",
+        f"- Writes artifact: `{payload.get('writes_artifact', '')}`",
+        f"- Codex unlock runbook: `{payload.get('codex_unlock_runbook_status', '')}`",
+        f"- Codex intake: `{payload.get('codex_intake_readiness_status', '')}`",
+        "",
+        "## Command",
+        "",
+        "```bash",
+        str(payload.get("command", "")),
+        "```",
+        "",
+        "## Safety",
+        "",
+        f"- Hint-only: `{safety.get('command_is_hint_only', False)}`",
+        "- Requires explicit operator invocation: "
+        f"`{safety.get('requires_explicit_operator_invocation', False)}`",
+        f"- Requires approval: `{safety.get('requires_operator_approval', False)}`",
+        f"- Records approval: `{safety.get('records_operator_approval', False)}`",
+        f"- Uses guarded executor: `{safety.get('uses_guarded_executor', False)}`",
+        "",
+        "## Source",
+        "",
+        f"- Home command: `{source_home.get('command', '')}`",
+        f"- Source boundary: `{source_home.get('boundary_type', '')}`",
+        "",
+        "## Policy",
+        "",
+        "- This selector is terminal-only and hint-only.",
+        "- It does not record approval, execute commands, run agents, run backtests, write config, promote champions, apply patches, route agents, or change acceptance.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def validate_operator_home_payload(
     payload: dict[str, object],
     *,
@@ -554,6 +704,82 @@ def validate_operator_home_payload(
             expected = {**expected, "from_artifact": payload.get("from_artifact")}
         if payload != expected:
             errors.append("operator_home current evidence mismatch")
+    return tuple(errors)
+
+
+def validate_operator_next_command_payload(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+    experiments_dir: Path = Path("experiments"),
+    repo_root: Path = Path("."),
+    require_current_evidence: bool = False,
+) -> tuple[str, ...]:
+    """Validate an operator next-command selector payload."""
+    repo_root = repo_root.resolve()
+    run_dir = resolve_path(run_dir, repo_root)
+    experiments_dir = resolve_path(experiments_dir, repo_root)
+    schema = load_schema(repo_root / NEXT_COMMAND_SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=payload,
+            schema=schema,
+            schema_dir=(repo_root / NEXT_COMMAND_SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(
+        validate_operator_next_command_consistency(
+            payload,
+            run_dir=run_dir,
+            experiments_dir=experiments_dir,
+            repo_root=repo_root,
+        )
+    )
+    if require_current_evidence:
+        expected = build_operator_next_command(
+            run_dir=run_dir,
+            experiments_dir=experiments_dir,
+            repo_root=repo_root,
+        )
+        if "from_artifact" in payload:
+            expected = {**expected, "from_artifact": payload.get("from_artifact")}
+        if payload != expected:
+            errors.append("operator_next_command current evidence mismatch")
+    return tuple(errors)
+
+
+def validate_operator_next_command_consistency(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+    experiments_dir: Path,
+    repo_root: Path,
+) -> tuple[str, ...]:
+    """Validate next-command selector fields against the operator home."""
+    errors: list[str] = []
+    home = build_operator_home(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
+    home_errors = validate_operator_home_payload(
+        home,
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+        require_current_evidence=True,
+    )
+    if home_errors:
+        errors.append("operator_next_command home validation failed")
+    expected = build_operator_next_command(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
+    payload_for_compare = dict(payload)
+    payload_for_compare.pop("from_artifact", None)
+    if payload_for_compare != expected:
+        errors.append("operator_next_command derived fields mismatch")
     return tuple(errors)
 
 
@@ -636,7 +862,28 @@ def main() -> None:
     parser.add_argument("--experiments-dir", type=Path, default=Path("experiments"))
     parser.add_argument("--repo-root", type=Path, default=Path("."))
     parser.add_argument("--markdown", action="store_true")
+    parser.add_argument("--next-command", action="store_true")
     args = parser.parse_args()
+    if args.next_command:
+        payload = build_operator_next_command(
+            run_dir=args.run_dir,
+            experiments_dir=args.experiments_dir,
+            repo_root=args.repo_root,
+        )
+        errors = validate_operator_next_command_payload(
+            payload,
+            run_dir=args.run_dir,
+            experiments_dir=args.experiments_dir,
+            repo_root=args.repo_root,
+            require_current_evidence=True,
+        )
+        if errors:
+            raise SystemExit("; ".join(errors))
+        if args.markdown:
+            print(render_operator_next_command_markdown(payload), end="")
+            return
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return
     payload = build_operator_home(
         run_dir=args.run_dir,
         experiments_dir=args.experiments_dir,

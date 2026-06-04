@@ -20,6 +20,7 @@ from orchestrator.schema_validation import validate_json_file
 TERMINAL_ONLY_SCHEMA_REFERENCES = (
     "schemas/operator_action_guide.schema.json",
     "schemas/operator_home.schema.json",
+    "schemas/operator_next_command.schema.json",
 )
 
 

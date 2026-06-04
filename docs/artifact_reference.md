@@ -483,6 +483,9 @@ target, explicit-invocation flag, approval flags, guarded-executor flag,
 hint-only flag, Codex unlock-runbook status, and intake readiness status. These
 fields are navigation hints only; they do not create an `operator_home.json`
 artifact or grant execution authority.
+The artifact validator checks that the saved `summary.md` operator-home section
+continues to mirror the `manifest.operator_home` row, so operator-facing
+markdown cannot silently drift from the machine-readable navigation record.
 When no run id is supplied, `home` resolves the latest indexed iteration-loop
 run with a saved `manifest.json`; `--latest` makes the same selection explicit.
 `python -m orchestrator.experiments next-command <run_id>`, `python -m

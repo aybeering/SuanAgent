@@ -12189,6 +12189,39 @@ def test_artifact_validator_reports_diagnosis_operator_navigation_drift(
     )
 
 
+def test_artifact_validator_reports_summary_operator_home_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-summary-home-drift",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    summary_path = repo / "experiments/artifact-summary-home-drift/summary.md"
+    summary_text = summary_path.read_text(encoding="utf-8")
+    summary_text = summary_text.replace(
+        "- Next command status: `blocked_by_home_blockers`",
+        "- Next command status: `unavailable`",
+    )
+    summary_text = summary_text.replace(
+        "- Command text: "
+        "`python -m orchestrator.experiments home artifact-summary-home-drift --markdown`",
+        "- Command text: `python -m orchestrator.run_loop`",
+    )
+    summary_path.write_text(summary_text, encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="artifact-summary-home-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert "summary.md operator_home next_command_status mismatch" in report["errors"]
+    assert "summary.md operator_home markdown_command mismatch" in report["errors"]
+
+
 def test_artifact_validator_reports_champion_schema_errors(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     run_iteration_loop(

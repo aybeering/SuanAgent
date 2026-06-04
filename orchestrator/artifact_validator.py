@@ -483,6 +483,11 @@ def validate_iteration_run(
         return
     validate_manifest_agent_intake_summary(manifest=manifest, report=report)
     validate_manifest_run_outcome_summary(manifest=manifest, report=report)
+    validate_iteration_summary_operator_home(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
 
     for round_id in round_ids:
         round_dir = run_dir / round_id
@@ -543,6 +548,150 @@ def validate_manifest_agent_intake_summary(
         add_error(report, "manifest.agent_intake_summary code_counts mismatch")
     if summary.get("status_counts") != expected.get("status_counts"):
         add_error(report, "manifest.agent_intake_summary status_counts mismatch")
+
+
+def validate_iteration_summary_operator_home(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md operator-home navigation mirrors the manifest row."""
+    operator_home = manifest.get("operator_home")
+    if not isinstance(operator_home, dict):
+        return
+    summary_path = run_dir / "summary.md"
+    summary_text = read_optional_text(summary_path)
+    if not summary_text:
+        return
+    if "## Operator Home" not in summary_text:
+        add_error(report, "summary.md operator_home section missing")
+        return
+
+    expected_lines: tuple[tuple[str, str], ...] = (
+        ("status", f"- Status: `{markdown_display_value(operator_home.get('status'))}`"),
+        ("ok", f"- OK: `{markdown_display_value(operator_home.get('ok'))}`"),
+        (
+            "terminal_only",
+            "- Terminal only: "
+            f"`{markdown_display_value(operator_home.get('terminal_only'))}`",
+        ),
+        (
+            "artifact_created",
+            "- Artifact created: "
+            f"`{markdown_display_value(operator_home.get('artifact_created'))}`",
+        ),
+        (
+            "primary_focus",
+            "- Primary focus: "
+            f"`{markdown_display_value(operator_home.get('primary_focus'))}`",
+        ),
+        (
+            "action_step",
+            "- Action step: "
+            f"`{markdown_display_value(operator_home.get('action_step'))}`",
+        ),
+        (
+            "next_command_label",
+            "- Next command: "
+            f"`{markdown_display_value(operator_home.get('next_command_label'))}`",
+        ),
+        (
+            "next_command",
+            "- Next command text: "
+            f"`{markdown_display_value(operator_home.get('next_command'))}`",
+        ),
+        (
+            "next_command_boundary",
+            "- Next command boundary: "
+            f"`{markdown_display_value(operator_home.get('next_command_boundary'))}`",
+        ),
+        (
+            "next_command_status",
+            "- Next command status: "
+            f"`{markdown_display_value(operator_home.get('next_command_status'))}`",
+        ),
+        (
+            "next_command_blocked",
+            "- Next command blocked: "
+            f"`{markdown_display_value(operator_home.get('next_command_blocked'))}`",
+        ),
+        (
+            "next_command_blocker_count",
+            "- Next command blockers: "
+            f"`{markdown_display_value(operator_home.get('next_command_blocker_count'))}`",
+        ),
+        (
+            "next_command_operator_hint",
+            "- Next command operator hint: "
+            f"{markdown_display_value(operator_home.get('next_command_operator_hint'))}",
+        ),
+        (
+            "next_command_writes_artifact",
+            "- Next command writes: "
+            f"`{markdown_display_value(operator_home.get('next_command_writes_artifact'))}`",
+        ),
+        (
+            "next_command_requires_explicit_operator_invocation",
+            "- Next command requires explicit invocation: "
+            f"`{markdown_display_value(operator_home.get('next_command_requires_explicit_operator_invocation'))}`",
+        ),
+        (
+            "next_command_requires_operator_approval",
+            "- Next command requires approval: "
+            f"`{markdown_display_value(operator_home.get('next_command_requires_operator_approval'))}`",
+        ),
+        (
+            "next_command_records_operator_approval",
+            "- Next command records approval: "
+            f"`{markdown_display_value(operator_home.get('next_command_records_operator_approval'))}`",
+        ),
+        (
+            "next_command_uses_guarded_executor",
+            "- Next command uses guarded executor: "
+            f"`{markdown_display_value(operator_home.get('next_command_uses_guarded_executor'))}`",
+        ),
+        (
+            "next_command_is_hint_only",
+            "- Next command hint-only: "
+            f"`{markdown_display_value(operator_home.get('next_command_is_hint_only'))}`",
+        ),
+        (
+            "codex_unlock_runbook_status",
+            "- Codex unlock runbook: "
+            f"`{markdown_display_value(operator_home.get('codex_unlock_runbook_status'))}`",
+        ),
+        (
+            "codex_intake_readiness_status",
+            "- Codex intake: "
+            f"`{markdown_display_value(operator_home.get('codex_intake_readiness_status'))}`",
+        ),
+        (
+            "command_label",
+            "- Command: "
+            f"`{markdown_display_value(operator_home.get('command_label'))}`",
+        ),
+        (
+            "command_boundary",
+            "- Command boundary: "
+            f"`{markdown_display_value(operator_home.get('command_boundary'))}`",
+        ),
+        (
+            "markdown_command",
+            "- Command text: "
+            f"`{markdown_display_value(operator_home.get('markdown_command'))}`",
+        ),
+    )
+    for field_name, expected_line in expected_lines:
+        if expected_line not in summary_text:
+            add_error(report, f"summary.md operator_home {field_name} mismatch")
+
+
+def markdown_display_value(value: object) -> str:
+    """Format optional manifest values like the markdown summary writer."""
+    if value is None:
+        return "none"
+    return str(value)
 
 
 def expected_agent_intake_summary(rounds: object) -> dict[str, object]:

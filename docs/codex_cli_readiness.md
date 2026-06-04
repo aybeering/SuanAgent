@@ -153,9 +153,10 @@ cannot rely on canary subprocess evidence unless that output was normalized
 through the shared proposal-intake path.
 Operator-facing views now surface the same condition as a shared
 `codex_intake_readiness` block in the unlock checklist, execution readiness
-diff, and cockpit. It is read-only display evidence: `blocked` points to
-missing or dirty selected-attempt intake binding, while `not_available` means no
-canary or unlock evidence exists for that run yet.
+diff, cockpit, and terminal-only operator home. It is read-only display
+evidence: `blocked` points to missing or dirty selected-attempt intake binding,
+while `not_available` means no canary or unlock evidence exists for that run
+yet.
 
 Run the read-only readiness pipeline:
 

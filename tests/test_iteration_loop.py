@@ -2857,6 +2857,11 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         experiments_dir=repo / "experiments",
         repo_root=repo,
     )
+    pending_cockpit = build_operator_cockpit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
     pending_home_markdown = render_operator_home_markdown(pending_home)
     assert pending_home["schema_version"] == OPERATOR_HOME_SCHEMA_VERSION
     assert pending_home["status"] == "needs_operator_review"
@@ -2867,10 +2872,20 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending_home["action_home"]["next_command_label"] == (
         "record_operator_approval"
     )
+    assert pending_home["codex_home"]["intake_readiness_status"] == (
+        pending_cockpit["summary"]["codex_intake_readiness_status"]
+    )
+    assert pending_home["codex_home"]["intake_ready"] == (
+        pending_cockpit["summary"]["codex_intake_ready"]
+    )
+    assert pending_home["codex_home"]["intake_blocker_count"] == (
+        pending_cockpit["summary"]["codex_intake_blocker_count"]
+    )
     assert pending_home["next_command"]["command_is_hint_only"] is True
     assert pending_home["authority"]["home_can_execute_commands"] is False
     assert pending_home["policy"]["does_not_execute_commands"] is True
     assert "# Operator Home" in pending_home_markdown
+    assert "## Codex CLI" in pending_home_markdown
     assert "## Guided Path" in pending_home_markdown
     assert_matches_schema_payload(pending_home, "operator_home")
     assert validate_operator_home_payload(
@@ -2964,6 +2979,9 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         "execute_approved_command"
     )
     assert ready_home["action_home"]["can_invoke_guarded_executor_now"] is True
+    assert ready_home["codex_home"]["intake_readiness_status"] == (
+        pending_home["codex_home"]["intake_readiness_status"]
+    )
     assert ready_home["next_command"]["uses_guarded_executor"] is True
     assert ready_home["authority"]["home_can_execute_commands"] is False
     assert validate_operator_home_payload(
@@ -3077,16 +3095,28 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         experiments_dir=repo / "experiments",
         repo_root=repo,
     )
+    completed_cockpit = build_operator_cockpit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
     completed_home_markdown = render_operator_home_markdown(completed_home)
     assert completed_home["status"] == "needs_operator_review"
     assert completed_home["action_home"]["guide_status"] == "path_closed"
     assert completed_home["action_home"]["active_step_id"] == "dashboard_review"
     assert completed_home["action_home"]["completed_step_count"] == 4
     assert completed_home["guided_path"]["completed_step_count"] == 4
+    assert completed_home["codex_home"]["review_command_label"] == (
+        "review_codex_cli_readiness_diff"
+    )
+    assert completed_home["codex_home"]["intake_readiness_status"] == (
+        completed_cockpit["summary"]["codex_intake_readiness_status"]
+    )
     assert completed_home["next_command"]["label"] == "review_execution_receipt"
     assert completed_home["command_center"][0]["source"] == "action_next"
     assert completed_home["policy"]["does_not_change_acceptance"] is True
     assert "# Operator Home" in completed_home_markdown
+    assert "## Codex CLI" in completed_home_markdown
     assert_matches_schema_payload(completed_home, "operator_home")
     assert validate_operator_home_payload(
         completed_home,
@@ -21210,6 +21240,15 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert operator_home["action_home"]["active_step_id"] == "dashboard_review"
     assert operator_home["action_home"]["completed_step_count"] == 4
     assert operator_home["guided_path"]["completed_step_count"] == 4
+    assert operator_home["codex_home"]["preflight_status"] == (
+        cockpit["summary"]["codex_preflight_status"]
+    )
+    assert operator_home["codex_home"]["intake_readiness_status"] == (
+        cockpit["summary"]["codex_intake_readiness_status"]
+    )
+    assert operator_home["codex_home"]["review_command_label"] == (
+        "review_codex_cli_readiness_diff"
+    )
     assert operator_home["next_command"]["command_is_hint_only"] is True
     assert operator_home["command_center"][0]["source"] == "action_next"
     assert operator_home["policy"]["does_not_execute_commands"] is True
@@ -21223,6 +21262,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         require_current_evidence=True,
     ) == ()
     assert "# Operator Home" in operator_home_markdown
+    assert "## Codex CLI" in operator_home_markdown
     assert "## Guided Path" in operator_home_markdown
     assert unlock_checklist["from_artifact"] is True
     assert unlock_checklist["schema_version"] == OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION
@@ -21443,6 +21483,15 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert operator_home_payload["action_home"]["completed_step_count"] == 4
     assert operator_home_payload["guided_path"]["completed_step_count"] == 4
+    assert operator_home_payload["codex_home"]["preflight_status"] == (
+        cockpit["summary"]["codex_preflight_status"]
+    )
+    assert operator_home_payload["codex_home"]["intake_readiness_status"] == (
+        cockpit["summary"]["codex_intake_readiness_status"]
+    )
+    assert operator_home_payload["codex_home"]["review_command_label"] == (
+        "review_codex_cli_readiness_diff"
+    )
     assert operator_home_payload["next_command"]["command_is_hint_only"] is True
     assert operator_home_payload["command_center"][0]["source"] == "action_next"
     assert operator_home_payload["policy"]["does_not_execute_commands"] is True
@@ -21459,11 +21508,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         operator_home_markdown_result.stderr
     )
     assert "# Operator Home" in operator_home_markdown_result.stdout
+    assert "## Codex CLI" in operator_home_markdown_result.stdout
     assert "## Guided Path" in operator_home_markdown_result.stdout
     assert operator_home_module_markdown_result.returncode == 0, (
         operator_home_module_markdown_result.stderr
     )
     assert "# Operator Home" in operator_home_module_markdown_result.stdout
+    assert "## Codex CLI" in operator_home_module_markdown_result.stdout
     assert "## Guided Path" in operator_home_module_markdown_result.stdout
     assert operator_home_latest_result.returncode == 0, (
         operator_home_latest_result.stderr

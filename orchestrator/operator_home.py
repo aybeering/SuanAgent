@@ -54,6 +54,7 @@ def build_operator_home(
     guided_path = object_field(guide, "guided_path")
     next_command = object_field(guide, "next_command")
     blockers = string_list(cockpit.get("blockers", []))
+    codex_home = codex_home_summary(cockpit)
     status = home_status(cockpit=cockpit, guide=guide, blockers=blockers)
     return {
         "schema_version": OPERATOR_HOME_SCHEMA_VERSION,
@@ -99,6 +100,7 @@ def build_operator_home(
                 )
             ),
         },
+        "codex_home": codex_home,
         "guided_path": guided_path,
         "next_command": next_command,
         "review_priority": {
@@ -221,6 +223,51 @@ def command_center_rows(
     return rows
 
 
+def codex_home_summary(cockpit: dict[str, Any]) -> dict[str, object]:
+    """Return the Codex CLI readiness summary shown on the home page."""
+    summary = object_field(cockpit, "summary")
+    intake = object_field(cockpit, "codex_intake_readiness")
+    command = command_for_label(
+        list_of_dicts(cockpit.get("recommended_commands", [])),
+        "review_codex_cli_readiness_diff",
+    )
+    return {
+        "preflight_status": str(summary.get("codex_preflight_status", "")),
+        "readiness_diff_status": str(
+            summary.get("codex_readiness_diff_status", "")
+        ),
+        "readiness_diff_ready": bool(
+            summary.get("codex_readiness_diff_ready", False)
+        ),
+        "intake_readiness_status": str(
+            summary.get("codex_intake_readiness_status", "")
+        ),
+        "intake_ready": bool(summary.get("codex_intake_ready", False)),
+        "intake_blocker_count": int(
+            summary.get("codex_intake_blocker_count", 0) or 0
+        ),
+        "intake_source": str(intake.get("source", "none")),
+        "bound_slot_count": int(intake.get("bound_slot_count", 0) or 0),
+        "blocked_slot_count": int(intake.get("blocked_slot_count", 0) or 0),
+        "next_step": str(
+            intake.get("next_step", "review Codex CLI readiness evidence")
+        ),
+        "review_command_label": str(command.get("label", "")),
+        "review_command": str(command.get("command", "")),
+    }
+
+
+def command_for_label(
+    commands: list[dict[str, Any]],
+    label: str,
+) -> dict[str, Any]:
+    """Return a command hint with the requested label."""
+    for command in commands:
+        if str(command.get("label", "")) == label:
+            return command
+    return {}
+
+
 def command_row(source: str, command: dict[str, Any]) -> dict[str, object]:
     """Return one command-center row."""
     boundary = object_field(command, "boundary")
@@ -245,6 +292,12 @@ def source_views(*, run_dir: Path, repo_root: Path) -> dict[str, object]:
             run_dir / "operator_action_plan.json", repo_root
         ),
         "run_closeout": file_record(run_dir / "run_closeout.json", repo_root),
+        "operator_unlock_checklist": file_record(
+            run_dir / "operator_unlock_checklist.json", repo_root
+        ),
+        "codex_cli_execution_readiness_diff": file_record(
+            run_dir / "codex_cli_execution_readiness_diff.json", repo_root
+        ),
     }
 
 
@@ -252,6 +305,7 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
     """Render the operator home view as markdown."""
     run_summary = object_field(payload, "run_summary")
     action_home = object_field(payload, "action_home")
+    codex_home = object_field(payload, "codex_home")
     lines = [
         "# Operator Home",
         "",
@@ -265,6 +319,20 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
         f"- Action step: `{action_home.get('active_step_id', '')}`",
         f"- Guided path: `{action_home.get('completed_step_count', 0)}` / "
         f"`{action_home.get('step_count', 0)}`",
+        f"- Codex intake: `{codex_home.get('intake_readiness_status', '')}`",
+        f"- Codex intake ready: `{codex_home.get('intake_ready', False)}`",
+        "",
+        "## Codex CLI",
+        "",
+        f"- Preflight: `{codex_home.get('preflight_status', '')}`",
+        f"- Readiness diff: `{codex_home.get('readiness_diff_status', '')}`",
+        f"- Readiness diff ready: `{codex_home.get('readiness_diff_ready', False)}`",
+        f"- Intake binding: `{codex_home.get('intake_readiness_status', '')}`",
+        f"- Intake ready: `{codex_home.get('intake_ready', False)}`",
+        f"- Intake blockers: `{codex_home.get('intake_blocker_count', 0)}`",
+        f"- Bound slots: `{codex_home.get('bound_slot_count', 0)}`",
+        f"- Next step: {codex_home.get('next_step', '')}",
+        f"- Review command: `{codex_home.get('review_command_label', '')}`",
         "",
         "## Guided Path",
         "",
@@ -386,6 +454,21 @@ def validate_operator_home_consistency(
         errors.append("operator_home cockpit validation failed")
     if guide_errors:
         errors.append("operator_home guide validation failed")
+    summary = object_field(cockpit, "summary")
+    codex_home = object_field(payload, "codex_home")
+    if codex_home:
+        if str(codex_home.get("intake_readiness_status", "")) != str(
+            summary.get("codex_intake_readiness_status", "")
+        ):
+            errors.append("operator_home codex intake status mismatch")
+        if bool(codex_home.get("intake_ready", False)) != bool(
+            summary.get("codex_intake_ready", False)
+        ):
+            errors.append("operator_home codex intake ready mismatch")
+        if int(codex_home.get("intake_blocker_count", -1)) != int(
+            summary.get("codex_intake_blocker_count", -2)
+        ):
+            errors.append("operator_home codex intake blocker count mismatch")
     expected = build_operator_home(
         run_dir=run_dir,
         experiments_dir=experiments_dir,

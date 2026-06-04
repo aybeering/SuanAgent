@@ -396,10 +396,13 @@ orchestrator.operator_home experiments/<run_id>` expose a terminal-only
 `operator_home_v1` payload validated by `schemas/operator_home.schema.json`.
 The home view derives from the current cockpit and action guide, then combines
 run outcome, primary focus, guided action path, next command, cockpit review
-priority, compact command-center rows, blockers, and source view records into
-one operator landing page. It does not create run artifacts, record approval,
-execute commands, write config, promote champions, run agents, run backtests,
-apply patches, route agents, or change acceptance.
+priority, compact Codex CLI preflight/readiness/intake-binding status,
+compact command-center rows, blockers, and source view records into one
+operator landing page. Its source records include the saved unlock checklist
+and readiness diff so the first screen can point directly at Codex evidence
+without becoming an unlock authority. It does not create run artifacts, record
+approval, execute commands, write config, promote champions, run agents, run
+backtests, apply patches, route agents, or change acceptance.
 When no run id is supplied, `home` resolves the latest indexed iteration-loop
 run with a saved `manifest.json`; `--latest` makes the same selection explicit.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose the

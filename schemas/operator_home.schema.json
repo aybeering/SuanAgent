@@ -12,6 +12,7 @@
     "primary_focus",
     "run_summary",
     "action_home",
+    "codex_home",
     "guided_path",
     "next_command",
     "review_priority",
@@ -44,6 +45,7 @@
     "primary_focus": {"type": "string"},
     "run_summary": {"$ref": "#/$defs/run_summary"},
     "action_home": {"$ref": "#/$defs/action_home"},
+    "codex_home": {"$ref": "#/$defs/codex_home"},
     "guided_path": {"type": "object"},
     "next_command": {"type": "object"},
     "review_priority": {"$ref": "#/$defs/review_priority"},
@@ -104,6 +106,37 @@
         "can_invoke_guarded_executor_now": {"type": "boolean"}
       }
     },
+    "codex_home": {
+      "type": "object",
+      "required": [
+        "preflight_status",
+        "readiness_diff_status",
+        "readiness_diff_ready",
+        "intake_readiness_status",
+        "intake_ready",
+        "intake_blocker_count",
+        "intake_source",
+        "bound_slot_count",
+        "blocked_slot_count",
+        "next_step",
+        "review_command_label",
+        "review_command"
+      ],
+      "properties": {
+        "preflight_status": {"type": "string"},
+        "readiness_diff_status": {"type": "string"},
+        "readiness_diff_ready": {"type": "boolean"},
+        "intake_readiness_status": {"type": "string"},
+        "intake_ready": {"type": "boolean"},
+        "intake_blocker_count": {"type": "integer"},
+        "intake_source": {"type": "string"},
+        "bound_slot_count": {"type": "integer"},
+        "blocked_slot_count": {"type": "integer"},
+        "next_step": {"type": "string"},
+        "review_command_label": {"type": "string"},
+        "review_command": {"type": "string"}
+      }
+    },
     "review_priority": {
       "type": "object",
       "required": [
@@ -146,13 +179,17 @@
         "operator_cockpit",
         "operator_action_dashboard",
         "operator_action_plan",
-        "run_closeout"
+        "run_closeout",
+        "operator_unlock_checklist",
+        "codex_cli_execution_readiness_diff"
       ],
       "properties": {
         "operator_cockpit": {"$ref": "#/$defs/file_record"},
         "operator_action_dashboard": {"$ref": "#/$defs/file_record"},
         "operator_action_plan": {"$ref": "#/$defs/file_record"},
-        "run_closeout": {"$ref": "#/$defs/file_record"}
+        "run_closeout": {"$ref": "#/$defs/file_record"},
+        "operator_unlock_checklist": {"$ref": "#/$defs/file_record"},
+        "codex_cli_execution_readiness_diff": {"$ref": "#/$defs/file_record"}
       }
     },
     "file_record": {

@@ -104,10 +104,11 @@ guarded read-only execution, audit refresh, or dashboard review is next, while
 remaining a hint-only view. It also includes a four-step guided checklist for
 audit refresh, approval, guarded execution, and dashboard review.
 `home <run_id>` is the terminal-only operator landing page: it combines run
-outcome, cockpit review priority, the action guide checklist, next-command
-hint, blockers, and compact command-center rows without recording approval,
-executing commands, running agents, running backtests, writing config,
-promoting champions, applying patches, routing agents, or changing acceptance.
+outcome, cockpit review priority, the action guide checklist, Codex CLI
+preflight/readiness-diff/intake-binding status, next-command hint, blockers,
+and compact command-center rows without recording approval, executing commands,
+running agents, running backtests, writing config, promoting champions,
+applying patches, routing agents, or changing acceptance.
 If no run id is provided, `home` resolves the latest indexed iteration run; use
 `--latest` to make that selection explicit.
 If a real Codex execute=true startup preflight is blocked, the failed run still writes

@@ -253,6 +253,11 @@ The unlock checklist, readiness diff, and cockpit share a
 `codex_intake_readiness` summary. It makes selected-attempt intake-binding
 state visible to operators without becoming an unlock approval, command
 executor, patch gate, or acceptance authority.
+The terminal-only operator home view copies the cockpit's Codex preflight,
+readiness-diff, and intake-binding status into a compact first-screen summary
+and points back to the saved unlock checklist and readiness diff source views.
+It remains hint-only and cannot refresh artifacts, unlock Codex, execute
+commands, or change acceptance.
 `operator_cockpit.json` and `operator_cockpit.md` are the broader operator
 entrypoint. They collect the run closeout, config lineage, operator action
 dashboard, Codex CLI execution preflight, standalone operator unlock checklist,

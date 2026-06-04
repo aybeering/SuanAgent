@@ -71,6 +71,7 @@ from orchestrator.operator_unlock_checklist import (
 from orchestrator.codex_cli_unlock_runbook import (
     build_codex_cli_unlock_runbook,
     render_codex_cli_unlock_runbook_markdown,
+    validate_codex_cli_unlock_runbook_payload,
 )
 from orchestrator.codex_cli_execution_readiness_diff import (
     build_codex_cli_execution_readiness_diff,
@@ -3117,12 +3118,33 @@ def codex_cli_unlock_runbook_report(
     runbook_path = run_dir / "codex_cli_unlock_runbook.json"
     if runbook_path.exists():
         payload = load_json(runbook_path)
+        errors = validate_codex_cli_unlock_runbook_payload(
+            payload,
+            run_dir=run_dir,
+            repo_root=experiments_dir.parent,
+        )
+        if errors:
+            raise ValueError(
+                "Codex CLI unlock runbook failed schema validation: "
+                + "; ".join(errors)
+            )
         payload["from_artifact"] = True
         return payload
     payload = build_codex_cli_unlock_runbook(
         run_dir=run_dir,
         repo_root=experiments_dir.parent,
     )
+    errors = validate_codex_cli_unlock_runbook_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "Codex CLI unlock runbook failed schema validation: "
+            + "; ".join(errors)
+        )
     payload["from_artifact"] = False
     return payload
 

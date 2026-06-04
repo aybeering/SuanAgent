@@ -117,6 +117,7 @@ from orchestrator.codex_cli_unlock_runbook import (
     CODEX_CLI_UNLOCK_RUNBOOK_SCHEMA_VERSION,
     render_codex_cli_unlock_runbook_markdown,
     validate_codex_cli_unlock_runbook_file,
+    validate_codex_cli_unlock_runbook_payload,
     write_codex_cli_unlock_runbook,
 )
 from orchestrator.codex_cli_execution_readiness_diff import (
@@ -15338,6 +15339,12 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
+    assert validate_codex_cli_unlock_runbook_payload(
+        report,
+        run_dir=run_dir,
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     tampered_summary = json.loads(json_path.read_text(encoding="utf-8"))
     tampered_summary["status"] = "ready_for_operator_review"
     tampered_summary["ready"] = True
@@ -15457,6 +15464,14 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
     assert "codex_cli_unlock_runbook policy false: does_not_execute_codex_cli" in (
         runbook_consistency_errors
     )
+    with pytest.raises(
+        ValueError,
+        match="Codex CLI unlock runbook failed schema validation",
+    ):
+        codex_cli_unlock_runbook_report(
+            run_id="codex-unlock-runbook-startup-block",
+            experiments_dir=repo / "experiments",
+        )
     json_path.write_text(
         json.dumps(runbook, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -19251,6 +19266,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert unlock_runbook["status"] == "needs_artifacts"
     assert unlock_runbook["summary"]["step_count"] == 5
     assert unlock_runbook["policy"]["does_not_execute_codex_cli"] is True
+    assert validate_codex_cli_unlock_runbook_payload(
+        unlock_runbook,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     assert "# Codex CLI Unlock Runbook" in unlock_runbook_markdown
     assert unlock_runbook_result.returncode == 0, unlock_runbook_result.stderr
     unlock_runbook_payload = json.loads(unlock_runbook_result.stdout)
@@ -19263,6 +19284,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         unlock_runbook_payload,
         "codex_cli_unlock_runbook",
     )
+    assert validate_codex_cli_unlock_runbook_payload(
+        unlock_runbook_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+    ) == ()
     assert unlock_runbook_markdown_result.returncode == 0, (
         unlock_runbook_markdown_result.stderr
     )

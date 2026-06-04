@@ -74,6 +74,16 @@ def write_codex_cli_unlock_runbook(
     repo_root = repo_root.resolve()
     run_dir = resolve_path(run_dir, repo_root)
     payload = build_codex_cli_unlock_runbook(run_dir=run_dir, repo_root=repo_root)
+    errors = validate_codex_cli_unlock_runbook_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "Codex CLI unlock runbook failed schema validation: " + "; ".join(errors)
+        )
     json_path = run_dir / "codex_cli_unlock_runbook.json"
     md_path = run_dir / "codex_cli_unlock_runbook.md"
     json_path.write_text(
@@ -385,17 +395,40 @@ def validate_codex_cli_unlock_runbook_file(
 def validate_codex_cli_unlock_runbook_payload(
     payload: dict[str, object],
     *,
+    run_dir: Path | None = None,
     repo_root: Path = Path("."),
+    require_current_evidence: bool = False,
 ) -> tuple[str, ...]:
     """Validate an in-memory Codex CLI unlock runbook payload."""
+    repo_root = repo_root.resolve()
+    comparable_payload = strip_terminal_metadata(payload)
     schema = load_schema(repo_root / SCHEMA_PATH)
-    return tuple(
+    errors = list(
         validate_json_payload(
-            payload=payload,
+            payload=comparable_payload,
             schema=schema,
             schema_dir=(repo_root / SCHEMA_PATH).parent,
         )
-    ) + validate_codex_cli_unlock_runbook_consistency(payload)
+    )
+    errors.extend(validate_codex_cli_unlock_runbook_consistency(comparable_payload))
+    if require_current_evidence:
+        if run_dir is None:
+            errors.append("codex_cli_unlock_runbook run_dir required")
+        else:
+            expected = build_codex_cli_unlock_runbook(
+                run_dir=resolve_path(run_dir, repo_root),
+                repo_root=repo_root,
+            )
+            if comparable_payload != expected:
+                errors.append("codex_cli_unlock_runbook current evidence mismatch")
+    return tuple(errors)
+
+
+def strip_terminal_metadata(payload: dict[str, object]) -> dict[str, object]:
+    """Return payload without terminal-only annotation fields."""
+    stripped = dict(payload)
+    stripped.pop("from_artifact", None)
+    return stripped
 
 
 def validate_codex_cli_unlock_runbook_consistency(

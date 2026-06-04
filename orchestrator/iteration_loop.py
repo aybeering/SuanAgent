@@ -1188,6 +1188,25 @@ def operator_home_manifest_row(
         "status": "pending" if pending else str(payload.get("status", "unknown")),
         "primary_focus": "" if pending else str(payload.get("primary_focus", "")),
         "action_step": "" if pending else str(action_home.get("active_step_id", "")),
+        "next_command_label": (
+            "" if pending else str(action_home.get("next_command_label", ""))
+        ),
+        "next_command_status": (
+            "pending"
+            if pending
+            else str(action_home.get("next_command_status", "unknown"))
+        ),
+        "next_command_blocked": (
+            False if pending else bool(action_home.get("next_command_blocked", False))
+        ),
+        "next_command_blocker_count": (
+            0 if pending else int(action_home.get("next_command_blocker_count", 0) or 0)
+        ),
+        "next_command_operator_hint": (
+            ""
+            if pending
+            else str(action_home.get("next_command_operator_hint", ""))
+        ),
         "codex_unlock_runbook_status": (
             "pending"
             if pending

@@ -3094,6 +3094,14 @@ def operator_view_refresh_home_summary(
             codex_home.get("intake_blocker_count", 0) or 0
         ),
         "next_command_label": str(next_command.get("label", "")),
+        "next_command_status": str(action_home.get("next_command_status", "")),
+        "next_command_blocked": bool(action_home.get("next_command_blocked", False)),
+        "next_command_blocker_count": int(
+            action_home.get("next_command_blocker_count", 0) or 0
+        ),
+        "next_command_operator_hint": str(
+            action_home.get("next_command_operator_hint", "")
+        ),
         "next_command_boundary": str(next_boundary.get("boundary_type", "")),
         "home_command_label": "review_operator_home",
         "home_command": (
@@ -3384,6 +3392,13 @@ def validate_operator_view_refresh_consistency(
         errors.append("operator_view_refresh home_summary boundary mismatch")
     if bool(home_summary.get("home_command_is_hint_only", False)) is not True:
         errors.append("operator_view_refresh home_summary hint-only mismatch")
+    if int_value(home_summary.get("next_command_blocker_count", -1)) < 0:
+        errors.append("operator_view_refresh home_summary blocker count mismatch")
+    if bool(home_summary.get("next_command_blocked", False)) and (
+        int_value(home_summary.get("next_command_blocker_count", 0)) < 1
+        and str(home_summary.get("next_command_status", "")) != "unavailable"
+    ):
+        errors.append("operator_view_refresh home_summary blocked-state mismatch")
     if int_value(home_summary.get("codex_unlock_runbook_blocked_step_count", -1)) < 0:
         errors.append("operator_view_refresh home_summary runbook blocker mismatch")
 
@@ -3610,6 +3625,21 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     lines.append(f"- Headline: {home_summary.get('headline', '')}")
     lines.append(f"- Primary focus: `{home_summary.get('primary_focus', '')}`")
     lines.append(f"- Action step: `{home_summary.get('action_step', '')}`")
+    lines.append(f"- Next command: `{home_summary.get('next_command_label', '')}`")
+    lines.append(
+        f"- Next command status: `{home_summary.get('next_command_status', '')}`"
+    )
+    lines.append(
+        f"- Next command blocked: `{home_summary.get('next_command_blocked', False)}`"
+    )
+    lines.append(
+        "- Next command blockers: "
+        f"`{home_summary.get('next_command_blocker_count', 0)}`"
+    )
+    lines.append(
+        "- Next command operator hint: "
+        f"{home_summary.get('next_command_operator_hint', '')}"
+    )
     lines.append(
         f"- Codex unlock runbook: `{home_summary.get('codex_unlock_runbook_status', '')}`"
     )

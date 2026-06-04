@@ -3979,6 +3979,17 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert refresh["home_summary"]["primary_focus"] == (
         refresh["operator_summary"]["primary_focus"]
     )
+    assert refresh["home_summary"]["next_command_label"] == (
+        "record_operator_approval"
+    )
+    assert refresh["home_summary"]["next_command_status"] == (
+        "blocked_by_home_blockers"
+    )
+    assert refresh["home_summary"]["next_command_blocked"] is True
+    assert refresh["home_summary"]["next_command_blocker_count"] >= 1
+    assert refresh["home_summary"]["next_command_operator_hint"] == (
+        "Review home blockers before invoking the next command hint."
+    )
     assert refresh["home_summary"]["codex_unlock_runbook_status"] in {
         "needs_artifacts",
         "blocked",
@@ -3991,6 +4002,8 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     )
     assert "## Operator Home" in refresh_markdown
     assert "Home command: `review_operator_home`" in refresh_markdown
+    assert "Next command status: `blocked_by_home_blockers`" in refresh_markdown
+    assert "Next command blocked: `True`" in refresh_markdown
     assert "Home Codex unlock runbook:" in refresh_markdown
     assert "Codex unlock runbook command:" in refresh_markdown
     assert "Refresh effect:" in refresh_markdown
@@ -4490,6 +4503,12 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             "codex_intake_ready": False,
             "codex_intake_blocker_count": 0,
             "next_command_label": "review_execution_receipt",
+            "next_command_status": "ready_for_operator",
+            "next_command_blocked": False,
+            "next_command_blocker_count": 0,
+            "next_command_operator_hint": (
+                "The next command is a hint and still requires explicit operator invocation."
+            ),
             "next_command_boundary": "read_only_inspection",
             "home_command_label": "review_operator_home",
             "home_command": (
@@ -7252,6 +7271,17 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert manifest["operator_home"]["status"] == "needs_operator_review"
     assert manifest["operator_home"]["ok"] is True
     assert manifest["operator_home"]["primary_focus"] == cockpit["primary_focus"]
+    assert manifest["operator_home"]["next_command_label"] == (
+        "record_operator_approval"
+    )
+    assert manifest["operator_home"]["next_command_status"] == (
+        "blocked_by_home_blockers"
+    )
+    assert manifest["operator_home"]["next_command_blocked"] is True
+    assert manifest["operator_home"]["next_command_blocker_count"] >= 1
+    assert manifest["operator_home"]["next_command_operator_hint"] == (
+        "Review home blockers before invoking the next command hint."
+    )
     assert manifest["operator_home"]["codex_unlock_runbook_status"] == (
         "needs_artifacts"
     )
@@ -7326,6 +7356,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert "Blocking navigation items" in summary_markdown
     assert "## Operator Home" in summary_markdown
     assert "Terminal only: `True`" in summary_markdown
+    assert "Next command status: `blocked_by_home_blockers`" in summary_markdown
+    assert "Next command blocked: `True`" in summary_markdown
     assert "Command: `review_operator_home`" in summary_markdown
     assert (
         f"Command text: `python -m orchestrator.experiments home {run_id} --markdown`"

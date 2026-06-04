@@ -391,6 +391,26 @@ def write_iteration_summary(
             f"`{display_value(operator_home.get('action_step'))}`"
         )
         lines.append(
+            "- Next command: "
+            f"`{display_value(operator_home.get('next_command_label'))}`"
+        )
+        lines.append(
+            "- Next command status: "
+            f"`{display_value(operator_home.get('next_command_status'))}`"
+        )
+        lines.append(
+            "- Next command blocked: "
+            f"`{display_value(operator_home.get('next_command_blocked'))}`"
+        )
+        lines.append(
+            "- Next command blockers: "
+            f"`{display_value(operator_home.get('next_command_blocker_count'))}`"
+        )
+        lines.append(
+            "- Next command operator hint: "
+            f"{display_value(operator_home.get('next_command_operator_hint'))}"
+        )
+        lines.append(
             "- Codex unlock runbook: "
             f"`{display_value(operator_home.get('codex_unlock_runbook_status'))}`"
         )

@@ -2818,6 +2818,20 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending_guide["next_command"]["label"] == "record_operator_approval"
     assert pending_guide["next_command"]["records_operator_approval"] is True
     assert pending_guide["next_command"]["command_is_hint_only"] is True
+    assert pending_guide["guided_path"]["schema_version"] == (
+        "operator_action_guided_path_v1"
+    )
+    assert pending_guide["guided_path"]["active_step_id"] == "operator_approval"
+    pending_steps = {
+        row["step_id"]: row for row in pending_guide["guided_path"]["steps"]
+    }
+    assert pending_steps["action_audit_refresh"]["status"] == "available"
+    assert pending_steps["operator_approval"]["status"] == "active"
+    assert pending_steps["operator_approval"]["command_label"] == (
+        "record_operator_approval"
+    )
+    assert pending_steps["guarded_execution"]["status"] == "waiting"
+    assert pending_guide["guided_path"]["policy"]["commands_are_hints_only"] is True
     assert pending_guide["authority"]["guide_can_execute_commands"] is False
     assert pending_guide["policy"]["does_not_record_approval"] is True
     assert "# Operator Action Guide" in pending_guide_markdown
@@ -2885,6 +2899,13 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert ready_guide["guidance"]["can_invoke_guarded_executor_now"] is True
     assert ready_guide["next_command"]["label"] == "execute_approved_command"
     assert ready_guide["next_command"]["uses_guarded_executor"] is True
+    ready_steps = {row["step_id"]: row for row in ready_guide["guided_path"]["steps"]}
+    assert ready_guide["guided_path"]["active_step_id"] == "guarded_execution"
+    assert ready_steps["operator_approval"]["status"] == "complete"
+    assert ready_steps["guarded_execution"]["status"] == "active"
+    assert ready_steps["guarded_execution"]["command_label"] == (
+        "execute_approved_command"
+    )
     assert validate_operator_action_guide_payload(
         ready_guide,
         run_dir=run_dir,
@@ -2976,7 +2997,14 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert completed_guide["guidance"]["can_invoke_guarded_executor_now"] is False
     assert completed_guide["guidance"]["requires_manual_operator_step"] is False
     assert completed_guide["action_state"]["path_closed"] is True
+    assert completed_guide["guided_path"]["active_step_id"] == "dashboard_review"
+    assert completed_guide["guided_path"]["completed_step_count"] == 4
+    completed_steps = {
+        row["step_id"]: row for row in completed_guide["guided_path"]["steps"]
+    }
+    assert all(row["status"] == "complete" for row in completed_steps.values())
     assert "Operator action path is closed." in completed_guide_markdown
+    assert "## Guided Path" in completed_guide_markdown
     assert validate_operator_action_guide_payload(
         completed_guide,
         run_dir=run_dir,
@@ -20451,6 +20479,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert action_guide["schema_version"] == OPERATOR_ACTION_GUIDE_SCHEMA_VERSION
     assert action_guide["status"] == "path_closed"
     assert action_guide["action_state"]["path_closed"] is True
+    assert action_guide["guided_path"]["schema_version"] == (
+        "operator_action_guided_path_v1"
+    )
+    assert action_guide["guided_path"]["active_step_id"] == "dashboard_review"
+    assert action_guide["guided_path"]["completed_step_count"] == 4
     assert action_guide["guidance"]["command_is_hint_only"] is True
     assert action_guide["policy"]["does_not_execute_commands"] is True
     assert action_guide["authority"]["guide_can_execute_commands"] is False
@@ -20649,6 +20682,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert action_guide_payload["from_artifact"] is False
     assert action_guide_payload["status"] == "path_closed"
     assert action_guide_payload["action_state"]["path_closed"] is True
+    assert action_guide_payload["guided_path"]["active_step_id"] == (
+        "dashboard_review"
+    )
+    assert action_guide_payload["guided_path"]["completed_step_count"] == 4
+    assert action_guide_payload["guided_path"]["policy"][
+        "commands_are_hints_only"
+    ] is True
     assert action_guide_payload["next_command"]["command_is_hint_only"] is True
     assert action_guide_payload["policy"]["does_not_execute_commands"] is True
     assert_matches_schema_payload(action_guide_payload, "operator_action_guide")
@@ -20663,6 +20703,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         action_guide_markdown_result.stderr
     )
     assert "# Operator Action Guide" in action_guide_markdown_result.stdout
+    assert "## Guided Path" in action_guide_markdown_result.stdout
     assert unlock_checklist_result.returncode == 0, unlock_checklist_result.stderr
     unlock_checklist_payload = json.loads(unlock_checklist_result.stdout)
     assert unlock_checklist_payload["schema_version"] == (

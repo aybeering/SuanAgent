@@ -930,12 +930,20 @@ jobs:
           assert guide["from_artifact"] is False
           assert guide["status"] == "path_closed"
           assert guide["action_state"]["path_closed"] is True
+          assert guide["guided_path"]["schema_version"] == (
+              "operator_action_guided_path_v1"
+          )
+          assert guide["guided_path"]["active_step_id"] == "dashboard_review"
+          assert guide["guided_path"]["completed_step_count"] == 4
+          assert guide["guided_path"]["policy"]["commands_are_hints_only"] is True
           assert guide["next_command"]["command_is_hint_only"] is True
           assert guide["guidance"]["command_is_hint_only"] is True
           assert guide["policy"]["does_not_execute_commands"] is True
           assert guide["authority"]["guide_can_execute_commands"] is False
           assert "# Operator Action Guide" in markdown
+          assert "## Guided Path" in markdown
           assert "# Operator Action Guide" in module_markdown
+          assert "## Guided Path" in module_markdown
           PY
           python -m orchestrator.operator_unlock_checklist experiments/ci-adaptive
           test -f experiments/ci-adaptive/operator_unlock_checklist.json

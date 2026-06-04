@@ -75,6 +75,12 @@ def build_operator_action_guide(
             next_command=next_command,
             boundary=boundary,
         ),
+        "guided_path": guided_path_summary(
+            dashboard=dashboard,
+            commands=commands,
+            status=guide_status,
+            next_command=next_command,
+        ),
         "command_sequence": command_sequence(commands),
         "blocker_preview": blockers[:5],
         "authority": {
@@ -251,6 +257,176 @@ def guidance_summary(
     }
 
 
+def guided_path_summary(
+    *,
+    dashboard: dict[str, Any],
+    commands: list[dict[str, Any]],
+    status: str,
+    next_command: dict[str, Any],
+) -> dict[str, object]:
+    """Return a deterministic checklist for the manual operator action path."""
+    closure = object_field(dashboard, "path_closure")
+    source_artifacts = object_field(dashboard, "source_artifacts")
+    blockers = string_list(dashboard.get("blockers", []))
+    active_step_id = active_guided_step_id(status)
+    steps = guided_path_steps(
+        commands=commands,
+        closure=closure,
+        source_artifacts=source_artifacts,
+        active_step_id=active_step_id,
+        blocked=bool(blockers or dashboard.get("ok") is not True),
+    )
+    return {
+        "schema_version": "operator_action_guided_path_v1",
+        "status": status,
+        "current_step": str(dashboard.get("current_step", "")),
+        "active_step_id": active_step_id,
+        "next_command_label": str(next_command.get("label", "")),
+        "step_count": len(steps),
+        "completed_step_count": sum(1 for step in steps if step["complete"] is True),
+        "steps": steps,
+        "policy": {
+            "commands_are_hints_only": True,
+            "does_not_record_approval": True,
+            "does_not_execute_commands": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+
+def active_guided_step_id(status: str) -> str:
+    """Return the active guided-path step id for one guide status."""
+    return {
+        "awaiting_operator_approval": "operator_approval",
+        "ready_for_guarded_execution": "guarded_execution",
+        "path_closed": "dashboard_review",
+        "blocked": "blocker_review",
+    }.get(status, "dashboard_review")
+
+
+def guided_path_steps(
+    *,
+    commands: list[dict[str, Any]],
+    closure: dict[str, Any],
+    source_artifacts: dict[str, Any],
+    active_step_id: str,
+    blocked: bool,
+) -> list[dict[str, object]]:
+    """Return ordered guided-path rows from dashboard command hints."""
+    audit_source = object_field(source_artifacts, "action_audit")
+    approval_source = object_field(source_artifacts, "action_approval")
+    execution_source = object_field(source_artifacts, "execution_receipt")
+    steps = [
+        guided_path_step(
+            step_id="action_audit_refresh",
+            label="Refresh action audit",
+            command=find_command(commands, "write_action_audit"),
+            artifact_name="operator_action_audit",
+            artifact_path=artifact_path(audit_source),
+            complete=bool(
+                object_field(audit_source, "file").get("exists", False)
+            ),
+            active_step_id=active_step_id,
+            blocked=blocked,
+        ),
+        guided_path_step(
+            step_id="operator_approval",
+            label="Record operator approval",
+            command=find_command(commands, "record_operator_approval"),
+            artifact_name="operator_action_approval",
+            artifact_path=artifact_path(approval_source),
+            complete=bool(closure.get("approval_recorded", False)),
+            active_step_id=active_step_id,
+            blocked=blocked,
+        ),
+        guided_path_step(
+            step_id="guarded_execution",
+            label="Run guarded read-only execution",
+            command=find_command(commands, "execute_approved_command"),
+            artifact_name="operator_action_execution_receipt",
+            artifact_path=artifact_path(execution_source),
+            complete=bool(closure.get("execution_completed", False)),
+            active_step_id=active_step_id,
+            blocked=blocked,
+        ),
+        guided_path_step(
+            step_id="dashboard_review",
+            label="Review refreshed dashboard",
+            command=find_command_by_boundary(commands, "read_only_inspection"),
+            artifact_name="operator_action_dashboard",
+            artifact_path="operator_action_dashboard.json",
+            complete=bool(closure.get("closed", False)),
+            active_step_id=active_step_id,
+            blocked=blocked,
+        ),
+    ]
+    return steps
+
+
+def guided_path_step(
+    *,
+    step_id: str,
+    label: str,
+    command: dict[str, Any],
+    artifact_name: str,
+    artifact_path: str,
+    complete: bool,
+    active_step_id: str,
+    blocked: bool,
+) -> dict[str, object]:
+    """Return one guided-path checklist row."""
+    boundary = object_field(command, "boundary")
+    is_active = step_id == active_step_id and not complete and not blocked
+    has_command = bool(command)
+    if complete:
+        status = "complete"
+    elif blocked:
+        status = "blocked"
+    elif is_active:
+        status = "active"
+    elif has_command:
+        status = "available"
+    else:
+        status = "waiting"
+    return {
+        "step_id": step_id,
+        "label": label,
+        "status": status,
+        "complete": complete,
+        "active": is_active,
+        "artifact_name": artifact_name,
+        "artifact_path": artifact_path,
+        "command_label": str(command.get("label", "")),
+        "command": str(command.get("command", "")),
+        "boundary_type": str(boundary.get("boundary_type", "")),
+        "command_is_hint_only": True,
+    }
+
+
+def find_command(commands: list[dict[str, Any]], label: str) -> dict[str, Any]:
+    """Return a dashboard command by label."""
+    for command in commands:
+        if command.get("label") == label:
+            return command
+    return {}
+
+
+def find_command_by_boundary(
+    commands: list[dict[str, Any]], boundary_type: str
+) -> dict[str, Any]:
+    """Return the first dashboard command with the requested boundary type."""
+    for command in commands:
+        boundary = object_field(command, "boundary")
+        if boundary.get("boundary_type") == boundary_type:
+            return command
+    return {}
+
+
+def artifact_path(source: dict[str, Any]) -> str:
+    """Return a source artifact path string from a dashboard source record."""
+    return str(object_field(source, "file").get("path", ""))
+
+
 def command_sequence(commands: list[dict[str, Any]]) -> list[dict[str, object]]:
     """Return compact ordered command labels and boundaries."""
     rows: list[dict[str, object]] = []
@@ -301,9 +477,22 @@ def render_operator_action_guide_markdown(payload: dict[str, object]) -> str:
         str(command.get("command", "")),
         "```",
         "",
-        "## Command Sequence",
+        "## Guided Path",
         "",
     ]
+    guided_path = object_field(payload, "guided_path")
+    for step in list_of_dicts(guided_path.get("steps", [])):
+        lines.append(
+            f"- `{step.get('step_id', '')}` `{step.get('status', '')}` -> "
+            f"`{step.get('command_label', '')}` (`{step.get('boundary_type', '')}`)"
+        )
+    lines.extend(
+        [
+            "",
+            "## Command Sequence",
+            "",
+        ]
+    )
     for row in list_of_dicts(payload.get("command_sequence", [])):
         lines.append(
             f"- `{row.get('index', 0)}` `{row.get('label', '')}` "
@@ -423,6 +612,14 @@ def validate_operator_action_guide_consistency(
     )
     if object_field(payload, "guidance") != expected_guidance:
         errors.append("operator_action_guide guidance mismatch")
+    expected_guided_path = guided_path_summary(
+        dashboard=dashboard,
+        commands=commands,
+        status=expected_status,
+        next_command=expected_raw_command,
+    )
+    if object_field(payload, "guided_path") != expected_guided_path:
+        errors.append("operator_action_guide guided path mismatch")
     if str(source.get("artifact_name", "")) != "operator_action_dashboard":
         errors.append("operator_action_guide source artifact mismatch")
     if source_file.get("sha256") != file_sha256(dashboard_path):

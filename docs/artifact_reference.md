@@ -380,11 +380,13 @@ orchestrator.operator_action_guide experiments/<run_id>` expose a
 terminal-only `operator_action_guide_v1` payload validated by
 `schemas/operator_action_guide.schema.json`. The guide reads the saved or
 derived action dashboard, reports the current step, first recommended command,
-execution-readiness state, path-closure state, blockers, and a compact
-operator instruction. It never records approval, executes commands, writes
-config, promotes champions, runs agents, runs backtests, applies patches,
-routes agents, or changes acceptance; all commands remain hints that require
-the dedicated approval, guarded executor, audit, or dashboard commands.
+execution-readiness state, path-closure state, blockers, a compact operator
+instruction, and a `guided_path` checklist covering action-audit refresh,
+operator approval, guarded read-only execution, and dashboard review. It never
+records approval, executes commands, writes config, promotes champions, runs
+agents, runs backtests, applies patches, routes agents, or changes acceptance;
+all commands remain hints that require the dedicated approval, guarded
+executor, audit, or dashboard commands.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose the
 Codex CLI operator-unlock evidence chain as a standalone read-only checklist.
 The iteration loop writes it during closeout before the final cockpit so cockpit

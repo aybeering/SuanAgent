@@ -99,7 +99,8 @@ is schema-validated before printing, but it does not create another artifact
 family. `action-guide <run_id>` is the terminal-only guided path
 for the same operator action chain: it tells the operator whether approval,
 guarded read-only execution, audit refresh, or dashboard review is next, while
-remaining a hint-only view.
+remaining a hint-only view. It also includes a four-step guided checklist for
+audit refresh, approval, guarded execution, and dashboard review.
 If a real Codex execute=true startup preflight is blocked, the failed run still writes
 the checklist, execution readiness diff, and summary navigation. The Codex CLI
 unlock runbook turns the same evidence chain into an ordered read-only operator

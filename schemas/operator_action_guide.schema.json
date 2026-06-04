@@ -13,6 +13,7 @@
     "action_state",
     "next_command",
     "guidance",
+    "guided_path",
     "command_sequence",
     "blocker_preview",
     "authority",
@@ -76,6 +77,9 @@
     },
     "guidance": {
       "$ref": "#/$defs/guidance"
+    },
+    "guided_path": {
+      "$ref": "#/$defs/guided_path"
     },
     "command_sequence": {
       "type": "array",
@@ -394,6 +398,139 @@
         },
         "writes_artifact": {
           "type": "string"
+        }
+      }
+    },
+    "guided_path": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "current_step",
+        "active_step_id",
+        "next_command_label",
+        "step_count",
+        "completed_step_count",
+        "steps",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "operator_action_guided_path_v1"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "current_step": {
+          "type": "string"
+        },
+        "active_step_id": {
+          "type": "string"
+        },
+        "next_command_label": {
+          "type": "string"
+        },
+        "step_count": {
+          "type": "integer"
+        },
+        "completed_step_count": {
+          "type": "integer"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/guided_path_step"
+          }
+        },
+        "policy": {
+          "type": "object",
+          "required": [
+            "commands_are_hints_only",
+            "does_not_record_approval",
+            "does_not_execute_commands",
+            "does_not_change_acceptance"
+          ],
+          "properties": {
+            "commands_are_hints_only": {
+              "type": "boolean"
+            },
+            "does_not_record_approval": {
+              "type": "boolean"
+            },
+            "does_not_execute_commands": {
+              "type": "boolean"
+            },
+            "does_not_change_acceptance": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "guided_path_step": {
+      "type": "object",
+      "required": [
+        "step_id",
+        "label",
+        "status",
+        "complete",
+        "active",
+        "artifact_name",
+        "artifact_path",
+        "command_label",
+        "command",
+        "boundary_type",
+        "command_is_hint_only"
+      ],
+      "properties": {
+        "step_id": {
+          "type": "string",
+          "enum": [
+            "action_audit_refresh",
+            "operator_approval",
+            "guarded_execution",
+            "dashboard_review"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "active",
+            "available",
+            "waiting",
+            "blocked"
+          ]
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "artifact_name": {
+          "type": "string"
+        },
+        "artifact_path": {
+          "type": "string"
+        },
+        "command_label": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "boundary_type": {
+          "type": "string"
+        },
+        "command_is_hint_only": {
+          "type": "boolean"
         }
       }
     }

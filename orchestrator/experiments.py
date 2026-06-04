@@ -81,9 +81,11 @@ from orchestrator.schema_validation import load_schema, validate_json_payload
 
 
 CHAMPION_SCHEMA_VERSION = "champion_v1"
+CHAMPION_STATUS_SCHEMA_VERSION = "champion_status_v1"
 SUMMARY_DASHBOARD_SCHEMA_VERSION = "experiment_summary_dashboard_v1"
 SUMMARY_DASHBOARD_RECENT_LIMIT = 5
 OPERATOR_VIEW_REFRESH_SCHEMA_PATH = Path("schemas/operator_view_refresh.schema.json")
+CHAMPION_STATUS_SCHEMA_PATH = Path("schemas/champion_status.schema.json")
 EXPERIMENT_SUMMARY_DASHBOARD_SCHEMA_PATH = Path(
     "schemas/experiment_summary_dashboard.schema.json"
 )
@@ -2606,20 +2608,124 @@ def show_champion(
     """Return the current champion registry, or an empty status."""
     path = champion_path(experiments_dir)
     lineage = champion_lineage_summary(experiments_dir=experiments_dir)
+    policy = {
+        "inspection_only": True,
+        "reads_saved_artifacts_only": True,
+        "does_not_write_champion": True,
+        "does_not_promote_champion": True,
+        "does_not_change_acceptance": True,
+    }
     if not path.exists():
-        return {
+        payload = {
+            "schema_version": CHAMPION_STATUS_SCHEMA_VERSION,
             "exists": False,
-            "schema_version": CHAMPION_SCHEMA_VERSION,
             "champion_path": str(path),
             "lineage_summary": lineage,
+            "policy": policy,
         }
-    payload = load_json(path)
-    return {
-        "exists": True,
-        "champion_path": str(path),
-        "champion": payload,
-        "lineage_summary": lineage,
-    }
+    else:
+        champion = load_json(path)
+        payload = {
+            "schema_version": CHAMPION_STATUS_SCHEMA_VERSION,
+            "exists": True,
+            "champion_path": str(path),
+            "champion": champion,
+            "lineage_summary": lineage,
+            "policy": policy,
+        }
+    errors = validate_champion_status_payload(
+        payload,
+        repo_root=experiments_dir.parent,
+    )
+    if errors:
+        raise ValueError("champion status failed schema validation: " + "; ".join(errors))
+    return payload
+
+
+def validate_champion_status_payload(
+    payload: dict[str, object],
+    *,
+    repo_root: Path,
+) -> tuple[str, ...]:
+    """Validate the terminal-only champion status payload."""
+    schema = load_schema(repo_root / CHAMPION_STATUS_SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=payload,
+            schema=schema,
+            schema_dir=(repo_root / CHAMPION_STATUS_SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(validate_champion_status_consistency(payload))
+    return tuple(errors)
+
+
+def validate_champion_status_consistency(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate champion status fields are internally consistent and read-only."""
+    errors: list[str] = []
+    exists = bool(payload.get("exists", False))
+    champion = dict_or_none_payload(payload.get("champion"))
+    lineage = dict_payload(payload.get("lineage_summary", {}))
+    policy = dict_payload(payload.get("policy", {}))
+    lineage_policy = dict_payload(lineage.get("policy", {}))
+    if str(payload.get("schema_version", "")) != CHAMPION_STATUS_SCHEMA_VERSION:
+        errors.append("champion_status schema_version mismatch")
+    for key, value in policy.items():
+        if value is not True:
+            errors.append(f"champion_status policy false: {key}")
+    for key, value in lineage_policy.items():
+        if value is not True:
+            errors.append(f"champion_status lineage policy false: {key}")
+    if exists:
+        if champion is None:
+            errors.append("champion_status champion missing")
+        else:
+            champion_run_id = str(champion.get("champion_run_id", ""))
+            if champion.get("schema_version") != CHAMPION_SCHEMA_VERSION:
+                errors.append("champion_status champion schema_version mismatch")
+            if not champion_run_id:
+                errors.append("champion_status champion_run_id missing")
+            if lineage.get("current_champion_exists") is not True:
+                errors.append("champion_status lineage existence mismatch")
+            if str(lineage.get("current_champion_run_id", "")) != champion_run_id:
+                errors.append("champion_status lineage current champion mismatch")
+            if int_value(lineage.get("event_count", 0), 0) > 0:
+                if str(lineage.get("latest_champion_run_id", "")) != champion_run_id:
+                    errors.append("champion_status lineage latest champion mismatch")
+                latest_ev = optional_float_value(
+                    lineage.get("latest_validation_ev_delta")
+                )
+                champion_ev = optional_float_value(champion.get("validation_ev_delta"))
+                if (
+                    latest_ev is not None
+                    and champion_ev is not None
+                    and round(latest_ev, 6) != round(champion_ev, 6)
+                ):
+                    errors.append("champion_status lineage validation ev mismatch")
+    else:
+        if champion is not None:
+            errors.append("champion_status empty champion mismatch")
+        if lineage.get("current_champion_exists") is not False:
+            errors.append("champion_status empty lineage existence mismatch")
+        if str(lineage.get("current_champion_run_id", "")):
+            errors.append("champion_status empty lineage champion mismatch")
+    if int_value(lineage.get("event_count", 0), 0) < 0:
+        errors.append("champion_status lineage event_count negative")
+    if int_value(lineage.get("parse_error_count", 0), 0) < 0:
+        errors.append("champion_status lineage parse_error_count negative")
+    if int_value(lineage.get("approved_receipt_count", 0), 0) < 0:
+        errors.append("champion_status lineage approved_receipt_count negative")
+    if int_value(lineage.get("legacy_direct_count", 0), 0) < 0:
+        errors.append("champion_status lineage legacy_direct_count negative")
+    counted_events = int_value(lineage.get("approved_receipt_count", 0), 0) + int_value(
+        lineage.get("legacy_direct_count", 0),
+        0,
+    )
+    if counted_events > int_value(lineage.get("event_count", 0), 0):
+        errors.append("champion_status lineage event count mismatch")
+    return tuple(errors)
 
 
 def champion_lineage_summary(

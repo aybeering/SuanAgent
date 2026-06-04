@@ -223,6 +223,11 @@ promotion receipts, approval hashes, dry-run hashes, and metric deltas.
 `python -m orchestrator.experiments summary` and
 `python -m orchestrator.experiments champion` also include a compact read-only
 lineage summary without writing lineage artifacts.
+The `champion` terminal output is a `champion_status_v1` payload validated
+against `schemas/champion_status.schema.json`, with deterministic consistency
+checks that bind the current registry champion to the embedded lineage summary,
+latest history row, validation EV delta, and read-only policy flags before JSON
+is printed.
 `python -m orchestrator.experiments summary` additionally embeds a compact
 dashboard with the latest indexed run, latest accepted and rejected runs, recent
 diagnosis rows, recent failure-code counts, recent outcome-category counts, a

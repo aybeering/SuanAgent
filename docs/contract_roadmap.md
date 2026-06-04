@@ -152,6 +152,7 @@ Implemented or allowed V0.5 components:
 123. Strict local schema validation for the terminal-only `operator_view_refresh_v1` receipt through `schemas/operator_view_refresh.schema.json`, plus deterministic consistency validation for refreshed artifact counts and order, file-path bindings, blocker-delta counters, policy-summary derivation, refresh-effect derivation, and copied review-summary next-command and reason metadata, applied before printing JSON or markdown output, so refresh receipt fields, nested reason summaries, blocker deltas, policy summaries, and refreshed artifact file records cannot drift without tests or schema updates, while still not creating a new artifact family, recording approval, executing commands, executing Codex, creating workspaces, writing config, executing agents, rerunning backtests, routing candidates, applying patches, promoting champions, or changing acceptance.
 124. Strict local consistency validation for the terminal-only `operator_run_review_v1` payload exposed by `python -m orchestrator.experiments review <run_id>`, including embedded dashboard fixed gate order, gate-to-summary status bindings, selected-candidate and watchlist counts, read-only dashboard authority, and policy flag equality between the review wrapper and dashboard, applied before JSON or markdown output is printed, without writing config, promoting champions, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 125. Strict local consistency validation for the terminal-only `experiment_summary_dashboard_v1` payload exposed by `python -m orchestrator.experiments summary`, including latest-run to recent-tail binding, accepted-row and completed-round invariants, champion-gap active/status/gap consistency, watchlist alert identity, alert summary counters, and outer/watchlist policy flags, applied before JSON or markdown output is printed, without writing config, promoting champions, executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
+126. Strict local schema and consistency validation for the terminal-only `champion_status_v1` payload exposed by `python -m orchestrator.experiments champion`, including current champion existence, registry schema version, champion-run binding to the embedded lineage summary, latest history champion and validation EV checks, lineage event counters, and read-only status/lineage policy flags, applied before JSON output is printed, without writing champion registry files, appending champion history, promoting champions, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 
 ## Contract Families
 
@@ -367,7 +368,12 @@ Codex CLI readiness contracts:
     apply patches, write champion registry files, append champion history, or
     change strategy acceptance. Compact lineage summaries may appear in
     experiment summary and champion inspection output, but only the explicit
-    lineage command writes lineage artifacts.
+    lineage command writes lineage artifacts. The terminal-only
+    `champion_status_v1` payload exposed by the `champion` inspection command
+    is validated against `schemas/champion_status.schema.json` before JSON
+    output is printed, with deterministic consistency checks for current
+    registry-to-lineage binding, latest-history champion identity, validation
+    EV equality, lineage event counters, and read-only policy flags.
 32. Experiment summary dashboards are read-only inspection payloads embedded in
     `python -m orchestrator.experiments summary`. They can summarize latest
     indexed runs, recent diagnosis rows, recent failure-code counts, and

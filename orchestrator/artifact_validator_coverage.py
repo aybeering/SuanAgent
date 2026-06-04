@@ -207,6 +207,7 @@ INSPECTION_COMMANDS = {
         "python -m orchestrator.experiments summary",
         "python -m orchestrator.experiments summary --markdown",
     ),
+    "champion_status": ("python -m orchestrator.experiments champion",),
     "operator_run_review": (
         "python -m orchestrator.experiments review",
         "python -m orchestrator.experiments review --markdown",

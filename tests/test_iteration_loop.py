@@ -359,6 +359,7 @@ from orchestrator.experiments import (
     show_experiment,
     show_champion,
     summarize_experiments,
+    validate_champion_status_payload,
     validate_experiment_summary_dashboard_payload,
     validate_operator_run_review_payload,
     validate_operator_view_refresh_payload,
@@ -16322,6 +16323,9 @@ def test_champion_registry_promotes_recommended_candidate(tmp_path: Path) -> Non
 
     assert result["promoted"] is True
     assert champion["exists"] is True
+    assert champion["schema_version"] == "champion_status_v1"
+    assert_matches_schema_payload(champion, "champion_status")
+    assert validate_champion_status_payload(champion, repo_root=repo) == ()
     assert result["champion"]["champion_run_id"] == "champion-candidate"  # type: ignore[index]
     assert result["champion"]["comparison"]["recommendation"] == "promote_candidate"  # type: ignore[index]
     assert champion["lineage_summary"]["event_count"] == 1  # type: ignore[index]
@@ -16361,8 +16365,67 @@ def test_champion_registry_refuses_non_promoted_candidate(tmp_path: Path) -> Non
     assert result["promoted"] is False
     assert result["comparison"]["recommendation"] == "keep_base"  # type: ignore[index]
     assert champion["exists"] is False
+    assert champion["schema_version"] == "champion_status_v1"
+    assert_matches_schema_payload(champion, "champion_status")
+    assert validate_champion_status_payload(champion, repo_root=repo) == ()
     assert champion["lineage_summary"]["event_count"] == 0  # type: ignore[index]
     assert not (repo / "experiments/champion.json").exists()
+
+
+def test_champion_status_validation_reports_drift(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(
+        run_id="champion-status-base",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    run_pipeline(
+        run_id="champion-status-candidate",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    make_run_accepted_with_ev_lift(
+        repo=repo,
+        run_id="champion-status-candidate",
+        ev_lift=0.4,
+    )
+    promote_champion(
+        base_run_id="champion-status-base",
+        candidate_run_id="champion-status-candidate",
+        experiments_dir=repo / "experiments",
+    )
+    payload = show_champion(experiments_dir=repo / "experiments")
+    assert validate_champion_status_payload(payload, repo_root=repo) == ()
+    champion = payload["champion"]
+    lineage = payload["lineage_summary"]
+    policy = payload["policy"]
+    assert isinstance(champion, dict)
+    assert isinstance(lineage, dict)
+    assert isinstance(policy, dict)
+    champion["champion_run_id"] = "other-candidate"
+    lineage["latest_champion_run_id"] = "older-candidate"
+    lineage["latest_validation_ev_delta"] = -1.0
+    lineage["approved_receipt_count"] = -1
+    lineage["legacy_direct_count"] = -1
+    policy["does_not_promote_champion"] = False
+    lineage_policy = lineage["policy"]
+    assert isinstance(lineage_policy, dict)
+    lineage_policy["does_not_change_acceptance"] = False
+
+    errors = validate_champion_status_payload(payload, repo_root=repo)
+
+    assert "champion_status lineage current champion mismatch" in errors
+    assert "champion_status lineage latest champion mismatch" in errors
+    assert "champion_status lineage validation ev mismatch" in errors
+    assert "champion_status lineage approved_receipt_count negative" in errors
+    assert "champion_status lineage legacy_direct_count negative" in errors
+    assert "champion_status policy false: does_not_promote_champion" in errors
+    assert (
+        "champion_status lineage policy false: does_not_change_acceptance"
+        in errors
+    )
 
 
 def test_champion_promotion_approval_records_operator_intent_without_promoting(

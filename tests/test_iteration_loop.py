@@ -247,6 +247,7 @@ from orchestrator.config import (
 from orchestrator.candidate_challenger_report import (
     CANDIDATE_CHALLENGER_SCHEMA_VERSION,
     validate_candidate_challenger_report_file,
+    validate_candidate_challenger_report_payload,
 )
 from orchestrator.champion_promotion_dry_run import (
     CHAMPION_PROMOTION_DRY_RUN_SCHEMA_VERSION,
@@ -17341,6 +17342,22 @@ def test_iteration_loop_writes_champion_comparison_when_champion_exists(
         payload_path=challenger_path,
         repo_root=repo,
     ) == ()
+    assert validate_candidate_challenger_report_payload(
+        challenger,
+        run_dir=repo / "experiments/auto-challenger",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    challenger_terminal_payload = dict(challenger)
+    challenger_terminal_payload["from_artifact"] = True
+    assert validate_candidate_challenger_report_payload(
+        challenger_terminal_payload,
+        run_dir=repo / "experiments/auto-challenger",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     tampered_challenger = json.loads(challenger_path.read_text(encoding="utf-8"))
     tampered_challenger["ok"] = False
     tampered_challenger["status"] = "no_champion"
@@ -19510,6 +19527,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert challenger_payload["schema_version"] == CANDIDATE_CHALLENGER_SCHEMA_VERSION
     assert challenger_payload["status"] == "no_champion"
     assert challenger_payload["policy"]["does_not_promote_champion"] is True
+    assert validate_candidate_challenger_report_payload(
+        challenger_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     assert validate_candidate_challenger_report_file(
         payload_path=repo / "experiments/cli-candidates/candidate_challenger_report.json",
         repo_root=repo,

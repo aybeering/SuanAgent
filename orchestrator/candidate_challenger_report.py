@@ -33,6 +33,18 @@ def write_candidate_challenger_report(
         experiments_dir=experiments_dir,
         repo_root=repo_root,
     )
+    errors = validate_candidate_challenger_report_payload(
+        payload,
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "candidate challenger report failed schema validation: "
+            + "; ".join(errors)
+        )
     json_path = run_dir / "candidate_challenger_report.json"
     md_path = run_dir / "candidate_challenger_report.md"
     json_path.write_text(
@@ -40,12 +52,15 @@ def write_candidate_challenger_report(
         encoding="utf-8",
     )
     md_path.write_text(render_candidate_challenger_markdown(payload), encoding="utf-8")
-    errors = validate_candidate_challenger_report_file(
+    file_errors = validate_candidate_challenger_report_file(
         payload_path=json_path,
         repo_root=repo_root,
     )
-    if errors:
-        raise ValueError(f"candidate challenger report failed schema validation: {errors}")
+    if file_errors:
+        raise ValueError(
+            "candidate challenger report failed schema validation: "
+            + "; ".join(file_errors)
+        )
     return json_path, md_path, payload
 
 
@@ -397,15 +412,80 @@ def validate_candidate_challenger_report_file(
 def validate_candidate_challenger_report_payload(
     payload: dict[str, object],
     *,
+    run_dir: Path | None = None,
+    experiments_dir: Path | None = None,
     repo_root: Path = Path("."),
+    require_current_evidence: bool = False,
 ) -> tuple[str, ...]:
     """Validate an in-memory candidate challenger report payload."""
+    repo_root = repo_root.resolve()
+    comparable_payload = strip_terminal_metadata(payload)
     schema = load_schema(repo_root / SCHEMA_PATH)
-    return validate_json_payload(
-        payload=payload,
-        schema=schema,
-        schema_dir=(repo_root / SCHEMA_PATH).parent,
-    ) + validate_candidate_challenger_report_consistency(payload)
+    errors = list(
+        validate_json_payload(
+            payload=comparable_payload,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(validate_candidate_challenger_report_consistency(comparable_payload))
+    if require_current_evidence:
+        resolved_run_dir = candidate_report_run_dir(
+            payload=comparable_payload,
+            run_dir=run_dir,
+            repo_root=repo_root,
+        )
+        resolved_experiments_dir = candidate_report_experiments_dir(
+            payload=comparable_payload,
+            experiments_dir=experiments_dir,
+            repo_root=repo_root,
+        )
+        if resolved_run_dir is None:
+            errors.append("candidate_challenger_report run_dir required")
+        elif resolved_experiments_dir is None:
+            errors.append("candidate_challenger_report experiments_dir required")
+        else:
+            expected = build_candidate_challenger_report(
+                run_dir=resolved_run_dir,
+                experiments_dir=resolved_experiments_dir,
+                repo_root=repo_root,
+            )
+            if comparable_payload != expected:
+                errors.append("candidate_challenger_report current evidence mismatch")
+    return tuple(errors)
+
+
+def strip_terminal_metadata(payload: dict[str, object]) -> dict[str, object]:
+    """Return payload without terminal-only annotation fields."""
+    stripped = dict(payload)
+    stripped.pop("from_artifact", None)
+    return stripped
+
+
+def candidate_report_run_dir(
+    *,
+    payload: dict[str, object],
+    run_dir: Path | None,
+    repo_root: Path,
+) -> Path | None:
+    """Return the run directory used for current-evidence validation."""
+    if run_dir is not None:
+        return resolve_path(run_dir, repo_root)
+    raw_path = str(payload.get("run_dir", ""))
+    return resolve_path(Path(raw_path), repo_root) if raw_path else None
+
+
+def candidate_report_experiments_dir(
+    *,
+    payload: dict[str, object],
+    experiments_dir: Path | None,
+    repo_root: Path,
+) -> Path | None:
+    """Return the experiments directory used for current-evidence validation."""
+    if experiments_dir is not None:
+        return resolve_path(experiments_dir, repo_root)
+    raw_path = str(payload.get("experiments_dir", ""))
+    return resolve_path(Path(raw_path), repo_root) if raw_path else None
 
 
 def validate_candidate_challenger_report_consistency(

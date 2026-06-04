@@ -856,7 +856,10 @@ Replay artifacts:
   candidates for operator inspection only. The writer validates `ok` and
   status derivation, checks summaries, selected/top candidate counts and rows,
   top-candidate summary fields, per-candidate gap/status/stability derivations,
-  recommended next actions, and read-only policy flags before returning. They
+  recommended next actions, and read-only policy flags before returning. The
+  same payload validator can check terminal output after stripping transient
+  fields such as `from_artifact`, and can optionally rebuild the report from
+  the current run evidence to catch drift before printing or writing. They
   cannot promote champions, route agents, run backtests, apply patches, or
   change acceptance.
 - `champion_promotion_dry_run.json` and `champion_promotion_dry_run.md`

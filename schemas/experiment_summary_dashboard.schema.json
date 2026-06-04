@@ -243,10 +243,18 @@
         "codex_unlock_runbook_status",
         "codex_intake_readiness_status",
         "next_command_label",
+        "next_command",
         "next_command_status",
         "next_command_blocked",
         "next_command_blocker_count",
         "next_command_operator_hint",
+        "next_command_boundary",
+        "next_command_writes_artifact",
+        "next_command_requires_explicit_operator_invocation",
+        "next_command_requires_operator_approval",
+        "next_command_records_operator_approval",
+        "next_command_uses_guarded_executor",
+        "next_command_is_hint_only",
         "command_label",
         "command",
         "command_boundary",
@@ -297,6 +305,9 @@
         "next_command_label": {
           "type": "string"
         },
+        "next_command": {
+          "type": "string"
+        },
         "next_command_status": {
           "type": "string"
         },
@@ -309,6 +320,27 @@
         },
         "next_command_operator_hint": {
           "type": "string"
+        },
+        "next_command_boundary": {
+          "type": "string"
+        },
+        "next_command_writes_artifact": {
+          "type": "string"
+        },
+        "next_command_requires_explicit_operator_invocation": {
+          "type": "boolean"
+        },
+        "next_command_requires_operator_approval": {
+          "type": "boolean"
+        },
+        "next_command_records_operator_approval": {
+          "type": "boolean"
+        },
+        "next_command_uses_guarded_executor": {
+          "type": "boolean"
+        },
+        "next_command_is_hint_only": {
+          "type": "boolean"
         },
         "command_label": {
           "type": "string"

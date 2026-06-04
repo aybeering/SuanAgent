@@ -1178,6 +1178,16 @@ def operator_home_manifest_row(
         if isinstance(payload.get("codex_home", {}), dict)
         else {}
     )
+    next_command = (
+        payload.get("next_command", {})
+        if isinstance(payload.get("next_command", {}), dict)
+        else {}
+    )
+    next_boundary = (
+        next_command.get("boundary", {})
+        if isinstance(next_command.get("boundary", {}), dict)
+        else {}
+    )
     command = f"python -m orchestrator.experiments home {run_id} --markdown"
     return {
         "path": "",
@@ -1190,6 +1200,9 @@ def operator_home_manifest_row(
         "action_step": "" if pending else str(action_home.get("active_step_id", "")),
         "next_command_label": (
             "" if pending else str(action_home.get("next_command_label", ""))
+        ),
+        "next_command": (
+            "" if pending else str(next_command.get("command", ""))
         ),
         "next_command_status": (
             "pending"
@@ -1206,6 +1219,39 @@ def operator_home_manifest_row(
             ""
             if pending
             else str(action_home.get("next_command_operator_hint", ""))
+        ),
+        "next_command_boundary": (
+            "" if pending else str(next_boundary.get("boundary_type", ""))
+        ),
+        "next_command_writes_artifact": (
+            "" if pending else str(next_command.get("writes_artifact", ""))
+        ),
+        "next_command_requires_explicit_operator_invocation": (
+            False
+            if pending
+            else bool(
+                next_command.get("requires_explicit_operator_invocation", False)
+            )
+        ),
+        "next_command_requires_operator_approval": (
+            False
+            if pending
+            else bool(next_command.get("requires_operator_approval", False))
+        ),
+        "next_command_records_operator_approval": (
+            False
+            if pending
+            else bool(next_command.get("records_operator_approval", False))
+        ),
+        "next_command_uses_guarded_executor": (
+            False
+            if pending
+            else bool(next_command.get("uses_guarded_executor", False))
+        ),
+        "next_command_is_hint_only": (
+            True
+            if pending
+            else bool(next_command.get("command_is_hint_only", False))
         ),
         "codex_unlock_runbook_status": (
             "pending"

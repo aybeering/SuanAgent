@@ -3982,6 +3982,9 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert refresh["home_summary"]["next_command_label"] == (
         "record_operator_approval"
     )
+    assert refresh["home_summary"]["next_command"].startswith(
+        "python -m orchestrator.operator_action_approval "
+    )
     assert refresh["home_summary"]["next_command_status"] == (
         "blocked_by_home_blockers"
     )
@@ -3990,6 +3993,21 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert refresh["home_summary"]["next_command_operator_hint"] == (
         "Review home blockers before invoking the next command hint."
     )
+    assert refresh["home_summary"]["next_command_boundary"] == (
+        "operator_approval_receipt"
+    )
+    assert refresh["home_summary"]["next_command_writes_artifact"] == (
+        "operator_action_approval.json"
+    )
+    assert (
+        refresh["home_summary"][
+            "next_command_requires_explicit_operator_invocation"
+        ]
+        is True
+    )
+    assert refresh["home_summary"]["next_command_records_operator_approval"] is True
+    assert refresh["home_summary"]["next_command_uses_guarded_executor"] is False
+    assert refresh["home_summary"]["next_command_is_hint_only"] is True
     assert refresh["home_summary"]["codex_unlock_runbook_status"] in {
         "needs_artifacts",
         "blocked",
@@ -4003,6 +4021,10 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert "## Operator Home" in refresh_markdown
     assert "Home command: `review_operator_home`" in refresh_markdown
     assert "Next command status: `blocked_by_home_blockers`" in refresh_markdown
+    assert "Next command boundary: `operator_approval_receipt`" in refresh_markdown
+    assert (
+        "Next command requires explicit invocation: `True`" in refresh_markdown
+    )
     assert "Next command blocked: `True`" in refresh_markdown
     assert "Home Codex unlock runbook:" in refresh_markdown
     assert "Codex unlock runbook command:" in refresh_markdown
@@ -4503,6 +4525,10 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             "codex_intake_ready": False,
             "codex_intake_blocker_count": 0,
             "next_command_label": "review_execution_receipt",
+            "next_command": (
+                "python -m orchestrator.operator_action_audit "
+                "experiments/run --markdown"
+            ),
             "next_command_status": "ready_for_operator",
             "next_command_blocked": False,
             "next_command_blocker_count": 0,
@@ -4510,6 +4536,12 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
                 "The next command is a hint and still requires explicit operator invocation."
             ),
             "next_command_boundary": "read_only_inspection",
+            "next_command_writes_artifact": "",
+            "next_command_requires_explicit_operator_invocation": True,
+            "next_command_requires_operator_approval": False,
+            "next_command_records_operator_approval": False,
+            "next_command_uses_guarded_executor": False,
+            "next_command_is_hint_only": True,
             "home_command_label": "review_operator_home",
             "home_command": (
                 "python -m orchestrator.experiments home run --markdown"
@@ -7274,6 +7306,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert manifest["operator_home"]["next_command_label"] == (
         "record_operator_approval"
     )
+    assert manifest["operator_home"]["next_command"].startswith(
+        "python -m orchestrator.operator_action_approval "
+    )
     assert manifest["operator_home"]["next_command_status"] == (
         "blocked_by_home_blockers"
     )
@@ -7282,6 +7317,25 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert manifest["operator_home"]["next_command_operator_hint"] == (
         "Review home blockers before invoking the next command hint."
     )
+    assert manifest["operator_home"]["next_command_boundary"] == (
+        "operator_approval_receipt"
+    )
+    assert manifest["operator_home"]["next_command_writes_artifact"] == (
+        "operator_action_approval.json"
+    )
+    assert (
+        manifest["operator_home"][
+            "next_command_requires_explicit_operator_invocation"
+        ]
+        is True
+    )
+    assert (
+        manifest["operator_home"]["next_command_requires_operator_approval"]
+        is False
+    )
+    assert manifest["operator_home"]["next_command_records_operator_approval"] is True
+    assert manifest["operator_home"]["next_command_uses_guarded_executor"] is False
+    assert manifest["operator_home"]["next_command_is_hint_only"] is True
     assert manifest["operator_home"]["codex_unlock_runbook_status"] == (
         "needs_artifacts"
     )
@@ -18263,6 +18317,8 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert records[0]["operator_home"]["command"] == ""
     assert records[0]["operator_home"]["next_command_status"] == "unavailable"
     assert records[0]["operator_home"]["next_command_blocked"] is False
+    assert records[0]["operator_home"]["next_command"] == ""
+    assert records[0]["operator_home"]["next_command_boundary"] == ""
     assert records[1]["operator_home"]["available"] is True
     assert records[1]["operator_home"]["reason"] == "iteration_run"
     assert records[1]["operator_home"]["status"] == "needs_operator_review"
@@ -18277,6 +18333,9 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert records[1]["operator_home"]["next_command_label"] == (
         "record_operator_approval"
     )
+    assert records[1]["operator_home"]["next_command"].startswith(
+        "python -m orchestrator.operator_action_approval "
+    )
     assert records[1]["operator_home"]["next_command_status"] == (
         "blocked_by_home_blockers"
     )
@@ -18285,6 +18344,21 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert records[1]["operator_home"]["next_command_operator_hint"] == (
         "Review home blockers before invoking the next command hint."
     )
+    assert records[1]["operator_home"]["next_command_boundary"] == (
+        "operator_approval_receipt"
+    )
+    assert records[1]["operator_home"]["next_command_writes_artifact"] == (
+        "operator_action_approval.json"
+    )
+    assert (
+        records[1]["operator_home"][
+            "next_command_requires_explicit_operator_invocation"
+        ]
+        is True
+    )
+    assert records[1]["operator_home"]["next_command_records_operator_approval"] is True
+    assert records[1]["operator_home"]["next_command_uses_guarded_executor"] is False
+    assert records[1]["operator_home"]["next_command_is_hint_only"] is True
     index_text = (repo / "experiments/index.jsonl").read_text(encoding="utf-8")
     assert "operator_home" not in index_text
     assert latest_iteration_run_id(experiments_dir=repo / "experiments") == (
@@ -18297,6 +18371,8 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert single["operator_home"]["command"] == ""  # type: ignore[index]
     assert single["operator_home"]["next_command_status"] == "unavailable"  # type: ignore[index]
     assert single["operator_home"]["next_command_blocked"] is False  # type: ignore[index]
+    assert single["operator_home"]["next_command"] == ""  # type: ignore[index]
+    assert single["operator_home"]["next_command_boundary"] == ""  # type: ignore[index]
     assert single["decision"]["accepted"] is False  # type: ignore[index]
     assert iteration["kind"] == "iteration_loop"
     assert iteration["summary_path"].endswith("experiments/iteration-show/summary.md")
@@ -18318,6 +18394,9 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert iteration["operator_home"]["next_command_label"] == (  # type: ignore[index]
         "record_operator_approval"
     )
+    assert iteration["operator_home"]["next_command"].startswith(  # type: ignore[index]
+        "python -m orchestrator.operator_action_approval "
+    )
     assert iteration["operator_home"]["next_command_status"] == (  # type: ignore[index]
         "blocked_by_home_blockers"
     )
@@ -18326,6 +18405,21 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert iteration["operator_home"]["next_command_operator_hint"] == (  # type: ignore[index]
         "Review home blockers before invoking the next command hint."
     )
+    assert iteration["operator_home"]["next_command_boundary"] == (  # type: ignore[index]
+        "operator_approval_receipt"
+    )
+    assert iteration["operator_home"]["next_command_writes_artifact"] == (  # type: ignore[index]
+        "operator_action_approval.json"
+    )
+    assert (  # type: ignore[index]
+        iteration["operator_home"][
+            "next_command_requires_explicit_operator_invocation"
+        ]
+        is True
+    )
+    assert iteration["operator_home"]["next_command_records_operator_approval"] is True  # type: ignore[index]
+    assert iteration["operator_home"]["next_command_uses_guarded_executor"] is False  # type: ignore[index]
+    assert iteration["operator_home"]["next_command_is_hint_only"] is True  # type: ignore[index]
     assert iteration["manifest"]["completed_rounds"] == 1  # type: ignore[index]
 
 
@@ -18381,6 +18475,9 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     assert summary["dashboard"]["operator_home_entry"]["next_command_label"] == (  # type: ignore[index]
         "record_operator_approval"
     )
+    assert summary["dashboard"]["operator_home_entry"]["next_command"].startswith(  # type: ignore[index]
+        "python -m orchestrator.operator_action_approval "
+    )
     assert summary["dashboard"]["operator_home_entry"]["next_command_status"] == (  # type: ignore[index]
         "blocked_by_home_blockers"
     )
@@ -18389,6 +18486,21 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     assert summary["dashboard"]["operator_home_entry"]["next_command_operator_hint"] == (  # type: ignore[index]
         "Review home blockers before invoking the next command hint."
     )
+    assert summary["dashboard"]["operator_home_entry"]["next_command_boundary"] == (  # type: ignore[index]
+        "operator_approval_receipt"
+    )
+    assert summary["dashboard"]["operator_home_entry"]["next_command_writes_artifact"] == (  # type: ignore[index]
+        "operator_action_approval.json"
+    )
+    assert (  # type: ignore[index]
+        summary["dashboard"]["operator_home_entry"][
+            "next_command_requires_explicit_operator_invocation"
+        ]
+        is True
+    )
+    assert summary["dashboard"]["operator_home_entry"]["next_command_records_operator_approval"] is True  # type: ignore[index]
+    assert summary["dashboard"]["operator_home_entry"]["next_command_uses_guarded_executor"] is False  # type: ignore[index]
+    assert summary["dashboard"]["operator_home_entry"]["next_command_is_hint_only"] is True  # type: ignore[index]
     assert summary["dashboard"]["recent_limit"] == 5  # type: ignore[index]
     assert len(summary["dashboard"]["recent_runs"]) == 2  # type: ignore[index]
     assert summary["dashboard"]["recent_runs"][-1]["run_id"] == "iteration-rank"  # type: ignore[index]
@@ -18418,6 +18530,14 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     )
     assert (
         "Operator home next command status: `blocked_by_home_blockers`"
+        in summary_markdown
+    )
+    assert (
+        "Operator home next command boundary: `operator_approval_receipt`"
+        in summary_markdown
+    )
+    assert (
+        "Operator home next command requires explicit invocation: `True`"
         in summary_markdown
     )
     assert summary["champion_lineage"]["ok"] is True  # type: ignore[index]
@@ -18579,12 +18699,23 @@ def _minimal_experiment_summary_dashboard_payload() -> dict[str, object]:
             "codex_unlock_runbook_status": "needs_artifacts",
             "codex_intake_readiness_status": "not_available",
             "next_command_label": "record_operator_approval",
+            "next_command": (
+                "python -m orchestrator.operator_action_approval "
+                "experiments/run-001 --action-id action_001 --approve"
+            ),
             "next_command_status": "blocked_by_home_blockers",
             "next_command_blocked": True,
             "next_command_blocker_count": 1,
             "next_command_operator_hint": (
                 "Review home blockers before invoking the next command hint."
             ),
+            "next_command_boundary": "operator_approval_receipt",
+            "next_command_writes_artifact": "operator_action_approval.json",
+            "next_command_requires_explicit_operator_invocation": True,
+            "next_command_requires_operator_approval": False,
+            "next_command_records_operator_approval": True,
+            "next_command_uses_guarded_executor": False,
+            "next_command_is_hint_only": True,
             "command_label": "review_operator_home",
             "command": "python -m orchestrator.experiments home run-001 --markdown",
             "command_boundary": "read_only_inspection",
@@ -18678,6 +18809,8 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     operator_home["artifact_created"] = True
     operator_home["next_command_status"] = "unavailable"
     operator_home["next_command_blocker_count"] = 0
+    operator_home["next_command"] = ""
+    operator_home["next_command_boundary"] = ""
     watchlist["alert_count"] = 2
     watchlist["severity_counts"] = {"critical": 1, "warning": 0, "info": 0}
     watchlist["status"] = "critical"
@@ -18716,6 +18849,8 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     assert (
         "experiment_summary_dashboard operator_home next command unavailable" in errors
     )
+    assert "experiment_summary_dashboard operator_home next command missing" in errors
+    assert "experiment_summary_dashboard operator_home next boundary missing" in errors
     assert (
         "experiment_summary_dashboard operator_home blocker count mismatch" in errors
     )
@@ -20009,6 +20144,12 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
         "blocked_by_home_blockers"
     )
     assert list_payload[1]["operator_home"]["next_command_blocked"] is True
+    assert list_payload[1]["operator_home"]["next_command"].startswith(
+        "python -m orchestrator.operator_action_approval "
+    )
+    assert list_payload[1]["operator_home"]["next_command_boundary"] == (
+        "operator_approval_receipt"
+    )
     show_payload = json.loads(show_result.stdout)
     assert show_payload["kind"] == "single_run"
     assert show_payload["operator_home"]["available"] is False
@@ -20042,6 +20183,12 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
     )
     assert show_iteration_payload["operator_home"]["next_command_status"] == (
         "blocked_by_home_blockers"
+    )
+    assert show_iteration_payload["operator_home"]["next_command"].startswith(
+        "python -m orchestrator.operator_action_approval "
+    )
+    assert show_iteration_payload["operator_home"]["next_command_writes_artifact"] == (
+        "operator_action_approval.json"
     )
 
 
@@ -20123,6 +20270,7 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
         summary["dashboard"]["operator_home_entry"]["next_command_status"]
         == "unavailable"
     )
+    assert summary["dashboard"]["operator_home_entry"]["next_command"] == ""
     assert summary["dashboard"]["top_recent_failure_code"] == "none"
     assert summary["dashboard"]["top_recent_outcome_category"] == "none"
     assert summary["dashboard"]["watchlist"]["schema_version"] == "experiment_watchlist_v1"

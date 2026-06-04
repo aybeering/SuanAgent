@@ -395,6 +395,14 @@ def write_iteration_summary(
             f"`{display_value(operator_home.get('next_command_label'))}`"
         )
         lines.append(
+            "- Next command text: "
+            f"`{display_value(operator_home.get('next_command'))}`"
+        )
+        lines.append(
+            "- Next command boundary: "
+            f"`{display_value(operator_home.get('next_command_boundary'))}`"
+        )
+        lines.append(
             "- Next command status: "
             f"`{display_value(operator_home.get('next_command_status'))}`"
         )
@@ -409,6 +417,30 @@ def write_iteration_summary(
         lines.append(
             "- Next command operator hint: "
             f"{display_value(operator_home.get('next_command_operator_hint'))}"
+        )
+        lines.append(
+            "- Next command writes: "
+            f"`{display_value(operator_home.get('next_command_writes_artifact'))}`"
+        )
+        lines.append(
+            "- Next command requires explicit invocation: "
+            f"`{display_value(operator_home.get('next_command_requires_explicit_operator_invocation'))}`"
+        )
+        lines.append(
+            "- Next command requires approval: "
+            f"`{display_value(operator_home.get('next_command_requires_operator_approval'))}`"
+        )
+        lines.append(
+            "- Next command records approval: "
+            f"`{display_value(operator_home.get('next_command_records_operator_approval'))}`"
+        )
+        lines.append(
+            "- Next command uses guarded executor: "
+            f"`{display_value(operator_home.get('next_command_uses_guarded_executor'))}`"
+        )
+        lines.append(
+            "- Next command hint-only: "
+            f"`{display_value(operator_home.get('next_command_is_hint_only'))}`"
         )
         lines.append(
             "- Codex unlock runbook: "

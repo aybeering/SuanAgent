@@ -473,6 +473,8 @@ def validate_experiment_operator_home_entry(
     next_command_blocker_count = int_value(
         operator_home.get("next_command_blocker_count", -1)
     )
+    next_command_text = str(operator_home.get("next_command", ""))
+    next_command_boundary = str(operator_home.get("next_command_boundary", ""))
     expected_command = (
         f"python -m orchestrator.experiments home {run_id} --markdown"
         if run_id
@@ -499,12 +501,24 @@ def validate_experiment_operator_home_entry(
                 errors.append(
                     "experiment_summary_dashboard operator_home next command unavailable"
                 )
+            if not next_command_text:
+                errors.append(
+                    "experiment_summary_dashboard operator_home next command missing"
+                )
+            if not next_command_boundary:
+                errors.append(
+                    "experiment_summary_dashboard operator_home next boundary missing"
+                )
         else:
             if available or command:
                 errors.append(
                     "experiment_summary_dashboard operator_home non-iteration mismatch"
                 )
             if next_command_status != "unavailable" or next_command_blocked:
+                errors.append(
+                    "experiment_summary_dashboard operator_home non-iteration next command"
+                )
+            if next_command_text or next_command_boundary:
                 errors.append(
                     "experiment_summary_dashboard operator_home non-iteration next command"
                 )
@@ -692,10 +706,18 @@ def experiment_list_operator_home_hint(
         "artifact_created": False,
         "command_is_hint_only": True,
         "next_command_label": "",
+        "next_command": "",
         "next_command_status": "unavailable",
         "next_command_blocked": False,
         "next_command_blocker_count": 0,
         "next_command_operator_hint": "",
+        "next_command_boundary": "",
+        "next_command_writes_artifact": "",
+        "next_command_requires_explicit_operator_invocation": False,
+        "next_command_requires_operator_approval": False,
+        "next_command_records_operator_approval": False,
+        "next_command_uses_guarded_executor": False,
+        "next_command_is_hint_only": True,
     }
     if kind != "iteration_loop" or not run_id:
         return base
@@ -714,6 +736,7 @@ def experiment_list_operator_home_hint(
         "command": command,
         "command_boundary": "read_only_inspection",
         "next_command_label": str(manifest_home.get("next_command_label", "")),
+        "next_command": str(manifest_home.get("next_command", "")),
         "next_command_status": str(
             manifest_home.get("next_command_status", "unknown")
         ),
@@ -725,6 +748,25 @@ def experiment_list_operator_home_hint(
         ),
         "next_command_operator_hint": str(
             manifest_home.get("next_command_operator_hint", "")
+        ),
+        "next_command_boundary": str(manifest_home.get("next_command_boundary", "")),
+        "next_command_writes_artifact": str(
+            manifest_home.get("next_command_writes_artifact", "")
+        ),
+        "next_command_requires_explicit_operator_invocation": bool(
+            manifest_home.get("next_command_requires_explicit_operator_invocation", False)
+        ),
+        "next_command_requires_operator_approval": bool(
+            manifest_home.get("next_command_requires_operator_approval", False)
+        ),
+        "next_command_records_operator_approval": bool(
+            manifest_home.get("next_command_records_operator_approval", False)
+        ),
+        "next_command_uses_guarded_executor": bool(
+            manifest_home.get("next_command_uses_guarded_executor", False)
+        ),
+        "next_command_is_hint_only": bool(
+            manifest_home.get("next_command_is_hint_only", True)
         ),
     }
 
@@ -747,10 +789,18 @@ def experiment_operator_home_entry(
         "codex_unlock_runbook_status": "",
         "codex_intake_readiness_status": "",
         "next_command_label": "",
+        "next_command": "",
         "next_command_status": "unavailable",
         "next_command_blocked": False,
         "next_command_blocker_count": 0,
         "next_command_operator_hint": "",
+        "next_command_boundary": "",
+        "next_command_writes_artifact": "",
+        "next_command_requires_explicit_operator_invocation": False,
+        "next_command_requires_operator_approval": False,
+        "next_command_records_operator_approval": False,
+        "next_command_uses_guarded_executor": False,
+        "next_command_is_hint_only": True,
         "command_label": "",
         "command": "",
         "command_boundary": "",
@@ -793,6 +843,7 @@ def experiment_operator_home_entry(
                 manifest_home.get("codex_intake_readiness_status", "")
             ),
             "next_command_label": str(manifest_home.get("next_command_label", "")),
+            "next_command": str(manifest_home.get("next_command", "")),
             "next_command_status": str(
                 manifest_home.get("next_command_status", "unknown")
             ),
@@ -804,6 +855,29 @@ def experiment_operator_home_entry(
             ),
             "next_command_operator_hint": str(
                 manifest_home.get("next_command_operator_hint", "")
+            ),
+            "next_command_boundary": str(
+                manifest_home.get("next_command_boundary", "")
+            ),
+            "next_command_writes_artifact": str(
+                manifest_home.get("next_command_writes_artifact", "")
+            ),
+            "next_command_requires_explicit_operator_invocation": bool(
+                manifest_home.get(
+                    "next_command_requires_explicit_operator_invocation", False
+                )
+            ),
+            "next_command_requires_operator_approval": bool(
+                manifest_home.get("next_command_requires_operator_approval", False)
+            ),
+            "next_command_records_operator_approval": bool(
+                manifest_home.get("next_command_records_operator_approval", False)
+            ),
+            "next_command_uses_guarded_executor": bool(
+                manifest_home.get("next_command_uses_guarded_executor", False)
+            ),
+            "next_command_is_hint_only": bool(
+                manifest_home.get("next_command_is_hint_only", True)
             ),
             "command_label": "review_operator_home",
             "command": command,
@@ -1158,13 +1232,29 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         f"`{operator_home.get('command', '') or 'unavailable'}`",
         "- Operator home next command: "
         f"`{operator_home.get('next_command_label', '') or 'unavailable'}`",
+        "- Operator home next command text: "
+        f"`{operator_home.get('next_command', '') or 'unavailable'}`",
         "- Operator home next command status: "
         f"`{operator_home.get('next_command_status', 'unavailable')}`",
+        "- Operator home next command boundary: "
+        f"`{operator_home.get('next_command_boundary', '') or 'unavailable'}`",
         "- Operator home next command blocked: "
         f"`{operator_home.get('next_command_blocked', False)}` "
         f"({operator_home.get('next_command_blocker_count', 0)} blocker(s))",
         "- Operator home next command hint: "
         f"{operator_home.get('next_command_operator_hint', '') or 'none'}",
+        "- Operator home next command writes: "
+        f"`{operator_home.get('next_command_writes_artifact', '') or 'none'}`",
+        "- Operator home next command requires explicit invocation: "
+        f"`{operator_home.get('next_command_requires_explicit_operator_invocation', False)}`",
+        "- Operator home next command requires approval: "
+        f"`{operator_home.get('next_command_requires_operator_approval', False)}`",
+        "- Operator home next command records approval: "
+        f"`{operator_home.get('next_command_records_operator_approval', False)}`",
+        "- Operator home next command uses guarded executor: "
+        f"`{operator_home.get('next_command_uses_guarded_executor', False)}`",
+        "- Operator home next command hint-only: "
+        f"`{operator_home.get('next_command_is_hint_only', False)}`",
         "",
         "## Watchlist",
         "",
@@ -3167,6 +3257,7 @@ def operator_view_refresh_home_summary(
             codex_home.get("intake_blocker_count", 0) or 0
         ),
         "next_command_label": str(next_command.get("label", "")),
+        "next_command": str(next_command.get("command", "")),
         "next_command_status": str(action_home.get("next_command_status", "")),
         "next_command_blocked": bool(action_home.get("next_command_blocked", False)),
         "next_command_blocker_count": int(
@@ -3176,6 +3267,24 @@ def operator_view_refresh_home_summary(
             action_home.get("next_command_operator_hint", "")
         ),
         "next_command_boundary": str(next_boundary.get("boundary_type", "")),
+        "next_command_writes_artifact": str(
+            next_command.get("writes_artifact", "")
+        ),
+        "next_command_requires_explicit_operator_invocation": bool(
+            next_command.get("requires_explicit_operator_invocation", False)
+        ),
+        "next_command_requires_operator_approval": bool(
+            next_command.get("requires_operator_approval", False)
+        ),
+        "next_command_records_operator_approval": bool(
+            next_command.get("records_operator_approval", False)
+        ),
+        "next_command_uses_guarded_executor": bool(
+            next_command.get("uses_guarded_executor", False)
+        ),
+        "next_command_is_hint_only": bool(
+            next_command.get("command_is_hint_only", False)
+        ),
         "home_command_label": "review_operator_home",
         "home_command": (
             f"python -m orchestrator.experiments home {run_id} --markdown"
@@ -3467,6 +3576,11 @@ def validate_operator_view_refresh_consistency(
         errors.append("operator_view_refresh home_summary hint-only mismatch")
     if int_value(home_summary.get("next_command_blocker_count", -1)) < 0:
         errors.append("operator_view_refresh home_summary blocker count mismatch")
+    if str(home_summary.get("next_command_label", "")):
+        if not str(home_summary.get("next_command", "")):
+            errors.append("operator_view_refresh home_summary next command missing")
+        if not str(home_summary.get("next_command_boundary", "")):
+            errors.append("operator_view_refresh home_summary next boundary missing")
     if bool(home_summary.get("next_command_blocked", False)) and (
         int_value(home_summary.get("next_command_blocker_count", 0)) < 1
         and str(home_summary.get("next_command_status", "")) != "unavailable"
@@ -3699,6 +3813,10 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     lines.append(f"- Primary focus: `{home_summary.get('primary_focus', '')}`")
     lines.append(f"- Action step: `{home_summary.get('action_step', '')}`")
     lines.append(f"- Next command: `{home_summary.get('next_command_label', '')}`")
+    lines.append(f"- Next command text: `{home_summary.get('next_command', '')}`")
+    lines.append(
+        f"- Next command boundary: `{home_summary.get('next_command_boundary', '')}`"
+    )
     lines.append(
         f"- Next command status: `{home_summary.get('next_command_status', '')}`"
     )
@@ -3712,6 +3830,30 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     lines.append(
         "- Next command operator hint: "
         f"{home_summary.get('next_command_operator_hint', '')}"
+    )
+    lines.append(
+        "- Next command writes: "
+        f"`{home_summary.get('next_command_writes_artifact', '')}`"
+    )
+    lines.append(
+        "- Next command requires explicit invocation: "
+        f"`{home_summary.get('next_command_requires_explicit_operator_invocation', False)}`"
+    )
+    lines.append(
+        "- Next command requires approval: "
+        f"`{home_summary.get('next_command_requires_operator_approval', False)}`"
+    )
+    lines.append(
+        "- Next command records approval: "
+        f"`{home_summary.get('next_command_records_operator_approval', False)}`"
+    )
+    lines.append(
+        "- Next command uses guarded executor: "
+        f"`{home_summary.get('next_command_uses_guarded_executor', False)}`"
+    )
+    lines.append(
+        "- Next command hint-only: "
+        f"`{home_summary.get('next_command_is_hint_only', False)}`"
     )
     lines.append(
         f"- Codex unlock runbook: `{home_summary.get('codex_unlock_runbook_status', '')}`"

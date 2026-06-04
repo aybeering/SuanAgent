@@ -91,18 +91,20 @@ python -m orchestrator.experiments refresh-operator-views <run_id>
 `python -m orchestrator.experiments list --limit N` returns recent append-only
 index rows with a derived `operator_home` hint on each row. Iteration-loop rows
 include the terminal-only `home <run_id> --markdown` command, status, boundary,
-hint-only policy flags, and next-command blocker summary; single-run rows mark
-the hint and next-command state unavailable. The command does not rewrite
-`index.jsonl`, create artifacts, execute commands, run agents, run backtests,
-apply patches, promote champions, or change acceptance.
+hint-only policy flags, next-command text, blocker summary, and next-command
+safety flags; single-run rows mark the hint and next-command state
+unavailable. The command does not rewrite `index.jsonl`, create artifacts,
+execute commands, run agents, run backtests, apply patches, promote champions,
+or change acceptance.
 
 `python -m orchestrator.experiments show <run_id>` includes the same derived
 `operator_home` hint in the compact run payload. Iteration-loop runs expose the
 terminal-only home markdown command plus the next-command label, status,
-blocked flag, blocker count, and operator hint; single-run payloads explicitly
-mark the home hint and next-command state unavailable. This is a read-only
-convenience field and does not rewrite index rows or create an
-`operator_home.json` artifact.
+blocked flag, blocker count, operator hint, command text, boundary, write
+target, approval flags, guarded-executor flag, and hint-only flag; single-run
+payloads explicitly mark the home hint and next-command state unavailable.
+This is a read-only convenience field and does not rewrite index rows or
+create an `operator_home.json` artifact.
 
 Replay and validation:
 
@@ -434,9 +436,11 @@ backtests, apply patches, route agents, or change acceptance.
 Completed iteration runs also record an `operator_home` manifest row and
 `summary.md` section with the read-only markdown command, terminal-only flag,
 current home status, action step, next-command label/status/blocked state,
-next-command blocker count and operator hint, Codex unlock-runbook status, and
-intake readiness status. These fields are navigation hints only; they do not
-create an `operator_home.json` artifact or grant execution authority.
+next-command command text, boundary, blocker count, operator hint, write
+target, explicit-invocation flag, approval flags, guarded-executor flag,
+hint-only flag, Codex unlock-runbook status, and intake readiness status. These
+fields are navigation hints only; they do not create an `operator_home.json`
+artifact or grant execution authority.
 When no run id is supplied, `home` resolves the latest indexed iteration-loop
 run with a saved `manifest.json`; `--latest` makes the same selection explicit.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose the
@@ -569,20 +573,21 @@ existence, SHA-256 fields, pre-refresh cockpit stale-source evidence,
 post-refresh cockpit freshness, refresh-effect status, operator-review-required
 flag, deterministic review reason codes, refreshed-cockpit operator digest
 headline/priority/target-panel state, digest-backed next-command boundary,
-action execution-readiness status, operator-home navigation status, Codex
-unlock-runbook status and command hint, Codex readiness-diff status, Codex
-intake readiness status, blocker delta counts, and per-artifact JSON/Markdown
-output hashes, and still does not execute commands, execute Codex, run agents,
-run backtests, write config, promote champions, apply patches, route agents, or
-change acceptance.
+action execution-readiness status, operator-home navigation status,
+operator-home next-command text and safety flags, Codex unlock-runbook status
+and command hint, Codex readiness-diff status, Codex intake readiness status,
+blocker delta counts, and per-artifact JSON/Markdown output hashes, and still
+does not execute commands, execute Codex, run agents, run backtests, write
+config, promote champions, apply patches, route agents, or change acceptance.
 The receipt is validated in memory against
 `schemas/operator_view_refresh.schema.json` before it is printed, with an
 additional deterministic consistency check for refreshed artifact count and
 order, per-artifact file-path bindings, blocker-delta counters, policy-summary
 derivation, refresh-effect derivation, operator-digest command reason binding,
 operator-digest command boundary binding, home-command hint-only binding, and
-copied review-summary next command, reason, boundary, and post-refresh blocker
-fields, even though it is not written as a new artifact family.
+copied home and review-summary next command, safety, reason, boundary, and
+post-refresh blocker fields, even though it is not written as a new artifact
+family.
 Add `--markdown` to render the same terminal-only receipt as a compact operator
 summary with refreshed artifact paths, hash prefixes, config provenance,
 pre-refresh stale sources, and post-refresh snapshot freshness. The receipt

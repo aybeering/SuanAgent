@@ -340,6 +340,12 @@ from orchestrator.operator_action_dashboard import (
     validate_operator_action_dashboard_payload,
     write_operator_action_dashboard,
 )
+from orchestrator.operator_action_guide import (
+    OPERATOR_ACTION_GUIDE_SCHEMA_VERSION,
+    build_operator_action_guide,
+    render_operator_action_guide_markdown,
+    validate_operator_action_guide_payload,
+)
 from orchestrator.operator_cockpit import (
     OPERATOR_COCKPIT_SCHEMA_VERSION,
     build_codex_unlock_checklist,
@@ -381,6 +387,7 @@ from orchestrator.experiments import (
     operator_action_audit_report,
     operator_action_dashboard_report,
     operator_action_execution_report,
+    operator_action_guide_report,
     operator_action_plan_report,
     operator_cockpit_report,
     codex_cli_unlock_runbook_report,
@@ -2799,6 +2806,29 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending["authority"]["dashboard_can_execute_commands"] is False
     assert pending["policy"]["does_not_record_approval"] is True
     assert "# Operator Action Dashboard" in md_path.read_text(encoding="utf-8")
+    pending_guide = build_operator_action_guide(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    pending_guide_markdown = render_operator_action_guide_markdown(pending_guide)
+    assert pending_guide["schema_version"] == OPERATOR_ACTION_GUIDE_SCHEMA_VERSION
+    assert pending_guide["status"] == "awaiting_operator_approval"
+    assert pending_guide["ok"] is True
+    assert pending_guide["next_command"]["label"] == "record_operator_approval"
+    assert pending_guide["next_command"]["records_operator_approval"] is True
+    assert pending_guide["next_command"]["command_is_hint_only"] is True
+    assert pending_guide["authority"]["guide_can_execute_commands"] is False
+    assert pending_guide["policy"]["does_not_record_approval"] is True
+    assert "# Operator Action Guide" in pending_guide_markdown
+    assert_matches_schema_payload(pending_guide, "operator_action_guide")
+    assert validate_operator_action_guide_payload(
+        pending_guide,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     assert_matches_schema_payload(pending, "operator_action_dashboard")
     assert validate_operator_action_dashboard_file(
         payload_path=json_path,
@@ -2846,6 +2876,22 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert ready["path_closure"]["approval_recorded"] is True
     assert ready["path_closure"]["execution_completed"] is False
     assert ready["path_closure"]["selected_command_digest_matches_plan"] is True
+    ready_guide = build_operator_action_guide(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert ready_guide["status"] == "ready_for_guarded_execution"
+    assert ready_guide["guidance"]["can_invoke_guarded_executor_now"] is True
+    assert ready_guide["next_command"]["label"] == "execute_approved_command"
+    assert ready_guide["next_command"]["uses_guarded_executor"] is True
+    assert validate_operator_action_guide_payload(
+        ready_guide,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     assert any(
         row["label"] == "execute_approved_command"
         for row in ready["recommended_commands"]
@@ -2920,6 +2966,31 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         "operator_action_audit",
         "operator_action_dashboard",
     }
+    completed_guide = build_operator_action_guide(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    completed_guide_markdown = render_operator_action_guide_markdown(completed_guide)
+    assert completed_guide["status"] == "path_closed"
+    assert completed_guide["guidance"]["can_invoke_guarded_executor_now"] is False
+    assert completed_guide["guidance"]["requires_manual_operator_step"] is False
+    assert completed_guide["action_state"]["path_closed"] is True
+    assert "Operator action path is closed." in completed_guide_markdown
+    assert validate_operator_action_guide_payload(
+        completed_guide,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    completed_guide_report = operator_action_guide_report(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+    )
+    assert completed_guide_report["from_artifact"] is False
+    assert completed_guide_report["status"] == "path_closed"
+    assert_matches_schema_payload(completed_guide_report, "operator_action_guide")
     assert any(
         row["label"] == "review_execution_receipt"
         for row in completed["recommended_commands"]
@@ -19462,6 +19533,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     action_dashboard_markdown = render_operator_action_dashboard_markdown(
         action_dashboard
     )
+    action_guide = operator_action_guide_report(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+    )
+    action_guide_markdown = render_operator_action_guide_markdown(action_guide)
     write_operator_unlock_checklist(
         run_dir=repo / "experiments/cli-candidates",
         repo_root=repo,
@@ -19726,6 +19802,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "--experiments-dir",
             "experiments",
             "action-dashboard",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    action_guide_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-guide",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    action_guide_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-guide",
             "cli-candidates",
             "--markdown",
         ],
@@ -20340,6 +20447,22 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         repo_root=repo,
     ) == ()
     assert "# Operator Action Dashboard" in action_dashboard_markdown
+    assert action_guide["from_artifact"] is False
+    assert action_guide["schema_version"] == OPERATOR_ACTION_GUIDE_SCHEMA_VERSION
+    assert action_guide["status"] == "path_closed"
+    assert action_guide["action_state"]["path_closed"] is True
+    assert action_guide["guidance"]["command_is_hint_only"] is True
+    assert action_guide["policy"]["does_not_execute_commands"] is True
+    assert action_guide["authority"]["guide_can_execute_commands"] is False
+    assert_matches_schema_payload(action_guide, "operator_action_guide")
+    assert validate_operator_action_guide_payload(
+        action_guide,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    assert "# Operator Action Guide" in action_guide_markdown
     assert unlock_checklist["from_artifact"] is True
     assert unlock_checklist["schema_version"] == OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION
     assert unlock_checklist["status"] == "not_requested"
@@ -20520,6 +20643,26 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         action_dashboard_markdown_result.stderr
     )
     assert "# Operator Action Dashboard" in action_dashboard_markdown_result.stdout
+    assert action_guide_result.returncode == 0, action_guide_result.stderr
+    action_guide_payload = json.loads(action_guide_result.stdout)
+    assert action_guide_payload["schema_version"] == OPERATOR_ACTION_GUIDE_SCHEMA_VERSION
+    assert action_guide_payload["from_artifact"] is False
+    assert action_guide_payload["status"] == "path_closed"
+    assert action_guide_payload["action_state"]["path_closed"] is True
+    assert action_guide_payload["next_command"]["command_is_hint_only"] is True
+    assert action_guide_payload["policy"]["does_not_execute_commands"] is True
+    assert_matches_schema_payload(action_guide_payload, "operator_action_guide")
+    assert validate_operator_action_guide_payload(
+        action_guide_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    assert action_guide_markdown_result.returncode == 0, (
+        action_guide_markdown_result.stderr
+    )
+    assert "# Operator Action Guide" in action_guide_markdown_result.stdout
     assert unlock_checklist_result.returncode == 0, unlock_checklist_result.stderr
     unlock_checklist_payload = json.loads(unlock_checklist_result.stdout)
     assert unlock_checklist_payload["schema_version"] == (

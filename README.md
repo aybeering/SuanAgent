@@ -63,6 +63,7 @@ python -m orchestrator.experiments action-approval <run_id> --markdown
 python -m orchestrator.experiments action-execution <run_id> --markdown
 python -m orchestrator.experiments action-audit <run_id> --markdown
 python -m orchestrator.experiments action-dashboard <run_id> --markdown
+python -m orchestrator.experiments action-guide <run_id> --markdown
 python -m orchestrator.experiments config-runbook <run_id> --markdown
 python -m orchestrator.experiments unlock-checklist <run_id> --markdown
 python -m orchestrator.experiments unlock-runbook <run_id> --markdown
@@ -95,8 +96,11 @@ the action execution-readiness status, action path-closure status and step
 counts, the digest headline, reason, and boundary classification for the first
 recommended command, and a compact safety-policy summary. The terminal receipt
 is schema-validated before printing, but it does not create another artifact
-family. If a real
-Codex execute=true startup preflight is blocked, the failed run still writes
+family. `action-guide <run_id>` is the terminal-only guided path
+for the same operator action chain: it tells the operator whether approval,
+guarded read-only execution, audit refresh, or dashboard review is next, while
+remaining a hint-only view.
+If a real Codex execute=true startup preflight is blocked, the failed run still writes
 the checklist, execution readiness diff, and summary navigation. The Codex CLI
 unlock runbook turns the same evidence chain into an ordered read-only operator
 guide; it lists the required artifacts and command hints but does not execute

@@ -14,6 +14,11 @@ from orchestrator.run_outcome import build_run_outcome_summary
 from orchestrator.schema_validation import validate_json_file
 
 
+TERMINAL_ONLY_SCHEMA_REFERENCES = (
+    "schemas/operator_action_guide.schema.json",
+)
+
+
 SINGLE_RUN_REQUIRED_FILES = (
     "metrics_before.json",
     "metrics_after.json",

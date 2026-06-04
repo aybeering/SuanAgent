@@ -57,8 +57,9 @@ artifacts, read-only config lineage artifacts,
 read-only run closeout operator dashboard summaries, read-only operator action
 plans, read-only operator action approval receipts, guarded read-only operator
 action execution receipts, read-only operator action audit artifacts, read-only
-operator action dashboard artifacts, read-only operator unlock checklist
-artifacts, read-only Codex CLI unlock runbook artifacts, read-only operator
+operator action dashboard artifacts, terminal-only operator action guide views,
+read-only operator unlock checklist artifacts, read-only Codex CLI unlock runbook
+artifacts, read-only operator
 cockpit artifacts, read-only Codex CLI execution readiness diff artifacts, and
 Codex CLI readiness evidence, plus schema-validated terminal-only operator view
 refresh receipts, operator run review receipts, and experiment summary
@@ -68,7 +69,8 @@ views, agent result stats views, champion lineage views, proposal outcome
 memory views, and memory diagnostics, memory hygiene, memory scope
 recommendation, config change candidate, operator config review, config
 application dry-run, config rollback preview, config operator runbook, config
-lineage, operator action plan, and operator action dashboard views, plus
+lineage, operator action plan, operator action dashboard, and operator action
+guide views, plus
 operator action approval, operator action execution receipt, and operator action
 audit views, operator unlock checklist views, Codex CLI unlock runbook views,
 Codex CLI execution readiness diff views, and operator cockpit views.

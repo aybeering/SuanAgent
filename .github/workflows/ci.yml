@@ -918,6 +918,25 @@ jobs:
           assert "# Operator Action Dashboard" in markdown
           assert "read_only_inspection" in markdown
           PY
+          python -m orchestrator.experiments action-guide ci-adaptive > /tmp/operator_action_guide.json
+          python -m orchestrator.experiments action-guide ci-adaptive --markdown > /tmp/operator_action_guide.md
+          python -m orchestrator.operator_action_guide experiments/ci-adaptive --markdown > /tmp/operator_action_guide_module.md
+          python - <<'PY'
+          import json
+          guide = json.load(open("/tmp/operator_action_guide.json"))
+          markdown = open("/tmp/operator_action_guide.md").read()
+          module_markdown = open("/tmp/operator_action_guide_module.md").read()
+          assert guide["schema_version"] == "operator_action_guide_v1"
+          assert guide["from_artifact"] is False
+          assert guide["status"] == "path_closed"
+          assert guide["action_state"]["path_closed"] is True
+          assert guide["next_command"]["command_is_hint_only"] is True
+          assert guide["guidance"]["command_is_hint_only"] is True
+          assert guide["policy"]["does_not_execute_commands"] is True
+          assert guide["authority"]["guide_can_execute_commands"] is False
+          assert "# Operator Action Guide" in markdown
+          assert "# Operator Action Guide" in module_markdown
+          PY
           python -m orchestrator.operator_unlock_checklist experiments/ci-adaptive
           test -f experiments/ci-adaptive/operator_unlock_checklist.json
           test -f experiments/ci-adaptive/operator_unlock_checklist.md

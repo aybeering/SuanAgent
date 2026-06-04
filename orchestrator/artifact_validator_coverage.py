@@ -202,6 +202,10 @@ INSPECTION_COMMANDS = {
         "python -m orchestrator.operator_action_dashboard",
         "python -m orchestrator.experiments action-dashboard",
     ),
+    "operator_action_guide": (
+        "python -m orchestrator.operator_action_guide",
+        "python -m orchestrator.experiments action-guide",
+    ),
     "operator_unlock_checklist": (
         "python -m orchestrator.operator_unlock_checklist",
         "python -m orchestrator.experiments unlock-checklist",

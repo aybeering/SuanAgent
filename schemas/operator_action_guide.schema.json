@@ -1,0 +1,401 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Operator Action Guide",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "status",
+    "ok",
+    "current_step",
+    "source_dashboard",
+    "action_state",
+    "next_command",
+    "guidance",
+    "command_sequence",
+    "blocker_preview",
+    "authority",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "operator_action_guide_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "awaiting_operator_approval",
+        "ready_for_guarded_execution",
+        "path_closed",
+        "blocked",
+        "review_required"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "current_step": {
+      "type": "string"
+    },
+    "source_dashboard": {
+      "type": "object",
+      "required": [
+        "artifact_name",
+        "from_artifact",
+        "file"
+      ],
+      "properties": {
+        "artifact_name": {
+          "type": "string"
+        },
+        "from_artifact": {
+          "type": "boolean"
+        },
+        "file": {
+          "$ref": "#/$defs/file_record"
+        }
+      }
+    },
+    "action_state": {
+      "$ref": "#/$defs/action_state"
+    },
+    "next_command": {
+      "$ref": "#/$defs/guide_command"
+    },
+    "guidance": {
+      "$ref": "#/$defs/guidance"
+    },
+    "command_sequence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/command_sequence_row"
+      }
+    },
+    "blocker_preview": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "authority": {
+      "type": "object",
+      "required": [
+        "guide_can_record_approval",
+        "guide_can_execute_commands",
+        "guide_can_change_repository",
+        "approval_must_use_operator_action_approval",
+        "execution_must_use_guarded_executor"
+      ],
+      "properties": {
+        "guide_can_record_approval": {
+          "type": "boolean"
+        },
+        "guide_can_execute_commands": {
+          "type": "boolean"
+        },
+        "guide_can_change_repository": {
+          "type": "boolean"
+        },
+        "approval_must_use_operator_action_approval": {
+          "type": "boolean"
+        },
+        "execution_must_use_guarded_executor": {
+          "type": "boolean"
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_saved_or_derived_dashboard_only",
+        "does_not_record_approval",
+        "does_not_execute_commands",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_saved_or_derived_dashboard_only": {
+          "type": "boolean"
+        },
+        "does_not_record_approval": {
+          "type": "boolean"
+        },
+        "does_not_execute_commands": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_write_config": {
+          "type": "boolean"
+        },
+        "does_not_promote_champion": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_route_agents": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "file_record": {
+      "type": "object",
+      "required": [
+        "path",
+        "exists",
+        "sha256",
+        "byte_count"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "byte_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "action_state": {
+      "type": "object",
+      "required": [
+        "dashboard_status",
+        "dashboard_ok",
+        "readiness_status",
+        "readiness_ready",
+        "path_closure_status",
+        "path_closed",
+        "path_completed_step_count",
+        "path_required_step_count",
+        "blocker_count",
+        "selected_command_label"
+      ],
+      "properties": {
+        "dashboard_status": {
+          "type": "string"
+        },
+        "dashboard_ok": {
+          "type": "boolean"
+        },
+        "readiness_status": {
+          "type": "string"
+        },
+        "readiness_ready": {
+          "type": "boolean"
+        },
+        "path_closure_status": {
+          "type": "string"
+        },
+        "path_closed": {
+          "type": "boolean"
+        },
+        "path_completed_step_count": {
+          "type": "integer"
+        },
+        "path_required_step_count": {
+          "type": "integer"
+        },
+        "blocker_count": {
+          "type": "integer"
+        },
+        "selected_command_label": {
+          "type": "string"
+        }
+      }
+    },
+    "guide_command": {
+      "type": "object",
+      "required": [
+        "label",
+        "command",
+        "reason",
+        "writes_artifact",
+        "boundary",
+        "command_is_hint_only",
+        "requires_explicit_operator_invocation",
+        "requires_operator_approval",
+        "records_operator_approval",
+        "uses_guarded_executor"
+      ],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "writes_artifact": {
+          "type": "string"
+        },
+        "boundary": {
+          "$ref": "#/$defs/command_boundary"
+        },
+        "command_is_hint_only": {
+          "type": "boolean"
+        },
+        "requires_explicit_operator_invocation": {
+          "type": "boolean"
+        },
+        "requires_operator_approval": {
+          "type": "boolean"
+        },
+        "records_operator_approval": {
+          "type": "boolean"
+        },
+        "uses_guarded_executor": {
+          "type": "boolean"
+        }
+      }
+    },
+    "command_boundary": {
+      "type": "object",
+      "required": [
+        "boundary_type",
+        "requires_explicit_operator_invocation",
+        "requires_operator_approval",
+        "records_operator_approval",
+        "uses_guarded_executor",
+        "writes_artifact",
+        "executes_agents",
+        "runs_backtests",
+        "applies_patches",
+        "changes_acceptance"
+      ],
+      "properties": {
+        "boundary_type": {
+          "type": "string",
+          "enum": [
+            "read_only_inspection",
+            "read_only_artifact_refresh",
+            "operator_approval_receipt",
+            "guarded_read_only_execution"
+          ]
+        },
+        "requires_explicit_operator_invocation": {
+          "type": "boolean"
+        },
+        "requires_operator_approval": {
+          "type": "boolean"
+        },
+        "records_operator_approval": {
+          "type": "boolean"
+        },
+        "uses_guarded_executor": {
+          "type": "boolean"
+        },
+        "writes_artifact": {
+          "type": "boolean"
+        },
+        "executes_agents": {
+          "type": "boolean"
+        },
+        "runs_backtests": {
+          "type": "boolean"
+        },
+        "applies_patches": {
+          "type": "boolean"
+        },
+        "changes_acceptance": {
+          "type": "boolean"
+        }
+      }
+    },
+    "guidance": {
+      "type": "object",
+      "required": [
+        "headline",
+        "instruction",
+        "next_command_label",
+        "next_command_boundary",
+        "can_invoke_guarded_executor_now",
+        "command_is_hint_only",
+        "requires_manual_operator_step"
+      ],
+      "properties": {
+        "headline": {
+          "type": "string"
+        },
+        "instruction": {
+          "type": "string"
+        },
+        "next_command_label": {
+          "type": "string"
+        },
+        "next_command_boundary": {
+          "type": "string"
+        },
+        "can_invoke_guarded_executor_now": {
+          "type": "boolean"
+        },
+        "command_is_hint_only": {
+          "type": "boolean"
+        },
+        "requires_manual_operator_step": {
+          "type": "boolean"
+        }
+      }
+    },
+    "command_sequence_row": {
+      "type": "object",
+      "required": [
+        "index",
+        "label",
+        "boundary_type",
+        "writes_artifact"
+      ],
+      "properties": {
+        "index": {
+          "type": "integer"
+        },
+        "label": {
+          "type": "string"
+        },
+        "boundary_type": {
+          "type": "string"
+        },
+        "writes_artifact": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

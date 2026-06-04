@@ -65,6 +65,9 @@ python -m orchestrator.experiments action-audit <run_id> --markdown
 python -m orchestrator.operator_action_dashboard experiments/<run_id>
 python -m orchestrator.experiments action-dashboard <run_id>
 python -m orchestrator.experiments action-dashboard <run_id> --markdown
+python -m orchestrator.operator_action_guide experiments/<run_id>
+python -m orchestrator.experiments action-guide <run_id>
+python -m orchestrator.experiments action-guide <run_id> --markdown
 python -m orchestrator.operator_unlock_checklist experiments/<run_id>
 python -m orchestrator.experiments unlock-checklist <run_id>
 python -m orchestrator.experiments unlock-checklist <run_id> --markdown
@@ -372,6 +375,16 @@ Artifact validation checks dashboard command hints through the shared operator
 command-hint validator for known labels, expected write targets, boundary
 classification, current-step coverage, execution-readiness command binding,
 path-closure completion rules, and simple shell-control-token guards.
+`python -m orchestrator.experiments action-guide <run_id>` and `python -m
+orchestrator.operator_action_guide experiments/<run_id>` expose a
+terminal-only `operator_action_guide_v1` payload validated by
+`schemas/operator_action_guide.schema.json`. The guide reads the saved or
+derived action dashboard, reports the current step, first recommended command,
+execution-readiness state, path-closure state, blockers, and a compact
+operator instruction. It never records approval, executes commands, writes
+config, promotes champions, runs agents, runs backtests, applies patches,
+routes agents, or changes acceptance; all commands remain hints that require
+the dedicated approval, guarded executor, audit, or dashboard commands.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose the
 Codex CLI operator-unlock evidence chain as a standalone read-only checklist.
 The iteration loop writes it during closeout before the final cockpit so cockpit

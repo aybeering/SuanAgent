@@ -682,6 +682,8 @@ jobs:
           test -f experiments/ci-adaptive/champion_promotion_approval.md
           test -f experiments/ci-adaptive/config_lineage.json
           test -f experiments/ci-adaptive/config_lineage.md
+          test -f experiments/ci-adaptive/config_operator_runbook.json
+          test -f experiments/ci-adaptive/config_operator_runbook.md
           test -f experiments/ci-adaptive/run_closeout.json
           test -f experiments/ci-adaptive/run_closeout.md
           test -f experiments/ci-adaptive/operator_action_plan.json
@@ -694,6 +696,7 @@ jobs:
           promotion = json.load(open("experiments/ci-adaptive/champion_promotion_dry_run.json"))
           approval = json.load(open("experiments/ci-adaptive/champion_promotion_approval.json"))
           config_lineage = json.load(open("experiments/ci-adaptive/config_lineage.json"))
+          config_runbook = json.load(open("experiments/ci-adaptive/config_operator_runbook.json"))
           closeout = json.load(open("experiments/ci-adaptive/run_closeout.json"))
           action_plan = json.load(open("experiments/ci-adaptive/operator_action_plan.json"))
           manifest = json.load(open("experiments/ci-adaptive/manifest.json"))
@@ -732,6 +735,12 @@ jobs:
           assert config_lineage["status"] == "partial"
           assert config_lineage["checks"]["existing_stage_count"] == 3
           assert config_lineage["policy"]["does_not_write_config"] is True
+          assert config_runbook["schema_version"] == "config_operator_runbook_v1"
+          assert config_runbook["summary"]["workflow_phase"] == "needs_operator_review"
+          assert config_runbook["summary"]["next_command_label"] == "record_operator_approval"
+          assert config_runbook["policy"]["does_not_write_config"] is True
+          assert manifest["config_operator_runbook"]["path"] == "config_operator_runbook.json"
+          assert manifest["config_operator_runbook"]["workflow_phase"] == "needs_operator_review"
           assert closeout["decision_record"]["final_acceptance_authority"] == "deterministic_code"
           assert closeout["policy"]["does_not_execute_agents"] is True
           assert action_plan["schema_version"] == "operator_action_plan_v1"
@@ -1149,6 +1158,9 @@ jobs:
           assert payload["policy"]["inspection_only"] is True
           assert payload["policy"]["does_not_write_config"] is True
           PY
+          python -m orchestrator.experiments config-runbook ci-adaptive --markdown > /tmp/config_runbook.md
+          grep -q "Config Operator Runbook" /tmp/config_runbook.md
+          grep -q "record_operator_approval" /tmp/config_runbook.md
           python -m orchestrator.experiments refresh-operator-views ci-adaptive > /tmp/operator_view_refresh.json
           python -m orchestrator.experiments refresh-operator-views ci-adaptive --markdown > /tmp/operator_view_refresh.md
           python - <<'PY'

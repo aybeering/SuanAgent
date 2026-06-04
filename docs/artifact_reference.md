@@ -159,8 +159,8 @@ experiments/<run_id>/
   config_application_rollback_preview.md    # after rollback preview command
   config_application_restore_receipt.json  # after guarded restore command
   config_application_restore_receipt.md    # after guarded restore command
-  config_operator_runbook.json  # after optional config runbook command
-  config_operator_runbook.md    # after optional config runbook command
+  config_operator_runbook.json
+  config_operator_runbook.md
   config_lineage.json
   config_lineage.md
   agent_result_stats.json
@@ -738,12 +738,14 @@ Replay artifacts:
 - `config_operator_runbook.json` and `config_operator_runbook.md` summarize the
   config candidate, operator review, application dry-run, guarded apply,
   rollback preview, guarded restore, and lineage chain into one ordered
-  operator guide. The runbook lists command hints, marks which commands would
-  write config if explicitly invoked, and remains read-only: it never records
-  approval, executes commands, writes config, restores config, runs agents, or
-  changes acceptance. `python -m orchestrator.experiments config-runbook
-  <run_id>` validates schema, step ordering, command safety, summary counters,
-  authority flags, and read-only policy before printing JSON or markdown.
+  operator guide. The iteration loop writes it during closeout after the final
+  config lineage artifact. The runbook lists command hints, marks which
+  commands would write config if explicitly invoked, and remains read-only: it
+  never records approval, executes commands, writes config, restores config,
+  runs agents, or changes acceptance. `python -m orchestrator.experiments
+  config-runbook <run_id>` validates schema, step ordering, command safety,
+  summary counters, authority flags, and read-only policy before printing JSON
+  or markdown.
 - `config_lineage.json` and `config_lineage.md` connect config candidates,
   operator review, dry-run, apply receipt, rollback preview, and restore
   receipt artifacts into one read-only digest chain for the run.

@@ -70,17 +70,18 @@ python -m orchestrator.experiments execution-readiness-diff <run_id> --markdown
 python -m orchestrator.experiments cockpit <run_id> --markdown
 ```
 
-`iteration_loop` writes the final action dashboard, operator unlock checklist,
-Codex CLI execution readiness diff, and cockpit during closeout; the inspection
-commands can also refresh or render those read-only views after later operator
-artifacts are written. The standalone operator unlock checklist and cockpit
+`iteration_loop` writes the config operator runbook, final action dashboard,
+operator unlock checklist, Codex CLI execution readiness diff, and cockpit
+during closeout; the inspection commands can also refresh or render those
+read-only views after later operator artifacts are written. The standalone
+operator unlock checklist and cockpit
 include Codex CLI startup preflight evidence as read-only views so evidence gaps
 are visible without executing Codex. The checklist also includes blocking
 navigation with related artifact paths and explicit command hints for the
-operator to run manually. The config operator runbook similarly turns the
-config candidate, review, dry-run, guarded apply, rollback preview, guarded
-restore, and lineage chain into an ordered read-only guide without executing
-commands or writing config. The cockpit inspection command also reports whether
+operator to run manually. The config operator runbook turns the config
+candidate, review, dry-run, guarded apply, rollback preview, guarded restore,
+and lineage chain into an ordered read-only guide without executing commands or
+writing config. The cockpit inspection command also reports whether
 the saved cockpit source hashes are stale, so operators can refresh the cockpit
 after updating readiness artifacts. `python -m orchestrator.experiments
 refresh-operator-views <run_id>` refreshes the read-only operator dashboard,

@@ -52,6 +52,7 @@ from orchestrator.champion_promotion_dry_run import write_champion_promotion_dry
 from orchestrator.config_application_dry_run import write_config_application_dry_run
 from orchestrator.config_change_candidate import write_config_change_candidate
 from orchestrator.config_lineage import write_config_lineage
+from orchestrator.config_operator_runbook import write_config_operator_runbook
 from orchestrator.config import (
     DEFAULT_CONFIG_PATH,
     ProjectConfig,
@@ -930,6 +931,13 @@ def finalize_iteration_run(
             config_lineage_checks.get("existing_stage_count", 0) or 0
         ),
     }
+    _, _, config_runbook = write_config_operator_runbook(
+        run_dir=run_dir,
+        repo_root=repo_root,
+    )
+    manifest["config_operator_runbook"] = config_operator_runbook_manifest_row(
+        config_runbook,
+    )
     _, _, challenger_payload = write_candidate_challenger_report(
         run_dir=run_dir,
         experiments_dir=experiments_dir,
@@ -1115,6 +1123,28 @@ def finalize_iteration_run(
     }
     write_json(run_dir / "manifest.json", manifest)
     write_iteration_summary(run_dir=run_dir, manifest=manifest)
+
+
+def config_operator_runbook_manifest_row(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    """Return compact manifest metadata for the config operator runbook."""
+    summary = (
+        payload.get("summary", {})
+        if isinstance(payload.get("summary", {}), dict)
+        else {}
+    )
+    return {
+        "path": "config_operator_runbook.json",
+        "markdown_path": "config_operator_runbook.md",
+        "ready": bool(payload.get("ready", False)),
+        "status": str(payload.get("status", "unknown")),
+        "workflow_phase": str(summary.get("workflow_phase", "")),
+        "next_command_label": str(summary.get("next_command_label", "")),
+        "ready_step_count": int(summary.get("ready_step_count", 0) or 0),
+        "blocked_step_count": int(summary.get("blocked_step_count", 0) or 0),
+        "missing_step_count": int(summary.get("missing_step_count", 0) or 0),
+    }
 
 
 def codex_execution_readiness_diff_manifest_row(

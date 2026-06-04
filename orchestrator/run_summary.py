@@ -197,6 +197,30 @@ def write_iteration_summary(
             f"- Markdown: `{display_value(config_lineage.get('markdown_path'))}`"
         )
 
+    config_runbook = manifest.get("config_operator_runbook")
+    if isinstance(config_runbook, dict):
+        lines.extend(["", "## Config Operator Runbook", ""])
+        lines.append(f"- Status: `{display_value(config_runbook.get('status'))}`")
+        lines.append(f"- Ready: `{display_value(config_runbook.get('ready'))}`")
+        lines.append(
+            "- Workflow phase: "
+            f"`{display_value(config_runbook.get('workflow_phase'))}`"
+        )
+        lines.append(
+            "- Next command: "
+            f"`{display_value(config_runbook.get('next_command_label'))}`"
+        )
+        lines.append(
+            "- Ready / blocked / missing steps: "
+            f"`{display_value(config_runbook.get('ready_step_count'))}` / "
+            f"`{display_value(config_runbook.get('blocked_step_count'))}` / "
+            f"`{display_value(config_runbook.get('missing_step_count'))}`"
+        )
+        lines.append(f"- Artifact: `{display_value(config_runbook.get('path'))}`")
+        lines.append(
+            f"- Markdown: `{display_value(config_runbook.get('markdown_path'))}`"
+        )
+
     challenger = manifest.get("candidate_challenger_report")
     if isinstance(challenger, dict):
         lines.extend(["", "## Candidate Challenger Report", ""])

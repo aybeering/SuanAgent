@@ -5643,6 +5643,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "config_application_dry_run.md").exists()
     assert (run_dir / "config_lineage.json").exists()
     assert (run_dir / "config_lineage.md").exists()
+    assert (run_dir / "config_operator_runbook.json").exists()
+    assert (run_dir / "config_operator_runbook.md").exists()
     assert (run_dir / "agent_result_stats.json").exists()
     assert (run_dir / "agent_activation_preflight.json").exists()
     assert (run_dir / "agent_activation_preflight.md").exists()
@@ -5776,6 +5778,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         (run_dir / "config_lineage.json").read_text(encoding="utf-8")
     )
     config_lineage_markdown = (run_dir / "config_lineage.md").read_text(
+        encoding="utf-8"
+    )
+    config_runbook = json.loads(
+        (run_dir / "config_operator_runbook.json").read_text(encoding="utf-8")
+    )
+    config_runbook_markdown = (run_dir / "config_operator_runbook.md").read_text(
         encoding="utf-8"
     )
     agent_stats = json.loads(
@@ -6082,6 +6090,52 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert validate_config_lineage_file(
         payload_path=run_dir / "config_lineage.json",
         repo_root=Path.cwd(),
+    ) == ()
+    assert manifest["config_operator_runbook"]["path"] == (
+        "config_operator_runbook.json"
+    )
+    assert manifest["config_operator_runbook"]["markdown_path"] == (
+        "config_operator_runbook.md"
+    )
+    assert manifest["config_operator_runbook"]["status"] == (
+        config_runbook["status"]
+    )
+    assert manifest["config_operator_runbook"]["workflow_phase"] == (
+        config_runbook["summary"]["workflow_phase"]
+    )
+    assert manifest["config_operator_runbook"]["next_command_label"] == (
+        config_runbook["summary"]["next_command_label"]
+    )
+    assert manifest["config_operator_runbook"]["ready_step_count"] == (
+        config_runbook["summary"]["ready_step_count"]
+    )
+    assert manifest["config_operator_runbook"]["blocked_step_count"] == (
+        config_runbook["summary"]["blocked_step_count"]
+    )
+    assert manifest["config_operator_runbook"]["missing_step_count"] == (
+        config_runbook["summary"]["missing_step_count"]
+    )
+    assert config_runbook["schema_version"] == CONFIG_OPERATOR_RUNBOOK_SCHEMA_VERSION
+    assert config_runbook["run_id"] == run_id
+    assert config_runbook["summary"]["workflow_phase"] == "no_config_candidates"
+    assert config_runbook["summary"]["next_command_label"] == ""
+    assert config_runbook["policy"]["does_not_write_config"] is True
+    assert "# Config Operator Runbook" in config_runbook_markdown
+    assert "## Config Operator Runbook" in summary_markdown
+    assert "- Workflow phase: `no_config_candidates`" in summary_markdown
+    assert_matches_schema(
+        run_dir / "config_operator_runbook.json",
+        "config_operator_runbook",
+    )
+    assert validate_config_operator_runbook_file(
+        payload_path=run_dir / "config_operator_runbook.json",
+        repo_root=repo,
+    ) == ()
+    assert validate_config_operator_runbook_payload(
+        config_runbook,
+        run_dir=run_dir,
+        repo_root=repo,
+        require_current_evidence=True,
     ) == ()
     assert manifest["candidate_challenger_report"]["path"] == (
         "candidate_challenger_report.json"

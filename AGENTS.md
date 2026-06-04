@@ -58,8 +58,8 @@ read-only run closeout operator dashboard summaries, read-only operator action
 plans, read-only operator action approval receipts, guarded read-only operator
 action execution receipts, read-only operator action audit artifacts, read-only
 operator action dashboard artifacts, terminal-only operator action guide views,
-read-only operator unlock checklist artifacts, read-only Codex CLI unlock runbook
-artifacts, read-only operator
+terminal-only operator home views, read-only operator unlock checklist
+artifacts, read-only Codex CLI unlock runbook artifacts, read-only operator
 cockpit artifacts, read-only Codex CLI execution readiness diff artifacts, and
 Codex CLI readiness evidence, plus schema-validated terminal-only operator view
 refresh receipts, operator run review receipts, and experiment summary
@@ -73,7 +73,8 @@ lineage, operator action plan, operator action dashboard, and operator action
 guide views, plus
 operator action approval, operator action execution receipt, and operator action
 audit views, operator unlock checklist views, Codex CLI unlock runbook views,
-Codex CLI execution readiness diff views, and operator cockpit views.
+Codex CLI execution readiness diff views, operator cockpit views, and operator
+home views.
 
 Still out of scope:
 
@@ -242,6 +243,10 @@ The iteration loop writes the final operator action dashboard and cockpit
 during closeout, along with the standalone operator unlock checklist and Codex
 CLI execution readiness diff. Explicit commands may refresh them after later
 operator artifacts are written.
+Operator home views may combine the current cockpit and operator action guide
+into a terminal-only landing page. They must remain read-only and must not
+record approval, execute commands, write config, promote champions, run agents,
+run backtests, apply patches, route agents, or change acceptance.
 
 ## Strategy Policy
 

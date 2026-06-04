@@ -69,6 +69,7 @@ python -m orchestrator.experiments unlock-checklist <run_id> --markdown
 python -m orchestrator.experiments unlock-runbook <run_id> --markdown
 python -m orchestrator.experiments execution-readiness-diff <run_id> --markdown
 python -m orchestrator.experiments cockpit <run_id> --markdown
+python -m orchestrator.experiments home <run_id> --markdown
 ```
 
 `iteration_loop` writes the config operator runbook, final action dashboard,
@@ -101,6 +102,11 @@ for the same operator action chain: it tells the operator whether approval,
 guarded read-only execution, audit refresh, or dashboard review is next, while
 remaining a hint-only view. It also includes a four-step guided checklist for
 audit refresh, approval, guarded execution, and dashboard review.
+`home <run_id>` is the terminal-only operator landing page: it combines run
+outcome, cockpit review priority, the action guide checklist, next-command
+hint, blockers, and compact command-center rows without recording approval,
+executing commands, running agents, running backtests, writing config,
+promoting champions, applying patches, routing agents, or changing acceptance.
 If a real Codex execute=true startup preflight is blocked, the failed run still writes
 the checklist, execution readiness diff, and summary navigation. The Codex CLI
 unlock runbook turns the same evidence chain into an ordered read-only operator

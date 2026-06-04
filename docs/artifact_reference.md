@@ -68,6 +68,9 @@ python -m orchestrator.experiments action-dashboard <run_id> --markdown
 python -m orchestrator.operator_action_guide experiments/<run_id>
 python -m orchestrator.experiments action-guide <run_id>
 python -m orchestrator.experiments action-guide <run_id> --markdown
+python -m orchestrator.operator_home experiments/<run_id>
+python -m orchestrator.experiments home <run_id>
+python -m orchestrator.experiments home <run_id> --markdown
 python -m orchestrator.operator_unlock_checklist experiments/<run_id>
 python -m orchestrator.experiments unlock-checklist <run_id>
 python -m orchestrator.experiments unlock-checklist <run_id> --markdown
@@ -387,6 +390,15 @@ records approval, executes commands, writes config, promotes champions, runs
 agents, runs backtests, applies patches, routes agents, or changes acceptance;
 all commands remain hints that require the dedicated approval, guarded
 executor, audit, or dashboard commands.
+`python -m orchestrator.experiments home <run_id>` and `python -m
+orchestrator.operator_home experiments/<run_id>` expose a terminal-only
+`operator_home_v1` payload validated by `schemas/operator_home.schema.json`.
+The home view derives from the current cockpit and action guide, then combines
+run outcome, primary focus, guided action path, next command, cockpit review
+priority, compact command-center rows, blockers, and source view records into
+one operator landing page. It does not create run artifacts, record approval,
+execute commands, write config, promote champions, run agents, run backtests,
+apply patches, route agents, or change acceptance.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose the
 Codex CLI operator-unlock evidence chain as a standalone read-only checklist.
 The iteration loop writes it during closeout before the final cockpit so cockpit

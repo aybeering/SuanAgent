@@ -346,6 +346,12 @@ from orchestrator.operator_action_guide import (
     render_operator_action_guide_markdown,
     validate_operator_action_guide_payload,
 )
+from orchestrator.operator_home import (
+    OPERATOR_HOME_SCHEMA_VERSION,
+    build_operator_home,
+    render_operator_home_markdown,
+    validate_operator_home_payload,
+)
 from orchestrator.operator_cockpit import (
     OPERATOR_COCKPIT_SCHEMA_VERSION,
     build_codex_unlock_checklist,
@@ -388,6 +394,7 @@ from orchestrator.experiments import (
     operator_action_dashboard_report,
     operator_action_execution_report,
     operator_action_guide_report,
+    operator_home_report,
     operator_action_plan_report,
     operator_cockpit_report,
     codex_cli_unlock_runbook_report,
@@ -2843,6 +2850,34 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         repo_root=repo,
         require_current_evidence=True,
     ) == ()
+    pending_home = build_operator_home(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    pending_home_markdown = render_operator_home_markdown(pending_home)
+    assert pending_home["schema_version"] == OPERATOR_HOME_SCHEMA_VERSION
+    assert pending_home["status"] == "needs_operator_review"
+    assert pending_home["action_home"]["guide_status"] == (
+        "awaiting_operator_approval"
+    )
+    assert pending_home["action_home"]["active_step_id"] == "operator_approval"
+    assert pending_home["action_home"]["next_command_label"] == (
+        "record_operator_approval"
+    )
+    assert pending_home["next_command"]["command_is_hint_only"] is True
+    assert pending_home["authority"]["home_can_execute_commands"] is False
+    assert pending_home["policy"]["does_not_execute_commands"] is True
+    assert "# Operator Home" in pending_home_markdown
+    assert "## Guided Path" in pending_home_markdown
+    assert_matches_schema_payload(pending_home, "operator_home")
+    assert validate_operator_home_payload(
+        pending_home,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     assert_matches_schema_payload(pending, "operator_action_dashboard")
     assert validate_operator_action_dashboard_file(
         payload_path=json_path,
@@ -2908,6 +2943,29 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     )
     assert validate_operator_action_guide_payload(
         ready_guide,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    ready_home = build_operator_home(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert ready_home["status"] == "needs_operator_review"
+    assert ready_home["action_home"]["guide_status"] == (
+        "ready_for_guarded_execution"
+    )
+    assert ready_home["action_home"]["active_step_id"] == "guarded_execution"
+    assert ready_home["action_home"]["next_command_label"] == (
+        "execute_approved_command"
+    )
+    assert ready_home["action_home"]["can_invoke_guarded_executor_now"] is True
+    assert ready_home["next_command"]["uses_guarded_executor"] is True
+    assert ready_home["authority"]["home_can_execute_commands"] is False
+    assert validate_operator_home_payload(
+        ready_home,
         run_dir=run_dir,
         experiments_dir=repo / "experiments",
         repo_root=repo,
@@ -3007,6 +3065,29 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert "## Guided Path" in completed_guide_markdown
     assert validate_operator_action_guide_payload(
         completed_guide,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    completed_home = build_operator_home(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    completed_home_markdown = render_operator_home_markdown(completed_home)
+    assert completed_home["status"] == "needs_operator_review"
+    assert completed_home["action_home"]["guide_status"] == "path_closed"
+    assert completed_home["action_home"]["active_step_id"] == "dashboard_review"
+    assert completed_home["action_home"]["completed_step_count"] == 4
+    assert completed_home["guided_path"]["completed_step_count"] == 4
+    assert completed_home["next_command"]["label"] == "review_execution_receipt"
+    assert completed_home["command_center"][0]["source"] == "action_next"
+    assert completed_home["policy"]["does_not_change_acceptance"] is True
+    assert "# Operator Home" in completed_home_markdown
+    assert_matches_schema_payload(completed_home, "operator_home")
+    assert validate_operator_home_payload(
+        completed_home,
         run_dir=run_dir,
         experiments_dir=repo / "experiments",
         repo_root=repo,
@@ -19616,6 +19697,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         experiments_dir=repo / "experiments",
     )
     cockpit_markdown = render_operator_cockpit_markdown(cockpit)
+    operator_home = operator_home_report(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+    )
+    operator_home_markdown = render_operator_home_markdown(operator_home)
     result = subprocess.run(
         [
             sys.executable,
@@ -19862,6 +19948,50 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "experiments",
             "action-guide",
             "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    operator_home_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "home",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    operator_home_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "home",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    operator_home_module_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.operator_home",
+            "experiments/cli-candidates",
             "--markdown",
         ],
         cwd=repo,
@@ -20496,6 +20626,27 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         require_current_evidence=True,
     ) == ()
     assert "# Operator Action Guide" in action_guide_markdown
+    assert operator_home["from_artifact"] is False
+    assert operator_home["schema_version"] == OPERATOR_HOME_SCHEMA_VERSION
+    assert operator_home["status"] == "needs_operator_review"
+    assert operator_home["action_home"]["guide_status"] == "path_closed"
+    assert operator_home["action_home"]["active_step_id"] == "dashboard_review"
+    assert operator_home["action_home"]["completed_step_count"] == 4
+    assert operator_home["guided_path"]["completed_step_count"] == 4
+    assert operator_home["next_command"]["command_is_hint_only"] is True
+    assert operator_home["command_center"][0]["source"] == "action_next"
+    assert operator_home["policy"]["does_not_execute_commands"] is True
+    assert operator_home["authority"]["home_can_execute_commands"] is False
+    assert_matches_schema_payload(operator_home, "operator_home")
+    assert validate_operator_home_payload(
+        operator_home,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    assert "# Operator Home" in operator_home_markdown
+    assert "## Guided Path" in operator_home_markdown
     assert unlock_checklist["from_artifact"] is True
     assert unlock_checklist["schema_version"] == OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION
     assert unlock_checklist["status"] == "not_requested"
@@ -20704,6 +20855,39 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert "# Operator Action Guide" in action_guide_markdown_result.stdout
     assert "## Guided Path" in action_guide_markdown_result.stdout
+    assert operator_home_result.returncode == 0, operator_home_result.stderr
+    operator_home_payload = json.loads(operator_home_result.stdout)
+    assert operator_home_payload["schema_version"] == OPERATOR_HOME_SCHEMA_VERSION
+    assert operator_home_payload["from_artifact"] is False
+    assert operator_home_payload["status"] == "needs_operator_review"
+    assert operator_home_payload["action_home"]["guide_status"] == "path_closed"
+    assert operator_home_payload["action_home"]["active_step_id"] == (
+        "dashboard_review"
+    )
+    assert operator_home_payload["action_home"]["completed_step_count"] == 4
+    assert operator_home_payload["guided_path"]["completed_step_count"] == 4
+    assert operator_home_payload["next_command"]["command_is_hint_only"] is True
+    assert operator_home_payload["command_center"][0]["source"] == "action_next"
+    assert operator_home_payload["policy"]["does_not_execute_commands"] is True
+    assert operator_home_payload["authority"]["home_can_execute_commands"] is False
+    assert_matches_schema_payload(operator_home_payload, "operator_home")
+    assert validate_operator_home_payload(
+        operator_home_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    assert operator_home_markdown_result.returncode == 0, (
+        operator_home_markdown_result.stderr
+    )
+    assert "# Operator Home" in operator_home_markdown_result.stdout
+    assert "## Guided Path" in operator_home_markdown_result.stdout
+    assert operator_home_module_markdown_result.returncode == 0, (
+        operator_home_module_markdown_result.stderr
+    )
+    assert "# Operator Home" in operator_home_module_markdown_result.stdout
+    assert "## Guided Path" in operator_home_module_markdown_result.stdout
     assert unlock_checklist_result.returncode == 0, unlock_checklist_result.stderr
     unlock_checklist_payload = json.loads(unlock_checklist_result.stdout)
     assert unlock_checklist_payload["schema_version"] == (

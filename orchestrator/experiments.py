@@ -80,6 +80,11 @@ from orchestrator.operator_cockpit import (
     validate_operator_cockpit_payload,
     write_operator_cockpit,
 )
+from orchestrator.operator_home import (
+    build_operator_home,
+    render_operator_home_markdown,
+    validate_operator_home_payload,
+)
 from orchestrator.operator_unlock_checklist import (
     build_operator_unlock_checklist,
     render_operator_unlock_checklist_markdown,
@@ -2557,6 +2562,35 @@ def operator_cockpit_report(
     )
 
 
+def operator_home_report(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+) -> dict[str, object]:
+    """Return the terminal-only operator home for one run."""
+    run_dir = experiments_dir / run_id
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    payload = build_operator_home(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=experiments_dir.parent,
+    )
+    errors = validate_operator_home_payload(
+        payload,
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=experiments_dir.parent,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "operator home failed schema validation: " + "; ".join(errors)
+        )
+    payload["from_artifact"] = False
+    return payload
+
+
 def refresh_operator_views(
     *,
     run_id: str,
@@ -4308,6 +4342,17 @@ def main() -> None:
         help="Render the operator cockpit as markdown.",
     )
 
+    home_parser = subparsers.add_parser(
+        "home",
+        help="Show the terminal-only operator home for one iteration run.",
+    )
+    home_parser.add_argument("run_id")
+    home_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the operator home as markdown.",
+    )
+
     refresh_views_parser = subparsers.add_parser(
         "refresh-operator-views",
         help="Refresh source-hash-bound read-only operator views in safe order.",
@@ -4707,6 +4752,14 @@ def main() -> None:
         )
         if args.markdown:
             print(render_operator_cockpit_markdown(payload), end="")
+            return
+    elif args.command == "home":
+        payload = operator_home_report(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
+        )
+        if args.markdown:
+            print(render_operator_home_markdown(payload), end="")
             return
     elif args.command == "refresh-operator-views":
         payload = refresh_operator_views(

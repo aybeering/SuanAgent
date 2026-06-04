@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Operator Home",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "status",
+    "ok",
+    "headline",
+    "primary_focus",
+    "run_summary",
+    "action_home",
+    "guided_path",
+    "next_command",
+    "review_priority",
+    "command_center",
+    "blockers",
+    "source_views",
+    "authority",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["operator_home_v1"]
+    },
+    "run_id": {"type": "string", "minLength": 1},
+    "run_dir": {"type": "string", "minLength": 1},
+    "status": {
+      "type": "string",
+      "enum": [
+        "awaiting_operator_approval",
+        "ready_for_guarded_execution",
+        "review_ready",
+        "review_required",
+        "needs_operator_review",
+        "blocked"
+      ]
+    },
+    "ok": {"type": "boolean"},
+    "headline": {"type": "string"},
+    "primary_focus": {"type": "string"},
+    "run_summary": {"$ref": "#/$defs/run_summary"},
+    "action_home": {"$ref": "#/$defs/action_home"},
+    "guided_path": {"type": "object"},
+    "next_command": {"type": "object"},
+    "review_priority": {"$ref": "#/$defs/review_priority"},
+    "command_center": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/command_row"}
+    },
+    "blockers": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "source_views": {"$ref": "#/$defs/source_views"},
+    "authority": {"$ref": "#/$defs/authority"},
+    "policy": {"$ref": "#/$defs/policy"}
+  },
+  "$defs": {
+    "run_summary": {
+      "type": "object",
+      "required": [
+        "run_status",
+        "outcome_category",
+        "primary_code",
+        "artifact_health_ok",
+        "scope_health_ok",
+        "candidate_quality_selected_count",
+        "candidate_quality_top_failure_code"
+      ],
+      "properties": {
+        "run_status": {"type": "string"},
+        "outcome_category": {"type": "string"},
+        "primary_code": {"type": "string"},
+        "artifact_health_ok": {"type": "boolean"},
+        "scope_health_ok": {"type": "boolean"},
+        "candidate_quality_selected_count": {"type": "integer"},
+        "candidate_quality_top_failure_code": {"type": "string"}
+      }
+    },
+    "action_home": {
+      "type": "object",
+      "required": [
+        "guide_status",
+        "current_step",
+        "active_step_id",
+        "completed_step_count",
+        "step_count",
+        "next_command_label",
+        "next_command_boundary",
+        "can_invoke_guarded_executor_now"
+      ],
+      "properties": {
+        "guide_status": {"type": "string"},
+        "current_step": {"type": "string"},
+        "active_step_id": {"type": "string"},
+        "completed_step_count": {"type": "integer"},
+        "step_count": {"type": "integer"},
+        "next_command_label": {"type": "string"},
+        "next_command_boundary": {"type": "string"},
+        "can_invoke_guarded_executor_now": {"type": "boolean"}
+      }
+    },
+    "review_priority": {
+      "type": "object",
+      "required": [
+        "priority",
+        "target_panel",
+        "target_panel_title",
+        "command_label",
+        "command"
+      ],
+      "properties": {
+        "priority": {"type": "string"},
+        "target_panel": {"type": "string"},
+        "target_panel_title": {"type": "string"},
+        "command_label": {"type": "string"},
+        "command": {"type": "string"}
+      }
+    },
+    "command_row": {
+      "type": "object",
+      "required": [
+        "source",
+        "label",
+        "command",
+        "reason",
+        "boundary_type",
+        "command_is_hint_only"
+      ],
+      "properties": {
+        "source": {"type": "string"},
+        "label": {"type": "string"},
+        "command": {"type": "string"},
+        "reason": {"type": "string"},
+        "boundary_type": {"type": "string"},
+        "command_is_hint_only": {"type": "boolean"}
+      }
+    },
+    "source_views": {
+      "type": "object",
+      "required": [
+        "operator_cockpit",
+        "operator_action_dashboard",
+        "operator_action_plan",
+        "run_closeout"
+      ],
+      "properties": {
+        "operator_cockpit": {"$ref": "#/$defs/file_record"},
+        "operator_action_dashboard": {"$ref": "#/$defs/file_record"},
+        "operator_action_plan": {"$ref": "#/$defs/file_record"},
+        "run_closeout": {"$ref": "#/$defs/file_record"}
+      }
+    },
+    "file_record": {
+      "type": "object",
+      "required": ["path", "exists", "sha256", "byte_count"],
+      "properties": {
+        "path": {"type": "string"},
+        "exists": {"type": "boolean"},
+        "sha256": {"type": "string"},
+        "byte_count": {"type": "integer"}
+      }
+    },
+    "authority": {
+      "type": "object",
+      "required": [
+        "home_can_record_approval",
+        "home_can_execute_commands",
+        "home_can_write_config",
+        "home_can_promote_champion",
+        "home_can_change_acceptance",
+        "approval_must_use_operator_action_approval",
+        "execution_must_use_guarded_executor"
+      ],
+      "properties": {
+        "home_can_record_approval": {"type": "boolean"},
+        "home_can_execute_commands": {"type": "boolean"},
+        "home_can_write_config": {"type": "boolean"},
+        "home_can_promote_champion": {"type": "boolean"},
+        "home_can_change_acceptance": {"type": "boolean"},
+        "approval_must_use_operator_action_approval": {"type": "boolean"},
+        "execution_must_use_guarded_executor": {"type": "boolean"}
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "terminal_only",
+        "does_not_record_approval",
+        "does_not_execute_commands",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "inspection_only": {"type": "boolean"},
+        "terminal_only": {"type": "boolean"},
+        "does_not_record_approval": {"type": "boolean"},
+        "does_not_execute_commands": {"type": "boolean"},
+        "does_not_execute_agents": {"type": "boolean"},
+        "does_not_run_backtests": {"type": "boolean"},
+        "does_not_write_config": {"type": "boolean"},
+        "does_not_promote_champion": {"type": "boolean"},
+        "does_not_apply_patches": {"type": "boolean"},
+        "does_not_route_agents": {"type": "boolean"},
+        "does_not_change_acceptance": {"type": "boolean"}
+      }
+    }
+  }
+}

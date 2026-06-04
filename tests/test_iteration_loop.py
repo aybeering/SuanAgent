@@ -12258,6 +12258,46 @@ def test_artifact_validator_reports_summary_header_drift(tmp_path: Path) -> None
     )
 
 
+def test_artifact_validator_reports_summary_outcome_and_intake_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-summary-outcome-intake-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments" / run_id
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    outcome = manifest["run_outcome_summary"]
+    intake = manifest["agent_intake_summary"]
+    summary_path = run_dir / "summary.md"
+    summary_text = summary_path.read_text(encoding="utf-8")
+    summary_text = summary_text.replace(
+        f"- Category: `{outcome['category']}`",
+        "- Category: `accepted`",
+    )
+    summary_text = summary_text.replace(
+        f"- Blocked rounds: `{intake['blocked_round_count']}`",
+        "- Blocked rounds: `99`",
+    )
+    summary_path.write_text(summary_text, encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert "summary.md run_outcome_summary category mismatch" in report["errors"]
+    assert (
+        "summary.md agent_intake_summary blocked_round_count mismatch"
+        in report["errors"]
+    )
+
+
 def test_artifact_validator_reports_champion_schema_errors(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     run_iteration_loop(

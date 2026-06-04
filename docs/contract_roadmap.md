@@ -144,7 +144,9 @@ Implemented or allowed V0.5 components:
     backtests, changing deterministic gates, or changing acceptance.
     The artifact validator also binds the saved `summary.md` top-level run
     header back to `manifest.json` for run id, status, completed-round,
-    accepted-round, stop-reason, and final-strategy-commit consistency.
+    accepted-round, stop-reason, and final-strategy-commit consistency, and
+    binds the `summary.md` run-outcome and agent-intake sections back to their
+    corresponding manifest summaries.
     Experiment summary dashboards and operator cockpit summaries surface the
     same outcome category, primary stage, and primary code as read-only
     navigation so recent run history and per-run review show why the loop

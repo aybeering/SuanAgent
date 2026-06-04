@@ -488,6 +488,16 @@ def validate_iteration_run(
         manifest=manifest,
         report=report,
     )
+    validate_iteration_summary_run_outcome(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
+    validate_iteration_summary_agent_intake(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
     validate_iteration_summary_operator_home(
         run_dir=run_dir,
         manifest=manifest,
@@ -595,6 +605,103 @@ def validate_iteration_summary_header(
     for field_name, expected_line in expected_lines:
         if expected_line not in summary_text:
             add_error(report, f"summary.md iteration header {field_name} mismatch")
+
+
+def validate_iteration_summary_run_outcome(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md run-outcome section mirrors manifest.json."""
+    outcome_summary = manifest.get("run_outcome_summary")
+    if not isinstance(outcome_summary, dict):
+        return
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Run Outcome Summary",
+    )
+    if not section:
+        add_error(report, "summary.md run_outcome_summary section missing")
+        return
+    expected_lines: tuple[tuple[str, str], ...] = (
+        (
+            "category",
+            f"- Category: `{markdown_display_value(outcome_summary.get('category'))}`",
+        ),
+        (
+            "primary_code",
+            "- Primary code: "
+            f"`{markdown_display_value(outcome_summary.get('primary_code'))}`",
+        ),
+        (
+            "primary_stage",
+            "- Primary stage: "
+            f"`{markdown_display_value(outcome_summary.get('primary_stage'))}`",
+        ),
+        (
+            "primary_message",
+            "- Primary message: "
+            f"{markdown_escape_text(markdown_display_value(outcome_summary.get('primary_message')))}",
+        ),
+        (
+            "artifact_ok",
+            "- Artifact OK: "
+            f"`{markdown_display_value(outcome_summary.get('artifact_ok'))}`",
+        ),
+    )
+    for field_name, expected_line in expected_lines:
+        if expected_line not in section:
+            add_error(report, f"summary.md run_outcome_summary {field_name} mismatch")
+
+
+def validate_iteration_summary_agent_intake(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md agent-intake section mirrors manifest.json."""
+    intake_summary = manifest.get("agent_intake_summary")
+    if not isinstance(intake_summary, dict):
+        return
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Agent Intake Summary",
+    )
+    if not section:
+        add_error(report, "summary.md agent_intake_summary section missing")
+        return
+    expected_lines: tuple[tuple[str, str], ...] = (
+        (
+            "blocked_round_count",
+            "- Blocked rounds: "
+            f"`{markdown_display_value(intake_summary.get('blocked_round_count'))}`",
+        ),
+        (
+            "passed_round_count",
+            "- Passed rounds: "
+            f"`{markdown_display_value(intake_summary.get('passed_round_count'))}`",
+        ),
+        (
+            "primary_code",
+            "- Primary code: "
+            f"`{markdown_display_value(intake_summary.get('primary_code'))}`",
+        ),
+        (
+            "top_blocking_code",
+            "- Top blocking code: "
+            f"`{markdown_display_value(intake_summary.get('top_blocking_code'))}`",
+        ),
+        (
+            "retryable_round_count",
+            "- Retryable rounds: "
+            f"`{markdown_display_value(intake_summary.get('retryable_round_count'))}`",
+        ),
+    )
+    for field_name, expected_line in expected_lines:
+        if expected_line not in section:
+            add_error(report, f"summary.md agent_intake_summary {field_name} mismatch")
 
 
 def validate_iteration_summary_operator_home(
@@ -739,6 +846,23 @@ def markdown_display_value(value: object) -> str:
     if value is None:
         return "none"
     return str(value)
+
+
+def markdown_escape_text(value: str) -> str:
+    """Flatten text like the markdown summary writer."""
+    return " ".join(value.split())
+
+
+def markdown_section(markdown: str, heading: str) -> str:
+    """Return one markdown section body by heading."""
+    start = markdown.find(heading)
+    if start < 0:
+        return ""
+    body_start = start + len(heading)
+    next_heading = markdown.find("\n## ", body_start)
+    if next_heading < 0:
+        return markdown[body_start:]
+    return markdown[body_start:next_heading]
 
 
 def expected_agent_intake_summary(rounds: object) -> dict[str, object]:

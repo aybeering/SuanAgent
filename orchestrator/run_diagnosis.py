@@ -26,6 +26,7 @@ def diagnose_run(
         experiments_dir=experiments_dir,
         repo_root=repo_root,
         ignored_iteration_required_files=ignored_iteration_required_files,
+        validate_diagnosis=False,
     )
     base: dict[str, object] = {
         "run_id": run_id,

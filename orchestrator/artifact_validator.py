@@ -128,6 +128,7 @@ def validate_run_artifacts(
     experiments_dir: Path = Path("experiments"),
     repo_root: Path = Path("."),
     ignored_iteration_required_files: tuple[str, ...] = (),
+    validate_diagnosis: bool = True,
 ) -> dict[str, object]:
     """Return a deterministic validation report for one experiment run."""
     repo_root = repo_root.resolve()
@@ -185,7 +186,8 @@ def validate_run_artifacts(
     else:
         add_error(report, "run has neither manifest.json nor decision.json")
 
-    validate_optional_diagnosis(run_dir=run_dir, report=report)
+    if validate_diagnosis:
+        validate_optional_diagnosis(run_dir=run_dir, report=report)
     validate_optional_metadata(run_dir=run_dir, repo_root=repo_root, report=report)
     validate_optional_champion_comparison(
         run_dir=run_dir,
@@ -4834,7 +4836,214 @@ def validate_optional_diagnosis(
     if not path.exists():
         return
     checked_files(report).append(str(path))
-    validate_json_object(path=path, report=report)
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    validate_diagnosis_operator_navigation(
+        payload=payload,
+        run_dir=run_dir,
+        report=report,
+    )
+
+
+def validate_diagnosis_operator_navigation(
+    *,
+    payload: dict[str, object],
+    run_dir: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate diagnosis operator navigation when the block is present."""
+    navigation = payload.get("operator_navigation")
+    if navigation is None:
+        return
+    if not isinstance(navigation, dict):
+        add_error(report, "diagnosis.json operator_navigation invalid")
+        return
+    if navigation.get("schema_version") != "run_diagnosis_operator_navigation_v1":
+        add_error(report, "diagnosis.json operator_navigation schema invalid")
+    run_id = str(report.get("run_id", ""))
+    if str(navigation.get("run_id", "")) != run_id:
+        add_error(report, "diagnosis.json operator_navigation run_id mismatch")
+    policy = object_value(navigation.get("policy", {}))
+    for key in (
+        "inspection_only",
+        "does_not_create_artifacts",
+        "does_not_record_approval",
+        "does_not_execute_commands",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"diagnosis.json operator_navigation policy false: {key}")
+
+    manifest = load_json_object(run_dir / "manifest.json", report)
+    if manifest is not None:
+        validate_iteration_diagnosis_operator_navigation(
+            navigation=navigation,
+            manifest=manifest,
+            run_id=run_id,
+            report=report,
+        )
+        return
+    if (run_dir / "decision.json").exists():
+        validate_unavailable_diagnosis_operator_navigation(
+            navigation=navigation,
+            run_kind="single_run",
+            reason="not_iteration_run",
+            report=report,
+        )
+
+
+def validate_iteration_diagnosis_operator_navigation(
+    *,
+    navigation: dict[str, object],
+    manifest: dict[str, object],
+    run_id: str,
+    report: dict[str, object],
+) -> None:
+    """Validate iteration diagnosis navigation mirrors manifest.operator_home."""
+    manifest_home = manifest.get("operator_home", {})
+    if not isinstance(manifest_home, dict) or not str(manifest_home.get("command", "")):
+        validate_unavailable_diagnosis_operator_navigation(
+            navigation=navigation,
+            run_kind="iteration_loop",
+            reason="operator_home_unavailable",
+            report=report,
+        )
+        return
+    if navigation.get("available") is not True:
+        add_error(report, "diagnosis.json operator_navigation unavailable")
+    if str(navigation.get("reason", "")) != "iteration_run":
+        add_error(report, "diagnosis.json operator_navigation reason mismatch")
+    if str(navigation.get("run_kind", "")) != "iteration_loop":
+        add_error(report, "diagnosis.json operator_navigation kind mismatch")
+
+    home = object_value(navigation.get("home", {}))
+    next_command = object_value(navigation.get("next_command", {}))
+    expected_home_fields: tuple[tuple[str, str], ...] = (
+        ("command_label", "command_label"),
+        ("command", "command"),
+        ("status", "status"),
+        ("primary_focus", "primary_focus"),
+        ("action_step", "action_step"),
+        ("command_boundary", "command_boundary"),
+    )
+    if home.get("available") is not True:
+        add_error(report, "diagnosis.json operator_navigation home unavailable")
+    for nav_key, manifest_key in expected_home_fields:
+        if str(home.get(nav_key, "")) != str(manifest_home.get(manifest_key, "")):
+            add_error(
+                report,
+                f"diagnosis.json operator_navigation home {nav_key} mismatch",
+            )
+    for nav_key, manifest_key in (
+        ("terminal_only", "terminal_only"),
+        ("artifact_created", "artifact_created"),
+        ("command_is_hint_only", "command_is_hint_only"),
+    ):
+        if bool(home.get(nav_key, False)) != bool(manifest_home.get(manifest_key, False)):
+            add_error(
+                report,
+                f"diagnosis.json operator_navigation home {nav_key} mismatch",
+            )
+
+    expected_selector = (
+        f"python -m orchestrator.experiments next-command {run_id} --markdown"
+    )
+    if next_command.get("available") is not bool(manifest_home.get("next_command", "")):
+        add_error(report, "diagnosis.json operator_navigation next availability mismatch")
+    if str(next_command.get("selection_source", "")) != "operator_home.next_command":
+        add_error(report, "diagnosis.json operator_navigation next source mismatch")
+    if str(next_command.get("selector_command_label", "")) != (
+        "review_operator_next_command"
+    ):
+        add_error(report, "diagnosis.json operator_navigation selector label mismatch")
+    if str(next_command.get("selector_command", "")) != expected_selector:
+        add_error(report, "diagnosis.json operator_navigation selector command mismatch")
+    if str(next_command.get("selector_boundary", "")) != "read_only_inspection":
+        add_error(report, "diagnosis.json operator_navigation selector boundary mismatch")
+
+    for nav_key, manifest_key in (
+        ("selected_command_label", "next_command_label"),
+        ("selected_command", "next_command"),
+        ("status", "next_command_status"),
+        ("operator_hint", "next_command_operator_hint"),
+        ("boundary", "next_command_boundary"),
+        ("writes_artifact", "next_command_writes_artifact"),
+    ):
+        if str(next_command.get(nav_key, "")) != str(manifest_home.get(manifest_key, "")):
+            add_error(
+                report,
+                f"diagnosis.json operator_navigation next {nav_key} mismatch",
+            )
+    if bool(next_command.get("blocked", False)) != bool(
+        manifest_home.get("next_command_blocked", False)
+    ):
+        add_error(report, "diagnosis.json operator_navigation next blocked mismatch")
+    if int_value(next_command.get("blocker_count", 0)) != int_value(
+        manifest_home.get("next_command_blocker_count", 0)
+    ):
+        add_error(
+            report,
+            "diagnosis.json operator_navigation next blocker_count mismatch",
+        )
+    for nav_key, manifest_key in (
+        (
+            "requires_explicit_operator_invocation",
+            "next_command_requires_explicit_operator_invocation",
+        ),
+        ("requires_operator_approval", "next_command_requires_operator_approval"),
+        ("records_operator_approval", "next_command_records_operator_approval"),
+        ("uses_guarded_executor", "next_command_uses_guarded_executor"),
+        ("command_is_hint_only", "next_command_is_hint_only"),
+    ):
+        if bool(next_command.get(nav_key, False)) != bool(
+            manifest_home.get(manifest_key, False)
+        ):
+            add_error(
+                report,
+                f"diagnosis.json operator_navigation next {nav_key} mismatch",
+            )
+
+
+def validate_unavailable_diagnosis_operator_navigation(
+    *,
+    navigation: dict[str, object],
+    run_kind: str,
+    reason: str,
+    report: dict[str, object],
+) -> None:
+    """Validate unavailable diagnosis navigation fields stay empty."""
+    if navigation.get("available") is not False:
+        add_error(report, "diagnosis.json operator_navigation availability mismatch")
+    if str(navigation.get("reason", "")) != reason:
+        add_error(report, "diagnosis.json operator_navigation reason mismatch")
+    if str(navigation.get("run_kind", "")) != run_kind:
+        add_error(report, "diagnosis.json operator_navigation kind mismatch")
+    home = object_value(navigation.get("home", {}))
+    next_command = object_value(navigation.get("next_command", {}))
+    if home.get("available") is not False or str(home.get("command", "")):
+        add_error(report, "diagnosis.json operator_navigation home unavailable mismatch")
+    if str(home.get("status", "")) != "unavailable":
+        add_error(report, "diagnosis.json operator_navigation home status mismatch")
+    if next_command.get("available") is not False:
+        add_error(report, "diagnosis.json operator_navigation next unavailable mismatch")
+    if str(next_command.get("status", "")) != "unavailable":
+        add_error(report, "diagnosis.json operator_navigation next status mismatch")
+    if str(next_command.get("selected_command", "")):
+        add_error(report, "diagnosis.json operator_navigation next command mismatch")
+    if bool(next_command.get("blocked", False)) is not False:
+        add_error(report, "diagnosis.json operator_navigation next blocked mismatch")
+    if int_value(next_command.get("blocker_count", 0)) != 0:
+        add_error(
+            report,
+            "diagnosis.json operator_navigation next blocker_count mismatch",
+        )
 
 
 def validate_optional_metadata(

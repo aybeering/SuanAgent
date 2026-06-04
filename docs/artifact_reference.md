@@ -270,6 +270,10 @@ selected command, blocked state, blocker count, boundary, write target, and
 safety flags. These fields are diagnosis hints only; they do not create
 artifacts, record approval, execute commands, write config, promote champions,
 run agents, run backtests, apply patches, route agents, or change acceptance.
+`python -m orchestrator.artifact_validator <run_id>` validates this block when
+present, checking the diagnosis navigation against the saved
+`manifest.operator_home` row and requiring all diagnosis navigation policy flags
+to stay read-only.
 
 `champion_history.jsonl` exists after guarded champion promotion.
 `champion_lineage.json` and `champion_lineage.md` are written by the lineage

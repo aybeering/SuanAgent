@@ -12121,6 +12121,74 @@ def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
     )
 
 
+def test_artifact_validator_reports_diagnosis_operator_navigation_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="artifact-diagnosis-navigation-drift",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    diagnosis_path = repo / "experiments/artifact-diagnosis-navigation-drift/diagnosis.json"
+    diagnosis = json.loads(diagnosis_path.read_text(encoding="utf-8"))
+    diagnosis["operator_navigation"]["run_id"] = "wrong-run"
+    diagnosis["operator_navigation"]["home"]["command"] = (
+        "python -m orchestrator.run_loop"
+    )
+    diagnosis["operator_navigation"]["next_command"]["selector_command"] = (
+        "python -m orchestrator.experiments summary"
+    )
+    diagnosis["operator_navigation"]["next_command"]["selected_command"] = ""
+    diagnosis["operator_navigation"]["next_command"]["blocked"] = False
+    diagnosis["operator_navigation"]["next_command"]["blocker_count"] = 0
+    diagnosis["operator_navigation"]["next_command"]["writes_artifact"] = ""
+    diagnosis["operator_navigation"]["next_command"]["command_is_hint_only"] = False
+    diagnosis["operator_navigation"]["policy"]["does_not_execute_commands"] = False
+    diagnosis_path.write_text(
+        json.dumps(diagnosis, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id="artifact-diagnosis-navigation-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert "diagnosis.json operator_navigation run_id mismatch" in report["errors"]
+    assert "diagnosis.json operator_navigation home command mismatch" in report["errors"]
+    assert (
+        "diagnosis.json operator_navigation selector command mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation next selected_command mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation next blocked mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation next blocker_count mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation next writes_artifact mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation next command_is_hint_only mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation policy false: does_not_execute_commands"
+        in report["errors"]
+    )
+
+
 def test_artifact_validator_reports_champion_schema_errors(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     run_iteration_loop(

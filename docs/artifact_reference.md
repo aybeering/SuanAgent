@@ -88,6 +88,13 @@ python -m orchestrator.experiments cockpit <run_id> --markdown
 python -m orchestrator.experiments refresh-operator-views <run_id>
 ```
 
+`python -m orchestrator.experiments list --limit N` returns recent append-only
+index rows with a derived `operator_home` hint on each row. Iteration-loop rows
+include the terminal-only `home <run_id> --markdown` command, status, boundary,
+and hint-only policy flags; single-run rows mark the hint unavailable. The
+command does not rewrite `index.jsonl`, create artifacts, execute commands, run
+agents, run backtests, apply patches, promote champions, or change acceptance.
+
 Replay and validation:
 
 ```bash

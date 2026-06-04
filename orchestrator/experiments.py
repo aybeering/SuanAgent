@@ -157,7 +157,16 @@ def list_experiments(
     limit: int = 10,
 ) -> list[dict[str, object]]:
     """Return recent experiment records."""
-    return recent_experiments(experiments_dir=experiments_dir, limit=limit)
+    return [
+        {
+            **record,
+            "operator_home": experiment_list_operator_home_hint(
+                record=record,
+                experiments_dir=experiments_dir,
+            ),
+        }
+        for record in recent_experiments(experiments_dir=experiments_dir, limit=limit)
+    ]
 
 
 def latest_iteration_run_id(
@@ -625,6 +634,44 @@ def compact_record_row(record: dict[str, object]) -> dict[str, object]:
         "kind": str(record.get("kind", "unknown")),
         "status": str(record.get("status", "unknown")),
         "created_at": str(record.get("created_at", "")),
+    }
+
+
+def experiment_list_operator_home_hint(
+    *,
+    record: dict[str, object],
+    experiments_dir: Path,
+) -> dict[str, object]:
+    """Return a compact operator-home hint for one experiment-list row."""
+    run_id = str(record.get("run_id", ""))
+    kind = str(record.get("kind", ""))
+    base = {
+        "available": False,
+        "reason": "not_iteration_run",
+        "status": "unavailable",
+        "command_label": "",
+        "command": "",
+        "command_boundary": "",
+        "terminal_only": True,
+        "artifact_created": False,
+        "command_is_hint_only": True,
+    }
+    if kind != "iteration_loop" or not run_id:
+        return base
+
+    manifest_home = load_manifest_operator_home(
+        experiments_dir=experiments_dir,
+        run_id=run_id,
+    )
+    command = f"python -m orchestrator.experiments home {run_id} --markdown"
+    return {
+        **base,
+        "available": True,
+        "reason": "iteration_run",
+        "status": str(manifest_home.get("status", "unknown")),
+        "command_label": "review_operator_home",
+        "command": command,
+        "command_boundary": "read_only_inspection",
     }
 
 

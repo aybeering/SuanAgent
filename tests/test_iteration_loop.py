@@ -18197,6 +18197,22 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     )
 
     assert [record["run_id"] for record in records] == ["single-show", "iteration-show"]
+    assert records[0]["operator_home"]["available"] is False
+    assert records[0]["operator_home"]["reason"] == "not_iteration_run"
+    assert records[0]["operator_home"]["command"] == ""
+    assert records[1]["operator_home"]["available"] is True
+    assert records[1]["operator_home"]["reason"] == "iteration_run"
+    assert records[1]["operator_home"]["status"] == "needs_operator_review"
+    assert records[1]["operator_home"]["command_label"] == "review_operator_home"
+    assert records[1]["operator_home"]["command"] == (
+        "python -m orchestrator.experiments home iteration-show --markdown"
+    )
+    assert records[1]["operator_home"]["command_boundary"] == "read_only_inspection"
+    assert records[1]["operator_home"]["terminal_only"] is True
+    assert records[1]["operator_home"]["artifact_created"] is False
+    assert records[1]["operator_home"]["command_is_hint_only"] is True
+    index_text = (repo / "experiments/index.jsonl").read_text(encoding="utf-8")
+    assert "operator_home" not in index_text
     assert latest_iteration_run_id(experiments_dir=repo / "experiments") == (
         "iteration-show"
     )
@@ -19803,6 +19819,12 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
         config_path=repo / "config/default.json",
         repo_root=repo,
     )
+    run_iteration_loop(
+        run_id="cli-list-iteration",
+        max_rounds=1,
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+    )
 
     list_result = subprocess.run(
         [
@@ -19813,7 +19835,7 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
             "experiments",
             "list",
             "--limit",
-            "1",
+            "2",
         ],
         cwd=repo,
         capture_output=True,
@@ -19838,7 +19860,16 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
 
     assert list_result.returncode == 0, list_result.stderr
     assert show_result.returncode == 0, show_result.stderr
-    assert json.loads(list_result.stdout)[0]["run_id"] == "cli-list-show"
+    list_payload = json.loads(list_result.stdout)
+    assert [row["run_id"] for row in list_payload] == [
+        "cli-list-show",
+        "cli-list-iteration",
+    ]
+    assert list_payload[0]["operator_home"]["available"] is False
+    assert list_payload[1]["operator_home"]["available"] is True
+    assert list_payload[1]["operator_home"]["command"] == (
+        "python -m orchestrator.experiments home cli-list-iteration --markdown"
+    )
     assert json.loads(show_result.stdout)["kind"] == "single_run"
 
 

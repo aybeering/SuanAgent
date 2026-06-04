@@ -110,6 +110,7 @@
         "status_summary",
         "config_review",
         "champion_review",
+        "candidate_quality_review",
         "watchlist",
         "gates",
         "operator_action_items",
@@ -131,6 +132,9 @@
         },
         "champion_review": {
           "$ref": "#/$defs/champion_review"
+        },
+        "candidate_quality_review": {
+          "$ref": "#/$defs/candidate_quality_review"
         },
         "watchlist": {
           "$ref": "#/$defs/watchlist"
@@ -249,6 +253,45 @@
         },
         "approval_recorded": {
           "type": "boolean"
+        }
+      }
+    },
+    "candidate_quality_review": {
+      "type": "object",
+      "required": [
+        "trace_present",
+        "candidate_count",
+        "selectable_count",
+        "selected_count",
+        "selected_directions",
+        "top_failure_code",
+        "top_quality_component",
+        "source_path"
+      ],
+      "properties": {
+        "trace_present": {
+          "type": "boolean"
+        },
+        "candidate_count": {
+          "type": "integer"
+        },
+        "selectable_count": {
+          "type": "integer"
+        },
+        "selected_count": {
+          "type": "integer"
+        },
+        "selected_directions": {
+          "$ref": "#/$defs/string_array"
+        },
+        "top_failure_code": {
+          "type": "string"
+        },
+        "top_quality_component": {
+          "type": "string"
+        },
+        "source_path": {
+          "type": "string"
         }
       }
     },

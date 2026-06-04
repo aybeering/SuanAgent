@@ -735,10 +735,12 @@ Replay artifacts:
 - `run_closeout.json` and `run_closeout.md` summarize the completed iteration
   run for operator review. They read saved artifacts only, record deterministic
   acceptance authority, selected candidates, health status, research watchlist
-  status, config-lineage status, champion/promotion review status, an
-  operator-facing dashboard, and recommended next actions, and cannot execute
-  agents, run backtests, write config, promote champions, apply patches, route
-  agents, or change acceptance.
+  status, config-lineage status, candidate quality trace status,
+  champion/promotion review status, an operator-facing dashboard, and
+  recommended next actions. The dashboard includes a read-only candidate
+  quality review with selectable counts, selected directions, top failure code,
+  and source path. It cannot execute agents, run backtests, write config,
+  promote champions, apply patches, route agents, or change acceptance.
 - `operator_action_plan.json` and `operator_action_plan.md` derive explicit
   command candidates from the saved closeout dashboard. They bind to
   `run_closeout.json` by SHA-256, mark commands that would write repository
@@ -798,17 +800,18 @@ Replay artifacts:
   no-round failed runs keep a deterministic blocker trail.
 - `operator_cockpit.json` and `operator_cockpit.md` aggregate run review,
   config lineage, operator action, Codex CLI execution preflight, challenger
-  comparison, promotion review, promotion approval, and scope-health state into
-  one read-only cockpit. The iteration loop writes them after the action
-  dashboard, and the explicit command can refresh source hashes after later
-  operator inspection artifacts. They list panels, blockers, primary focus,
-  surfaced action failure reasons, Codex unlock checklist visibility, failed
+  comparison, candidate quality trace state, promotion review, promotion
+  approval, and scope-health state into one read-only cockpit. The iteration
+  loop writes them after the action dashboard, and the explicit command can
+  refresh source hashes after later operator inspection artifacts. They list
+  panels, blockers, primary focus, surfaced action failure reasons, candidate
+  score/rejection navigation, Codex unlock checklist visibility, failed
   evidence groups, and command hints while preserving deterministic acceptance
-  authority. Artifact validation
-  rejects unknown cockpit command labels, unexpected write targets, unsafe shell
-  control tokens, and a missing first `review_cockpit` command. The writer and
-  terminal view validate status, focus, action failure summaries, unlock counts,
-  review-priority references, and policy before returning payloads.
+  authority. Artifact validation rejects unknown cockpit command labels,
+  unexpected write targets, unsafe shell control tokens, and a missing first
+  `review_cockpit` command. The writer and terminal view validate status,
+  focus, action failure summaries, unlock counts, review-priority references,
+  and policy before returning payloads.
 - `candidate_leaderboard.json` records every proposal attempt with stable
   quality metadata. `quality_breakdown` decomposes the pre-backtest candidate
   score into named components, selected rows also record validation and

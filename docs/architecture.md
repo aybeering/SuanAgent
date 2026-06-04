@@ -168,7 +168,10 @@ receipt artifacts into one read-only digest chain. They do not write config.
 
 `run_closeout.json` and `run_closeout.md` include an `operator_dashboard`
 summary that rolls up artifact health, config lineage, champion review,
-promotion review, watchlist status, action items, and deterministic authority.
+candidate quality trace status, promotion review, watchlist status, action
+items, and deterministic authority. The candidate quality review is read-only
+and surfaces selectable counts, selected directions, and top failure code from
+the saved trace.
 `python -m orchestrator.experiments review <run_id>` renders the same dashboard
 without requiring the operator to inspect the full closeout file. It is an
 inspection view only; it cannot write config, promote champions, route
@@ -234,10 +237,12 @@ saved run always has a read-only current-vs-reviewed Codex evidence view.
 entrypoint. They collect the run closeout, config lineage, operator action
 dashboard, Codex CLI execution preflight, standalone operator unlock checklist,
 Codex CLI execution readiness diff, challenger comparison,
-champion-promotion review, promotion approval, and scope-health status into one
-read-only page with panel rows, command hints, and a deterministic
-review-priority object that selects the first panel and existing saved command
-hint to inspect. The operator-action panel
+candidate quality trace state, champion-promotion review, promotion approval,
+and scope-health status into one read-only page with panel rows, command hints,
+and a deterministic review-priority object that selects the first panel and
+existing saved command hint to inspect. The candidate-quality panel points
+operators to saved candidate scores and rejection reasons without routing or
+rerunning candidates. The operator-action panel
 surfaces dashboard failure reasons as cockpit action failure reasons and
 `operator_action:<code>` blockers. The Codex CLI panels expose unlock blockers,
 readiness counts, grouped checklist status, and readiness diff missing/drift

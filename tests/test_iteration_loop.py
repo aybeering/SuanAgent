@@ -2781,6 +2781,7 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
         "review_run_diagnosis",
         "review_config_lineage",
         "review_action_dashboard",
+        "review_quality_trace",
         "review_challenger_report",
         "review_promotion_dry_run",
         "review_promotion_approval",
@@ -2803,6 +2804,9 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
         "path"
     ].endswith("operator_unlock_checklist.json")
     assert cockpit["source_artifacts"]["operator_unlock_checklist"]["file"][
+        "exists"
+    ] is True
+    assert cockpit["source_artifacts"]["candidate_quality_trace"]["file"][
         "exists"
     ] is True
     assert unlock_checklist["schema_version"] == (
@@ -2834,6 +2838,10 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["summary"]["codex_preflight_blocker_count"] == 0
     assert cockpit["summary"]["codex_readiness_diff_status"] == "missing_evidence"
     assert cockpit["summary"]["codex_readiness_diff_ready"] is False
+    assert cockpit["summary"]["candidate_quality_status"] == "present"
+    assert cockpit["summary"]["candidate_quality_candidate_count"] >= 1
+    assert cockpit["summary"]["candidate_quality_selected_count"] >= 1
+    assert cockpit["summary"]["candidate_quality_top_failure_code"]
     assert cockpit["codex_unlock_checklist"]["status"] == "not_requested"
     assert cockpit["codex_unlock_checklist"]["ready"] is False
     assert cockpit["codex_unlock_checklist"]["item_count"] == 0
@@ -2848,6 +2856,7 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
         row["panel_id"] == "codex_cli_readiness_diff"
         for row in cockpit["panels"]
     )
+    assert any(row["panel_id"] == "candidate_quality" for row in cockpit["panels"])
     assert any(row["label"] == "review_cockpit" for row in cockpit["recommended_commands"])
     assert any(
         row["label"] == "review_run_diagnosis"
@@ -2863,6 +2872,10 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     )
     assert any(
         row["label"] == "review_codex_cli_preflight"
+        for row in cockpit["recommended_commands"]
+    )
+    assert any(
+        row["label"] == "review_quality_trace"
         for row in cockpit["recommended_commands"]
     )
     assert any(
@@ -5626,6 +5639,10 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert closeout["summary"]["scope_health_ok"] is True
     assert closeout["summary"]["artifact_health_history_recorded"] is True
     assert closeout["summary"]["candidate_count"] >= 1
+    assert closeout["summary"]["candidate_quality_trace_present"] is True
+    assert closeout["summary"]["candidate_quality_top_failure_code"] == (
+        quality_trace["summary"]["top_failure_code"]
+    )
     assert closeout["summary"]["research_watchlist_status"] in (
         "clean",
         "informational",
@@ -5661,6 +5678,15 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert closeout["operator_dashboard"]["champion_review"]["approval_status"] == (
         "approval_blocked"
     )
+    assert closeout["operator_dashboard"]["candidate_quality_review"][
+        "candidate_count"
+    ] == quality_trace["summary"]["candidate_count"]
+    assert closeout["operator_dashboard"]["candidate_quality_review"][
+        "selected_count"
+    ] == quality_trace["summary"]["selected_count"]
+    assert closeout["operator_dashboard"]["candidate_quality_review"][
+        "top_failure_code"
+    ] == quality_trace["summary"]["top_failure_code"]
     assert closeout["operator_dashboard"]["authority"][
         "final_acceptance_authority"
     ] == "deterministic_code"
@@ -5673,6 +5699,10 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     ] is True
     assert any(
         gate["gate_name"] == "config_lineage"
+        for gate in closeout["operator_dashboard"]["gates"]
+    )
+    assert any(
+        gate["gate_name"] == "candidate_quality_trace"
         for gate in closeout["operator_dashboard"]["gates"]
     )
     assert closeout["policy"]["does_not_execute_agents"] is True
@@ -5893,7 +5923,21 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert cockpit["source_artifacts"]["operator_unlock_checklist"]["file"][
         "sha256"
     ]
+    assert cockpit["source_artifacts"]["candidate_quality_trace"]["file"][
+        "path"
+    ].endswith("candidate_quality_trace.json")
+    assert cockpit["source_artifacts"]["candidate_quality_trace"]["file"]["sha256"]
     assert cockpit["summary"]["run_status"] == manifest["status"]
+    assert cockpit["summary"]["candidate_quality_status"] == "present"
+    assert cockpit["summary"]["candidate_quality_candidate_count"] == (
+        quality_trace["summary"]["candidate_count"]
+    )
+    assert cockpit["summary"]["candidate_quality_selected_count"] == (
+        quality_trace["summary"]["selected_count"]
+    )
+    assert cockpit["summary"]["candidate_quality_top_failure_code"] == (
+        quality_trace["summary"]["top_failure_code"]
+    )
     assert cockpit["summary"]["codex_preflight_status"] == (
         "no_real_execution_profiles"
     )
@@ -5910,6 +5954,11 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert any(
         row["panel_id"] == "codex_cli_readiness_diff"
         for row in cockpit["panels"]
+    )
+    assert any(row["panel_id"] == "candidate_quality" for row in cockpit["panels"])
+    assert any(
+        row["label"] == "review_quality_trace"
+        for row in cockpit["recommended_commands"]
     )
     assert cockpit["policy"]["does_not_execute_commands"] is True
     assert cockpit["policy"]["does_not_change_acceptance"] is True
@@ -16521,6 +16570,16 @@ def _minimal_operator_run_review_payload() -> dict[str, object]:
                 "approval_status": "not_requested",
                 "approval_recorded": False,
             },
+            "candidate_quality_review": {
+                "trace_present": True,
+                "candidate_count": 1,
+                "selectable_count": 0,
+                "selected_count": 0,
+                "selected_directions": [],
+                "top_failure_code": "policy_ev_improvement_low",
+                "top_quality_component": "prefilter",
+                "source_path": "experiments/run/candidate_leaderboard.json",
+            },
             "watchlist": {
                 "status": "ok",
                 "alert_count": 0,
@@ -16546,6 +16605,13 @@ def _minimal_operator_run_review_payload() -> dict[str, object]:
                     "status": "partial",
                     "artifact_path": "config_lineage.json",
                     "details": "Config lineage reads saved config evidence only.",
+                },
+                {
+                    "gate_name": "candidate_quality_trace",
+                    "ok": True,
+                    "status": "present",
+                    "artifact_path": "candidate_quality_trace.json",
+                    "details": "Candidate scoring and rejection trace is inspection-only.",
                 },
                 {
                     "gate_name": "champion_review",
@@ -16592,6 +16658,7 @@ def test_operator_run_review_payload_validation_reports_summary_drift() -> None:
     status_summary = dashboard["status_summary"]
     config_review = dashboard["config_review"]
     champion_review = dashboard["champion_review"]
+    quality_review = dashboard["candidate_quality_review"]
     watchlist = dashboard["watchlist"]
     gates = dashboard["gates"]
     dashboard_policy = dashboard["policy"]
@@ -16599,6 +16666,7 @@ def test_operator_run_review_payload_validation_reports_summary_drift() -> None:
     assert isinstance(status_summary, dict)
     assert isinstance(config_review, dict)
     assert isinstance(champion_review, dict)
+    assert isinstance(quality_review, dict)
     assert isinstance(watchlist, dict)
     assert isinstance(gates, list)
     assert isinstance(dashboard_policy, dict)
@@ -16613,9 +16681,13 @@ def test_operator_run_review_payload_validation_reports_summary_drift() -> None:
     gates[1]["gate_name"] = "wrong_gate"
     gates[2]["ok"] = False
     gates[2]["status"] = "stale"
-    gates[3]["status"] = "drifted_champion"
-    gates[4]["status"] = "drifted_promotion"
-    gates[4]["artifact_path"] = ""
+    gates[3]["ok"] = False
+    gates[3]["status"] = "missing"
+    gates[4]["status"] = "drifted_champion"
+    gates[5]["status"] = "drifted_promotion"
+    gates[5]["artifact_path"] = ""
+    quality_review["candidate_count"] = -1
+    quality_review["selectable_count"] = -1
     status_summary["selected_candidate_count"] = -1
     status_summary["accepted"] = True
     status_summary["run_status"] = "stopped_max_rounds"
@@ -16639,9 +16711,17 @@ def test_operator_run_review_payload_validation_reports_summary_drift() -> None:
     assert "operator_run_review dashboard artifact gate status mismatch" in errors
     assert "operator_run_review dashboard config gate ok mismatch" in errors
     assert "operator_run_review dashboard config gate status mismatch" in errors
+    assert "operator_run_review dashboard quality gate ok mismatch" in errors
+    assert "operator_run_review dashboard quality gate status mismatch" in errors
     assert "operator_run_review dashboard champion gate status mismatch" in errors
     assert "operator_run_review dashboard promotion gate status mismatch" in errors
     assert "operator_run_review dashboard selected count negative" in errors
+    assert (
+        "operator_run_review dashboard quality candidate count negative" in errors
+    )
+    assert (
+        "operator_run_review dashboard quality selectable count negative" in errors
+    )
     assert "operator_run_review dashboard watchlist alert count negative" in errors
     assert "operator_run_review dashboard accepted status mismatch" in errors
     assert "operator_run_review dashboard policy mismatch" in errors

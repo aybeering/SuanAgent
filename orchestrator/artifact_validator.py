@@ -5931,6 +5931,7 @@ def validate_operator_cockpit_recommended_commands(
             "review_action_dashboard": "",
             "review_codex_cli_preflight": "codex_cli_execution_preflight.json",
             "review_codex_cli_readiness_diff": "",
+            "review_quality_trace": "candidate_quality_trace.json",
             "review_challenger_report": "candidate_challenger_report.json",
             "review_promotion_dry_run": "champion_promotion_dry_run.json",
             "write_action_dashboard": "operator_action_dashboard.json",

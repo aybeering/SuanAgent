@@ -64,6 +64,9 @@
         "artifact_health_history_ok",
         "candidate_count",
         "selected_candidate_count",
+        "candidate_quality_trace_present",
+        "candidate_quality_selectable_count",
+        "candidate_quality_top_failure_code",
         "research_brief_present",
         "research_brief_artifact_ok",
         "research_watchlist_status",
@@ -112,6 +115,15 @@
         },
         "selected_candidate_count": {
           "type": "integer"
+        },
+        "candidate_quality_trace_present": {
+          "type": "boolean"
+        },
+        "candidate_quality_selectable_count": {
+          "type": "integer"
+        },
+        "candidate_quality_top_failure_code": {
+          "type": "string"
         },
         "research_brief_present": {
           "type": "boolean"
@@ -215,6 +227,7 @@
         "gates",
         "config_review",
         "champion_review",
+        "candidate_quality_review",
         "watchlist",
         "operator_action_items",
         "authority",
@@ -353,6 +366,48 @@
             },
             "approval_recorded": {
               "type": "boolean"
+            }
+          }
+        },
+        "candidate_quality_review": {
+          "type": "object",
+          "required": [
+            "trace_present",
+            "candidate_count",
+            "selectable_count",
+            "selected_count",
+            "selected_directions",
+            "top_failure_code",
+            "top_quality_component",
+            "source_path"
+          ],
+          "properties": {
+            "trace_present": {
+              "type": "boolean"
+            },
+            "candidate_count": {
+              "type": "integer"
+            },
+            "selectable_count": {
+              "type": "integer"
+            },
+            "selected_count": {
+              "type": "integer"
+            },
+            "selected_directions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "top_failure_code": {
+              "type": "string"
+            },
+            "top_quality_component": {
+              "type": "string"
+            },
+            "source_path": {
+              "type": "string"
             }
           }
         },

@@ -56,6 +56,7 @@ def build_run_closeout(
     scope_health = load_json_object(run_dir / "experiment_scope_health.json")
     research_brief = load_json_object(run_dir / "research_brief.json")
     config_lineage = load_json_object(run_dir / "config_lineage.json")
+    quality_trace = load_json_object(run_dir / "candidate_quality_trace.json")
     challenger = load_json_object(run_dir / "candidate_challenger_report.json")
     promotion = load_json_object(run_dir / "champion_promotion_dry_run.json")
     approval = load_json_object(run_dir / "champion_promotion_approval.json")
@@ -97,6 +98,13 @@ def build_run_closeout(
             "artifact_health_history_ok": bool(artifact_history.get("ok", False)),
             "candidate_count": len(candidates),
             "selected_candidate_count": len(selected_candidates),
+            "candidate_quality_trace_present": bool(quality_trace),
+            "candidate_quality_selectable_count": int(
+                object_field(quality_trace, "summary").get("selectable_count", 0) or 0
+            ),
+            "candidate_quality_top_failure_code": str(
+                object_field(quality_trace, "summary").get("top_failure_code", "")
+            ),
             "research_brief_present": bool(research_brief),
             "research_brief_artifact_ok": bool(research_brief.get("artifact_ok", False)),
             "research_watchlist_status": str(
@@ -127,6 +135,7 @@ def build_run_closeout(
             scope_health=scope_health,
             research_brief=research_brief,
             config_lineage=config_lineage,
+            quality_trace=quality_trace,
             challenger=challenger,
             promotion=promotion,
             approval=approval,
@@ -186,6 +195,11 @@ def artifact_rows(*, run_dir: Path, experiments_dir: Path) -> list[dict[str, obj
             label="candidate_leaderboard",
             required=True,
         ),
+        artifact_row(
+            run_dir / "candidate_quality_trace.json",
+            label="candidate_quality_trace",
+            required=True,
+        ),
         artifact_row(run_dir / "config_lineage.json", label="config_lineage", required=True),
         artifact_row(
             run_dir / "candidate_challenger_report.json",
@@ -217,6 +231,7 @@ def operator_dashboard(
     scope_health: dict[str, Any],
     research_brief: dict[str, Any],
     config_lineage: dict[str, Any],
+    quality_trace: dict[str, Any],
     challenger: dict[str, Any],
     promotion: dict[str, Any],
     approval: dict[str, Any],
@@ -226,6 +241,8 @@ def operator_dashboard(
 ) -> dict[str, object]:
     """Return a compact operator-facing dashboard from saved artifacts."""
     config_checks = object_field(config_lineage, "checks")
+    quality_summary = object_field(quality_trace, "summary")
+    quality_source = object_field(quality_trace, "source")
     promotion_decision = object_field(promotion, "dry_run_decision")
     approval_intent = object_field(approval, "operator_intent")
     watchlist = object_field(research_brief, "watchlist_summary")
@@ -267,6 +284,13 @@ def operator_dashboard(
                 details="Config lineage reads saved config evidence only.",
             ),
             dashboard_gate(
+                gate_name="candidate_quality_trace",
+                ok=bool(quality_trace),
+                status="present" if quality_trace else "missing",
+                artifact_path="candidate_quality_trace.json",
+                details="Candidate scoring and rejection trace is inspection-only.",
+            ),
+            dashboard_gate(
                 gate_name="champion_review",
                 ok=bool(challenger.get("ok", False)),
                 status=str(challenger.get("status", "missing")),
@@ -297,6 +321,20 @@ def operator_dashboard(
             "approval_status": str(approval.get("status", "missing")),
             "would_promote": bool(promotion_decision.get("would_promote", False)),
             "approval_recorded": bool(approval_intent.get("approval_recorded", False)),
+        },
+        "candidate_quality_review": {
+            "trace_present": bool(quality_trace),
+            "candidate_count": int(quality_summary.get("candidate_count", 0) or 0),
+            "selectable_count": int(quality_summary.get("selectable_count", 0) or 0),
+            "selected_count": int(quality_summary.get("selected_count", 0) or 0),
+            "selected_directions": string_list(
+                quality_summary.get("selected_directions", [])
+            ),
+            "top_failure_code": str(quality_summary.get("top_failure_code", "")),
+            "top_quality_component": str(
+                quality_summary.get("top_quality_component", "")
+            ),
+            "source_path": str(quality_source.get("path", "")),
         },
         "watchlist": {
             "status": str(watchlist.get("status", "unknown")),
@@ -476,6 +514,7 @@ def render_run_closeout_markdown(payload: dict[str, object]) -> str:
     config_review = object_field(dashboard, "config_review")
     champion_review = object_field(dashboard, "champion_review")
     watchlist = object_field(dashboard, "watchlist")
+    quality_review = object_field(dashboard, "candidate_quality_review")
     lines.extend(
         [
             f"- Config lineage: `{config_review.get('lineage_status', 'unknown')}` "
@@ -483,6 +522,8 @@ def render_run_closeout_markdown(payload: dict[str, object]) -> str:
             "- Config matches latest stage: "
             f"`{config_review.get('current_config_matches_latest_stage', False)}`",
             f"- Champion challenger: `{champion_review.get('challenger_status', 'unknown')}`",
+            f"- Candidate quality trace: `{quality_review.get('top_failure_code', '')}` "
+            f"({quality_review.get('selectable_count', 0)} selectable)",
             f"- Promotion approval: `{champion_review.get('approval_status', 'unknown')}`",
             f"- Watchlist: `{watchlist.get('status', 'unknown')}` "
             f"({watchlist.get('alert_count', 0)} alert(s))",

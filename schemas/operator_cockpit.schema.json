@@ -60,6 +60,7 @@
         "codex_cli_execution_preflight",
         "codex_cli_execution_readiness_diff",
         "operator_unlock_checklist",
+        "candidate_quality_trace",
         "candidate_challenger_report",
         "champion_promotion_dry_run",
         "champion_promotion_approval",
@@ -82,6 +83,9 @@
           "$ref": "#/$defs/source_artifact"
         },
         "operator_unlock_checklist": {
+          "$ref": "#/$defs/source_artifact"
+        },
+        "candidate_quality_trace": {
           "$ref": "#/$defs/source_artifact"
         },
         "candidate_challenger_report": {
@@ -114,6 +118,11 @@
         "action_safe_command_count",
         "action_failure_reason_count",
         "action_first_failure_stage",
+        "candidate_quality_status",
+        "candidate_quality_candidate_count",
+        "candidate_quality_selectable_count",
+        "candidate_quality_selected_count",
+        "candidate_quality_top_failure_code",
         "challenger_status",
         "promotion_status",
         "promotion_would_promote",
@@ -168,6 +177,25 @@
           "type": "integer"
         },
         "action_first_failure_stage": {
+          "type": "string"
+        },
+        "candidate_quality_status": {
+          "type": "string",
+          "enum": [
+            "present",
+            "missing"
+          ]
+        },
+        "candidate_quality_candidate_count": {
+          "type": "integer"
+        },
+        "candidate_quality_selectable_count": {
+          "type": "integer"
+        },
+        "candidate_quality_selected_count": {
+          "type": "integer"
+        },
+        "candidate_quality_top_failure_code": {
           "type": "string"
         },
         "challenger_status": {

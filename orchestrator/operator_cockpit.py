@@ -183,6 +183,7 @@ def build_operator_cockpit(
     diagnosis = load_json_object(run_dir / "diagnosis.json")
     closeout = load_json_object(run_dir / "run_closeout.json")
     config_lineage = load_json_object(run_dir / "config_lineage.json")
+    quality_trace = load_json_object(run_dir / "candidate_quality_trace.json")
     challenger = load_json_object(run_dir / "candidate_challenger_report.json")
     promotion = load_json_object(run_dir / "champion_promotion_dry_run.json")
     approval = load_json_object(run_dir / "champion_promotion_approval.json")
@@ -205,6 +206,7 @@ def build_operator_cockpit(
     summary = cockpit_summary(
         closeout=closeout,
         config_lineage=config_lineage,
+        quality_trace=quality_trace,
         challenger=challenger,
         promotion=promotion,
         approval=approval,
@@ -220,6 +222,7 @@ def build_operator_cockpit(
         diagnosis=diagnosis,
         closeout=closeout,
         config_lineage=config_lineage,
+        quality_trace=quality_trace,
         challenger=challenger,
         promotion=promotion,
         approval=approval,
@@ -347,6 +350,7 @@ def cockpit_summary(
     *,
     closeout: dict[str, Any],
     config_lineage: dict[str, Any],
+    quality_trace: dict[str, Any],
     challenger: dict[str, Any],
     promotion: dict[str, Any],
     approval: dict[str, Any],
@@ -361,6 +365,7 @@ def cockpit_summary(
     closeout_summary = object_field(closeout, "summary")
     outcome = cockpit_run_outcome_summary(manifest=manifest, diagnosis=diagnosis)
     action_summary = object_field(action_dashboard, "summary")
+    quality_summary = object_field(quality_trace, "summary")
     codex_summary = object_field(codex_preflight, "summary")
     diff_summary = object_field(codex_readiness_diff, "summary")
     codex_blockers = string_rows(codex_preflight.get("blocking_errors", []))
@@ -386,6 +391,19 @@ def cockpit_summary(
         ),
         "action_first_failure_stage": str(
             action_summary.get("first_failure_stage", "none")
+        ),
+        "candidate_quality_status": "present" if quality_trace else "missing",
+        "candidate_quality_candidate_count": int(
+            quality_summary.get("candidate_count", 0) or 0
+        ),
+        "candidate_quality_selectable_count": int(
+            quality_summary.get("selectable_count", 0) or 0
+        ),
+        "candidate_quality_selected_count": int(
+            quality_summary.get("selected_count", 0) or 0
+        ),
+        "candidate_quality_top_failure_code": str(
+            quality_summary.get("top_failure_code", "")
         ),
         "challenger_status": str(challenger.get("status", "missing")),
         "promotion_status": str(promotion.get("status", "missing")),
@@ -460,6 +478,7 @@ def cockpit_panels(
     diagnosis: dict[str, Any],
     closeout: dict[str, Any],
     config_lineage: dict[str, Any],
+    quality_trace: dict[str, Any],
     challenger: dict[str, Any],
     promotion: dict[str, Any],
     approval: dict[str, Any],
@@ -534,6 +553,14 @@ def cockpit_panels(
             ok=bool(codex_readiness_diff.get("ready", False)),
             artifact_path=run_dir / "codex_cli_execution_readiness_diff.json",
             next_step=codex_readiness_diff_next_step(codex_readiness_diff),
+        ),
+        panel(
+            panel_id="candidate_quality",
+            title="Candidate Quality",
+            status="present" if quality_trace else "missing",
+            ok=bool(quality_trace),
+            artifact_path=run_dir / "candidate_quality_trace.json",
+            next_step="inspect candidate scores, selectable count, and rejection reasons",
         ),
         panel(
             panel_id="champion_review",
@@ -653,6 +680,7 @@ def cockpit_review_priority(
     primary_blocker = blockers[0] if blockers else ""
     outcome_category = str(summary.get("run_outcome_category", ""))
     outcome_code = str(summary.get("run_outcome_primary_code", ""))
+    quality_failure = str(summary.get("candidate_quality_top_failure_code", ""))
     if primary_blocker:
         priority = "critical"
         primary_reason = "blocker_present"
@@ -673,6 +701,13 @@ def cockpit_review_priority(
         primary_reason = "promotion_pending_approval"
         reason_codes = ["promotion_pending_approval"]
         target_panel_id = "promotion_approval"
+    elif outcome_category and outcome_category != "accepted" and quality_failure:
+        priority = "review"
+        primary_reason = f"candidate_quality:{quality_failure}"
+        reason_codes = [f"candidate_quality:{quality_failure}"]
+        if outcome_code:
+            reason_codes.append(f"outcome_code:{outcome_code}")
+        target_panel_id = "candidate_quality"
     elif outcome_category and outcome_category != "accepted":
         priority = "review"
         primary_reason = f"run_outcome:{outcome_category}"
@@ -762,6 +797,7 @@ def command_for_panel(
         "operator_action": "review_action_dashboard",
         "codex_cli_unlock": "review_codex_cli_preflight",
         "codex_cli_readiness_diff": "review_codex_cli_readiness_diff",
+        "candidate_quality": "review_quality_trace",
         "champion_review": "review_challenger_report",
         "promotion": "review_promotion_dry_run",
         "promotion_approval": "review_promotion_approval",
@@ -829,6 +865,10 @@ def source_artifacts(*, run_dir: Path, repo_root: Path) -> dict[str, object]:
         "operator_unlock_checklist": (
             run_dir / "operator_unlock_checklist.json",
             "schemas/operator_unlock_checklist.schema.json",
+        ),
+        "candidate_quality_trace": (
+            run_dir / "candidate_quality_trace.json",
+            "schemas/candidate_quality_trace.schema.json",
         ),
         "candidate_challenger_report": (
             run_dir / "candidate_challenger_report.json",
@@ -930,6 +970,12 @@ def recommended_commands(
             ),
             reason="Inspect current-vs-reviewed Codex CLI execution evidence.",
             writes_artifact="",
+        ),
+        command_hint(
+            label="review_quality_trace",
+            command=f"python -m orchestrator.experiments quality-trace {run_id}",
+            reason="Inspect candidate scores, selectable counts, and rejection reasons.",
+            writes_artifact="candidate_quality_trace.json",
         ),
         command_hint(
             label="review_challenger_report",
@@ -1070,6 +1116,8 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         f"(`{summary.get('run_outcome_primary_code', '')}`)",
         f"- Config lineage: `{summary.get('config_lineage_status', '')}`",
         f"- Action: `{summary.get('action_status', '')}`",
+        f"- Candidate quality: `{summary.get('candidate_quality_status', '')}` "
+        f"(`{summary.get('candidate_quality_top_failure_code', '')}`)",
         f"- Codex CLI preflight: `{summary.get('codex_preflight_status', '')}`",
         f"- Codex CLI readiness diff: `{summary.get('codex_readiness_diff_status', '')}`",
         f"- Promotion: `{summary.get('promotion_status', '')}`",

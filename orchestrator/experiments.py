@@ -1904,6 +1904,7 @@ def render_operator_run_review_markdown(payload: dict[str, object]) -> str:
     status_summary = dict_payload(dashboard.get("status_summary", {}))
     config_review = dict_payload(dashboard.get("config_review", {}))
     champion_review = dict_payload(dashboard.get("champion_review", {}))
+    quality_review = dict_payload(dashboard.get("candidate_quality_review", {}))
     watchlist = dict_payload(dashboard.get("watchlist", {}))
     lines = [
         "# Operator Run Review",
@@ -1927,6 +1928,14 @@ def render_operator_run_review_markdown(payload: dict[str, object]) -> str:
         f"- Challenger status: `{markdown_cell(champion_review.get('challenger_status', 'unknown'))}`",
         f"- Promotion approval: `{markdown_cell(champion_review.get('approval_status', 'unknown'))}`",
         f"- Would promote: `{champion_review.get('would_promote', False)}`",
+        "",
+        "## Candidate Quality",
+        "",
+        f"- Trace present: `{quality_review.get('trace_present', False)}`",
+        f"- Candidates: `{quality_review.get('candidate_count', 0)}`",
+        f"- Selectable: `{quality_review.get('selectable_count', 0)}`",
+        f"- Top failure: `{markdown_cell(quality_review.get('top_failure_code', ''))}`",
+        f"- Source: `{markdown_cell(quality_review.get('source_path', ''))}`",
         "",
         "## Watchlist",
         "",
@@ -2045,6 +2054,7 @@ def validate_operator_run_review_dashboard(
     status_summary = dict_payload(dashboard.get("status_summary", {}))
     config_review = dict_payload(dashboard.get("config_review", {}))
     champion_review = dict_payload(dashboard.get("champion_review", {}))
+    quality_review = dict_payload(dashboard.get("candidate_quality_review", {}))
     watchlist = dict_payload(dashboard.get("watchlist", {}))
     gates = list_payload(dashboard.get("gates", []))
     gates_by_name = {str(row.get("gate_name", "")): row for row in gates}
@@ -2053,6 +2063,7 @@ def validate_operator_run_review_dashboard(
         "artifact_health",
         "scope_health",
         "config_lineage",
+        "candidate_quality_trace",
         "champion_review",
         "promotion_review",
     ]
@@ -2088,6 +2099,16 @@ def validate_operator_run_review_dashboard(
     ):
         errors.append("operator_run_review dashboard champion gate status mismatch")
 
+    quality_gate = gates_by_name.get("candidate_quality_trace", {})
+    if bool(quality_gate.get("ok", False)) != bool(
+        quality_review.get("trace_present", False)
+    ):
+        errors.append("operator_run_review dashboard quality gate ok mismatch")
+    if str(quality_gate.get("status", "")) != (
+        "present" if quality_review.get("trace_present") is True else "missing"
+    ):
+        errors.append("operator_run_review dashboard quality gate status mismatch")
+
     promotion_gate = gates_by_name.get("promotion_review", {})
     if str(promotion_gate.get("status", "")) != str(
         champion_review.get("approval_status", "")
@@ -2096,6 +2117,10 @@ def validate_operator_run_review_dashboard(
 
     if int_value(status_summary.get("selected_candidate_count", -1)) < 0:
         errors.append("operator_run_review dashboard selected count negative")
+    if int_value(quality_review.get("candidate_count", -1)) < 0:
+        errors.append("operator_run_review dashboard quality candidate count negative")
+    if int_value(quality_review.get("selectable_count", -1)) < 0:
+        errors.append("operator_run_review dashboard quality selectable count negative")
     if int_value(watchlist.get("alert_count", -1)) < 0:
         errors.append("operator_run_review dashboard watchlist alert count negative")
     if status_summary.get("accepted") is True and str(

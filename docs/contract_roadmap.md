@@ -436,6 +436,13 @@ Codex CLI readiness contracts:
     but they cannot record approval, execute those commands, execute Codex,
     create workspaces, apply patches, route candidates, or change strategy
     acceptance.
+36. Operator action plan and operator action dashboard terminal outputs are
+    schema-validated before JSON or markdown is emitted. Their validators check
+    summary counts, status-derived fields, command digests, authority flags,
+    read-only policy flags, and current-evidence equality for derived payloads
+    without recording approval, executing commands, writing config, promoting
+    champions, running agents, rerunning backtests, routing candidates,
+    applying patches, or changing acceptance.
 
 ## Near-Term Development Order
 

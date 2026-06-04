@@ -9,7 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from orchestrator.run_closeout import build_run_closeout
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 OPERATOR_ACTION_PLAN_SCHEMA_VERSION = "operator_action_plan_v1"
@@ -31,6 +35,17 @@ def write_operator_action_plan(
         experiments_dir=experiments_dir,
         repo_root=repo_root,
     )
+    errors = validate_operator_action_plan_payload(
+        payload,
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "operator action plan failed schema validation: " + "; ".join(errors)
+        )
     json_path = run_dir / "operator_action_plan.json"
     md_path = run_dir / "operator_action_plan.md"
     json_path.write_text(
@@ -408,10 +423,168 @@ def validate_operator_action_plan_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved operator action plan artifact."""
-    return validate_json_file(
-        payload_path=payload_path,
-        schema_path=repo_root / SCHEMA_PATH,
+    errors = list(
+        validate_json_file(
+            payload_path=payload_path,
+            schema_path=repo_root / SCHEMA_PATH,
+        )
     )
+    if payload_path.exists():
+        errors.extend(
+            validate_operator_action_plan_consistency(
+                load_json_object(payload_path),
+                run_dir=payload_path.parent,
+            )
+        )
+    return tuple(errors)
+
+
+def validate_operator_action_plan_payload(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+    experiments_dir: Path = Path("experiments"),
+    repo_root: Path = Path("."),
+    require_current_evidence: bool = False,
+) -> tuple[str, ...]:
+    """Validate an in-memory operator action plan payload."""
+    repo_root = repo_root.resolve()
+    run_dir = resolve_path(run_dir, repo_root)
+    experiments_dir = resolve_path(experiments_dir, repo_root)
+    comparable_payload = strip_terminal_metadata(payload)
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=comparable_payload,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(
+        validate_operator_action_plan_consistency(
+            comparable_payload,
+            run_dir=run_dir,
+        )
+    )
+    if require_current_evidence:
+        expected = build_operator_action_plan(
+            run_dir=run_dir,
+            experiments_dir=experiments_dir,
+            repo_root=repo_root,
+        )
+        if comparable_payload != expected:
+            errors.append("operator_action_plan current evidence mismatch")
+    return tuple(errors)
+
+
+def validate_operator_action_plan_consistency(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+) -> tuple[str, ...]:
+    """Validate action plan summaries, statuses, digests, and authority fields."""
+    def int_value(value: object, default: int = -1) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    errors: list[str] = []
+    actions = list_of_dicts(payload.get("actions", []))
+    summary = object_field(payload, "summary")
+    source_closeout = object_field(payload, "source_closeout")
+    policy = object_field(payload, "policy")
+
+    if str(payload.get("run_id", "")) != run_dir.name:
+        errors.append("operator_action_plan run_id mismatch")
+    if str(payload.get("run_dir", "")) != str(run_dir):
+        errors.append("operator_action_plan run_dir mismatch")
+    if bool(payload.get("ok", False)) != (
+        str(payload.get("status", "")) != "missing_closeout"
+    ):
+        errors.append("operator_action_plan ok source mismatch")
+    if source_closeout.get("artifact_name") != "run_closeout":
+        errors.append("operator_action_plan source artifact mismatch")
+
+    expected_summary = action_summary(actions=actions)
+    if summary != expected_summary:
+        errors.append("operator_action_plan summary mismatch")
+    expected_status = action_plan_status(
+        summary=summary,
+        closeout=source_closeout if bool(payload.get("ok", False)) else {},
+    )
+    if str(payload.get("status", "")) != expected_status:
+        errors.append("operator_action_plan status mismatch")
+
+    expected_policy = {
+        "inspection_only": True,
+        "reads_saved_artifacts_only": True,
+        "does_not_execute_commands": True,
+        "does_not_execute_agents": True,
+        "does_not_run_backtests": True,
+        "does_not_write_config": True,
+        "does_not_promote_champion": True,
+        "does_not_apply_patches": True,
+        "does_not_route_agents": True,
+        "does_not_change_acceptance": True,
+        "commands_require_explicit_operator_invocation": True,
+    }
+    if policy != expected_policy:
+        errors.append("operator_action_plan policy mismatch")
+
+    for index, action in enumerate(actions, start=1):
+        action_type = str(action.get("action_type", ""))
+        action_id = str(action.get("action_id", ""))
+        commands = list_of_dicts(action.get("command_candidates", []))
+        expected_action_id = f"action_{index:03d}_{action_type}"
+        if action_id != expected_action_id:
+            errors.append(f"operator_action_plan action {index} id mismatch")
+        expected_action_status = action_status(
+            action_type=action_type,
+            commands=commands,
+        )
+        if str(action.get("status", "")) != expected_action_status:
+            errors.append(f"operator_action_plan action {index} status mismatch")
+        if string_list(action.get("reason_codes", [])) != action_reason_codes(
+            action_type=action_type,
+            status=str(action.get("status", "")),
+        ):
+            errors.append(f"operator_action_plan action {index} reason mismatch")
+        authority = object_field(action, "authority")
+        if authority != {
+            "plan_can_execute": False,
+            "plan_can_write_config": False,
+            "plan_can_promote_champion": False,
+            "final_acceptance_authority": "deterministic_code",
+        }:
+            errors.append(f"operator_action_plan action {index} authority mismatch")
+        for command_index, command in enumerate(commands, start=1):
+            command_text = str(command.get("command", ""))
+            if str(command.get("command_sha256", "")) != sha256_text(command_text):
+                errors.append(
+                    "operator_action_plan action "
+                    f"{index} command {command_index} digest mismatch"
+                )
+            if command.get("requires_explicit_operator_invocation") is not True:
+                errors.append(
+                    "operator_action_plan action "
+                    f"{index} command {command_index} invocation flag mismatch"
+                )
+            if command.get("executed_by_plan") is not False:
+                errors.append(
+                    "operator_action_plan action "
+                    f"{index} command {command_index} execution flag mismatch"
+                )
+    if int_value(summary.get("action_count", -1)) != len(actions):
+        errors.append("operator_action_plan summary action_count mismatch")
+    return tuple(errors)
+
+
+def strip_terminal_metadata(payload: dict[str, object]) -> dict[str, object]:
+    """Return payload without CLI-only annotation fields."""
+    stripped = dict(payload)
+    stripped.pop("from_artifact", None)
+    return stripped
 
 
 def file_record(path: Path) -> dict[str, object]:

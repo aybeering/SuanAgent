@@ -278,11 +278,15 @@ closeout dashboard action items into explicit command candidates for human
 review. `python -m orchestrator.experiments action-plan <run_id>` and
 `action-plan --markdown` expose the same plan without executing any command.
 The plan records command digests, guarded-command flags, and deterministic
-authority fields. Artifact validation checks command candidates through the
-shared operator command-hint validator for known labels, expected artifacts,
-command prefixes, simple shell-control-token guards, and matching command
-digests. The plan cannot write config, promote champions, execute agents, run
-backtests, route candidates, apply patches, or change acceptance.
+authority fields. The writer and terminal view validate the payload against
+`schemas/operator_action_plan.schema.json` and check summary counts, action
+ids, action statuses, reason codes, command digests, policy flags, and
+authority fields before returning. Artifact validation checks command
+candidates through the shared operator command-hint validator for known labels,
+expected artifacts, command prefixes, simple shell-control-token guards, and
+matching command digests. The plan cannot write config, promote champions,
+execute agents, run backtests, route candidates, apply patches, or change
+acceptance.
 `operator_action_approval.json` and `operator_action_approval.md` can then
 record explicit operator approval for one action-plan command candidate. The
 approval binds to `operator_action_plan.json`, records the selected action id,
@@ -317,7 +321,8 @@ command counts, audit failure reasons, blockers derived from those reason
 codes, and suggested read-only/guarded commands without recording approval,
 executing commands, writing config, promoting champions, running agents,
 running backtests, applying patches, routing agents, or changing acceptance.
-The dashboard writer validates the saved payload against
+The dashboard writer and terminal view validate the saved or derived payload
+against
 `schemas/operator_action_dashboard.schema.json` and checks that status-derived
 fields plus action, command, failure-reason, and blocker counts still match the
 embedded rows.

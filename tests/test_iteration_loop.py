@@ -283,6 +283,7 @@ from orchestrator.operator_action_plan import (
     build_operator_action_plan,
     render_operator_action_plan_markdown,
     validate_operator_action_plan_file,
+    validate_operator_action_plan_payload,
 )
 from orchestrator.operator_action_approval import (
     OPERATOR_ACTION_APPROVAL_SCHEMA_VERSION,
@@ -312,6 +313,7 @@ from orchestrator.operator_action_dashboard import (
     build_operator_action_dashboard,
     render_operator_action_dashboard_markdown,
     validate_operator_action_dashboard_file,
+    validate_operator_action_dashboard_payload,
     write_operator_action_dashboard,
 )
 from orchestrator.operator_cockpit import (
@@ -5602,6 +5604,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         payload_path=run_dir / "operator_action_plan.json",
         repo_root=Path.cwd(),
     ) == ()
+    assert validate_operator_action_plan_payload(
+        action_plan,
+        run_dir=run_dir,
+        experiments_dir=Path.cwd() / "experiments",
+        repo_root=Path.cwd(),
+    ) == ()
     action_plan_validation: dict[str, object] = {
         "run_id": run_id,
         "checked_files": [],
@@ -5616,7 +5624,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert action_plan_validation["errors"] == []
 
     action_plan_path = run_dir / "operator_action_plan.json"
-    tampered_action_plan = json.loads(action_plan_path.read_text(encoding="utf-8"))
+    original_action_plan_text = action_plan_path.read_text(encoding="utf-8")
+    tampered_action_plan = json.loads(original_action_plan_text)
     tampered_command = tampered_action_plan["actions"][0]["command_candidates"][0]
     tampered_label = tampered_command["label"]
     tampered_command["command"] += " && python -m orchestrator.run_loop"
@@ -5641,6 +5650,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (
         f"operator_action_plan action 1 command unsafe token: {tampered_label}"
     ) in tampered_action_plan_validation["errors"]
+    action_plan_path.write_text(original_action_plan_text, encoding="utf-8")
     assert manifest["operator_action_dashboard"]["path"] == (
         "operator_action_dashboard.json"
     )
@@ -5668,6 +5678,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert validate_operator_action_dashboard_file(
         payload_path=run_dir / "operator_action_dashboard.json",
+        repo_root=Path.cwd(),
+    ) == ()
+    assert validate_operator_action_dashboard_payload(
+        action_dashboard,
+        run_dir=run_dir,
+        experiments_dir=Path.cwd() / "experiments",
         repo_root=Path.cwd(),
     ) == ()
     assert manifest["operator_unlock_checklist"]["path"] == (
@@ -18813,12 +18829,25 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert action_plan["summary"]["command_candidate_count"] >= 1
     assert action_plan["policy"]["does_not_execute_commands"] is True
     assert action_plan["policy"]["commands_require_explicit_operator_invocation"] is True
+    assert validate_operator_action_plan_payload(
+        action_plan,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    ) == ()
     assert "# Operator Action Plan" in action_plan_markdown
     assert "Every command candidate requires explicit operator invocation" in (
         action_plan_markdown
     )
     assert dynamic_action_plan["schema_version"] == OPERATOR_ACTION_PLAN_SCHEMA_VERSION
     assert dynamic_action_plan["source_closeout"]["from_artifact"] is True
+    assert validate_operator_action_plan_payload(
+        dynamic_action_plan,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     assert action_approval["from_artifact"] is True
     assert (
         action_approval["schema_version"] == OPERATOR_ACTION_APPROVAL_SCHEMA_VERSION
@@ -18863,6 +18892,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert action_dashboard["summary"]["safe_command_count"] >= 1
     assert action_dashboard["policy"]["does_not_record_approval"] is True
     assert action_dashboard["authority"]["dashboard_can_execute_commands"] is False
+    assert validate_operator_action_dashboard_payload(
+        action_dashboard,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    ) == ()
     assert "# Operator Action Dashboard" in action_dashboard_markdown
     assert unlock_checklist["from_artifact"] is True
     assert unlock_checklist["schema_version"] == OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION
@@ -18927,6 +18962,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert action_plan_payload["from_artifact"] is True
     assert action_plan_payload["summary"]["command_candidate_count"] >= 1
     assert action_plan_payload["policy"]["does_not_execute_commands"] is True
+    assert validate_operator_action_plan_payload(
+        action_plan_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    ) == ()
     assert action_plan_markdown_result.returncode == 0, (
         action_plan_markdown_result.stderr
     )
@@ -18995,6 +19036,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         action_dashboard_payload,
         "operator_action_dashboard",
     )
+    assert validate_operator_action_dashboard_payload(
+        action_dashboard_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    ) == ()
     assert action_dashboard_markdown_result.returncode == 0, (
         action_dashboard_markdown_result.stderr
     )

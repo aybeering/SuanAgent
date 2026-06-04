@@ -65,7 +65,8 @@ dashboards, champion status views, experiment leaderboard views, and candidate
 leaderboard views, agent result stats views, proposal outcome memory views, and
 memory diagnostics, memory hygiene, memory scope recommendation, config change
 candidate, operator config review, config application dry-run, config rollback
-preview, and config lineage views.
+preview, config lineage, operator action plan, and operator action dashboard
+views.
 
 Still out of scope:
 

@@ -50,6 +50,7 @@ from orchestrator.operator_action_audit import (
 from orchestrator.operator_action_dashboard import (
     build_operator_action_dashboard,
     render_operator_action_dashboard_markdown,
+    validate_operator_action_dashboard_payload,
     write_operator_action_dashboard,
 )
 from orchestrator.operator_cockpit import (
@@ -82,6 +83,7 @@ from orchestrator.operator_action_executor import (
 from orchestrator.operator_action_plan import (
     build_operator_action_plan,
     render_operator_action_plan_markdown,
+    validate_operator_action_plan_payload,
 )
 from orchestrator.operator_config_review import (
     build_operator_config_review,
@@ -2106,6 +2108,17 @@ def operator_action_plan_report(
     plan_path = run_dir / "operator_action_plan.json"
     if plan_path.exists():
         payload = load_json(plan_path)
+        errors = validate_operator_action_plan_payload(
+            payload,
+            run_dir=run_dir,
+            experiments_dir=experiments_dir,
+            repo_root=experiments_dir.parent,
+        )
+        if errors:
+            raise ValueError(
+                "operator action plan failed schema validation: "
+                + "; ".join(errors)
+            )
         payload["from_artifact"] = True
         return payload
     if not (run_dir / "run_closeout.json").exists():
@@ -2115,6 +2128,17 @@ def operator_action_plan_report(
         experiments_dir=experiments_dir,
         repo_root=experiments_dir.parent,
     )
+    errors = validate_operator_action_plan_payload(
+        payload,
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=experiments_dir.parent,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "operator action plan failed schema validation: " + "; ".join(errors)
+        )
     payload["from_artifact"] = False
     return payload
 
@@ -2200,6 +2224,17 @@ def operator_action_dashboard_report(
     dashboard_path = run_dir / "operator_action_dashboard.json"
     if dashboard_path.exists():
         payload = load_json(dashboard_path)
+        errors = validate_operator_action_dashboard_payload(
+            payload,
+            run_dir=run_dir,
+            experiments_dir=experiments_dir,
+            repo_root=experiments_dir.parent,
+        )
+        if errors:
+            raise ValueError(
+                "operator action dashboard failed schema validation: "
+                + "; ".join(errors)
+            )
         payload["from_artifact"] = True
         return payload
     payload = build_operator_action_dashboard(
@@ -2207,6 +2242,18 @@ def operator_action_dashboard_report(
         experiments_dir=experiments_dir,
         repo_root=experiments_dir.parent,
     )
+    errors = validate_operator_action_dashboard_payload(
+        payload,
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=experiments_dir.parent,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "operator action dashboard failed schema validation: "
+            + "; ".join(errors)
+        )
     payload["from_artifact"] = False
     return payload
 

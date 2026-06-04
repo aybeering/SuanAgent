@@ -2258,6 +2258,99 @@ def test_operator_action_execution_receipt_runs_only_approved_read_only_commands
     ) == strategy_before
 
 
+def test_operator_action_execution_receipt_runs_quality_trace_for_switch_profile(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = replace(
+        load_project_config(repo),
+        memory_fallback_modifier="",
+        memory_fallback_modifiers=(),
+        stop_after_no_improvement_rounds=0,
+    )
+    manifest = run_iteration_loop(
+        run_id="operator-quality-trace-action",
+        max_rounds=5,
+        repo_root=repo,
+        config=config,
+    )
+    run_id = "operator-quality-trace-action"
+    run_dir = repo / f"experiments/{run_id}"
+    strategy_before = (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+    plan = json.loads((run_dir / "operator_action_plan.json").read_text("utf-8"))
+    switch_action = next(
+        action
+        for action in plan["actions"]
+        if action["action_type"] == "switch_modifier_profile"
+    )
+    quality_command = next(
+        command
+        for command in switch_action["command_candidates"]
+        if command["label"] == "inspect_quality_trace"
+    )
+
+    assert manifest["status"] == "stopped_repeated_proposal"
+    assert quality_command["expected_artifact"] == "candidate_quality_trace.json"
+    assert quality_command["writes_repository"] is False
+    assert quality_command["promotes_champion"] is False
+    assert quality_command["runs_backtests"] is False
+    assert command_is_allowlisted(parse_command(quality_command["command"])) is True
+
+    approval_path, _, _ = write_operator_action_approval(
+        run_dir=run_dir,
+        repo_root=repo,
+        operator_id="quality-trace-operator",
+        action_id=switch_action["action_id"],
+        command_label=quality_command["label"],
+        explicit_approval=True,
+        confirmation_phrase=OPERATOR_ACTION_CONFIRMATION_PHRASE,
+    )
+    receipt = execute_operator_action_with_approval(
+        run_id=run_id,
+        approval_path=approval_path,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        timeout_seconds=10,
+    )
+
+    assert receipt["status"] == "completed"
+    assert receipt["ok"] is True
+    assert receipt["executed"] is True
+    assert receipt["selected_action"]["action_type"] == "switch_modifier_profile"
+    assert receipt["selected_command"]["label"] == "inspect_quality_trace"
+    assert receipt["selected_command"]["command"] == quality_command["command"]
+    assert "quality-trace" in receipt["evidence_checks"][
+        "allowed_experiments_subcommands"
+    ]
+    assert receipt["command_execution"]["status"] == "completed"
+    assert receipt["command_execution"]["returncode"] == 0
+    assert receipt["command_execution"]["stdout"]["byte_count"] > 0
+    assert receipt["mutation_guard"]["ok"] is True
+    assert receipt["policy"]["executes_only_allowlisted_read_only_commands"] is True
+    assert (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    ) == strategy_before
+    assert_matches_schema_payload(receipt, "operator_action_execution_receipt")
+    assert validate_operator_action_execution_receipt_file(
+        payload_path=run_dir / "operator_action_execution_receipt.json",
+        repo_root=repo,
+    ) == ()
+    assert validate_operator_action_execution_receipt_payload(
+        receipt,
+        run_id=run_id,
+        run_dir=run_dir,
+        repo_root=repo,
+    ) == ()
+    refresh_operator_views(repo, run_id)
+    assert validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )["ok"] is True
+
+
 def test_operator_action_audit_tracks_plan_approval_execution_chain(
     tmp_path: Path,
 ) -> None:

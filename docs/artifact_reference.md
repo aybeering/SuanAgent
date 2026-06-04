@@ -312,6 +312,10 @@ validate the payload against
 `schemas/operator_action_execution_receipt.schema.json` and check source
 approval binding, selected action and command equality, execution command and
 argv, evidence fields, mutation guard, status, and policy before returning.
+The allowlist includes `python -m orchestrator.experiments quality-trace
+<run_id>`, so a repeated-proposal closeout can be followed by an approved
+read-only inspection of `candidate_quality_trace.json` before choosing the next
+deterministic modifier profile.
 `operator_action_audit.json` and `operator_action_audit.md` connect the saved
 action plan, approval, and execution receipt into one digest-checked read-only
 chain. The audit records stable failure reasons with stage, code, severity, and
@@ -766,7 +770,9 @@ Replay artifacts:
   evidence hashes against the saved approval, record stdout/stderr hashes, and
   check tracked workspace mutation. They block commands that write repository
   state, promote champions, run backtests, execute agents, apply patches, route
-  agents, or change acceptance.
+  agents, or change acceptance. The read-only allowlist includes the
+  `quality-trace` experiment view for inspecting candidate quality failures
+  after a repeated-proposal stop.
 - `operator_action_audit.json` and `operator_action_audit.md` summarize the
   action plan, approval, and execution receipt chain. They validate source
   artifact schema state, source file hashes, selected command consistency, and

@@ -92,6 +92,10 @@
         "completed_step_count",
         "step_count",
         "next_command_label",
+        "next_command_status",
+        "next_command_blocked",
+        "next_command_blocker_count",
+        "next_command_operator_hint",
         "next_command_boundary",
         "next_command_writes_artifact",
         "next_command_requires_explicit_operator_invocation",
@@ -108,6 +112,20 @@
         "completed_step_count": {"type": "integer"},
         "step_count": {"type": "integer"},
         "next_command_label": {"type": "string"},
+        "next_command_status": {
+          "type": "string",
+          "enum": [
+            "already_complete",
+            "blocked_by_home_blockers",
+            "ready_for_operator",
+            "review_required",
+            "unavailable",
+            "waiting_for_prior_step"
+          ]
+        },
+        "next_command_blocked": {"type": "boolean"},
+        "next_command_blocker_count": {"type": "integer"},
+        "next_command_operator_hint": {"type": "string"},
         "next_command_boundary": {"type": "string"},
         "next_command_writes_artifact": {"type": "string"},
         "next_command_requires_explicit_operator_invocation": {"type": "boolean"},

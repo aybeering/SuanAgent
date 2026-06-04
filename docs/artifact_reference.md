@@ -420,12 +420,14 @@ command-center rows, blockers, and source view records into one operator
 landing page. The safety flags surface whether the next command is hint-only,
 requires explicit operator invocation, needs prior approval, records an
 approval receipt, uses the guarded executor, and which artifact it would write
-when invoked through the dedicated command. Its source records include the
-saved unlock checklist, unlock runbook, and readiness diff so the first screen
-can point directly at Codex evidence without becoming an unlock authority. It
-does not create run artifacts, record approval, execute commands, write config,
-promote champions, run agents, run backtests, apply patches, route agents, or
-change acceptance.
+when invoked through the dedicated command. The home action summary also
+reports whether the next command is currently blocked by home-level blockers,
+how many blockers apply, and the operator hint to review before invoking it.
+Its source records include the saved unlock checklist, unlock runbook, and
+readiness diff so the first screen can point directly at Codex evidence without
+becoming an unlock authority. It does not create run artifacts, record
+approval, execute commands, write config, promote champions, run agents, run
+backtests, apply patches, route agents, or change acceptance.
 Completed iteration runs also record an `operator_home` manifest row and
 `summary.md` section with the read-only markdown command, terminal-only flag,
 current home status, action step, Codex unlock-runbook status, and intake

@@ -2873,6 +2873,16 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending_home["action_home"]["next_command_label"] == (
         "record_operator_approval"
     )
+    assert pending_home["action_home"]["next_command_status"] == (
+        "blocked_by_home_blockers"
+    )
+    assert pending_home["action_home"]["next_command_blocked"] is True
+    assert pending_home["action_home"]["next_command_blocker_count"] == len(
+        pending_home["blockers"]
+    )
+    assert pending_home["action_home"]["next_command_operator_hint"] == (
+        "Review home blockers before invoking the next command hint."
+    )
     assert pending_home["action_home"]["next_command_boundary"] == (
         "operator_approval_receipt"
     )
@@ -2901,6 +2911,8 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending_home["authority"]["home_can_execute_commands"] is False
     assert pending_home["policy"]["does_not_execute_commands"] is True
     assert "# Operator Home" in pending_home_markdown
+    assert "Next command status:" in pending_home_markdown
+    assert "Next command blocked:" in pending_home_markdown
     assert "Next command needs explicit invocation:" in pending_home_markdown
     assert "Next command records approval:" in pending_home_markdown
     assert "## Codex CLI" in pending_home_markdown

@@ -55,6 +55,11 @@ def build_operator_home(
     next_command = object_field(guide, "next_command")
     next_command_boundary = object_field(next_command, "boundary")
     blockers = string_list(cockpit.get("blockers", []))
+    command_state = next_command_state(
+        guided_path=guided_path,
+        next_command=next_command,
+        blockers=blockers,
+    )
     codex_home = codex_home_summary(cockpit)
     status = home_status(cockpit=cockpit, guide=guide, blockers=blockers)
     return {
@@ -92,6 +97,14 @@ def build_operator_home(
             ),
             "step_count": int(guided_path.get("step_count", 0) or 0),
             "next_command_label": str(next_command.get("label", "")),
+            "next_command_status": str(command_state.get("status", "")),
+            "next_command_blocked": bool(command_state.get("blocked", False)),
+            "next_command_blocker_count": int(
+                command_state.get("blocker_count", 0) or 0
+            ),
+            "next_command_operator_hint": str(
+                command_state.get("operator_hint", "")
+            ),
             "next_command_boundary": str(
                 next_command_boundary.get("boundary_type", "")
             ),
@@ -242,6 +255,75 @@ def command_center_rows(
     return rows
 
 
+def next_command_state(
+    *,
+    guided_path: dict[str, Any],
+    next_command: dict[str, Any],
+    blockers: list[str],
+) -> dict[str, object]:
+    """Return whether the home next-command hint is currently actionable."""
+    label = str(next_command.get("label", ""))
+    command = str(next_command.get("command", ""))
+    active_step_id = str(guided_path.get("active_step_id", ""))
+    active_step = guided_path_step_by_id(
+        list_of_dicts(guided_path.get("steps", [])),
+        active_step_id,
+    )
+    active_status = str(active_step.get("status", ""))
+    if not label or not command:
+        return {
+            "status": "unavailable",
+            "blocked": True,
+            "blocker_count": len(blockers),
+            "operator_hint": "No next command is available; inspect the guided path.",
+        }
+    if blockers:
+        return {
+            "status": "blocked_by_home_blockers",
+            "blocked": True,
+            "blocker_count": len(blockers),
+            "operator_hint": "Review home blockers before invoking the next command hint.",
+        }
+    if active_status in {"active", "available"}:
+        return {
+            "status": "ready_for_operator",
+            "blocked": False,
+            "blocker_count": 0,
+            "operator_hint": "The next command is a hint and still requires explicit operator invocation.",
+        }
+    if active_status == "waiting":
+        return {
+            "status": "waiting_for_prior_step",
+            "blocked": True,
+            "blocker_count": 0,
+            "operator_hint": "Complete the earlier guided-path step before invoking this command.",
+        }
+    if active_status == "complete":
+        return {
+            "status": "already_complete",
+            "blocked": False,
+            "blocker_count": 0,
+            "operator_hint": "The active guided-path step is already complete; review the dashboard.",
+        }
+    return {
+        "status": "review_required",
+        "blocked": False,
+        "blocker_count": 0,
+        "operator_hint": "Review the guided path before invoking the next command hint.",
+    }
+
+
+def guided_path_step_by_id(
+    steps: list[dict[str, Any]],
+    step_id: str,
+) -> dict[str, Any]:
+    """Return one guided-path step by id."""
+    for step in steps:
+        if str(step.get("step_id", "")) == step_id:
+            return step
+    return {}
+
+
 def codex_home_summary(cockpit: dict[str, Any]) -> dict[str, object]:
     """Return the Codex CLI readiness summary shown on the home page."""
     summary = object_field(cockpit, "summary")
@@ -358,6 +440,10 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
         f"`{action_home.get('step_count', 0)}`",
         f"- Next command: `{action_home.get('next_command_label', '')}` "
         f"(`{action_home.get('next_command_boundary', '')}`)",
+        f"- Next command status: `{action_home.get('next_command_status', '')}`",
+        f"- Next command blocked: `{action_home.get('next_command_blocked', False)}`",
+        f"- Next command blockers: `{action_home.get('next_command_blocker_count', 0)}`",
+        f"- Next command operator hint: {action_home.get('next_command_operator_hint', '')}",
         f"- Next command writes: `{action_home.get('next_command_writes_artifact', '')}`",
         f"- Next command hint-only: `{action_home.get('next_command_is_hint_only', False)}`",
         f"- Next command needs explicit invocation: "

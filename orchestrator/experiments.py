@@ -65,6 +65,7 @@ from orchestrator.operator_cockpit import (
 from orchestrator.operator_unlock_checklist import (
     build_operator_unlock_checklist,
     render_operator_unlock_checklist_markdown,
+    validate_operator_unlock_checklist_payload,
     write_operator_unlock_checklist,
 )
 from orchestrator.codex_cli_unlock_runbook import (
@@ -3072,12 +3073,33 @@ def operator_unlock_checklist_report(
     checklist_path = run_dir / "operator_unlock_checklist.json"
     if checklist_path.exists():
         payload = load_json(checklist_path)
+        errors = validate_operator_unlock_checklist_payload(
+            payload,
+            run_dir=run_dir,
+            repo_root=experiments_dir.parent,
+        )
+        if errors:
+            raise ValueError(
+                "operator unlock checklist failed schema validation: "
+                + "; ".join(errors)
+            )
         payload["from_artifact"] = True
         return payload
     payload = build_operator_unlock_checklist(
         run_dir=run_dir,
         repo_root=experiments_dir.parent,
     )
+    errors = validate_operator_unlock_checklist_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "operator unlock checklist failed schema validation: "
+            + "; ".join(errors)
+        )
     payload["from_artifact"] = False
     return payload
 

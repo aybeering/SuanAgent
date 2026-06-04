@@ -333,6 +333,7 @@ from orchestrator.operator_unlock_checklist import (
     build_operator_unlock_checklist,
     render_operator_unlock_checklist_markdown,
     validate_operator_unlock_checklist_file,
+    validate_operator_unlock_checklist_payload,
     write_operator_unlock_checklist,
 )
 from orchestrator.run_diagnosis import diagnose_run
@@ -2878,6 +2879,12 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert "# Operator Cockpit" in md_path.read_text(encoding="utf-8")
     assert built["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION
     assert_matches_schema_payload(unlock_checklist, "operator_unlock_checklist")
+    assert validate_operator_unlock_checklist_payload(
+        unlock_checklist,
+        run_dir=run_dir,
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     assert validate_operator_unlock_checklist_file(
         payload_path=run_dir / "operator_unlock_checklist.json",
         repo_root=repo,
@@ -15130,6 +15137,12 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
         payload_path=run_dir / "operator_unlock_checklist.json",
         repo_root=repo,
     ) == ()
+    assert validate_operator_unlock_checklist_payload(
+        full_checklist,
+        run_dir=run_dir,
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     tampered_summary = json.loads(checklist_path.read_text(encoding="utf-8"))
     tampered_summary["ready"] = True
     tampered_summary["item_count"] = 0
@@ -18199,6 +18212,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     unlock_checklist_markdown = render_operator_unlock_checklist_markdown(
         unlock_checklist
     )
+    assert validate_operator_unlock_checklist_payload(
+        unlock_checklist,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+    ) == ()
     write_codex_cli_unlock_runbook(
         run_dir=repo / "experiments/cli-candidates",
         repo_root=repo,
@@ -19202,6 +19220,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         unlock_checklist_payload,
         "operator_unlock_checklist",
     )
+    assert validate_operator_unlock_checklist_payload(
+        unlock_checklist_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+    ) == ()
     assert unlock_checklist_markdown_result.returncode == 0, (
         unlock_checklist_markdown_result.stderr
     )

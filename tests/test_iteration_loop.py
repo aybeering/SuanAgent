@@ -21140,6 +21140,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    action_dashboard_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-dashboard",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    action_dashboard_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-dashboard",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     action_guide_result = subprocess.run(
         [
             sys.executable,
@@ -22128,6 +22159,31 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         action_dashboard_markdown_result.stderr
     )
     assert "# Operator Action Dashboard" in action_dashboard_markdown_result.stdout
+    assert action_dashboard_latest_result.returncode == 0, (
+        action_dashboard_latest_result.stderr
+    )
+    action_dashboard_latest_payload = json.loads(action_dashboard_latest_result.stdout)
+    assert action_dashboard_latest_payload["run_id"] == "cli-candidates"
+    assert action_dashboard_latest_payload["schema_version"] == (
+        OPERATOR_ACTION_DASHBOARD_SCHEMA_VERSION
+    )
+    assert_matches_schema_payload(
+        action_dashboard_latest_payload,
+        "operator_action_dashboard",
+    )
+    assert validate_operator_action_dashboard_payload(
+        action_dashboard_latest_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    ) == ()
+    assert action_dashboard_latest_markdown_result.returncode == 0, (
+        action_dashboard_latest_markdown_result.stderr
+    )
+    assert "# Operator Action Dashboard" in (
+        action_dashboard_latest_markdown_result.stdout
+    )
+    assert "cli-candidates" in action_dashboard_latest_markdown_result.stdout
     assert action_guide_result.returncode == 0, action_guide_result.stderr
     action_guide_payload = json.loads(action_guide_result.stdout)
     assert action_guide_payload["schema_version"] == OPERATOR_ACTION_GUIDE_SCHEMA_VERSION

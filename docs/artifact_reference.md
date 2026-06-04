@@ -65,6 +65,7 @@ python -m orchestrator.experiments action-audit <run_id> --markdown
 python -m orchestrator.operator_action_dashboard experiments/<run_id>
 python -m orchestrator.experiments action-dashboard <run_id>
 python -m orchestrator.experiments action-dashboard <run_id> --markdown
+python -m orchestrator.experiments action-dashboard --latest --markdown
 python -m orchestrator.operator_action_guide experiments/<run_id>
 python -m orchestrator.experiments action-guide <run_id>
 python -m orchestrator.experiments action-guide <run_id> --markdown
@@ -377,7 +378,8 @@ applying patches, routing agents, or changing acceptance.
 `operator_action_dashboard.json` and `operator_action_dashboard.md` summarize
 the same chain into a compact next-step view. The iteration loop writes the
 final dashboard during closeout after `operator_action_plan.json`; `python -m
-orchestrator.experiments action-dashboard <run_id>` and `action-dashboard
+orchestrator.experiments action-dashboard <run_id>`, `python -m
+orchestrator.experiments action-dashboard --latest`, and `action-dashboard
 --markdown` show or derive the current step, timeline, selected command, safe
 command counts, audit failure reasons, blockers derived from those reason
 codes, and suggested read-only/guarded commands with explicit boundary

@@ -2829,10 +2829,11 @@ def operator_action_audit_report(
 
 def operator_action_dashboard_report(
     *,
-    run_id: str,
+    run_id: str | None = None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return the saved or derived operator action dashboard for one run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
@@ -5078,7 +5079,12 @@ def main() -> None:
         "action-dashboard",
         help="Show the read-only operator action dashboard.",
     )
-    action_dashboard_parser.add_argument("run_id")
+    action_dashboard_parser.add_argument("run_id", nargs="?")
+    action_dashboard_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     action_dashboard_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -5456,7 +5462,7 @@ def main() -> None:
     elif args.command == "action-dashboard":
         payload = operator_action_dashboard_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(render_operator_action_dashboard_markdown(payload), end="")

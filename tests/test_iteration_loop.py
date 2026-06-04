@@ -21535,6 +21535,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    unlock_checklist_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "unlock-checklist",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    unlock_checklist_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "unlock-checklist",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     unlock_runbook_result = subprocess.run(
         [
             sys.executable,
@@ -21566,6 +21597,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    unlock_runbook_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "unlock-runbook",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    unlock_runbook_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "unlock-runbook",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     execution_diff_result = subprocess.run(
         [
             sys.executable,
@@ -21590,6 +21652,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "experiments",
             "execution-readiness-diff",
             "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    execution_diff_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "execution-readiness-diff",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    execution_diff_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "execution-readiness-diff",
+            "--latest",
             "--markdown",
         ],
         cwd=repo,
@@ -22679,6 +22772,30 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         unlock_checklist_markdown_result.stderr
     )
     assert "# Operator Unlock Checklist" in unlock_checklist_markdown_result.stdout
+    assert unlock_checklist_latest_result.returncode == 0, (
+        unlock_checklist_latest_result.stderr
+    )
+    unlock_checklist_latest_payload = json.loads(unlock_checklist_latest_result.stdout)
+    assert unlock_checklist_latest_payload["run_id"] == "cli-candidates"
+    assert unlock_checklist_latest_payload["schema_version"] == (
+        OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION
+    )
+    assert_matches_schema_payload(
+        unlock_checklist_latest_payload,
+        "operator_unlock_checklist",
+    )
+    assert validate_operator_unlock_checklist_payload(
+        unlock_checklist_latest_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+    ) == ()
+    assert unlock_checklist_latest_markdown_result.returncode == 0, (
+        unlock_checklist_latest_markdown_result.stderr
+    )
+    assert "# Operator Unlock Checklist" in (
+        unlock_checklist_latest_markdown_result.stdout
+    )
+    assert "cli-candidates" in unlock_checklist_latest_markdown_result.stdout
     assert unlock_runbook["schema_version"] == CODEX_CLI_UNLOCK_RUNBOOK_SCHEMA_VERSION
     assert unlock_runbook["from_artifact"] is True
     assert unlock_runbook["status"] == "needs_artifacts"
@@ -22711,6 +22828,30 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         unlock_runbook_markdown_result.stderr
     )
     assert "# Codex CLI Unlock Runbook" in unlock_runbook_markdown_result.stdout
+    assert unlock_runbook_latest_result.returncode == 0, (
+        unlock_runbook_latest_result.stderr
+    )
+    unlock_runbook_latest_payload = json.loads(unlock_runbook_latest_result.stdout)
+    assert unlock_runbook_latest_payload["run_id"] == "cli-candidates"
+    assert unlock_runbook_latest_payload["schema_version"] == (
+        CODEX_CLI_UNLOCK_RUNBOOK_SCHEMA_VERSION
+    )
+    assert_matches_schema_payload(
+        unlock_runbook_latest_payload,
+        "codex_cli_unlock_runbook",
+    )
+    assert validate_codex_cli_unlock_runbook_payload(
+        unlock_runbook_latest_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+    ) == ()
+    assert unlock_runbook_latest_markdown_result.returncode == 0, (
+        unlock_runbook_latest_markdown_result.stderr
+    )
+    assert "# Codex CLI Unlock Runbook" in (
+        unlock_runbook_latest_markdown_result.stdout
+    )
+    assert "cli-candidates" in unlock_runbook_latest_markdown_result.stdout
     assert execution_diff["schema_version"] == (
         CODEX_CLI_EXECUTION_READINESS_DIFF_SCHEMA_VERSION
     )
@@ -22748,6 +22889,31 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "# Codex CLI Execution Readiness Diff" in (
         execution_diff_markdown_result.stdout
     )
+    assert execution_diff_latest_result.returncode == 0, (
+        execution_diff_latest_result.stderr
+    )
+    execution_diff_latest_payload = json.loads(execution_diff_latest_result.stdout)
+    assert execution_diff_latest_payload["run_id"] == "cli-candidates"
+    assert execution_diff_latest_payload["schema_version"] == (
+        CODEX_CLI_EXECUTION_READINESS_DIFF_SCHEMA_VERSION
+    )
+    assert_matches_schema_payload(
+        execution_diff_latest_payload,
+        "codex_cli_execution_readiness_diff",
+    )
+    assert validate_codex_cli_execution_readiness_diff_payload(
+        execution_diff_latest_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+    ) == ()
+    assert execution_diff_latest_markdown_result.returncode == 0, (
+        execution_diff_latest_markdown_result.stderr
+    )
+    assert "# Codex CLI Execution Readiness Diff" in (
+        execution_diff_latest_markdown_result.stdout
+    )
+    assert "cli-candidates" in execution_diff_latest_markdown_result.stdout
     assert cockpit_result.returncode == 0, cockpit_result.stderr
     cockpit_payload = json.loads(cockpit_result.stdout)
     assert cockpit_payload["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION

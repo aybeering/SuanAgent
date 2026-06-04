@@ -4011,10 +4011,11 @@ def repo_relative_path(path: Path, repo_root: Path) -> str:
 
 def operator_unlock_checklist_report(
     *,
-    run_id: str,
+    run_id: str | None = None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return the saved or derived operator unlock checklist for one run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
@@ -4054,10 +4055,11 @@ def operator_unlock_checklist_report(
 
 def codex_cli_unlock_runbook_report(
     *,
-    run_id: str,
+    run_id: str | None = None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return the saved or derived Codex CLI unlock runbook for one run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
@@ -4097,11 +4099,12 @@ def codex_cli_unlock_runbook_report(
 
 def codex_cli_execution_readiness_diff_report(
     *,
-    run_id: str,
+    run_id: str | None = None,
     experiments_dir: Path = Path("experiments"),
     config_path: Path = Path("config/codex_cli_enable_candidate.json"),
 ) -> dict[str, object]:
     """Return the saved or derived Codex CLI execution readiness diff."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
@@ -5018,7 +5021,16 @@ def main() -> None:
         "unlock-checklist",
         help="Show the read-only operator unlock checklist for one iteration run.",
     )
-    unlock_checklist_parser.add_argument("run_id")
+    unlock_checklist_parser.add_argument(
+        "run_id",
+        nargs="?",
+        help="Iteration run id. Defaults to the latest indexed iteration run.",
+    )
+    unlock_checklist_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Show the latest indexed iteration run even if a run id is provided.",
+    )
     unlock_checklist_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -5029,7 +5041,16 @@ def main() -> None:
         "unlock-runbook",
         help="Show the read-only Codex CLI unlock runbook for one iteration run.",
     )
-    unlock_runbook_parser.add_argument("run_id")
+    unlock_runbook_parser.add_argument(
+        "run_id",
+        nargs="?",
+        help="Iteration run id. Defaults to the latest indexed iteration run.",
+    )
+    unlock_runbook_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Show the latest indexed iteration run even if a run id is provided.",
+    )
     unlock_runbook_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -5040,7 +5061,16 @@ def main() -> None:
         "execution-readiness-diff",
         help="Show the read-only Codex CLI execution readiness drift audit.",
     )
-    execution_diff_parser.add_argument("run_id")
+    execution_diff_parser.add_argument(
+        "run_id",
+        nargs="?",
+        help="Iteration run id. Defaults to the latest indexed iteration run.",
+    )
+    execution_diff_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Show the latest indexed iteration run even if a run id is provided.",
+    )
     execution_diff_parser.add_argument(
         "--config",
         type=Path,
@@ -5447,7 +5477,7 @@ def main() -> None:
     elif args.command == "unlock-checklist":
         payload = operator_unlock_checklist_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(render_operator_unlock_checklist_markdown(payload), end="")
@@ -5455,7 +5485,7 @@ def main() -> None:
     elif args.command == "unlock-runbook":
         payload = codex_cli_unlock_runbook_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(render_codex_cli_unlock_runbook_markdown(payload), end="")
@@ -5463,7 +5493,7 @@ def main() -> None:
     elif args.command == "execution-readiness-diff":
         payload = codex_cli_execution_readiness_diff_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
             config_path=args.config,
         )
         if args.markdown:

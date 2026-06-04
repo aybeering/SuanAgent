@@ -81,13 +81,16 @@ python -m orchestrator.experiments home --latest --markdown
 python -m orchestrator.operator_unlock_checklist experiments/<run_id>
 python -m orchestrator.experiments unlock-checklist <run_id>
 python -m orchestrator.experiments unlock-checklist <run_id> --markdown
+python -m orchestrator.experiments unlock-checklist --latest --markdown
 python -m orchestrator.codex_cli_readiness_summary experiments/<run_id>
 python -m orchestrator.codex_cli_unlock_runbook experiments/<run_id>
 python -m orchestrator.experiments unlock-runbook <run_id>
 python -m orchestrator.experiments unlock-runbook <run_id> --markdown
+python -m orchestrator.experiments unlock-runbook --latest --markdown
 python -m orchestrator.codex_cli_execution_readiness_diff experiments/<run_id>
 python -m orchestrator.experiments execution-readiness-diff <run_id>
 python -m orchestrator.experiments execution-readiness-diff <run_id> --markdown
+python -m orchestrator.experiments execution-readiness-diff --latest --markdown
 python -m orchestrator.operator_cockpit experiments/<run_id>
 python -m orchestrator.experiments cockpit <run_id>
 python -m orchestrator.experiments cockpit <run_id> --markdown
@@ -465,9 +468,10 @@ run with a saved `manifest.json`; `--latest` makes the same selection explicit.
 Codex CLI operator-unlock evidence chain as a standalone read-only checklist.
 The iteration loop writes it during closeout before the final cockpit so cockpit
 source hashes bind to it. `python -m orchestrator.experiments unlock-checklist
-<run_id>` and `unlock-checklist --markdown` show the saved or derived checklist
-without recording approval, executing Codex, executing agents, creating
-workspaces, applying patches, routing agents, or changing acceptance. The
+<run_id>`, `python -m orchestrator.experiments unlock-checklist --latest`, and
+`unlock-checklist --markdown` show the saved or derived checklist without
+recording approval, executing Codex, executing agents, creating workspaces,
+applying patches, routing agents, or changing acceptance. The
 `navigation` section lists expected evidence artifacts, failed evidence groups,
 blocking reason codes, related artifact paths, and command hints that still
 require explicit operator invocation. Artifact validation checks those
@@ -497,8 +501,8 @@ writes it during closeout and no-round real-Codex startup failures after the
 operator unlock checklist, while `python -m
 orchestrator.codex_cli_unlock_runbook experiments/<run_id>` can refresh the
 artifacts explicitly. `python -m orchestrator.experiments unlock-runbook
-<run_id>` or `unlock-runbook --markdown` shows the saved or derived guide. The
-runbook lists
+<run_id>`, `python -m orchestrator.experiments unlock-runbook --latest`, or
+`unlock-runbook --markdown` shows the saved or derived guide. The runbook lists
 the required evidence artifacts, readiness fields, status, and command hints,
 and artifact validation checks those operator commands through the shared
 operator command-hint validator for known labels, write flags, command prefixes,
@@ -535,7 +539,11 @@ create workspaces, modify config, route agents, apply patches, or change
 acceptance. The iteration loop writes it automatically during closeout,
 including no-round startup failures caused by blocked real Codex execute=true
 preflight checks; explicit commands can refresh it after later operator
-evidence artifacts are written.
+evidence artifacts are written. `python -m orchestrator.experiments
+execution-readiness-diff <run_id>` and `python -m orchestrator.experiments
+execution-readiness-diff --latest` expose the same read-only diff without
+recording approval, executing Codex, creating workspaces, applying patches, or
+changing acceptance.
 `operator_cockpit.json` and `operator_cockpit.md` collect the run closeout,
 config lineage, operator action dashboard, Codex CLI execution preflight,
 standalone operator unlock checklist, Codex CLI unlock runbook, Codex CLI execution readiness diff,

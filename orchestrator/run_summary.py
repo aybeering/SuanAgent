@@ -463,6 +463,53 @@ def write_iteration_summary(
             f"`{display_value(operator_home.get('markdown_command'))}`"
         )
 
+        lines.extend(["", "## Operator Next Command", ""])
+        lines.append("- Selection source: `operator_home.next_command`")
+        lines.append(
+            "- Status: "
+            f"`{display_value(operator_home.get('next_command_status'))}`"
+        )
+        lines.append(
+            "- Blocked: "
+            f"`{display_value(operator_home.get('next_command_blocked'))}`"
+        )
+        lines.append(
+            "- Blocker count: "
+            f"`{display_value(operator_home.get('next_command_blocker_count'))}`"
+        )
+        lines.append(
+            "- Label: "
+            f"`{display_value(operator_home.get('next_command_label'))}`"
+        )
+        lines.append(
+            "- Command: "
+            f"`{display_value(operator_home.get('next_command'))}`"
+        )
+        lines.append(
+            "- Boundary: "
+            f"`{display_value(operator_home.get('next_command_boundary'))}`"
+        )
+        lines.append(
+            "- Writes artifact: "
+            f"`{display_value(operator_home.get('next_command_writes_artifact'))}`"
+        )
+        lines.append(
+            "- Hint-only: "
+            f"`{display_value(operator_home.get('next_command_is_hint_only'))}`"
+        )
+        lines.append(
+            "- Requires explicit invocation: "
+            f"`{display_value(operator_home.get('next_command_requires_explicit_operator_invocation'))}`"
+        )
+        lines.append(
+            "- Requires approval: "
+            f"`{display_value(operator_home.get('next_command_requires_operator_approval'))}`"
+        )
+        lines.append(
+            "- Uses guarded executor: "
+            f"`{display_value(operator_home.get('next_command_uses_guarded_executor'))}`"
+        )
+
     lines.extend(["", "## Best Validation Delta", ""])
     if best_round is None:
         lines.append("No completed rounds.")

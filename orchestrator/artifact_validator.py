@@ -537,6 +537,11 @@ def validate_iteration_run(
         manifest=manifest,
         report=report,
     )
+    validate_iteration_summary_operator_next_command(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
 
     for round_id in round_ids:
         round_dir = run_dir / round_id
@@ -1061,6 +1066,87 @@ def validate_iteration_summary_operator_home(
     for field_name, expected_line in expected_lines:
         if expected_line not in summary_text:
             add_error(report, f"summary.md operator_home {field_name} mismatch")
+
+
+def validate_iteration_summary_operator_next_command(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md operator next-command selector mirrors operator_home."""
+    operator_home = manifest.get("operator_home")
+    if not isinstance(operator_home, dict):
+        return
+    summary_text = read_optional_text(run_dir / "summary.md")
+    section = markdown_section(summary_text, "## Operator Next Command")
+    if not section:
+        add_error(report, "summary.md operator_next_command section missing")
+        return
+    expected_lines: tuple[tuple[str, str], ...] = (
+        ("selection_source", "- Selection source: `operator_home.next_command`"),
+        (
+            "status",
+            "- Status: "
+            f"`{markdown_display_value(operator_home.get('next_command_status'))}`",
+        ),
+        (
+            "blocked",
+            "- Blocked: "
+            f"`{markdown_display_value(operator_home.get('next_command_blocked'))}`",
+        ),
+        (
+            "blocker_count",
+            "- Blocker count: "
+            f"`{markdown_display_value(operator_home.get('next_command_blocker_count'))}`",
+        ),
+        (
+            "label",
+            "- Label: "
+            f"`{markdown_display_value(operator_home.get('next_command_label'))}`",
+        ),
+        (
+            "command",
+            "- Command: "
+            f"`{markdown_display_value(operator_home.get('next_command'))}`",
+        ),
+        (
+            "boundary",
+            "- Boundary: "
+            f"`{markdown_display_value(operator_home.get('next_command_boundary'))}`",
+        ),
+        (
+            "writes_artifact",
+            "- Writes artifact: "
+            f"`{markdown_display_value(operator_home.get('next_command_writes_artifact'))}`",
+        ),
+        (
+            "hint_only",
+            "- Hint-only: "
+            f"`{markdown_display_value(operator_home.get('next_command_is_hint_only'))}`",
+        ),
+        (
+            "requires_explicit_invocation",
+            "- Requires explicit invocation: "
+            f"`{markdown_display_value(operator_home.get('next_command_requires_explicit_operator_invocation'))}`",
+        ),
+        (
+            "requires_approval",
+            "- Requires approval: "
+            f"`{markdown_display_value(operator_home.get('next_command_requires_operator_approval'))}`",
+        ),
+        (
+            "uses_guarded_executor",
+            "- Uses guarded executor: "
+            f"`{markdown_display_value(operator_home.get('next_command_uses_guarded_executor'))}`",
+        ),
+    )
+    for field_name, expected_line in expected_lines:
+        if expected_line not in section:
+            add_error(
+                report,
+                f"summary.md operator_next_command {field_name} mismatch",
+            )
 
 
 def markdown_display_value(value: object) -> str:

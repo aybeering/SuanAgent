@@ -262,11 +262,11 @@ The artifact validator checks that the top-level run fields printed in
 `summary.md` continue to mirror the same `manifest.json` values, including run
 id, status, completed rounds, accepted round, stop reason, and final strategy
 commit. It also checks the `summary.md` dataset, run-outcome, agent-intake,
-health, round-table, proposal-quality, and candidate-leaderboard sections
-against the corresponding manifest records and round artifacts, so
-operator-facing data split, outcome, health, per-round, proposal-quality,
-candidate-ranking, and agent-output diagnosis fields stay tied to the
-machine-readable record.
+health, operator-home, operator-next-command, round-table, proposal-quality,
+and candidate-leaderboard sections against the corresponding manifest records
+and round artifacts, so operator-facing data split, outcome, health,
+navigation, per-round, proposal-quality, candidate-ranking, and agent-output
+diagnosis fields stay tied to the machine-readable record.
 `diagnosis.json` is a compact machine-readable review artifact built from the
 saved run artifacts. For iteration runs, it includes per-round policy results,
 selected candidates, the best validation round, and the same agent-intake
@@ -495,6 +495,11 @@ artifact or grant execution authority.
 The artifact validator checks that the saved `summary.md` operator-home section
 continues to mirror the `manifest.operator_home` row, so operator-facing
 markdown cannot silently drift from the machine-readable navigation record.
+The saved `summary.md` also includes an `Operator Next Command` selector section
+derived from the same manifest row. The validator binds its
+`operator_home.next_command` source marker, selected command, status, blocker
+state, boundary, write target, and safety flags back to `manifest.operator_home`,
+so the landing page and the narrow next-command selector cannot drift apart.
 When no run id is supplied, `home` resolves the latest indexed iteration-loop
 run with a saved `manifest.json`; `--latest` makes the same selection explicit.
 `python -m orchestrator.experiments next-command <run_id>`, `python -m

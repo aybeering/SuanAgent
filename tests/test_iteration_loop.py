@@ -12222,6 +12222,58 @@ def test_artifact_validator_reports_summary_operator_home_drift(
     assert "summary.md operator_home markdown_command mismatch" in report["errors"]
 
 
+def test_artifact_validator_reports_summary_operator_next_command_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-summary-next-command-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments" / run_id
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    operator_home = manifest["operator_home"]
+    summary_path = run_dir / "summary.md"
+    summary_text = summary_path.read_text(encoding="utf-8")
+    section_start = summary_text.index("## Operator Next Command")
+    section_end = summary_text.index("\n## Best Validation Delta", section_start)
+    next_command_section = summary_text[section_start:section_end]
+    next_command_section = next_command_section.replace(
+        f"- Status: `{operator_home['next_command_status']}`",
+        "- Status: `available`",
+        1,
+    )
+    next_command_section = next_command_section.replace(
+        f"- Command: `{operator_home['next_command']}`",
+        "- Command: `python -m orchestrator.run_loop`",
+        1,
+    )
+    next_command_section = next_command_section.replace(
+        f"- Hint-only: `{operator_home['next_command_is_hint_only']}`",
+        "- Hint-only: `False`",
+        1,
+    )
+    summary_text = (
+        summary_text[:section_start]
+        + next_command_section
+        + summary_text[section_end:]
+    )
+    summary_path.write_text(summary_text, encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert "summary.md operator_next_command status mismatch" in report["errors"]
+    assert "summary.md operator_next_command command mismatch" in report["errors"]
+    assert "summary.md operator_next_command hint_only mismatch" in report["errors"]
+
+
 def test_artifact_validator_reports_summary_header_drift(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     run_id = "artifact-summary-header-drift"

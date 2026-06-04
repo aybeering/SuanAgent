@@ -99,6 +99,7 @@
       "type": "string",
       "enum": [
         "review_priority",
+        "operator_digest",
         "recommended_commands_fallback",
         "none"
       ]
@@ -212,6 +213,13 @@
         "cockpit_status",
         "cockpit_ok",
         "primary_focus",
+        "operator_digest_headline",
+        "operator_digest_priority",
+        "operator_digest_primary_reason",
+        "operator_digest_target_panel_id",
+        "operator_digest_target_panel_title",
+        "operator_digest_target_panel_status",
+        "operator_digest_next_step",
         "blocker_count",
         "primary_blocker",
         "blocker_preview",
@@ -228,6 +236,27 @@
           "type": "boolean"
         },
         "primary_focus": {
+          "type": "string"
+        },
+        "operator_digest_headline": {
+          "type": "string"
+        },
+        "operator_digest_priority": {
+          "type": "string"
+        },
+        "operator_digest_primary_reason": {
+          "type": "string"
+        },
+        "operator_digest_target_panel_id": {
+          "type": "string"
+        },
+        "operator_digest_target_panel_title": {
+          "type": "string"
+        },
+        "operator_digest_target_panel_status": {
+          "type": "string"
+        },
+        "operator_digest_next_step": {
           "type": "string"
         },
         "blocker_count": {

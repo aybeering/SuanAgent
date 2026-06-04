@@ -472,17 +472,18 @@ It uses the run's recorded config path unless `--config` is provided, returns a
 terminal-only `operator_view_refresh_v1` receipt with config source, path,
 existence, SHA-256 fields, pre-refresh cockpit stale-source evidence,
 post-refresh cockpit freshness, refresh-effect status, operator-review-required
-flag, deterministic review reason codes, blocker delta counts, and
-per-artifact JSON/Markdown output hashes, and still does not execute commands,
-execute Codex, run agents, run backtests, write config, promote champions,
-apply patches, route agents, or change acceptance.
+flag, deterministic review reason codes, refreshed-cockpit operator digest
+headline/priority/target-panel state, blocker delta counts, and per-artifact
+JSON/Markdown output hashes, and still does not execute commands, execute
+Codex, run agents, run backtests, write config, promote champions, apply
+patches, route agents, or change acceptance.
 The receipt is validated in memory against
 `schemas/operator_view_refresh.schema.json` before it is printed, with an
 additional deterministic consistency check for refreshed artifact count and
 order, per-artifact file-path bindings, blocker-delta counters, policy-summary
-derivation, refresh-effect derivation, and copied review-summary next command,
-reason, and post-refresh blocker fields, even though it is not written as a new
-artifact family.
+derivation, refresh-effect derivation, operator-digest command reason binding,
+and copied review-summary next command, reason, and post-refresh blocker
+fields, even though it is not written as a new artifact family.
 Add `--markdown` to render the same terminal-only receipt as a compact operator
 summary with refreshed artifact paths, hash prefixes, config provenance,
 pre-refresh stale sources, and post-refresh snapshot freshness. The receipt

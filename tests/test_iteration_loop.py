@@ -3553,7 +3553,7 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert "## Blocker Delta" in refresh_markdown
     assert "Safety policy OK: `True`" in refresh_markdown
     assert "Safety policy false keys: `0`" in refresh_markdown
-    assert "Next command source: `review_priority`" in refresh_markdown
+    assert "Next command source: `operator_digest`" in refresh_markdown
     assert refreshed["snapshot_freshness"]["ok"] is True
     refreshed_blockers = refreshed["blockers"]
     if refreshed_blockers:
@@ -3564,18 +3564,32 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     else:
         assert refresh["operator_summary"]["primary_blocker"] == ""
         assert refresh["operator_summary"]["blocker_preview"] == []
-    refreshed_priority = refreshed["review_priority"]
-    assert refresh["operator_summary"]["next_command_source"] == "review_priority"
-    assert refresh["operator_summary"]["next_command_label"] == refreshed_priority[
+    refreshed_digest = refreshed["operator_digest"]
+    assert refresh["operator_summary"]["operator_digest_headline"] == (
+        refreshed_digest["headline"]
+    )
+    assert refresh["operator_summary"]["operator_digest_priority"] == (
+        refreshed_digest["priority"]
+    )
+    assert refresh["operator_summary"]["operator_digest_target_panel_id"] == (
+        refreshed_digest["target_panel_id"]
+    )
+    assert refresh["operator_summary"]["operator_digest_next_step"] == (
+        refreshed_digest["next_step"]
+    )
+    assert refresh["operator_summary"]["next_command_source"] == "operator_digest"
+    assert refresh["operator_summary"]["next_command_label"] == refreshed_digest[
         "recommended_command_label"
     ]
-    assert refresh["operator_summary"]["next_command"] == refreshed_priority[
+    assert refresh["operator_summary"]["next_command"] == refreshed_digest[
         "recommended_command"
     ]
-    assert refresh["operator_summary"]["next_command_reason"] == refreshed_priority[
-        "recommended_command_reason"
-    ]
+    assert refresh["operator_summary"]["next_command_reason"] == (
+        refreshed_digest["next_step"]
+    )
     assert refresh["operator_summary"]["next_command_reason"]
+    assert "Operator digest:" in refresh_markdown
+    assert refreshed_digest["headline"] in refresh_markdown
     assert (
         f"Next command reason: {refresh['operator_summary']['next_command_reason']}"
         in refresh_markdown
@@ -3696,16 +3710,28 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
         run_id=run_id,
         experiments_dir=repo / "experiments",
     )
-    review_priority = cockpit["review_priority"]
-    assert refresh["operator_summary"]["next_command_source"] == "review_priority"
-    assert refresh["operator_summary"]["next_command_label"] == review_priority[
+    operator_digest = cockpit["operator_digest"]
+    assert refresh["operator_summary"]["operator_digest_headline"] == (
+        operator_digest["headline"]
+    )
+    assert refresh["operator_summary"]["operator_digest_priority"] == (
+        operator_digest["priority"]
+    )
+    assert refresh["operator_summary"]["operator_digest_primary_reason"] == (
+        operator_digest["primary_reason"]
+    )
+    assert refresh["operator_summary"]["operator_digest_target_panel_title"] == (
+        operator_digest["target_panel_title"]
+    )
+    assert refresh["operator_summary"]["next_command_source"] == "operator_digest"
+    assert refresh["operator_summary"]["next_command_label"] == operator_digest[
         "recommended_command_label"
     ]
-    assert refresh["operator_summary"]["next_command"] == review_priority[
+    assert refresh["operator_summary"]["next_command"] == operator_digest[
         "recommended_command"
     ]
-    assert refresh["operator_summary"]["next_command_reason"] == review_priority[
-        "recommended_command_reason"
+    assert refresh["operator_summary"]["next_command_reason"] == operator_digest[
+        "next_step"
     ]
     assert (
         f"{run_id}"
@@ -3716,13 +3742,15 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     assert "Primary blocker:" in refresh_markdown
     assert "## Current Blockers" in refresh_markdown
     assert (
-        f"Next command: `{review_priority['recommended_command_label']}`"
+        f"Next command: `{operator_digest['recommended_command_label']}`"
         in refresh_markdown
     )
-    assert "Next command source: `review_priority`" in refresh_markdown
+    assert "Next command source: `operator_digest`" in refresh_markdown
+    assert "Operator digest:" in refresh_markdown
+    assert operator_digest["headline"] in refresh_markdown
     assert "Next command reason:" in refresh_markdown
     assert refresh["operator_summary"]["next_command_reason"] in refresh_markdown
-    assert str(review_priority["recommended_command"]) in refresh_markdown
+    assert str(operator_digest["recommended_command"]) in refresh_markdown
     for row in refresh["refreshed_artifacts"]:
         json_file = row["json_file"]
         markdown_file = row["markdown_file"]
@@ -3922,15 +3950,22 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             "cockpit_status": "ready_for_review",
             "cockpit_ok": True,
             "primary_focus": "review",
+            "operator_digest_headline": "Run is ready for operator review.",
+            "operator_digest_priority": "clean",
+            "operator_digest_primary_reason": "ready_for_review",
+            "operator_digest_target_panel_id": "run_review",
+            "operator_digest_target_panel_title": "Run Review",
+            "operator_digest_target_panel_status": "ready_for_review",
+            "operator_digest_next_step": "review run closeout dashboard",
             "blocker_count": 0,
             "primary_blocker": "",
             "blocker_preview": [],
-            "next_command_source": "review_priority",
+            "next_command_source": "operator_digest",
             "next_command_label": "review_cockpit",
             "next_command": (
                 "python -m orchestrator.experiments cockpit run --markdown"
             ),
-            "next_command_reason": "Review this read-only cockpit.",
+            "next_command_reason": "review run closeout dashboard",
         },
         "blocker_delta": {
             "schema_version": "operator_view_refresh_blocker_delta_v1",
@@ -3964,12 +3999,12 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             "reason_codes": [],
             "primary_blocker": "",
             "post_blocker_count": 0,
-            "next_command_source": "review_priority",
+            "next_command_source": "operator_digest",
             "next_command_label": "review_cockpit",
             "next_command": (
                 "python -m orchestrator.experiments cockpit run --markdown"
             ),
-            "next_command_reason": "Review this read-only cockpit.",
+            "next_command_reason": "review run closeout dashboard",
         },
         "cockpit_snapshot_freshness": {
             "schema_version": "operator_cockpit_snapshot_freshness_v1",

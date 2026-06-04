@@ -1195,24 +1195,32 @@ jobs:
           assert "config/adaptive_stub.json" in refresh_markdown
           assert "Cockpit freshness: `fresh`" in refresh_markdown
           assert refresh["operator_summary"]["primary_focus"]
-          review_priority = cockpit["review_priority"]
-          assert refresh["operator_summary"]["next_command_source"] == "review_priority"
-          assert refresh["operator_summary"]["next_command_label"] == review_priority[
+          operator_digest = cockpit["operator_digest"]
+          assert refresh["operator_summary"]["operator_digest_headline"] == (
+              operator_digest["headline"]
+          )
+          assert refresh["operator_summary"]["operator_digest_priority"] == (
+              operator_digest["priority"]
+          )
+          assert refresh["operator_summary"]["next_command_source"] == "operator_digest"
+          assert refresh["operator_summary"]["next_command_label"] == operator_digest[
               "recommended_command_label"
           ]
-          assert refresh["operator_summary"]["next_command"] == review_priority[
+          assert refresh["operator_summary"]["next_command"] == operator_digest[
               "recommended_command"
           ]
-          assert refresh["operator_summary"]["next_command_reason"] == review_priority[
-              "recommended_command_reason"
-          ]
+          assert refresh["operator_summary"]["next_command_reason"] == (
+              operator_digest["next_step"]
+          )
           assert "ci-adaptive" in refresh["operator_summary"]["next_command"]
           assert (
-              f"Next command: `{review_priority['recommended_command_label']}`"
+              f"Next command: `{operator_digest['recommended_command_label']}`"
               in refresh_markdown
           )
-          assert "Next command source: `review_priority`" in refresh_markdown
-          assert review_priority["recommended_command"] in refresh_markdown
+          assert "Next command source: `operator_digest`" in refresh_markdown
+          assert "Operator digest:" in refresh_markdown
+          assert operator_digest["headline"] in refresh_markdown
+          assert operator_digest["recommended_command"] in refresh_markdown
           assert refresh["refreshed_count"] == 5
           assert [
               row["artifact_name"] for row in refresh["refreshed_artifacts"]

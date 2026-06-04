@@ -2683,10 +2683,22 @@ def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, objec
     """Return the next operator-facing checkpoint after refreshing views."""
     next_command = operator_view_refresh_next_command(cockpit)
     blockers = string_payload(cockpit.get("blockers", []))
+    digest = dict_payload(cockpit.get("operator_digest", {}))
     return {
         "cockpit_status": str(cockpit.get("status", "")),
         "cockpit_ok": bool(cockpit.get("ok", False)),
         "primary_focus": str(cockpit.get("primary_focus", "")),
+        "operator_digest_headline": str(digest.get("headline", "")),
+        "operator_digest_priority": str(digest.get("priority", "")),
+        "operator_digest_primary_reason": str(digest.get("primary_reason", "")),
+        "operator_digest_target_panel_id": str(digest.get("target_panel_id", "")),
+        "operator_digest_target_panel_title": str(
+            digest.get("target_panel_title", "")
+        ),
+        "operator_digest_target_panel_status": str(
+            digest.get("target_panel_status", "")
+        ),
+        "operator_digest_next_step": str(digest.get("next_step", "")),
         "blocker_count": len(blockers),
         "primary_blocker": blockers[0] if blockers else "",
         "blocker_preview": blockers[:5],
@@ -2700,7 +2712,22 @@ def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, objec
 def operator_view_refresh_next_command(
     cockpit: dict[str, object],
 ) -> dict[str, object]:
-    """Return the cockpit review-priority command, falling back to first hint."""
+    """Return the cockpit digest command, falling back to priority and hints."""
+    digest = dict_payload(cockpit.get("operator_digest", {}))
+    digest_label = str(digest.get("recommended_command_label", ""))
+    digest_command = str(digest.get("recommended_command", ""))
+    digest_reason = str(digest.get("next_step", "")) or str(
+        digest.get("headline", "")
+    )
+    if digest_label and digest_command:
+        return {
+            "source": "operator_digest",
+            "label": digest_label,
+            "command": digest_command,
+            "writes_artifact": "",
+            "reason": digest_reason,
+        }
+
     priority = dict_payload(cockpit.get("review_priority", {}))
     priority_label = str(priority.get("recommended_command_label", ""))
     priority_command = str(priority.get("recommended_command", ""))
@@ -2911,6 +2938,18 @@ def validate_operator_view_refresh_consistency(
             errors.append("operator_view_refresh operator_summary blocker mismatch")
     elif not blocker_preview or primary_blocker != blocker_preview[0]:
         errors.append("operator_view_refresh operator_summary primary_blocker mismatch")
+    if str(operator_summary.get("next_command_source", "")) == "operator_digest":
+        digest_next_step = str(operator_summary.get("operator_digest_next_step", ""))
+        if not str(operator_summary.get("operator_digest_headline", "")):
+            errors.append("operator_view_refresh operator_summary digest missing")
+        if (
+            digest_next_step
+            and str(operator_summary.get("next_command_reason", ""))
+            != digest_next_step
+        ):
+            errors.append(
+                "operator_view_refresh operator_summary digest reason mismatch"
+            )
 
     added_blockers = string_payload(blocker_delta.get("added_blockers", []))
     removed_blockers = string_payload(blocker_delta.get("removed_blockers", []))
@@ -3025,6 +3064,12 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Review primary reason: `{review_summary.get('primary_reason', '')}`",
         f"- Cockpit status: `{operator_summary.get('cockpit_status', '')}`",
         f"- Primary focus: `{operator_summary.get('primary_focus', '')}`",
+        f"- Operator digest: {operator_summary.get('operator_digest_headline', '')}",
+        f"- Digest priority: `{operator_summary.get('operator_digest_priority', '')}`",
+        "- Digest target panel: "
+        f"`{operator_summary.get('operator_digest_target_panel_title', '')}` "
+        f"(`{operator_summary.get('operator_digest_target_panel_status', '')}`)",
+        f"- Digest next step: {operator_summary.get('operator_digest_next_step', '')}",
         f"- Blockers: `{operator_summary.get('blocker_count', 0)}`",
         f"- Blocker delta changed: `{blocker_delta.get('changed', False)}`",
         f"- Blockers added: `{blocker_delta.get('added_count', 0)}`",

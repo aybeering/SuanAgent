@@ -360,6 +360,7 @@ from orchestrator.experiments import (
     show_champion,
     summarize_experiments,
     validate_champion_status_payload,
+    validate_experiment_leaderboard_payload,
     validate_experiment_summary_dashboard_payload,
     validate_operator_run_review_payload,
     validate_operator_view_refresh_payload,
@@ -15791,6 +15792,56 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     assert summary["champion_lineage"]["lineage_artifact_exists"] is False  # type: ignore[index]
     assert len(leaderboard) == 2
     assert all("ev_delta" in row for row in leaderboard)
+    assert_matches_schema_payload(leaderboard, "experiment_leaderboard")
+    assert validate_experiment_leaderboard_payload(
+        leaderboard,
+        repo_root=repo,
+        limit=2,
+    ) == ()
+
+
+def test_experiment_leaderboard_validation_reports_drift(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(
+        run_id="leaderboard-drift-base",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    run_pipeline(
+        run_id="leaderboard-drift-candidate",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    make_run_accepted_with_ev_lift(
+        repo=repo,
+        run_id="leaderboard-drift-candidate",
+        ev_lift=0.2,
+    )
+    leaderboard = experiment_leaderboard(experiments_dir=repo / "experiments", limit=2)
+    assert validate_experiment_leaderboard_payload(
+        leaderboard,
+        repo_root=repo,
+        limit=2,
+    ) == ()
+    assert len(leaderboard) == 2
+    leaderboard[0]["ev_delta"] = -10.0
+    leaderboard[0]["run_id"] = leaderboard[1]["run_id"]
+    leaderboard[1]["ev_before"] = 1.0
+    leaderboard[1]["ev_after"] = 1.0
+    leaderboard[1]["ev_delta"] = 5.0
+
+    errors = validate_experiment_leaderboard_payload(
+        leaderboard,
+        repo_root=repo,
+        limit=1,
+    )
+
+    assert "experiment_leaderboard limit exceeded" in errors
+    assert "experiment_leaderboard sort order mismatch" in errors
+    assert "experiment_leaderboard duplicate run_id" in errors
+    assert "experiment_leaderboard single_run ev_delta mismatch" in errors
 
 
 def test_experiment_summary_dashboard_schema_rejects_missing_watchlist() -> None:
@@ -17278,6 +17329,15 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
     assert "## Recent Outcome Categories" in markdown_result.stdout
     assert "## Champion Lineage" in markdown_result.stdout
     assert "Executes agents: `False`" in markdown_result.stdout
+    cli_leaderboard = json.loads(leaderboard_result.stdout)
+    assert isinstance(cli_leaderboard, list)
+    assert len(cli_leaderboard) == 1
+    assert_matches_schema_payload(cli_leaderboard, "experiment_leaderboard")
+    assert validate_experiment_leaderboard_payload(
+        cli_leaderboard,
+        repo_root=repo,
+        limit=1,
+    ) == ()
     assert "cli-summary" in markdown_result.stdout
     assert json.loads(leaderboard_result.stdout)[0]["run_id"] == "cli-summary"
 

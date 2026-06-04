@@ -86,6 +86,7 @@ SUMMARY_DASHBOARD_SCHEMA_VERSION = "experiment_summary_dashboard_v1"
 SUMMARY_DASHBOARD_RECENT_LIMIT = 5
 OPERATOR_VIEW_REFRESH_SCHEMA_PATH = Path("schemas/operator_view_refresh.schema.json")
 CHAMPION_STATUS_SCHEMA_PATH = Path("schemas/champion_status.schema.json")
+EXPERIMENT_LEADERBOARD_SCHEMA_PATH = Path("schemas/experiment_leaderboard.schema.json")
 EXPERIMENT_SUMMARY_DASHBOARD_SCHEMA_PATH = Path(
     "schemas/experiment_summary_dashboard.schema.json"
 )
@@ -404,6 +405,14 @@ def int_value(value: object, default: int = -1) -> int:
     """Return an int for validation without raising on malformed payloads."""
     try:
         return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def float_value(value: object, default: float = 0.0) -> float:
+    """Return a float for validation without raising on malformed payloads."""
+    try:
+        return float(value)
     except (TypeError, ValueError):
         return default
 
@@ -948,7 +957,82 @@ def experiment_leaderboard(
         ),
         reverse=True,
     )
-    return rows[: max(limit, 0)]
+    payload = rows[: max(limit, 0)]
+    errors = validate_experiment_leaderboard_payload(
+        payload,
+        repo_root=experiments_dir.parent,
+        limit=limit,
+    )
+    if errors:
+        raise ValueError(
+            "experiment leaderboard failed schema validation: " + "; ".join(errors)
+        )
+    return payload
+
+
+def validate_experiment_leaderboard_payload(
+    payload: list[dict[str, object]],
+    *,
+    repo_root: Path,
+    limit: int,
+) -> tuple[str, ...]:
+    """Validate the terminal-only experiment leaderboard output."""
+    schema = load_schema(repo_root / EXPERIMENT_LEADERBOARD_SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=payload,
+            schema=schema,
+            schema_dir=(repo_root / EXPERIMENT_LEADERBOARD_SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(validate_experiment_leaderboard_consistency(payload, limit=limit))
+    return tuple(errors)
+
+
+def validate_experiment_leaderboard_consistency(
+    payload: list[dict[str, object]],
+    *,
+    limit: int,
+) -> tuple[str, ...]:
+    """Validate leaderboard ordering, kind-specific fields, and bounded output."""
+    errors: list[str] = []
+    if len(payload) > max(limit, 0):
+        errors.append("experiment_leaderboard limit exceeded")
+    previous_key: tuple[float, str] | None = None
+    seen_run_ids: set[str] = set()
+    for row in payload:
+        run_id = str(row.get("run_id", ""))
+        kind = str(row.get("kind", ""))
+        current_key = (
+            float_value(row.get("ev_delta"), 0.0),
+            str(row.get("created_at", "")),
+        )
+        if previous_key is not None and current_key > previous_key:
+            errors.append("experiment_leaderboard sort order mismatch")
+        previous_key = current_key
+        if not run_id:
+            errors.append("experiment_leaderboard run_id missing")
+        elif run_id in seen_run_ids:
+            errors.append("experiment_leaderboard duplicate run_id")
+        seen_run_ids.add(run_id)
+        if kind == "single_run":
+            ev_before = optional_float_value(row.get("ev_before"))
+            ev_after = optional_float_value(row.get("ev_after"))
+            ev_delta = optional_float_value(row.get("ev_delta"))
+            if ev_before is None or ev_after is None:
+                errors.append("experiment_leaderboard single_run ev fields missing")
+            elif ev_delta is not None and round(ev_after - ev_before, 6) != round(
+                ev_delta,
+                6,
+            ):
+                errors.append("experiment_leaderboard single_run ev_delta mismatch")
+        elif kind == "iteration_loop":
+            if int_value(row.get("completed_rounds", 0), 0) < 0:
+                errors.append("experiment_leaderboard completed_rounds negative")
+            best_round = row.get("best_round")
+            if best_round is not None and not str(best_round):
+                errors.append("experiment_leaderboard best_round empty")
+    return tuple(errors)
 
 
 def candidate_leaderboard(

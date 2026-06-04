@@ -246,6 +246,13 @@ alert codes, and read-only policy flags.
 `python -m orchestrator.experiments summary --markdown` renders the same
 summary payload, including the watchlist, as a compact terminal-friendly
 Markdown report without writing artifacts.
+`python -m orchestrator.experiments leaderboard --limit N` returns the same
+ranked run list shape as before, but validates the terminal-only
+`experiment_leaderboard` payload against
+`schemas/experiment_leaderboard.schema.json` before printing. The consistency
+checks enforce the requested limit, descending EV-delta and creation-time
+ordering, unique run IDs, single-run EV delta arithmetic, and non-negative
+iteration completed-round counts.
 `python -m orchestrator.experiments review <run_id>` returns the saved
 `run_closeout.json` operator dashboard directly. `review --markdown` renders
 the same dashboard for terminal inspection. The terminal review payload is

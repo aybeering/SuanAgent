@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Experiment Leaderboard Terminal Output",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "run_id",
+      "kind",
+      "status",
+      "created_at",
+      "ev_delta"
+    ],
+    "properties": {
+      "run_id": {
+        "type": "string",
+        "minLength": 1
+      },
+      "kind": {
+        "type": "string",
+        "minLength": 1
+      },
+      "status": {
+        "type": "string"
+      },
+      "created_at": {
+        "type": "string"
+      },
+      "ev_delta": {
+        "type": "number"
+      },
+      "ev_before": {
+        "type": "number"
+      },
+      "ev_after": {
+        "type": "number"
+      },
+      "trade_count_before": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "trade_count_after": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "completed_rounds": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "accepted_round": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "best_round": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    }
+  }
+}

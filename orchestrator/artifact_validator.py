@@ -483,6 +483,11 @@ def validate_iteration_run(
         return
     validate_manifest_agent_intake_summary(manifest=manifest, report=report)
     validate_manifest_run_outcome_summary(manifest=manifest, report=report)
+    validate_iteration_summary_header(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
     validate_iteration_summary_operator_home(
         run_dir=run_dir,
         manifest=manifest,
@@ -548,6 +553,48 @@ def validate_manifest_agent_intake_summary(
         add_error(report, "manifest.agent_intake_summary code_counts mismatch")
     if summary.get("status_counts") != expected.get("status_counts"):
         add_error(report, "manifest.agent_intake_summary status_counts mismatch")
+
+
+def validate_iteration_summary_header(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md top-level run fields mirror manifest.json."""
+    summary_text = read_optional_text(run_dir / "summary.md")
+    if not summary_text:
+        add_error(report, "summary.md iteration header missing")
+        return
+    expected_lines: tuple[tuple[str, str], ...] = (
+        ("title", "# Experiment Summary"),
+        ("run_id", f"- Run id: `{markdown_display_value(manifest.get('run_id'))}`"),
+        ("kind", "- Kind: `iteration_loop`"),
+        ("status", f"- Status: `{markdown_display_value(manifest.get('status'))}`"),
+        (
+            "completed_rounds",
+            "- Completed rounds: "
+            f"`{markdown_display_value(manifest.get('completed_rounds'))}`",
+        ),
+        (
+            "accepted_round",
+            "- Accepted round: "
+            f"`{markdown_display_value(manifest.get('accepted_round'))}`",
+        ),
+        (
+            "stop_reason",
+            "- Stop reason: "
+            f"`{markdown_display_value(manifest.get('stop_reason'))}`",
+        ),
+        (
+            "final_strategy_commit",
+            "- Final strategy commit: "
+            f"`{markdown_display_value(manifest.get('final_strategy_commit'))}`",
+        ),
+    )
+    for field_name, expected_line in expected_lines:
+        if expected_line not in summary_text:
+            add_error(report, f"summary.md iteration header {field_name} mismatch")
 
 
 def validate_iteration_summary_operator_home(

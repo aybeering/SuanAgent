@@ -258,6 +258,10 @@ and the primary blocked-code navigation hint. It also records
 `run_outcome_summary`, a deterministic read-only classification of the saved
 run outcome such as policy rejection, holdout veto, repeated proposal, no
 improvement, max-round stop, agent-intake block, artifact invalid, or accepted.
+The artifact validator checks that the top-level run fields printed in
+`summary.md` continue to mirror the same `manifest.json` values, including run
+id, status, completed rounds, accepted round, stop reason, and final strategy
+commit.
 `diagnosis.json` is a compact machine-readable review artifact built from the
 saved run artifacts. For iteration runs, it includes per-round policy results,
 selected candidates, the best validation round, and the same agent-intake

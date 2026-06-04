@@ -142,6 +142,9 @@ Implemented or allowed V0.5 components:
     blocks, artifact-invalid diagnoses, and runtime failures as read-only
     operator navigation without routing candidates, applying patches, rerunning
     backtests, changing deterministic gates, or changing acceptance.
+    The artifact validator also binds the saved `summary.md` top-level run
+    header back to `manifest.json` for run id, status, completed-round,
+    accepted-round, stop-reason, and final-strategy-commit consistency.
     Experiment summary dashboards and operator cockpit summaries surface the
     same outcome category, primary stage, and primary code as read-only
     navigation so recent run history and per-run review show why the loop

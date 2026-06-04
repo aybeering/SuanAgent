@@ -13,6 +13,9 @@
     "failure_message",
     "agent_input_path",
     "agent_output_path",
+    "agent_output_bytes",
+    "agent_output_max_bytes",
+    "agent_output_within_size_limit",
     "proposal_intent_summary",
     "expected_target_file",
     "expected_round_index",
@@ -85,6 +88,15 @@
     },
     "agent_output_path": {
       "type": "string"
+    },
+    "agent_output_bytes": {
+      "type": "integer"
+    },
+    "agent_output_max_bytes": {
+      "type": "integer"
+    },
+    "agent_output_within_size_limit": {
+      "type": "boolean"
     },
     "proposal_intent_summary": {
       "$ref": "#/$defs/proposal_intent_summary"

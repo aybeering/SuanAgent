@@ -349,11 +349,11 @@ Codex CLI readiness contracts:
     metadata, and patch-target contract rules. It also records
     `intake_diagnosis`, a compact stable-code summary for blocked external
     adapter outputs such as invalid patch targets, workspace mutation, missing
-    patch data, malformed JSON, invalid proposal metadata types, or git-apply
-    failures. These checks can prove raw-output/proposal/input consistency and
-    explain contract pass/fail, but they cannot change git apply checks,
-    quarantine release rules, patch application, policy-gate results, holdout
-    vetoes, or acceptance.
+    patch data, malformed JSON, oversized raw output, invalid proposal metadata
+    types, or git-apply failures. These checks can prove
+    raw-output/proposal/input consistency and explain contract pass/fail, but
+    they cannot change git apply checks, quarantine release rules, patch
+    application, policy-gate results, holdout vetoes, or acceptance.
 25. Candidate quality breakdowns explain proposal ranking only. They bind the
     same score total and component metadata across executor, attempt, selection,
     routing, output, leaderboard, brief, and closeout artifacts, but they cannot

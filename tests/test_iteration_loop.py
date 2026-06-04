@@ -11458,6 +11458,66 @@ def test_agent_output_intake_rejects_non_string_patch_diff(
     )
 
 
+def test_agent_output_intake_rejects_oversized_raw_output_without_reading(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="intake-oversized-output",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    round_dir = repo / "experiments/intake-oversized-output/round_001"
+    bad_output_path = round_dir / "oversized_agent_output.txt"
+    bad_output_path.write_text("x" * 128, encoding="utf-8")
+
+    report = verify_agent_output(
+        agent_input_path=round_dir / "agent_input.json",
+        agent_output_path=bad_output_path,
+        repo_root=repo,
+        output_path=round_dir / "oversized_agent_validation.json",
+        max_raw_output_bytes=16,
+    )
+    cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.agent_output_intake",
+            str(round_dir / "agent_input.json"),
+            str(bad_output_path),
+            "--repo-root",
+            str(repo),
+            "--max-raw-output-bytes",
+            "16",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_payload = json.loads(cli_result.stdout)
+
+    assert report["ok"] is False
+    assert report["failure_code"] == "raw_output_too_large"
+    assert report["agent_output_bytes"] == 128
+    assert report["agent_output_max_bytes"] == 16
+    assert report["agent_output_within_size_limit"] is False
+    assert report["proposal"]["raw_response"] == ""  # type: ignore[index]
+    assert report["proposal_applicable"] is False
+    assert report["checks"]["git_apply_check"] == "skipped"  # type: ignore[index]
+    assert report["consistency_checks"]["blocking_reasons"] == []  # type: ignore[index]
+    assert cli_result.returncode == 1
+    assert cli_payload["failure_code"] == "raw_output_too_large"
+    assert cli_payload["proposal"]["raw_response"] == ""
+    assert_matches_schema(
+        round_dir / "oversized_agent_validation.json",
+        "agent_validation",
+    )
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
 def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
     tmp_path: Path,
 ) -> None:

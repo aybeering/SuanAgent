@@ -283,6 +283,12 @@ def classify_agent_validation_contract_error(error: str) -> dict[str, str]:
             code="agent_output_parse_failed",
             message=error,
         )
+    if normalized.startswith("raw agent output too large"):
+        return reason_code(
+            stage="parse",
+            code="raw_output_too_large",
+            message=error,
+        )
     if normalized.startswith("proposal must be a json object") or normalized.startswith(
         "selected_proposal must be a json object"
     ):

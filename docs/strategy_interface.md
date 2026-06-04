@@ -112,6 +112,8 @@ contract pass/fail before `git apply` is allowed to run. Its
 operator review and later adapter debugging. Malformed JSON output and invalid
 metadata field types are normalized into rejected proposals with stable
 contract errors; they must not crash intake or reach patch application.
+Oversized raw output is rejected before JSON or diff parsing and recorded as
+`raw_output_too_large` with byte-count evidence in `agent_validation.json`.
 `agent_output_quarantine.json` preserves the same summary before patch
 application, so pre-apply audits can detect context drift without changing the
 quarantine release rules.

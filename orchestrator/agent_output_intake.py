@@ -29,6 +29,7 @@ from orchestrator.proposal import (
 
 AGENT_VALIDATION_SCHEMA_VERSION = "agent_validation_v1"
 DEFAULT_INTAKE_AGENT_NAME = "agent_output_intake"
+DEFAULT_MAX_RAW_AGENT_OUTPUT_BYTES = 262_144
 
 
 def verify_agent_output(
@@ -40,15 +41,23 @@ def verify_agent_output(
     proposal_output_path: Path | None = None,
     agent_name: str = DEFAULT_INTAKE_AGENT_NAME,
     check_git_apply: bool = True,
+    max_raw_output_bytes: int = DEFAULT_MAX_RAW_AGENT_OUTPUT_BYTES,
 ) -> dict[str, object]:
     """Validate a raw agent output file against the strategy proposal contract."""
     agent_input = load_json_object(agent_input_path)
-    raw_output = agent_output_path.read_text(encoding="utf-8")
+    raw_output_bytes = agent_output_path.stat().st_size
+    raw_output = (
+        ""
+        if raw_output_exceeds_limit(raw_output_bytes, max_raw_output_bytes)
+        else agent_output_path.read_text(encoding="utf-8")
+    )
     proposal = proposal_from_raw_agent_output(
         raw_output=raw_output,
         agent_input=agent_input,
         agent_name=agent_name,
         prompt=str(agent_input_path),
+        raw_output_bytes=raw_output_bytes,
+        max_raw_output_bytes=max_raw_output_bytes,
     )
     report = validate_agent_proposal(
         agent_input_path=agent_input_path,
@@ -56,6 +65,7 @@ def verify_agent_output(
         repo_root=repo_root,
         agent_output_path=agent_output_path,
         check_git_apply=check_git_apply,
+        max_raw_output_bytes=max_raw_output_bytes,
     )
     write_optional_json(output_path, report)
     write_optional_json(proposal_output_path, report["proposal"])
@@ -70,6 +80,7 @@ def validate_agent_proposal(
     agent_output_path: Path | None = None,
     output_path: Path | None = None,
     check_git_apply: bool = True,
+    max_raw_output_bytes: int = DEFAULT_MAX_RAW_AGENT_OUTPUT_BYTES,
 ) -> dict[str, object]:
     """Validate an already parsed strategy proposal and optionally write a report."""
     agent_input = load_json_object(agent_input_path)
@@ -79,6 +90,14 @@ def validate_agent_proposal(
         agent_input.get("proposal_intent_summary", {})
     )
     normalized_proposal = proposal_with_patch_hash(proposal)
+    agent_output_bytes = raw_output_size_bytes(
+        agent_output_path=agent_output_path,
+        raw_response=normalized_proposal.raw_response,
+    )
+    agent_output_within_size_limit = not raw_output_exceeds_limit(
+        agent_output_bytes,
+        max_raw_output_bytes,
+    )
     semantic_checks = build_proposal_semantic_report(
         proposal=normalized_proposal,
         expected_target_file=expected_target,
@@ -119,6 +138,9 @@ def validate_agent_proposal(
         "warnings": [],
         "agent_input_path": str(agent_input_path),
         "agent_output_path": str(agent_output_path or ""),
+        "agent_output_bytes": agent_output_bytes,
+        "agent_output_max_bytes": max_raw_output_bytes,
+        "agent_output_within_size_limit": agent_output_within_size_limit,
         "proposal_intent_summary": proposal_intent_summary,
         "expected_target_file": str(expected_target),
         "expected_round_index": expected_round_index,
@@ -165,7 +187,10 @@ def agent_validation_consistency_checks(
     errors = string_list(report.get("errors", []))
     semantic_errors = string_list(semantic_payload.get("errors", []))
     reason_codes = reason_code_rows(report.get("reason_codes", []))
-    raw_output = read_text_or_empty(agent_output_path)
+    raw_output_limited = any(
+        "raw agent output too large" in error for error in errors
+    )
+    raw_output = "" if raw_output_limited else read_text_or_empty(agent_output_path)
     patch_sha256 = str(report.get("proposal_patch_sha256", ""))
     patch_diff = str(proposal_payload.get("patch_diff", ""))
     checks = {
@@ -220,7 +245,8 @@ def agent_validation_consistency_checks(
             or sha256_text(patch_diff) == patch_sha256
         ),
         "raw_output_matches_proposal": (
-            not raw_output
+            raw_output_limited
+            or not raw_output
             or raw_output.rstrip("\n")
             == str(proposal_payload.get("raw_response", "")).rstrip("\n")
         ),
@@ -314,12 +340,34 @@ def proposal_from_raw_agent_output(
     default_risk_notes: str = "",
     default_direction_tag: str = "",
     default_hypotheses: tuple[str, ...] = (),
+    raw_output_bytes: int | None = None,
+    max_raw_output_bytes: int = DEFAULT_MAX_RAW_AGENT_OUTPUT_BYTES,
 ) -> StrategyProposal:
     """Convert raw agent output text into a standard strategy proposal."""
     expected_target = str(agent_input["target_file"])
     expected_round_index = int(agent_input["round_index"])
-    metadata, metadata_errors = proposal_metadata_and_errors(raw_output)
-    contract_errors = list(metadata_errors)
+    actual_raw_output_bytes = (
+        len(raw_output.encode("utf-8"))
+        if raw_output_bytes is None
+        else raw_output_bytes
+    )
+    output_too_large = raw_output_exceeds_limit(
+        actual_raw_output_bytes,
+        max_raw_output_bytes,
+    )
+    contract_errors = []
+    if output_too_large:
+        contract_errors.append(
+            raw_output_too_large_error(
+                raw_output_bytes=actual_raw_output_bytes,
+                max_raw_output_bytes=max_raw_output_bytes,
+            )
+        )
+        metadata: dict[str, object] = {}
+        metadata_errors: tuple[str, ...] = ()
+    else:
+        metadata, metadata_errors = proposal_metadata_and_errors(raw_output)
+        contract_errors.extend(metadata_errors)
     parse_error = ""
     patch_diff = string_value(metadata.get("patch_diff", ""))
     if "patch_diff" in metadata and not isinstance(metadata.get("patch_diff"), str):
@@ -336,7 +384,12 @@ def proposal_from_raw_agent_output(
     applicable = bool(patch_diff.strip())
     rejection_reason = string_value(metadata.get("rejection_reason", ""))
     if not applicable:
-        rejection_reason = rejection_reason or parse_error or "agent output did not include a patch"
+        rejection_reason = (
+            rejection_reason
+            or (contract_errors[0] if output_too_large and contract_errors else "")
+            or parse_error
+            or "agent output did not include a patch"
+        )
     round_index, round_index_error = integer_metadata_value(
         metadata.get("round_index", expected_round_index),
         default=expected_round_index,
@@ -431,6 +484,37 @@ def write_optional_json(path: Path | None, payload: object) -> None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def raw_output_exceeds_limit(raw_output_bytes: int, max_raw_output_bytes: int) -> bool:
+    """Return whether raw output exceeds the configured intake size limit."""
+    return max_raw_output_bytes >= 0 and raw_output_bytes > max_raw_output_bytes
+
+
+def raw_output_too_large_error(
+    *,
+    raw_output_bytes: int,
+    max_raw_output_bytes: int,
+) -> str:
+    """Return a stable contract error for oversized raw agent output."""
+    return (
+        "raw agent output too large: "
+        f"{raw_output_bytes} bytes > {max_raw_output_bytes} bytes"
+    )
+
+
+def raw_output_size_bytes(
+    *,
+    agent_output_path: Path | None,
+    raw_response: str,
+) -> int:
+    """Return raw output file size when available, otherwise response bytes."""
+    if agent_output_path is not None:
+        try:
+            return agent_output_path.stat().st_size
+        except FileNotFoundError:
+            pass
+    return len(raw_response.encode("utf-8"))
 
 
 def string_value(value: object) -> str:
@@ -558,6 +642,7 @@ def main() -> None:
         proposal_output_path=args.proposal_output,
         agent_name=args.agent_name,
         check_git_apply=not args.skip_git_apply_check,
+        max_raw_output_bytes=args.max_raw_output_bytes,
     )
     print(json.dumps(report, indent=2, sort_keys=True))
     if not report["ok"]:
@@ -598,6 +683,15 @@ def parse_args() -> argparse.Namespace:
         "--skip-git-apply-check",
         action="store_true",
         help="Validate contract shape without running git apply --check.",
+    )
+    parser.add_argument(
+        "--max-raw-output-bytes",
+        type=int,
+        default=DEFAULT_MAX_RAW_AGENT_OUTPUT_BYTES,
+        help=(
+            "Maximum raw agent output bytes accepted before deterministic "
+            "intake rejection."
+        ),
     )
     return parser.parse_args()
 

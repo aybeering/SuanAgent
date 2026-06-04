@@ -14,6 +14,7 @@ from orchestrator.patch_parser import PatchParseError, validate_patch_targets
 
 PROPOSAL_PROTOCOL_VERSION = "proposal_v1"
 STRATEGY_PROPOSAL_SCHEMA_PATH = Path("schemas/strategy_proposal.schema.json")
+DEFAULT_MAX_PROPOSAL_PATCH_BYTES = 65_536
 KNOWN_METRIC_KEYS = {
     "avg_slippage",
     "ev",
@@ -111,6 +112,7 @@ def build_proposal_semantic_report(
     target_path = Path(proposal.target_file)
     preexisting_errors = list(proposal.contract_errors)
     errors: list[str] = list(preexisting_errors)
+    patch_diff_bytes = len(proposal.patch_diff.encode("utf-8"))
     checks: dict[str, bool] = {
         "preexisting_contract_errors_absent": not preexisting_errors,
         "protocol_version_valid": proposal.protocol_version == PROPOSAL_PROTOCOL_VERSION,
@@ -135,6 +137,9 @@ def build_proposal_semantic_report(
             proposal.applicable or bool(proposal.rejection_reason.strip())
         ),
         "patch_targets_valid": True,
+        "patch_diff_within_size_limit": (
+            patch_diff_bytes <= DEFAULT_MAX_PROPOSAL_PATCH_BYTES
+        ),
     }
 
     if not checks["protocol_version_valid"]:
@@ -176,6 +181,11 @@ def build_proposal_semantic_report(
     checks["command_valid"] = not command_errors
     errors.extend(command_errors)
 
+    if not checks["patch_diff_within_size_limit"]:
+        errors.append(
+            "patch_diff too large: "
+            f"{patch_diff_bytes} bytes > {DEFAULT_MAX_PROPOSAL_PATCH_BYTES} bytes"
+        )
     if proposal.patch_diff.strip():
         try:
             validate_patch_targets(proposal.patch_diff, expected_target_file)

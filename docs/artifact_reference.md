@@ -636,7 +636,9 @@ Proposal and intake artifacts:
   failure code, all blocking codes, retryability, and git-apply status so
   external-adapter failures can be grouped without parsing free-form text. It
   also records raw output byte counts and rejects oversized output before JSON
-  or diff parsing with the stable `raw_output_too_large` code.
+  or diff parsing with the stable `raw_output_too_large` code. The semantic
+  checks also bound normalized `patch_diff` size and reject oversized patches
+  with `patch_diff_too_large` before `git apply` can run.
 - `agent_output_quarantine.json` records whether selected output is held or
   released before git apply, including the same proposal intent summary used by
   `agent_output.json`. It also records schema-validated consistency checks that

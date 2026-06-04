@@ -11518,6 +11518,73 @@ def test_agent_output_intake_rejects_oversized_raw_output_without_reading(
     )
 
 
+def test_agent_output_intake_rejects_oversized_patch_diff_before_git_apply(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="intake-oversized-patch",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    round_dir = repo / "experiments/intake-oversized-patch/round_001"
+    bad_output_path = round_dir / "oversized_patch_agent_output.json"
+    oversized_patch = (
+        "--- a/strategies/current_strategy.py\n"
+        "+++ b/strategies/current_strategy.py\n"
+        "@@ -1,1 +1,1 @@\n"
+        "-# oversized patch guard\n"
+        f"+# {'x' * 70_000}\n"
+    )
+    bad_output_path.write_text(
+        json.dumps(
+            {
+                "proposal": {
+                    "protocol_version": "proposal_v1",
+                    "agent_name": "oversized_patch_agent",
+                    "round_index": 1,
+                    "target_file": "strategies/current_strategy.py",
+                    "summary": "Patch is structurally present but too large.",
+                    "risk_notes": "Oversized patches must stop before git apply.",
+                    "direction_tag": "oversized_patch",
+                    "expected_metric_change": {"ev": "unknown"},
+                    "hypotheses": ["Patch size should be a contract guard."],
+                    "patch_diff": oversized_patch,
+                }
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    report = verify_agent_output(
+        agent_input_path=round_dir / "agent_input.json",
+        agent_output_path=bad_output_path,
+        repo_root=repo,
+        output_path=round_dir / "oversized_patch_agent_validation.json",
+    )
+    reason_codes = [row["code"] for row in report["reason_codes"]]
+
+    assert report["ok"] is False
+    assert report["failure_code"] == "patch_diff_too_large"
+    assert "patch_diff_too_large" in reason_codes
+    assert report["agent_output_within_size_limit"] is True
+    assert report["proposal_applicable"] is True
+    assert report["semantic_checks"]["checks"]["patch_diff_within_size_limit"] is False  # type: ignore[index]
+    assert report["checks"]["contract_valid"] is False  # type: ignore[index]
+    assert report["checks"]["git_apply_check"] == "skipped_contract_invalid"  # type: ignore[index]
+    assert any("patch_diff too large" in error for error in report["errors"])  # type: ignore[union-attr]
+    assert_matches_schema(
+        round_dir / "oversized_patch_agent_validation.json",
+        "agent_validation",
+    )
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
 def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
     tmp_path: Path,
 ) -> None:

@@ -297,6 +297,12 @@ def classify_agent_validation_contract_error(error: str) -> dict[str, str]:
             code="agent_output_parse_failed",
             message=error,
         )
+    if normalized.startswith("patch_diff too large"):
+        return reason_code(
+            stage="proposal",
+            code="patch_diff_too_large",
+            message=error,
+        )
     if normalized.startswith("patch_diff must be"):
         return reason_code(
             stage="proposal",

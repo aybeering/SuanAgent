@@ -363,6 +363,7 @@
             "applicable_patch_present",
             "rejection_reason_present_when_not_applicable",
             "patch_targets_valid",
+            "patch_diff_within_size_limit",
             "expected_metric_change_valid",
             "hypotheses_valid",
             "command_valid"
@@ -408,6 +409,9 @@
               "type": "boolean"
             },
             "patch_targets_valid": {
+              "type": "boolean"
+            },
+            "patch_diff_within_size_limit": {
               "type": "boolean"
             },
             "expected_metric_change_valid": {

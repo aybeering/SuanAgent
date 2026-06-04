@@ -114,6 +114,10 @@ metadata field types are normalized into rejected proposals with stable
 contract errors; they must not crash intake or reach patch application.
 Oversized raw output is rejected before JSON or diff parsing and recorded as
 `raw_output_too_large` with byte-count evidence in `agent_validation.json`.
+Normalized proposals are also bounded independently: an oversized `patch_diff`
+is rejected as `patch_diff_too_large` during semantic contract validation, so
+the loop skips `git apply` even when the raw output file itself is within the
+intake limit.
 `agent_output_quarantine.json` preserves the same summary before patch
 application, so pre-apply audits can detect context drift without changing the
 quarantine release rules.

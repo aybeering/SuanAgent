@@ -41,6 +41,17 @@ def write_operator_cockpit(
         experiments_dir=experiments_dir,
         repo_root=repo_root,
     )
+    errors = validate_operator_cockpit_payload(
+        payload,
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "operator cockpit failed schema validation: " + "; ".join(errors)
+        )
     json_path = run_dir / "operator_cockpit.json"
     md_path = run_dir / "operator_cockpit.md"
     json_path.write_text(
@@ -1177,17 +1188,43 @@ def validate_operator_cockpit_file(
 def validate_operator_cockpit_payload(
     payload: dict[str, object],
     *,
+    run_dir: Path | None = None,
+    experiments_dir: Path = Path("experiments"),
     repo_root: Path = Path("."),
+    require_current_evidence: bool = False,
 ) -> tuple[str, ...]:
     """Validate an in-memory operator cockpit payload."""
+    repo_root = repo_root.resolve()
+    comparable_payload = strip_terminal_metadata(payload)
     schema = load_json_object(repo_root / SCHEMA_PATH)
-    return tuple(
+    errors = list(
         validate_json_payload(
-            payload=payload,
+            payload=comparable_payload,
             schema=schema,
             schema_dir=(repo_root / SCHEMA_PATH).parent,
         )
-    ) + validate_operator_cockpit_consistency(payload)
+    )
+    errors.extend(validate_operator_cockpit_consistency(comparable_payload))
+    if require_current_evidence:
+        if run_dir is None:
+            errors.append("operator_cockpit run_dir required")
+        else:
+            expected = build_operator_cockpit(
+                run_dir=resolve_path(run_dir, repo_root),
+                experiments_dir=resolve_path(experiments_dir, repo_root),
+                repo_root=repo_root,
+            )
+            if comparable_payload != expected:
+                errors.append("operator_cockpit current evidence mismatch")
+    return tuple(errors)
+
+
+def strip_terminal_metadata(payload: dict[str, object]) -> dict[str, object]:
+    """Return payload without terminal-only annotation fields."""
+    stripped = dict(payload)
+    stripped.pop("from_artifact", None)
+    stripped.pop("snapshot_freshness", None)
+    return stripped
 
 
 def validate_operator_cockpit_consistency(

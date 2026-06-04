@@ -59,6 +59,7 @@ from orchestrator.operator_cockpit import (
     annotate_snapshot_freshness,
     build_operator_cockpit,
     render_operator_cockpit_markdown,
+    validate_operator_cockpit_payload,
     write_operator_cockpit,
 )
 from orchestrator.operator_unlock_checklist import (
@@ -2331,6 +2332,16 @@ def operator_cockpit_report(
     cockpit_path = run_dir / "operator_cockpit.json"
     if cockpit_path.exists():
         payload = load_json(cockpit_path)
+        errors = validate_operator_cockpit_payload(
+            payload,
+            run_dir=run_dir,
+            experiments_dir=experiments_dir,
+            repo_root=experiments_dir.parent,
+        )
+        if errors:
+            raise ValueError(
+                "operator cockpit failed schema validation: " + "; ".join(errors)
+            )
         payload["from_artifact"] = True
         return annotate_snapshot_freshness(
             payload,
@@ -2341,6 +2352,17 @@ def operator_cockpit_report(
         experiments_dir=experiments_dir,
         repo_root=experiments_dir.parent,
     )
+    errors = validate_operator_cockpit_payload(
+        payload,
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=experiments_dir.parent,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "operator cockpit failed schema validation: " + "; ".join(errors)
+        )
     payload["from_artifact"] = False
     return annotate_snapshot_freshness(
         payload,

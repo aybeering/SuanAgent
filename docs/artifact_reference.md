@@ -426,6 +426,8 @@ cockpit payload it summarizes. The cockpit writer itself also validates
 status-derived OK and focus fields, action failure-reason summaries,
 `operator_action:<code>` blocker coverage, Codex unlock checklist counts, and
 review-priority panel and command references before returning.
+The `cockpit` terminal view validates saved or derived payloads through the
+same schema and consistency checks before adding terminal-only metadata.
 When the inspection command reads a saved
 cockpit artifact, it adds a transient `snapshot_freshness` section that compares
 recorded source hashes with the current source files and names stale sources
@@ -791,7 +793,9 @@ Replay artifacts:
   evidence groups, and command hints while preserving deterministic acceptance
   authority. Artifact validation
   rejects unknown cockpit command labels, unexpected write targets, unsafe shell
-  control tokens, and a missing first `review_cockpit` command.
+  control tokens, and a missing first `review_cockpit` command. The writer and
+  terminal view validate status, focus, action failure summaries, unlock counts,
+  review-priority references, and policy before returning payloads.
 - `candidate_leaderboard.json` records every proposal attempt with stable
   quality metadata. `quality_breakdown` decomposes the pre-backtest candidate
   score into named components, selected rows also record validation and

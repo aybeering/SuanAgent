@@ -325,6 +325,7 @@ from orchestrator.operator_cockpit import (
     build_operator_cockpit,
     render_operator_cockpit_markdown,
     validate_operator_cockpit_file,
+    validate_operator_cockpit_payload,
     write_operator_cockpit,
 )
 from orchestrator.operator_unlock_checklist import (
@@ -2882,6 +2883,13 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
         repo_root=repo,
     ) == ()
     assert_matches_schema_payload(cockpit, "operator_cockpit")
+    assert validate_operator_cockpit_payload(
+        cockpit,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     assert validate_operator_cockpit_file(
         payload_path=json_path,
         repo_root=repo,
@@ -2960,6 +2968,13 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     ] == "review_action_dashboard"
     assert "## Action Failure Reasons" in cockpit_break_markdown
     assert_matches_schema_payload(cockpit_with_action_break, "operator_cockpit")
+    assert validate_operator_cockpit_payload(
+        cockpit_with_action_break,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     assert validate_operator_cockpit_file(
         payload_path=json_path,
         repo_root=repo,
@@ -3088,6 +3103,12 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     )
 
     assert fresh["from_artifact"] is True
+    assert validate_operator_cockpit_payload(
+        fresh,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    ) == ()
     assert fresh["snapshot_freshness"]["schema_version"] == (
         "operator_cockpit_snapshot_freshness_v1"
     )
@@ -3109,6 +3130,12 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     stale_markdown = render_operator_cockpit_markdown(stale)
 
     assert stale["snapshot_freshness"]["ok"] is False
+    assert validate_operator_cockpit_payload(
+        stale,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    ) == ()
     assert stale["snapshot_freshness"]["status"] == "stale_sources"
     assert stale["snapshot_freshness"]["stale_count"] == 1
     assert stale["snapshot_freshness"]["stale_sources"] == [
@@ -19003,6 +19030,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert cockpit["authority"]["cockpit_can_execute_commands"] is False
     assert cockpit["authority"]["cockpit_can_promote_champion"] is False
     assert cockpit["policy"]["does_not_change_acceptance"] is True
+    assert validate_operator_cockpit_payload(
+        cockpit,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    ) == ()
     assert "# Operator Cockpit" in cockpit_markdown
     assert stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
     assert "avg_holdout_ev_delta" in stats["agents"][0]
@@ -19231,6 +19264,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert len(cockpit_payload["panels"]) >= 7
     assert_matches_schema_payload(cockpit_payload, "operator_cockpit")
+    assert validate_operator_cockpit_payload(
+        cockpit_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    ) == ()
     assert cockpit_markdown_result.returncode == 0, cockpit_markdown_result.stderr
     assert "# Operator Cockpit" in cockpit_markdown_result.stdout
     assert stats_result.returncode == 0, stats_result.stderr

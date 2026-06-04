@@ -71,6 +71,7 @@ python -m orchestrator.experiments action-guide <run_id> --markdown
 python -m orchestrator.operator_home experiments/<run_id>
 python -m orchestrator.experiments home <run_id>
 python -m orchestrator.experiments home <run_id> --markdown
+python -m orchestrator.experiments home --latest --markdown
 python -m orchestrator.operator_unlock_checklist experiments/<run_id>
 python -m orchestrator.experiments unlock-checklist <run_id>
 python -m orchestrator.experiments unlock-checklist <run_id> --markdown
@@ -399,6 +400,8 @@ priority, compact command-center rows, blockers, and source view records into
 one operator landing page. It does not create run artifacts, record approval,
 execute commands, write config, promote champions, run agents, run backtests,
 apply patches, route agents, or change acceptance.
+When no run id is supplied, `home` resolves the latest indexed iteration-loop
+run with a saved `manifest.json`; `--latest` makes the same selection explicit.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose the
 Codex CLI operator-unlock evidence chain as a standalone read-only checklist.
 The iteration loop writes it during closeout before the final cockpit so cockpit

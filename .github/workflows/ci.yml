@@ -947,14 +947,21 @@ jobs:
           PY
           python -m orchestrator.experiments home ci-adaptive > /tmp/operator_home.json
           python -m orchestrator.experiments home ci-adaptive --markdown > /tmp/operator_home.md
+          python -m orchestrator.experiments home --latest > /tmp/operator_home_latest.json
+          python -m orchestrator.experiments home --latest --markdown > /tmp/operator_home_latest.md
           python -m orchestrator.operator_home experiments/ci-adaptive --markdown > /tmp/operator_home_module.md
           python - <<'PY'
           import json
           home = json.load(open("/tmp/operator_home.json"))
+          latest = json.load(open("/tmp/operator_home_latest.json"))
           markdown = open("/tmp/operator_home.md").read()
+          latest_markdown = open("/tmp/operator_home_latest.md").read()
           module_markdown = open("/tmp/operator_home_module.md").read()
           assert home["schema_version"] == "operator_home_v1"
           assert home["from_artifact"] is False
+          assert latest["schema_version"] == "operator_home_v1"
+          assert latest["run_id"] == "ci-adaptive"
+          assert latest["from_artifact"] is False
           assert home["ok"] is True
           assert home["status"] == "needs_operator_review"
           assert home["action_home"]["guide_status"] == "path_closed"
@@ -967,6 +974,8 @@ jobs:
           assert home["authority"]["home_can_execute_commands"] is False
           assert "# Operator Home" in markdown
           assert "## Guided Path" in markdown
+          assert "# Operator Home" in latest_markdown
+          assert "ci-adaptive" in latest_markdown
           assert "# Operator Home" in module_markdown
           assert "## Guided Path" in module_markdown
           PY

@@ -159,6 +159,20 @@ def list_experiments(
     return recent_experiments(experiments_dir=experiments_dir, limit=limit)
 
 
+def latest_iteration_run_id(
+    *,
+    experiments_dir: Path = Path("experiments"),
+) -> str:
+    """Return the latest indexed iteration-loop run id."""
+    for record in reversed(read_experiment_index(experiments_dir)):
+        run_id = str(record.get("run_id", ""))
+        if str(record.get("kind", "")) != "iteration_loop" or not run_id:
+            continue
+        if (experiments_dir / run_id / "manifest.json").exists():
+            return run_id
+    raise FileNotFoundError("No indexed iteration-loop run found.")
+
+
 def show_experiment(
     *,
     run_id: str,
@@ -2564,10 +2578,11 @@ def operator_cockpit_report(
 
 def operator_home_report(
     *,
-    run_id: str,
+    run_id: str | None = None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return the terminal-only operator home for one run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
@@ -4346,7 +4361,16 @@ def main() -> None:
         "home",
         help="Show the terminal-only operator home for one iteration run.",
     )
-    home_parser.add_argument("run_id")
+    home_parser.add_argument(
+        "run_id",
+        nargs="?",
+        help="Iteration run id. Defaults to the latest indexed iteration run.",
+    )
+    home_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Show the latest indexed iteration run even if a run id is provided.",
+    )
     home_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -4756,7 +4780,7 @@ def main() -> None:
     elif args.command == "home":
         payload = operator_home_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(render_operator_home_markdown(payload), end="")

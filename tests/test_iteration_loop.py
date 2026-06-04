@@ -384,6 +384,7 @@ from orchestrator.experiments import (
     config_change_candidate_report,
     compare_experiments,
     experiment_leaderboard,
+    latest_iteration_run_id,
     list_experiments,
     memory_hygiene_report,
     memory_scope_recommendation_report,
@@ -17416,6 +17417,9 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     )
 
     assert [record["run_id"] for record in records] == ["single-show", "iteration-show"]
+    assert latest_iteration_run_id(experiments_dir=repo / "experiments") == (
+        "iteration-show"
+    )
     assert single["kind"] == "single_run"
     assert single["summary_path"].endswith("experiments/single-show/summary.md")
     assert single["decision"]["accepted"] is False  # type: ignore[index]
@@ -19999,6 +20003,36 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    operator_home_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "home",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    operator_home_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "home",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     unlock_checklist_result = subprocess.run(
         [
             sys.executable,
@@ -20888,6 +20922,25 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert "# Operator Home" in operator_home_module_markdown_result.stdout
     assert "## Guided Path" in operator_home_module_markdown_result.stdout
+    assert operator_home_latest_result.returncode == 0, (
+        operator_home_latest_result.stderr
+    )
+    operator_home_latest_payload = json.loads(operator_home_latest_result.stdout)
+    assert operator_home_latest_payload["run_id"] == "cli-candidates"
+    assert operator_home_latest_payload["schema_version"] == OPERATOR_HOME_SCHEMA_VERSION
+    assert_matches_schema_payload(operator_home_latest_payload, "operator_home")
+    assert validate_operator_home_payload(
+        operator_home_latest_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    assert operator_home_latest_markdown_result.returncode == 0, (
+        operator_home_latest_markdown_result.stderr
+    )
+    assert "# Operator Home" in operator_home_latest_markdown_result.stdout
+    assert "cli-candidates" in operator_home_latest_markdown_result.stdout
     assert unlock_checklist_result.returncode == 0, unlock_checklist_result.stderr
     unlock_checklist_payload = json.loads(unlock_checklist_result.stdout)
     assert unlock_checklist_payload["schema_version"] == (

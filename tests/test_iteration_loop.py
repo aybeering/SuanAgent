@@ -13364,6 +13364,13 @@ def test_run_diagnosis_summarizes_single_run(tmp_path: Path) -> None:
     assert diagnosis["artifact_ok"] is True
     assert diagnosis["status"] == "rejected"
     assert diagnosis["validation_ev_delta"] == 0.0
+    assert diagnosis["operator_navigation"]["available"] is False  # type: ignore[index]
+    assert diagnosis["operator_navigation"]["reason"] == "not_iteration_run"  # type: ignore[index]
+    assert diagnosis["operator_navigation"]["home"]["status"] == "unavailable"  # type: ignore[index]
+    assert diagnosis["operator_navigation"]["next_command"]["status"] == (  # type: ignore[index]
+        "unavailable"
+    )
+    assert diagnosis["operator_navigation"]["policy"]["does_not_execute_commands"] is True  # type: ignore[index]
     assert "Single run rejected" in diagnosis["summary"]
     saved = json.loads(
         (repo / "experiments/diagnose-single/diagnosis.json").read_text(
@@ -13407,6 +13414,36 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     assert diagnosis["run_outcome_summary"]["primary_code"] == (  # type: ignore[index]
         "policy_ev_improvement_low"
     )
+    assert diagnosis["operator_navigation"]["schema_version"] == (  # type: ignore[index]
+        "run_diagnosis_operator_navigation_v1"
+    )
+    assert diagnosis["operator_navigation"]["available"] is True  # type: ignore[index]
+    assert diagnosis["operator_navigation"]["reason"] == "iteration_run"  # type: ignore[index]
+    assert diagnosis["operator_navigation"]["home"]["command"] == (  # type: ignore[index]
+        "python -m orchestrator.experiments home diagnose-iteration --markdown"
+    )
+    assert diagnosis["operator_navigation"]["home"]["command_boundary"] == (  # type: ignore[index]
+        "read_only_inspection"
+    )
+    assert diagnosis["operator_navigation"]["home"]["artifact_created"] is False  # type: ignore[index]
+    assert diagnosis["operator_navigation"]["next_command"]["selector_command"] == (  # type: ignore[index]
+        "python -m orchestrator.experiments next-command diagnose-iteration --markdown"
+    )
+    assert diagnosis["operator_navigation"]["next_command"]["selected_command"].startswith(  # type: ignore[index]
+        "python -m orchestrator.operator_action_approval "
+    )
+    assert diagnosis["operator_navigation"]["next_command"]["status"] == (  # type: ignore[index]
+        "blocked_by_home_blockers"
+    )
+    assert diagnosis["operator_navigation"]["next_command"]["blocked"] is True  # type: ignore[index]
+    assert diagnosis["operator_navigation"]["next_command"]["boundary"] == (  # type: ignore[index]
+        "operator_approval_receipt"
+    )
+    assert diagnosis["operator_navigation"]["next_command"]["writes_artifact"] == (  # type: ignore[index]
+        "operator_action_approval.json"
+    )
+    assert diagnosis["operator_navigation"]["next_command"]["command_is_hint_only"] is True  # type: ignore[index]
+    assert diagnosis["operator_navigation"]["policy"]["does_not_change_acceptance"] is True  # type: ignore[index]
     assert diagnosis["rounds"][0]["agent_bundle_present"] is True  # type: ignore[index]
     assert diagnosis["rounds"][0]["agent_bundle_input_file_count"] > 0  # type: ignore[index]
     assert diagnosis["rounds"][0]["agent_attempt_trace_present"] is True  # type: ignore[index]
@@ -13420,6 +13457,10 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
         )
     )
     assert saved["best_round"]["round_id"] == "round_001"
+    assert saved["operator_navigation"]["available"] is True
+    assert saved["operator_navigation"]["next_command"]["selector_command"] == (
+        "python -m orchestrator.experiments next-command diagnose-iteration --markdown"
+    )
     saved_manifest = json.loads(
         (repo / "experiments/diagnose-iteration/manifest.json").read_text(
             encoding="utf-8"
@@ -13493,6 +13534,11 @@ def test_experiments_diagnose_subcommand_outputs_json(tmp_path: Path) -> None:
     assert payload["kind"] == "iteration_loop"
     assert payload["artifact_ok"] is True
     assert payload["rounds"][0]["round_id"] == "round_001"
+    assert payload["operator_navigation"]["available"] is True
+    assert payload["operator_navigation"]["next_command"]["selector_command"] == (
+        "python -m orchestrator.experiments next-command diagnose-cli --markdown"
+    )
+    assert payload["operator_navigation"]["next_command"]["blocked"] is True
 
 
 def test_schema_validator_reports_missing_required_property() -> None:

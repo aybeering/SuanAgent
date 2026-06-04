@@ -96,6 +96,11 @@ def diagnose_single_run(
         "reasons": decision.get("reasons", []),
         "validation_ev_delta": metric_delta(before, after, "ev"),
         "trade_count_delta": metric_delta(before, after, "trade_count"),
+        "operator_navigation": operator_navigation_unavailable(
+            run_id=str(base.get("run_id", "")),
+            run_kind="single_run",
+            reason="not_iteration_run",
+        ),
         "summary": single_run_summary(accepted, before, after, decision),
     }
 
@@ -139,8 +144,166 @@ def diagnose_iteration_run(
             if isinstance(base.get("artifact_errors", []), list)
             else 0,
         ),
+        "operator_navigation": operator_navigation_from_manifest(
+            run_id=str(base.get("run_id", "")),
+            manifest=manifest,
+        ),
         "selected_candidates": compact_candidates(selected_candidates),
         "summary": iteration_summary(manifest, round_diagnostics, best_round),
+    }
+
+
+def operator_navigation_from_manifest(
+    *,
+    run_id: str,
+    manifest: dict[str, Any],
+) -> dict[str, object]:
+    """Return read-only operator navigation copied from manifest home hints."""
+    operator_home = manifest.get("operator_home", {})
+    if not isinstance(operator_home, dict):
+        return operator_navigation_unavailable(
+            run_id=run_id,
+            run_kind="iteration_loop",
+            reason="operator_home_missing",
+        )
+    home_available = bool(operator_home.get("command", ""))
+    if not home_available:
+        return operator_navigation_unavailable(
+            run_id=run_id,
+            run_kind="iteration_loop",
+            reason="operator_home_unavailable",
+        )
+    next_command = str(operator_home.get("next_command", ""))
+    return {
+        "schema_version": "run_diagnosis_operator_navigation_v1",
+        "available": True,
+        "reason": "iteration_run",
+        "run_id": run_id,
+        "run_kind": "iteration_loop",
+        "home": {
+            "available": True,
+            "command_label": str(operator_home.get("command_label", "")),
+            "command": str(operator_home.get("command", "")),
+            "status": str(operator_home.get("status", "unknown")),
+            "primary_focus": str(operator_home.get("primary_focus", "")),
+            "action_step": str(operator_home.get("action_step", "")),
+            "terminal_only": bool(operator_home.get("terminal_only", True)),
+            "artifact_created": bool(operator_home.get("artifact_created", False)),
+            "command_boundary": str(operator_home.get("command_boundary", "")),
+            "command_is_hint_only": bool(
+                operator_home.get("command_is_hint_only", True)
+            ),
+        },
+        "next_command": {
+            "available": bool(next_command),
+            "selection_source": "operator_home.next_command",
+            "selector_command_label": "review_operator_next_command",
+            "selector_command": (
+                f"python -m orchestrator.experiments next-command {run_id} --markdown"
+            ),
+            "selector_boundary": "read_only_inspection",
+            "selected_command_label": str(
+                operator_home.get("next_command_label", "")
+            ),
+            "selected_command": next_command,
+            "status": str(operator_home.get("next_command_status", "unavailable")),
+            "blocked": bool(operator_home.get("next_command_blocked", False)),
+            "blocker_count": int(
+                operator_home.get("next_command_blocker_count", 0) or 0
+            ),
+            "operator_hint": str(
+                operator_home.get("next_command_operator_hint", "")
+            ),
+            "boundary": str(operator_home.get("next_command_boundary", "")),
+            "writes_artifact": str(
+                operator_home.get("next_command_writes_artifact", "")
+            ),
+            "requires_explicit_operator_invocation": bool(
+                operator_home.get(
+                    "next_command_requires_explicit_operator_invocation",
+                    False,
+                )
+            ),
+            "requires_operator_approval": bool(
+                operator_home.get("next_command_requires_operator_approval", False)
+            ),
+            "records_operator_approval": bool(
+                operator_home.get("next_command_records_operator_approval", False)
+            ),
+            "uses_guarded_executor": bool(
+                operator_home.get("next_command_uses_guarded_executor", False)
+            ),
+            "command_is_hint_only": bool(
+                operator_home.get("next_command_is_hint_only", True)
+            ),
+        },
+        "policy": operator_navigation_policy(),
+    }
+
+
+def operator_navigation_unavailable(
+    *,
+    run_id: str,
+    run_kind: str,
+    reason: str,
+) -> dict[str, object]:
+    """Return a stable unavailable operator-navigation block."""
+    return {
+        "schema_version": "run_diagnosis_operator_navigation_v1",
+        "available": False,
+        "reason": reason,
+        "run_id": run_id,
+        "run_kind": run_kind,
+        "home": {
+            "available": False,
+            "command_label": "",
+            "command": "",
+            "status": "unavailable",
+            "primary_focus": "",
+            "action_step": "",
+            "terminal_only": True,
+            "artifact_created": False,
+            "command_boundary": "",
+            "command_is_hint_only": True,
+        },
+        "next_command": {
+            "available": False,
+            "selection_source": "operator_home.next_command",
+            "selector_command_label": "",
+            "selector_command": "",
+            "selector_boundary": "",
+            "selected_command_label": "",
+            "selected_command": "",
+            "status": "unavailable",
+            "blocked": False,
+            "blocker_count": 0,
+            "operator_hint": "",
+            "boundary": "",
+            "writes_artifact": "",
+            "requires_explicit_operator_invocation": False,
+            "requires_operator_approval": False,
+            "records_operator_approval": False,
+            "uses_guarded_executor": False,
+            "command_is_hint_only": True,
+        },
+        "policy": operator_navigation_policy(),
+    }
+
+
+def operator_navigation_policy() -> dict[str, bool]:
+    """Return read-only policy flags for diagnosis navigation hints."""
+    return {
+        "inspection_only": True,
+        "does_not_create_artifacts": True,
+        "does_not_record_approval": True,
+        "does_not_execute_commands": True,
+        "does_not_execute_agents": True,
+        "does_not_run_backtests": True,
+        "does_not_write_config": True,
+        "does_not_promote_champion": True,
+        "does_not_apply_patches": True,
+        "does_not_route_agents": True,
+        "does_not_change_acceptance": True,
     }
 
 

@@ -1159,6 +1159,11 @@ def finalize_iteration_run(
     )
     write_json(run_dir / "manifest.json", manifest)
     write_iteration_summary(run_dir=run_dir, manifest=manifest)
+    write_run_diagnosis(
+        run_id=run_id,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
 
 
 def operator_home_manifest_row(

@@ -262,7 +262,14 @@ improvement, max-round stop, agent-intake block, artifact invalid, or accepted.
 saved run artifacts. For iteration runs, it includes per-round policy results,
 selected candidates, the best validation round, and the same agent-intake
 summary and run-outcome summary so adapter/proposal and gate failures can be
-grouped without changing acceptance.
+grouped without changing acceptance. It also includes an
+`operator_navigation` block. Single-run diagnoses mark this navigation
+unavailable. Iteration diagnoses copy the terminal-only operator-home command
+and the narrower next-command selector from `manifest.json`, including the
+selected command, blocked state, blocker count, boundary, write target, and
+safety flags. These fields are diagnosis hints only; they do not create
+artifacts, record approval, execute commands, write config, promote champions,
+run agents, run backtests, apply patches, route agents, or change acceptance.
 
 `champion_history.jsonl` exists after guarded champion promotion.
 `champion_lineage.json` and `champion_lineage.md` are written by the lineage

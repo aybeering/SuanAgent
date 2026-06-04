@@ -156,6 +156,7 @@ Implemented or allowed V0.5 components:
 127. Strict local schema and consistency validation for the terminal-only `experiment_leaderboard` payload exposed by `python -m orchestrator.experiments leaderboard`, including bounded row count, unique run IDs, descending validation EV-delta and creation-time ordering, single-run EV delta arithmetic, and non-negative iteration completed-round counts, applied before JSON output is printed without executing agents, rerunning backtests, promoting champions, applying patches, or changing acceptance.
 128. Strict local schema and consistency validation for the terminal-only `candidate_leaderboard` payload exposed by `python -m orchestrator.experiments candidates <run_id>`, including bounded row count, run-id binding, unique round/attempt identity, stable candidate ranking order, positive attempt indexes, quality-score binding, and selected-row validation/holdout signal checks, applied before JSON output is printed without executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 129. Strict local schema and consistency validation for the terminal-only `agent_result_stats_v1` payload exposed by `python -m orchestrator.experiments agents <run_id>`, including run-id and source-path binding, totals recomputation, agent/direction/patch-family aggregate recomputation, routing hint recomputation, optional artifact-source flag checks, and round replay summary normalization, applied before JSON output is printed without executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
+130. Strict local schema and consistency validation for the terminal-only `proposal_outcome_memory` payload exposed by `python -m orchestrator.experiments memory --limit N`, including bounded recent-window binding to `experiments/memory.jsonl`, proposal-outcome identity, run and round identity, accepted boolean checks, and optional validation EV type checks, applied before JSON output is printed without executing agents, rerunning backtests, routing candidates, applying patches, deleting memory, or changing acceptance.
 
 ## Contract Families
 
@@ -222,6 +223,8 @@ Agent-slot contracts:
 - Champion promotion approval: `schemas/champion_promotion_approval.schema.json`
 - Champion promotion receipt: `schemas/champion_promotion_receipt.schema.json`
 - Champion lineage: `schemas/champion_lineage.schema.json`
+- Proposal outcome memory terminal view:
+  `schemas/proposal_outcome_memory.schema.json`
 
 Codex CLI readiness contracts:
 

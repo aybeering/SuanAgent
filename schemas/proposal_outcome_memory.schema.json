@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Proposal Outcome Memory Terminal Output",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "created_at",
+      "kind",
+      "run_id",
+      "round_id",
+      "accepted"
+    ],
+    "properties": {
+      "created_at": {
+        "type": "string",
+        "minLength": 1
+      },
+      "kind": {
+        "type": "string",
+        "enum": [
+          "proposal_outcome"
+        ]
+      },
+      "run_id": {
+        "type": "string",
+        "minLength": 1
+      },
+      "round_id": {
+        "type": "string",
+        "minLength": 1
+      },
+      "protocol_version": {
+        "type": "string"
+      },
+      "agent_name": {
+        "type": "string"
+      },
+      "direction_tag": {
+        "type": "string"
+      },
+      "target_file": {
+        "type": "string"
+      },
+      "summary": {
+        "type": "string"
+      },
+      "accepted": {
+        "type": "boolean"
+      },
+      "reasons": {
+        "type": "array"
+      },
+      "holdout_policy": {
+        "type": "object"
+      },
+      "applicable": {
+        "type": "boolean"
+      },
+      "contract_errors": {
+        "type": "array"
+      },
+      "patch_sha256": {
+        "type": "string"
+      },
+      "is_repeat_patch": {
+        "type": "boolean"
+      },
+      "repeat_of_round": {
+        "type": "string"
+      },
+      "hypotheses": {
+        "type": "array"
+      },
+      "expected_metric_change": {
+        "type": "object"
+      },
+      "quality_checks": {
+        "type": "object"
+      },
+      "train_ev_delta": {
+        "type": "number"
+      },
+      "validation_ev_delta": {
+        "type": "number"
+      },
+      "holdout_ev_delta": {
+        "type": "number"
+      },
+      "validation_trade_count_delta": {
+        "type": "number"
+      },
+      "holdout_trade_count_delta": {
+        "type": "number"
+      }
+    }
+  }
+}

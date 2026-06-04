@@ -69,7 +69,7 @@ from orchestrator.operator_action_plan import (
     render_operator_action_plan_markdown,
 )
 from orchestrator.operator_config_review import build_operator_config_review
-from orchestrator.outcome_memory import recent_outcomes
+from orchestrator.outcome_memory import read_outcome_memory, recent_outcomes
 from orchestrator.run_artifact_health import (
     DEFAULT_HISTORY_FILENAME,
     build_run_artifact_health,
@@ -90,6 +90,9 @@ CANDIDATE_LEADERBOARD_SCHEMA_PATH = Path(
     "schemas/candidate_leaderboard.schema.json"
 )
 AGENT_RESULT_STATS_SCHEMA_PATH = Path("schemas/agent_result_stats.schema.json")
+PROPOSAL_OUTCOME_MEMORY_SCHEMA_PATH = Path(
+    "schemas/proposal_outcome_memory.schema.json"
+)
 EXPERIMENT_LEADERBOARD_SCHEMA_PATH = Path("schemas/experiment_leaderboard.schema.json")
 EXPERIMENT_SUMMARY_DASHBOARD_SCHEMA_PATH = Path(
     "schemas/experiment_summary_dashboard.schema.json"
@@ -1307,6 +1310,84 @@ def normalize_report_paths(value: object, repo_root: Path) -> object:
     if isinstance(value, list):
         return [normalize_report_paths(item, repo_root) for item in value]
     return value
+
+
+def proposal_memory(
+    *,
+    experiments_dir: Path = Path("experiments"),
+    limit: int = 10,
+) -> list[dict[str, object]]:
+    """Return validated recent proposal outcome memory records."""
+    payload = recent_outcomes(experiments_dir=experiments_dir, limit=limit)
+    errors = validate_proposal_memory_payload(
+        payload,
+        repo_root=experiments_dir.parent,
+        experiments_dir=experiments_dir,
+        limit=limit,
+    )
+    if errors:
+        raise ValueError(
+            "proposal memory failed schema validation: " + "; ".join(errors)
+        )
+    return payload
+
+
+def validate_proposal_memory_payload(
+    payload: list[dict[str, object]],
+    *,
+    repo_root: Path,
+    experiments_dir: Path,
+    limit: int,
+) -> tuple[str, ...]:
+    """Validate the terminal-only proposal outcome memory output."""
+    schema = load_schema(repo_root / PROPOSAL_OUTCOME_MEMORY_SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=payload,
+            schema=schema,
+            schema_dir=(repo_root / PROPOSAL_OUTCOME_MEMORY_SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(
+        validate_proposal_memory_consistency(
+            payload,
+            experiments_dir=experiments_dir,
+            limit=limit,
+        )
+    )
+    return tuple(errors)
+
+
+def validate_proposal_memory_consistency(
+    payload: list[dict[str, object]],
+    *,
+    experiments_dir: Path,
+    limit: int,
+) -> tuple[str, ...]:
+    """Validate recent memory bounds and identity fields."""
+    errors: list[str] = []
+    bounded_limit = max(limit, 0)
+    if len(payload) > bounded_limit:
+        errors.append("proposal_memory limit exceeded")
+    expected = read_outcome_memory(experiments_dir)[-bounded_limit:] if bounded_limit else []
+    if payload != expected:
+        errors.append("proposal_memory recent window mismatch")
+    for row in payload:
+        created_at = str(row.get("created_at", ""))
+        if not created_at:
+            errors.append("proposal_memory created_at missing")
+        if str(row.get("kind", "")) != "proposal_outcome":
+            errors.append("proposal_memory kind mismatch")
+        for key in ("run_id", "round_id"):
+            if not str(row.get(key, "")):
+                errors.append(f"proposal_memory {key} missing")
+        if not isinstance(row.get("accepted"), bool):
+            errors.append("proposal_memory accepted invalid")
+        if "validation_ev_delta" in row and optional_float_value(
+            row.get("validation_ev_delta")
+        ) is None:
+            errors.append("proposal_memory validation_ev_delta invalid")
+    return tuple(errors)
 
 
 def candidate_quality_trace(
@@ -3980,7 +4061,7 @@ def main() -> None:
             limit=args.limit,
         )
     elif args.command == "memory":
-        payload = recent_outcomes(
+        payload = proposal_memory(
             experiments_dir=args.experiments_dir,
             limit=args.limit,
         )

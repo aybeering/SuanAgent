@@ -228,6 +228,15 @@ against `schemas/champion_status.schema.json`, with deterministic consistency
 checks that bind the current registry champion to the embedded lineage summary,
 latest history row, validation EV delta, and read-only policy flags before JSON
 is printed.
+`python -m orchestrator.experiments memory --limit N` returns the recent
+append-only proposal outcome memory records as a terminal-only
+`proposal_outcome_memory` payload validated against
+`schemas/proposal_outcome_memory.schema.json` before JSON is printed. Its
+consistency checks bind the output to the bounded tail of
+`experiments/memory.jsonl`, require proposal-outcome identity fields and a
+boolean acceptance result, and keep the command read-only: it does not execute
+agents, rerun backtests, route candidates, apply patches, delete memory, or
+change acceptance.
 `python -m orchestrator.experiments summary` additionally embeds a compact
 dashboard with the latest indexed run, latest accepted and rejected runs, recent
 diagnosis rows, recent failure-code counts, recent outcome-category counts, a
@@ -762,6 +771,13 @@ Replay artifacts:
   rows, routing hints, source path binding, and replay summaries from saved
   run artifacts without executing agents, rerunning backtests, routing
   candidates, applying patches, or changing acceptance.
+- `proposal_outcome_memory` is the terminal-only payload returned by
+  `python -m orchestrator.experiments memory --limit N`. It reads
+  `experiments/memory.jsonl`, returns only the bounded recent tail, validates
+  against `schemas/proposal_outcome_memory.schema.json`, and checks core
+  proposal outcome identity before printing JSON. It is an inspection view
+  only and cannot execute agents, rerun backtests, route candidates, apply
+  patches, delete memory, or change acceptance.
 - `candidate_quality_trace.json` and `candidate_quality_trace.md` summarize
   the saved leaderboard into an inspection-only trace of score components,
   probe/validation/holdout signals, selected attempts, patch families, and

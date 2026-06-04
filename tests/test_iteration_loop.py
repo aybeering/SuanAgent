@@ -352,6 +352,7 @@ from orchestrator.experiments import (
     operator_view_refresh_blocker_delta,
     operator_view_refresh_effect,
     operator_view_refresh_review_summary,
+    proposal_memory,
     promote_champion,
     refresh_operator_views as refresh_operator_views_command,
     render_operator_view_refresh_markdown,
@@ -366,6 +367,7 @@ from orchestrator.experiments import (
     validate_experiment_summary_dashboard_payload,
     validate_operator_run_review_payload,
     validate_operator_view_refresh_payload,
+    validate_proposal_memory_payload,
     external_agent_sandbox_report,
 )
 from orchestrator.external_agent_sandbox_drill import (
@@ -17648,6 +17650,33 @@ def test_experiments_cli_memory_work(tmp_path: Path) -> None:
         max_rounds=1,
         repo_root=repo,
     )
+    memory_rows = proposal_memory(
+        experiments_dir=repo / "experiments",
+        limit=1,
+    )
+    assert_matches_schema_payload(memory_rows, "proposal_outcome_memory")
+    assert validate_proposal_memory_payload(
+        memory_rows,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        limit=1,
+    ) == ()
+    drift_memory_rows = [dict(memory_rows[0]), dict(memory_rows[0])]
+    drift_memory_rows[0]["created_at"] = "9999-01-01T00:00:00Z"
+    drift_memory_rows[0]["kind"] = "other"
+    drift_memory_rows[0]["run_id"] = ""
+    drift_memory_rows[0]["accepted"] = "false"
+    drift_errors = validate_proposal_memory_payload(
+        drift_memory_rows,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        limit=1,
+    )
+    assert "proposal_memory limit exceeded" in drift_errors
+    assert "proposal_memory recent window mismatch" in drift_errors
+    assert "proposal_memory kind mismatch" in drift_errors
+    assert "proposal_memory run_id missing" in drift_errors
+    assert "proposal_memory accepted invalid" in drift_errors
 
     result = subprocess.run(
         [
@@ -17668,6 +17697,13 @@ def test_experiments_cli_memory_work(tmp_path: Path) -> None:
 
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
+    assert_matches_schema_payload(payload, "proposal_outcome_memory")
+    assert validate_proposal_memory_payload(
+        payload,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        limit=1,
+    ) == ()
     assert payload[0]["run_id"] == "cli-memory"
     assert payload[0]["kind"] == "proposal_outcome"
 

@@ -211,7 +211,8 @@ operator step without executing commands or changing repository state.
 `operator_action_dashboard.json` and `operator_action_dashboard.md` summarize
 that chain for the operator. They show the current step, timeline, selected
 command, safe command counts, audit failure reasons, blockers derived from
-those reason codes, and suggested guarded commands while remaining read-only:
+those reason codes, and suggested guarded commands with explicit boundary
+classification while remaining read-only:
 they do not record approval, execute commands, write config, promote champions,
 run agents, run backtests, route agents, apply patches, or change acceptance.
 The iteration loop writes the final dashboard

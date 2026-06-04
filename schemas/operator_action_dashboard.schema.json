@@ -417,7 +417,8 @@
         "label",
         "command",
         "reason",
-        "writes_artifact"
+        "writes_artifact",
+        "boundary"
       ],
       "properties": {
         "label": {
@@ -431,6 +432,62 @@
         },
         "writes_artifact": {
           "type": "string"
+        },
+        "boundary": {
+          "$ref": "#/$defs/command_boundary"
+        }
+      }
+    },
+    "command_boundary": {
+      "type": "object",
+      "required": [
+        "boundary_type",
+        "requires_explicit_operator_invocation",
+        "requires_operator_approval",
+        "records_operator_approval",
+        "uses_guarded_executor",
+        "writes_artifact",
+        "executes_agents",
+        "runs_backtests",
+        "applies_patches",
+        "changes_acceptance"
+      ],
+      "properties": {
+        "boundary_type": {
+          "type": "string",
+          "enum": [
+            "read_only_inspection",
+            "read_only_artifact_refresh",
+            "operator_approval_receipt",
+            "guarded_read_only_execution"
+          ]
+        },
+        "requires_explicit_operator_invocation": {
+          "type": "boolean"
+        },
+        "requires_operator_approval": {
+          "type": "boolean"
+        },
+        "records_operator_approval": {
+          "type": "boolean"
+        },
+        "uses_guarded_executor": {
+          "type": "boolean"
+        },
+        "writes_artifact": {
+          "type": "boolean"
+        },
+        "executes_agents": {
+          "type": "boolean"
+        },
+        "runs_backtests": {
+          "type": "boolean"
+        },
+        "applies_patches": {
+          "type": "boolean"
+        },
+        "changes_acceptance": {
+          "type": "boolean"
         }
       }
     },

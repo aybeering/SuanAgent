@@ -2684,6 +2684,8 @@ def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, objec
     next_command = operator_view_refresh_next_command(cockpit)
     blockers = string_payload(cockpit.get("blockers", []))
     digest = dict_payload(cockpit.get("operator_digest", {}))
+    digest_boundary = dict_payload(digest.get("recommended_command_boundary", {}))
+    next_command_boundary = dict_payload(next_command.get("boundary", {}))
     return {
         "cockpit_status": str(cockpit.get("status", "")),
         "cockpit_ok": bool(cockpit.get("ok", False)),
@@ -2699,6 +2701,9 @@ def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, objec
             digest.get("target_panel_status", "")
         ),
         "operator_digest_next_step": str(digest.get("next_step", "")),
+        "operator_digest_recommended_command_boundary": str(
+            digest_boundary.get("boundary_type", "")
+        ),
         "blocker_count": len(blockers),
         "primary_blocker": blockers[0] if blockers else "",
         "blocker_preview": blockers[:5],
@@ -2706,6 +2711,7 @@ def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, objec
         "next_command_label": str(next_command.get("label", "")),
         "next_command": str(next_command.get("command", "")),
         "next_command_reason": str(next_command.get("reason", "")),
+        "next_command_boundary": str(next_command_boundary.get("boundary_type", "")),
     }
 
 
@@ -2726,6 +2732,7 @@ def operator_view_refresh_next_command(
             "command": digest_command,
             "writes_artifact": "",
             "reason": digest_reason,
+            "boundary": dict_payload(digest.get("recommended_command_boundary", {})),
         }
 
     priority = dict_payload(cockpit.get("review_priority", {}))
@@ -2740,6 +2747,9 @@ def operator_view_refresh_next_command(
             "command": priority_command,
             "writes_artifact": priority_writes,
             "reason": priority_reason,
+            "boundary": dict_payload(
+                priority.get("recommended_command_boundary", {})
+            ),
         }
 
     commands = list_payload(cockpit.get("recommended_commands", []))
@@ -2859,6 +2869,9 @@ def operator_view_refresh_review_summary(
         "next_command_label": str(operator_summary.get("next_command_label", "")),
         "next_command": str(operator_summary.get("next_command", "")),
         "next_command_reason": str(operator_summary.get("next_command_reason", "")),
+        "next_command_boundary": str(
+            operator_summary.get("next_command_boundary", "")
+        ),
     }
 
 
@@ -2940,6 +2953,9 @@ def validate_operator_view_refresh_consistency(
         errors.append("operator_view_refresh operator_summary primary_blocker mismatch")
     if str(operator_summary.get("next_command_source", "")) == "operator_digest":
         digest_next_step = str(operator_summary.get("operator_digest_next_step", ""))
+        digest_boundary = str(
+            operator_summary.get("operator_digest_recommended_command_boundary", "")
+        )
         if not str(operator_summary.get("operator_digest_headline", "")):
             errors.append("operator_view_refresh operator_summary digest missing")
         if (
@@ -2949,6 +2965,13 @@ def validate_operator_view_refresh_consistency(
         ):
             errors.append(
                 "operator_view_refresh operator_summary digest reason mismatch"
+            )
+        if digest_boundary and (
+            str(operator_summary.get("next_command_boundary", ""))
+            != digest_boundary
+        ):
+            errors.append(
+                "operator_view_refresh operator_summary digest boundary mismatch"
             )
 
     added_blockers = string_payload(blocker_delta.get("added_blockers", []))
@@ -3011,6 +3034,7 @@ def validate_operator_view_refresh_consistency(
         "next_command_label",
         "next_command",
         "next_command_reason",
+        "next_command_boundary",
     ):
         if str(operator_summary.get(key, "")) != str(review_summary.get(key, "")):
             errors.append(f"operator_view_refresh review_summary {key} mismatch")
@@ -3070,6 +3094,8 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"`{operator_summary.get('operator_digest_target_panel_title', '')}` "
         f"(`{operator_summary.get('operator_digest_target_panel_status', '')}`)",
         f"- Digest next step: {operator_summary.get('operator_digest_next_step', '')}",
+        "- Digest command boundary: "
+        f"`{operator_summary.get('operator_digest_recommended_command_boundary', '')}`",
         f"- Blockers: `{operator_summary.get('blocker_count', 0)}`",
         f"- Blocker delta changed: `{blocker_delta.get('changed', False)}`",
         f"- Blockers added: `{blocker_delta.get('added_count', 0)}`",
@@ -3078,6 +3104,7 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Next command source: `{operator_summary.get('next_command_source', '')}`",
         f"- Next command: `{operator_summary.get('next_command_label', '')}`",
         f"- Next command text: `{operator_summary.get('next_command', '')}`",
+        f"- Next command boundary: `{operator_summary.get('next_command_boundary', '')}`",
         f"- Next command reason: {operator_summary.get('next_command_reason', '')}",
         f"- Safety policy OK: `{policy_summary.get('ok', False)}`",
         f"- Safety policy false keys: `{policy_summary.get('false_count', 0)}`",
@@ -3142,6 +3169,9 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     )
     lines.append(f"- Next command: `{review_summary.get('next_command_label', '')}`")
     lines.append(f"- Next command text: `{review_summary.get('next_command', '')}`")
+    lines.append(
+        f"- Next command boundary: `{review_summary.get('next_command_boundary', '')}`"
+    )
     blocker_preview = operator_summary.get("blocker_preview", [])
     lines.extend(["", "## Current Blockers", ""])
     for blocker in blocker_preview if isinstance(blocker_preview, list) else []:

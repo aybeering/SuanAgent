@@ -18,6 +18,7 @@ from orchestrator.operator_action_audit import (
     schema_errors,
     string_list,
 )
+from orchestrator.operator_command_boundaries import classify_operator_command
 from orchestrator.operator_action_executor import command_is_allowlisted, parse_command
 from orchestrator.operator_action_plan import build_operator_action_plan
 from orchestrator.schema_validation import validate_json_file, validate_json_payload
@@ -457,20 +458,20 @@ def recommended_commands(
     commands: list[dict[str, object]] = []
     if not audit_from_artifact:
         commands.append(
-            {
-                "label": "write_action_audit",
-                "command": f"python -m orchestrator.operator_action_audit {relative_path(run_dir, repo_root)}",
-                "reason": "Persist the digest-checked action audit artifact.",
-                "writes_artifact": "operator_action_audit.json",
-            }
+            command_hint(
+                label="write_action_audit",
+                command=f"python -m orchestrator.operator_action_audit {relative_path(run_dir, repo_root)}",
+                reason="Persist the digest-checked action audit artifact.",
+                writes_artifact="operator_action_audit.json",
+            )
         )
     if status == "pending_approval":
         action, command = first_guarded_command(actions)
         if action and command:
             commands.append(
-                {
-                    "label": "record_operator_approval",
-                    "command": (
+                command_hint(
+                    label="record_operator_approval",
+                    command=(
                         "python -m orchestrator.operator_action_approval "
                         f"{relative_path(run_dir, repo_root)} "
                         f"--action-id {action.get('action_id', '')} "
@@ -478,40 +479,60 @@ def recommended_commands(
                         "--approve --operator-id <operator> "
                         f"--confirmation-phrase \"{APPROVAL_CONFIRMATION_PHRASE}\""
                     ),
-                    "reason": "Record explicit approval for one guarded read-only command.",
-                    "writes_artifact": "operator_action_approval.json",
-                }
+                    reason="Record explicit approval for one guarded read-only command.",
+                    writes_artifact="operator_action_approval.json",
+                )
             )
     if status == "ready_for_execution":
         commands.append(
-            {
-                "label": "execute_approved_command",
-                "command": (
+            command_hint(
+                label="execute_approved_command",
+                command=(
                     "python -m orchestrator.operator_action_executor "
                     f"{run_id} --approval-path {relative_path(approval_path, repo_root)}"
                 ),
-                "reason": "Run the approved command through the guarded executor.",
-                "writes_artifact": "operator_action_execution_receipt.json",
-            }
+                reason="Run the approved command through the guarded executor.",
+                writes_artifact="operator_action_execution_receipt.json",
+            )
         )
     if status == "execution_completed":
         commands.append(
-            {
-                "label": "review_execution_receipt",
-                "command": f"python -m orchestrator.experiments action-execution {run_id} --markdown",
-                "reason": "Inspect saved execution output hashes and mutation evidence.",
-                "writes_artifact": "",
-            }
+            command_hint(
+                label="review_execution_receipt",
+                command=f"python -m orchestrator.experiments action-execution {run_id} --markdown",
+                reason="Inspect saved execution output hashes and mutation evidence.",
+                writes_artifact="",
+            )
         )
     commands.append(
-        {
-            "label": "review_action_dashboard",
-            "command": f"python -m orchestrator.experiments action-dashboard {run_id} --markdown",
-            "reason": "Review this read-only operator action dashboard.",
-            "writes_artifact": "",
-        }
+        command_hint(
+            label="review_action_dashboard",
+            command=f"python -m orchestrator.experiments action-dashboard {run_id} --markdown",
+            reason="Review this read-only operator action dashboard.",
+            writes_artifact="",
+        )
     )
     return commands
+
+
+def command_hint(
+    *,
+    label: str,
+    command: str,
+    reason: str,
+    writes_artifact: str,
+) -> dict[str, object]:
+    """Return one command hint with an explicit operator boundary."""
+    return {
+        "label": label,
+        "command": command,
+        "reason": reason,
+        "writes_artifact": writes_artifact,
+        "boundary": classify_operator_command(
+            label=label,
+            writes_artifact=writes_artifact,
+        ),
+    }
 
 
 def first_guarded_command(
@@ -601,7 +622,12 @@ def render_operator_action_dashboard_markdown(payload: dict[str, object]) -> str
     )
     lines.extend(["", "## Recommended Commands", ""])
     for command in list_of_dicts(payload.get("recommended_commands", [])):
-        lines.append(f"- `{command.get('label', '')}`: `{command.get('command', '')}`")
+        boundary = object_field(command, "boundary")
+        lines.append(
+            f"- `{command.get('label', '')}` "
+            f"(`{boundary.get('boundary_type', '')}`): "
+            f"`{command.get('command', '')}`"
+        )
     lines.extend(
         [
             "",
@@ -679,6 +705,7 @@ def validate_operator_action_dashboard_consistency(
     actions = list_of_dicts(payload.get("available_actions", []))
     failure_reasons = list_of_dicts(payload.get("failure_reasons", []))
     blockers = string_list(payload.get("blockers", []))
+    commands = list_of_dicts(payload.get("recommended_commands", []))
 
     if bool(payload.get("ok", False)) != (
         status not in {"needs_chain_repair", "missing_action_plan"}
@@ -713,6 +740,16 @@ def validate_operator_action_dashboard_consistency(
         errors.append("operator_action_dashboard summary first_failure_stage mismatch")
     if int_value(summary.get("blocker_count", -1)) != len(blockers):
         errors.append("operator_action_dashboard summary blocker_count mismatch")
+    for command in commands:
+        label = str(command.get("label", ""))
+        writes_artifact = str(command.get("writes_artifact", ""))
+        expected_boundary = classify_operator_command(
+            label=label,
+            writes_artifact=writes_artifact,
+        )
+        if object_field(command, "boundary") != expected_boundary:
+            errors.append("operator_action_dashboard command boundary mismatch")
+            break
     return tuple(errors)
 
 

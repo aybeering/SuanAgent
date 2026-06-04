@@ -104,6 +104,16 @@
         "none"
       ]
     },
+    "command_boundary_type": {
+      "type": "string",
+      "enum": [
+        "",
+        "read_only_inspection",
+        "read_only_artifact_refresh",
+        "operator_approval_receipt",
+        "guarded_read_only_execution"
+      ]
+    },
     "string_array": {
       "type": "array",
       "items": {
@@ -220,13 +230,15 @@
         "operator_digest_target_panel_title",
         "operator_digest_target_panel_status",
         "operator_digest_next_step",
+        "operator_digest_recommended_command_boundary",
         "blocker_count",
         "primary_blocker",
         "blocker_preview",
         "next_command_source",
         "next_command_label",
         "next_command",
-        "next_command_reason"
+        "next_command_reason",
+        "next_command_boundary"
       ],
       "properties": {
         "cockpit_status": {
@@ -259,6 +271,9 @@
         "operator_digest_next_step": {
           "type": "string"
         },
+        "operator_digest_recommended_command_boundary": {
+          "$ref": "#/$defs/command_boundary_type"
+        },
         "blocker_count": {
           "type": "integer"
         },
@@ -279,6 +294,9 @@
         },
         "next_command_reason": {
           "type": "string"
+        },
+        "next_command_boundary": {
+          "$ref": "#/$defs/command_boundary_type"
         }
       }
     },
@@ -395,7 +413,8 @@
         "next_command_source",
         "next_command_label",
         "next_command",
-        "next_command_reason"
+        "next_command_reason",
+        "next_command_boundary"
       ],
       "properties": {
         "schema_version": {
@@ -433,6 +452,9 @@
         },
         "next_command_reason": {
           "type": "string"
+        },
+        "next_command_boundary": {
+          "$ref": "#/$defs/command_boundary_type"
         }
       }
     },

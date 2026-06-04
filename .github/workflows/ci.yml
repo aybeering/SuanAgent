@@ -892,9 +892,14 @@ jobs:
           assert dashboard["current_step"] == "review_execution_receipt"
           assert dashboard["summary"]["chain_ok"] is True
           assert dashboard["summary"]["safe_command_count"] >= 1
+          assert any(
+              command["boundary"]["boundary_type"] == "read_only_inspection"
+              for command in dashboard["recommended_commands"]
+          )
           assert dashboard["policy"]["does_not_record_approval"] is True
           assert dashboard["authority"]["dashboard_can_execute_commands"] is False
           assert "# Operator Action Dashboard" in markdown
+          assert "read_only_inspection" in markdown
           PY
           python -m orchestrator.operator_unlock_checklist experiments/ci-adaptive
           test -f experiments/ci-adaptive/operator_unlock_checklist.json
@@ -969,6 +974,17 @@ jobs:
           assert cockpit["operator_digest"]["recommended_command_label"] == (
               cockpit["review_priority"]["recommended_command_label"]
           )
+          assert cockpit["operator_digest"]["recommended_command_boundary"] == (
+              cockpit["review_priority"]["recommended_command_boundary"]
+          )
+          assert cockpit["operator_digest"]["recommended_command_boundary"][
+              "boundary_type"
+          ] in {
+              "read_only_inspection",
+              "read_only_artifact_refresh",
+              "operator_approval_receipt",
+              "guarded_read_only_execution",
+          }
           assert cockpit["codex_unlock_checklist"]["status"] == "not_requested"
           assert cockpit["codex_unlock_checklist"]["item_count"] == 0
           assert cockpit["source_artifacts"]["operator_unlock_checklist"]["file"]["exists"] is True
@@ -1212,12 +1228,19 @@ jobs:
           assert refresh["operator_summary"]["next_command_reason"] == (
               operator_digest["next_step"]
           )
+          assert refresh["operator_summary"][
+              "operator_digest_recommended_command_boundary"
+          ] == operator_digest["recommended_command_boundary"]["boundary_type"]
+          assert refresh["operator_summary"]["next_command_boundary"] == (
+              operator_digest["recommended_command_boundary"]["boundary_type"]
+          )
           assert "ci-adaptive" in refresh["operator_summary"]["next_command"]
           assert (
               f"Next command: `{operator_digest['recommended_command_label']}`"
               in refresh_markdown
           )
           assert "Next command source: `operator_digest`" in refresh_markdown
+          assert "Next command boundary:" in refresh_markdown
           assert "Operator digest:" in refresh_markdown
           assert operator_digest["headline"] in refresh_markdown
           assert operator_digest["recommended_command"] in refresh_markdown

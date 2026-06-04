@@ -349,17 +349,20 @@ final dashboard during closeout after `operator_action_plan.json`; `python -m
 orchestrator.experiments action-dashboard <run_id>` and `action-dashboard
 --markdown` show or derive the current step, timeline, selected command, safe
 command counts, audit failure reasons, blockers derived from those reason
-codes, and suggested read-only/guarded commands without recording approval,
-executing commands, writing config, promoting champions, running agents,
-running backtests, applying patches, routing agents, or changing acceptance.
+codes, and suggested read-only/guarded commands with explicit boundary
+classification (`read_only_inspection`, `read_only_artifact_refresh`,
+`operator_approval_receipt`, or `guarded_read_only_execution`) without
+recording approval, executing commands, writing config, promoting champions,
+running agents, running backtests, applying patches, routing agents, or
+changing acceptance.
 The dashboard writer and terminal view validate the saved or derived payload
 against
 `schemas/operator_action_dashboard.schema.json` and checks that status-derived
 fields plus action, command, failure-reason, and blocker counts still match the
 embedded rows.
 Artifact validation checks dashboard command hints through the shared operator
-command-hint validator for known labels, expected write
-targets, current-step coverage, and simple shell-control-token guards.
+command-hint validator for known labels, expected write targets, boundary
+classification, current-step coverage, and simple shell-control-token guards.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose the
 Codex CLI operator-unlock evidence chain as a standalone read-only checklist.
 The iteration loop writes it during closeout before the final cockpit so cockpit
@@ -444,15 +447,17 @@ running agents, running backtests, applying patches, routing agents, or
 changing acceptance. The `review_priority` object chooses the first panel and
 existing saved command hint to inspect from blocker, config lineage, action,
 Codex readiness, challenger, promotion, scope-health, and run-outcome state;
-the digest mirrors that priority plus outcome, blocker, config, action,
-candidate-quality, Codex, and promotion status as a compact read-only header.
+the digest mirrors that priority plus the recommended command boundary,
+outcome, blocker, config, action, candidate-quality, Codex, and promotion
+status as a compact read-only header.
 Artifact validation checks cockpit command hints through the shared operator
 command-hint validator for known labels, expected write targets, the required
-`review_cockpit` first command, and simple shell-control-token guards. It also
-cross-checks the `review_priority` navigation object against the saved panel
-row and saved command hint so the priority target cannot drift from the
-cockpit payload it summarizes. The cockpit writer itself also validates the
-operator digest, status-derived OK and focus fields, action failure-reason
+`review_cockpit` first command, boundary classification, and simple
+shell-control-token guards. It also cross-checks the `review_priority`
+navigation object against the saved panel row, saved command hint, and command
+boundary so the priority target cannot drift from the cockpit payload it
+summarizes. The cockpit writer itself also validates the operator digest,
+status-derived OK and focus fields, action failure-reason
 summaries,
 `operator_action:<code>` blocker coverage, Codex unlock checklist counts, and
 review-priority panel and command references before returning.
@@ -473,17 +478,18 @@ terminal-only `operator_view_refresh_v1` receipt with config source, path,
 existence, SHA-256 fields, pre-refresh cockpit stale-source evidence,
 post-refresh cockpit freshness, refresh-effect status, operator-review-required
 flag, deterministic review reason codes, refreshed-cockpit operator digest
-headline/priority/target-panel state, blocker delta counts, and per-artifact
-JSON/Markdown output hashes, and still does not execute commands, execute
-Codex, run agents, run backtests, write config, promote champions, apply
-patches, route agents, or change acceptance.
+headline/priority/target-panel state, digest-backed next-command boundary,
+blocker delta counts, and per-artifact JSON/Markdown output hashes, and still
+does not execute commands, execute Codex, run agents, run backtests, write
+config, promote champions, apply patches, route agents, or change acceptance.
 The receipt is validated in memory against
 `schemas/operator_view_refresh.schema.json` before it is printed, with an
 additional deterministic consistency check for refreshed artifact count and
 order, per-artifact file-path bindings, blocker-delta counters, policy-summary
 derivation, refresh-effect derivation, operator-digest command reason binding,
-and copied review-summary next command, reason, and post-refresh blocker
-fields, even though it is not written as a new artifact family.
+operator-digest command boundary binding, and copied review-summary next
+command, reason, boundary, and post-refresh blocker fields, even though it is
+not written as a new artifact family.
 Add `--markdown` to render the same terminal-only receipt as a compact operator
 summary with refreshed artifact paths, hash prefixes, config provenance,
 pre-refresh stale sources, and post-refresh snapshot freshness. The receipt

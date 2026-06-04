@@ -2756,10 +2756,22 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending["summary"]["safe_command_count"] >= 1
     assert pending["source_artifacts"]["action_audit"]["from_artifact"] is False
     assert pending["recommended_commands"][0]["label"] == "write_action_audit"
+    assert pending["recommended_commands"][0]["boundary"]["boundary_type"] == (
+        "read_only_artifact_refresh"
+    )
     assert any(
         row["label"] == "record_operator_approval"
         for row in pending["recommended_commands"]
     )
+    approval_hint = next(
+        row
+        for row in pending["recommended_commands"]
+        if row["label"] == "record_operator_approval"
+    )
+    assert approval_hint["boundary"]["boundary_type"] == (
+        "operator_approval_receipt"
+    )
+    assert approval_hint["boundary"]["records_operator_approval"] is True
     assert pending["authority"]["dashboard_can_execute_commands"] is False
     assert pending["policy"]["does_not_record_approval"] is True
     assert "# Operator Action Dashboard" in md_path.read_text(encoding="utf-8")
@@ -2796,6 +2808,16 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         row["label"] == "execute_approved_command"
         for row in ready["recommended_commands"]
     )
+    execution_hint = next(
+        row
+        for row in ready["recommended_commands"]
+        if row["label"] == "execute_approved_command"
+    )
+    assert execution_hint["boundary"]["boundary_type"] == (
+        "guarded_read_only_execution"
+    )
+    assert execution_hint["boundary"]["requires_operator_approval"] is True
+    assert execution_hint["boundary"]["uses_guarded_executor"] is True
 
     execute_operator_action_with_approval(
         run_id=run_id,
@@ -2834,7 +2856,14 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         row["label"] == "review_execution_receipt"
         for row in completed["recommended_commands"]
     )
+    review_hint = next(
+        row
+        for row in completed["recommended_commands"]
+        if row["label"] == "review_execution_receipt"
+    )
+    assert review_hint["boundary"]["boundary_type"] == "read_only_inspection"
     assert "# Operator Action Dashboard" in markdown
+    assert "read_only_inspection" in markdown
     assert built["status"] == "execution_completed"
     assert_matches_schema_payload(completed, "operator_action_dashboard")
     assert validate_operator_action_dashboard_file(
@@ -3067,6 +3096,17 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["operator_digest"]["recommended_command"] == (
         cockpit["review_priority"]["recommended_command"]
     )
+    assert cockpit["operator_digest"]["recommended_command_boundary"] == (
+        cockpit["review_priority"]["recommended_command_boundary"]
+    )
+    assert cockpit["operator_digest"]["recommended_command_boundary"][
+        "boundary_type"
+    ] in {
+        "read_only_inspection",
+        "read_only_artifact_refresh",
+        "operator_approval_receipt",
+        "guarded_read_only_execution",
+    }
     assert cockpit["operator_digest"]["policy"]["inspection_only"] is True
     assert cockpit["operator_digest"]["policy"]["command_is_hint_only"] is True
     assert (
@@ -3180,6 +3220,7 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert "# Operator Cockpit" in markdown
     assert "## Operator Digest" in markdown
     assert "Command hint:" in markdown
+    assert "Command boundary:" in markdown
     assert "## Review Priority" in markdown
     assert "Run outcome: `policy_reject` (`policy_ev_improvement_low`)" in markdown
     assert "# Operator Cockpit" in md_path.read_text(encoding="utf-8")
@@ -3577,6 +3618,9 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert refresh["operator_summary"]["operator_digest_next_step"] == (
         refreshed_digest["next_step"]
     )
+    assert refresh["operator_summary"][
+        "operator_digest_recommended_command_boundary"
+    ] == refreshed_digest["recommended_command_boundary"]["boundary_type"]
     assert refresh["operator_summary"]["next_command_source"] == "operator_digest"
     assert refresh["operator_summary"]["next_command_label"] == refreshed_digest[
         "recommended_command_label"
@@ -3586,6 +3630,9 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     ]
     assert refresh["operator_summary"]["next_command_reason"] == (
         refreshed_digest["next_step"]
+    )
+    assert refresh["operator_summary"]["next_command_boundary"] == (
+        refreshed_digest["recommended_command_boundary"]["boundary_type"]
     )
     assert refresh["operator_summary"]["next_command_reason"]
     assert "Operator digest:" in refresh_markdown
@@ -3733,6 +3780,12 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     assert refresh["operator_summary"]["next_command_reason"] == operator_digest[
         "next_step"
     ]
+    assert refresh["operator_summary"][
+        "operator_digest_recommended_command_boundary"
+    ] == operator_digest["recommended_command_boundary"]["boundary_type"]
+    assert refresh["operator_summary"]["next_command_boundary"] == (
+        operator_digest["recommended_command_boundary"]["boundary_type"]
+    )
     assert (
         f"{run_id}"
         in refresh["operator_summary"]["next_command"]
@@ -3749,6 +3802,7 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     assert "Operator digest:" in refresh_markdown
     assert operator_digest["headline"] in refresh_markdown
     assert "Next command reason:" in refresh_markdown
+    assert "Next command boundary:" in refresh_markdown
     assert refresh["operator_summary"]["next_command_reason"] in refresh_markdown
     assert str(operator_digest["recommended_command"]) in refresh_markdown
     for row in refresh["refreshed_artifacts"]:
@@ -3859,6 +3913,7 @@ def test_operator_view_refresh_review_summary_prioritizes_safety() -> None:
             "next_command_label": "review_cockpit",
             "next_command": "python -m orchestrator.experiments cockpit run --markdown",
             "next_command_reason": "Review this read-only cockpit.",
+            "next_command_boundary": "",
         },
         post_refresh_freshness={"ok": True, "stale_count": 0},
         policy_summary={"ok": False},
@@ -3876,6 +3931,7 @@ def test_operator_view_refresh_review_summary_prioritizes_safety() -> None:
         "next_command_label": "review_cockpit",
         "next_command": "python -m orchestrator.experiments cockpit run --markdown",
         "next_command_reason": "Review this read-only cockpit.",
+        "next_command_boundary": "",
     }
 
 
@@ -3957,6 +4013,9 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             "operator_digest_target_panel_title": "Run Review",
             "operator_digest_target_panel_status": "ready_for_review",
             "operator_digest_next_step": "review run closeout dashboard",
+            "operator_digest_recommended_command_boundary": (
+                "read_only_inspection"
+            ),
             "blocker_count": 0,
             "primary_blocker": "",
             "blocker_preview": [],
@@ -3966,6 +4025,7 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
                 "python -m orchestrator.experiments cockpit run --markdown"
             ),
             "next_command_reason": "review run closeout dashboard",
+            "next_command_boundary": "read_only_inspection",
         },
         "blocker_delta": {
             "schema_version": "operator_view_refresh_blocker_delta_v1",
@@ -4005,6 +4065,7 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
                 "python -m orchestrator.experiments cockpit run --markdown"
             ),
             "next_command_reason": "review run closeout dashboard",
+            "next_command_boundary": "read_only_inspection",
         },
         "cockpit_snapshot_freshness": {
             "schema_version": "operator_cockpit_snapshot_freshness_v1",

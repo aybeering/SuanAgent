@@ -9,6 +9,7 @@ import shlex
 from pathlib import Path
 from typing import Any
 
+from orchestrator.operator_command_boundaries import classify_operator_command
 from orchestrator.run_outcome import build_run_outcome_summary
 from orchestrator.schema_validation import validate_json_file
 
@@ -5701,6 +5702,16 @@ def validate_recommended_command_hints(
                     report,
                     f"{artifact_label} {command_noun} artifact mismatch: {label}",
                 )
+        if "boundary" in row:
+            expected_boundary = classify_operator_command(
+                label=label,
+                writes_artifact=str(writes_artifact),
+            )
+            if row.get("boundary") != expected_boundary:
+                add_error(
+                    report,
+                    f"{artifact_label} {command_noun} boundary mismatch: {label}",
+                )
         if not command.startswith("python -m orchestrator."):
             add_error(
                 report,
@@ -6182,6 +6193,13 @@ def validate_operator_cockpit_review_priority(
             command_value = str(command.get(command_key, ""))
             if priority_value != command_value:
                 add_error(report, error)
+        priority_boundary = priority.get("recommended_command_boundary", {})
+        command_boundary = command.get("boundary", {})
+        if priority_boundary != command_boundary:
+            add_error(
+                report,
+                "operator_cockpit review_priority command boundary mismatch",
+            )
 
     reason_codes = priority.get("reason_codes", [])
     if not isinstance(reason_codes, list) or not reason_codes:

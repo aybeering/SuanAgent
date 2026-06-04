@@ -15,6 +15,7 @@ from orchestrator.operator_action_audit import (
     schema_errors,
 )
 from orchestrator.operator_action_dashboard import build_operator_action_dashboard
+from orchestrator.operator_command_boundaries import classify_operator_command
 from orchestrator.operator_unlock_checklist import (
     build_codex_unlock_checklist,
     build_operator_unlock_checklist,
@@ -534,6 +535,10 @@ def cockpit_operator_digest(
             review_priority.get("recommended_command_label", "")
         ),
         "recommended_command": str(review_priority.get("recommended_command", "")),
+        "recommended_command_boundary": object_field(
+            review_priority,
+            "recommended_command_boundary",
+        ),
         "policy": {
             "inspection_only": True,
             "command_is_hint_only": True,
@@ -811,6 +816,7 @@ def cockpit_review_priority(
             command.get("writes_artifact", "")
         ),
         "recommended_command_reason": str(command.get("reason", "")),
+        "recommended_command_boundary": object_field(command, "boundary"),
         "policy": {
             "inspection_only": True,
             "does_not_execute_commands": True,
@@ -1122,6 +1128,10 @@ def command_hint(
         "command": command,
         "reason": reason,
         "writes_artifact": writes_artifact,
+        "boundary": classify_operator_command(
+            label=label,
+            writes_artifact=writes_artifact,
+        ),
     }
 
 
@@ -1204,6 +1214,8 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         f"- First blocker: `{digest.get('first_blocker', '')}`",
         f"- Next step: {digest.get('next_step', '')}",
         f"- Next command: `{digest.get('recommended_command_label', '')}`",
+        f"- Command boundary: "
+        f"`{object_field(digest, 'recommended_command_boundary').get('boundary_type', '')}`",
         f"- Command hint: `{digest.get('recommended_command', '')}`",
         "",
         "## Review Priority",
@@ -1215,6 +1227,8 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         f"- Target artifact: `{priority.get('target_artifact_path', '')}`",
         f"- Next step: {priority.get('next_step', '')}",
         f"- Recommended command: `{priority.get('recommended_command', '')}`",
+        f"- Recommended command boundary: "
+        f"`{object_field(priority, 'recommended_command_boundary').get('boundary_type', '')}`",
         "",
         "## Panels",
         "",
@@ -1262,7 +1276,12 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
     )
     lines.extend(["", "## Recommended Commands", ""])
     for command in list_of_dicts(payload.get("recommended_commands", [])):
-        lines.append(f"- `{command.get('label', '')}`: `{command.get('command', '')}`")
+        boundary = object_field(command, "boundary")
+        lines.append(
+            f"- `{command.get('label', '')}` "
+            f"(`{boundary.get('boundary_type', '')}`): "
+            f"`{command.get('command', '')}`"
+        )
     checklist = object_field(payload, "codex_unlock_checklist")
     lines.extend(
         [
@@ -1535,6 +1554,24 @@ def validate_operator_cockpit_review_priority_consistency(
         ):
             if str(priority.get(priority_key, "")) != str(command.get(command_key, "")):
                 errors.append(error)
+        if object_field(priority, "recommended_command_boundary") != object_field(
+            command,
+            "boundary",
+        ):
+            errors.append(
+                "operator_cockpit review_priority command boundary mismatch"
+            )
+
+    for command in commands:
+        label = str(command.get("label", ""))
+        writes_artifact = str(command.get("writes_artifact", ""))
+        expected_boundary = classify_operator_command(
+            label=label,
+            writes_artifact=writes_artifact,
+        )
+        if object_field(command, "boundary") != expected_boundary:
+            errors.append("operator_cockpit command boundary mismatch")
+            break
 
     return tuple(errors)
 

@@ -9,7 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from orchestrator.outcome_memory import read_outcome_memory, scoped_outcome_memory
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 SCHEMA_VERSION = "memory_hygiene_v1"
@@ -158,15 +162,25 @@ def write_memory_hygiene(
         recent_record_limit=recent_record_limit,
         exclude_run_id=exclude_run_id,
     )
+    errors = validate_memory_hygiene_payload(
+        payload,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+        failed_patch_threshold=failed_patch_threshold,
+        failed_direction_threshold=failed_direction_threshold,
+        created_at_from=created_at_from,
+        recent_record_limit=recent_record_limit,
+        exclude_run_id=exclude_run_id,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(f"memory hygiene failed schema validation: {errors}")
     output_path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
     if markdown_path is not None:
         markdown_path.write_text(render_memory_hygiene_markdown(payload), encoding="utf-8")
-    errors = validate_memory_hygiene_file(payload_path=output_path, repo_root=repo_root)
-    if errors:
-        raise ValueError(f"memory hygiene failed schema validation: {errors}")
     return payload
 
 
@@ -387,6 +401,46 @@ def validate_memory_hygiene_file(
     )
 
 
+def validate_memory_hygiene_payload(
+    payload: dict[str, Any],
+    *,
+    experiments_dir: Path = Path("experiments"),
+    repo_root: Path = Path("."),
+    failed_patch_threshold: int = 2,
+    failed_direction_threshold: int = 3,
+    created_at_from: str = "",
+    recent_record_limit: int = 0,
+    exclude_run_id: str = "",
+    require_current_evidence: bool = False,
+) -> tuple[str, ...]:
+    """Validate an in-memory memory hygiene payload."""
+    repo_root = repo_root.resolve()
+    normalized = dict(payload)
+    normalized.pop("from_artifact", None)
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=normalized,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(validate_memory_hygiene_consistency(normalized))
+    if require_current_evidence:
+        expected = build_memory_hygiene(
+            experiments_dir=experiments_dir,
+            repo_root=repo_root,
+            failed_patch_threshold=failed_patch_threshold,
+            failed_direction_threshold=failed_direction_threshold,
+            created_at_from=created_at_from,
+            recent_record_limit=recent_record_limit,
+            exclude_run_id=exclude_run_id,
+        )
+        if normalized != expected:
+            errors.append("memory_hygiene current evidence mismatch")
+    return tuple(errors)
+
+
 def validate_memory_hygiene_consistency(payload: dict[str, Any]) -> tuple[str, ...]:
     """Return stable internal consistency errors for a saved hygiene report."""
     errors: list[str] = []
@@ -570,6 +624,19 @@ def main() -> None:
             recent_record_limit=args.recent_record_limit,
             exclude_run_id=args.exclude_run_id,
         )
+        errors = validate_memory_hygiene_payload(
+            payload,
+            experiments_dir=args.experiments_dir,
+            repo_root=args.repo_root,
+            failed_patch_threshold=args.failed_patch_threshold,
+            failed_direction_threshold=args.failed_direction_threshold,
+            created_at_from=args.created_at_from,
+            recent_record_limit=args.recent_record_limit,
+            exclude_run_id=args.exclude_run_id,
+            require_current_evidence=True,
+        )
+        if errors:
+            raise ValueError(f"memory hygiene failed schema validation: {errors}")
     print(json.dumps(payload, indent=2, sort_keys=True))
 
 

@@ -9,7 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from orchestrator.memory_hygiene import build_memory_hygiene
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 MEMORY_SCOPE_RECOMMENDATION_SCHEMA_VERSION = "memory_scope_recommendation_v1"
@@ -31,6 +35,18 @@ def write_memory_scope_recommendation(
         repo_root=repo_root,
         experiments_dir=experiments_dir,
     )
+    errors = validate_memory_scope_recommendation_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        experiments_dir=experiments_dir,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "memory scope recommendation failed schema validation: "
+            + "; ".join(errors)
+        )
     json_path = run_dir / "memory_scope_recommendation.json"
     md_path = run_dir / "memory_scope_recommendation.md"
     json_path.write_text(
@@ -41,15 +57,6 @@ def write_memory_scope_recommendation(
         render_memory_scope_recommendation_markdown(payload),
         encoding="utf-8",
     )
-    errors = validate_memory_scope_recommendation_file(
-        payload_path=json_path,
-        repo_root=repo_root,
-    )
-    if errors:
-        raise ValueError(
-            "memory scope recommendation failed schema validation: "
-            + "; ".join(errors)
-        )
     return json_path, md_path, payload
 
 
@@ -294,6 +301,75 @@ def validate_memory_scope_recommendation_file(
     """Validate a saved memory scope recommendation report."""
     schema_path = repo_root / SCHEMA_PATH
     return tuple(validate_json_file(payload_path=payload_path, schema_path=schema_path))
+
+
+def validate_memory_scope_recommendation_payload(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    experiments_dir: Path | None = None,
+    require_current_evidence: bool = False,
+) -> tuple[str, ...]:
+    """Validate an in-memory memory scope recommendation payload."""
+    repo_root = repo_root.resolve()
+    normalized = dict(payload)
+    normalized.pop("from_artifact", None)
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=normalized,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(validate_memory_scope_recommendation_consistency(normalized))
+    if require_current_evidence:
+        expected = build_memory_scope_recommendation(
+            run_dir=run_dir,
+            repo_root=repo_root,
+            experiments_dir=experiments_dir,
+        )
+        if normalized != expected:
+            errors.append("memory_scope_recommendation current evidence mismatch")
+    return tuple(errors)
+
+
+def validate_memory_scope_recommendation_consistency(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Return stable internal consistency errors for a scope recommendation."""
+    errors: list[str] = []
+    current_scope = object_value(payload.get("current_scope", {}))
+    observed = object_value(payload.get("observed_totals", {}))
+    recommendation = object_value(payload.get("recommendation", {}))
+    candidate_scopes = list_of_objects(payload.get("candidate_scopes", []))
+    expected_recommendation = recommendation_payload(
+        scope=current_scope,
+        totals=observed,
+    )
+    if recommendation != expected_recommendation:
+        errors.append("memory_scope_recommendation recommendation mismatch")
+    expected_candidates = candidate_scope_rows(
+        scope=current_scope,
+        totals=observed,
+    )
+    if candidate_scopes != expected_candidates:
+        errors.append("memory_scope_recommendation candidate scopes mismatch")
+    for field in (
+        "total_record_count",
+        "active_record_count",
+        "active_failed_count",
+        "patch_block_count",
+        "direction_block_count",
+        "overblocked_patch_count",
+    ):
+        if int(observed.get(field, 0) or 0) < 0:
+            errors.append(f"memory_scope_recommendation negative {field}")
+    for row in candidate_scopes:
+        if int(row.get("estimated_active_record_count", 0) or 0) < 0:
+            errors.append("memory_scope_recommendation negative candidate estimate")
+    return tuple(errors)
 
 
 def load_json_object(path: Path) -> dict[str, object]:

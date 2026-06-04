@@ -25,8 +25,14 @@ from orchestrator.memory_diagnostics import (
     build_memory_diagnostics,
     validate_memory_diagnostics_payload,
 )
-from orchestrator.memory_hygiene import build_memory_hygiene
-from orchestrator.memory_scope_recommendation import build_memory_scope_recommendation
+from orchestrator.memory_hygiene import (
+    build_memory_hygiene,
+    validate_memory_hygiene_payload,
+)
+from orchestrator.memory_scope_recommendation import (
+    build_memory_scope_recommendation,
+    validate_memory_scope_recommendation_payload,
+)
 from orchestrator.operator_action_approval import (
     build_operator_action_approval,
     render_operator_action_approval_markdown,
@@ -1425,6 +1431,15 @@ def memory_hygiene_report(
     path = run_dir / "memory_hygiene.json"
     if path.exists():
         payload = load_json(path)
+        errors = validate_memory_hygiene_payload(
+            payload,
+            experiments_dir=experiments_dir,
+            repo_root=experiments_dir.parent,
+        )
+        if errors:
+            raise ValueError(
+                "memory hygiene failed schema validation: " + "; ".join(errors)
+            )
         payload["from_artifact"] = True
         return payload
     if not run_dir.exists():
@@ -1446,6 +1461,23 @@ def memory_hygiene_report(
         recent_record_limit=int(memory_policy.get("recent_record_limit", 0) or 0),
         exclude_run_id=run_id,
     )
+    errors = validate_memory_hygiene_payload(
+        payload,
+        experiments_dir=experiments_dir,
+        repo_root=experiments_dir.parent,
+        failed_patch_threshold=int(memory_policy.get("failed_patch_threshold", 2)),
+        failed_direction_threshold=int(
+            memory_policy.get("failed_direction_threshold", 3)
+        ),
+        created_at_from=str(memory_policy.get("created_at_from", "")),
+        recent_record_limit=int(memory_policy.get("recent_record_limit", 0) or 0),
+        exclude_run_id=run_id,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "memory hygiene failed schema validation: " + "; ".join(errors)
+        )
     payload["from_artifact"] = False
     return payload
 
@@ -1460,6 +1492,17 @@ def memory_scope_recommendation_report(
     path = run_dir / "memory_scope_recommendation.json"
     if path.exists():
         payload = load_json(path)
+        errors = validate_memory_scope_recommendation_payload(
+            payload,
+            run_dir=run_dir,
+            repo_root=experiments_dir.parent,
+            experiments_dir=experiments_dir,
+        )
+        if errors:
+            raise ValueError(
+                "memory scope recommendation failed schema validation: "
+                + "; ".join(errors)
+            )
         payload["from_artifact"] = True
         return payload
     if not run_dir.exists():
@@ -1469,6 +1512,18 @@ def memory_scope_recommendation_report(
         repo_root=experiments_dir.parent,
         experiments_dir=experiments_dir,
     )
+    errors = validate_memory_scope_recommendation_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+        experiments_dir=experiments_dir,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "memory scope recommendation failed schema validation: "
+            + "; ".join(errors)
+        )
     payload["from_artifact"] = False
     return payload
 

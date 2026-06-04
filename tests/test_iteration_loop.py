@@ -216,12 +216,14 @@ from orchestrator.memory_hygiene import (
     SCHEMA_VERSION as MEMORY_HYGIENE_SCHEMA_VERSION,
     build_memory_hygiene,
     validate_memory_hygiene_file,
+    validate_memory_hygiene_payload,
     write_memory_hygiene,
 )
 from orchestrator.memory_scope_recommendation import (
     MEMORY_SCOPE_RECOMMENDATION_SCHEMA_VERSION,
     build_memory_scope_recommendation,
     validate_memory_scope_recommendation_file,
+    validate_memory_scope_recommendation_payload,
     write_memory_scope_recommendation,
 )
 from orchestrator.experiment_scope_health import (
@@ -1496,6 +1498,28 @@ def test_memory_hygiene_scopes_filter_history(tmp_path: Path) -> None:
     assert written["schema_version"] == MEMORY_HYGIENE_SCHEMA_VERSION
     assert "# Memory Hygiene" in markdown_path.read_text(encoding="utf-8")
     assert_matches_schema_payload(hygiene, "memory_hygiene")
+    assert validate_memory_hygiene_payload(
+        hygiene,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        failed_patch_threshold=2,
+        failed_direction_threshold=2,
+        created_at_from="2026-02-01T00:00:00Z",
+        require_current_evidence=True,
+    ) == ()
+    drift_hygiene = json.loads(json.dumps(hygiene))
+    drift_hygiene["totals"]["active_record_count"] = 999
+    drift_errors = validate_memory_hygiene_payload(
+        drift_hygiene,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        failed_patch_threshold=2,
+        failed_direction_threshold=2,
+        created_at_from="2026-02-01T00:00:00Z",
+        require_current_evidence=True,
+    )
+    assert "memory_hygiene consistency mismatch: active totals" in drift_errors
+    assert "memory_hygiene current evidence mismatch" in drift_errors
     assert validate_memory_hygiene_file(payload_path=output_path, repo_root=repo) == ()
 
 
@@ -1557,6 +1581,24 @@ def test_memory_scope_recommendation_suggests_recent_limit(
     assert "# Memory Scope Recommendation" in md_path.read_text(encoding="utf-8")
     assert dynamic_payload["source_from_artifact"] is True
     assert_matches_schema_payload(payload, "memory_scope_recommendation")
+    assert validate_memory_scope_recommendation_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        require_current_evidence=True,
+    ) == ()
+    drift_scope = json.loads(json.dumps(payload))
+    drift_scope["recommendation"]["recommended_recent_record_limit"] = 50
+    drift_errors = validate_memory_scope_recommendation_payload(
+        drift_scope,
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        require_current_evidence=True,
+    )
+    assert "memory_scope_recommendation recommendation mismatch" in drift_errors
+    assert "memory_scope_recommendation current evidence mismatch" in drift_errors
     assert validate_memory_scope_recommendation_file(
         payload_path=json_path,
         repo_root=repo,
@@ -18570,11 +18612,24 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert hygiene["from_artifact"] is True
     assert hygiene["schema_version"] == MEMORY_HYGIENE_SCHEMA_VERSION
     assert hygiene["policy"]["does_not_delete_memory"] is True
+    assert_matches_schema_payload(hygiene, "memory_hygiene")
+    assert validate_memory_hygiene_payload(
+        hygiene,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    ) == ()
     assert scope_recommendation["from_artifact"] is True
     assert scope_recommendation["schema_version"] == (
         MEMORY_SCOPE_RECOMMENDATION_SCHEMA_VERSION
     )
     assert scope_recommendation["policy"]["does_not_write_config"] is True
+    assert_matches_schema_payload(scope_recommendation, "memory_scope_recommendation")
+    assert validate_memory_scope_recommendation_payload(
+        scope_recommendation,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    ) == ()
     assert config_candidate["from_artifact"] is True
     assert config_candidate["schema_version"] == CONFIG_CHANGE_CANDIDATE_SCHEMA_VERSION
     assert config_candidate["policy"]["does_not_write_config"] is True

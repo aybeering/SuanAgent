@@ -63,7 +63,7 @@ Codex CLI readiness evidence, plus schema-validated terminal-only operator view
 refresh receipts, operator run review receipts, and experiment summary
 dashboards, champion status views, experiment leaderboard views, and candidate
 leaderboard views, agent result stats views, proposal outcome memory views, and
-memory diagnostics views.
+memory diagnostics, memory hygiene, and memory scope recommendation views.
 
 Still out of scope:
 

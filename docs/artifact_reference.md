@@ -628,11 +628,19 @@ Replay artifacts:
   visible rows, and recommendations for internal consistency without binding
   old reports to future append-only memory records. They never delete memory,
   run backtests, route agents, apply patches, or change acceptance.
+  `python -m orchestrator.memory_hygiene` validates dynamic terminal output
+  against current outcome memory before printing JSON, while
+  `python -m orchestrator.experiments memory-hygiene <run_id>` validates saved
+  artifacts for schema and internal consistency before adding terminal metadata.
 - `memory_scope_recommendation.json` and `memory_scope_recommendation.md`
   summarize whether the current outcome-memory scope should remain full-history
   or be narrowed for future runs with a recent-record limit. They read saved
   hygiene artifacts only, never write config, never delete memory, never route
   candidates, never apply patches, and never change acceptance.
+  `python -m orchestrator.memory_scope_recommendation` and
+  `python -m orchestrator.experiments memory-scope-recommendation <run_id>`
+  validate the terminal payload against the schema and deterministic
+  recommendation derivation before printing JSON.
 - `config_change_candidate.json` and `config_change_candidate.md` convert
   saved recommendations into operator-reviewed config field candidates, such as
   `memory_filter.recent_record_limit`. They include current value, proposed

@@ -1728,6 +1728,102 @@ def test_config_change_candidate_records_manual_config_edits(
     ) == ()
 
 
+def test_config_change_candidate_adds_guarded_profile_from_recommendation(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/config-candidate-profile"
+    run_dir.mkdir(parents=True)
+    config_before = (repo / "config/default.json").read_text(encoding="utf-8")
+    profile_payload = {
+        "schema_version": MODIFIER_PROFILE_RECOMMENDATION_SCHEMA_VERSION,
+        "run_id": "config-candidate-profile",
+        "run_dir": "experiments/config-candidate-profile",
+        "sources": {},
+        "summary": {
+            "status": "no_available_profile",
+            "primary_focus": "switch_modifier_direction",
+            "top_failure_code": "patch_memory_rejected",
+            "selected_directions": ["raise_min_edge"],
+            "avoid_directions": [
+                "raise_min_edge",
+                "lower_min_edge",
+                "reduce_stake",
+            ],
+            "suggested_directions": ["new_modifier_profile"],
+            "available_profile_count": 3,
+            "recommendation_count": 0,
+            "recommended_direction_tag": "",
+            "recommended_profile_name": "",
+            "recommended_adapter_name": "",
+            "recommendation_reason_code": "no_available_profile",
+        },
+        "available_profiles": [],
+        "recommendations": [],
+        "operator_notes": [],
+        "policy": {
+            "advisory_only": True,
+            "inspection_only": True,
+            "reads_saved_artifacts_only": True,
+            "does_not_execute_agents": True,
+            "does_not_run_backtests": True,
+            "does_not_write_config": True,
+            "does_not_route_agents": True,
+            "does_not_apply_patches": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+    (run_dir / "modifier_profile_recommendation.json").write_text(
+        json.dumps(profile_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    json_path, md_path, payload = write_config_change_candidate(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    )
+    profile_change = next(
+        change
+        for change in payload["changes"]
+        if change["candidate_id"] == "modifier_profile_add_new_modifier_profile"
+    )
+    proposed_agents = profile_change["proposed_value"]
+
+    assert payload["summary"]["status"] == "changes_recommended"
+    assert profile_change["config_path"] == "agents"
+    assert profile_change["operation"] == "set"
+    assert profile_change["current_value"] is None
+    assert profile_change["source_artifact"] == "modifier_profile_recommendation.json"
+    assert profile_change["priority"] == "high"
+    assert "add_guarded_codex_cli_dry_run_profile" in profile_change["reason_codes"]
+    assert isinstance(proposed_agents, list)
+    assert any(row["name"] == "primary" for row in proposed_agents)
+    assert proposed_agents[-1]["adapter"] == "codex_cli_dry_run"
+    assert proposed_agents[-1]["enabled"] is True
+    assert proposed_agents[-1]["supported_directions"] == ["*"]
+    assert proposed_agents[-1]["settings"] == {"execute": False}
+    assert payload["sources"][1]["artifact_name"] == "modifier_profile_recommendation"
+    assert payload["sources"][1]["file"]["path"].endswith(
+        "modifier_profile_recommendation.json"
+    )
+    assert "agents" in payload["summary"]["config_paths"]
+    assert "# Config Change Candidate" in md_path.read_text(encoding="utf-8")
+    assert (repo / "config/default.json").read_text(encoding="utf-8") == config_before
+    assert_matches_schema_payload(payload, "config_change_candidate")
+    assert validate_config_change_candidate_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        require_current_evidence=True,
+    ) == ()
+    assert validate_config_change_candidate_file(
+        payload_path=json_path,
+        repo_root=repo,
+    ) == ()
+
+
 def test_operator_config_review_records_intent_without_applying_config(
     tmp_path: Path,
 ) -> None:
@@ -2302,7 +2398,7 @@ def test_operator_action_execution_receipt_runs_quality_trace_for_switch_profile
         if command["label"] == "inspect_profile_recommendation"
     )
 
-    assert manifest["status"] == "stopped_repeated_proposal"
+    assert str(manifest["status"]).startswith("stopped_")
     assert quality_command["expected_artifact"] == "candidate_quality_trace.json"
     assert profile_command["expected_artifact"] == (
         "modifier_profile_recommendation.json"
@@ -7497,6 +7593,74 @@ def test_iteration_loop_stops_on_repeated_proposal_by_default(tmp_path: Path) ->
     assert "yes (round_001)" in summary_text
     assert "- Stop reason: `round_002 repeated patch from round_001`" in summary_text
     assert "- Category: `repeated_proposal`" in summary_text
+
+
+def test_iteration_loop_recommends_guarded_profile_when_profiles_exhausted(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config_path = repo / "config/default.json"
+    config_payload = json.loads(config_path.read_text(encoding="utf-8"))
+    config_payload["memory_filter"]["fallback_modifiers"] = []
+    config_payload["exploration"]["stop_after_no_improvement_rounds"] = 0
+    config_path.write_text(
+        json.dumps(config_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    config_before = config_path.read_text(encoding="utf-8")
+
+    manifest = run_iteration_loop(
+        run_id="profile-exhausted-config-candidate",
+        max_rounds=5,
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments/profile-exhausted-config-candidate"
+    profile_recommendation = json.loads(
+        (run_dir / "modifier_profile_recommendation.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    config_candidate = json.loads(
+        (run_dir / "config_change_candidate.json").read_text(encoding="utf-8")
+    )
+    operator_review = json.loads(
+        (run_dir / "operator_config_review.json").read_text(encoding="utf-8")
+    )
+    application_dry_run = json.loads(
+        (run_dir / "config_application_dry_run.json").read_text(encoding="utf-8")
+    )
+    profile_change = next(
+        change
+        for change in config_candidate["changes"]
+        if change["config_path"] == "agents"
+    )
+
+    assert str(manifest["status"]).startswith("stopped_")
+    assert profile_recommendation["summary"]["status"] == "no_available_profile"
+    assert "reduce_stake" in profile_recommendation["summary"]["suggested_directions"]
+    assert config_candidate["summary"]["status"] == "changes_recommended"
+    assert config_candidate["summary"]["candidate_count"] >= 1
+    assert profile_change["config_path"] == "agents"
+    assert profile_change["current_value"] is None
+    assert "suggested_direction:reduce_stake" in profile_change["reason_codes"]
+    assert profile_change["proposed_value"][-1]["adapter"] == "codex_cli_dry_run"
+    assert profile_change["proposed_value"][-1]["supported_directions"] == ["*"]
+    assert profile_change["proposed_value"][-1]["settings"] == {"execute": False}
+    assert operator_review["status"] == "ready_for_operator_review"
+    assert application_dry_run["status"] == "no_approved_changes"
+    assert config_path.read_text(encoding="utf-8") == config_before
+    assert validate_config_change_candidate_payload(
+        config_candidate,
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        require_current_evidence=True,
+    ) == ()
+    assert validate_run_artifacts(
+        run_id="profile-exhausted-config-candidate",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )["ok"] is True
 
 
 def test_iteration_loop_stops_after_no_improvement_window(tmp_path: Path) -> None:

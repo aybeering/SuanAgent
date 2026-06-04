@@ -858,6 +858,78 @@ def finalize_iteration_run(
         experiments_dir=experiments_dir,
         repo_root=repo_root,
     )
+    _, _, config_candidate = write_config_change_candidate(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        experiments_dir=experiments_dir,
+    )
+    config_candidate_summary = (
+        config_candidate.get("summary", {})
+        if isinstance(config_candidate.get("summary", {}), dict)
+        else {}
+    )
+    manifest["config_change_candidate"] = {
+        "path": "config_change_candidate.json",
+        "markdown_path": "config_change_candidate.md",
+        "status": str(config_candidate_summary.get("status", "")),
+        "candidate_count": int(
+            config_candidate_summary.get("candidate_count", 0) or 0
+        ),
+    }
+    _, _, config_review = write_operator_config_review(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        experiments_dir=experiments_dir,
+    )
+    config_review_intent = (
+        config_review.get("operator_intent", {})
+        if isinstance(config_review.get("operator_intent", {}), dict)
+        else {}
+    )
+    manifest["operator_config_review"] = {
+        "path": "operator_config_review.json",
+        "markdown_path": "operator_config_review.md",
+        "status": str(config_review.get("status", "")),
+        "review_recorded": bool(config_review_intent.get("review_recorded", False)),
+    }
+    _, _, config_application = write_config_application_dry_run(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        experiments_dir=experiments_dir,
+    )
+    config_application_gate = (
+        config_application.get("application_gate", {})
+        if isinstance(config_application.get("application_gate", {}), dict)
+        else {}
+    )
+    manifest["config_application_dry_run"] = {
+        "path": "config_application_dry_run.json",
+        "markdown_path": "config_application_dry_run.md",
+        "status": str(config_application.get("status", "")),
+        "eligible_for_manual_application": bool(
+            config_application_gate.get("eligible_for_manual_application", False)
+        ),
+    }
+    _, _, config_lineage = write_config_lineage(
+        run_id=run_id,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+        config_path=config_path,
+    )
+    config_lineage_checks = (
+        config_lineage.get("checks", {})
+        if isinstance(config_lineage.get("checks", {}), dict)
+        else {}
+    )
+    manifest["config_lineage"] = {
+        "path": "config_lineage.json",
+        "markdown_path": "config_lineage.md",
+        "ok": bool(config_lineage.get("ok", False)),
+        "status": str(config_lineage.get("status", "unknown")),
+        "existing_stage_count": int(
+            config_lineage_checks.get("existing_stage_count", 0) or 0
+        ),
+    }
     _, _, challenger_payload = write_candidate_challenger_report(
         run_dir=run_dir,
         experiments_dir=experiments_dir,

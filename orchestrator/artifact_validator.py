@@ -974,12 +974,18 @@ def validate_config_change_candidate(
             report=report,
             label=f"config_change_candidate source {index}",
         )
-        if source.get("artifact_name") == "memory_scope_recommendation" and not str(
-            file_payload.get("path", "")
-        ).endswith("memory_scope_recommendation.json"):
+        source_name = str(source.get("artifact_name", ""))
+        source_path = str(file_payload.get("path", ""))
+        expected_suffixes = {
+            "memory_scope_recommendation": "memory_scope_recommendation.json",
+            "modifier_profile_recommendation": "modifier_profile_recommendation.json",
+            "config": ".json",
+        }
+        expected_suffix = expected_suffixes.get(source_name)
+        if expected_suffix and not source_path.endswith(expected_suffix):
             add_error(
                 report,
-                "config_change_candidate source is not memory_scope_recommendation.json",
+                f"config_change_candidate source path invalid: {source_name}",
             )
     changes = payload.get("changes", [])
     if not isinstance(changes, list):

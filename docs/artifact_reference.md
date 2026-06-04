@@ -686,9 +686,11 @@ Replay artifacts:
   recommendation derivation before printing JSON.
 - `config_change_candidate.json` and `config_change_candidate.md` convert
   saved recommendations into operator-reviewed config field candidates, such as
-  `memory_filter.recent_record_limit`. They include current value, proposed
-  value, rationale, reason codes, and risk notes, but they never write config,
-  route candidates, apply patches, run backtests, or change acceptance.
+  `memory_filter.recent_record_limit` or a guarded `agents` fallback profile
+  when `modifier_profile_recommendation.json` reports `no_available_profile`.
+  They include current value, proposed value, rationale, reason codes, and risk
+  notes, but they never write config, route candidates, apply patches, run
+  backtests, or change acceptance.
   `python -m orchestrator.experiments config-change-candidate <run_id>` validates
   schema, run binding, candidate summary, and operator-review status before
   printing JSON.

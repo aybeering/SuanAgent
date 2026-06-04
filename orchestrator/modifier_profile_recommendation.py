@@ -332,6 +332,14 @@ def operator_notes(
     suggested_directions: list[str],
 ) -> list[str]:
     """Return short human-facing next-step notes."""
+    if status == "no_available_profile":
+        return [
+            (
+                "No enabled profile covers the suggested direction; review "
+                "config_change_candidate.json for a guarded modifier-profile "
+                "candidate."
+            )
+        ]
     if status != "ready_for_operator_review":
         return ["Inspect missing source artifacts before changing modifier settings."]
     return [

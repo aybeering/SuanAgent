@@ -8,7 +8,17 @@ import json
 from pathlib import Path
 from typing import Any
 
+from orchestrator.agent_activation_preflight import effective_agent_profiles
+from orchestrator.config import (
+    DEFAULT_CONFIG_PATH,
+    ProjectConfig,
+    adapter_supported_directions,
+    load_project_config,
+)
 from orchestrator.memory_scope_recommendation import build_memory_scope_recommendation
+from orchestrator.modifier_profile_recommendation import (
+    build_modifier_profile_recommendation,
+)
 from orchestrator.schema_validation import (
     load_schema,
     validate_json_file,
@@ -62,6 +72,9 @@ def build_config_change_candidate(
     """Return deterministic candidate config changes from saved recommendations."""
     repo_root = repo_root.resolve()
     run_dir = run_dir.resolve()
+    config_path = repo_root / DEFAULT_CONFIG_PATH
+    config_payload = load_json_object(config_path)
+    active_config = load_project_config(repo_root=repo_root, config_path=config_path)
     memory_scope_path = run_dir / "memory_scope_recommendation.json"
     if memory_scope_path.exists():
         memory_scope = load_json_object(memory_scope_path)
@@ -73,19 +86,53 @@ def build_config_change_candidate(
             experiments_dir=experiments_dir,
         )
         memory_scope_from_artifact = False
-    changes = memory_scope_changes(memory_scope=memory_scope)
+    profile_recommendation_path = run_dir / "modifier_profile_recommendation.json"
+    if profile_recommendation_path.exists():
+        profile_recommendation = load_json_object(profile_recommendation_path)
+        profile_recommendation_from_artifact = True
+    else:
+        profile_recommendation = build_modifier_profile_recommendation(
+            run_dir=run_dir,
+            repo_root=repo_root,
+            config_path=config_path,
+            config=active_config,
+        )
+        profile_recommendation_from_artifact = False
+    changes = [
+        *memory_scope_changes(memory_scope=memory_scope),
+        *modifier_profile_changes(
+            profile_recommendation=profile_recommendation,
+            config_payload=config_payload,
+            active_config=active_config,
+        ),
+    ]
     summary = summary_payload(changes=changes)
+    sources = [
+        {
+            "artifact_name": "memory_scope_recommendation",
+            "from_artifact": memory_scope_from_artifact,
+            "file": file_record(memory_scope_path, repo_root),
+        },
+        {
+            "artifact_name": "config",
+            "from_artifact": True,
+            "file": file_record(config_path, repo_root),
+        },
+    ]
+    if profile_recommendation_path.exists():
+        sources.insert(
+            1,
+            {
+                "artifact_name": "modifier_profile_recommendation",
+                "from_artifact": profile_recommendation_from_artifact,
+                "file": file_record(profile_recommendation_path, repo_root),
+            },
+        )
     return {
         "schema_version": CONFIG_CHANGE_CANDIDATE_SCHEMA_VERSION,
         "run_id": run_dir.name,
         "run_dir": relative_path(run_dir, repo_root),
-        "sources": [
-            {
-                "artifact_name": "memory_scope_recommendation",
-                "from_artifact": memory_scope_from_artifact,
-                "file": file_record(memory_scope_path, repo_root),
-            }
-        ],
+        "sources": sources,
         "summary": summary,
         "changes": changes,
         "operator_review": {
@@ -144,6 +191,174 @@ def memory_scope_changes(*, memory_scope: dict[str, object]) -> list[dict[str, o
                 }
             )
     return changes
+
+
+def modifier_profile_changes(
+    *,
+    profile_recommendation: dict[str, object],
+    config_payload: dict[str, object],
+    active_config: ProjectConfig,
+) -> list[dict[str, object]]:
+    """Return candidate config changes derived from profile recommendations."""
+    summary = object_value(profile_recommendation.get("summary", {}))
+    if str(summary.get("status", "")) != "no_available_profile":
+        return []
+    suggested_directions = string_list(summary.get("suggested_directions", []))
+    suggested_direction = (
+        suggested_directions[0]
+        if suggested_directions
+        else str(active_config.strategy_search_space.get("fallback_direction", ""))
+    )
+    if not suggested_direction:
+        return []
+    current_agents = config_value_at_path(config_payload, "agents")
+    proposed_agents = proposed_agents_with_guarded_profile(
+        current_agents=current_agents,
+        active_config=active_config,
+        supported_direction=suggested_direction,
+    )
+    if current_agents == proposed_agents:
+        return []
+    reason_codes = [
+        "modifier_profile_recommendation:no_available_profile",
+        f"suggested_direction:{suggested_direction}",
+        "add_guarded_codex_cli_dry_run_profile",
+    ]
+    top_failure_code = str(summary.get("top_failure_code", ""))
+    if top_failure_code:
+        reason_codes.append(f"top_failure:{top_failure_code}")
+    return [
+        {
+            "candidate_id": f"modifier_profile_add_{safe_id(suggested_direction)}",
+            "config_path": "agents",
+            "operation": "set",
+            "current_value": current_agents,
+            "proposed_value": proposed_agents,
+            "source_artifact": "modifier_profile_recommendation.json",
+            "source_action": "add_guarded_modifier_profile",
+            "priority": "high",
+            "reason_codes": reason_codes,
+            "rationale": (
+                "The saved modifier profile recommendation found no enabled "
+                f"profile for suggested direction `{suggested_direction}`. "
+                "Add a guarded dry-run fallback profile so a future run can "
+                "exercise the external-agent boundary without enabling real "
+                "Codex CLI execution."
+            ),
+            "risk_notes": [
+                "This replaces implicit legacy modifier settings with an explicit agents list.",
+                "The proposed codex_cli_dry_run profile does not execute real Codex CLI.",
+                "Operator review should confirm the fallback profile belongs in the next run.",
+            ],
+            "applied": False,
+            "requires_operator_review": True,
+        }
+    ]
+
+
+def proposed_agents_with_guarded_profile(
+    *,
+    current_agents: object,
+    active_config: ProjectConfig,
+    supported_direction: str,
+) -> list[dict[str, object]]:
+    """Return an explicit agent list with a guarded dry-run fallback profile."""
+    if isinstance(current_agents, list):
+        agents = [
+            normalize_agent_config_row(row)
+            for row in current_agents
+            if isinstance(row, dict)
+        ]
+    else:
+        agents = implicit_agent_config_rows(active_config)
+    if any(profile_covers_direction(row, supported_direction) for row in agents):
+        return agents
+    new_profile_name = unique_profile_name(
+        existing_names=[
+            str(row.get("name", ""))
+            for row in agents
+            if str(row.get("name", ""))
+        ],
+        base_name=f"fallback_{safe_id(supported_direction)}",
+    )
+    agents.append(
+        {
+            "name": new_profile_name,
+            "adapter": "codex_cli_dry_run",
+            "role": "fallback",
+            "agent_role": "strategy_modifier",
+            "enabled": True,
+            "supported_directions": ["*"],
+            "settings": {
+                "execute": False,
+            },
+        }
+    )
+    return agents
+
+
+def implicit_agent_config_rows(active_config: ProjectConfig) -> list[dict[str, object]]:
+    """Return explicit config rows equivalent to the current implicit profiles."""
+    rows: list[dict[str, object]] = []
+    for profile in effective_agent_profiles(active_config):
+        rows.append(
+            {
+                "name": str(profile.get("name", "")),
+                "adapter": str(profile.get("adapter", "")),
+                "role": str(profile.get("role", "")),
+                "agent_role": str(profile.get("agent_role", "strategy_modifier")),
+                "enabled": bool(profile.get("enabled", True)),
+                "supported_directions": string_list(
+                    profile.get("supported_directions", [])
+                )
+                or list(
+                    adapter_supported_directions(
+                        adapter_name=str(profile.get("adapter", "")),
+                        strategy_search_space=active_config.strategy_search_space,
+                    )
+                ),
+            }
+        )
+    return rows
+
+
+def normalize_agent_config_row(row: dict[str, object]) -> dict[str, object]:
+    """Return a stable agent config row preserving optional settings."""
+    normalized: dict[str, object] = {
+        "name": str(row.get("name", "")),
+        "adapter": str(row.get("adapter", "")),
+        "role": str(row.get("role", "")),
+        "agent_role": str(row.get("agent_role", "strategy_modifier")),
+        "enabled": bool(row.get("enabled", True)),
+        "supported_directions": string_list(row.get("supported_directions", [])),
+    }
+    settings = row.get("settings", {})
+    if isinstance(settings, dict) and settings:
+        normalized["settings"] = {str(key): value for key, value in settings.items()}
+    return normalized
+
+
+def profile_covers_direction(row: dict[str, object], direction: str) -> bool:
+    """Return whether a profile is enabled and can cover one direction."""
+    if not bool(row.get("enabled", True)):
+        return False
+    supported = string_list(row.get("supported_directions", []))
+    return "*" in supported or direction in supported
+
+
+def unique_profile_name(*, existing_names: list[str], base_name: str) -> str:
+    """Return a unique profile name for a proposed config row."""
+    if base_name not in existing_names:
+        return base_name
+    index = 2
+    while f"{base_name}_{index}" in existing_names:
+        index += 1
+    return f"{base_name}_{index}"
+
+
+def safe_id(value: str) -> str:
+    """Return a stable identifier fragment."""
+    return "".join(char if char.isalnum() else "_" for char in value).strip("_") or "profile"
 
 
 def summary_payload(*, changes: list[dict[str, object]]) -> dict[str, object]:
@@ -334,6 +549,18 @@ def string_list(value: object) -> list[str]:
     if isinstance(value, list | tuple):
         return [str(item) for item in value if str(item)]
     return []
+
+
+def config_value_at_path(payload: dict[str, object], dotted_path: str) -> object:
+    """Return a nested config value, using None for missing paths."""
+    value: object = payload
+    for part in dotted_path.split("."):
+        if not part:
+            return None
+        if not isinstance(value, dict) or part not in value:
+            return None
+        value = value[part]
+    return value
 
 
 def file_record(path: Path, repo_root: Path) -> dict[str, object]:

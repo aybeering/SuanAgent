@@ -1307,6 +1307,99 @@ def validate_operator_run_review_consistency(
     for key, left, right in summary_pairs:
         if not scalar_equal(left, right):
             errors.append(f"operator_run_review summary {key} mismatch")
+    errors.extend(validate_operator_run_review_dashboard(payload=payload))
+    return tuple(errors)
+
+
+def validate_operator_run_review_dashboard(
+    *,
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate embedded operator dashboard fields remain read-only and bound."""
+    errors: list[str] = []
+    dashboard = dict_payload(payload.get("dashboard", {}))
+    status_summary = dict_payload(dashboard.get("status_summary", {}))
+    config_review = dict_payload(dashboard.get("config_review", {}))
+    champion_review = dict_payload(dashboard.get("champion_review", {}))
+    watchlist = dict_payload(dashboard.get("watchlist", {}))
+    gates = list_payload(dashboard.get("gates", []))
+    gates_by_name = {str(row.get("gate_name", "")): row for row in gates}
+
+    expected_gate_order = [
+        "artifact_health",
+        "scope_health",
+        "config_lineage",
+        "champion_review",
+        "promotion_review",
+    ]
+    if [str(row.get("gate_name", "")) for row in gates] != expected_gate_order:
+        errors.append("operator_run_review dashboard gate order mismatch")
+    for row in gates:
+        if not str(row.get("artifact_path", "")):
+            errors.append("operator_run_review dashboard gate artifact missing")
+        if not str(row.get("details", "")):
+            errors.append("operator_run_review dashboard gate details missing")
+
+    artifact_gate = gates_by_name.get("artifact_health", {})
+    if bool(artifact_gate.get("ok", False)) != bool(payload.get("closeout_ok", False)):
+        errors.append("operator_run_review dashboard artifact gate ok mismatch")
+    if str(artifact_gate.get("status", "")) != str(
+        payload.get("closeout_status", "")
+    ):
+        errors.append("operator_run_review dashboard artifact gate status mismatch")
+
+    config_gate = gates_by_name.get("config_lineage", {})
+    if bool(config_gate.get("ok", False)) != bool(
+        config_review.get("lineage_ok", False)
+    ):
+        errors.append("operator_run_review dashboard config gate ok mismatch")
+    if str(config_gate.get("status", "")) != str(
+        config_review.get("lineage_status", "")
+    ):
+        errors.append("operator_run_review dashboard config gate status mismatch")
+
+    champion_gate = gates_by_name.get("champion_review", {})
+    if str(champion_gate.get("status", "")) != str(
+        champion_review.get("challenger_status", "")
+    ):
+        errors.append("operator_run_review dashboard champion gate status mismatch")
+
+    promotion_gate = gates_by_name.get("promotion_review", {})
+    if str(promotion_gate.get("status", "")) != str(
+        champion_review.get("approval_status", "")
+    ):
+        errors.append("operator_run_review dashboard promotion gate status mismatch")
+
+    if int_value(status_summary.get("selected_candidate_count", -1)) < 0:
+        errors.append("operator_run_review dashboard selected count negative")
+    if int_value(watchlist.get("alert_count", -1)) < 0:
+        errors.append("operator_run_review dashboard watchlist alert count negative")
+    if status_summary.get("accepted") is True and str(
+        status_summary.get("run_status", "")
+    ) != "accepted":
+        errors.append("operator_run_review dashboard accepted status mismatch")
+    if status_summary.get("accepted") is False and str(
+        status_summary.get("run_status", "")
+    ) == "accepted":
+        errors.append("operator_run_review dashboard rejected status mismatch")
+
+    policy = dict_payload(payload.get("policy", {}))
+    dashboard_policy = dict_payload(dashboard.get("policy", {}))
+    if policy != dashboard_policy:
+        errors.append("operator_run_review dashboard policy mismatch")
+    for key, value in policy.items():
+        if value is not True:
+            errors.append(f"operator_run_review policy false: {key}")
+
+    authority = dict_payload(dashboard.get("authority", {}))
+    expected_authority = {
+        "final_acceptance_authority": "deterministic_code",
+        "agent_language_can_accept": False,
+        "config_changes_require_guarded_command": True,
+        "champion_promotion_requires_explicit_command": True,
+    }
+    if authority != expected_authority:
+        errors.append("operator_run_review dashboard authority mismatch")
     return tuple(errors)
 
 

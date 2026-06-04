@@ -16056,8 +16056,46 @@ def _minimal_operator_run_review_payload() -> dict[str, object]:
                 "status": "ok",
                 "alert_count": 0,
             },
-            "gates": [],
-            "operator_action_items": [],
+            "gates": [
+                {
+                    "gate_name": "artifact_health",
+                    "ok": True,
+                    "status": "ready_for_review",
+                    "artifact_path": "run_closeout.json",
+                    "details": "Run closeout is ready for operator review.",
+                },
+                {
+                    "gate_name": "scope_health",
+                    "ok": True,
+                    "status": "healthy",
+                    "artifact_path": "experiment_scope_health.json",
+                    "details": "Experiment scope health is read-only.",
+                },
+                {
+                    "gate_name": "config_lineage",
+                    "ok": True,
+                    "status": "partial",
+                    "artifact_path": "config_lineage.json",
+                    "details": "Config lineage reads saved config evidence only.",
+                },
+                {
+                    "gate_name": "champion_review",
+                    "ok": True,
+                    "status": "not_applicable",
+                    "artifact_path": "candidate_challenger_report.json",
+                    "details": "Champion comparison is inspection-only.",
+                },
+                {
+                    "gate_name": "promotion_review",
+                    "ok": True,
+                    "status": "not_requested",
+                    "artifact_path": "champion_promotion_approval.json",
+                    "details": "Promotion still requires an explicit operator command.",
+                },
+            ],
+            "operator_action_items": [
+                "Review selected candidates and research brief before the next run."
+            ],
             "authority": {
                 "final_acceptance_authority": "deterministic_code",
                 "agent_language_can_accept": False,
@@ -16084,13 +16122,37 @@ def test_operator_run_review_payload_validation_reports_summary_drift() -> None:
     assert isinstance(dashboard, dict)
     status_summary = dashboard["status_summary"]
     config_review = dashboard["config_review"]
+    champion_review = dashboard["champion_review"]
+    watchlist = dashboard["watchlist"]
+    gates = dashboard["gates"]
+    dashboard_policy = dashboard["policy"]
+    authority = dashboard["authority"]
     assert isinstance(status_summary, dict)
     assert isinstance(config_review, dict)
+    assert isinstance(champion_review, dict)
+    assert isinstance(watchlist, dict)
+    assert isinstance(gates, list)
+    assert isinstance(dashboard_policy, dict)
+    assert isinstance(authority, dict)
     payload["run_status"] = "accepted"
     summary["completed_rounds"] = 2
     summary["accepted_round"] = "round_001"
     summary["stop_reason"] = "accepted"
     summary["config_lineage_status"] = "complete"
+    gates[0]["ok"] = False
+    gates[0]["status"] = "failed"
+    gates[1]["gate_name"] = "wrong_gate"
+    gates[2]["ok"] = False
+    gates[2]["status"] = "stale"
+    gates[3]["status"] = "drifted_champion"
+    gates[4]["status"] = "drifted_promotion"
+    gates[4]["artifact_path"] = ""
+    status_summary["selected_candidate_count"] = -1
+    status_summary["accepted"] = True
+    status_summary["run_status"] = "stopped_max_rounds"
+    watchlist["alert_count"] = -1
+    dashboard_policy["does_not_execute_agents"] = False
+    authority["agent_language_can_accept"] = True
 
     errors = validate_operator_run_review_payload(
         payload,
@@ -16102,6 +16164,19 @@ def test_operator_run_review_payload_validation_reports_summary_drift() -> None:
     assert "operator_run_review summary accepted_round mismatch" in errors
     assert "operator_run_review summary stop_reason mismatch" in errors
     assert "operator_run_review summary config_lineage_status mismatch" in errors
+    assert "operator_run_review dashboard gate order mismatch" in errors
+    assert "operator_run_review dashboard gate artifact missing" in errors
+    assert "operator_run_review dashboard artifact gate ok mismatch" in errors
+    assert "operator_run_review dashboard artifact gate status mismatch" in errors
+    assert "operator_run_review dashboard config gate ok mismatch" in errors
+    assert "operator_run_review dashboard config gate status mismatch" in errors
+    assert "operator_run_review dashboard champion gate status mismatch" in errors
+    assert "operator_run_review dashboard promotion gate status mismatch" in errors
+    assert "operator_run_review dashboard selected count negative" in errors
+    assert "operator_run_review dashboard watchlist alert count negative" in errors
+    assert "operator_run_review dashboard accepted status mismatch" in errors
+    assert "operator_run_review dashboard policy mismatch" in errors
+    assert "operator_run_review dashboard authority mismatch" in errors
 
 
 def test_compare_experiments_recommends_accepted_metric_winner(

@@ -34,8 +34,10 @@ python -m orchestrator.experiments review <run_id>
 python -m orchestrator.experiments review <run_id> --markdown
 python -m orchestrator.experiments action-plan <run_id>
 python -m orchestrator.experiments action-plan <run_id> --markdown
+python -m orchestrator.experiments action-plan --latest --markdown
 python -m orchestrator.experiments action-approval <run_id>
 python -m orchestrator.experiments action-approval <run_id> --markdown
+python -m orchestrator.experiments action-approval --latest --markdown
 python -m orchestrator.experiments summary
 python -m orchestrator.experiments summary --markdown
 python -m orchestrator.experiments leaderboard --limit 5
@@ -59,9 +61,11 @@ python -m orchestrator.operator_action_approval experiments/<run_id> --action-id
 python -m orchestrator.operator_action_executor <run_id> --approval-path experiments/<run_id>/operator_action_approval.json
 python -m orchestrator.experiments action-execution <run_id>
 python -m orchestrator.experiments action-execution <run_id> --markdown
+python -m orchestrator.experiments action-execution --latest --markdown
 python -m orchestrator.operator_action_audit experiments/<run_id>
 python -m orchestrator.experiments action-audit <run_id>
 python -m orchestrator.experiments action-audit <run_id> --markdown
+python -m orchestrator.experiments action-audit --latest --markdown
 python -m orchestrator.operator_action_dashboard experiments/<run_id>
 python -m orchestrator.experiments action-dashboard <run_id>
 python -m orchestrator.experiments action-dashboard <run_id> --markdown
@@ -322,7 +326,9 @@ execute agents, run backtests, apply patches, or change acceptance.
 `operator_action_plan.json` and `operator_action_plan.md` translate the saved
 closeout dashboard action items into explicit command candidates for human
 review. `python -m orchestrator.experiments action-plan <run_id>` and
-`action-plan --markdown` expose the same plan without executing any command.
+`python -m orchestrator.experiments action-plan --latest` expose the same plan
+without executing any command; add `--markdown` to render the terminal view as
+markdown.
 The plan records command digests, guarded-command flags, and deterministic
 authority fields. The writer and terminal view validate the payload against
 `schemas/operator_action_plan.schema.json` and check summary counts, action
@@ -343,6 +349,9 @@ keeping a valid source digest. The writer and terminal view also validate the
 payload against `schemas/operator_action_approval.schema.json` and check the
 selected action, selected command, confirmation phrase hashes, approval gate,
 status, recommended next actions, and read-only policy before returning.
+`python -m orchestrator.experiments action-approval --latest` resolves the
+latest indexed iteration run while preserving optional `--action-id` and
+`--command-label` filters.
 Approval still does not execute the approved command. The approved command must
 be invoked separately by the operator.
 `operator_action_execution_receipt.json` and
@@ -358,6 +367,8 @@ validate the payload against
 `schemas/operator_action_execution_receipt.schema.json` and check source
 approval binding, selected action and command equality, execution command and
 argv, evidence fields, mutation guard, status, and policy before returning.
+`python -m orchestrator.experiments action-execution --latest` resolves the
+latest indexed iteration run and still only reads a saved execution receipt.
 The allowlist includes `python -m orchestrator.experiments quality-trace
 <run_id>`, so a repeated-proposal closeout can be followed by an approved
 read-only inspection of `candidate_quality_trace.json` before choosing the next
@@ -371,7 +382,8 @@ and terminal view validate the payload against
 records, status, summary, selected action, selected command, execution record,
 chain checks, next actions, and policy against the current digest chain before
 returning.
-`python -m orchestrator.experiments action-audit <run_id>` and `action-audit
+`python -m orchestrator.experiments action-audit <run_id>`,
+`python -m orchestrator.experiments action-audit --latest`, and `action-audit
 --markdown` expose the saved or derived audit without executing commands,
 writing config, promoting champions, running agents, running backtests,
 applying patches, routing agents, or changing acceptance.

@@ -2655,10 +2655,11 @@ def validate_operator_run_review_dashboard(
 
 def operator_action_plan_report(
     *,
-    run_id: str,
+    run_id: str | None = None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return the saved or derived operator action plan for one run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
@@ -2702,12 +2703,13 @@ def operator_action_plan_report(
 
 def operator_action_approval_report(
     *,
-    run_id: str,
+    run_id: str | None = None,
     experiments_dir: Path = Path("experiments"),
     action_id: str = "",
     command_label: str = "",
 ) -> dict[str, object]:
     """Return the saved or derived operator action approval for one run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
@@ -2754,10 +2756,11 @@ def operator_action_approval_report(
 
 def operator_action_execution_report(
     *,
-    run_id: str,
+    run_id: str | None = None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return the saved operator action execution receipt for one run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
@@ -2784,10 +2787,11 @@ def operator_action_execution_report(
 
 def operator_action_audit_report(
     *,
-    run_id: str,
+    run_id: str | None = None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return the saved or derived operator action audit for one run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
@@ -5033,7 +5037,12 @@ def main() -> None:
         "action-plan",
         help="Show read-only operator action candidates for one iteration run.",
     )
-    action_plan_parser.add_argument("run_id")
+    action_plan_parser.add_argument("run_id", nargs="?")
+    action_plan_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     action_plan_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -5044,7 +5053,12 @@ def main() -> None:
         "action-approval",
         help="Show read-only operator approval status for one action candidate.",
     )
-    action_approval_parser.add_argument("run_id")
+    action_approval_parser.add_argument("run_id", nargs="?")
+    action_approval_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     action_approval_parser.add_argument("--action-id", default="")
     action_approval_parser.add_argument("--command-label", default="")
     action_approval_parser.add_argument(
@@ -5057,7 +5071,12 @@ def main() -> None:
         "action-execution",
         help="Show a saved operator action execution receipt.",
     )
-    action_execution_parser.add_argument("run_id")
+    action_execution_parser.add_argument("run_id", nargs="?")
+    action_execution_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     action_execution_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -5068,7 +5087,12 @@ def main() -> None:
         "action-audit",
         help="Show the read-only operator action artifact audit.",
     )
-    action_audit_parser.add_argument("run_id")
+    action_audit_parser.add_argument("run_id", nargs="?")
+    action_audit_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     action_audit_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -5428,7 +5452,7 @@ def main() -> None:
     elif args.command == "action-plan":
         payload = operator_action_plan_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(render_operator_action_plan_markdown(payload), end="")
@@ -5436,7 +5460,7 @@ def main() -> None:
     elif args.command == "action-approval":
         payload = operator_action_approval_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
             action_id=args.action_id,
             command_label=args.command_label,
         )
@@ -5446,7 +5470,7 @@ def main() -> None:
     elif args.command == "action-execution":
         payload = operator_action_execution_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(render_operator_action_execution_markdown(payload), end="")
@@ -5454,7 +5478,7 @@ def main() -> None:
     elif args.command == "action-audit":
         payload = operator_action_audit_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(render_operator_action_audit_markdown(payload), end="")

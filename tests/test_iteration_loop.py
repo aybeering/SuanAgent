@@ -20997,6 +20997,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    action_plan_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-plan",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    action_plan_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-plan",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     action_approval_result = subprocess.run(
         [
             sys.executable,
@@ -21028,6 +21059,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    action_approval_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-approval",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    action_approval_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-approval",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     dynamic_action_approval_result = subprocess.run(
         [
             sys.executable,
@@ -21037,6 +21099,25 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "experiments",
             "action-approval",
             "cli-candidates",
+            "--action-id",
+            action["action_id"],
+            "--command-label",
+            command["label"],
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    dynamic_action_approval_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-approval",
+            "--latest",
             "--action-id",
             action["action_id"],
             "--command-label",
@@ -21078,6 +21159,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    action_execution_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-execution",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    action_execution_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-execution",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     action_audit_result = subprocess.run(
         [
             sys.executable,
@@ -21087,6 +21199,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "experiments",
             "action-audit",
             "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    action_audit_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-audit",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    action_audit_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-audit",
+            "--latest",
+            "--markdown",
         ],
         cwd=repo,
         capture_output=True,
@@ -22059,6 +22202,27 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert "# Operator Action Plan" in action_plan_markdown_result.stdout
     assert "execute commands" in action_plan_markdown_result.stdout
+    assert action_plan_latest_result.returncode == 0, (
+        action_plan_latest_result.stderr
+    )
+    action_plan_latest_payload = json.loads(action_plan_latest_result.stdout)
+    assert action_plan_latest_payload["run_id"] == "cli-candidates"
+    assert (
+        action_plan_latest_payload["schema_version"]
+        == OPERATOR_ACTION_PLAN_SCHEMA_VERSION
+    )
+    assert_matches_schema_payload(action_plan_latest_payload, "operator_action_plan")
+    assert validate_operator_action_plan_payload(
+        action_plan_latest_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    ) == ()
+    assert action_plan_latest_markdown_result.returncode == 0, (
+        action_plan_latest_markdown_result.stderr
+    )
+    assert "# Operator Action Plan" in action_plan_latest_markdown_result.stdout
+    assert "cli-candidates" in action_plan_latest_markdown_result.stdout
     assert action_approval_result.returncode == 0, action_approval_result.stderr
     action_approval_payload = json.loads(action_approval_result.stdout)
     assert (
@@ -22080,6 +22244,32 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         action_approval_markdown_result.stderr
     )
     assert "# Operator Action Approval" in action_approval_markdown_result.stdout
+    assert action_approval_latest_result.returncode == 0, (
+        action_approval_latest_result.stderr
+    )
+    action_approval_latest_payload = json.loads(action_approval_latest_result.stdout)
+    assert action_approval_latest_payload["run_id"] == "cli-candidates"
+    assert (
+        action_approval_latest_payload["schema_version"]
+        == OPERATOR_ACTION_APPROVAL_SCHEMA_VERSION
+    )
+    assert_matches_schema_payload(
+        action_approval_latest_payload,
+        "operator_action_approval",
+    )
+    assert validate_operator_action_approval_payload(
+        action_approval_latest_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    ) == ()
+    assert action_approval_latest_markdown_result.returncode == 0, (
+        action_approval_latest_markdown_result.stderr
+    )
+    assert "# Operator Action Approval" in (
+        action_approval_latest_markdown_result.stdout
+    )
+    assert "cli-candidates" in action_approval_latest_markdown_result.stdout
     assert dynamic_action_approval_result.returncode == 0, (
         dynamic_action_approval_result.stderr
     )
@@ -22088,6 +22278,26 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert dynamic_approval_payload["selected_command"]["label"] == command["label"]
     assert validate_operator_action_approval_payload(
         dynamic_approval_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        action_id=action["action_id"],
+        command_label=command["label"],
+        require_current_evidence=True,
+    ) == ()
+    assert dynamic_action_approval_latest_result.returncode == 0, (
+        dynamic_action_approval_latest_result.stderr
+    )
+    dynamic_approval_latest_payload = json.loads(
+        dynamic_action_approval_latest_result.stdout
+    )
+    assert dynamic_approval_latest_payload["run_id"] == "cli-candidates"
+    assert dynamic_approval_latest_payload["from_artifact"] is False
+    assert dynamic_approval_latest_payload["selected_command"]["label"] == (
+        command["label"]
+    )
+    assert validate_operator_action_approval_payload(
+        dynamic_approval_latest_payload,
         run_dir=repo / "experiments/cli-candidates",
         repo_root=repo,
         experiments_dir=repo / "experiments",
@@ -22120,6 +22330,34 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "# Operator Action Execution Receipt" in (
         action_execution_markdown_result.stdout
     )
+    assert action_execution_latest_result.returncode == 0, (
+        action_execution_latest_result.stderr
+    )
+    action_execution_latest_payload = json.loads(
+        action_execution_latest_result.stdout
+    )
+    assert action_execution_latest_payload["run_id"] == "cli-candidates"
+    assert (
+        action_execution_latest_payload["schema_version"]
+        == OPERATOR_ACTION_EXECUTION_RECEIPT_SCHEMA_VERSION
+    )
+    assert_matches_schema_payload(
+        action_execution_latest_payload,
+        "operator_action_execution_receipt",
+    )
+    assert validate_operator_action_execution_receipt_payload(
+        action_execution_latest_payload,
+        run_id="cli-candidates",
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+    ) == ()
+    assert action_execution_latest_markdown_result.returncode == 0, (
+        action_execution_latest_markdown_result.stderr
+    )
+    assert "# Operator Action Execution Receipt" in (
+        action_execution_latest_markdown_result.stdout
+    )
+    assert "cli-candidates" in action_execution_latest_markdown_result.stdout
     assert action_audit_result.returncode == 0, action_audit_result.stderr
     action_audit_payload = json.loads(action_audit_result.stdout)
     assert action_audit_payload["schema_version"] == OPERATOR_ACTION_AUDIT_SCHEMA_VERSION
@@ -22136,6 +22374,30 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         action_audit_markdown_result.stderr
     )
     assert "# Operator Action Audit" in action_audit_markdown_result.stdout
+    assert action_audit_latest_result.returncode == 0, (
+        action_audit_latest_result.stderr
+    )
+    action_audit_latest_payload = json.loads(action_audit_latest_result.stdout)
+    assert action_audit_latest_payload["run_id"] == "cli-candidates"
+    assert (
+        action_audit_latest_payload["schema_version"]
+        == OPERATOR_ACTION_AUDIT_SCHEMA_VERSION
+    )
+    assert_matches_schema_payload(
+        action_audit_latest_payload,
+        "operator_action_audit",
+    )
+    assert validate_operator_action_audit_payload(
+        action_audit_latest_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    ) == ()
+    assert action_audit_latest_markdown_result.returncode == 0, (
+        action_audit_latest_markdown_result.stderr
+    )
+    assert "# Operator Action Audit" in action_audit_latest_markdown_result.stdout
+    assert "cli-candidates" in action_audit_latest_markdown_result.stdout
     assert action_dashboard_result.returncode == 0, action_dashboard_result.stderr
     action_dashboard_payload = json.loads(action_dashboard_result.stdout)
     assert (

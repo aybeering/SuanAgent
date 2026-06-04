@@ -20,6 +20,10 @@ from orchestrator.operator_unlock_checklist import (
     build_codex_unlock_checklist,
     build_operator_unlock_checklist,
 )
+from orchestrator.codex_cli_intake_readiness import (
+    build_codex_cli_intake_readiness,
+    validate_codex_cli_intake_readiness,
+)
 from orchestrator.schema_validation import validate_json_file, validate_json_payload
 
 
@@ -192,6 +196,10 @@ def build_operator_cockpit(
     codex_readiness_diff = load_json_object(
         run_dir / "codex_cli_execution_readiness_diff.json"
     )
+    codex_intake_readiness = build_codex_cli_intake_readiness(
+        run_dir=run_dir,
+        repo_root=repo_root,
+    )
     codex_unlock_checklist = load_or_build_unlock_checklist(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -213,6 +221,7 @@ def build_operator_cockpit(
         approval=approval,
         codex_preflight=codex_preflight,
         codex_readiness_diff=codex_readiness_diff,
+        codex_intake_readiness=codex_intake_readiness,
         action_dashboard=action_dashboard,
         scope_health=scope_health,
         manifest=manifest,
@@ -229,6 +238,7 @@ def build_operator_cockpit(
         approval=approval,
         codex_preflight=codex_preflight,
         codex_readiness_diff=codex_readiness_diff,
+        codex_intake_readiness=codex_intake_readiness,
         action_dashboard=action_dashboard,
         scope_health=scope_health,
     )
@@ -237,6 +247,7 @@ def build_operator_cockpit(
         action_dashboard=action_dashboard,
         codex_preflight=codex_preflight,
         codex_readiness_diff=codex_readiness_diff,
+        codex_intake_readiness=codex_intake_readiness,
         promotion=promotion,
         approval=approval,
         scope_health=scope_health,
@@ -275,6 +286,7 @@ def build_operator_cockpit(
         "panels": panels,
         "action_failure_reasons": action_failure_reasons,
         "blockers": blockers,
+        "codex_intake_readiness": codex_intake_readiness,
         "codex_unlock_checklist": codex_unlock_checklist,
         "review_priority": review_priority,
         "recommended_commands": commands,
@@ -364,6 +376,7 @@ def cockpit_summary(
     approval: dict[str, Any],
     codex_preflight: dict[str, Any],
     codex_readiness_diff: dict[str, Any],
+    codex_intake_readiness: dict[str, Any],
     action_dashboard: dict[str, Any],
     scope_health: dict[str, Any],
     manifest: dict[str, Any],
@@ -469,6 +482,13 @@ def cockpit_summary(
         "codex_readiness_diff_missing_count": int(
             diff_summary.get("missing_comparison_count", 0) or 0
         ),
+        "codex_intake_readiness_status": str(
+            codex_intake_readiness.get("status", "not_available")
+        ),
+        "codex_intake_ready": bool(codex_intake_readiness.get("ready", False)),
+        "codex_intake_blocker_count": int(
+            codex_intake_readiness.get("blocking_reason_count", 0) or 0
+        ),
     }
 
 
@@ -566,6 +586,10 @@ def cockpit_operator_digest(
         "codex_readiness_diff_status": str(
             summary.get("codex_readiness_diff_status", "")
         ),
+        "codex_intake_readiness_status": str(
+            summary.get("codex_intake_readiness_status", "")
+        ),
+        "codex_intake_ready": bool(summary.get("codex_intake_ready", False)),
         "promotion_status": str(summary.get("promotion_status", "")),
         "priority": priority,
         "primary_reason": str(review_priority.get("primary_reason", "")),
@@ -602,6 +626,7 @@ def cockpit_panels(
     approval: dict[str, Any],
     codex_preflight: dict[str, Any],
     codex_readiness_diff: dict[str, Any],
+    codex_intake_readiness: dict[str, Any],
     action_dashboard: dict[str, Any],
     scope_health: dict[str, Any],
 ) -> list[dict[str, object]]:
@@ -673,6 +698,20 @@ def cockpit_panels(
             next_step=codex_readiness_diff_next_step(codex_readiness_diff),
         ),
         panel(
+            panel_id="codex_cli_intake",
+            title="Codex CLI Intake Binding",
+            status=str(codex_intake_readiness.get("status", "not_available")),
+            ok=bool(codex_intake_readiness.get("ready", False))
+            or str(codex_intake_readiness.get("status", "")) == "not_available",
+            artifact_path=run_dir / "codex_cli_execution_readiness_diff.json",
+            next_step=str(
+                codex_intake_readiness.get(
+                    "next_step",
+                    "review Codex CLI intake binding evidence",
+                )
+            ),
+        ),
+        panel(
             panel_id="candidate_quality",
             title="Candidate Quality",
             status="present" if quality_trace else "missing",
@@ -742,6 +781,7 @@ def cockpit_blockers(
     action_dashboard: dict[str, Any],
     codex_preflight: dict[str, Any],
     codex_readiness_diff: dict[str, Any],
+    codex_intake_readiness: dict[str, Any],
     promotion: dict[str, Any],
     approval: dict[str, Any],
     scope_health: dict[str, Any],
@@ -773,6 +813,13 @@ def cockpit_blockers(
             f"codex_cli_readiness_diff:{blocker}"
             for blocker in string_rows(
                 codex_readiness_diff.get("blocking_reasons", [])
+            )
+        )
+    if codex_intake_readiness.get("status") == "blocked":
+        blockers.extend(
+            f"codex_cli_intake:{blocker}"
+            for blocker in string_rows(
+                codex_intake_readiness.get("blocking_reasons", [])
             )
         )
     blockers.extend(
@@ -875,6 +922,8 @@ def panel_for_blocker(blocker: str) -> str:
         return "codex_cli_unlock"
     if blocker.startswith("codex_cli_readiness_diff:"):
         return "codex_cli_readiness_diff"
+    if blocker.startswith("codex_cli_intake:"):
+        return "codex_cli_intake"
     if blocker == "config_lineage_not_ok":
         return "config_lineage"
     if blocker == "scope_health_not_ok":
@@ -916,6 +965,7 @@ def command_for_panel(
         "operator_action": "review_action_dashboard",
         "codex_cli_unlock": "review_codex_cli_preflight",
         "codex_cli_readiness_diff": "review_codex_cli_readiness_diff",
+        "codex_cli_intake": "review_codex_cli_readiness_diff",
         "candidate_quality": "review_quality_trace",
         "champion_review": "review_challenger_report",
         "promotion": "review_promotion_dry_run",
@@ -1250,6 +1300,8 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         f"(`{summary.get('candidate_quality_top_failure_code', '')}`)",
         f"- Codex CLI preflight: `{summary.get('codex_preflight_status', '')}`",
         f"- Codex CLI readiness diff: `{summary.get('codex_readiness_diff_status', '')}`",
+        f"- Codex CLI intake binding: `{summary.get('codex_intake_readiness_status', '')}`",
+        f"- Codex CLI intake ready: `{summary.get('codex_intake_ready', False)}`",
         f"- Promotion: `{summary.get('promotion_status', '')}`",
         "",
         "## Operator Digest",
@@ -1438,6 +1490,7 @@ def validate_operator_cockpit_consistency(
     commands = list_of_dicts(payload.get("recommended_commands", []))
     action_failure_reasons = list_of_dicts(payload.get("action_failure_reasons", []))
     unlock_checklist = object_field(payload, "codex_unlock_checklist")
+    intake_readiness = object_field(payload, "codex_intake_readiness")
     review_priority = object_field(payload, "review_priority")
     operator_digest = object_field(payload, "operator_digest")
 
@@ -1516,6 +1569,22 @@ def validate_operator_cockpit_consistency(
         errors.append("operator_cockpit codex unlock failed_count mismatch")
     if bool(unlock_checklist.get("ready", False)) and checklist_failed_items:
         errors.append("operator_cockpit codex unlock ready mismatch")
+    if not intake_readiness:
+        errors.append("operator_cockpit intake readiness missing")
+    else:
+        errors.extend(validate_codex_cli_intake_readiness(intake_readiness))
+        if str(summary.get("codex_intake_readiness_status", "")) != str(
+            intake_readiness.get("status", "")
+        ):
+            errors.append("operator_cockpit summary intake status mismatch")
+        if bool(summary.get("codex_intake_ready", False)) != bool(
+            intake_readiness.get("ready", False)
+        ):
+            errors.append("operator_cockpit summary intake ready mismatch")
+        if int(summary.get("codex_intake_blocker_count", -1)) != int(
+            intake_readiness.get("blocking_reason_count", 0) or 0
+        ):
+            errors.append("operator_cockpit summary intake blocker mismatch")
 
     errors.extend(
         validate_operator_cockpit_review_priority_consistency(

@@ -15,6 +15,7 @@
     "panels",
     "action_failure_reasons",
     "blockers",
+    "codex_intake_readiness",
     "codex_unlock_checklist",
     "review_priority",
     "recommended_commands",
@@ -149,7 +150,10 @@
         "codex_readiness_diff_ready",
         "codex_readiness_diff_matched_count",
         "codex_readiness_diff_drift_count",
-        "codex_readiness_diff_missing_count"
+        "codex_readiness_diff_missing_count",
+        "codex_intake_readiness_status",
+        "codex_intake_ready",
+        "codex_intake_blocker_count"
       ],
       "properties": {
         "run_status": {
@@ -284,6 +288,15 @@
         },
         "codex_readiness_diff_missing_count": {
           "type": "integer"
+        },
+        "codex_intake_readiness_status": {
+          "type": "string"
+        },
+        "codex_intake_ready": {
+          "type": "boolean"
+        },
+        "codex_intake_blocker_count": {
+          "type": "integer"
         }
       }
     },
@@ -304,6 +317,9 @@
       "items": {
         "type": "string"
       }
+    },
+    "codex_intake_readiness": {
+      "$ref": "#/$defs/codex_intake_readiness"
     },
     "codex_unlock_checklist": {
       "$ref": "#/$defs/codex_unlock_checklist"
@@ -420,6 +436,84 @@
           "items": {
             "type": "string"
           }
+        }
+      }
+    },
+    "codex_intake_readiness": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "ready",
+        "applicable",
+        "source",
+        "source_artifacts",
+        "canary_intake_binding_ready",
+        "requires_intake_binding",
+        "slot_count",
+        "bound_slot_count",
+        "blocked_slot_count",
+        "blocking_reason_count",
+        "blocking_reasons",
+        "next_step",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "codex_cli_intake_readiness_v1"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "not_available",
+            "blocked",
+            "ready"
+          ]
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "applicable": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string"
+        },
+        "source_artifacts": {
+          "type": "object"
+        },
+        "canary_intake_binding_ready": {
+          "type": "boolean"
+        },
+        "requires_intake_binding": {
+          "type": "boolean"
+        },
+        "slot_count": {
+          "type": "integer"
+        },
+        "bound_slot_count": {
+          "type": "integer"
+        },
+        "blocked_slot_count": {
+          "type": "integer"
+        },
+        "blocking_reason_count": {
+          "type": "integer"
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "next_step": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "object"
         }
       }
     },
@@ -587,6 +681,8 @@
         "candidate_quality_top_failure_code",
         "codex_preflight_status",
         "codex_readiness_diff_status",
+        "codex_intake_readiness_status",
+        "codex_intake_ready",
         "promotion_status",
         "priority",
         "primary_reason",
@@ -671,6 +767,12 @@
         },
         "codex_readiness_diff_status": {
           "type": "string"
+        },
+        "codex_intake_readiness_status": {
+          "type": "string"
+        },
+        "codex_intake_ready": {
+          "type": "boolean"
         },
         "promotion_status": {
           "type": "string"

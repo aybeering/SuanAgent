@@ -27,6 +27,10 @@ from orchestrator.codex_cli_execution_preflight import (
     stable_digest,
     workspace_prefix,
 )
+from orchestrator.codex_cli_intake_readiness import (
+    build_codex_cli_intake_readiness,
+    validate_codex_cli_intake_readiness,
+)
 from orchestrator.schema_validation import validate_json_file, validate_json_payload
 
 
@@ -128,11 +132,16 @@ def build_codex_cli_execution_readiness_diff(
         repo_root=repo_root,
         config_path=config_path,
     )
+    intake_readiness = build_codex_cli_intake_readiness(
+        run_dir=run_dir,
+        repo_root=repo_root,
+    )
     summary = readiness_diff_summary(
         comparisons=comparisons,
         source_artifacts=source_artifacts,
         preflight=preflight,
         operator_request=operator_request,
+        intake_readiness=intake_readiness,
     )
     status = readiness_diff_status(summary)
     return {
@@ -149,6 +158,7 @@ def build_codex_cli_execution_readiness_diff(
         "dry_run_execution": compact_execution_plan(dry_plan),
         "preflight_expected_execution": compact_execution_plan(preflight_expected),
         "comparisons": comparisons,
+        "codex_intake_readiness": intake_readiness,
         "blocking_reasons": blocking_reasons(summary=summary, comparisons=comparisons),
         "policy": {
             "inspection_only": True,
@@ -457,6 +467,7 @@ def readiness_diff_summary(
     source_artifacts: dict[str, object],
     preflight: dict[str, Any],
     operator_request: dict[str, Any],
+    intake_readiness: dict[str, object],
 ) -> dict[str, object]:
     """Return compact diff summary counts."""
     comparison_statuses = [str(row.get("status", "")) for row in comparisons]
@@ -490,6 +501,11 @@ def readiness_diff_summary(
         "operator_request_ready": bool(
             operator_request.get("operator_request_ready", False)
         ),
+        "intake_readiness_status": str(intake_readiness.get("status", "")),
+        "intake_readiness_ready": bool(intake_readiness.get("ready", False)),
+        "intake_readiness_blocker_count": int(
+            intake_readiness.get("blocking_reason_count", 0) or 0
+        ),
     }
 
 
@@ -501,6 +517,8 @@ def readiness_diff_status(summary: dict[str, object]) -> str:
         return "missing_evidence"
     if int(summary.get("drift_count", 0)):
         return "drift_detected"
+    if str(summary.get("intake_readiness_status", "")) == "blocked":
+        return "blocked"
     if bool(summary.get("preflight_ok", False)) and bool(
         summary.get("operator_request_ready", False)
     ):
@@ -525,6 +543,9 @@ def blocking_reasons(
             reasons.append(
                 f"{status}:{str(comparison.get('comparison_id', 'unknown'))}"
             )
+    if str(summary.get("intake_readiness_status", "")) == "blocked":
+        count = int(summary.get("intake_readiness_blocker_count", 0) or 0)
+        reasons.append(f"intake_binding:blockers:{count}")
     if (
         not reasons
         and not bool(summary.get("preflight_ok", False))
@@ -635,6 +656,7 @@ def render_codex_cli_execution_readiness_diff_markdown(
 ) -> str:
     """Render the execution readiness diff as markdown."""
     summary = object_value(payload.get("summary", {}))
+    intake = object_value(payload.get("codex_intake_readiness", {}))
     comparisons = [
         row for row in payload.get("comparisons", []) if isinstance(row, dict)
     ]
@@ -647,6 +669,8 @@ def render_codex_cli_execution_readiness_diff_markdown(
         f"- Matched: `{summary.get('matched_count', 0)}`",
         f"- Drift: `{summary.get('drift_count', 0)}`",
         f"- Missing: `{summary.get('missing_comparison_count', 0)}`",
+        f"- Intake readiness: `{intake.get('status', '')}`",
+        f"- Intake bound slots: `{intake.get('bound_slot_count', 0)}/{intake.get('slot_count', 0)}`",
         "",
         "| Comparison | Status | Left | Right |",
         "| --- | --- | --- | --- |",
@@ -796,6 +820,29 @@ def validate_codex_cli_execution_readiness_diff_consistency(
     blockers = string_list(payload.get("blocking_reasons", []))
     if blockers != expected_blockers:
         errors.append("codex_cli_execution_readiness_diff blocking reasons mismatch")
+    intake_readiness = object_value(payload.get("codex_intake_readiness", {}))
+    if not intake_readiness:
+        errors.append("codex_cli_execution_readiness_diff intake readiness missing")
+    else:
+        errors.extend(validate_codex_cli_intake_readiness(intake_readiness))
+        if str(summary.get("intake_readiness_status", "")) != str(
+            intake_readiness.get("status", "")
+        ):
+            errors.append(
+                "codex_cli_execution_readiness_diff intake status summary mismatch"
+            )
+        if bool(summary.get("intake_readiness_ready", False)) != bool(
+            intake_readiness.get("ready", False)
+        ):
+            errors.append(
+                "codex_cli_execution_readiness_diff intake ready summary mismatch"
+            )
+        if int(summary.get("intake_readiness_blocker_count", -1)) != int(
+            intake_readiness.get("blocking_reason_count", 0) or 0
+        ):
+            errors.append(
+                "codex_cli_execution_readiness_diff intake blocker summary mismatch"
+            )
     return tuple(errors)
 
 

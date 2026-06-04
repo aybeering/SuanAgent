@@ -422,7 +422,10 @@ blocker-code mappings, navigation blocking counts, primary blocker, expected
 artifact ordering, and command-hint coverage. If real Codex execute=true
 startup preflight is blocked before any round starts, the failed run still
 writes this checklist and
-the run summary points at the primary blocker.
+the run summary points at the primary blocker. The checklist also includes a
+read-only `codex_intake_readiness` block so an operator can distinguish
+`not_available` intake evidence from blocked or ready selected-attempt binding
+evidence.
 `codex_cli_readiness_pipeline.json` records a read-only dependency-order
 readiness run and includes `consistency_checks` that bind expected step order,
 generated artifact file records, the final summary artifact hash, and
@@ -458,7 +461,10 @@ schema and deterministic consistency checks before returning them, stripping
 terminal-only metadata before schema checks. Those checks include
 status-derived readiness, comparison summary counters, missing-artifact lists,
 drift/missing comparison ids, missing-side markers, blocking-reason coverage,
-and current-evidence drift for derived payloads.
+current-evidence drift for derived payloads, and a shared
+`codex_intake_readiness` summary. When saved canary or unlock evidence shows
+unbound or blocked selected-attempt intake, the diff reports `blocked` with an
+`intake_binding:*` blocker.
 It is read-only and cannot record approval, execute commands, execute Codex,
 create workspaces, modify config, route agents, apply patches, or change
 acceptance. The iteration loop writes it automatically during closeout,
@@ -472,7 +478,8 @@ candidate challenger report, champion-promotion dry-run, promotion approval,
 and scope-health status into a single read-only operator page. The Codex CLI
 panels expose startup preflight status, real-execution profile counts,
 operator-unlock readiness counts, preflight blockers, grouped checklist status,
-and readiness diff missing/drift counts, but they do not unlock or execute
+readiness diff missing/drift counts, and the shared Codex intake-binding
+status, but they do not unlock or execute
 Codex. The operator-action panel surfaces dashboard failure reasons as cockpit
 action failure reasons and `operator_action:<code>` blockers so action-chain
 breaks are visible from the top page. The iteration loop writes the final

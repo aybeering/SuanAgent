@@ -122,6 +122,7 @@ from orchestrator.codex_cli_unlock_runbook import (
 )
 from orchestrator.codex_cli_execution_readiness_diff import (
     CODEX_CLI_EXECUTION_READINESS_DIFF_SCHEMA_VERSION,
+    build_codex_cli_execution_readiness_diff,
     render_codex_cli_execution_readiness_diff_markdown,
     validate_codex_cli_execution_readiness_diff_file,
     validate_codex_cli_execution_readiness_diff_payload,
@@ -3422,8 +3423,12 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert unlock_checklist["navigation"]["blocking_count"] == 0
     assert len(unlock_checklist["navigation"]["expected_artifacts"]) == 5
     assert unlock_checklist["navigation"]["policy"]["does_not_execute_commands"] is True
+    assert unlock_checklist["codex_intake_readiness"]["status"] == "not_available"
+    assert unlock_checklist["codex_intake_readiness"]["ready"] is False
+    assert unlock_checklist["codex_intake_readiness"]["source"] == "none"
     assert unlock_checklist["policy"]["does_not_execute_codex_cli"] is True
     assert "# Operator Unlock Checklist" in unlock_markdown
+    assert "## Codex Intake Readiness" in unlock_markdown
     assert render_operator_unlock_checklist_markdown(unlock_checklist).startswith(
         "# Operator Unlock Checklist"
     )
@@ -3439,6 +3444,9 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["summary"]["codex_preflight_blocker_count"] == 0
     assert cockpit["summary"]["codex_readiness_diff_status"] == "missing_evidence"
     assert cockpit["summary"]["codex_readiness_diff_ready"] is False
+    assert cockpit["summary"]["codex_intake_readiness_status"] == "not_available"
+    assert cockpit["summary"]["codex_intake_ready"] is False
+    assert cockpit["summary"]["codex_intake_blocker_count"] == 0
     assert cockpit["summary"]["candidate_quality_status"] == "present"
     assert cockpit["summary"]["candidate_quality_candidate_count"] >= 1
     assert cockpit["summary"]["candidate_quality_selected_count"] >= 1
@@ -3449,6 +3457,13 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["codex_unlock_checklist"]["authority"][
         "checklist_can_execute_codex"
     ] is False
+    assert cockpit["codex_intake_readiness"]["status"] == "not_available"
+    assert cockpit["operator_digest"]["codex_intake_readiness_status"] == (
+        cockpit["summary"]["codex_intake_readiness_status"]
+    )
+    assert cockpit["operator_digest"]["codex_intake_ready"] == (
+        cockpit["summary"]["codex_intake_ready"]
+    )
     assert len(cockpit["panels"]) >= 7
     assert any(row["panel_id"] == "operator_action" for row in cockpit["panels"])
     assert any(row["panel_id"] == "run_outcome" for row in cockpit["panels"])
@@ -3457,6 +3472,7 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
         row["panel_id"] == "codex_cli_readiness_diff"
         for row in cockpit["panels"]
     )
+    assert any(row["panel_id"] == "codex_cli_intake" for row in cockpit["panels"])
     assert any(row["panel_id"] == "candidate_quality" for row in cockpit["panels"])
     assert any(row["label"] == "review_cockpit" for row in cockpit["recommended_commands"])
     assert any(
@@ -3500,6 +3516,7 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert "Command hint:" in markdown
     assert "Command boundary:" in markdown
     assert "Action execution readiness:" in markdown
+    assert "Codex CLI intake binding:" in markdown
     assert "## Review Priority" in markdown
     assert "Run outcome: `policy_reject` (`policy_ev_improvement_low`)" in markdown
     assert "# Operator Cockpit" in md_path.read_text(encoding="utf-8")
@@ -13934,6 +13951,13 @@ def test_codex_cli_canary_config_runs_controlled_execution_gate(
         repo_root=repo,
         config_path=repo / "config/codex_cli_canary.json",
     )
+    operator_unlock_view = build_operator_unlock_checklist(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
+    operator_unlock_markdown = render_operator_unlock_checklist_markdown(
+        operator_unlock_view
+    )
     validation_report = validate_run_artifacts(
         run_id="codex-canary",
         experiments_dir=repo / "experiments",
@@ -14010,6 +14034,13 @@ def test_codex_cli_canary_config_runs_controlled_execution_gate(
     assert slot["evidence"]["intake_binding_status"] == "bound"
     assert slot["evidence"]["intake_binding_blocking_reasons"] == []
     assert gate["policy"]["requires_intake_binding"] is True
+    assert operator_unlock_view["codex_intake_readiness"]["status"] == "ready"
+    assert operator_unlock_view["codex_intake_readiness"]["ready"] is True
+    assert operator_unlock_view["codex_intake_readiness"]["source"] == (
+        "codex_cli_canary_gate"
+    )
+    assert operator_unlock_view["codex_intake_readiness"]["bound_slot_count"] == 1
+    assert "Codex Intake Readiness" in operator_unlock_markdown
     assert_matches_schema(
         run_dir / "codex_cli_canary_gate.json",
         "codex_cli_canary_gate",
@@ -14537,6 +14568,11 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         requested_by="unit-test",
         confirmation_phrase=REQUIRED_OPERATOR_CONFIRMATION_PHRASE,
     )
+    diff_view = build_codex_cli_execution_readiness_diff(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+    )
     validation_report = validate_run_artifacts(
         run_id="codex-unlock-locked",
         experiments_dir=repo / "experiments",
@@ -14652,6 +14688,10 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
     assert operator_request["checks"]["request_does_not_execute_codex_cli"] is True
     assert operator_request["policy"]["operator_request_only"] is True
     assert operator_request["policy"]["does_not_apply_patches"] is True
+    assert diff_view["codex_intake_readiness"]["status"] == "ready"
+    assert diff_view["codex_intake_readiness"]["ready"] is True
+    assert diff_view["summary"]["intake_readiness_status"] == "ready"
+    assert diff_view["summary"]["intake_readiness_blocker_count"] == 0
     assert_matches_schema(
         run_dir / "codex_cli_execution_unlock_gate.json",
         "codex_cli_execution_unlock_gate",
@@ -14843,6 +14883,11 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         requested_by="unit-test",
         confirmation_phrase=REQUIRED_OPERATOR_CONFIRMATION_PHRASE,
     )
+    diff_view = build_codex_cli_execution_readiness_diff(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+    )
     preflight_config_payload = json.loads(config_path.read_text(encoding="utf-8"))
     preflight_config_payload["codex_cli"]["operator_unlock_request_path"] = (
         "experiments/codex-unlock-ready/codex_cli_operator_unlock_request.json"
@@ -14983,6 +15028,10 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     ] is False
     assert operator_request["policy"]["does_not_execute_codex_cli"] is True
     assert operator_request["policy"]["does_not_change_acceptance"] is True
+    assert diff_view["codex_intake_readiness"]["status"] == "ready"
+    assert diff_view["codex_intake_readiness"]["ready"] is True
+    assert diff_view["summary"]["intake_readiness_status"] == "ready"
+    assert diff_view["summary"]["intake_readiness_blocker_count"] == 0
     assert execution_preflight["schema_version"] == (
         CODEX_CLI_EXECUTION_PREFLIGHT_SCHEMA_VERSION
     )
@@ -15060,6 +15109,17 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert tampered_gate["real_codex_execution_unlocked"] is False
     assert tampered_gate["checks"]["canary_intake_binding_ready"] is False
     assert "canary_intake_binding_not_ready" in tampered_gate["blocking_reasons"]
+    tampered_diff_view = build_codex_cli_execution_readiness_diff(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+    )
+    assert tampered_diff_view["codex_intake_readiness"]["status"] == "blocked"
+    assert tampered_diff_view["summary"]["intake_readiness_status"] == "blocked"
+    assert any(
+        reason.startswith("intake_binding:")
+        for reason in tampered_diff_view["blocking_reasons"]
+    )
     (run_dir / "codex_cli_real_preflight.json").write_text(
         "{}\n",
         encoding="utf-8",

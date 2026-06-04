@@ -14,6 +14,7 @@
     "next_step",
     "source_artifacts",
     "navigation",
+    "codex_intake_readiness",
     "items",
     "authority",
     "policy"
@@ -77,6 +78,9 @@
     },
     "navigation": {
       "$ref": "#/$defs/navigation"
+    },
+    "codex_intake_readiness": {
+      "$ref": "#/$defs/codex_intake_readiness"
     },
     "authority": {
       "type": "object",
@@ -169,6 +173,84 @@
           "items": {
             "type": "string"
           }
+        }
+      }
+    },
+    "codex_intake_readiness": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "ready",
+        "applicable",
+        "source",
+        "source_artifacts",
+        "canary_intake_binding_ready",
+        "requires_intake_binding",
+        "slot_count",
+        "bound_slot_count",
+        "blocked_slot_count",
+        "blocking_reason_count",
+        "blocking_reasons",
+        "next_step",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "codex_cli_intake_readiness_v1"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "not_available",
+            "blocked",
+            "ready"
+          ]
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "applicable": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string"
+        },
+        "source_artifacts": {
+          "type": "object"
+        },
+        "canary_intake_binding_ready": {
+          "type": "boolean"
+        },
+        "requires_intake_binding": {
+          "type": "boolean"
+        },
+        "slot_count": {
+          "type": "integer"
+        },
+        "bound_slot_count": {
+          "type": "integer"
+        },
+        "blocked_slot_count": {
+          "type": "integer"
+        },
+        "blocking_reason_count": {
+          "type": "integer"
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "next_step": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "object"
         }
       }
     },

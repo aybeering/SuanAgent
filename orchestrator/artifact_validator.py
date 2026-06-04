@@ -9,6 +9,9 @@ import shlex
 from pathlib import Path
 from typing import Any
 
+from orchestrator.codex_cli_intake_readiness import (
+    validate_codex_cli_intake_readiness,
+)
 from orchestrator.operator_command_boundaries import classify_operator_command
 from orchestrator.run_outcome import build_run_outcome_summary
 from orchestrator.schema_validation import validate_json_file
@@ -6110,6 +6113,11 @@ def validate_optional_operator_unlock_checklist(
         payload={"codex_unlock_checklist": payload},
         report=report,
     )
+    validate_codex_intake_readiness_artifact(
+        payload=payload,
+        report=report,
+        label="operator_unlock_checklist",
+    )
     validate_operator_unlock_navigation(
         payload=payload,
         repo_root=repo_root,
@@ -6341,6 +6349,12 @@ def validate_optional_operator_cockpit(
         add_error(report, "operator_cockpit.json codex readiness diff status invalid")
     if not isinstance(summary.get("codex_readiness_diff_ready", False), bool):
         add_error(report, "operator_cockpit.json codex readiness diff ready invalid")
+    validate_codex_intake_readiness_artifact(
+        payload=payload,
+        report=report,
+        label="operator_cockpit",
+        summary=summary,
+    )
     validate_operator_cockpit_unlock_checklist(payload=payload, report=report)
     validate_operator_cockpit_recommended_commands(
         payload=payload,
@@ -6581,6 +6595,51 @@ def validate_operator_cockpit_unlock_checklist(
     ):
         if authority.get(key) is not False:
             add_error(report, f"operator_cockpit codex unlock authority true: {key}")
+
+
+def validate_codex_intake_readiness_artifact(
+    *,
+    payload: dict[str, object],
+    report: dict[str, object],
+    label: str,
+    summary: dict[str, object] | None = None,
+) -> None:
+    """Validate a shared Codex intake-readiness block embedded in an artifact."""
+    intake = payload.get("codex_intake_readiness", {})
+    if not isinstance(intake, dict):
+        add_error(report, f"{label} codex intake readiness invalid")
+        return
+    for error in validate_codex_cli_intake_readiness(intake):
+        add_error(report, f"{label} {error}")
+    if summary is None:
+        return
+    status_key = (
+        "codex_intake_readiness_status"
+        if "codex_intake_readiness_status" in summary
+        else "intake_readiness_status"
+    )
+    ready_key = (
+        "codex_intake_ready"
+        if "codex_intake_ready" in summary
+        else "intake_readiness_ready"
+    )
+    blocker_key = (
+        "codex_intake_blocker_count"
+        if "codex_intake_blocker_count" in summary
+        else "intake_readiness_blocker_count"
+    )
+    if str(summary.get(status_key, "")) != str(
+        intake.get("status", "")
+    ):
+        add_error(report, f"{label} codex intake status summary mismatch")
+    if bool(summary.get(ready_key, False)) != bool(
+        intake.get("ready", False)
+    ):
+        add_error(report, f"{label} codex intake ready summary mismatch")
+    if int(summary.get(blocker_key, -1)) != int(
+        intake.get("blocking_reason_count", 0) or 0
+    ):
+        add_error(report, f"{label} codex intake blocker summary mismatch")
 
 
 def validate_optional_candidate_challenger_report(
@@ -10096,6 +10155,12 @@ def validate_optional_codex_cli_execution_readiness_diff(
                 report,
                 "codex_cli_execution_readiness_diff.json missing list mismatch",
             )
+        validate_codex_intake_readiness_artifact(
+            payload=payload,
+            report=report,
+            label="codex_cli_execution_readiness_diff.json",
+            summary=summary,
+        )
     blockers = payload.get("blocking_reasons", [])
     if not isinstance(blockers, list):
         add_error(report, "codex_cli_execution_readiness_diff.json blockers invalid")

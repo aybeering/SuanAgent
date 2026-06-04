@@ -249,6 +249,10 @@ route agents, apply patches, or change acceptance.
 The iteration loop writes this diff during closeout, including failed
 execute=true startup-preflight runs that stop before any round starts, so the
 saved run always has a read-only current-vs-reviewed Codex evidence view.
+The unlock checklist, readiness diff, and cockpit share a
+`codex_intake_readiness` summary. It makes selected-attempt intake-binding
+state visible to operators without becoming an unlock approval, command
+executor, patch gate, or acceptance authority.
 `operator_cockpit.json` and `operator_cockpit.md` are the broader operator
 entrypoint. They collect the run closeout, config lineage, operator action
 dashboard, Codex CLI execution preflight, standalone operator unlock checklist,

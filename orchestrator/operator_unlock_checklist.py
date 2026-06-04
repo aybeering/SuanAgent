@@ -14,6 +14,10 @@ from orchestrator.operator_action_audit import (
     resolve_path,
     schema_errors,
 )
+from orchestrator.codex_cli_intake_readiness import (
+    build_codex_cli_intake_readiness,
+    validate_codex_cli_intake_readiness,
+)
 from orchestrator.schema_validation import validate_json_file, validate_json_payload
 
 
@@ -188,6 +192,10 @@ def build_operator_unlock_checklist(
         codex_preflight=codex_preflight,
         items=items,
     )
+    intake_readiness = build_codex_cli_intake_readiness(
+        run_dir=run_dir,
+        repo_root=repo_root,
+    )
     return {
         "schema_version": OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION,
         "run_id": run_dir.name,
@@ -207,6 +215,7 @@ def build_operator_unlock_checklist(
             ),
         },
         "navigation": navigation,
+        "codex_intake_readiness": intake_readiness,
         "items": items,
         "authority": object_field(checklist, "authority"),
         "policy": {
@@ -799,9 +808,23 @@ def render_operator_unlock_checklist_markdown(payload: dict[str, object]) -> str
             f"{item.get('next_step', '')} |"
         )
     navigation = object_field(payload, "navigation")
+    intake = object_field(payload, "codex_intake_readiness")
     blocking_items = list_of_dicts(navigation.get("blocking_items", []))
     expected_artifacts = list_of_dicts(navigation.get("expected_artifacts", []))
     commands = list_of_dicts(navigation.get("commands", []))
+    lines.extend(
+        [
+            "",
+            "## Codex Intake Readiness",
+            "",
+            f"- Status: `{intake.get('status', '')}`",
+            f"- Ready: `{intake.get('ready', False)}`",
+            f"- Source: `{intake.get('source', '')}`",
+            f"- Bound slots: `{intake.get('bound_slot_count', 0)}/{intake.get('slot_count', 0)}`",
+            f"- Blockers: `{intake.get('blocking_reason_count', 0)}`",
+            f"- Next step: {intake.get('next_step', '')}",
+        ]
+    )
     lines.extend(
         [
             "",
@@ -959,6 +982,11 @@ def validate_operator_unlock_checklist_consistency(
             items=items,
         )
     )
+    intake_readiness = object_field(payload, "codex_intake_readiness")
+    if not intake_readiness:
+        errors.append("operator_unlock_checklist intake readiness missing")
+    else:
+        errors.extend(validate_codex_cli_intake_readiness(intake_readiness))
     return tuple(errors)
 
 

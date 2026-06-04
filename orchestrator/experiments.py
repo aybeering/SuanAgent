@@ -1804,8 +1804,102 @@ def validate_operator_view_refresh_consistency(
             return default
 
     errors: list[str] = []
+    refreshed_artifacts = list_payload(payload.get("refreshed_artifacts", []))
+    if int_value(payload.get("refreshed_count", -1)) != len(refreshed_artifacts):
+        errors.append("operator_view_refresh refreshed_count mismatch")
+    expected_artifact_order = [
+        "operator_action_dashboard",
+        "codex_cli_execution_preflight",
+        "operator_unlock_checklist",
+        "codex_cli_execution_readiness_diff",
+        "operator_cockpit",
+    ]
+    artifact_order = [str(row.get("artifact_name", "")) for row in refreshed_artifacts]
+    if artifact_order != expected_artifact_order:
+        errors.append("operator_view_refresh refreshed artifact order mismatch")
+    for row in refreshed_artifacts:
+        artifact_name = str(row.get("artifact_name", ""))
+        json_file = dict_payload(row.get("json_file", {}))
+        markdown_file = dict_payload(row.get("markdown_file", {}))
+        if str(row.get("json_path", "")) != str(json_file.get("path", "")):
+            errors.append(
+                f"operator_view_refresh refreshed json path mismatch: {artifact_name}"
+            )
+        if str(row.get("markdown_path", "")) != str(markdown_file.get("path", "")):
+            errors.append(
+                "operator_view_refresh refreshed markdown path mismatch: "
+                f"{artifact_name}"
+            )
+
     operator_summary = dict_payload(payload.get("operator_summary", {}))
+    blocker_delta = dict_payload(payload.get("blocker_delta", {}))
+    if int_value(operator_summary.get("blocker_count", -1)) != int_value(
+        blocker_delta.get("after_count", -2)
+    ):
+        errors.append("operator_view_refresh operator_summary blocker_count mismatch")
+    blocker_preview = string_payload(operator_summary.get("blocker_preview", []))
+    primary_blocker = str(operator_summary.get("primary_blocker", ""))
+    if int_value(operator_summary.get("blocker_count", -1)) == 0:
+        if primary_blocker or blocker_preview:
+            errors.append("operator_view_refresh operator_summary blocker mismatch")
+    elif not blocker_preview or primary_blocker != blocker_preview[0]:
+        errors.append("operator_view_refresh operator_summary primary_blocker mismatch")
+
+    added_blockers = string_payload(blocker_delta.get("added_blockers", []))
+    removed_blockers = string_payload(blocker_delta.get("removed_blockers", []))
+    if int_value(blocker_delta.get("added_count", -1)) != len(added_blockers):
+        errors.append("operator_view_refresh blocker_delta added_count mismatch")
+    if int_value(blocker_delta.get("removed_count", -1)) != len(removed_blockers):
+        errors.append("operator_view_refresh blocker_delta removed_count mismatch")
+    persisted_count = int_value(blocker_delta.get("persisted_count", -1))
+    if int_value(blocker_delta.get("before_count", -1)) != (
+        persisted_count + len(removed_blockers)
+    ):
+        errors.append("operator_view_refresh blocker_delta before_count mismatch")
+    if int_value(blocker_delta.get("after_count", -1)) != (
+        persisted_count + len(added_blockers)
+    ):
+        errors.append("operator_view_refresh blocker_delta after_count mismatch")
+    if bool(blocker_delta.get("changed", False)) != bool(
+        added_blockers or removed_blockers
+    ):
+        errors.append("operator_view_refresh blocker_delta changed mismatch")
+
+    policy = dict_payload(payload.get("policy", {}))
+    policy_summary = dict_payload(payload.get("policy_summary", {}))
+    expected_policy_summary = operator_view_refresh_policy_summary(
+        {str(key): value is True for key, value in policy.items()}
+    )
+    if policy_summary != expected_policy_summary:
+        errors.append("operator_view_refresh policy_summary mismatch")
+
+    refresh_effect = dict_payload(payload.get("refresh_effect", {}))
+    expected_refresh_effect = operator_view_refresh_effect(
+        pre_refresh_freshness=dict_payload(
+            payload.get("pre_refresh_snapshot_freshness", {})
+        ),
+        post_refresh_freshness=dict_payload(
+            payload.get("cockpit_snapshot_freshness", {})
+        ),
+        blocker_delta=blocker_delta,
+        policy_summary=policy_summary,
+        operator_summary=operator_summary,
+    )
+    if refresh_effect != expected_refresh_effect:
+        errors.append("operator_view_refresh refresh_effect mismatch")
+
     review_summary = dict_payload(payload.get("review_summary", {}))
+    expected_review_summary = operator_view_refresh_review_summary(
+        refresh_effect=refresh_effect,
+        operator_summary=operator_summary,
+        post_refresh_freshness=dict_payload(
+            payload.get("cockpit_snapshot_freshness", {})
+        ),
+        policy_summary=policy_summary,
+    )
+    if review_summary != expected_review_summary:
+        errors.append("operator_view_refresh review_summary mismatch")
+
     for key in (
         "next_command_source",
         "next_command_label",

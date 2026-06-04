@@ -3315,6 +3315,36 @@ def _copy_operator_view_refresh_schema(tmp_path: Path) -> None:
 
 
 def _minimal_operator_view_refresh_payload() -> dict[str, object]:
+    refreshed_artifacts = []
+    for artifact_name in (
+        "operator_action_dashboard",
+        "codex_cli_execution_preflight",
+        "operator_unlock_checklist",
+        "codex_cli_execution_readiness_diff",
+        "operator_cockpit",
+    ):
+        json_path = f"experiments/run/{artifact_name}.json"
+        markdown_path = f"experiments/run/{artifact_name}.md"
+        refreshed_artifacts.append(
+            {
+                "artifact_name": artifact_name,
+                "json_path": json_path,
+                "markdown_path": markdown_path,
+                "json_file": {
+                    "path": json_path,
+                    "relative_path": json_path,
+                    "exists": True,
+                    "sha256": f"{artifact_name}-json",
+                },
+                "markdown_file": {
+                    "path": markdown_path,
+                    "relative_path": markdown_path,
+                    "exists": True,
+                    "sha256": f"{artifact_name}-md",
+                },
+                "schema_version": f"{artifact_name}_v1",
+            }
+        )
     return {
         "schema_version": "operator_view_refresh_v1",
         "run_id": "run",
@@ -3339,8 +3369,8 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
                 "python -m orchestrator.experiments refresh-operator-views run"
             ),
         },
-        "refreshed_count": 0,
-        "refreshed_artifacts": [],
+        "refreshed_count": len(refreshed_artifacts),
+        "refreshed_artifacts": refreshed_artifacts,
         "operator_summary": {
             "cockpit_status": "ready_for_review",
             "cockpit_ok": True,
@@ -3372,17 +3402,19 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             "status": "refreshed_no_changes",
             "summary": "Refresh completed with no stale-source or blocker changes.",
             "stale_sources_fixed": False,
+            "pre_stale_count": 0,
+            "post_stale_count": 0,
             "blockers_changed": False,
             "safety_policy_ok": True,
-            "operator_review_required": True,
+            "operator_review_required": False,
             "post_blocker_count": 0,
         },
         "review_summary": {
             "schema_version": "operator_view_refresh_review_summary_v1",
-            "required": True,
-            "primary_reason": "blockers_present",
-            "reason_count": 1,
-            "reason_codes": ["blockers_present"],
+            "required": False,
+            "primary_reason": "",
+            "reason_count": 0,
+            "reason_codes": [],
             "primary_blocker": "",
             "post_blocker_count": 0,
             "next_command_source": "review_priority",
@@ -3432,6 +3464,24 @@ def test_operator_view_refresh_payload_validation_reports_summary_drift(
 
     assert validate_operator_view_refresh_payload(payload, repo_root=tmp_path) == ()
 
+    payload["refreshed_count"] = 4
+    refreshed_artifacts = payload["refreshed_artifacts"]
+    assert isinstance(refreshed_artifacts, list)
+    refreshed_artifacts[0]["artifact_name"] = "wrong_artifact"
+    refreshed_artifacts[1]["json_file"]["path"] = "wrong.json"
+    operator_summary = payload["operator_summary"]
+    assert isinstance(operator_summary, dict)
+    operator_summary["blocker_count"] = 1
+    blocker_delta = payload["blocker_delta"]
+    assert isinstance(blocker_delta, dict)
+    blocker_delta["added_count"] = 1
+    blocker_delta["changed"] = True
+    policy_summary = payload["policy_summary"]
+    assert isinstance(policy_summary, dict)
+    policy_summary["true_count"] = 0
+    refresh_effect = payload["refresh_effect"]
+    assert isinstance(refresh_effect, dict)
+    refresh_effect["status"] = "blockers_changed"
     review_summary = payload["review_summary"]
     assert isinstance(review_summary, dict)
     review_summary["next_command_label"] = "review_action_dashboard"
@@ -3441,6 +3491,18 @@ def test_operator_view_refresh_payload_validation_reports_summary_drift(
 
     errors = validate_operator_view_refresh_payload(payload, repo_root=tmp_path)
 
+    assert "operator_view_refresh refreshed_count mismatch" in errors
+    assert "operator_view_refresh refreshed artifact order mismatch" in errors
+    assert (
+        "operator_view_refresh refreshed json path mismatch: "
+        "codex_cli_execution_preflight"
+    ) in errors
+    assert "operator_view_refresh operator_summary blocker_count mismatch" in errors
+    assert "operator_view_refresh blocker_delta added_count mismatch" in errors
+    assert "operator_view_refresh blocker_delta changed mismatch" in errors
+    assert "operator_view_refresh policy_summary mismatch" in errors
+    assert "operator_view_refresh refresh_effect mismatch" in errors
+    assert "operator_view_refresh review_summary mismatch" in errors
     assert (
         "operator_view_refresh review_summary next_command_label mismatch"
         in errors

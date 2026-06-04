@@ -102,6 +102,7 @@ from orchestrator.operator_action_dashboard import write_operator_action_dashboa
 from orchestrator.operator_action_plan import write_operator_action_plan
 from orchestrator.operator_cockpit import write_operator_cockpit
 from orchestrator.operator_config_review import write_operator_config_review
+from orchestrator.operator_home import build_operator_home
 from orchestrator.operator_unlock_checklist import write_operator_unlock_checklist
 from orchestrator.overfit_validator import write_overfit_validation
 from orchestrator.policy_gate import (
@@ -315,6 +316,11 @@ def run_iteration_loop(
             "codex_unlock_status": "pending",
             "codex_unlock_failed_count": 0,
         },
+        "operator_home": operator_home_manifest_row(
+            run_id=run_id,
+            payload={},
+            pending=True,
+        ),
         "operator_unlock_checklist": {
             "path": "operator_unlock_checklist.json",
             "markdown_path": "operator_unlock_checklist.md",
@@ -1142,8 +1148,62 @@ def finalize_iteration_run(
             codex_unlock_checklist.get("failed_count", 0) or 0
         ),
     }
+    home_payload = build_operator_home(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
+    manifest["operator_home"] = operator_home_manifest_row(
+        run_id=str(manifest.get("run_id", run_dir.name)),
+        payload=home_payload,
+    )
     write_json(run_dir / "manifest.json", manifest)
     write_iteration_summary(run_dir=run_dir, manifest=manifest)
+
+
+def operator_home_manifest_row(
+    *,
+    run_id: str,
+    payload: dict[str, object],
+    pending: bool = False,
+) -> dict[str, object]:
+    """Return compact manifest metadata for the terminal-only operator home."""
+    action_home = (
+        payload.get("action_home", {})
+        if isinstance(payload.get("action_home", {}), dict)
+        else {}
+    )
+    codex_home = (
+        payload.get("codex_home", {})
+        if isinstance(payload.get("codex_home", {}), dict)
+        else {}
+    )
+    command = f"python -m orchestrator.experiments home {run_id} --markdown"
+    return {
+        "path": "",
+        "markdown_path": "",
+        "artifact_created": False,
+        "terminal_only": True,
+        "ok": False if pending else bool(payload.get("ok", False)),
+        "status": "pending" if pending else str(payload.get("status", "unknown")),
+        "primary_focus": "" if pending else str(payload.get("primary_focus", "")),
+        "action_step": "" if pending else str(action_home.get("active_step_id", "")),
+        "codex_unlock_runbook_status": (
+            "pending"
+            if pending
+            else str(codex_home.get("unlock_runbook_status", "unknown"))
+        ),
+        "codex_intake_readiness_status": (
+            "pending"
+            if pending
+            else str(codex_home.get("intake_readiness_status", "unknown"))
+        ),
+        "command_label": "review_operator_home",
+        "command": command,
+        "markdown_command": command,
+        "command_boundary": "read_only_inspection",
+        "command_is_hint_only": True,
+    }
 
 
 def config_operator_runbook_manifest_row(

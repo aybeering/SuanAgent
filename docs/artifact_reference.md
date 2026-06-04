@@ -403,6 +403,11 @@ unlock runbook, and readiness diff so the first screen can point directly at
 Codex evidence without becoming an unlock authority. It does not create run artifacts, record
 approval, execute commands, write config, promote champions, run agents, run
 backtests, apply patches, route agents, or change acceptance.
+Completed iteration runs also record an `operator_home` manifest row and
+`summary.md` section with the read-only markdown command, terminal-only flag,
+current home status, action step, Codex unlock-runbook status, and intake
+readiness status. These fields are navigation hints only; they do not create an
+`operator_home.json` artifact or grant execution authority.
 When no run id is supplied, `home` resolves the latest indexed iteration-loop
 run with a saved `manifest.json`; `--latest` makes the same selection explicit.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose the

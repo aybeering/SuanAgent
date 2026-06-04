@@ -369,6 +369,48 @@ def write_iteration_summary(
             f"- Markdown: `{display_value(cockpit.get('markdown_path'))}`"
         )
 
+    operator_home = manifest.get("operator_home")
+    if isinstance(operator_home, dict):
+        lines.extend(["", "## Operator Home", ""])
+        lines.append(f"- Status: `{display_value(operator_home.get('status'))}`")
+        lines.append(f"- OK: `{display_value(operator_home.get('ok'))}`")
+        lines.append(
+            "- Terminal only: "
+            f"`{display_value(operator_home.get('terminal_only'))}`"
+        )
+        lines.append(
+            "- Artifact created: "
+            f"`{display_value(operator_home.get('artifact_created'))}`"
+        )
+        lines.append(
+            "- Primary focus: "
+            f"`{display_value(operator_home.get('primary_focus'))}`"
+        )
+        lines.append(
+            "- Action step: "
+            f"`{display_value(operator_home.get('action_step'))}`"
+        )
+        lines.append(
+            "- Codex unlock runbook: "
+            f"`{display_value(operator_home.get('codex_unlock_runbook_status'))}`"
+        )
+        lines.append(
+            "- Codex intake: "
+            f"`{display_value(operator_home.get('codex_intake_readiness_status'))}`"
+        )
+        lines.append(
+            "- Command: "
+            f"`{display_value(operator_home.get('command_label'))}`"
+        )
+        lines.append(
+            "- Command boundary: "
+            f"`{display_value(operator_home.get('command_boundary'))}`"
+        )
+        lines.append(
+            "- Command text: "
+            f"`{display_value(operator_home.get('markdown_command'))}`"
+        )
+
     lines.extend(["", "## Best Validation Delta", ""])
     if best_round is None:
         lines.append("No completed rounds.")

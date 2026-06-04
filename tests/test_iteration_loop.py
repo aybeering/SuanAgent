@@ -7215,6 +7215,25 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert manifest["operator_cockpit"]["primary_focus"] == cockpit["primary_focus"]
     assert manifest["operator_cockpit"]["codex_unlock_status"] == "not_requested"
     assert manifest["operator_cockpit"]["codex_unlock_failed_count"] == 0
+    assert manifest["operator_home"]["path"] == ""
+    assert manifest["operator_home"]["markdown_path"] == ""
+    assert manifest["operator_home"]["artifact_created"] is False
+    assert manifest["operator_home"]["terminal_only"] is True
+    assert manifest["operator_home"]["status"] == "needs_operator_review"
+    assert manifest["operator_home"]["ok"] is True
+    assert manifest["operator_home"]["primary_focus"] == cockpit["primary_focus"]
+    assert manifest["operator_home"]["codex_unlock_runbook_status"] == (
+        "needs_artifacts"
+    )
+    assert manifest["operator_home"]["codex_intake_readiness_status"] == (
+        "not_available"
+    )
+    assert manifest["operator_home"]["command_label"] == "review_operator_home"
+    assert manifest["operator_home"]["markdown_command"] == (
+        f"python -m orchestrator.experiments home {run_id} --markdown"
+    )
+    assert manifest["operator_home"]["command_boundary"] == "read_only_inspection"
+    assert manifest["operator_home"]["command_is_hint_only"] is True
     assert cockpit["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION
     assert cockpit["ok"] is True
     assert cockpit["source_artifacts"]["operator_action_dashboard"]["file"][
@@ -7275,6 +7294,13 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert "## Operator Unlock Checklist" in summary_markdown
     assert "Codex unlock" in summary_markdown
     assert "Blocking navigation items" in summary_markdown
+    assert "## Operator Home" in summary_markdown
+    assert "Terminal only: `True`" in summary_markdown
+    assert "Command: `review_operator_home`" in summary_markdown
+    assert (
+        f"Command text: `python -m orchestrator.experiments home {run_id} --markdown`"
+        in summary_markdown
+    )
     assert_matches_schema(run_dir / "operator_cockpit.json", "operator_cockpit")
     assert validate_operator_cockpit_file(
         payload_path=run_dir / "operator_cockpit.json",

@@ -19,6 +19,7 @@
     "failure_reasons",
     "blockers",
     "recommended_commands",
+    "execution_readiness",
     "authority",
     "policy"
   ],
@@ -169,6 +170,9 @@
       "items": {
         "$ref": "#/$defs/recommended_command"
       }
+    },
+    "execution_readiness": {
+      "$ref": "#/$defs/execution_readiness"
     },
     "authority": {
       "type": "object",
@@ -487,6 +491,158 @@
           "type": "boolean"
         },
         "changes_acceptance": {
+          "type": "boolean"
+        }
+      }
+    },
+    "execution_readiness": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "ready",
+        "reason",
+        "current_step",
+        "next_command_label",
+        "next_command_boundary",
+        "requires_operator_approval",
+        "uses_guarded_executor",
+        "selected_command_label",
+        "selected_command_digest_matches_plan",
+        "blocker_count",
+        "blockers",
+        "missing_artifact_count",
+        "missing_artifacts",
+        "dependencies",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "operator_action_execution_readiness_v1"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "missing_action_plan",
+            "needs_operator_approval",
+            "ready_for_guarded_execution",
+            "execution_completed",
+            "execution_blocked",
+            "execution_failed",
+            "needs_chain_repair",
+            "review_required",
+            "blocked"
+          ]
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "current_step": {
+          "type": "string"
+        },
+        "next_command_label": {
+          "type": "string"
+        },
+        "next_command_boundary": {
+          "type": "string"
+        },
+        "requires_operator_approval": {
+          "type": "boolean"
+        },
+        "uses_guarded_executor": {
+          "type": "boolean"
+        },
+        "selected_command_label": {
+          "type": "string"
+        },
+        "selected_command_digest_matches_plan": {
+          "type": "boolean"
+        },
+        "blocker_count": {
+          "type": "integer"
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missing_artifact_count": {
+          "type": "integer"
+        },
+        "missing_artifacts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/execution_dependency"
+          }
+        },
+        "policy": {
+          "$ref": "#/$defs/execution_readiness_policy"
+        }
+      }
+    },
+    "execution_dependency": {
+      "type": "object",
+      "required": [
+        "artifact_name",
+        "required",
+        "exists",
+        "passed",
+        "timeline_status",
+        "path"
+      ],
+      "properties": {
+        "artifact_name": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "timeline_status": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    "execution_readiness_policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "does_not_execute_commands",
+        "does_not_record_approval",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_commands": {
+          "type": "boolean"
+        },
+        "does_not_record_approval": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
           "type": "boolean"
         }
       }

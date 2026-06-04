@@ -355,14 +355,19 @@ classification (`read_only_inspection`, `read_only_artifact_refresh`,
 recording approval, executing commands, writing config, promoting champions,
 running agents, running backtests, applying patches, routing agents, or
 changing acceptance.
+It also includes an `execution_readiness` summary that binds the current
+action-chain status, first recommended command boundary, required dependency
+artifacts, missing artifacts, blockers, selected-command digest status, and
+guarded-executor readiness into one pre-execution checkpoint for the operator.
 The dashboard writer and terminal view validate the saved or derived payload
 against
 `schemas/operator_action_dashboard.schema.json` and checks that status-derived
 fields plus action, command, failure-reason, and blocker counts still match the
-embedded rows.
+embedded rows, including the execution-readiness summary.
 Artifact validation checks dashboard command hints through the shared operator
 command-hint validator for known labels, expected write targets, boundary
-classification, current-step coverage, and simple shell-control-token guards.
+classification, current-step coverage, execution-readiness command binding,
+and simple shell-control-token guards.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose the
 Codex CLI operator-unlock evidence chain as a standalone read-only checklist.
 The iteration loop writes it during closeout before the final cockpit so cockpit
@@ -447,9 +452,9 @@ running agents, running backtests, applying patches, routing agents, or
 changing acceptance. The `review_priority` object chooses the first panel and
 existing saved command hint to inspect from blocker, config lineage, action,
 Codex readiness, challenger, promotion, scope-health, and run-outcome state;
-the digest mirrors that priority plus the recommended command boundary,
-outcome, blocker, config, action, candidate-quality, Codex, and promotion
-status as a compact read-only header.
+the digest mirrors that priority plus the recommended command boundary, action
+execution-readiness status, outcome, blocker, config, action,
+candidate-quality, Codex, and promotion status as a compact read-only header.
 Artifact validation checks cockpit command hints through the shared operator
 command-hint validator for known labels, expected write targets, the required
 `review_cockpit` first command, boundary classification, and simple
@@ -479,6 +484,7 @@ existence, SHA-256 fields, pre-refresh cockpit stale-source evidence,
 post-refresh cockpit freshness, refresh-effect status, operator-review-required
 flag, deterministic review reason codes, refreshed-cockpit operator digest
 headline/priority/target-panel state, digest-backed next-command boundary,
+action execution-readiness status,
 blocker delta counts, and per-artifact JSON/Markdown output hashes, and still
 does not execute commands, execute Codex, run agents, run backtests, write
 config, promote champions, apply patches, route agents, or change acceptance.

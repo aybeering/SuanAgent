@@ -892,6 +892,14 @@ jobs:
           assert dashboard["current_step"] == "review_execution_receipt"
           assert dashboard["summary"]["chain_ok"] is True
           assert dashboard["summary"]["safe_command_count"] >= 1
+          assert dashboard["execution_readiness"]["schema_version"] == (
+              "operator_action_execution_readiness_v1"
+          )
+          assert dashboard["execution_readiness"]["status"] == "execution_completed"
+          assert dashboard["execution_readiness"]["next_command_boundary"] == (
+              "read_only_inspection"
+          )
+          assert dashboard["execution_readiness"]["policy"]["does_not_execute_commands"] is True
           assert any(
               command["boundary"]["boundary_type"] == "read_only_inspection"
               for command in dashboard["recommended_commands"]
@@ -968,6 +976,10 @@ jobs:
           assert cockpit["schema_version"] == "operator_cockpit_v1"
           assert cockpit["from_artifact"] is True
           assert cockpit["summary"]["action_status"] == "execution_completed"
+          assert cockpit["summary"]["action_execution_readiness_status"] == (
+              "execution_completed"
+          )
+          assert cockpit["summary"]["action_execution_ready"] is False
           assert cockpit["summary"]["config_lineage_status"] == "partial"
           assert cockpit["summary"]["codex_preflight_ok"] is True
           assert cockpit["operator_digest"]["schema_version"] == "operator_digest_v1"
@@ -1218,6 +1230,12 @@ jobs:
           assert refresh["operator_summary"]["operator_digest_priority"] == (
               operator_digest["priority"]
           )
+          assert refresh["operator_summary"][
+              "action_execution_readiness_status"
+          ] == cockpit["summary"]["action_execution_readiness_status"]
+          assert refresh["operator_summary"]["action_execution_ready"] == (
+              cockpit["summary"]["action_execution_ready"]
+          )
           assert refresh["operator_summary"]["next_command_source"] == "operator_digest"
           assert refresh["operator_summary"]["next_command_label"] == operator_digest[
               "recommended_command_label"
@@ -1240,6 +1258,7 @@ jobs:
               in refresh_markdown
           )
           assert "Next command source: `operator_digest`" in refresh_markdown
+          assert "Action execution readiness:" in refresh_markdown
           assert "Next command boundary:" in refresh_markdown
           assert "Operator digest:" in refresh_markdown
           assert operator_digest["headline"] in refresh_markdown

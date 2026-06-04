@@ -2755,6 +2755,20 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending["summary"]["chain_ok"] is True
     assert pending["summary"]["safe_command_count"] >= 1
     assert pending["source_artifacts"]["action_audit"]["from_artifact"] is False
+    assert pending["execution_readiness"]["schema_version"] == (
+        "operator_action_execution_readiness_v1"
+    )
+    assert pending["execution_readiness"]["status"] == "needs_operator_approval"
+    assert pending["execution_readiness"]["ready"] is False
+    assert pending["execution_readiness"]["current_step"] == pending["current_step"]
+    assert pending["execution_readiness"]["next_command_label"] == "write_action_audit"
+    assert pending["execution_readiness"]["next_command_boundary"] == (
+        "read_only_artifact_refresh"
+    )
+    assert pending["execution_readiness"]["missing_artifact_count"] == 1
+    assert pending["execution_readiness"]["missing_artifacts"] == [
+        "operator_action_audit"
+    ]
     assert pending["recommended_commands"][0]["label"] == "write_action_audit"
     assert pending["recommended_commands"][0]["boundary"]["boundary_type"] == (
         "read_only_artifact_refresh"
@@ -2804,6 +2818,19 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert ready["current_step"] == "execute_approved_command"
     assert ready["source_artifacts"]["action_audit"]["from_artifact"] is True
     assert ready["selected_command"]["label"] == read_only_command["label"]
+    assert ready["execution_readiness"]["status"] == (
+        "ready_for_guarded_execution"
+    )
+    assert ready["execution_readiness"]["ready"] is True
+    assert ready["execution_readiness"]["next_command_label"] == (
+        "execute_approved_command"
+    )
+    assert ready["execution_readiness"]["next_command_boundary"] == (
+        "guarded_read_only_execution"
+    )
+    assert ready["execution_readiness"]["requires_operator_approval"] is True
+    assert ready["execution_readiness"]["uses_guarded_executor"] is True
+    assert ready["execution_readiness"]["missing_artifact_count"] == 0
     assert any(
         row["label"] == "execute_approved_command"
         for row in ready["recommended_commands"]
@@ -2852,6 +2879,14 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert completed["failure_reasons"] == []
     assert completed["blockers"] == []
     assert completed["timeline"][2]["status"] == "complete"
+    assert completed["execution_readiness"]["status"] == "execution_completed"
+    assert completed["execution_readiness"]["ready"] is False
+    assert completed["execution_readiness"]["next_command_label"] == (
+        "review_execution_receipt"
+    )
+    assert completed["execution_readiness"]["next_command_boundary"] == (
+        "read_only_inspection"
+    )
     assert any(
         row["label"] == "review_execution_receipt"
         for row in completed["recommended_commands"]
@@ -2864,6 +2899,7 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert review_hint["boundary"]["boundary_type"] == "read_only_inspection"
     assert "# Operator Action Dashboard" in markdown
     assert "read_only_inspection" in markdown
+    assert "## Execution Readiness" in markdown
     assert built["status"] == "execution_completed"
     assert_matches_schema_payload(completed, "operator_action_dashboard")
     assert validate_operator_action_dashboard_file(
@@ -3044,6 +3080,12 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
         "policy_ev_improvement_low"
     )
     assert cockpit["summary"]["action_status"] == "pending_approval"
+    assert cockpit["summary"]["action_execution_readiness_status"] == (
+        "needs_operator_approval"
+    )
+    assert cockpit["summary"]["action_execution_ready"] is False
+    assert cockpit["summary"]["action_execution_next_command_boundary"]
+    assert cockpit["summary"]["action_execution_missing_artifact_count"] >= 0
     assert cockpit["summary"]["action_safe_command_count"] >= 1
     assert cockpit["summary"]["action_failure_reason_count"] == 0
     assert cockpit["summary"]["action_first_failure_stage"] == "none"
@@ -3107,6 +3149,12 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
         "operator_approval_receipt",
         "guarded_read_only_execution",
     }
+    assert cockpit["operator_digest"]["action_execution_readiness_status"] == (
+        cockpit["summary"]["action_execution_readiness_status"]
+    )
+    assert cockpit["operator_digest"]["action_execution_ready"] == (
+        cockpit["summary"]["action_execution_ready"]
+    )
     assert cockpit["operator_digest"]["policy"]["inspection_only"] is True
     assert cockpit["operator_digest"]["policy"]["command_is_hint_only"] is True
     assert (
@@ -3221,6 +3269,7 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert "## Operator Digest" in markdown
     assert "Command hint:" in markdown
     assert "Command boundary:" in markdown
+    assert "Action execution readiness:" in markdown
     assert "## Review Priority" in markdown
     assert "Run outcome: `policy_reject` (`policy_ev_improvement_low`)" in markdown
     assert "# Operator Cockpit" in md_path.read_text(encoding="utf-8")
@@ -3621,6 +3670,8 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert refresh["operator_summary"][
         "operator_digest_recommended_command_boundary"
     ] == refreshed_digest["recommended_command_boundary"]["boundary_type"]
+    assert refresh["operator_summary"]["action_execution_readiness_status"]
+    assert isinstance(refresh["operator_summary"]["action_execution_ready"], bool)
     assert refresh["operator_summary"]["next_command_source"] == "operator_digest"
     assert refresh["operator_summary"]["next_command_label"] == refreshed_digest[
         "recommended_command_label"
@@ -3635,6 +3686,7 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
         refreshed_digest["recommended_command_boundary"]["boundary_type"]
     )
     assert refresh["operator_summary"]["next_command_reason"]
+    assert "Action execution readiness:" in refresh_markdown
     assert "Operator digest:" in refresh_markdown
     assert refreshed_digest["headline"] in refresh_markdown
     assert (
@@ -4006,6 +4058,10 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             "cockpit_status": "ready_for_review",
             "cockpit_ok": True,
             "primary_focus": "review",
+            "action_execution_readiness_status": "execution_completed",
+            "action_execution_ready": False,
+            "action_execution_next_command_boundary": "read_only_inspection",
+            "action_execution_missing_artifact_count": 0,
             "operator_digest_headline": "Run is ready for operator review.",
             "operator_digest_priority": "clean",
             "operator_digest_primary_reason": "ready_for_review",

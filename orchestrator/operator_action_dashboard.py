@@ -114,6 +114,53 @@ def build_operator_action_dashboard(
     failure_reasons = dashboard_failure_reasons(audit=audit)
     blockers = dashboard_blockers(audit=audit, approval=approval, execution=execution)
     actions = available_action_rows(plan=plan)
+    timeline = dashboard_timeline(
+        plan_path=plan_path,
+        approval=approval,
+        approval_path=approval_path,
+        execution=execution,
+        execution_path=execution_path,
+        audit=audit,
+        audit_path=audit_path,
+    )
+    commands = recommended_commands(
+        status=status,
+        actions=actions,
+        run_id=str(audit.get("run_id", plan.get("run_id", run_dir.name))),
+        run_dir=run_dir,
+        approval_path=approval_path,
+        repo_root=repo_root,
+        audit_from_artifact=audit_from_artifact,
+    )
+    selected_command = object_field(audit, "selected_command")
+    sources = {
+        "action_plan": source_artifact(
+            path=plan_path,
+            artifact_name="operator_action_plan",
+            schema_path=repo_root / "schemas/operator_action_plan.schema.json",
+            repo_root=repo_root,
+        ),
+        "action_approval": source_artifact(
+            path=approval_path,
+            artifact_name="operator_action_approval",
+            schema_path=repo_root / "schemas/operator_action_approval.schema.json",
+            repo_root=repo_root,
+        ),
+        "execution_receipt": source_artifact(
+            path=execution_path,
+            artifact_name="operator_action_execution_receipt",
+            schema_path=repo_root
+            / "schemas/operator_action_execution_receipt.schema.json",
+            repo_root=repo_root,
+        ),
+        "action_audit": source_artifact(
+            path=audit_path,
+            artifact_name="operator_action_audit",
+            schema_path=repo_root / "schemas/operator_action_audit.schema.json",
+            repo_root=repo_root,
+            from_artifact=audit_from_artifact,
+        ),
+    }
 
     return {
         "schema_version": OPERATOR_ACTION_DASHBOARD_SCHEMA_VERSION,
@@ -123,57 +170,23 @@ def build_operator_action_dashboard(
         "ok": status not in {"needs_chain_repair", "missing_action_plan"},
         "current_step": current_step,
         "primary_prompt": primary_prompt(status=status),
-        "source_artifacts": {
-            "action_plan": source_artifact(
-                path=plan_path,
-                artifact_name="operator_action_plan",
-                schema_path=repo_root / "schemas/operator_action_plan.schema.json",
-                repo_root=repo_root,
-            ),
-            "action_approval": source_artifact(
-                path=approval_path,
-                artifact_name="operator_action_approval",
-                schema_path=repo_root / "schemas/operator_action_approval.schema.json",
-                repo_root=repo_root,
-            ),
-            "execution_receipt": source_artifact(
-                path=execution_path,
-                artifact_name="operator_action_execution_receipt",
-                schema_path=repo_root
-                / "schemas/operator_action_execution_receipt.schema.json",
-                repo_root=repo_root,
-            ),
-            "action_audit": source_artifact(
-                path=audit_path,
-                artifact_name="operator_action_audit",
-                schema_path=repo_root / "schemas/operator_action_audit.schema.json",
-                repo_root=repo_root,
-                from_artifact=audit_from_artifact,
-            ),
-        },
+        "source_artifacts": sources,
         "summary": dashboard_summary(audit=audit, actions=actions, blockers=blockers),
-        "timeline": dashboard_timeline(
-            plan_path=plan_path,
-            approval=approval,
-            approval_path=approval_path,
-            execution=execution,
-            execution_path=execution_path,
-            audit=audit,
-            audit_path=audit_path,
-        ),
+        "timeline": timeline,
         "selected_action": object_field(audit, "selected_action"),
-        "selected_command": object_field(audit, "selected_command"),
+        "selected_command": selected_command,
         "available_actions": actions,
         "failure_reasons": failure_reasons,
         "blockers": blockers,
-        "recommended_commands": recommended_commands(
+        "recommended_commands": commands,
+        "execution_readiness": execution_readiness_summary(
             status=status,
-            actions=actions,
-            run_id=str(audit.get("run_id", plan.get("run_id", run_dir.name))),
-            run_dir=run_dir,
-            approval_path=approval_path,
-            repo_root=repo_root,
-            audit_from_artifact=audit_from_artifact,
+            current_step=current_step,
+            sources=sources,
+            timeline=timeline,
+            blockers=blockers,
+            recommended_commands=commands,
+            selected_command=selected_command,
         ),
         "authority": {
             "approval_required_before_execution": True,
@@ -197,6 +210,153 @@ def build_operator_action_dashboard(
             "does_not_change_acceptance": True,
         },
     }
+
+
+def execution_readiness_summary(
+    *,
+    status: str,
+    current_step: str,
+    sources: dict[str, object],
+    timeline: list[dict[str, object]],
+    blockers: list[str],
+    recommended_commands: list[dict[str, object]],
+    selected_command: dict[str, Any],
+) -> dict[str, object]:
+    """Return deterministic pre-execution readiness for the operator action chain."""
+    next_command = recommended_commands[0] if recommended_commands else {}
+    next_boundary = object_field(next_command, "boundary")
+    dependency_rows = execution_dependency_rows(
+        sources=sources,
+        timeline=timeline,
+        status=status,
+    )
+    missing_artifacts = [
+        str(row["artifact_name"])
+        for row in dependency_rows
+        if row["required"] is True and row["passed"] is not True
+    ]
+    if blockers:
+        readiness_status = "blocked"
+        ready = False
+        reason = "action chain has blockers"
+    elif status == "ready_for_execution":
+        readiness_status = "ready_for_guarded_execution"
+        ready = True
+        reason = "approval is recorded and guarded execution can be invoked"
+    elif status == "pending_approval":
+        readiness_status = "needs_operator_approval"
+        ready = False
+        reason = "operator approval must be recorded first"
+    elif status == "execution_completed":
+        readiness_status = "execution_completed"
+        ready = False
+        reason = "execution receipt is already complete"
+    elif status in {"execution_blocked", "execution_failed"}:
+        readiness_status = status
+        ready = False
+        reason = "inspect execution receipt before retrying"
+    elif status in {"needs_chain_repair", "chain_inconsistent"}:
+        readiness_status = "needs_chain_repair"
+        ready = False
+        reason = "repair action chain evidence before execution"
+    elif status == "missing_action_plan":
+        readiness_status = "missing_action_plan"
+        ready = False
+        reason = "generate action plan before execution review"
+    else:
+        readiness_status = "review_required"
+        ready = False
+        reason = "review action dashboard before execution"
+
+    return {
+        "schema_version": "operator_action_execution_readiness_v1",
+        "status": readiness_status,
+        "ready": ready,
+        "reason": reason,
+        "current_step": current_step,
+        "next_command_label": str(next_command.get("label", "")),
+        "next_command_boundary": str(next_boundary.get("boundary_type", "")),
+        "requires_operator_approval": bool(
+            next_boundary.get("requires_operator_approval", False)
+        ),
+        "uses_guarded_executor": bool(
+            next_boundary.get("uses_guarded_executor", False)
+        ),
+        "selected_command_label": str(selected_command.get("label", "")),
+        "selected_command_digest_matches_plan": bool(
+            selected_command.get("digest_matches_plan", False)
+        ),
+        "blocker_count": len(blockers),
+        "blockers": blockers[:5],
+        "missing_artifact_count": len(missing_artifacts),
+        "missing_artifacts": missing_artifacts,
+        "dependencies": dependency_rows,
+        "policy": {
+            "inspection_only": True,
+            "does_not_execute_commands": True,
+            "does_not_record_approval": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+
+
+def execution_dependency_rows(
+    *,
+    sources: dict[str, object],
+    timeline: list[dict[str, object]],
+    status: str,
+) -> list[dict[str, object]]:
+    """Return dependency rows used by the action execution readiness summary."""
+    timeline_by_step = {
+        str(row.get("step", "")): row for row in timeline if isinstance(row, dict)
+    }
+    required_by_artifact = {
+        "operator_action_plan": True,
+        "operator_action_audit": status != "missing_action_plan",
+        "operator_action_approval": status
+        in {
+            "ready_for_execution",
+            "execution_completed",
+            "execution_blocked",
+            "execution_failed",
+        },
+        "operator_action_execution_receipt": status == "execution_completed",
+    }
+    timeline_step_by_artifact = {
+        "operator_action_plan": "action_plan",
+        "operator_action_audit": "action_audit",
+        "operator_action_approval": "operator_approval",
+        "operator_action_execution_receipt": "guarded_execution",
+    }
+    rows: list[dict[str, object]] = []
+    for source_key in (
+        "action_plan",
+        "action_audit",
+        "action_approval",
+        "execution_receipt",
+    ):
+        source_record = sources.get(source_key, {})
+        if not isinstance(source_record, dict):
+            source_record = {}
+        source = object_field(source_record, "file")
+        artifact_name = str(source_record.get("artifact_name", ""))
+        timeline_row = timeline_by_step.get(
+            timeline_step_by_artifact.get(artifact_name, ""),
+            {},
+        )
+        exists = bool(source.get("exists", False))
+        required = bool(required_by_artifact.get(artifact_name, False))
+        rows.append(
+            {
+                "artifact_name": artifact_name,
+                "required": required,
+                "exists": exists,
+                "passed": (not required) or exists,
+                "timeline_status": str(timeline_row.get("status", "")),
+                "path": str(source.get("path", "")),
+            }
+        )
+    return rows
 
 
 def dashboard_status(*, audit: dict[str, Any]) -> str:
@@ -568,6 +728,7 @@ def render_operator_action_dashboard_markdown(payload: dict[str, object]) -> str
     """Render an operator action dashboard as markdown."""
     summary = object_field(payload, "summary")
     selected_command = object_field(payload, "selected_command")
+    readiness = object_field(payload, "execution_readiness")
     lines = [
         "# Operator Action Dashboard",
         "",
@@ -580,12 +741,40 @@ def render_operator_action_dashboard_markdown(payload: dict[str, object]) -> str
         f"- Commands: `{summary.get('command_candidate_count', 0)}`",
         f"- Safe commands: `{summary.get('safe_command_count', 0)}`",
         f"- Chain OK: `{summary.get('chain_ok', False)}`",
+        f"- Execution readiness: `{readiness.get('status', '')}`",
+        f"- Ready for guarded execution: `{readiness.get('ready', False)}`",
         "",
+        "## Execution Readiness",
+        "",
+        f"- Status: `{readiness.get('status', '')}`",
+        f"- Ready: `{readiness.get('ready', False)}`",
+        f"- Reason: {readiness.get('reason', '')}",
+        f"- Next command: `{readiness.get('next_command_label', '')}`",
+        f"- Next command boundary: `{readiness.get('next_command_boundary', '')}`",
+        f"- Missing artifacts: `{readiness.get('missing_artifact_count', 0)}`",
+        f"- Blockers: `{readiness.get('blocker_count', 0)}`",
+        "",
+        "| Dependency | Required | Exists | Passed | Status |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for row in list_of_dicts(readiness.get("dependencies", [])):
+        lines.append(
+            "| "
+            f"{row.get('artifact_name', '')} | "
+            f"`{row.get('required', False)}` | "
+            f"`{row.get('exists', False)}` | "
+            f"`{row.get('passed', False)}` | "
+            f"`{row.get('timeline_status', '')}` |"
+        )
+    lines.extend(
+        [
+            "",
         "## Timeline",
         "",
         "| Step | Status | Artifact |",
         "| --- | --- | --- |",
-    ]
+        ]
+    )
     for row in list_of_dicts(payload.get("timeline", [])):
         lines.append(
             "| "
@@ -706,6 +895,10 @@ def validate_operator_action_dashboard_consistency(
     failure_reasons = list_of_dicts(payload.get("failure_reasons", []))
     blockers = string_list(payload.get("blockers", []))
     commands = list_of_dicts(payload.get("recommended_commands", []))
+    sources = object_field(payload, "source_artifacts")
+    timeline = list_of_dicts(payload.get("timeline", []))
+    readiness = object_field(payload, "execution_readiness")
+    selected_command = object_field(payload, "selected_command")
 
     if bool(payload.get("ok", False)) != (
         status not in {"needs_chain_repair", "missing_action_plan"}
@@ -750,6 +943,17 @@ def validate_operator_action_dashboard_consistency(
         if object_field(command, "boundary") != expected_boundary:
             errors.append("operator_action_dashboard command boundary mismatch")
             break
+    expected_readiness = execution_readiness_summary(
+        status=status,
+        current_step=str(payload.get("current_step", "")),
+        sources=sources,
+        timeline=timeline,
+        blockers=blockers,
+        recommended_commands=commands,
+        selected_command=selected_command,
+    )
+    if readiness != expected_readiness:
+        errors.append("operator_action_dashboard execution_readiness mismatch")
     return tuple(errors)
 
 

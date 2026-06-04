@@ -119,6 +119,10 @@
         "config_lineage_ok",
         "action_status",
         "action_current_step",
+        "action_execution_readiness_status",
+        "action_execution_ready",
+        "action_execution_next_command_boundary",
+        "action_execution_missing_artifact_count",
         "action_safe_command_count",
         "action_failure_reason_count",
         "action_first_failure_stage",
@@ -173,6 +177,18 @@
         },
         "action_current_step": {
           "type": "string"
+        },
+        "action_execution_readiness_status": {
+          "type": "string"
+        },
+        "action_execution_ready": {
+          "type": "boolean"
+        },
+        "action_execution_next_command_boundary": {
+          "type": "string"
+        },
+        "action_execution_missing_artifact_count": {
+          "type": "integer"
         },
         "action_safe_command_count": {
           "type": "integer"
@@ -544,6 +560,10 @@
         "config_lineage_status",
         "action_status",
         "action_current_step",
+        "action_execution_readiness_status",
+        "action_execution_ready",
+        "action_execution_next_command_boundary",
+        "action_execution_missing_artifact_count",
         "candidate_quality_top_failure_code",
         "codex_preflight_status",
         "codex_readiness_diff_status",
@@ -598,6 +618,18 @@
         },
         "action_current_step": {
           "type": "string"
+        },
+        "action_execution_readiness_status": {
+          "type": "string"
+        },
+        "action_execution_ready": {
+          "type": "boolean"
+        },
+        "action_execution_next_command_boundary": {
+          "type": "string"
+        },
+        "action_execution_missing_artifact_count": {
+          "type": "integer"
         },
         "candidate_quality_top_failure_code": {
           "type": "string"

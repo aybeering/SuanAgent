@@ -2686,10 +2686,23 @@ def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, objec
     digest = dict_payload(cockpit.get("operator_digest", {}))
     digest_boundary = dict_payload(digest.get("recommended_command_boundary", {}))
     next_command_boundary = dict_payload(next_command.get("boundary", {}))
+    cockpit_summary = dict_payload(cockpit.get("summary", {}))
     return {
         "cockpit_status": str(cockpit.get("status", "")),
         "cockpit_ok": bool(cockpit.get("ok", False)),
         "primary_focus": str(cockpit.get("primary_focus", "")),
+        "action_execution_readiness_status": str(
+            cockpit_summary.get("action_execution_readiness_status", "")
+        ),
+        "action_execution_ready": bool(
+            cockpit_summary.get("action_execution_ready", False)
+        ),
+        "action_execution_next_command_boundary": str(
+            cockpit_summary.get("action_execution_next_command_boundary", "")
+        ),
+        "action_execution_missing_artifact_count": int(
+            cockpit_summary.get("action_execution_missing_artifact_count", 0) or 0
+        ),
         "operator_digest_headline": str(digest.get("headline", "")),
         "operator_digest_priority": str(digest.get("priority", "")),
         "operator_digest_primary_reason": str(digest.get("primary_reason", "")),
@@ -3088,6 +3101,12 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Review primary reason: `{review_summary.get('primary_reason', '')}`",
         f"- Cockpit status: `{operator_summary.get('cockpit_status', '')}`",
         f"- Primary focus: `{operator_summary.get('primary_focus', '')}`",
+        "- Action execution readiness: "
+        f"`{operator_summary.get('action_execution_readiness_status', '')}`",
+        f"- Action execution ready: "
+        f"`{operator_summary.get('action_execution_ready', False)}`",
+        "- Action execution missing artifacts: "
+        f"`{operator_summary.get('action_execution_missing_artifact_count', 0)}`",
         f"- Operator digest: {operator_summary.get('operator_digest_headline', '')}",
         f"- Digest priority: `{operator_summary.get('operator_digest_priority', '')}`",
         "- Digest target panel: "

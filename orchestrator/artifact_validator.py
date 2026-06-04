@@ -5570,6 +5570,10 @@ def validate_optional_operator_action_dashboard(
         payload=payload,
         report=report,
     )
+    validate_operator_action_dashboard_execution_readiness(
+        payload=payload,
+        report=report,
+    )
 
     authority = payload.get("authority", {})
     if not isinstance(authority, dict):
@@ -5636,6 +5640,76 @@ def validate_operator_action_dashboard_recommended_commands(
             ),
         },
     )
+
+
+def validate_operator_action_dashboard_execution_readiness(
+    *,
+    payload: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate action-dashboard pre-execution readiness summary fields."""
+    readiness = payload.get("execution_readiness", {})
+    if not isinstance(readiness, dict):
+        add_error(report, "operator_action_dashboard execution_readiness invalid")
+        return
+    status = str(payload.get("status", ""))
+    readiness_status = str(readiness.get("status", ""))
+    if status == "ready_for_execution":
+        if readiness_status != "ready_for_guarded_execution":
+            add_error(report, "operator_action_dashboard readiness status mismatch")
+        if readiness.get("ready") is not True:
+            add_error(report, "operator_action_dashboard readiness not ready")
+    elif readiness.get("ready") is True:
+        add_error(report, "operator_action_dashboard readiness ready mismatch")
+    blockers = string_list(payload.get("blockers", []))
+    if readiness.get("blocker_count") != len(blockers):
+        add_error(report, "operator_action_dashboard readiness blocker mismatch")
+    missing_artifacts = readiness.get("missing_artifacts", [])
+    if not isinstance(missing_artifacts, list):
+        add_error(report, "operator_action_dashboard readiness missing artifacts invalid")
+        missing_artifacts = []
+    if readiness.get("missing_artifact_count") != len(missing_artifacts):
+        add_error(
+            report,
+            "operator_action_dashboard readiness missing artifact count mismatch",
+        )
+    commands = list_of_dicts(payload.get("recommended_commands", []))
+    command = next(
+        (
+            row
+            for row in commands
+            if str(row.get("label", "")) == str(readiness.get("next_command_label", ""))
+        ),
+        None,
+    )
+    if command is None:
+        add_error(report, "operator_action_dashboard readiness command missing")
+    else:
+        boundary = command.get("boundary", {})
+        if not isinstance(boundary, dict):
+            boundary = {}
+        if str(readiness.get("next_command_boundary", "")) != str(
+            boundary.get("boundary_type", "")
+        ):
+            add_error(report, "operator_action_dashboard readiness boundary mismatch")
+    dependencies = readiness.get("dependencies", [])
+    if not isinstance(dependencies, list):
+        add_error(report, "operator_action_dashboard readiness dependencies invalid")
+    policy = readiness.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "operator_action_dashboard readiness policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "does_not_execute_commands",
+        "does_not_record_approval",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            add_error(
+                report,
+                f"operator_action_dashboard readiness policy false: {key}",
+            )
 
 
 def validate_recommended_command_hints(

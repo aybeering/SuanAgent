@@ -223,6 +223,10 @@
         "cockpit_status",
         "cockpit_ok",
         "primary_focus",
+        "action_execution_readiness_status",
+        "action_execution_ready",
+        "action_execution_next_command_boundary",
+        "action_execution_missing_artifact_count",
         "operator_digest_headline",
         "operator_digest_priority",
         "operator_digest_primary_reason",
@@ -249,6 +253,18 @@
         },
         "primary_focus": {
           "type": "string"
+        },
+        "action_execution_readiness_status": {
+          "type": "string"
+        },
+        "action_execution_ready": {
+          "type": "boolean"
+        },
+        "action_execution_next_command_boundary": {
+          "$ref": "#/$defs/command_boundary_type"
+        },
+        "action_execution_missing_artifact_count": {
+          "type": "integer"
         },
         "operator_digest_headline": {
           "type": "string"

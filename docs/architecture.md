@@ -215,6 +215,9 @@ those reason codes, and suggested guarded commands with explicit boundary
 classification while remaining read-only:
 they do not record approval, execute commands, write config, promote champions,
 run agents, run backtests, route agents, apply patches, or change acceptance.
+The dashboard also derives an execution-readiness checkpoint from saved
+artifacts only, showing whether guarded execution can be invoked and which
+approval, audit, receipt, blocker, or dependency condition still prevents it.
 The iteration loop writes the final dashboard
 during closeout after the action plan; the explicit dashboard command is still
 available to refresh the view after later approval or execution artifacts.

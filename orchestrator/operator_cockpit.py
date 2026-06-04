@@ -373,6 +373,7 @@ def cockpit_summary(
     closeout_summary = object_field(closeout, "summary")
     outcome = cockpit_run_outcome_summary(manifest=manifest, diagnosis=diagnosis)
     action_summary = object_field(action_dashboard, "summary")
+    action_readiness = object_field(action_dashboard, "execution_readiness")
     quality_summary = object_field(quality_trace, "summary")
     codex_summary = object_field(codex_preflight, "summary")
     diff_summary = object_field(codex_readiness_diff, "summary")
@@ -391,6 +392,16 @@ def cockpit_summary(
         "config_lineage_ok": bool(config_lineage.get("ok", False)),
         "action_status": str(action_dashboard.get("status", "missing")),
         "action_current_step": str(action_dashboard.get("current_step", "")),
+        "action_execution_readiness_status": str(
+            action_readiness.get("status", "")
+        ),
+        "action_execution_ready": bool(action_readiness.get("ready", False)),
+        "action_execution_next_command_boundary": str(
+            action_readiness.get("next_command_boundary", "")
+        ),
+        "action_execution_missing_artifact_count": int(
+            action_readiness.get("missing_artifact_count", 0) or 0
+        ),
         "action_safe_command_count": int(
             action_summary.get("safe_command_count", 0) or 0
         ),
@@ -517,6 +528,18 @@ def cockpit_operator_digest(
         "config_lineage_status": str(summary.get("config_lineage_status", "")),
         "action_status": str(summary.get("action_status", "")),
         "action_current_step": str(summary.get("action_current_step", "")),
+        "action_execution_readiness_status": str(
+            summary.get("action_execution_readiness_status", "")
+        ),
+        "action_execution_ready": bool(
+            summary.get("action_execution_ready", False)
+        ),
+        "action_execution_next_command_boundary": str(
+            summary.get("action_execution_next_command_boundary", "")
+        ),
+        "action_execution_missing_artifact_count": int(
+            summary.get("action_execution_missing_artifact_count", 0) or 0
+        ),
         "candidate_quality_top_failure_code": str(
             summary.get("candidate_quality_top_failure_code", "")
         ),
@@ -1198,6 +1221,9 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         f"(`{summary.get('run_outcome_primary_code', '')}`)",
         f"- Config lineage: `{summary.get('config_lineage_status', '')}`",
         f"- Action: `{summary.get('action_status', '')}`",
+        f"- Action execution readiness: "
+        f"`{summary.get('action_execution_readiness_status', '')}`",
+        f"- Action execution ready: `{summary.get('action_execution_ready', False)}`",
         f"- Candidate quality: `{summary.get('candidate_quality_status', '')}` "
         f"(`{summary.get('candidate_quality_top_failure_code', '')}`)",
         f"- Codex CLI preflight: `{summary.get('codex_preflight_status', '')}`",

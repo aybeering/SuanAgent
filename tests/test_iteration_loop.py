@@ -4108,6 +4108,60 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     )["ok"] is True
 
 
+def test_refresh_operator_views_cli_resolves_latest_run(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "operator-view-refresh-latest"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "refresh-operator-views",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "refresh-operator-views",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["run_id"] == run_id
+    assert payload["schema_version"] == "operator_view_refresh_v1"
+    assert payload["refreshed_count"] == 6
+    assert payload["policy"]["does_not_execute_commands"] is True
+    assert payload["policy"]["does_not_change_acceptance"] is True
+    assert validate_operator_view_refresh_payload(payload, repo_root=repo) == ()
+    assert markdown_result.returncode == 0, markdown_result.stderr
+    assert "# Operator View Refresh" in markdown_result.stdout
+    assert run_id in markdown_result.stdout
+
+
 def test_refresh_operator_views_uses_run_metadata_config_path(
     tmp_path: Path,
 ) -> None:
@@ -21574,6 +21628,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    cockpit_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "cockpit",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cockpit_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "cockpit",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     stats_result = subprocess.run(
         [
             sys.executable,
@@ -22694,6 +22779,23 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     ) == ()
     assert cockpit_markdown_result.returncode == 0, cockpit_markdown_result.stderr
     assert "# Operator Cockpit" in cockpit_markdown_result.stdout
+    assert cockpit_latest_result.returncode == 0, cockpit_latest_result.stderr
+    cockpit_latest_payload = json.loads(cockpit_latest_result.stdout)
+    assert cockpit_latest_payload["run_id"] == "cli-candidates"
+    assert cockpit_latest_payload["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION
+    assert cockpit_latest_payload["from_artifact"] is True
+    assert_matches_schema_payload(cockpit_latest_payload, "operator_cockpit")
+    assert validate_operator_cockpit_payload(
+        cockpit_latest_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    ) == ()
+    assert cockpit_latest_markdown_result.returncode == 0, (
+        cockpit_latest_markdown_result.stderr
+    )
+    assert "# Operator Cockpit" in cockpit_latest_markdown_result.stdout
+    assert "cli-candidates" in cockpit_latest_markdown_result.stdout
     assert stats_result.returncode == 0, stats_result.stderr
     stats_payload = json.loads(stats_result.stdout)
     assert stats_payload["schema_version"] == "agent_result_stats_v1"

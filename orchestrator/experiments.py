@@ -2910,10 +2910,11 @@ def operator_action_guide_report(
 
 def operator_cockpit_report(
     *,
-    run_id: str,
+    run_id: str | None = None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return the saved or derived operator cockpit for one run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
@@ -2990,12 +2991,13 @@ def operator_home_report(
 
 def refresh_operator_views(
     *,
-    run_id: str,
+    run_id: str | None = None,
     experiments_dir: Path = Path("experiments"),
     config_path: Path | None = None,
 ) -> dict[str, object]:
     """Refresh source-hash-bound operator views in deterministic order."""
     experiments_dir = experiments_dir.resolve()
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
@@ -4950,7 +4952,16 @@ def main() -> None:
         "cockpit",
         help="Show the read-only operator cockpit for one iteration run.",
     )
-    cockpit_parser.add_argument("run_id")
+    cockpit_parser.add_argument(
+        "run_id",
+        nargs="?",
+        help="Iteration run id. Defaults to the latest indexed iteration run.",
+    )
+    cockpit_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Show the latest indexed iteration run even if a run id is provided.",
+    )
     cockpit_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -4981,7 +4992,16 @@ def main() -> None:
         "refresh-operator-views",
         help="Refresh source-hash-bound read-only operator views in safe order.",
     )
-    refresh_views_parser.add_argument("run_id")
+    refresh_views_parser.add_argument(
+        "run_id",
+        nargs="?",
+        help="Iteration run id. Defaults to the latest indexed iteration run.",
+    )
+    refresh_views_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Show the latest indexed iteration run even if a run id is provided.",
+    )
     refresh_views_parser.add_argument(
         "--config",
         type=Path,
@@ -5402,7 +5422,7 @@ def main() -> None:
     elif args.command == "cockpit":
         payload = operator_cockpit_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(render_operator_cockpit_markdown(payload), end="")
@@ -5418,7 +5438,7 @@ def main() -> None:
     elif args.command == "refresh-operator-views":
         payload = refresh_operator_views(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
             config_path=args.config,
         )
         if args.markdown:

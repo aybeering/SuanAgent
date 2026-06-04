@@ -91,7 +91,9 @@ python -m orchestrator.experiments execution-readiness-diff <run_id> --markdown
 python -m orchestrator.operator_cockpit experiments/<run_id>
 python -m orchestrator.experiments cockpit <run_id>
 python -m orchestrator.experiments cockpit <run_id> --markdown
+python -m orchestrator.experiments cockpit --latest --markdown
 python -m orchestrator.experiments refresh-operator-views <run_id>
+python -m orchestrator.experiments refresh-operator-views --latest --markdown
 ```
 
 `python -m orchestrator.experiments list --limit N` returns recent append-only
@@ -548,8 +550,9 @@ action failure reasons and `operator_action:<code>` blockers so action-chain
 breaks are visible from the top page. The iteration loop writes the final
 cockpit after the dashboard, standalone checklist, unlock runbook, and readiness
 diff so source hashes bind to the final closeout artifacts;
-`python -m orchestrator.experiments cockpit <run_id>` and `cockpit --markdown`
-expose panel rows, blockers, primary focus, a deterministic `review_priority`
+`python -m orchestrator.experiments cockpit <run_id>`, `python -m
+orchestrator.experiments cockpit --latest`, and `cockpit --markdown` expose
+panel rows, blockers, primary focus, a deterministic `review_priority`
 navigation object, a first-screen `operator_digest`, and command hints without
 recording approval, executing commands, writing config, promoting champions,
 running agents, running backtests, applying patches, routing agents, or
@@ -578,8 +581,9 @@ recorded source hashes with the current source files and names stale sources
 that require an explicit cockpit refresh. This freshness section is read-only
 inspection metadata and is
 not stored in `operator_cockpit.json`.
-`python -m orchestrator.experiments refresh-operator-views <run_id>` is an
-explicit convenience command that rewrites the existing read-only operator
+`python -m orchestrator.experiments refresh-operator-views <run_id>` and
+`python -m orchestrator.experiments refresh-operator-views --latest` are
+explicit convenience commands that rewrite the existing read-only operator
 action dashboard, Codex CLI execution preflight, operator unlock checklist,
 Codex CLI unlock runbook, Codex CLI execution readiness diff, and operator
 cockpit in dependency order.

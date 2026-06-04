@@ -145,8 +145,9 @@ Implemented or allowed V0.5 components:
     The artifact validator also binds the saved `summary.md` top-level run
     header back to `manifest.json` for run id, status, completed-round,
     accepted-round, stop-reason, and final-strategy-commit consistency, and
-    binds the `summary.md` dataset, run-outcome, agent-intake, and round-table
-    sections back to their corresponding manifest records and round artifacts.
+    binds the `summary.md` dataset, run-outcome, agent-intake, round-table, and
+    proposal-quality sections back to their corresponding manifest records and
+    round artifacts.
     Experiment summary dashboards and operator cockpit summaries surface the
     same outcome category, primary stage, and primary code as read-only
     navigation so recent run history and per-run review show why the loop

@@ -14,7 +14,7 @@ from orchestrator.codex_cli_intake_readiness import (
 )
 from orchestrator.operator_command_boundaries import classify_operator_command
 from orchestrator.run_outcome import build_run_outcome_summary
-from orchestrator.run_summary import round_table_row
+from orchestrator.run_summary import proposal_quality_row, round_table_row
 from orchestrator.schema_validation import validate_json_file
 
 
@@ -509,6 +509,11 @@ def validate_iteration_run(
         manifest=manifest,
         report=report,
     )
+    validate_iteration_summary_proposal_quality(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
     validate_iteration_summary_operator_home(
         run_dir=run_dir,
         manifest=manifest,
@@ -766,6 +771,34 @@ def validate_iteration_summary_rounds(
         expected_line = round_table_row(run_dir, round_payload)
         if expected_line not in section:
             add_error(report, f"summary.md rounds {round_id} row mismatch")
+
+
+def validate_iteration_summary_proposal_quality(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md proposal-quality rows mirror round proposal artifacts."""
+    rounds = [
+        round_payload
+        for round_payload in manifest.get("rounds", [])
+        if isinstance(round_payload, dict)
+    ]
+    if not rounds:
+        return
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Proposal Quality",
+    )
+    if not section:
+        add_error(report, "summary.md proposal_quality section missing")
+        return
+    for round_payload in rounds:
+        round_id = markdown_display_value(round_payload.get("round_id"))
+        expected_line = proposal_quality_row(run_dir, round_payload)
+        if expected_line not in section:
+            add_error(report, f"summary.md proposal_quality {round_id} row mismatch")
 
 
 def validate_iteration_summary_operator_home(

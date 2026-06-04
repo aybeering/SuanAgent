@@ -193,6 +193,7 @@ def build_operator_cockpit(
     promotion = load_json_object(run_dir / "champion_promotion_dry_run.json")
     approval = load_json_object(run_dir / "champion_promotion_approval.json")
     codex_preflight = load_json_object(run_dir / "codex_cli_execution_preflight.json")
+    codex_unlock_runbook = load_json_object(run_dir / "codex_cli_unlock_runbook.json")
     codex_readiness_diff = load_json_object(
         run_dir / "codex_cli_execution_readiness_diff.json"
     )
@@ -220,6 +221,7 @@ def build_operator_cockpit(
         promotion=promotion,
         approval=approval,
         codex_preflight=codex_preflight,
+        codex_unlock_runbook=codex_unlock_runbook,
         codex_readiness_diff=codex_readiness_diff,
         codex_intake_readiness=codex_intake_readiness,
         action_dashboard=action_dashboard,
@@ -237,6 +239,7 @@ def build_operator_cockpit(
         promotion=promotion,
         approval=approval,
         codex_preflight=codex_preflight,
+        codex_unlock_runbook=codex_unlock_runbook,
         codex_readiness_diff=codex_readiness_diff,
         codex_intake_readiness=codex_intake_readiness,
         action_dashboard=action_dashboard,
@@ -375,6 +378,7 @@ def cockpit_summary(
     promotion: dict[str, Any],
     approval: dict[str, Any],
     codex_preflight: dict[str, Any],
+    codex_unlock_runbook: dict[str, Any],
     codex_readiness_diff: dict[str, Any],
     codex_intake_readiness: dict[str, Any],
     action_dashboard: dict[str, Any],
@@ -467,6 +471,19 @@ def cockpit_summary(
             codex_summary.get("operator_unlock_ready_count", 0) or 0
         ),
         "codex_preflight_blocker_count": len(codex_blockers),
+        "codex_unlock_runbook_status": str(
+            codex_unlock_runbook.get("status", "missing")
+        ),
+        "codex_unlock_runbook_ready": bool(
+            codex_unlock_runbook.get("ready", False)
+        ),
+        "codex_unlock_runbook_blocked_step_count": int(
+            object_field(codex_unlock_runbook, "summary").get(
+                "blocked_step_count",
+                0,
+            )
+            or 0
+        ),
         "codex_readiness_diff_status": str(
             codex_readiness_diff.get("status", "missing")
         ),
@@ -583,6 +600,9 @@ def cockpit_operator_digest(
             summary.get("candidate_quality_top_failure_code", "")
         ),
         "codex_preflight_status": str(summary.get("codex_preflight_status", "")),
+        "codex_unlock_runbook_status": str(
+            summary.get("codex_unlock_runbook_status", "")
+        ),
         "codex_readiness_diff_status": str(
             summary.get("codex_readiness_diff_status", "")
         ),
@@ -625,6 +645,7 @@ def cockpit_panels(
     promotion: dict[str, Any],
     approval: dict[str, Any],
     codex_preflight: dict[str, Any],
+    codex_unlock_runbook: dict[str, Any],
     codex_readiness_diff: dict[str, Any],
     codex_intake_readiness: dict[str, Any],
     action_dashboard: dict[str, Any],
@@ -688,6 +709,15 @@ def cockpit_panels(
                 preflight=codex_preflight,
                 blockers=preflight_blockers,
             ),
+        ),
+        panel(
+            panel_id="codex_cli_unlock_runbook",
+            title="Codex CLI Unlock Runbook",
+            status=str(codex_unlock_runbook.get("status", "missing")),
+            ok=bool(codex_unlock_runbook.get("ready", False))
+            or str(codex_unlock_runbook.get("status", "")) == "needs_artifacts",
+            artifact_path=run_dir / "codex_cli_unlock_runbook.json",
+            next_step=codex_unlock_runbook_next_step(codex_unlock_runbook),
         ),
         panel(
             panel_id="codex_cli_readiness_diff",
@@ -964,6 +994,7 @@ def command_for_panel(
         "config_lineage": "review_config_lineage",
         "operator_action": "review_action_dashboard",
         "codex_cli_unlock": "review_codex_cli_preflight",
+        "codex_cli_unlock_runbook": "review_codex_cli_unlock_runbook",
         "codex_cli_readiness_diff": "review_codex_cli_readiness_diff",
         "codex_cli_intake": "review_codex_cli_readiness_diff",
         "candidate_quality": "review_quality_trace",
@@ -1030,6 +1061,10 @@ def source_artifacts(*, run_dir: Path, repo_root: Path) -> dict[str, object]:
         "codex_cli_execution_readiness_diff": (
             run_dir / "codex_cli_execution_readiness_diff.json",
             "schemas/codex_cli_execution_readiness_diff.schema.json",
+        ),
+        "codex_cli_unlock_runbook": (
+            run_dir / "codex_cli_unlock_runbook.json",
+            "schemas/codex_cli_unlock_runbook.schema.json",
         ),
         "operator_unlock_checklist": (
             run_dir / "operator_unlock_checklist.json",
@@ -1130,6 +1165,15 @@ def recommended_commands(
             ),
             reason="Inspect startup blockers before any real Codex CLI execution.",
             writes_artifact="codex_cli_execution_preflight.json",
+        ),
+        command_hint(
+            label="review_codex_cli_unlock_runbook",
+            command=(
+                "python -m orchestrator.experiments "
+                f"unlock-runbook {run_id} --markdown"
+            ),
+            reason="Inspect the ordered Codex CLI unlock evidence guide.",
+            writes_artifact="",
         ),
         command_hint(
             label="review_codex_cli_readiness_diff",
@@ -1273,6 +1317,20 @@ def codex_readiness_diff_next_step(payload: dict[str, Any]) -> str:
     return "inspect Codex CLI readiness blockers before real execution"
 
 
+def codex_unlock_runbook_next_step(payload: dict[str, Any]) -> str:
+    """Return the next operator-facing step for the Codex CLI unlock runbook."""
+    if not payload:
+        return "write Codex CLI unlock runbook before real execution review"
+    status = str(payload.get("status", "missing"))
+    if status == "ready":
+        return "review readiness diff before any real Codex execution"
+    if status == "blocked":
+        return "inspect blocked Codex CLI unlock runbook steps"
+    if status == "needs_artifacts":
+        return "generate missing Codex CLI unlock evidence artifacts"
+    return "inspect Codex CLI unlock runbook"
+
+
 def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
     """Render an operator cockpit as markdown."""
     summary = object_field(payload, "summary")
@@ -1299,6 +1357,7 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         f"- Candidate quality: `{summary.get('candidate_quality_status', '')}` "
         f"(`{summary.get('candidate_quality_top_failure_code', '')}`)",
         f"- Codex CLI preflight: `{summary.get('codex_preflight_status', '')}`",
+        f"- Codex CLI unlock runbook: `{summary.get('codex_unlock_runbook_status', '')}`",
         f"- Codex CLI readiness diff: `{summary.get('codex_readiness_diff_status', '')}`",
         f"- Codex CLI intake binding: `{summary.get('codex_intake_readiness_status', '')}`",
         f"- Codex CLI intake ready: `{summary.get('codex_intake_ready', False)}`",

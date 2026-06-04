@@ -3360,6 +3360,7 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
         "review_run_diagnosis",
         "review_config_lineage",
         "review_action_dashboard",
+        "review_codex_cli_unlock_runbook",
         "review_quality_trace",
         "review_challenger_report",
         "review_promotion_dry_run",
@@ -3438,6 +3439,12 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["source_artifacts"]["operator_unlock_checklist"]["file"][
         "exists"
     ] is True
+    assert cockpit["source_artifacts"]["codex_cli_unlock_runbook"]["file"][
+        "path"
+    ].endswith("codex_cli_unlock_runbook.json")
+    assert cockpit["source_artifacts"]["codex_cli_unlock_runbook"]["file"][
+        "exists"
+    ] is True
     assert cockpit["source_artifacts"]["candidate_quality_trace"]["file"][
         "exists"
     ] is True
@@ -3472,6 +3479,15 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["summary"]["codex_preflight_ok"] is True
     assert cockpit["summary"]["codex_real_execute_profile_count"] == 0
     assert cockpit["summary"]["codex_preflight_blocker_count"] == 0
+    assert cockpit["summary"]["codex_unlock_runbook_status"] in {
+        "needs_artifacts",
+        "ready",
+        "blocked",
+    }
+    assert cockpit["summary"]["codex_unlock_runbook_ready"] is False
+    assert cockpit["operator_digest"]["codex_unlock_runbook_status"] == (
+        cockpit["summary"]["codex_unlock_runbook_status"]
+    )
     assert cockpit["summary"]["codex_readiness_diff_status"] == "missing_evidence"
     assert cockpit["summary"]["codex_readiness_diff_ready"] is False
     assert cockpit["summary"]["codex_intake_readiness_status"] == "not_available"
@@ -3499,6 +3515,10 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert any(row["panel_id"] == "run_outcome" for row in cockpit["panels"])
     assert any(row["panel_id"] == "codex_cli_unlock" for row in cockpit["panels"])
     assert any(
+        row["panel_id"] == "codex_cli_unlock_runbook"
+        for row in cockpit["panels"]
+    )
+    assert any(
         row["panel_id"] == "codex_cli_readiness_diff"
         for row in cockpit["panels"]
     )
@@ -3519,6 +3539,10 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     )
     assert any(
         row["label"] == "review_codex_cli_preflight"
+        for row in cockpit["recommended_commands"]
+    )
+    assert any(
+        row["label"] == "review_codex_cli_unlock_runbook"
         for row in cockpit["recommended_commands"]
     )
     assert any(
@@ -3546,6 +3570,7 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert "Command hint:" in markdown
     assert "Command boundary:" in markdown
     assert "Action execution readiness:" in markdown
+    assert "Codex CLI unlock runbook:" in markdown
     assert "Codex CLI intake binding:" in markdown
     assert "## Review Priority" in markdown
     assert "Run outcome: `policy_reject` (`policy_ev_improvement_low`)" in markdown
@@ -21378,6 +21403,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert operator_home["codex_home"]["preflight_status"] == (
         cockpit["summary"]["codex_preflight_status"]
     )
+    assert operator_home["codex_home"]["unlock_runbook_status"] == (
+        cockpit["summary"]["codex_unlock_runbook_status"]
+    )
+    assert operator_home["codex_home"]["runbook_command_label"] == (
+        "review_codex_cli_unlock_runbook"
+    )
+    assert operator_home["source_views"]["codex_cli_unlock_runbook"]["exists"] is True
     assert operator_home["codex_home"]["intake_readiness_status"] == (
         cockpit["summary"]["codex_intake_readiness_status"]
     )
@@ -21398,6 +21430,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     ) == ()
     assert "# Operator Home" in operator_home_markdown
     assert "## Codex CLI" in operator_home_markdown
+    assert "Unlock runbook:" in operator_home_markdown
     assert "## Guided Path" in operator_home_markdown
     assert unlock_checklist["from_artifact"] is True
     assert unlock_checklist["schema_version"] == OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION
@@ -21417,6 +21450,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert cockpit["summary"]["codex_preflight_ok"] is True
     assert cockpit["codex_unlock_checklist"]["status"] == "not_requested"
+    assert cockpit["summary"]["codex_unlock_runbook_status"] == (
+        unlock_runbook["status"]
+    )
+    assert cockpit["source_artifacts"]["codex_cli_unlock_runbook"]["file"][
+        "exists"
+    ] is True
     assert cockpit["authority"]["cockpit_can_execute_commands"] is False
     assert cockpit["authority"]["cockpit_can_promote_champion"] is False
     assert cockpit["policy"]["does_not_change_acceptance"] is True
@@ -21621,6 +21660,16 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert operator_home_payload["codex_home"]["preflight_status"] == (
         cockpit["summary"]["codex_preflight_status"]
     )
+    assert operator_home_payload["codex_home"]["unlock_runbook_status"] == (
+        cockpit["summary"]["codex_unlock_runbook_status"]
+    )
+    assert operator_home_payload["codex_home"]["runbook_command_label"] == (
+        "review_codex_cli_unlock_runbook"
+    )
+    assert (
+        operator_home_payload["source_views"]["codex_cli_unlock_runbook"]["exists"]
+        is True
+    )
     assert operator_home_payload["codex_home"]["intake_readiness_status"] == (
         cockpit["summary"]["codex_intake_readiness_status"]
     )
@@ -21644,6 +21693,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert "# Operator Home" in operator_home_markdown_result.stdout
     assert "## Codex CLI" in operator_home_markdown_result.stdout
+    assert "Unlock runbook:" in operator_home_markdown_result.stdout
     assert "## Guided Path" in operator_home_markdown_result.stdout
     assert operator_home_module_markdown_result.returncode == 0, (
         operator_home_module_markdown_result.stderr
@@ -21768,8 +21818,18 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert cockpit_payload["summary"]["action_status"] == "execution_completed"
     assert cockpit_payload["summary"]["codex_preflight_ok"] is True
     assert cockpit_payload["codex_unlock_checklist"]["status"] == "not_requested"
+    assert cockpit_payload["summary"]["codex_unlock_runbook_status"] == (
+        unlock_runbook_payload["status"]
+    )
+    assert cockpit_payload["source_artifacts"]["codex_cli_unlock_runbook"]["file"][
+        "exists"
+    ] is True
     assert any(
         row["panel_id"] == "codex_cli_unlock"
+        for row in cockpit_payload["panels"]
+    )
+    assert any(
+        row["panel_id"] == "codex_cli_unlock_runbook"
         for row in cockpit_payload["panels"]
     )
     assert len(cockpit_payload["panels"]) >= 7

@@ -110,6 +110,9 @@
       "type": "object",
       "required": [
         "preflight_status",
+        "unlock_runbook_status",
+        "unlock_runbook_ready",
+        "unlock_runbook_blocked_step_count",
         "readiness_diff_status",
         "readiness_diff_ready",
         "intake_readiness_status",
@@ -120,10 +123,15 @@
         "blocked_slot_count",
         "next_step",
         "review_command_label",
-        "review_command"
+        "review_command",
+        "runbook_command_label",
+        "runbook_command"
       ],
       "properties": {
         "preflight_status": {"type": "string"},
+        "unlock_runbook_status": {"type": "string"},
+        "unlock_runbook_ready": {"type": "boolean"},
+        "unlock_runbook_blocked_step_count": {"type": "integer"},
         "readiness_diff_status": {"type": "string"},
         "readiness_diff_ready": {"type": "boolean"},
         "intake_readiness_status": {"type": "string"},
@@ -134,7 +142,9 @@
         "blocked_slot_count": {"type": "integer"},
         "next_step": {"type": "string"},
         "review_command_label": {"type": "string"},
-        "review_command": {"type": "string"}
+        "review_command": {"type": "string"},
+        "runbook_command_label": {"type": "string"},
+        "runbook_command": {"type": "string"}
       }
     },
     "review_priority": {
@@ -181,6 +191,7 @@
         "operator_action_plan",
         "run_closeout",
         "operator_unlock_checklist",
+        "codex_cli_unlock_runbook",
         "codex_cli_execution_readiness_diff"
       ],
       "properties": {
@@ -189,6 +200,7 @@
         "operator_action_plan": {"$ref": "#/$defs/file_record"},
         "run_closeout": {"$ref": "#/$defs/file_record"},
         "operator_unlock_checklist": {"$ref": "#/$defs/file_record"},
+        "codex_cli_unlock_runbook": {"$ref": "#/$defs/file_record"},
         "codex_cli_execution_readiness_diff": {"$ref": "#/$defs/file_record"}
       }
     },

@@ -1084,7 +1084,9 @@ jobs:
           assert cockpit["codex_unlock_checklist"]["status"] == "not_requested"
           assert cockpit["codex_unlock_checklist"]["item_count"] == 0
           assert cockpit["source_artifacts"]["operator_unlock_checklist"]["file"]["exists"] is True
+          assert cockpit["source_artifacts"]["codex_cli_unlock_runbook"]["file"]["exists"] is True
           assert any(row["panel_id"] == "codex_cli_unlock" for row in cockpit["panels"])
+          assert any(row["panel_id"] == "codex_cli_unlock_runbook" for row in cockpit["panels"])
           assert cockpit["authority"]["cockpit_can_execute_commands"] is False
           assert cockpit["authority"]["cockpit_can_promote_champion"] is False
           assert cockpit["policy"]["does_not_change_acceptance"] is True
@@ -1408,6 +1410,7 @@ jobs:
           assert cockpit["summary"]["codex_readiness_diff_status"] in {"blocked", "missing_evidence"}
           assert cockpit["codex_unlock_checklist"]["authority"]["checklist_can_execute_codex"] is False
           assert cockpit["source_artifacts"]["operator_unlock_checklist"]["file"]["exists"] is True
+          assert cockpit["source_artifacts"]["codex_cli_unlock_runbook"]["file"]["exists"] is True
           assert cockpit["source_artifacts"]["codex_cli_execution_preflight"]["file"]["exists"] is True
           assert cockpit["source_artifacts"]["codex_cli_execution_readiness_diff"]["file"]["exists"] is True
           assert cockpit["source_artifacts"]["config_lineage"]["file"]["exists"] is True

@@ -198,9 +198,11 @@ or `drift` rows only; it does not execute commands, execute Codex, record
 approval, create workspaces, modify config, apply patches, or change
 acceptance. Completed iteration runs now write this diff automatically during
 closeout, and failed execute=true startup preflight runs write it before
-returning the deterministic startup error. The operator cockpit includes a
-read-only readiness diff panel so missing evidence or drift is visible from the
-main operator page.
+returning the deterministic startup error. The operator cockpit includes
+read-only unlock-runbook and readiness-diff panels so missing ordered evidence,
+blocked runbook steps, or drift are visible from the main operator page. The
+terminal-only operator home mirrors the runbook status and command hint in its
+Codex CLI section.
 
 Refresh operator-facing views after writing later readiness evidence:
 

@@ -396,11 +396,11 @@ orchestrator.operator_home experiments/<run_id>` expose a terminal-only
 `operator_home_v1` payload validated by `schemas/operator_home.schema.json`.
 The home view derives from the current cockpit and action guide, then combines
 run outcome, primary focus, guided action path, next command, cockpit review
-priority, compact Codex CLI preflight/readiness/intake-binding status,
+priority, compact Codex CLI preflight/unlock-runbook/readiness/intake-binding status,
 compact command-center rows, blockers, and source view records into one
 operator landing page. Its source records include the saved unlock checklist
-and readiness diff so the first screen can point directly at Codex evidence
-without becoming an unlock authority. It does not create run artifacts, record
+unlock runbook, and readiness diff so the first screen can point directly at
+Codex evidence without becoming an unlock authority. It does not create run artifacts, record
 approval, execute commands, write config, promote champions, run agents, run
 backtests, apply patches, route agents, or change acceptance.
 When no run id is supplied, `home` resolves the latest indexed iteration-loop
@@ -482,18 +482,18 @@ preflight checks; explicit commands can refresh it after later operator
 evidence artifacts are written.
 `operator_cockpit.json` and `operator_cockpit.md` collect the run closeout,
 config lineage, operator action dashboard, Codex CLI execution preflight,
-standalone operator unlock checklist, Codex CLI execution readiness diff,
+standalone operator unlock checklist, Codex CLI unlock runbook, Codex CLI execution readiness diff,
 candidate challenger report, champion-promotion dry-run, promotion approval,
 and scope-health status into a single read-only operator page. The Codex CLI
 panels expose startup preflight status, real-execution profile counts,
 operator-unlock readiness counts, preflight blockers, grouped checklist status,
-readiness diff missing/drift counts, and the shared Codex intake-binding
+ordered runbook status, readiness diff missing/drift counts, and the shared Codex intake-binding
 status, but they do not unlock or execute
 Codex. The operator-action panel surfaces dashboard failure reasons as cockpit
 action failure reasons and `operator_action:<code>` blockers so action-chain
 breaks are visible from the top page. The iteration loop writes the final
-cockpit after the dashboard, standalone checklist, and readiness diff so source
-hashes bind to the final closeout artifacts;
+cockpit after the dashboard, standalone checklist, unlock runbook, and readiness
+diff so source hashes bind to the final closeout artifacts;
 `python -m orchestrator.experiments cockpit <run_id>` and `cockpit --markdown`
 expose panel rows, blockers, primary focus, a deterministic `review_priority`
 navigation object, a first-screen `operator_digest`, and command hints without

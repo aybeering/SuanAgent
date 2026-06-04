@@ -231,8 +231,21 @@ def codex_home_summary(cockpit: dict[str, Any]) -> dict[str, object]:
         list_of_dicts(cockpit.get("recommended_commands", [])),
         "review_codex_cli_readiness_diff",
     )
+    runbook_command = command_for_label(
+        list_of_dicts(cockpit.get("recommended_commands", [])),
+        "review_codex_cli_unlock_runbook",
+    )
     return {
         "preflight_status": str(summary.get("codex_preflight_status", "")),
+        "unlock_runbook_status": str(
+            summary.get("codex_unlock_runbook_status", "")
+        ),
+        "unlock_runbook_ready": bool(
+            summary.get("codex_unlock_runbook_ready", False)
+        ),
+        "unlock_runbook_blocked_step_count": int(
+            summary.get("codex_unlock_runbook_blocked_step_count", 0) or 0
+        ),
         "readiness_diff_status": str(
             summary.get("codex_readiness_diff_status", "")
         ),
@@ -254,6 +267,8 @@ def codex_home_summary(cockpit: dict[str, Any]) -> dict[str, object]:
         ),
         "review_command_label": str(command.get("label", "")),
         "review_command": str(command.get("command", "")),
+        "runbook_command_label": str(runbook_command.get("label", "")),
+        "runbook_command": str(runbook_command.get("command", "")),
     }
 
 
@@ -295,6 +310,9 @@ def source_views(*, run_dir: Path, repo_root: Path) -> dict[str, object]:
         "operator_unlock_checklist": file_record(
             run_dir / "operator_unlock_checklist.json", repo_root
         ),
+        "codex_cli_unlock_runbook": file_record(
+            run_dir / "codex_cli_unlock_runbook.json", repo_root
+        ),
         "codex_cli_execution_readiness_diff": file_record(
             run_dir / "codex_cli_execution_readiness_diff.json", repo_root
         ),
@@ -325,6 +343,9 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
         "## Codex CLI",
         "",
         f"- Preflight: `{codex_home.get('preflight_status', '')}`",
+        f"- Unlock runbook: `{codex_home.get('unlock_runbook_status', '')}`",
+        f"- Unlock runbook ready: `{codex_home.get('unlock_runbook_ready', False)}`",
+        f"- Unlock runbook blocked steps: `{codex_home.get('unlock_runbook_blocked_step_count', 0)}`",
         f"- Readiness diff: `{codex_home.get('readiness_diff_status', '')}`",
         f"- Readiness diff ready: `{codex_home.get('readiness_diff_ready', False)}`",
         f"- Intake binding: `{codex_home.get('intake_readiness_status', '')}`",
@@ -332,6 +353,7 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
         f"- Intake blockers: `{codex_home.get('intake_blocker_count', 0)}`",
         f"- Bound slots: `{codex_home.get('bound_slot_count', 0)}`",
         f"- Next step: {codex_home.get('next_step', '')}",
+        f"- Runbook command: `{codex_home.get('runbook_command_label', '')}`",
         f"- Review command: `{codex_home.get('review_command_label', '')}`",
         "",
         "## Guided Path",

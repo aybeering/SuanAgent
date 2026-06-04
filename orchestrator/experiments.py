@@ -203,6 +203,10 @@ def show_experiment(
             "run_dir": str(run_dir),
             "summary_path": str(run_dir / "summary.md"),
             "candidate_leaderboard_path": str(run_dir / "candidate_leaderboard.json"),
+            "operator_home": experiment_list_operator_home_hint(
+                record={"kind": "iteration_loop", "run_id": run_id},
+                experiments_dir=experiments_dir,
+            ),
             "manifest": manifest,
         }
     if decision_path.exists():
@@ -212,6 +216,10 @@ def show_experiment(
             "run_id": run_id,
             "run_dir": str(run_dir),
             "summary_path": str(run_dir / "summary.md"),
+            "operator_home": experiment_list_operator_home_hint(
+                record={"kind": "single_run", "run_id": run_id},
+                experiments_dir=experiments_dir,
+            ),
             "decision": decision,
         }
     raise FileNotFoundError(f"No manifest.json or decision.json for run: {run_id}")

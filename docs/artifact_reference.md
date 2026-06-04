@@ -95,6 +95,12 @@ and hint-only policy flags; single-run rows mark the hint unavailable. The
 command does not rewrite `index.jsonl`, create artifacts, execute commands, run
 agents, run backtests, apply patches, promote champions, or change acceptance.
 
+`python -m orchestrator.experiments show <run_id>` includes the same derived
+`operator_home` hint in the compact run payload. Iteration-loop runs expose the
+terminal-only home markdown command; single-run payloads explicitly mark the
+home hint unavailable. This is a read-only convenience field and does not
+rewrite index rows or create an `operator_home.json` artifact.
+
 Replay and validation:
 
 ```bash

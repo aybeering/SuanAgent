@@ -18218,9 +18218,27 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     )
     assert single["kind"] == "single_run"
     assert single["summary_path"].endswith("experiments/single-show/summary.md")
+    assert single["operator_home"]["available"] is False  # type: ignore[index]
+    assert single["operator_home"]["reason"] == "not_iteration_run"  # type: ignore[index]
+    assert single["operator_home"]["command"] == ""  # type: ignore[index]
     assert single["decision"]["accepted"] is False  # type: ignore[index]
     assert iteration["kind"] == "iteration_loop"
     assert iteration["summary_path"].endswith("experiments/iteration-show/summary.md")
+    assert iteration["operator_home"]["available"] is True  # type: ignore[index]
+    assert iteration["operator_home"]["reason"] == "iteration_run"  # type: ignore[index]
+    assert iteration["operator_home"]["status"] == "needs_operator_review"  # type: ignore[index]
+    assert iteration["operator_home"]["command_label"] == (  # type: ignore[index]
+        "review_operator_home"
+    )
+    assert iteration["operator_home"]["command"] == (  # type: ignore[index]
+        "python -m orchestrator.experiments home iteration-show --markdown"
+    )
+    assert iteration["operator_home"]["command_boundary"] == (  # type: ignore[index]
+        "read_only_inspection"
+    )
+    assert iteration["operator_home"]["terminal_only"] is True  # type: ignore[index]
+    assert iteration["operator_home"]["artifact_created"] is False  # type: ignore[index]
+    assert iteration["operator_home"]["command_is_hint_only"] is True  # type: ignore[index]
     assert iteration["manifest"]["completed_rounds"] == 1  # type: ignore[index]
 
 
@@ -19870,7 +19888,34 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
     assert list_payload[1]["operator_home"]["command"] == (
         "python -m orchestrator.experiments home cli-list-iteration --markdown"
     )
-    assert json.loads(show_result.stdout)["kind"] == "single_run"
+    show_payload = json.loads(show_result.stdout)
+    assert show_payload["kind"] == "single_run"
+    assert show_payload["operator_home"]["available"] is False
+    assert show_payload["operator_home"]["reason"] == "not_iteration_run"
+    assert show_payload["operator_home"]["command"] == ""
+
+    show_iteration_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "show",
+            "cli-list-iteration",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert show_iteration_result.returncode == 0, show_iteration_result.stderr
+    show_iteration_payload = json.loads(show_iteration_result.stdout)
+    assert show_iteration_payload["kind"] == "iteration_loop"
+    assert show_iteration_payload["operator_home"]["available"] is True
+    assert show_iteration_payload["operator_home"]["command"] == (
+        "python -m orchestrator.experiments home cli-list-iteration --markdown"
+    )
 
 
 def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:

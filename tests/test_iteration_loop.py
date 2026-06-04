@@ -21171,6 +21171,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    action_guide_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-guide",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    action_guide_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "action-guide",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     operator_home_result = subprocess.run(
         [
             sys.executable,
@@ -22125,6 +22156,30 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert "# Operator Action Guide" in action_guide_markdown_result.stdout
     assert "## Guided Path" in action_guide_markdown_result.stdout
+    assert action_guide_latest_result.returncode == 0, (
+        action_guide_latest_result.stderr
+    )
+    action_guide_latest_payload = json.loads(action_guide_latest_result.stdout)
+    assert action_guide_latest_payload["run_id"] == "cli-candidates"
+    assert action_guide_latest_payload["schema_version"] == (
+        OPERATOR_ACTION_GUIDE_SCHEMA_VERSION
+    )
+    assert_matches_schema_payload(
+        action_guide_latest_payload,
+        "operator_action_guide",
+    )
+    assert validate_operator_action_guide_payload(
+        action_guide_latest_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    assert action_guide_latest_markdown_result.returncode == 0, (
+        action_guide_latest_markdown_result.stderr
+    )
+    assert "# Operator Action Guide" in action_guide_latest_markdown_result.stdout
+    assert "cli-candidates" in action_guide_latest_markdown_result.stdout
     assert operator_home_result.returncode == 0, operator_home_result.stderr
     operator_home_payload = json.loads(operator_home_result.stdout)
     assert operator_home_payload["schema_version"] == OPERATOR_HOME_SCHEMA_VERSION

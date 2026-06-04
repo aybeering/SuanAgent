@@ -68,6 +68,7 @@ python -m orchestrator.experiments action-dashboard <run_id> --markdown
 python -m orchestrator.operator_action_guide experiments/<run_id>
 python -m orchestrator.experiments action-guide <run_id>
 python -m orchestrator.experiments action-guide <run_id> --markdown
+python -m orchestrator.experiments action-guide --latest --markdown
 python -m orchestrator.operator_home experiments/<run_id>
 python -m orchestrator.experiments home <run_id>
 python -m orchestrator.experiments home <run_id> --markdown
@@ -402,7 +403,8 @@ Artifact validation checks dashboard command hints through the shared operator
 command-hint validator for known labels, expected write targets, boundary
 classification, current-step coverage, execution-readiness command binding,
 path-closure completion rules, and simple shell-control-token guards.
-`python -m orchestrator.experiments action-guide <run_id>` and `python -m
+`python -m orchestrator.experiments action-guide <run_id>`, `python -m
+orchestrator.experiments action-guide --latest`, and `python -m
 orchestrator.operator_action_guide experiments/<run_id>` expose a
 terminal-only `operator_action_guide_v1` payload validated by
 `schemas/operator_action_guide.schema.json`. The guide reads the saved or

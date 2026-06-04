@@ -15,6 +15,7 @@
     "recent_outcome_categories",
     "top_recent_outcome_category",
     "champion_gap",
+    "operator_home_entry",
     "watchlist",
     "policy"
   ],
@@ -60,6 +61,9 @@
     },
     "champion_gap": {
       "$ref": "#/$defs/champion_gap"
+    },
+    "operator_home_entry": {
+      "$ref": "#/$defs/operator_home_entry"
     },
     "watchlist": {
       "$ref": "#/$defs/watchlist"
@@ -222,6 +226,89 @@
             "number",
             "null"
           ]
+        }
+      }
+    },
+    "operator_home_entry": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "available",
+        "reason",
+        "run_id",
+        "run_kind",
+        "status",
+        "primary_focus",
+        "action_step",
+        "codex_unlock_runbook_status",
+        "codex_intake_readiness_status",
+        "command_label",
+        "command",
+        "command_boundary",
+        "terminal_only",
+        "artifact_created",
+        "command_is_hint_only",
+        "source"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "experiment_operator_home_entry_v1"
+          ]
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "no_runs",
+            "latest_run_not_iteration",
+            "latest_iteration_run"
+          ]
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "run_kind": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "primary_focus": {
+          "type": "string"
+        },
+        "action_step": {
+          "type": "string"
+        },
+        "codex_unlock_runbook_status": {
+          "type": "string"
+        },
+        "codex_intake_readiness_status": {
+          "type": "string"
+        },
+        "command_label": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "command_boundary": {
+          "type": "string"
+        },
+        "terminal_only": {
+          "type": "boolean"
+        },
+        "artifact_created": {
+          "type": "boolean"
+        },
+        "command_is_hint_only": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string"
         }
       }
     },

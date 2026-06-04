@@ -273,6 +273,10 @@ def experiment_summary_dashboard(
         experiments_dir=experiments_dir,
         best_run=best_run,
     )
+    operator_home_entry = experiment_operator_home_entry(
+        latest_run=latest_run,
+        experiments_dir=experiments_dir,
+    )
     return {
         "schema_version": SUMMARY_DASHBOARD_SCHEMA_VERSION,
         "total_runs": len(records),
@@ -286,6 +290,7 @@ def experiment_summary_dashboard(
         "recent_outcome_categories": dict(sorted(outcome_categories.items())),
         "top_recent_outcome_category": top_counter_key(outcome_categories),
         "champion_gap": champion_gap,
+        "operator_home_entry": operator_home_entry,
         "watchlist": dashboard_watchlist(
             recent_runs=recent_rows,
             latest_run=latest_run,
@@ -386,6 +391,15 @@ def validate_experiment_summary_dashboard_consistency(
         if latest_rejected is None or not same_run_identity(latest_rejected, latest_run):
             errors.append("experiment_summary_dashboard latest_rejected_run mismatch")
 
+    operator_home = dict_payload(payload.get("operator_home_entry", {}))
+    errors.extend(
+        validate_experiment_operator_home_entry(
+            operator_home=operator_home,
+            latest_run=latest_run,
+            total_runs=total_runs,
+        )
+    )
+
     champion_gap = dict_payload(payload.get("champion_gap", {}))
     errors.extend(validate_champion_gap_summary(champion_gap))
 
@@ -422,6 +436,56 @@ def validate_experiment_summary_dashboard_consistency(
     ):
         if policy.get(key) is not True or watchlist_policy.get(key) is not True:
             errors.append(f"experiment_summary_dashboard policy binding false: {key}")
+    return tuple(errors)
+
+
+def validate_experiment_operator_home_entry(
+    *,
+    operator_home: dict[str, object],
+    latest_run: dict[str, object] | None,
+    total_runs: int,
+) -> tuple[str, ...]:
+    """Validate the dashboard's latest-run operator-home navigation entry."""
+    errors: list[str] = []
+    available = bool(operator_home.get("available", False))
+    run_id = str(operator_home.get("run_id", ""))
+    run_kind = str(operator_home.get("run_kind", ""))
+    command = str(operator_home.get("command", ""))
+    expected_command = (
+        f"python -m orchestrator.experiments home {run_id} --markdown"
+        if run_id
+        else ""
+    )
+    if total_runs == 0:
+        if available or run_id or command:
+            errors.append("experiment_summary_dashboard operator_home empty mismatch")
+    elif latest_run is None:
+        errors.append("experiment_summary_dashboard operator_home latest missing")
+    else:
+        if run_id != str(latest_run.get("run_id", "")):
+            errors.append("experiment_summary_dashboard operator_home run mismatch")
+        if run_kind != str(latest_run.get("kind", "")):
+            errors.append("experiment_summary_dashboard operator_home kind mismatch")
+        if str(latest_run.get("kind", "")) == "iteration_loop":
+            if not available:
+                errors.append("experiment_summary_dashboard operator_home unavailable")
+            if command != expected_command:
+                errors.append("experiment_summary_dashboard operator_home command mismatch")
+        elif available or command:
+            errors.append(
+                "experiment_summary_dashboard operator_home non-iteration mismatch"
+            )
+    if available:
+        if str(operator_home.get("command_label", "")) != "review_operator_home":
+            errors.append("experiment_summary_dashboard operator_home label mismatch")
+        if str(operator_home.get("command_boundary", "")) != "read_only_inspection":
+            errors.append("experiment_summary_dashboard operator_home boundary mismatch")
+        if bool(operator_home.get("command_is_hint_only", False)) is not True:
+            errors.append("experiment_summary_dashboard operator_home hint mismatch")
+        if bool(operator_home.get("terminal_only", False)) is not True:
+            errors.append("experiment_summary_dashboard operator_home terminal mismatch")
+        if bool(operator_home.get("artifact_created", True)) is not False:
+            errors.append("experiment_summary_dashboard operator_home artifact mismatch")
     return tuple(errors)
 
 
@@ -562,6 +626,94 @@ def compact_record_row(record: dict[str, object]) -> dict[str, object]:
         "status": str(record.get("status", "unknown")),
         "created_at": str(record.get("created_at", "")),
     }
+
+
+def experiment_operator_home_entry(
+    *,
+    latest_run: dict[str, object] | None,
+    experiments_dir: Path,
+) -> dict[str, object]:
+    """Return the latest-run operator home command for the summary dashboard."""
+    base = {
+        "schema_version": "experiment_operator_home_entry_v1",
+        "available": False,
+        "reason": "no_runs",
+        "run_id": "",
+        "run_kind": "",
+        "status": "unavailable",
+        "primary_focus": "",
+        "action_step": "",
+        "codex_unlock_runbook_status": "",
+        "codex_intake_readiness_status": "",
+        "command_label": "",
+        "command": "",
+        "command_boundary": "",
+        "terminal_only": True,
+        "artifact_created": False,
+        "command_is_hint_only": True,
+        "source": "none",
+    }
+    if latest_run is None:
+        return base
+    run_id = str(latest_run.get("run_id", ""))
+    run_kind = str(latest_run.get("kind", ""))
+    base.update(
+        {
+            "reason": "latest_run_not_iteration",
+            "run_id": run_id,
+            "run_kind": run_kind,
+            "source": "latest_run",
+        }
+    )
+    if run_kind != "iteration_loop" or not run_id:
+        return base
+
+    manifest_home = load_manifest_operator_home(
+        experiments_dir=experiments_dir,
+        run_id=run_id,
+    )
+    command = f"python -m orchestrator.experiments home {run_id} --markdown"
+    base.update(
+        {
+            "available": True,
+            "reason": "latest_iteration_run",
+            "status": str(manifest_home.get("status", "unknown")),
+            "primary_focus": str(manifest_home.get("primary_focus", "")),
+            "action_step": str(manifest_home.get("action_step", "")),
+            "codex_unlock_runbook_status": str(
+                manifest_home.get("codex_unlock_runbook_status", "")
+            ),
+            "codex_intake_readiness_status": str(
+                manifest_home.get("codex_intake_readiness_status", "")
+            ),
+            "command_label": "review_operator_home",
+            "command": command,
+            "command_boundary": "read_only_inspection",
+            "source": (
+                "latest_run_manifest_operator_home"
+                if manifest_home
+                else "derived_latest_iteration_run"
+            ),
+        }
+    )
+    return base
+
+
+def load_manifest_operator_home(
+    *,
+    experiments_dir: Path,
+    run_id: str,
+) -> dict[str, object]:
+    """Load the saved operator_home manifest row when present."""
+    manifest_path = experiments_dir / run_id / "manifest.json"
+    if not manifest_path.exists():
+        return {}
+    try:
+        manifest = load_json(manifest_path)
+    except (json.JSONDecodeError, OSError):
+        return {}
+    operator_home = manifest.get("operator_home", {})
+    return operator_home if isinstance(operator_home, dict) else {}
 
 
 def compact_diagnosis_row(diagnosis: dict[str, object]) -> dict[str, object]:
@@ -863,6 +1015,7 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
     recent_runs = list_payload(dashboard.get("recent_runs", []))
     failure_counts = dict_payload(dashboard.get("recent_failure_codes", {}))
     outcome_counts = dict_payload(dashboard.get("recent_outcome_categories", {}))
+    operator_home = dict_payload(dashboard.get("operator_home_entry", {}))
     lines = [
         "# Experiment Summary",
         "",
@@ -880,6 +1033,10 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         f"- Top recent outcome: `{dashboard.get('top_recent_outcome_category', 'none')}`",
         f"- Watchlist: `{watchlist.get('status', 'clean')}` "
         f"({watchlist.get('alert_count', 0)} alert(s))",
+        f"- Operator home: `{operator_home.get('status', 'unavailable')}` "
+        f"({operator_home.get('reason', 'unknown')})",
+        "- Operator home command: "
+        f"`{operator_home.get('command', '') or 'unavailable'}`",
         "",
         "## Watchlist",
         "",

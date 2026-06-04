@@ -409,6 +409,7 @@ from orchestrator.experiments import (
     proposal_memory,
     promote_champion,
     refresh_operator_views as refresh_operator_views_command,
+    render_experiment_summary_markdown,
     render_operator_view_refresh_markdown,
     render_operator_run_review_markdown,
     show_experiment,
@@ -18235,6 +18236,27 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     assert summary["dashboard"]["latest_run"]["run_id"] == "iteration-rank"  # type: ignore[index]
     assert summary["dashboard"]["latest_rejected_run"]["run_id"] == "single-rank"  # type: ignore[index]
     assert summary["dashboard"]["latest_accepted_run"] is None  # type: ignore[index]
+    assert summary["dashboard"]["operator_home_entry"]["schema_version"] == (  # type: ignore[index]
+        "experiment_operator_home_entry_v1"
+    )
+    assert summary["dashboard"]["operator_home_entry"]["available"] is True  # type: ignore[index]
+    assert summary["dashboard"]["operator_home_entry"]["reason"] == (  # type: ignore[index]
+        "latest_iteration_run"
+    )
+    assert summary["dashboard"]["operator_home_entry"]["run_id"] == "iteration-rank"  # type: ignore[index]
+    assert summary["dashboard"]["operator_home_entry"]["run_kind"] == "iteration_loop"  # type: ignore[index]
+    assert summary["dashboard"]["operator_home_entry"]["command_label"] == (  # type: ignore[index]
+        "review_operator_home"
+    )
+    assert summary["dashboard"]["operator_home_entry"]["command"] == (  # type: ignore[index]
+        "python -m orchestrator.experiments home iteration-rank --markdown"
+    )
+    assert summary["dashboard"]["operator_home_entry"]["command_boundary"] == (  # type: ignore[index]
+        "read_only_inspection"
+    )
+    assert summary["dashboard"]["operator_home_entry"]["terminal_only"] is True  # type: ignore[index]
+    assert summary["dashboard"]["operator_home_entry"]["artifact_created"] is False  # type: ignore[index]
+    assert summary["dashboard"]["operator_home_entry"]["command_is_hint_only"] is True  # type: ignore[index]
     assert summary["dashboard"]["recent_limit"] == 5  # type: ignore[index]
     assert len(summary["dashboard"]["recent_runs"]) == 2  # type: ignore[index]
     assert summary["dashboard"]["recent_runs"][-1]["run_id"] == "iteration-rank"  # type: ignore[index]
@@ -18253,6 +18275,15 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     assert summary["dashboard"]["watchlist"]["alerts"][0]["code"] == "no_accepted_run_indexed"  # type: ignore[index]
     assert summary["dashboard"]["watchlist"]["policy"]["does_not_change_acceptance"] is True  # type: ignore[index]
     assert summary["dashboard"]["policy"]["does_not_run_backtests"] is True  # type: ignore[index]
+    summary_markdown = render_experiment_summary_markdown(summary)
+    assert "Operator home: `needs_operator_review` (latest_iteration_run)" in (
+        summary_markdown
+    )
+    assert (
+        "Operator home command: "
+        "`python -m orchestrator.experiments home iteration-rank --markdown`"
+        in summary_markdown
+    )
     assert summary["champion_lineage"]["ok"] is True  # type: ignore[index]
     assert summary["champion_lineage"]["event_count"] == 0  # type: ignore[index]
     assert summary["champion_lineage"]["current_champion_run_id"] == ""  # type: ignore[index]
@@ -18400,6 +18431,25 @@ def _minimal_experiment_summary_dashboard_payload() -> dict[str, object]:
             "comparison_run_id": "run-001",
             "gap_to_champion": None,
         },
+        "operator_home_entry": {
+            "schema_version": "experiment_operator_home_entry_v1",
+            "available": True,
+            "reason": "latest_iteration_run",
+            "run_id": "run-001",
+            "run_kind": "iteration_loop",
+            "status": "needs_operator_review",
+            "primary_focus": "inspect_blockers",
+            "action_step": "operator_approval",
+            "codex_unlock_runbook_status": "needs_artifacts",
+            "codex_intake_readiness_status": "not_available",
+            "command_label": "review_operator_home",
+            "command": "python -m orchestrator.experiments home run-001 --markdown",
+            "command_boundary": "read_only_inspection",
+            "terminal_only": True,
+            "artifact_created": False,
+            "command_is_hint_only": True,
+            "source": "latest_run_manifest_operator_home",
+        },
         "watchlist": {
             "schema_version": "experiment_watchlist_v1",
             "status": "informational",
@@ -18457,12 +18507,14 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     latest_rejected = payload["latest_rejected_run"]
     recent_runs = payload["recent_runs"]
     champion_gap = payload["champion_gap"]
+    operator_home = payload["operator_home_entry"]
     watchlist = payload["watchlist"]
     policy = payload["policy"]
     assert isinstance(latest_run, dict)
     assert isinstance(latest_rejected, dict)
     assert isinstance(recent_runs, list)
     assert isinstance(champion_gap, dict)
+    assert isinstance(operator_home, dict)
     assert isinstance(watchlist, dict)
     assert isinstance(policy, dict)
     latest_run["run_id"] = "other-run"
@@ -18473,6 +18525,14 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     champion_gap["active"] = True
     champion_gap["champion_run_id"] = "champion"
     champion_gap["gap_to_champion"] = -1.0
+    operator_home["run_id"] = "third-run"
+    operator_home["run_kind"] = "single_run"
+    operator_home["command"] = "python -m orchestrator.run_loop"
+    operator_home["command_label"] = "wrong"
+    operator_home["command_boundary"] = "mutation"
+    operator_home["command_is_hint_only"] = False
+    operator_home["terminal_only"] = False
+    operator_home["artifact_created"] = True
     watchlist["alert_count"] = 2
     watchlist["severity_counts"] = {"critical": 1, "warning": 0, "info": 0}
     watchlist["status"] = "critical"
@@ -18500,6 +18560,14 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     assert "experiment_summary_dashboard completed_rounds negative" in errors
     assert "experiment_summary_dashboard latest_rejected_run status mismatch" in errors
     assert "experiment_summary_dashboard champion_gap no_champion mismatch" in errors
+    assert "experiment_summary_dashboard operator_home run mismatch" in errors
+    assert "experiment_summary_dashboard operator_home kind mismatch" in errors
+    assert "experiment_summary_dashboard operator_home command mismatch" in errors
+    assert "experiment_summary_dashboard operator_home label mismatch" in errors
+    assert "experiment_summary_dashboard operator_home boundary mismatch" in errors
+    assert "experiment_summary_dashboard operator_home hint mismatch" in errors
+    assert "experiment_summary_dashboard operator_home terminal mismatch" in errors
+    assert "experiment_summary_dashboard operator_home artifact mismatch" in errors
     assert "experiment_summary_dashboard watchlist alert_count mismatch" in errors
     assert "experiment_summary_dashboard watchlist severity_counts mismatch" in errors
     assert "experiment_summary_dashboard watchlist status mismatch" in errors
@@ -19842,6 +19910,12 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
     assert summary["dashboard"]["latest_run"]["run_id"] == "cli-summary"
     assert summary["dashboard"]["latest_rejected_run"]["run_id"] == "cli-summary"
     assert summary["dashboard"]["latest_accepted_run"] is None
+    assert summary["dashboard"]["operator_home_entry"]["available"] is False
+    assert summary["dashboard"]["operator_home_entry"]["reason"] == (
+        "latest_run_not_iteration"
+    )
+    assert summary["dashboard"]["operator_home_entry"]["run_id"] == "cli-summary"
+    assert summary["dashboard"]["operator_home_entry"]["command"] == ""
     assert summary["dashboard"]["top_recent_failure_code"] == "none"
     assert summary["dashboard"]["top_recent_outcome_category"] == "none"
     assert summary["dashboard"]["watchlist"]["schema_version"] == "experiment_watchlist_v1"
@@ -19852,6 +19926,10 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
     assert summary["champion_lineage"]["policy"]["does_not_write_lineage_artifact"] is True
     assert "# Experiment Summary" in markdown_result.stdout
     assert "## Watchlist" in markdown_result.stdout
+    assert "Operator home: `unavailable` (latest_run_not_iteration)" in (
+        markdown_result.stdout
+    )
+    assert "Operator home command: `unavailable`" in markdown_result.stdout
     assert "no_accepted_run_indexed" in markdown_result.stdout
     assert "## Recent Runs" in markdown_result.stdout
     assert "## Recent Outcome Categories" in markdown_result.stdout

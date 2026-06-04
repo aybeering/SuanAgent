@@ -254,21 +254,26 @@ change acceptance.
 `python -m orchestrator.experiments summary` additionally embeds a compact
 dashboard with the latest indexed run, latest accepted and rejected runs, recent
 diagnosis rows, recent failure-code counts, recent outcome-category counts, a
-best-run-to-champion gap, and an operator watchlist for repeated proposals,
-artifact-health failures, and champion-gap alerts. Recent rows include the
-saved `run_outcome_summary` category, primary stage, and primary code when the
-run has an iteration diagnosis. It is inspection-only and does not execute
+best-run-to-champion gap, a latest-run operator-home entry, and an operator
+watchlist for repeated proposals, artifact-health failures, and champion-gap
+alerts. Recent rows include the saved `run_outcome_summary` category, primary
+stage, and primary code when the run has an iteration diagnosis. The
+operator-home entry is available only when the latest indexed run is an
+iteration loop; it surfaces the read-only `home <run_id> --markdown` command,
+terminal-only flag, source, status, action step, and Codex readiness snippets
+without creating an artifact. It is inspection-only and does not execute
 agents, run backtests, apply patches, promote champions, or change acceptance.
 The embedded dashboard is validated in memory against
 `schemas/experiment_summary_dashboard.schema.json` before JSON or markdown is
 printed, with deterministic consistency checks for recent failure/outcome
 counts, top recent code/category fields, latest accepted/rejected status
-summaries, latest-run to recent-tail binding, accepted-row flags, champion-gap
-status and delta invariants, watchlist alert counts, severity counts, status,
-alert codes, and read-only policy flags.
+summaries, latest-run to recent-tail binding, accepted-row flags,
+operator-home run/command/boundary binding, champion-gap status and delta
+invariants, watchlist alert counts, severity counts, status, alert codes, and
+read-only policy flags.
 `python -m orchestrator.experiments summary --markdown` renders the same
-summary payload, including the watchlist, as a compact terminal-friendly
-Markdown report without writing artifacts.
+summary payload, including the latest-run operator-home entry and watchlist, as
+a compact terminal-friendly Markdown report without writing artifacts.
 `python -m orchestrator.experiments leaderboard --limit N` returns the same
 ranked run list shape as before, but validates the terminal-only
 `experiment_leaderboard` payload against

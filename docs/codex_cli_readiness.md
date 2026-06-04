@@ -133,6 +133,12 @@ Run a guarded audit iteration:
 python -m orchestrator.iteration_loop --config config/codex_cli_guarded.json --run-id guarded-demo --max-rounds 1
 ```
 
+With `execute=false`, this command does not invoke Codex. It writes a guarded
+`agent_execution.json` audit and binds the selected audit to `proposal.json`,
+`raw_agent_output.txt`, and `agent_validation.json` through
+`agent_execution.intake_binding`, proving the disabled Codex boundary still uses
+the shared proposal-intake path.
+
 Run a local canary iteration:
 
 ```bash

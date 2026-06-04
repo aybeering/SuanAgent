@@ -25,6 +25,7 @@ from orchestrator.agent_attempts import (
     write_agent_attempts_manifest,
     write_agent_selection_report,
 )
+from orchestrator.agent_contract_runner import bind_agent_execution_to_intake
 from orchestrator.agent_execution_plan import write_agent_execution_plan
 from orchestrator.agent_executor import (
     build_agent_queue,
@@ -1469,6 +1470,13 @@ def run_round(
         proposal=proposal,
         repo_root=repo_root,
     )
+    bind_selected_execution_to_intake(
+        round_dir=round_dir,
+        selected_attempt_id=str(selected_attempt.get("attempt_id", "")),
+        agent_validation_path=round_dir / "agent_validation.json",
+        proposal_path=round_dir / "proposal.json",
+        raw_agent_output_path=raw_agent_output_path,
+    )
     agent_output_quarantine = write_agent_output_quarantine(
         output_path=round_dir / "agent_output_quarantine.json",
         markdown_path=round_dir / "agent_output_quarantine.md",
@@ -2515,6 +2523,30 @@ def publish_selected_runtime_artifacts(
         source = round_dir / source_dirname / f"{selected_attempt_id}.json"
         if source.exists():
             shutil.copy2(source, round_dir / destination_name)
+
+
+def bind_selected_execution_to_intake(
+    *,
+    round_dir: Path,
+    selected_attempt_id: str,
+    agent_validation_path: Path,
+    proposal_path: Path,
+    raw_agent_output_path: Path,
+) -> None:
+    """Bind the selected execution audit to round-level proposal intake."""
+    if not selected_attempt_id:
+        return
+    for audit_path in (
+        round_dir / "agent_executions" / f"{selected_attempt_id}.json",
+        round_dir / "agent_execution.json",
+    ):
+        if audit_path.exists():
+            bind_agent_execution_to_intake(
+                audit_path=audit_path,
+                agent_validation_path=agent_validation_path,
+                proposal_path=proposal_path,
+                raw_agent_output_path=raw_agent_output_path,
+            )
 
 
 def direction_capability_for_proposal(

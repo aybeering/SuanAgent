@@ -1969,6 +1969,13 @@ def validate_agent_execution(
     expected_command_sha256 = stable_json_digest(command)
     if payload.get("command_sha256") != expected_command_sha256:
         add_error(report, f"agent_execution command sha256 mismatch: {path}")
+    validate_agent_execution_intake_binding(
+        path=path,
+        payload=payload,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     if str(payload.get("runner_name", "")) != "codex_cli_guarded_adapter":
         return
     if str(payload.get("adapter_name", "")) != "codex_cli":
@@ -2005,6 +2012,156 @@ def validate_agent_execution(
             report,
             f"codex_cli agent_execution command sha256 not preflight-bound: {path}",
         )
+
+
+def validate_agent_execution_intake_binding(
+    *,
+    path: Path,
+    payload: dict[str, Any],
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate execution audit binding to shared proposal intake artifacts."""
+    binding = payload.get("intake_binding", {})
+    if not isinstance(binding, dict):
+        add_error(report, f"agent_execution intake_binding invalid: {path}")
+        return
+    bound = bool(binding.get("bound", False))
+    status = str(binding.get("status", ""))
+    if status == "bound" and not bound:
+        add_error(report, f"agent_execution intake_binding status mismatch: {path}")
+    if status != "bound" and bound:
+        add_error(report, f"agent_execution intake_binding bound mismatch: {path}")
+    if is_round_level_agent_execution(path=path, run_dir=run_dir) and not bound:
+        add_error(report, f"agent_execution selected intake binding not bound: {path}")
+    if not bound:
+        return
+    expected = expected_agent_execution_intake_binding(
+        payload=payload,
+        binding=binding,
+        repo_root=repo_root,
+        report=report,
+    )
+    if expected is None:
+        add_error(report, f"agent_execution intake_binding source missing: {path}")
+        return
+    saved_checks = binding.get("checks", {})
+    if not isinstance(saved_checks, dict):
+        add_error(report, f"agent_execution intake_binding checks invalid: {path}")
+        return
+    expected_checks = expected["checks"]
+    for key, expected_value in expected_checks.items():
+        if bool(saved_checks.get(key, False)) != bool(expected_value):
+            add_error(
+                report,
+                f"agent_execution intake_binding check drift: {key}: {path}",
+            )
+    if binding.get("proposal_patch_sha256") != expected["proposal_patch_sha256"]:
+        add_error(report, f"agent_execution intake_binding patch hash drift: {path}")
+    if bool(binding.get("agent_validation_ok", False)) != bool(
+        expected["agent_validation_ok"]
+    ):
+        add_error(report, f"agent_execution intake_binding validation ok drift: {path}")
+    expected_blockers = [
+        f"intake_binding:{name}"
+        for name, passed in expected_checks.items()
+        if not passed
+    ]
+    blockers = binding.get("blocking_reasons", [])
+    if not isinstance(blockers, list) or [str(item) for item in blockers] != expected_blockers:
+        add_error(report, f"agent_execution intake_binding blockers drift: {path}")
+    if not all(expected_checks.values()):
+        add_error(report, f"agent_execution intake_binding expected checks failed: {path}")
+
+
+def expected_agent_execution_intake_binding(
+    *,
+    payload: dict[str, Any],
+    binding: dict[str, Any],
+    repo_root: Path,
+    report: dict[str, object],
+) -> dict[str, object] | None:
+    """Recompute execution-to-intake binding checks from saved artifacts."""
+    validation_path = resolve_path(
+        Path(str(binding.get("agent_validation_path", ""))),
+        repo_root,
+    )
+    proposal_path = resolve_path(Path(str(binding.get("proposal_path", ""))), repo_root)
+    raw_path = resolve_path(
+        Path(str(binding.get("raw_agent_output_path", ""))),
+        repo_root,
+    )
+    if not validation_path.exists() or not proposal_path.exists() or not raw_path.exists():
+        return None
+    validation = load_json_object(validation_path, report)
+    proposal = load_json_object(proposal_path, report)
+    if validation is None or proposal is None:
+        return None
+    raw_output = raw_path.read_text(encoding="utf-8")
+    validation_proposal = object_value(validation.get("proposal", {}))
+    command = list_value(payload.get("command", []))
+    proposal_command = list_value(proposal.get("command", []))
+    audit_raw_sha = str(object_value(payload.get("raw_response", {})).get("sha256", ""))
+    audit_stdin_sha = str(object_value(payload.get("stdin", {})).get("sha256", ""))
+    audit_stdin_chars = int(object_value(payload.get("stdin", {})).get("chars", 0) or 0)
+    checks = {
+        "agent_validation_present": validation_path.exists(),
+        "proposal_present": proposal_path.exists(),
+        "raw_agent_output_present": raw_path.exists(),
+        "validation_embeds_proposal": bool(validation_proposal),
+        "validation_proposal_matches_saved_proposal": validation_proposal == proposal,
+        "audit_raw_response_matches_proposal": (
+            audit_raw_sha == sha256_text(str(proposal.get("raw_response", "")))
+        ),
+        "raw_agent_output_matches_proposal": (
+            raw_output.rstrip("\n") == str(proposal.get("raw_response", "")).rstrip("\n")
+        ),
+        "audit_command_matches_proposal": command == proposal_command,
+        "audit_command_sha256_matches_proposal": (
+            str(payload.get("command_sha256", "")) == stable_json_digest(proposal_command)
+        ),
+        "audit_stdin_matches_proposal_prompt": (
+            audit_stdin_chars == 0
+            or audit_stdin_sha == sha256_text(str(proposal.get("prompt", "")))
+        ),
+        "validation_patch_hash_matches_proposal": (
+            str(validation.get("proposal_patch_sha256", ""))
+            == str(proposal.get("patch_sha256", ""))
+        ),
+        "validation_target_matches_proposal": (
+            str(validation.get("proposal_target_file", ""))
+            == str(proposal.get("target_file", ""))
+        ),
+        "validation_applicable_matches_proposal": (
+            bool(validation.get("proposal_applicable", False))
+            == bool(proposal.get("applicable", False))
+        ),
+        "validation_agent_input_matches_audit": (
+            str(validation.get("agent_input_path", ""))
+            == str(payload.get("agent_input_path", ""))
+            or str(proposal.get("prompt", "")) == str(payload.get("agent_input_path", ""))
+        ),
+        "validation_agent_output_matches_raw_path": (
+            resolve_path(Path(str(validation.get("agent_output_path", ""))), repo_root)
+            == raw_path
+        ),
+    }
+    return {
+        "checks": checks,
+        "agent_validation_ok": bool(validation.get("ok", False)),
+        "proposal_patch_sha256": str(proposal.get("patch_sha256", "")),
+    }
+
+
+def is_round_level_agent_execution(*, path: Path, run_dir: Path) -> bool:
+    """Return whether an audit is the selected round-level execution artifact."""
+    return path.name == "agent_execution.json" and path.parent.parent == run_dir
+
+
+def list_value(value: object) -> list[object]:
+    """Return a JSON list or an empty list."""
+    return value if isinstance(value, list) else []
 
 
 def validate_agent_input_search_space(

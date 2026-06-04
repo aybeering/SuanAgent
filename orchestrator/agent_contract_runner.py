@@ -15,6 +15,7 @@ from orchestrator.workspace_manager import workspace_mutation_errors, workspace_
 AGENT_CONTRACT_RUNNER_NAME = "agent_contract_runner_v1"
 CODEX_CLI_GUARDED_RUNNER_NAME = "codex_cli_guarded_adapter"
 AGENT_EXECUTION_SCHEMA_VERSION = "agent_execution_v1"
+AGENT_EXECUTION_INTAKE_BINDING_SCHEMA_VERSION = "agent_execution_intake_binding_v1"
 AUDIT_PREVIEW_CHARS = 500
 
 
@@ -236,11 +237,156 @@ def write_agent_execution(
             "mutation_errors": list(contract_result.mutation_errors),
             "passed": not contract_result.mutation_errors,
         },
+        "intake_binding": unbound_intake_binding(),
     }
     output_path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def bind_agent_execution_to_intake(
+    *,
+    audit_path: Path,
+    agent_validation_path: Path,
+    proposal_path: Path,
+    raw_agent_output_path: Path,
+) -> dict[str, object]:
+    """Bind one execution audit to the shared proposal intake artifacts."""
+    payload = json.loads(audit_path.read_text(encoding="utf-8"))
+    validation = json.loads(agent_validation_path.read_text(encoding="utf-8"))
+    proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+    raw_output = raw_agent_output_path.read_text(encoding="utf-8")
+    binding = build_intake_binding(
+        audit=payload,
+        agent_validation_path=agent_validation_path,
+        validation=validation,
+        proposal_path=proposal_path,
+        proposal=proposal,
+        raw_agent_output_path=raw_agent_output_path,
+        raw_agent_output=raw_output,
+    )
+    payload["intake_binding"] = binding
+    audit_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return binding
+
+
+def build_intake_binding(
+    *,
+    audit: dict[str, object],
+    agent_validation_path: Path,
+    validation: dict[str, object],
+    proposal_path: Path,
+    proposal: dict[str, object],
+    raw_agent_output_path: Path,
+    raw_agent_output: str,
+) -> dict[str, object]:
+    """Return deterministic checks tying execution audit to proposal intake."""
+    validation_proposal = object_or_empty(validation.get("proposal", {}))
+    command = list_or_empty(audit.get("command", []))
+    proposal_command = list_or_empty(proposal.get("command", []))
+    audit_raw_sha = str(object_or_empty(audit.get("raw_response", {})).get("sha256", ""))
+    audit_stdin_sha = str(object_or_empty(audit.get("stdin", {})).get("sha256", ""))
+    audit_stdin_chars = int(object_or_empty(audit.get("stdin", {})).get("chars", 0) or 0)
+    raw_without_trailing_newline = raw_agent_output.rstrip("\n")
+    checks = {
+        "agent_validation_present": agent_validation_path.exists(),
+        "proposal_present": proposal_path.exists(),
+        "raw_agent_output_present": raw_agent_output_path.exists(),
+        "validation_embeds_proposal": bool(validation_proposal),
+        "validation_proposal_matches_saved_proposal": validation_proposal == proposal,
+        "audit_raw_response_matches_proposal": (
+            audit_raw_sha == sha256_text(str(proposal.get("raw_response", "")))
+        ),
+        "raw_agent_output_matches_proposal": (
+            raw_without_trailing_newline.rstrip("\n")
+            == str(proposal.get("raw_response", "")).rstrip("\n")
+        ),
+        "audit_command_matches_proposal": command == proposal_command,
+        "audit_command_sha256_matches_proposal": (
+            str(audit.get("command_sha256", ""))
+            == stable_json_digest(proposal_command)
+        ),
+        "audit_stdin_matches_proposal_prompt": (
+            audit_stdin_chars == 0
+            or audit_stdin_sha == sha256_text(str(proposal.get("prompt", "")))
+        ),
+        "validation_patch_hash_matches_proposal": (
+            str(validation.get("proposal_patch_sha256", ""))
+            == str(proposal.get("patch_sha256", ""))
+        ),
+        "validation_target_matches_proposal": (
+            str(validation.get("proposal_target_file", ""))
+            == str(proposal.get("target_file", ""))
+        ),
+        "validation_applicable_matches_proposal": (
+            bool(validation.get("proposal_applicable", False))
+            == bool(proposal.get("applicable", False))
+        ),
+        "validation_agent_input_matches_audit": (
+            str(validation.get("agent_input_path", ""))
+            == str(audit.get("agent_input_path", ""))
+            or str(proposal.get("prompt", "")) == str(audit.get("agent_input_path", ""))
+        ),
+        "validation_agent_output_matches_raw_path": (
+            str(validation.get("agent_output_path", ""))
+            == str(raw_agent_output_path)
+        ),
+    }
+    bound = all(checks.values())
+    return {
+        "schema_version": AGENT_EXECUTION_INTAKE_BINDING_SCHEMA_VERSION,
+        "status": "bound" if bound else "mismatch",
+        "bound": bound,
+        "agent_validation_path": str(agent_validation_path),
+        "proposal_path": str(proposal_path),
+        "raw_agent_output_path": str(raw_agent_output_path),
+        "agent_validation_ok": bool(validation.get("ok", False)),
+        "proposal_patch_sha256": str(proposal.get("patch_sha256", "")),
+        "proposal_applicable": bool(proposal.get("applicable", False)),
+        "checks": checks,
+        "blocking_reasons": [
+            f"intake_binding:{name}"
+            for name, passed in checks.items()
+            if not passed
+        ],
+    }
+
+
+def unbound_intake_binding() -> dict[str, object]:
+    """Return the initial unbound intake-binding block for execution audits."""
+    return {
+        "schema_version": AGENT_EXECUTION_INTAKE_BINDING_SCHEMA_VERSION,
+        "status": "unbound",
+        "bound": False,
+        "agent_validation_path": "",
+        "proposal_path": "",
+        "raw_agent_output_path": "",
+        "agent_validation_ok": False,
+        "proposal_patch_sha256": "",
+        "proposal_applicable": False,
+        "checks": {
+            "agent_validation_present": False,
+            "proposal_present": False,
+            "raw_agent_output_present": False,
+            "validation_embeds_proposal": False,
+            "validation_proposal_matches_saved_proposal": False,
+            "audit_raw_response_matches_proposal": False,
+            "raw_agent_output_matches_proposal": False,
+            "audit_command_matches_proposal": False,
+            "audit_command_sha256_matches_proposal": False,
+            "audit_stdin_matches_proposal_prompt": False,
+            "validation_patch_hash_matches_proposal": False,
+            "validation_target_matches_proposal": False,
+            "validation_applicable_matches_proposal": False,
+            "validation_agent_input_matches_audit": False,
+            "validation_agent_output_matches_raw_path": False,
+        },
+        "blocking_reasons": ["intake_binding:not_bound"],
+    }
 
 
 def response_text(
@@ -296,6 +442,16 @@ def stable_json_digest(payload: object) -> str:
     """Return a stable digest for one JSON-compatible payload."""
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return sha256_text(encoded)
+
+
+def object_or_empty(value: object) -> dict[str, object]:
+    """Return a JSON object or an empty mapping."""
+    return value if isinstance(value, dict) else {}
+
+
+def list_or_empty(value: object) -> list[object]:
+    """Return a JSON list or an empty list."""
+    return value if isinstance(value, list) else []
 
 
 def text_or_empty(value: str | bytes | None) -> str:

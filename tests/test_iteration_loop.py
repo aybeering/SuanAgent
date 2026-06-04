@@ -5178,6 +5178,8 @@ def test_agent_contract_runner_writes_disabled_audit(tmp_path: Path) -> None:
     assert audit["status"] == "disabled"
     assert audit["execution_enabled"] is False
     assert audit["command_sha256"] == stable_json_digest(["not-run"])
+    assert audit["intake_binding"]["status"] == "unbound"
+    assert audit["intake_binding"]["bound"] is False
     assert audit["round_output_file"]["exists"] is False
     assert_matches_schema(audit_path, "agent_execution")
 
@@ -5225,6 +5227,7 @@ def test_agent_contract_runner_copies_allowed_output(tmp_path: Path) -> None:
     assert audit["output_file"]["exists"] is True
     assert audit["round_output_file"]["exists"] is True
     assert audit["mutation_guard"]["passed"] is True
+    assert audit["intake_binding"]["status"] == "unbound"
     assert_matches_schema(audit_path, "agent_execution")
 
 
@@ -13130,9 +13133,62 @@ def test_codex_cli_adapter_disabled_does_not_execute(tmp_path: Path) -> None:
     assert audit["execution_enabled"] is False
     assert audit["stdin"]["chars"] > 0
     assert audit["mutation_guard"]["passed"] is True
+    assert audit["intake_binding"]["status"] == "bound"
+    assert audit["intake_binding"]["bound"] is True
+    assert audit["intake_binding"]["agent_validation_ok"] is True
+    assert audit["intake_binding"]["proposal_applicable"] is False
+    assert audit["intake_binding"]["blocking_reasons"] == []
+    assert all(audit["intake_binding"]["checks"].values())
+    round_audit = json.loads(
+        (round_dir / "agent_execution.json").read_text(encoding="utf-8")
+    )
+    attempt_audit = json.loads(
+        (
+            round_dir / "agent_attempts/attempt_001_primary/agent_execution.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert round_audit["intake_binding"] == audit["intake_binding"]
+    assert attempt_audit["intake_binding"] == audit["intake_binding"]
     assert_matches_schema(
         round_dir / "agent_executions/attempt_001_primary.json",
         "agent_execution",
+    )
+
+
+def test_artifact_validator_blocks_codex_intake_binding_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-intake-binding-drift",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    audit_path = (
+        repo
+        / "experiments/codex-intake-binding-drift/round_001"
+        / "agent_executions/attempt_001_primary.json"
+    )
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    audit["intake_binding"]["checks"]["audit_command_matches_proposal"] = False
+    audit_path.write_text(
+        json.dumps(audit, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="codex-intake-binding-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "agent_execution intake_binding check drift: audit_command_matches_proposal"
+        in str(error)
+        for error in validation_report["errors"]
     )
 
 

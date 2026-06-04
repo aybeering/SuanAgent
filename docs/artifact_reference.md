@@ -622,6 +622,12 @@ Optional or adapter-specific artifacts include:
 Proposal and intake artifacts:
 
 - `raw_agent_output.txt` preserves the exact modifier output.
+- `agent_execution.json`, when present, records guarded external-adapter
+  execution. Its `intake_binding` section starts as `unbound` at execution time
+  and is updated for the selected attempt after `agent_validation.json` is
+  written, binding command, prompt/stdin, raw response, saved proposal, and
+  validation evidence. This proves selected external output went through the
+  shared intake path before quarantine or patch application.
 - `agent_output.json` stores normalized selected proposal data and the
   proposal intent summary used by the round-level agent input. Its selected
   proposal uses `schemas/strategy_proposal.schema.json`.

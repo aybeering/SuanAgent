@@ -355,6 +355,11 @@ Codex CLI readiness contracts:
     raw-output/proposal/input consistency and explain contract pass/fail, but
     they cannot change git apply checks, quarantine release rules, patch
     application, policy-gate results, holdout vetoes, or acceptance.
+    Selected external execution audits also carry
+    `agent_execution.intake_binding`, which binds command, prompt/stdin where
+    applicable, raw response, saved proposal, and validation artifacts back to
+    the same shared intake path. This binding is audit evidence only and cannot
+    route candidates, release quarantine, apply patches, or change acceptance.
 25. Candidate quality breakdowns explain proposal ranking only. They bind the
     same score total and component metadata across executor, attempt, selection,
     routing, output, leaderboard, brief, and closeout artifacts, but they cannot

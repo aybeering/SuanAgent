@@ -27,7 +27,8 @@
     "round_output_file",
     "allowed_mutation_paths",
     "mutation_errors",
-    "mutation_guard"
+    "mutation_guard",
+    "intake_binding"
   ],
   "properties": {
     "schema_version": {
@@ -262,6 +263,134 @@
           "type": "boolean"
         }
       }
+    },
+    "intake_binding": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "bound",
+        "agent_validation_path",
+        "proposal_path",
+        "raw_agent_output_path",
+        "agent_validation_ok",
+        "proposal_patch_sha256",
+        "proposal_applicable",
+        "checks",
+        "blocking_reasons"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "agent_execution_intake_binding_v1"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "unbound",
+            "bound",
+            "mismatch"
+          ]
+        },
+        "bound": {
+          "type": "boolean"
+        },
+        "agent_validation_path": {
+          "type": "string"
+        },
+        "proposal_path": {
+          "type": "string"
+        },
+        "raw_agent_output_path": {
+          "type": "string"
+        },
+        "agent_validation_ok": {
+          "type": "boolean"
+        },
+        "proposal_patch_sha256": {
+          "type": "string"
+        },
+        "proposal_applicable": {
+          "type": "boolean"
+        },
+        "checks": {
+          "type": "object",
+          "required": [
+            "agent_validation_present",
+            "proposal_present",
+            "raw_agent_output_present",
+            "validation_embeds_proposal",
+            "validation_proposal_matches_saved_proposal",
+            "audit_raw_response_matches_proposal",
+            "raw_agent_output_matches_proposal",
+            "audit_command_matches_proposal",
+            "audit_command_sha256_matches_proposal",
+            "audit_stdin_matches_proposal_prompt",
+            "validation_patch_hash_matches_proposal",
+            "validation_target_matches_proposal",
+            "validation_applicable_matches_proposal",
+            "validation_agent_input_matches_audit",
+            "validation_agent_output_matches_raw_path"
+          ],
+          "properties": {
+            "agent_validation_present": {
+              "type": "boolean"
+            },
+            "proposal_present": {
+              "type": "boolean"
+            },
+            "raw_agent_output_present": {
+              "type": "boolean"
+            },
+            "validation_embeds_proposal": {
+              "type": "boolean"
+            },
+            "validation_proposal_matches_saved_proposal": {
+              "type": "boolean"
+            },
+            "audit_raw_response_matches_proposal": {
+              "type": "boolean"
+            },
+            "raw_agent_output_matches_proposal": {
+              "type": "boolean"
+            },
+            "audit_command_matches_proposal": {
+              "type": "boolean"
+            },
+            "audit_command_sha256_matches_proposal": {
+              "type": "boolean"
+            },
+            "audit_stdin_matches_proposal_prompt": {
+              "type": "boolean"
+            },
+            "validation_patch_hash_matches_proposal": {
+              "type": "boolean"
+            },
+            "validation_target_matches_proposal": {
+              "type": "boolean"
+            },
+            "validation_applicable_matches_proposal": {
+              "type": "boolean"
+            },
+            "validation_agent_input_matches_audit": {
+              "type": "boolean"
+            },
+            "validation_agent_output_matches_raw_path": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

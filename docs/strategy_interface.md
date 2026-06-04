@@ -118,6 +118,12 @@ Normalized proposals are also bounded independently: an oversized `patch_diff`
 is rejected as `patch_diff_too_large` during semantic contract validation, so
 the loop skips `git apply` even when the raw output file itself is within the
 intake limit.
+External execution audits include an `intake_binding` section. For the selected
+attempt, the loop updates that binding after shared intake validation and
+checks that the audit command, prompt/stdin when used, raw response, saved
+proposal, patch hash, and `agent_validation.json` agree. The binding is
+evidence only; it cannot release quarantine, apply patches, or change
+acceptance.
 `agent_output_quarantine.json` preserves the same summary before patch
 application, so pre-apply audits can detect context drift without changing the
 quarantine release rules.

@@ -11360,6 +11360,104 @@ def test_agent_output_intake_rejects_non_object_json_without_crashing(
     )
 
 
+def test_agent_output_intake_rejects_non_object_proposal_wrapper(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="intake-non-object-wrapper",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    round_dir = repo / "experiments/intake-non-object-wrapper/round_001"
+    bad_output_path = round_dir / "bad_wrapper_agent_output.json"
+    bad_output_path.write_text(
+        json.dumps({"proposal": ["not", "an", "object"]}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    report = verify_agent_output(
+        agent_input_path=round_dir / "agent_input.json",
+        agent_output_path=bad_output_path,
+        repo_root=repo,
+        output_path=round_dir / "bad_wrapper_agent_validation.json",
+    )
+    reason_codes = [row["code"] for row in report["reason_codes"]]
+
+    assert report["ok"] is False
+    assert report["failure_code"] == "agent_output_parse_failed"
+    assert "agent_output_parse_failed" in reason_codes
+    assert report["proposal_applicable"] is False
+    assert report["checks"]["git_apply_check"] == "skipped"  # type: ignore[index]
+    contract_errors = report["proposal"]["contract_errors"]  # type: ignore[index]
+    assert "proposal must be a JSON object" in contract_errors
+    assert_matches_schema(
+        round_dir / "bad_wrapper_agent_validation.json",
+        "agent_validation",
+    )
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_agent_output_intake_rejects_non_string_patch_diff(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="intake-bad-patch-type",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    round_dir = repo / "experiments/intake-bad-patch-type/round_001"
+    bad_output_path = round_dir / "bad_patch_type_agent_output.json"
+    bad_output_path.write_text(
+        json.dumps(
+            {
+                "proposal": {
+                    "protocol_version": "proposal_v1",
+                    "agent_name": "bad_patch_type_agent",
+                    "round_index": 1,
+                    "target_file": "strategies/current_strategy.py",
+                    "summary": "Patch field has the wrong type.",
+                    "risk_notes": "The intake layer must reject this before apply.",
+                    "direction_tag": "bad_patch_type",
+                    "expected_metric_change": {"ev": "unknown"},
+                    "hypotheses": ["Patch type checks should be explicit."],
+                    "patch_diff": ["--- a/strategies/current_strategy.py"],
+                }
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    report = verify_agent_output(
+        agent_input_path=round_dir / "agent_input.json",
+        agent_output_path=bad_output_path,
+        repo_root=repo,
+        output_path=round_dir / "bad_patch_type_agent_validation.json",
+    )
+    reason_codes = [row["code"] for row in report["reason_codes"]]
+
+    assert report["ok"] is False
+    assert report["failure_code"] == "patch_diff_invalid"
+    assert "patch_diff_invalid" in reason_codes
+    assert report["proposal_applicable"] is False
+    assert report["checks"]["git_apply_check"] == "skipped"  # type: ignore[index]
+    contract_errors = report["proposal"]["contract_errors"]  # type: ignore[index]
+    assert "patch_diff must be a string" in contract_errors
+    assert_matches_schema(
+        round_dir / "bad_patch_type_agent_validation.json",
+        "agent_validation",
+    )
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
 def test_artifact_validator_accepts_iteration_and_file_protocol_runs(
     tmp_path: Path,
 ) -> None:

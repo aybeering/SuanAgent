@@ -107,10 +107,10 @@ def build_proposal_semantic_report(
     expected_round_index: int,
 ) -> dict[str, object]:
     """Return structured deterministic semantic checks for a proposal."""
-    errors: list[str] = []
     expected_target = str(expected_target_file)
     target_path = Path(proposal.target_file)
     preexisting_errors = list(proposal.contract_errors)
+    errors: list[str] = list(preexisting_errors)
     checks: dict[str, bool] = {
         "preexisting_contract_errors_absent": not preexisting_errors,
         "protocol_version_valid": proposal.protocol_version == PROPOSAL_PROTOCOL_VERSION,
@@ -181,7 +181,9 @@ def build_proposal_semantic_report(
             validate_patch_targets(proposal.patch_diff, expected_target_file)
         except PatchParseError as exc:
             checks["patch_targets_valid"] = False
-            errors.append(f"patch_diff target validation failed: {exc}")
+            patch_target_error = f"patch_diff target validation failed: {exc}"
+            if patch_target_error not in errors:
+                errors.append(patch_target_error)
     if proposal.applicable and not checks["applicable_patch_present"]:
         checks["patch_targets_valid"] = False
         errors.append("applicable proposals must include patch_diff")

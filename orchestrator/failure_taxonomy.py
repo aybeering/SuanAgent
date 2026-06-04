@@ -291,6 +291,12 @@ def classify_agent_validation_contract_error(error: str) -> dict[str, str]:
             code="agent_output_parse_failed",
             message=error,
         )
+    if normalized.startswith("patch_diff must be"):
+        return reason_code(
+            stage="proposal",
+            code="patch_diff_invalid",
+            message=error,
+        )
     if "must include patch_diff" in normalized or "did not include a patch" in normalized:
         return reason_code(
             stage="proposal",

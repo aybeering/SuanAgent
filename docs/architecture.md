@@ -250,11 +250,13 @@ entrypoint. They collect the run closeout, config lineage, operator action
 dashboard, Codex CLI execution preflight, standalone operator unlock checklist,
 Codex CLI execution readiness diff, challenger comparison,
 candidate quality trace state, champion-promotion review, promotion approval,
-and scope-health status into one read-only page with panel rows, command hints,
-and a deterministic review-priority object that selects the first panel and
-existing saved command hint to inspect. The candidate-quality panel points
-operators to saved candidate scores and rejection reasons without routing or
-rerunning candidates. The operator-action panel
+and scope-health status into one read-only page with a first-screen operator
+digest, panel rows, command hints, and a deterministic review-priority object
+that selects the first panel and existing saved command hint to inspect. The
+digest mirrors the priority target, next command hint, outcome, blocker,
+config, action, candidate-quality, Codex, and promotion status without adding
+authority. The candidate-quality panel points operators to saved candidate
+scores and rejection reasons without routing or rerunning candidates. The operator-action panel
 surfaces dashboard failure reasons as cockpit action failure reasons and
 `operator_action:<code>` blockers. The Codex CLI panels expose unlock blockers,
 readiness counts, grouped checklist status, and readiness diff missing/drift

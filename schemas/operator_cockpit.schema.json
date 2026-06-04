@@ -9,6 +9,7 @@
     "status",
     "ok",
     "primary_focus",
+    "operator_digest",
     "source_artifacts",
     "summary",
     "panels",
@@ -50,6 +51,9 @@
     },
     "primary_focus": {
       "type": "string"
+    },
+    "operator_digest": {
+      "$ref": "#/$defs/operator_digest"
     },
     "source_artifacts": {
       "type": "object",
@@ -465,6 +469,139 @@
         },
         "writes_artifact": {
           "type": "string"
+        }
+      }
+    },
+    "operator_digest": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "headline",
+        "status",
+        "ok",
+        "primary_focus",
+        "run_outcome_category",
+        "run_outcome_primary_code",
+        "blocker_count",
+        "first_blocker",
+        "config_lineage_status",
+        "action_status",
+        "action_current_step",
+        "candidate_quality_top_failure_code",
+        "codex_preflight_status",
+        "codex_readiness_diff_status",
+        "promotion_status",
+        "priority",
+        "primary_reason",
+        "target_panel_id",
+        "target_panel_title",
+        "target_panel_status",
+        "next_step",
+        "recommended_command_label",
+        "recommended_command",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "operator_digest_v1"
+          ]
+        },
+        "headline": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "primary_focus": {
+          "type": "string"
+        },
+        "run_outcome_category": {
+          "type": "string"
+        },
+        "run_outcome_primary_code": {
+          "type": "string"
+        },
+        "blocker_count": {
+          "type": "integer"
+        },
+        "first_blocker": {
+          "type": "string"
+        },
+        "config_lineage_status": {
+          "type": "string"
+        },
+        "action_status": {
+          "type": "string"
+        },
+        "action_current_step": {
+          "type": "string"
+        },
+        "candidate_quality_top_failure_code": {
+          "type": "string"
+        },
+        "codex_preflight_status": {
+          "type": "string"
+        },
+        "codex_readiness_diff_status": {
+          "type": "string"
+        },
+        "promotion_status": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "string"
+        },
+        "primary_reason": {
+          "type": "string"
+        },
+        "target_panel_id": {
+          "type": "string"
+        },
+        "target_panel_title": {
+          "type": "string"
+        },
+        "target_panel_status": {
+          "type": "string"
+        },
+        "next_step": {
+          "type": "string"
+        },
+        "recommended_command_label": {
+          "type": "string"
+        },
+        "recommended_command": {
+          "type": "string"
+        },
+        "policy": {
+          "$ref": "#/$defs/operator_digest_policy"
+        }
+      }
+    },
+    "operator_digest_policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "command_is_hint_only",
+        "does_not_execute_commands",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "command_is_hint_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_commands": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
         }
       }
     },

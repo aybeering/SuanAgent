@@ -438,20 +438,22 @@ cockpit after the dashboard, standalone checklist, and readiness diff so source
 hashes bind to the final closeout artifacts;
 `python -m orchestrator.experiments cockpit <run_id>` and `cockpit --markdown`
 expose panel rows, blockers, primary focus, a deterministic `review_priority`
-navigation object, and command hints without recording approval, executing
-commands, writing config, promoting champions, running agents, running
-backtests, applying patches, routing agents, or changing acceptance. The
-`review_priority` object chooses the first panel and existing saved command
-hint to inspect from blocker, config lineage, action, Codex readiness,
-challenger, promotion, scope-health, and run-outcome state; it is a read-only
-ordering hint and cannot execute the command or change acceptance.
+navigation object, a first-screen `operator_digest`, and command hints without
+recording approval, executing commands, writing config, promoting champions,
+running agents, running backtests, applying patches, routing agents, or
+changing acceptance. The `review_priority` object chooses the first panel and
+existing saved command hint to inspect from blocker, config lineage, action,
+Codex readiness, challenger, promotion, scope-health, and run-outcome state;
+the digest mirrors that priority plus outcome, blocker, config, action,
+candidate-quality, Codex, and promotion status as a compact read-only header.
 Artifact validation checks cockpit command hints through the shared operator
 command-hint validator for known labels, expected write targets, the required
 `review_cockpit` first command, and simple shell-control-token guards. It also
 cross-checks the `review_priority` navigation object against the saved panel
 row and saved command hint so the priority target cannot drift from the
-cockpit payload it summarizes. The cockpit writer itself also validates
-status-derived OK and focus fields, action failure-reason summaries,
+cockpit payload it summarizes. The cockpit writer itself also validates the
+operator digest, status-derived OK and focus fields, action failure-reason
+summaries,
 `operator_action:<code>` blocker coverage, Codex unlock checklist counts, and
 review-priority panel and command references before returning.
 The `cockpit` terminal view validates saved or derived payloads through the
@@ -840,14 +842,15 @@ Replay artifacts:
   approval, and scope-health state into one read-only cockpit. The iteration
   loop writes them after the action dashboard, and the explicit command can
   refresh source hashes after later operator inspection artifacts. They list
-  panels, blockers, primary focus, surfaced action failure reasons, candidate
-  score/rejection navigation, Codex unlock checklist visibility, failed
-  evidence groups, and command hints while preserving deterministic acceptance
-  authority. Artifact validation rejects unknown cockpit command labels,
+  a first-screen operator digest, panels, blockers, primary focus, surfaced
+  action failure reasons, candidate score/rejection navigation, Codex unlock
+  checklist visibility, failed evidence groups, and command hints while
+  preserving deterministic acceptance authority. Artifact validation rejects
+  unknown cockpit command labels,
   unexpected write targets, unsafe shell control tokens, and a missing first
   `review_cockpit` command. The writer and terminal view validate status,
-  focus, action failure summaries, unlock counts, review-priority references,
-  and policy before returning payloads.
+  focus, operator-digest derivation, action failure summaries, unlock counts,
+  review-priority references, and policy before returning payloads.
 - `candidate_leaderboard.json` records every proposal attempt with stable
   quality metadata. `quality_breakdown` decomposes the pre-backtest candidate
   score into named components, selected rows also record validation and

@@ -3042,6 +3042,36 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     }
     assert cockpit["review_priority"]["policy"]["does_not_execute_commands"] is True
     assert cockpit["review_priority"]["policy"]["does_not_change_acceptance"] is True
+    assert cockpit["operator_digest"]["schema_version"] == "operator_digest_v1"
+    assert cockpit["operator_digest"]["status"] == cockpit["status"]
+    assert cockpit["operator_digest"]["primary_focus"] == cockpit["primary_focus"]
+    assert cockpit["operator_digest"]["run_outcome_category"] == (
+        cockpit["summary"]["run_outcome_category"]
+    )
+    assert cockpit["operator_digest"]["run_outcome_primary_code"] == (
+        cockpit["summary"]["run_outcome_primary_code"]
+    )
+    assert cockpit["operator_digest"]["blocker_count"] == len(cockpit["blockers"])
+    assert cockpit["operator_digest"]["first_blocker"] == (
+        cockpit["blockers"][0] if cockpit["blockers"] else ""
+    )
+    assert cockpit["operator_digest"]["priority"] == (
+        cockpit["review_priority"]["priority"]
+    )
+    assert cockpit["operator_digest"]["target_panel_id"] == (
+        cockpit["review_priority"]["target_panel_id"]
+    )
+    assert cockpit["operator_digest"]["recommended_command_label"] == (
+        cockpit["review_priority"]["recommended_command_label"]
+    )
+    assert cockpit["operator_digest"]["recommended_command"] == (
+        cockpit["review_priority"]["recommended_command"]
+    )
+    assert cockpit["operator_digest"]["policy"]["inspection_only"] is True
+    assert cockpit["operator_digest"]["policy"]["command_is_hint_only"] is True
+    assert (
+        cockpit["operator_digest"]["policy"]["does_not_execute_commands"] is True
+    )
     assert cockpit["summary"]["config_lineage_status"] == "partial"
     assert cockpit["source_artifacts"]["run_closeout"]["file"]["exists"] is True
     assert cockpit["source_artifacts"]["operator_action_dashboard"]["file"][
@@ -3148,6 +3178,8 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert cockpit["policy"]["does_not_record_approval"] is True
     assert cockpit["policy"]["does_not_change_acceptance"] is True
     assert "# Operator Cockpit" in markdown
+    assert "## Operator Digest" in markdown
+    assert "Command hint:" in markdown
     assert "## Review Priority" in markdown
     assert "Run outcome: `policy_reject` (`policy_ev_improvement_low`)" in markdown
     assert "# Operator Cockpit" in md_path.read_text(encoding="utf-8")
@@ -3284,6 +3316,7 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert "operator_cockpit primary_focus mismatch" in cockpit_consistency_errors
     assert "operator_cockpit status summary mismatch" in cockpit_consistency_errors
     assert "operator_cockpit blockers status mismatch" in cockpit_consistency_errors
+    assert "operator_cockpit operator_digest mismatch" in cockpit_consistency_errors
     assert (
         "operator_cockpit summary action_failure_reason_count mismatch"
         in cockpit_consistency_errors

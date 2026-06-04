@@ -255,6 +255,12 @@ def build_operator_cockpit(
         panels=panels,
         commands=commands,
     )
+    operator_digest = cockpit_operator_digest(
+        status=status,
+        summary=summary,
+        blockers=blockers,
+        review_priority=review_priority,
+    )
     return {
         "schema_version": OPERATOR_COCKPIT_SCHEMA_VERSION,
         "run_id": run_id,
@@ -262,6 +268,7 @@ def build_operator_cockpit(
         "status": status,
         "ok": status not in {"needs_repair", "missing_closeout"},
         "primary_focus": primary_focus(status=status, summary=summary),
+        "operator_digest": operator_digest,
         "source_artifacts": source_artifacts(run_dir=run_dir, repo_root=repo_root),
         "summary": summary,
         "panels": panels,
@@ -470,6 +477,70 @@ def primary_focus(*, status: str, summary: dict[str, object]) -> str:
     if status == "missing_closeout":
         return "write_run_closeout"
     return "review_research_outcome"
+
+
+def cockpit_operator_digest(
+    *,
+    status: str,
+    summary: dict[str, object],
+    blockers: list[str],
+    review_priority: dict[str, object],
+) -> dict[str, object]:
+    """Return the first-screen cockpit digest derived from saved evidence."""
+    blocker_count = len(blockers)
+    first_blocker = blockers[0] if blockers else ""
+    priority = str(review_priority.get("priority", ""))
+    outcome = str(summary.get("run_outcome_category", ""))
+    outcome_code = str(summary.get("run_outcome_primary_code", ""))
+    target_title = str(review_priority.get("target_panel_title", ""))
+    if blocker_count:
+        headline = f"Inspect {target_title or 'blockers'} before continuing."
+    elif priority == "action_required":
+        headline = (
+            f"Complete {target_title or 'the operator action'} before continuing."
+        )
+    elif outcome and outcome != "accepted":
+        headline = f"Review deterministic run outcome {outcome_code or outcome}."
+    else:
+        headline = "Run is ready for operator review."
+    return {
+        "schema_version": "operator_digest_v1",
+        "headline": headline,
+        "status": status,
+        "ok": status not in {"needs_repair", "missing_closeout"},
+        "primary_focus": primary_focus(status=status, summary=summary),
+        "run_outcome_category": outcome,
+        "run_outcome_primary_code": outcome_code,
+        "blocker_count": blocker_count,
+        "first_blocker": first_blocker,
+        "config_lineage_status": str(summary.get("config_lineage_status", "")),
+        "action_status": str(summary.get("action_status", "")),
+        "action_current_step": str(summary.get("action_current_step", "")),
+        "candidate_quality_top_failure_code": str(
+            summary.get("candidate_quality_top_failure_code", "")
+        ),
+        "codex_preflight_status": str(summary.get("codex_preflight_status", "")),
+        "codex_readiness_diff_status": str(
+            summary.get("codex_readiness_diff_status", "")
+        ),
+        "promotion_status": str(summary.get("promotion_status", "")),
+        "priority": priority,
+        "primary_reason": str(review_priority.get("primary_reason", "")),
+        "target_panel_id": str(review_priority.get("target_panel_id", "")),
+        "target_panel_title": target_title,
+        "target_panel_status": str(review_priority.get("target_panel_status", "")),
+        "next_step": str(review_priority.get("next_step", "")),
+        "recommended_command_label": str(
+            review_priority.get("recommended_command_label", "")
+        ),
+        "recommended_command": str(review_priority.get("recommended_command", "")),
+        "policy": {
+            "inspection_only": True,
+            "command_is_hint_only": True,
+            "does_not_execute_commands": True,
+            "does_not_change_acceptance": True,
+        },
+    }
 
 
 def cockpit_panels(
@@ -1103,6 +1174,7 @@ def codex_readiness_diff_next_step(payload: dict[str, Any]) -> str:
 def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
     """Render an operator cockpit as markdown."""
     summary = object_field(payload, "summary")
+    digest = object_field(payload, "operator_digest")
     priority = object_field(payload, "review_priority")
     lines = [
         "# Operator Cockpit",
@@ -1121,6 +1193,18 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         f"- Codex CLI preflight: `{summary.get('codex_preflight_status', '')}`",
         f"- Codex CLI readiness diff: `{summary.get('codex_readiness_diff_status', '')}`",
         f"- Promotion: `{summary.get('promotion_status', '')}`",
+        "",
+        "## Operator Digest",
+        "",
+        f"- Headline: {digest.get('headline', '')}",
+        f"- Priority: `{digest.get('priority', '')}`",
+        f"- Target panel: `{digest.get('target_panel_title', '')}` "
+        f"(`{digest.get('target_panel_status', '')}`)",
+        f"- Blockers: `{digest.get('blocker_count', 0)}`",
+        f"- First blocker: `{digest.get('first_blocker', '')}`",
+        f"- Next step: {digest.get('next_step', '')}",
+        f"- Next command: `{digest.get('recommended_command_label', '')}`",
+        f"- Command hint: `{digest.get('recommended_command', '')}`",
         "",
         "## Review Priority",
         "",
@@ -1287,6 +1371,8 @@ def validate_operator_cockpit_consistency(
     commands = list_of_dicts(payload.get("recommended_commands", []))
     action_failure_reasons = list_of_dicts(payload.get("action_failure_reasons", []))
     unlock_checklist = object_field(payload, "codex_unlock_checklist")
+    review_priority = object_field(payload, "review_priority")
+    operator_digest = object_field(payload, "operator_digest")
 
     if bool(payload.get("ok", False)) != (
         status not in {"needs_repair", "missing_closeout"}
@@ -1299,6 +1385,14 @@ def validate_operator_cockpit_consistency(
         errors.append("operator_cockpit primary_focus mismatch")
     if status != cockpit_status(summary=summary, blockers=blockers):
         errors.append("operator_cockpit status summary mismatch")
+    expected_digest = cockpit_operator_digest(
+        status=status,
+        summary=summary,
+        blockers=blockers,
+        review_priority=review_priority,
+    )
+    if operator_digest != expected_digest:
+        errors.append("operator_cockpit operator_digest mismatch")
 
     expected_failure_count = len(action_failure_reasons)
     if int(summary.get("action_failure_reason_count", 0) or 0) != expected_failure_count:

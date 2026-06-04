@@ -965,6 +965,10 @@ jobs:
           assert cockpit["summary"]["action_status"] == "execution_completed"
           assert cockpit["summary"]["config_lineage_status"] == "partial"
           assert cockpit["summary"]["codex_preflight_ok"] is True
+          assert cockpit["operator_digest"]["schema_version"] == "operator_digest_v1"
+          assert cockpit["operator_digest"]["recommended_command_label"] == (
+              cockpit["review_priority"]["recommended_command_label"]
+          )
           assert cockpit["codex_unlock_checklist"]["status"] == "not_requested"
           assert cockpit["codex_unlock_checklist"]["item_count"] == 0
           assert cockpit["source_artifacts"]["operator_unlock_checklist"]["file"]["exists"] is True
@@ -974,6 +978,7 @@ jobs:
           assert cockpit["policy"]["does_not_change_acceptance"] is True
           assert len(cockpit["panels"]) >= 7
           assert "# Operator Cockpit" in markdown
+          assert "## Operator Digest" in markdown
           PY
           python -m orchestrator.artifact_validator ci-adaptive
 

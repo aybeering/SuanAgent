@@ -89,6 +89,7 @@ CHAMPION_STATUS_SCHEMA_PATH = Path("schemas/champion_status.schema.json")
 CANDIDATE_LEADERBOARD_SCHEMA_PATH = Path(
     "schemas/candidate_leaderboard.schema.json"
 )
+AGENT_RESULT_STATS_SCHEMA_PATH = Path("schemas/agent_result_stats.schema.json")
 EXPERIMENT_LEADERBOARD_SCHEMA_PATH = Path("schemas/experiment_leaderboard.schema.json")
 EXPERIMENT_SUMMARY_DASHBOARD_SCHEMA_PATH = Path(
     "schemas/experiment_summary_dashboard.schema.json"
@@ -1188,13 +1189,124 @@ def agent_result_stats(
         payload = load_json(path)
         payload["from_artifact"] = True
         payload["round_replays"] = round_replay_summary(run_dir=run_dir)
+        errors = validate_agent_result_stats_payload(
+            payload,
+            repo_root=experiments_dir.parent,
+            run_id=run_id,
+            run_dir=run_dir,
+        )
+        if errors:
+            raise ValueError(
+                "agent result stats failed schema validation: " + "; ".join(errors)
+            )
         return payload
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
     payload = build_agent_result_stats(run_dir=run_dir)
     payload["from_artifact"] = False
     payload["round_replays"] = round_replay_summary(run_dir=run_dir)
+    errors = validate_agent_result_stats_payload(
+        payload,
+        repo_root=experiments_dir.parent,
+        run_id=run_id,
+        run_dir=run_dir,
+    )
+    if errors:
+        raise ValueError(
+            "agent result stats failed schema validation: " + "; ".join(errors)
+        )
     return payload
+
+
+def validate_agent_result_stats_payload(
+    payload: dict[str, object],
+    *,
+    repo_root: Path,
+    run_id: str,
+    run_dir: Path,
+) -> tuple[str, ...]:
+    """Validate the terminal-only agent result stats output."""
+    schema = load_schema(repo_root / AGENT_RESULT_STATS_SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=payload,
+            schema=schema,
+            schema_dir=(repo_root / AGENT_RESULT_STATS_SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(
+        validate_agent_result_stats_consistency(
+            payload,
+            repo_root=repo_root,
+            run_id=run_id,
+            run_dir=run_dir,
+        )
+    )
+    return tuple(errors)
+
+
+def validate_agent_result_stats_consistency(
+    payload: dict[str, object],
+    *,
+    repo_root: Path,
+    run_id: str,
+    run_dir: Path,
+) -> tuple[str, ...]:
+    """Validate stats output against the saved candidate leaderboard and replays."""
+    errors: list[str] = []
+    if payload.get("run_id") != run_id:
+        errors.append("agent_result_stats run_id mismatch")
+    expected = build_agent_result_stats(run_dir=run_dir)
+    for key in (
+        "schema_version",
+        "totals",
+        "agents",
+        "directions",
+        "patch_families",
+        "routing_hints",
+    ):
+        if payload.get(key) != expected.get(key):
+            errors.append(f"agent_result_stats {key} mismatch")
+    if resolve_report_path(payload.get("source_path"), repo_root) != resolve_report_path(
+        expected.get("source_path"),
+        repo_root,
+    ):
+        errors.append("agent_result_stats source_path mismatch")
+    expected_round_replays = round_replay_summary(run_dir=run_dir)
+    if normalize_report_paths(payload.get("round_replays"), repo_root) != (
+        normalize_report_paths(expected_round_replays, repo_root)
+    ):
+        errors.append("agent_result_stats round_replays mismatch")
+    from_artifact = payload.get("from_artifact")
+    if from_artifact is not None and not isinstance(from_artifact, bool):
+        errors.append("agent_result_stats from_artifact invalid")
+    return tuple(errors)
+
+
+def resolve_report_path(value: object, repo_root: Path) -> str:
+    """Return an absolute comparable path for repo-local report fields."""
+    raw = str(value or "")
+    if not raw:
+        return ""
+    path = Path(raw)
+    if not path.is_absolute():
+        path = repo_root / path
+    return str(path.resolve())
+
+
+def normalize_report_paths(value: object, repo_root: Path) -> object:
+    """Normalize nested report path fields for stable consistency checks."""
+    if isinstance(value, dict):
+        normalized: dict[str, object] = {}
+        for key, item in value.items():
+            if key in {"path", "markdown_path", "replay_path"}:
+                normalized[key] = resolve_report_path(item, repo_root)
+            else:
+                normalized[key] = normalize_report_paths(item, repo_root)
+        return normalized
+    if isinstance(value, list):
+        return [normalize_report_paths(item, repo_root) for item in value]
+    return value
 
 
 def candidate_quality_trace(

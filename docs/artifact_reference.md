@@ -753,6 +753,15 @@ Replay artifacts:
   and selected-row validation/holdout signal presence without executing agents,
   rerunning backtests, routing candidates, applying patches, or changing
   acceptance.
+- `agent_result_stats.json` aggregates the saved candidate leaderboard by
+  agent, direction, and patch family, plus deterministic routing hints for
+  future review. `python -m orchestrator.experiments agents <run_id>` returns
+  the same read-only view with transient round replay status and validates the
+  terminal payload against `schemas/agent_result_stats.schema.json` before
+  printing. Its consistency checks recompute totals, grouped rows, patch-family
+  rows, routing hints, source path binding, and replay summaries from saved
+  run artifacts without executing agents, rerunning backtests, routing
+  candidates, applying patches, or changing acceptance.
 - `candidate_quality_trace.json` and `candidate_quality_trace.md` summarize
   the saved leaderboard into an inspection-only trace of score components,
   probe/validation/holdout signals, selected attempts, patch families, and

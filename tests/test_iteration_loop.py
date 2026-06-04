@@ -359,6 +359,7 @@ from orchestrator.experiments import (
     show_experiment,
     show_champion,
     summarize_experiments,
+    validate_agent_result_stats_payload,
     validate_candidate_leaderboard_payload,
     validate_champion_status_payload,
     validate_experiment_leaderboard_payload,
@@ -17730,6 +17731,30 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         run_id="cli-candidates",
         experiments_dir=repo / "experiments",
     )
+    assert_matches_schema_payload(stats, "agent_result_stats")
+    assert validate_agent_result_stats_payload(
+        stats,
+        repo_root=repo,
+        run_id="cli-candidates",
+        run_dir=repo / "experiments/cli-candidates",
+    ) == ()
+    drift_stats = json.loads(json.dumps(stats))
+    drift_stats["run_id"] = "other-run"
+    drift_stats["totals"]["attempt_count"] = -1
+    drift_stats["agents"] = []
+    drift_stats["round_replays"]["round_count"] = -1
+    drift_stats["from_artifact"] = "yes"
+    drift_stats_errors = validate_agent_result_stats_payload(
+        drift_stats,
+        repo_root=repo,
+        run_id="cli-candidates",
+        run_dir=repo / "experiments/cli-candidates",
+    )
+    assert "agent_result_stats run_id mismatch" in drift_stats_errors
+    assert "agent_result_stats totals mismatch" in drift_stats_errors
+    assert "agent_result_stats agents mismatch" in drift_stats_errors
+    assert "agent_result_stats round_replays mismatch" in drift_stats_errors
+    assert "agent_result_stats from_artifact invalid" in drift_stats_errors
     trace = candidate_quality_trace(
         run_id="cli-candidates",
         experiments_dir=repo / "experiments",
@@ -18784,6 +18809,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert stats_result.returncode == 0, stats_result.stderr
     stats_payload = json.loads(stats_result.stdout)
     assert stats_payload["schema_version"] == "agent_result_stats_v1"
+    assert_matches_schema_payload(stats_payload, "agent_result_stats")
+    assert validate_agent_result_stats_payload(
+        stats_payload,
+        repo_root=repo,
+        run_id="cli-candidates",
+        run_dir=repo / "experiments/cli-candidates",
+    ) == ()
     assert stats_payload["agents"][0]["key"] == "strategy_modifier_stub"
     assert stats_payload["round_replays"]["replayed_round_count"] == 1
     assert stats_payload["round_replays"]["rounds"][0]["attempts"][0][

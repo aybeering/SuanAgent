@@ -155,6 +155,7 @@ Implemented or allowed V0.5 components:
 126. Strict local schema and consistency validation for the terminal-only `champion_status_v1` payload exposed by `python -m orchestrator.experiments champion`, including current champion existence, registry schema version, champion-run binding to the embedded lineage summary, latest history champion and validation EV checks, lineage event counters, and read-only status/lineage policy flags, applied before JSON output is printed, without writing champion registry files, appending champion history, promoting champions, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 127. Strict local schema and consistency validation for the terminal-only `experiment_leaderboard` payload exposed by `python -m orchestrator.experiments leaderboard`, including bounded row count, unique run IDs, descending validation EV-delta and creation-time ordering, single-run EV delta arithmetic, and non-negative iteration completed-round counts, applied before JSON output is printed without executing agents, rerunning backtests, promoting champions, applying patches, or changing acceptance.
 128. Strict local schema and consistency validation for the terminal-only `candidate_leaderboard` payload exposed by `python -m orchestrator.experiments candidates <run_id>`, including bounded row count, run-id binding, unique round/attempt identity, stable candidate ranking order, positive attempt indexes, quality-score binding, and selected-row validation/holdout signal checks, applied before JSON output is printed without executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
+129. Strict local schema and consistency validation for the terminal-only `agent_result_stats_v1` payload exposed by `python -m orchestrator.experiments agents <run_id>`, including run-id and source-path binding, totals recomputation, agent/direction/patch-family aggregate recomputation, routing hint recomputation, optional artifact-source flag checks, and round replay summary normalization, applied before JSON output is printed without executing agents, rerunning backtests, routing candidates, applying patches, or changing acceptance.
 
 ## Contract Families
 
@@ -405,6 +406,11 @@ Codex CLI readiness contracts:
     selected validation/holdout signal presence without executing agents,
     rerunning backtests, routing candidates, applying patches, or changing
     acceptance.
+    Agent result stats terminal output is schema-validated before JSON is
+    emitted. Its validator recomputes totals, agent/direction/patch-family
+    aggregates, routing hints, source-path binding, and replay summaries from
+    saved run artifacts without executing agents, rerunning backtests, routing
+    candidates, applying patches, or changing acceptance.
 33. Operator cockpit panels include Codex CLI execution preflight state as a
     read-only unlock visibility layer. They may summarize real-execution
     profile counts, operator-unlock-ready counts, and startup blockers, but

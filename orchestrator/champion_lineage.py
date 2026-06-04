@@ -36,6 +36,16 @@ def write_champion_lineage(
         experiments_dir=experiments_dir,
         repo_root=repo_root,
     )
+    errors = validate_champion_lineage_payload(
+        payload,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "champion lineage failed schema validation: " + "; ".join(errors)
+        )
     json_path = experiments_dir / "champion_lineage.json"
     md_path = experiments_dir / "champion_lineage.md"
     json_path.write_text(
@@ -43,9 +53,14 @@ def write_champion_lineage(
         encoding="utf-8",
     )
     md_path.write_text(render_champion_lineage_markdown(payload), encoding="utf-8")
-    errors = validate_champion_lineage_file(payload_path=json_path, repo_root=repo_root)
-    if errors:
-        raise ValueError(f"champion lineage failed schema validation: {errors}")
+    file_errors = validate_champion_lineage_file(
+        payload_path=json_path,
+        repo_root=repo_root,
+    )
+    if file_errors:
+        raise ValueError(
+            "champion lineage failed schema validation: " + "; ".join(file_errors)
+        )
     return json_path, md_path, payload
 
 
@@ -295,15 +310,58 @@ def validate_champion_lineage_file(
 def validate_champion_lineage_payload(
     payload: dict[str, object],
     *,
+    experiments_dir: Path | None = None,
     repo_root: Path = Path("."),
+    require_current_evidence: bool = False,
 ) -> tuple[str, ...]:
     """Validate an in-memory champion lineage payload."""
+    repo_root = repo_root.resolve()
+    comparable_payload = strip_terminal_metadata(payload)
     schema = load_schema(repo_root / SCHEMA_PATH)
-    return validate_json_payload(
-        payload=payload,
-        schema=schema,
-        schema_dir=(repo_root / SCHEMA_PATH).parent,
-    ) + validate_champion_lineage_consistency(payload)
+    errors = list(
+        validate_json_payload(
+            payload=comparable_payload,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(validate_champion_lineage_consistency(comparable_payload))
+    if require_current_evidence:
+        resolved_experiments_dir = lineage_experiments_dir(
+            payload=comparable_payload,
+            experiments_dir=experiments_dir,
+            repo_root=repo_root,
+        )
+        if resolved_experiments_dir is None:
+            errors.append("champion_lineage experiments_dir required")
+        else:
+            expected = build_champion_lineage(
+                experiments_dir=resolved_experiments_dir,
+                repo_root=repo_root,
+            )
+            if comparable_payload != expected:
+                errors.append("champion_lineage current evidence mismatch")
+    return tuple(errors)
+
+
+def strip_terminal_metadata(payload: dict[str, object]) -> dict[str, object]:
+    """Return payload without terminal-only annotation fields."""
+    stripped = dict(payload)
+    stripped.pop("from_artifact", None)
+    return stripped
+
+
+def lineage_experiments_dir(
+    *,
+    payload: dict[str, object],
+    experiments_dir: Path | None,
+    repo_root: Path,
+) -> Path | None:
+    """Return the experiments directory used for current-evidence validation."""
+    if experiments_dir is not None:
+        return resolve_path(experiments_dir, repo_root)
+    raw_path = str(payload.get("experiments_dir", ""))
+    return resolve_path(Path(raw_path), repo_root) if raw_path else None
 
 
 def validate_champion_lineage_consistency(

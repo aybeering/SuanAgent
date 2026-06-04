@@ -265,6 +265,7 @@ from orchestrator.champion_promotion_executor import (
 from orchestrator.champion_lineage import (
     CHAMPION_LINEAGE_SCHEMA_VERSION,
     validate_champion_lineage_file,
+    validate_champion_lineage_payload,
     write_champion_lineage,
 )
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
@@ -17171,6 +17172,20 @@ def test_champion_promote_approved_requires_recorded_approval(
         payload_path=lineage_path,
         repo_root=repo,
     ) == ()
+    assert validate_champion_lineage_payload(
+        lineage,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    terminal_lineage = dict(lineage)
+    terminal_lineage["from_artifact"] = True
+    assert validate_champion_lineage_payload(
+        terminal_lineage,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     tampered_lineage = json.loads(lineage_path.read_text(encoding="utf-8"))
     tampered_lineage["ok"] = False
     tampered_lineage["history"]["event_count"] = 99
@@ -17972,6 +17987,12 @@ def test_experiments_cli_promote_approved_is_operator_path(
     assert (repo / "experiments/champion_lineage.json").exists()
     assert (repo / "experiments/champion_lineage.md").exists()
     assert_matches_schema(repo / "experiments/champion_lineage.json", "champion_lineage")
+    assert validate_champion_lineage_payload(
+        lineage,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
 
     summary_result = subprocess.run(
         [

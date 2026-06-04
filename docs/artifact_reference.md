@@ -895,10 +895,13 @@ Replay artifacts:
   metric deltas into one inspectable champion evolution chain. The writer
   validates history event and parse-error counts, row indexes, current-champion
   to last-history matching, `checks` summaries, receipt-derived promotion
-  source labels, and read-only policy flags before returning. The experiment
-  `summary` and `champion` inspection commands expose the same chain as
-  compact embedded JSON fields for quick status checks, but only the `lineage`
-  command writes `champion_lineage.json` and `champion_lineage.md`.
+  source labels, and read-only policy flags before returning. The same payload
+  validator can check terminal output after stripping transient fields such as
+  `from_artifact`, and can optionally rebuild the lineage from current
+  champion/history evidence to catch drift before printing or writing. The
+  experiment `summary` and `champion` inspection commands expose the same chain
+  as compact embedded JSON fields for quick status checks, but only the
+  `lineage` command writes `champion_lineage.json` and `champion_lineage.md`.
 - `python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>`
   remains available as a legacy deterministic helper for tests and fixtures,
   but operator-facing promotion should use `promote-approved` with a recorded

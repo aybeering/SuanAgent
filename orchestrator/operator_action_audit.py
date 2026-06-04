@@ -16,7 +16,11 @@ from orchestrator.operator_action_plan import (
     OPERATOR_ACTION_PLAN_SCHEMA_VERSION,
     build_operator_action_plan,
 )
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 OPERATOR_ACTION_AUDIT_SCHEMA_VERSION = "operator_action_audit_v1"
@@ -38,6 +42,17 @@ def write_operator_action_audit(
         experiments_dir=experiments_dir,
         repo_root=repo_root,
     )
+    errors = validate_operator_action_audit_payload(
+        payload,
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "operator action audit failed schema validation: " + "; ".join(errors)
+        )
     json_path = run_dir / "operator_action_audit.json"
     md_path = run_dir / "operator_action_audit.md"
     json_path.write_text(
@@ -561,12 +576,128 @@ def validate_operator_action_audit_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved operator action audit artifact."""
-    return tuple(
+    errors = list(
         validate_json_file(
             payload_path=payload_path,
             schema_path=repo_root / SCHEMA_PATH,
         )
     )
+    if payload_path.exists():
+        errors.extend(
+            validate_operator_action_audit_consistency(
+                load_json_object(payload_path),
+                run_dir=payload_path.parent,
+                experiments_dir=payload_path.parent.parent,
+                repo_root=repo_root,
+            )
+        )
+    return tuple(errors)
+
+
+def validate_operator_action_audit_payload(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+    experiments_dir: Path = Path("experiments"),
+    repo_root: Path = Path("."),
+    require_current_evidence: bool = False,
+) -> tuple[str, ...]:
+    """Validate an in-memory operator action audit payload."""
+    repo_root = repo_root.resolve()
+    run_dir = resolve_path(run_dir, repo_root)
+    experiments_dir = resolve_path(experiments_dir, repo_root)
+    comparable_payload = strip_terminal_metadata(payload)
+    schema = load_schema(repo_root / SCHEMA_PATH)
+    errors = list(
+        validate_json_payload(
+            payload=comparable_payload,
+            schema=schema,
+            schema_dir=(repo_root / SCHEMA_PATH).parent,
+        )
+    )
+    errors.extend(
+        validate_operator_action_audit_consistency(
+            comparable_payload,
+            run_dir=run_dir,
+            experiments_dir=experiments_dir,
+            repo_root=repo_root,
+        )
+    )
+    if require_current_evidence:
+        expected = build_operator_action_audit(
+            run_dir=run_dir,
+            experiments_dir=experiments_dir,
+            repo_root=repo_root,
+        )
+        if comparable_payload != expected:
+            errors.append("operator_action_audit current evidence mismatch")
+    return tuple(errors)
+
+
+def validate_operator_action_audit_consistency(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+    experiments_dir: Path = Path("experiments"),
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate audit source hashes, summaries, status, and policy fields."""
+    errors: list[str] = []
+    repo_root = repo_root.resolve()
+    run_dir = resolve_path(run_dir, repo_root)
+    experiments_dir = resolve_path(experiments_dir, repo_root)
+    plan_path = run_dir / "operator_action_plan.json"
+    approval_path = run_dir / "operator_action_approval.json"
+    execution_path = run_dir / "operator_action_execution_receipt.json"
+
+    if str(payload.get("run_id", "")) != run_dir.name:
+        errors.append("operator_action_audit run_id mismatch")
+    if str(payload.get("run_dir", "")) != str(run_dir):
+        errors.append("operator_action_audit run_dir mismatch")
+
+    source_artifacts = object_field(payload, "source_artifacts")
+    expected_sources = {
+        "action_plan": ("operator_action_plan", plan_path),
+        "action_approval": ("operator_action_approval", approval_path),
+        "execution_receipt": ("operator_action_execution_receipt", execution_path),
+    }
+    for key, (artifact_name, source_path) in expected_sources.items():
+        source = object_field(source_artifacts, key)
+        source_file = object_field(source, "file")
+        if source.get("artifact_name") != artifact_name:
+            errors.append(f"operator_action_audit {key} source artifact mismatch")
+        if source_file != file_record(source_path, repo_root):
+            errors.append(f"operator_action_audit {key} source file mismatch")
+
+    expected = build_operator_action_audit(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
+    expected_fields = [
+        "status",
+        "ok",
+        "source_artifacts",
+        "summary",
+        "selected_action",
+        "selected_command",
+        "approval_record",
+        "execution_record",
+        "chain_checks",
+        "recommended_next_actions",
+        "policy",
+    ]
+    for field in expected_fields:
+        if payload.get(field) != expected.get(field):
+            errors.append(f"operator_action_audit {field} mismatch")
+    return tuple(errors)
+
+
+def strip_terminal_metadata(payload: dict[str, object]) -> dict[str, object]:
+    """Return payload without CLI-only annotation fields."""
+    stripped = dict(payload)
+    stripped.pop("from_artifact", None)
+    return stripped
 
 
 def selected_action_from_approval(approval: dict[str, Any]) -> dict[str, Any]:

@@ -47,6 +47,7 @@ from orchestrator.operator_action_approval import (
 from orchestrator.operator_action_audit import (
     build_operator_action_audit,
     render_operator_action_audit_markdown,
+    validate_operator_action_audit_payload,
 )
 from orchestrator.operator_action_dashboard import (
     build_operator_action_dashboard,
@@ -2239,6 +2240,17 @@ def operator_action_audit_report(
     audit_path = run_dir / "operator_action_audit.json"
     if audit_path.exists():
         payload = load_json(audit_path)
+        errors = validate_operator_action_audit_payload(
+            payload,
+            run_dir=run_dir,
+            experiments_dir=experiments_dir,
+            repo_root=experiments_dir.parent,
+        )
+        if errors:
+            raise ValueError(
+                "operator action audit failed schema validation: "
+                + "; ".join(errors)
+            )
         payload["from_artifact"] = True
         return payload
     payload = build_operator_action_audit(
@@ -2246,6 +2258,17 @@ def operator_action_audit_report(
         experiments_dir=experiments_dir,
         repo_root=experiments_dir.parent,
     )
+    errors = validate_operator_action_audit_payload(
+        payload,
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=experiments_dir.parent,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "operator action audit failed schema validation: " + "; ".join(errors)
+        )
     payload["from_artifact"] = False
     return payload
 

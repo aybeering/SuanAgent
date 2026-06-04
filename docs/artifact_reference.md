@@ -315,7 +315,12 @@ argv, evidence fields, mutation guard, status, and policy before returning.
 `operator_action_audit.json` and `operator_action_audit.md` connect the saved
 action plan, approval, and execution receipt into one digest-checked read-only
 chain. The audit records stable failure reasons with stage, code, severity, and
-detail fields so operator views can report exactly which link broke.
+detail fields so operator views can report exactly which link broke. The writer
+and terminal view validate the payload against
+`schemas/operator_action_audit.schema.json` and check source artifact file
+records, status, summary, selected action, selected command, execution record,
+chain checks, next actions, and policy against the current digest chain before
+returning.
 `python -m orchestrator.experiments action-audit <run_id>` and `action-audit
 --markdown` expose the saved or derived audit without executing commands,
 writing config, promoting champions, running agents, running backtests,
@@ -752,7 +757,9 @@ Replay artifacts:
   action plan, approval, and execution receipt chain. They validate source
   artifact schema state, source file hashes, selected command consistency, and
   next recommended operator step while also recording stable failure reasons
-  with stage, code, severity, and detail fields. They remain read-only.
+  with stage, code, severity, and detail fields. Their writer and terminal view
+  reject stale or internally inconsistent payloads before returning them. They
+  remain read-only.
 - `operator_action_dashboard.json` and `operator_action_dashboard.md` turn the
   action plan, approval, execution receipt, and audit state into a compact
   operator next-step view. The iteration loop writes them during run closeout,

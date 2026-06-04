@@ -66,8 +66,8 @@ leaderboard views, agent result stats views, proposal outcome memory views, and
 memory diagnostics, memory hygiene, memory scope recommendation, config change
 candidate, operator config review, config application dry-run, config rollback
 preview, config lineage, operator action plan, and operator action dashboard
-views, plus operator action approval and operator action execution receipt
-views.
+views, plus operator action approval, operator action execution receipt, and
+operator action audit views.
 
 Still out of scope:
 

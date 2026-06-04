@@ -308,6 +308,7 @@ from orchestrator.operator_action_audit import (
     build_operator_action_audit,
     render_operator_action_audit_markdown,
     validate_operator_action_audit_file,
+    validate_operator_action_audit_payload,
     write_operator_action_audit,
 )
 from orchestrator.operator_action_dashboard import (
@@ -2283,6 +2284,13 @@ def test_operator_action_audit_tracks_plan_approval_execution_chain(
     assert pending["policy"]["does_not_execute_commands"] is True
     assert "# Operator Action Audit" in md_path.read_text(encoding="utf-8")
     assert_matches_schema_payload(pending, "operator_action_audit")
+    assert validate_operator_action_audit_payload(
+        pending,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     assert validate_operator_action_audit_file(
         payload_path=json_path,
         repo_root=repo,
@@ -2308,6 +2316,13 @@ def test_operator_action_audit_tracks_plan_approval_execution_chain(
     assert ready["selected_command"]["label"] == read_only_command["label"]
     assert ready["selected_command"]["digest_matches_plan"] is True
     assert ready["execution_record"]["present"] is False
+    assert validate_operator_action_audit_payload(
+        ready,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
 
     execute_operator_action_with_approval(
         run_id=run_id,
@@ -2341,6 +2356,13 @@ def test_operator_action_audit_tracks_plan_approval_execution_chain(
     assert "# Operator Action Audit" in markdown
     assert built["status"] == "execution_completed"
     assert_matches_schema_payload(completed, "operator_action_audit")
+    assert validate_operator_action_audit_payload(
+        completed,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     assert validate_operator_action_audit_file(
         payload_path=json_path,
         repo_root=repo,
@@ -2380,6 +2402,13 @@ def test_operator_action_audit_tracks_plan_approval_execution_chain(
         }
     ]
     assert_matches_schema_payload(inconsistent, "operator_action_audit")
+    assert validate_operator_action_audit_payload(
+        inconsistent,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
     assert validate_operator_action_audit_file(
         payload_path=json_path,
         repo_root=repo,
@@ -18928,6 +18957,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert action_audit["summary"]["chain_ok"] is True
     assert action_audit["chain_checks"]["consistency_errors"] == []
     assert action_audit["policy"]["does_not_execute_commands"] is True
+    assert validate_operator_action_audit_payload(
+        action_audit,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    ) == ()
     assert "# Operator Action Audit" in action_audit_markdown
     assert action_dashboard["from_artifact"] is True
     assert (
@@ -19088,6 +19123,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert action_audit_payload["from_artifact"] is True
     assert action_audit_payload["status"] == "execution_completed"
     assert_matches_schema_payload(action_audit_payload, "operator_action_audit")
+    assert validate_operator_action_audit_payload(
+        action_audit_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    ) == ()
     assert action_audit_markdown_result.returncode == 0, (
         action_audit_markdown_result.stderr
     )

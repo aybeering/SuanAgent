@@ -198,8 +198,8 @@ experiments/<run_id>/
   operator_unlock_checklist.md
   codex_cli_readiness_summary.json  # after optional readiness summary command
   codex_cli_readiness_summary.md    # after optional readiness summary command
-  codex_cli_unlock_runbook.json  # after optional unlock runbook command
-  codex_cli_unlock_runbook.md    # after optional unlock runbook command
+  codex_cli_unlock_runbook.json
+  codex_cli_unlock_runbook.md
   codex_cli_execution_readiness_diff.json
   codex_cli_execution_readiness_diff.md
   operator_cockpit.json
@@ -436,10 +436,13 @@ pipeline-level readiness fields. These checks are schema-validated audit
 evidence only; they cannot execute Codex, create workspaces, route agents,
 apply patches, or change acceptance.
 `codex_cli_unlock_runbook.json` and `codex_cli_unlock_runbook.md` convert the
-same Codex CLI unlock chain into an ordered operator guide. `python -m
-orchestrator.codex_cli_unlock_runbook experiments/<run_id>` writes the
-artifacts, and `python -m orchestrator.experiments unlock-runbook <run_id>` or
-`unlock-runbook --markdown` shows the saved or derived guide. The runbook lists
+same Codex CLI unlock chain into an ordered operator guide. The iteration loop
+writes it during closeout and no-round real-Codex startup failures after the
+operator unlock checklist, while `python -m
+orchestrator.codex_cli_unlock_runbook experiments/<run_id>` can refresh the
+artifacts explicitly. `python -m orchestrator.experiments unlock-runbook
+<run_id>` or `unlock-runbook --markdown` shows the saved or derived guide. The
+runbook lists
 the required evidence artifacts, readiness fields, status, and command hints,
 and artifact validation checks those operator commands through the shared
 operator command-hint validator for known labels, write flags, command prefixes,
@@ -524,7 +527,8 @@ not stored in `operator_cockpit.json`.
 `python -m orchestrator.experiments refresh-operator-views <run_id>` is an
 explicit convenience command that rewrites the existing read-only operator
 action dashboard, Codex CLI execution preflight, operator unlock checklist,
-Codex CLI execution readiness diff, and operator cockpit in dependency order.
+Codex CLI unlock runbook, Codex CLI execution readiness diff, and operator
+cockpit in dependency order.
 It uses the run's recorded config path unless `--config` is provided, returns a
 terminal-only `operator_view_refresh_v1` receipt with config source, path,
 existence, SHA-256 fields, pre-refresh cockpit stale-source evidence,

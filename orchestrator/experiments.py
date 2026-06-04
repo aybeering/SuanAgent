@@ -95,6 +95,7 @@ from orchestrator.codex_cli_unlock_runbook import (
     build_codex_cli_unlock_runbook,
     render_codex_cli_unlock_runbook_markdown,
     validate_codex_cli_unlock_runbook_payload,
+    write_codex_cli_unlock_runbook,
 )
 from orchestrator.codex_cli_execution_readiness_diff import (
     build_codex_cli_execution_readiness_diff,
@@ -2670,6 +2671,13 @@ def refresh_operator_views(
             ),
         ),
         (
+            "codex_cli_unlock_runbook",
+            lambda: write_codex_cli_unlock_runbook(
+                run_dir=run_dir,
+                repo_root=repo_root,
+            ),
+        ),
+        (
             "codex_cli_execution_readiness_diff",
             lambda: write_codex_cli_execution_readiness_diff(
                 run_dir=run_dir,
@@ -3074,6 +3082,7 @@ def validate_operator_view_refresh_consistency(
         "operator_action_dashboard",
         "codex_cli_execution_preflight",
         "operator_unlock_checklist",
+        "codex_cli_unlock_runbook",
         "codex_cli_execution_readiness_diff",
         "operator_cockpit",
     ]

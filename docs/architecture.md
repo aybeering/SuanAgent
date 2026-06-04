@@ -218,9 +218,9 @@ run agents, run backtests, route agents, apply patches, or change acceptance.
 The dashboard also derives an execution-readiness checkpoint from saved
 artifacts only, showing whether guarded execution can be invoked and which
 approval, audit, receipt, blocker, or dependency condition still prevents it.
-The iteration loop writes the final dashboard
-during closeout after the action plan; the explicit dashboard command is still
-available to refresh the view after later approval or execution artifacts.
+The iteration loop writes the final dashboard during closeout after the action
+plan; the explicit dashboard command is still available to refresh the view
+after later approval or execution artifacts.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` split the
 Codex CLI unlock evidence checklist into its own read-only artifact. It reads
 the saved startup execution preflight, groups required operator evidence, and
@@ -239,6 +239,10 @@ report each step as missing, blocked, or ready, and show command hints without
 executing those commands. The runbook is read-only: it cannot record operator
 approval, execute Codex, create workspaces, apply patches, route agents, or
 change acceptance.
+The iteration loop writes the runbook during normal closeout and no-round
+real-Codex startup failures, after the checklist and before the readiness diff,
+so operators always get both a grouped checklist and ordered guide from the
+same saved run.
 `codex_cli_execution_readiness_diff.json` and
 `codex_cli_execution_readiness_diff.md` provide the companion drift audit. They
 compare the current candidate config-derived command, command digest, workspace

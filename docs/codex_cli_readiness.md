@@ -170,17 +170,19 @@ records, the final readiness summary file, and the pipeline-level status fields.
 Those checks are schema-validated and read-only; they do not execute Codex,
 create workspaces, apply patches, or change acceptance.
 
-Generate the read-only unlock runbook:
+Review or refresh the read-only unlock runbook:
 
 ```bash
 python -m orchestrator.codex_cli_unlock_runbook experiments/guarded-demo
 python -m orchestrator.experiments unlock-runbook guarded-demo --markdown
 ```
 
-The runbook orders the required readiness, candidate, dry-run, and operator
-request artifacts into a manual review guide. It only reads saved artifacts and
-prints command hints; it does not execute Codex, record approval, create
-workspaces, apply patches, or change acceptance.
+The iteration loop writes the runbook during closeout and no-round real-Codex
+startup failures. The explicit command refreshes that read-only guide after
+later evidence changes. The runbook orders the required readiness, candidate,
+dry-run, and operator request artifacts into a manual review guide. It only
+reads saved artifacts and prints command hints; it does not execute Codex,
+record approval, create workspaces, apply patches, or change acceptance.
 
 Generate the read-only execution readiness drift audit:
 
@@ -207,8 +209,9 @@ python -m orchestrator.experiments refresh-operator-views guarded-demo
 ```
 
 The refresh command rewrites the read-only operator action dashboard, Codex CLI
-execution preflight, unlock checklist, readiness diff, and cockpit in dependency
-order. It uses the run's recorded config path unless `--config` is provided and
+execution preflight, unlock checklist, unlock runbook, readiness diff, and
+cockpit in dependency order. It uses the run's recorded config path unless
+`--config` is provided and
 returns a terminal-only receipt with the config source, path, existence flag,
 SHA-256 digest, pre-refresh cockpit stale-source evidence, post-refresh
 freshness, operator-home navigation status, Codex intake readiness status, and

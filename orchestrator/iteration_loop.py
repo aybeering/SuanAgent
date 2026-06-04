@@ -65,6 +65,7 @@ from orchestrator.codex_cli_execution_preflight import (
 from orchestrator.codex_cli_execution_readiness_diff import (
     write_codex_cli_execution_readiness_diff,
 )
+from orchestrator.codex_cli_unlock_runbook import write_codex_cli_unlock_runbook
 from orchestrator.experiment_index import append_experiment_index
 from orchestrator.experiment_scope_health import write_experiment_scope_health
 from orchestrator.experiments import write_champion_comparison
@@ -259,6 +260,16 @@ def run_iteration_loop(
             "drift_count": 0,
             "missing_artifact_count": 0,
             "missing_comparison_count": 0,
+        },
+        "codex_cli_unlock_runbook": {
+            "path": "codex_cli_unlock_runbook.json",
+            "markdown_path": "codex_cli_unlock_runbook.md",
+            "ready": False,
+            "status": "pending",
+            "ready_step_count": 0,
+            "blocked_step_count": 0,
+            "missing_step_count": 0,
+            "codex_intake_readiness_status": "pending",
         },
         "experiment_scope_health": {
             "path": "experiment_scope_health.json",
@@ -1090,6 +1101,15 @@ def finalize_iteration_run(
     )
     write_json(run_dir / "manifest.json", manifest)
     write_iteration_summary(run_dir=run_dir, manifest=manifest)
+    _, _, unlock_runbook_payload = write_codex_cli_unlock_runbook(
+        run_dir=run_dir,
+        repo_root=repo_root,
+    )
+    manifest["codex_cli_unlock_runbook"] = codex_unlock_runbook_manifest_row(
+        unlock_runbook_payload,
+    )
+    write_json(run_dir / "manifest.json", manifest)
+    write_iteration_summary(run_dir=run_dir, manifest=manifest)
     _, _, execution_diff_payload = write_codex_cli_execution_readiness_diff(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -1169,6 +1189,29 @@ def codex_execution_readiness_diff_manifest_row(
         ),
         "missing_comparison_count": int(
             summary.get("missing_comparison_count", 0) or 0
+        ),
+    }
+
+
+def codex_unlock_runbook_manifest_row(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    """Return compact manifest metadata for the Codex CLI unlock runbook."""
+    summary = (
+        payload.get("summary", {})
+        if isinstance(payload.get("summary", {}), dict)
+        else {}
+    )
+    return {
+        "path": "codex_cli_unlock_runbook.json",
+        "markdown_path": "codex_cli_unlock_runbook.md",
+        "ready": bool(payload.get("ready", False)),
+        "status": str(payload.get("status", "unknown")),
+        "ready_step_count": int(summary.get("ready_step_count", 0) or 0),
+        "blocked_step_count": int(summary.get("blocked_step_count", 0) or 0),
+        "missing_step_count": int(summary.get("missing_step_count", 0) or 0),
+        "codex_intake_readiness_status": str(
+            summary.get("codex_intake_readiness_status", "")
         ),
     }
 

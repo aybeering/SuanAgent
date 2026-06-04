@@ -3848,7 +3848,7 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
 
     assert refresh["schema_version"] == "operator_view_refresh_v1"
     assert validate_operator_view_refresh_payload(refresh, repo_root=repo) == ()
-    assert refresh["refreshed_count"] == 5
+    assert refresh["refreshed_count"] == 6
     assert refresh["pre_refresh_snapshot_freshness"]["ok"] is False
     assert refresh["pre_refresh_snapshot_freshness"]["status"] == "stale_sources"
     assert refresh["pre_refresh_snapshot_freshness"]["stale_sources"] == [
@@ -3863,6 +3863,7 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
         "operator_action_dashboard",
         "codex_cli_execution_preflight",
         "operator_unlock_checklist",
+        "codex_cli_unlock_runbook",
         "codex_cli_execution_readiness_diff",
         "operator_cockpit",
     ]
@@ -4049,7 +4050,7 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     refresh_markdown = render_operator_view_refresh_markdown(refresh)
     assert "# Operator View Refresh" in refresh_markdown
     assert f"Run id: `{run_id}`" in refresh_markdown
-    assert "Refreshed artifacts: `5`" in refresh_markdown
+    assert "Refreshed artifacts: `6`" in refresh_markdown
     assert "Config source: `run_metadata`" in refresh_markdown
     assert "config/codex_cli_guarded.json" in refresh_markdown
     assert "Pre-refresh freshness: `fresh`" in refresh_markdown
@@ -4315,6 +4316,7 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
         "operator_action_dashboard",
         "codex_cli_execution_preflight",
         "operator_unlock_checklist",
+        "codex_cli_unlock_runbook",
         "codex_cli_execution_readiness_diff",
         "operator_cockpit",
     ):
@@ -6191,6 +6193,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "operator_action_dashboard.md").exists()
     assert (run_dir / "operator_unlock_checklist.json").exists()
     assert (run_dir / "operator_unlock_checklist.md").exists()
+    assert (run_dir / "codex_cli_unlock_runbook.json").exists()
+    assert (run_dir / "codex_cli_unlock_runbook.md").exists()
     assert (run_dir / "codex_cli_execution_readiness_diff.json").exists()
     assert (run_dir / "codex_cli_execution_readiness_diff.md").exists()
     assert (run_dir / "operator_cockpit.json").exists()
@@ -6354,6 +6358,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         (run_dir / "operator_unlock_checklist.json").read_text(encoding="utf-8")
     )
     unlock_checklist_markdown = (run_dir / "operator_unlock_checklist.md").read_text(
+        encoding="utf-8"
+    )
+    unlock_runbook = json.loads(
+        (run_dir / "codex_cli_unlock_runbook.json").read_text(encoding="utf-8")
+    )
+    unlock_runbook_markdown = (run_dir / "codex_cli_unlock_runbook.md").read_text(
         encoding="utf-8"
     )
     execution_diff = json.loads(
@@ -7071,6 +7081,23 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert manifest["operator_unlock_checklist"]["navigation_blocking_count"] == 0
     assert manifest["operator_unlock_checklist"]["primary_blocker"] == ""
     assert manifest["operator_unlock_checklist"]["command_hint_count"] == 0
+    assert manifest["codex_cli_unlock_runbook"]["path"] == (
+        "codex_cli_unlock_runbook.json"
+    )
+    assert manifest["codex_cli_unlock_runbook"]["markdown_path"] == (
+        "codex_cli_unlock_runbook.md"
+    )
+    assert manifest["codex_cli_unlock_runbook"]["status"] == unlock_runbook["status"]
+    assert manifest["codex_cli_unlock_runbook"]["ready"] == unlock_runbook["ready"]
+    assert manifest["codex_cli_unlock_runbook"]["ready_step_count"] == (
+        unlock_runbook["summary"]["ready_step_count"]
+    )
+    assert manifest["codex_cli_unlock_runbook"]["missing_step_count"] == (
+        unlock_runbook["summary"]["missing_step_count"]
+    )
+    assert manifest["codex_cli_unlock_runbook"][
+        "codex_intake_readiness_status"
+    ] == unlock_runbook["summary"]["codex_intake_readiness_status"]
     assert unlock_checklist["schema_version"] == (
         OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION
     )
@@ -7089,6 +7116,16 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert unlock_checklist["policy"]["does_not_execute_codex_cli"] is True
     assert unlock_checklist["policy"]["does_not_change_acceptance"] is True
     assert "# Operator Unlock Checklist" in unlock_checklist_markdown
+    assert "# Codex CLI Unlock Runbook" in unlock_runbook_markdown
+    assert "## Codex CLI Unlock Runbook" in summary_markdown
+    assert_matches_schema(
+        run_dir / "codex_cli_unlock_runbook.json",
+        "codex_cli_unlock_runbook",
+    )
+    assert validate_codex_cli_unlock_runbook_file(
+        payload_path=run_dir / "codex_cli_unlock_runbook.json",
+        repo_root=Path.cwd(),
+    ) == ()
     assert_matches_schema(
         run_dir / "operator_unlock_checklist.json",
         "operator_unlock_checklist",
@@ -16997,12 +17034,17 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
     run_dir = repo / "experiments/codex-execute-without-operator-request"
     preflight_path = run_dir / "codex_cli_execution_preflight.json"
     checklist_path = run_dir / "operator_unlock_checklist.json"
+    runbook_path = run_dir / "codex_cli_unlock_runbook.json"
     execution_diff_path = run_dir / "codex_cli_execution_readiness_diff.json"
     manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
     preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
     full_checklist = json.loads(checklist_path.read_text(encoding="utf-8"))
+    runbook = json.loads(runbook_path.read_text(encoding="utf-8"))
     execution_diff = json.loads(execution_diff_path.read_text(encoding="utf-8"))
     markdown = (run_dir / "operator_unlock_checklist.md").read_text(encoding="utf-8")
+    runbook_markdown = (run_dir / "codex_cli_unlock_runbook.md").read_text(
+        encoding="utf-8"
+    )
     execution_diff_markdown = (
         run_dir / "codex_cli_execution_readiness_diff.md"
     ).read_text(encoding="utf-8")
@@ -17013,6 +17055,8 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
     assert not (run_dir / "round_001").exists()
     assert checklist_path.exists()
     assert (run_dir / "operator_unlock_checklist.md").exists()
+    assert runbook_path.exists()
+    assert (run_dir / "codex_cli_unlock_runbook.md").exists()
     assert execution_diff_path.exists()
     assert (run_dir / "codex_cli_execution_readiness_diff.md").exists()
     assert manifest["operator_unlock_checklist"]["status"] == "blocked"
@@ -17023,6 +17067,23 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
         "primary:operator_unlock_request"
     )
     assert manifest["operator_unlock_checklist"]["command_hint_count"] >= 1
+    assert manifest["codex_cli_unlock_runbook"]["path"] == (
+        "codex_cli_unlock_runbook.json"
+    )
+    assert manifest["codex_cli_unlock_runbook"]["markdown_path"] == (
+        "codex_cli_unlock_runbook.md"
+    )
+    assert manifest["codex_cli_unlock_runbook"]["status"] == runbook["status"]
+    assert manifest["codex_cli_unlock_runbook"]["ready"] is False
+    assert manifest["codex_cli_unlock_runbook"]["blocked_step_count"] == (
+        runbook["summary"]["blocked_step_count"]
+    )
+    assert manifest["codex_cli_unlock_runbook"]["missing_step_count"] == (
+        runbook["summary"]["missing_step_count"]
+    )
+    assert manifest["codex_cli_unlock_runbook"][
+        "codex_intake_readiness_status"
+    ] == runbook["summary"]["codex_intake_readiness_status"]
     assert manifest["codex_cli_execution_readiness_diff"]["status"] == (
         "missing_evidence"
     )
@@ -17082,8 +17143,13 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
     assert "## Blocking Navigation" in markdown
     assert "## Evidence Artifacts" in markdown
     assert "Primary blocker: `primary:operator_unlock_request`" in summary_markdown
+    assert "## Codex CLI Unlock Runbook" in summary_markdown
+    assert "# Codex CLI Unlock Runbook" in runbook_markdown
     assert render_operator_unlock_checklist_markdown(full_checklist).startswith(
         "# Operator Unlock Checklist"
+    )
+    assert render_codex_cli_unlock_runbook_markdown(runbook).startswith(
+        "# Codex CLI Unlock Runbook"
     )
     assert_matches_schema(
         run_dir / "operator_unlock_checklist.json",

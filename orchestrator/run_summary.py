@@ -327,6 +327,26 @@ def write_iteration_summary(
             f"- Markdown: `{display_value(unlock_checklist.get('markdown_path'))}`"
         )
 
+    unlock_runbook = manifest.get("codex_cli_unlock_runbook")
+    if isinstance(unlock_runbook, dict):
+        lines.extend(["", "## Codex CLI Unlock Runbook", ""])
+        lines.append(f"- Status: `{display_value(unlock_runbook.get('status'))}`")
+        lines.append(f"- Ready: `{display_value(unlock_runbook.get('ready'))}`")
+        lines.append(
+            "- Ready / blocked / missing steps: "
+            f"`{display_value(unlock_runbook.get('ready_step_count'))}` / "
+            f"`{display_value(unlock_runbook.get('blocked_step_count'))}` / "
+            f"`{display_value(unlock_runbook.get('missing_step_count'))}`"
+        )
+        lines.append(
+            "- Codex intake: "
+            f"`{display_value(unlock_runbook.get('codex_intake_readiness_status'))}`"
+        )
+        lines.append(f"- Artifact: `{display_value(unlock_runbook.get('path'))}`")
+        lines.append(
+            f"- Markdown: `{display_value(unlock_runbook.get('markdown_path'))}`"
+        )
+
     cockpit = manifest.get("operator_cockpit")
     if isinstance(cockpit, dict):
         lines.extend(["", "## Operator Cockpit", ""])

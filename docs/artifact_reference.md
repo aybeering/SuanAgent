@@ -413,14 +413,19 @@ executor, audit, or dashboard commands.
 orchestrator.operator_home experiments/<run_id>` expose a terminal-only
 `operator_home_v1` payload validated by `schemas/operator_home.schema.json`.
 The home view derives from the current cockpit and action guide, then combines
-run outcome, primary focus, guided action path, next command, cockpit review
-priority, compact Codex CLI preflight/unlock-runbook/readiness/intake-binding status,
-compact command-center rows, blockers, and source view records into one
-operator landing page. Its source records include the saved unlock checklist
-unlock runbook, and readiness diff so the first screen can point directly at
-Codex evidence without becoming an unlock authority. It does not create run artifacts, record
-approval, execute commands, write config, promote champions, run agents, run
-backtests, apply patches, route agents, or change acceptance.
+run outcome, primary focus, guided action path, next command, next-command
+safety flags, cockpit review priority, compact Codex CLI
+preflight/unlock-runbook/readiness/intake-binding status, compact
+command-center rows, blockers, and source view records into one operator
+landing page. The safety flags surface whether the next command is hint-only,
+requires explicit operator invocation, needs prior approval, records an
+approval receipt, uses the guarded executor, and which artifact it would write
+when invoked through the dedicated command. Its source records include the
+saved unlock checklist, unlock runbook, and readiness diff so the first screen
+can point directly at Codex evidence without becoming an unlock authority. It
+does not create run artifacts, record approval, execute commands, write config,
+promote champions, run agents, run backtests, apply patches, route agents, or
+change acceptance.
 Completed iteration runs also record an `operator_home` manifest row and
 `summary.md` section with the read-only markdown command, terminal-only flag,
 current home status, action step, Codex unlock-runbook status, and intake

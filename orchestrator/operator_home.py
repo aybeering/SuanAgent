@@ -53,6 +53,7 @@ def build_operator_home(
     priority = object_field(cockpit, "review_priority")
     guided_path = object_field(guide, "guided_path")
     next_command = object_field(guide, "next_command")
+    next_command_boundary = object_field(next_command, "boundary")
     blockers = string_list(cockpit.get("blockers", []))
     codex_home = codex_home_summary(cockpit)
     status = home_status(cockpit=cockpit, guide=guide, blockers=blockers)
@@ -92,7 +93,25 @@ def build_operator_home(
             "step_count": int(guided_path.get("step_count", 0) or 0),
             "next_command_label": str(next_command.get("label", "")),
             "next_command_boundary": str(
-                object_field(next_command, "boundary").get("boundary_type", "")
+                next_command_boundary.get("boundary_type", "")
+            ),
+            "next_command_writes_artifact": str(
+                next_command.get("writes_artifact", "")
+            ),
+            "next_command_requires_explicit_operator_invocation": bool(
+                next_command.get("requires_explicit_operator_invocation", False)
+            ),
+            "next_command_requires_operator_approval": bool(
+                next_command.get("requires_operator_approval", False)
+            ),
+            "next_command_records_operator_approval": bool(
+                next_command.get("records_operator_approval", False)
+            ),
+            "next_command_uses_guarded_executor": bool(
+                next_command.get("uses_guarded_executor", False)
+            ),
+            "next_command_is_hint_only": bool(
+                next_command.get("command_is_hint_only", False)
             ),
             "can_invoke_guarded_executor_now": bool(
                 object_field(guide, "guidance").get(
@@ -337,6 +356,18 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
         f"- Action step: `{action_home.get('active_step_id', '')}`",
         f"- Guided path: `{action_home.get('completed_step_count', 0)}` / "
         f"`{action_home.get('step_count', 0)}`",
+        f"- Next command: `{action_home.get('next_command_label', '')}` "
+        f"(`{action_home.get('next_command_boundary', '')}`)",
+        f"- Next command writes: `{action_home.get('next_command_writes_artifact', '')}`",
+        f"- Next command hint-only: `{action_home.get('next_command_is_hint_only', False)}`",
+        f"- Next command needs explicit invocation: "
+        f"`{action_home.get('next_command_requires_explicit_operator_invocation', False)}`",
+        f"- Next command needs approval: "
+        f"`{action_home.get('next_command_requires_operator_approval', False)}`",
+        f"- Next command records approval: "
+        f"`{action_home.get('next_command_records_operator_approval', False)}`",
+        f"- Next command uses guarded executor: "
+        f"`{action_home.get('next_command_uses_guarded_executor', False)}`",
         f"- Codex intake: `{codex_home.get('intake_readiness_status', '')}`",
         f"- Codex intake ready: `{codex_home.get('intake_ready', False)}`",
         "",

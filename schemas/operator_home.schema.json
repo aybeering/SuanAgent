@@ -93,6 +93,12 @@
         "step_count",
         "next_command_label",
         "next_command_boundary",
+        "next_command_writes_artifact",
+        "next_command_requires_explicit_operator_invocation",
+        "next_command_requires_operator_approval",
+        "next_command_records_operator_approval",
+        "next_command_uses_guarded_executor",
+        "next_command_is_hint_only",
         "can_invoke_guarded_executor_now"
       ],
       "properties": {
@@ -103,6 +109,12 @@
         "step_count": {"type": "integer"},
         "next_command_label": {"type": "string"},
         "next_command_boundary": {"type": "string"},
+        "next_command_writes_artifact": {"type": "string"},
+        "next_command_requires_explicit_operator_invocation": {"type": "boolean"},
+        "next_command_requires_operator_approval": {"type": "boolean"},
+        "next_command_records_operator_approval": {"type": "boolean"},
+        "next_command_uses_guarded_executor": {"type": "boolean"},
+        "next_command_is_hint_only": {"type": "boolean"},
         "can_invoke_guarded_executor_now": {"type": "boolean"}
       }
     },

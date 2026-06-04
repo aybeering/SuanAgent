@@ -2873,6 +2873,21 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending_home["action_home"]["next_command_label"] == (
         "record_operator_approval"
     )
+    assert pending_home["action_home"]["next_command_boundary"] == (
+        "operator_approval_receipt"
+    )
+    assert pending_home["action_home"]["next_command_writes_artifact"] == (
+        "operator_action_approval.json"
+    )
+    assert pending_home["action_home"][
+        "next_command_requires_explicit_operator_invocation"
+    ] is True
+    assert pending_home["action_home"][
+        "next_command_requires_operator_approval"
+    ] is False
+    assert pending_home["action_home"]["next_command_records_operator_approval"] is True
+    assert pending_home["action_home"]["next_command_uses_guarded_executor"] is False
+    assert pending_home["action_home"]["next_command_is_hint_only"] is True
     assert pending_home["codex_home"]["intake_readiness_status"] == (
         pending_cockpit["summary"]["codex_intake_readiness_status"]
     )
@@ -2886,6 +2901,8 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending_home["authority"]["home_can_execute_commands"] is False
     assert pending_home["policy"]["does_not_execute_commands"] is True
     assert "# Operator Home" in pending_home_markdown
+    assert "Next command needs explicit invocation:" in pending_home_markdown
+    assert "Next command records approval:" in pending_home_markdown
     assert "## Codex CLI" in pending_home_markdown
     assert "## Guided Path" in pending_home_markdown
     assert_matches_schema_payload(pending_home, "operator_home")

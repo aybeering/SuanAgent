@@ -114,6 +114,10 @@ KNOWN_ARTIFACT_NAMES = {
         "candidate_quality_trace.json",
         "candidate_quality_trace.md",
     ),
+    "modifier_profile_recommendation": (
+        "modifier_profile_recommendation.json",
+        "modifier_profile_recommendation.md",
+    ),
     "champion_promotion_dry_run": (
         "champion_promotion_dry_run.json",
         "champion_promotion_dry_run.md",
@@ -249,6 +253,10 @@ INSPECTION_COMMANDS = {
     "candidate_quality_trace": (
         "python -m orchestrator.candidate_quality_trace",
         "python -m orchestrator.experiments quality-trace",
+    ),
+    "modifier_profile_recommendation": (
+        "python -m orchestrator.modifier_profile_recommendation",
+        "python -m orchestrator.experiments profile-recommendation",
     ),
     "champion_promotion_dry_run": (
         "python -m orchestrator.champion_promotion_dry_run",

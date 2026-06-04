@@ -253,6 +253,11 @@ from orchestrator.candidate_quality_trace import (
     validate_candidate_quality_trace_file,
     validate_candidate_quality_trace_payload,
 )
+from orchestrator.modifier_profile_recommendation import (
+    MODIFIER_PROFILE_RECOMMENDATION_SCHEMA_VERSION,
+    validate_modifier_profile_recommendation_file,
+    validate_modifier_profile_recommendation_payload,
+)
 from orchestrator.champion_promotion_dry_run import (
     CHAMPION_PROMOTION_DRY_RUN_SCHEMA_VERSION,
     validate_champion_promotion_dry_run_file,
@@ -361,6 +366,7 @@ from orchestrator.experiments import (
     list_experiments,
     memory_hygiene_report,
     memory_scope_recommendation_report,
+    modifier_profile_recommendation,
     operator_config_review_report,
     operator_action_approval_report,
     operator_action_audit_report,
@@ -2290,9 +2296,21 @@ def test_operator_action_execution_receipt_runs_quality_trace_for_switch_profile
         for command in switch_action["command_candidates"]
         if command["label"] == "inspect_quality_trace"
     )
+    profile_command = next(
+        command
+        for command in switch_action["command_candidates"]
+        if command["label"] == "inspect_profile_recommendation"
+    )
 
     assert manifest["status"] == "stopped_repeated_proposal"
     assert quality_command["expected_artifact"] == "candidate_quality_trace.json"
+    assert profile_command["expected_artifact"] == (
+        "modifier_profile_recommendation.json"
+    )
+    assert profile_command["writes_repository"] is False
+    assert profile_command["promotes_champion"] is False
+    assert profile_command["runs_backtests"] is False
+    assert command_is_allowlisted(parse_command(profile_command["command"])) is True
     assert quality_command["writes_repository"] is False
     assert quality_command["promotes_champion"] is False
     assert quality_command["runs_backtests"] is False
@@ -2339,6 +2357,43 @@ def test_operator_action_execution_receipt_runs_quality_trace_for_switch_profile
     ) == ()
     assert validate_operator_action_execution_receipt_payload(
         receipt,
+        run_id=run_id,
+        run_dir=run_dir,
+        repo_root=repo,
+    ) == ()
+    profile_approval_path, _, _ = write_operator_action_approval(
+        run_dir=run_dir,
+        repo_root=repo,
+        operator_id="profile-recommendation-operator",
+        action_id=switch_action["action_id"],
+        command_label=profile_command["label"],
+        explicit_approval=True,
+        confirmation_phrase=OPERATOR_ACTION_CONFIRMATION_PHRASE,
+    )
+    profile_receipt = execute_operator_action_with_approval(
+        run_id=run_id,
+        approval_path=profile_approval_path,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        timeout_seconds=10,
+    )
+    assert profile_receipt["status"] == "completed"
+    assert profile_receipt["ok"] is True
+    assert profile_receipt["executed"] is True
+    assert profile_receipt["selected_action"]["action_type"] == (
+        "switch_modifier_profile"
+    )
+    assert profile_receipt["selected_command"]["label"] == (
+        "inspect_profile_recommendation"
+    )
+    assert "profile-recommendation" in profile_receipt["evidence_checks"][
+        "allowed_experiments_subcommands"
+    ]
+    assert profile_receipt["command_execution"]["status"] == "completed"
+    assert profile_receipt["command_execution"]["returncode"] == 0
+    assert profile_receipt["mutation_guard"]["ok"] is True
+    assert validate_operator_action_execution_receipt_payload(
+        profile_receipt,
         run_id=run_id,
         run_dir=run_dir,
         repo_root=repo,
@@ -5140,6 +5195,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert (run_dir / "candidate_leaderboard.json").exists()
     assert (run_dir / "candidate_quality_trace.json").exists()
     assert (run_dir / "candidate_quality_trace.md").exists()
+    assert (run_dir / "modifier_profile_recommendation.json").exists()
+    assert (run_dir / "modifier_profile_recommendation.md").exists()
     assert (run_dir / "memory_hygiene.json").exists()
     assert (run_dir / "memory_hygiene.md").exists()
     assert (run_dir / "memory_scope_recommendation.json").exists()
@@ -5243,6 +5300,14 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     quality_trace_markdown = (run_dir / "candidate_quality_trace.md").read_text(
         encoding="utf-8"
     )
+    profile_recommendation = json.loads(
+        (run_dir / "modifier_profile_recommendation.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    profile_recommendation_markdown = (
+        run_dir / "modifier_profile_recommendation.md"
+    ).read_text(encoding="utf-8")
     memory_hygiene = json.loads(
         (run_dir / "memory_hygiene.json").read_text(encoding="utf-8")
     )
@@ -5391,6 +5456,61 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         quality_trace_terminal_payload,
         run_dir=run_dir,
         repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    assert manifest["modifier_profile_recommendation"]["path"] == (
+        "modifier_profile_recommendation.json"
+    )
+    assert manifest["modifier_profile_recommendation"]["markdown_path"] == (
+        "modifier_profile_recommendation.md"
+    )
+    assert manifest["modifier_profile_recommendation"]["status"] == (
+        profile_recommendation["summary"]["status"]
+    )
+    assert profile_recommendation["schema_version"] == (
+        MODIFIER_PROFILE_RECOMMENDATION_SCHEMA_VERSION
+    )
+    assert profile_recommendation["summary"]["status"] == (
+        "ready_for_operator_review"
+    )
+    assert profile_recommendation["summary"]["recommended_profile_name"]
+    assert profile_recommendation["summary"]["recommended_direction_tag"]
+    assert profile_recommendation["sources"]["candidate_quality_trace"][
+        "path"
+    ].endswith("candidate_quality_trace.json")
+    assert profile_recommendation["sources"]["research_brief"]["path"].endswith(
+        "research_brief.json"
+    )
+    assert profile_recommendation["sources"]["config"]["path"].endswith(
+        "config/default.json"
+    )
+    assert profile_recommendation["recommendations"]
+    assert profile_recommendation["policy"]["does_not_write_config"] is True
+    assert profile_recommendation["policy"]["does_not_route_agents"] is True
+    assert "# Modifier Profile Recommendation" in profile_recommendation_markdown
+    assert_matches_schema(
+        run_dir / "modifier_profile_recommendation.json",
+        "modifier_profile_recommendation",
+    )
+    assert validate_modifier_profile_recommendation_file(
+        payload_path=run_dir / "modifier_profile_recommendation.json",
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+    ) == ()
+    assert validate_modifier_profile_recommendation_payload(
+        profile_recommendation,
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+        require_current_evidence=True,
+    ) == ()
+    profile_recommendation_terminal_payload = dict(profile_recommendation)
+    profile_recommendation_terminal_payload["from_artifact"] = True
+    assert validate_modifier_profile_recommendation_payload(
+        profile_recommendation_terminal_payload,
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/default.json",
         require_current_evidence=True,
     ) == ()
     assert manifest["memory_hygiene"]["path"] == "memory_hygiene.json"
@@ -10340,6 +10460,69 @@ def test_artifact_validator_reports_candidate_quality_trace_summary_drift(
     assert report["ok"] is False
     assert any(
         "candidate_quality_trace recompute mismatch: summary" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_modifier_profile_recommendation_policy_violation(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="profile-recommendation-policy-error",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/profile-recommendation-policy-error"
+        / "modifier_profile_recommendation.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["policy"]["does_not_route_agents"] = False
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="profile-recommendation-policy-error",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "modifier_profile_recommendation.json policy false: does_not_route_agents"
+        in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_modifier_profile_recommendation_summary_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="profile-recommendation-summary-drift",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    path = (
+        repo
+        / "experiments/profile-recommendation-summary-drift"
+        / "modifier_profile_recommendation.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["summary"]["recommended_profile_name"] = "manual_override"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id="profile-recommendation-summary-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        "modifier_profile_recommendation recompute mismatch: summary" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
 
@@ -18371,6 +18554,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         run_id="cli-candidates",
         experiments_dir=repo / "experiments",
     )
+    profile_recommendation = modifier_profile_recommendation(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+    )
     hygiene = memory_hygiene_report(
         run_id="cli-candidates",
         experiments_dir=repo / "experiments",
@@ -18892,6 +19080,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    profile_recommendation_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "profile-recommendation",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    profile_recommendation_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "profile-recommendation",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     hygiene_result = subprocess.run(
         [
             sys.executable,
@@ -19115,6 +19334,27 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert trace["schema_version"] == "candidate_quality_trace_v1"
     assert trace["summary"]["candidate_count"] == len(rows)
     assert trace["candidates"][0]["quality_breakdown"] == rows[0]["quality_breakdown"]
+    assert profile_recommendation["from_artifact"] is True
+    assert profile_recommendation["schema_version"] == (
+        MODIFIER_PROFILE_RECOMMENDATION_SCHEMA_VERSION
+    )
+    assert profile_recommendation["summary"]["status"] == (
+        "ready_for_operator_review"
+    )
+    assert profile_recommendation["summary"]["recommended_profile_name"]
+    assert profile_recommendation["policy"]["does_not_write_config"] is True
+    assert profile_recommendation["policy"]["does_not_route_agents"] is True
+    assert_matches_schema_payload(
+        profile_recommendation,
+        "modifier_profile_recommendation",
+    )
+    assert validate_modifier_profile_recommendation_payload(
+        profile_recommendation,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+        require_current_evidence=True,
+    ) == ()
     assert hygiene["from_artifact"] is True
     assert hygiene["schema_version"] == MEMORY_HYGIENE_SCHEMA_VERSION
     assert hygiene["policy"]["does_not_delete_memory"] is True
@@ -19610,6 +19850,30 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         repo_root=repo,
         require_current_evidence=True,
     ) == ()
+    assert profile_recommendation_result.returncode == 0, (
+        profile_recommendation_result.stderr
+    )
+    profile_recommendation_payload = json.loads(profile_recommendation_result.stdout)
+    assert profile_recommendation_payload["schema_version"] == (
+        MODIFIER_PROFILE_RECOMMENDATION_SCHEMA_VERSION
+    )
+    assert profile_recommendation_payload["from_artifact"] is True
+    assert profile_recommendation_payload["summary"][
+        "recommended_profile_name"
+    ]
+    assert validate_modifier_profile_recommendation_payload(
+        profile_recommendation_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+        require_current_evidence=True,
+    ) == ()
+    assert profile_recommendation_markdown_result.returncode == 0, (
+        profile_recommendation_markdown_result.stderr
+    )
+    assert "# Modifier Profile Recommendation" in (
+        profile_recommendation_markdown_result.stdout
+    )
     assert hygiene_result.returncode == 0, hygiene_result.stderr
     hygiene_payload = json.loads(hygiene_result.stdout)
     assert hygiene_payload["schema_version"] == MEMORY_HYGIENE_SCHEMA_VERSION

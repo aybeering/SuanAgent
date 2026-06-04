@@ -248,6 +248,14 @@ def command_candidates(
                 expected_artifact="candidate_quality_trace.json",
             ),
             command_row(
+                label="inspect_profile_recommendation",
+                command=(
+                    f"python -m orchestrator.experiments "
+                    f"profile-recommendation {run_id}"
+                ),
+                expected_artifact="modifier_profile_recommendation.json",
+            ),
+            command_row(
                 label="start_next_iteration",
                 command="python -m orchestrator.iteration_loop",
                 expected_artifact="manifest.json",

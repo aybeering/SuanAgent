@@ -42,6 +42,11 @@ from orchestrator.memory_scope_recommendation import (
     build_memory_scope_recommendation,
     validate_memory_scope_recommendation_payload,
 )
+from orchestrator.modifier_profile_recommendation import (
+    build_modifier_profile_recommendation,
+    render_modifier_profile_recommendation_markdown,
+    validate_modifier_profile_recommendation_payload,
+)
 from orchestrator.operator_action_approval import (
     build_operator_action_approval,
     render_operator_action_approval_markdown,
@@ -1458,6 +1463,55 @@ def candidate_quality_trace(
     if errors:
         raise ValueError(
             "candidate quality trace failed schema validation: " + "; ".join(errors)
+        )
+    payload["from_artifact"] = False
+    return payload
+
+
+def modifier_profile_recommendation(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+    config_path: Path = Path("config/default.json"),
+) -> dict[str, object]:
+    """Return modifier profile recommendation for one iteration run."""
+    run_dir = experiments_dir / run_id
+    path = run_dir / "modifier_profile_recommendation.json"
+    repo_root = experiments_dir.parent
+    if path.exists():
+        payload = load_json(path)
+        errors = validate_modifier_profile_recommendation_payload(
+            payload,
+            run_dir=run_dir,
+            repo_root=repo_root,
+            config_path=config_path,
+            require_current_evidence=True,
+        )
+        if errors:
+            raise ValueError(
+                "modifier profile recommendation failed schema validation: "
+                + "; ".join(errors)
+            )
+        payload["from_artifact"] = True
+        return payload
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    payload = build_modifier_profile_recommendation(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        config_path=config_path,
+    )
+    errors = validate_modifier_profile_recommendation_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        config_path=config_path,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "modifier profile recommendation failed schema validation: "
+            + "; ".join(errors)
         )
     payload["from_artifact"] = False
     return payload
@@ -4206,6 +4260,23 @@ def main() -> None:
     )
     quality_trace_parser.add_argument("run_id")
 
+    profile_recommendation_parser = subparsers.add_parser(
+        "profile-recommendation",
+        help="Show the read-only next modifier profile recommendation.",
+    )
+    profile_recommendation_parser.add_argument("run_id")
+    profile_recommendation_parser.add_argument(
+        "--config",
+        type=Path,
+        default=Path("config/default.json"),
+        help="Config used to resolve modifier profile capabilities.",
+    )
+    profile_recommendation_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the profile recommendation as markdown.",
+    )
+
     slots_parser = subparsers.add_parser(
         "slots",
         help="Show agent slot health across one iteration run.",
@@ -4525,6 +4596,15 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )
+    elif args.command == "profile-recommendation":
+        payload = modifier_profile_recommendation(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
+            config_path=args.config,
+        )
+        if args.markdown:
+            print(render_modifier_profile_recommendation_markdown(payload), end="")
+            return
     elif args.command == "slots":
         payload = agent_slot_health_report(
             experiments_dir=args.experiments_dir,

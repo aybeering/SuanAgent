@@ -92,6 +92,9 @@ from orchestrator.outcome_memory import (
 )
 from orchestrator.memory_hygiene import write_memory_hygiene
 from orchestrator.memory_scope_recommendation import write_memory_scope_recommendation
+from orchestrator.modifier_profile_recommendation import (
+    write_modifier_profile_recommendation,
+)
 from orchestrator.operator_action_dashboard import write_operator_action_dashboard
 from orchestrator.operator_action_plan import write_operator_action_plan
 from orchestrator.operator_cockpit import write_operator_cockpit
@@ -320,6 +323,13 @@ def run_iteration_loop(
             "markdown_path": "candidate_quality_trace.md",
             "ok": False,
             "candidate_count": 0,
+        },
+        "modifier_profile_recommendation": {
+            "path": "modifier_profile_recommendation.json",
+            "markdown_path": "modifier_profile_recommendation.md",
+            "status": "pending",
+            "recommended_profile_name": "",
+            "recommended_direction_tag": "",
         },
         "memory_hygiene": {
             "path": "memory_hygiene.json",
@@ -820,6 +830,34 @@ def finalize_iteration_run(
             experiments_dir=experiments_dir,
             repo_root=repo_root,
         )
+    _, _, profile_recommendation = write_modifier_profile_recommendation(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        config_path=config_path,
+        config=load_project_config(repo_root=repo_root, config_path=config_path),
+    )
+    profile_summary = (
+        profile_recommendation.get("summary", {})
+        if isinstance(profile_recommendation.get("summary", {}), dict)
+        else {}
+    )
+    manifest["modifier_profile_recommendation"] = {
+        "path": "modifier_profile_recommendation.json",
+        "markdown_path": "modifier_profile_recommendation.md",
+        "status": str(profile_summary.get("status", "")),
+        "recommended_profile_name": str(
+            profile_summary.get("recommended_profile_name", "")
+        ),
+        "recommended_direction_tag": str(
+            profile_summary.get("recommended_direction_tag", "")
+        ),
+    }
+    write_json(run_dir / "manifest.json", manifest)
+    write_run_diagnosis(
+        run_id=run_id,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
     _, _, challenger_payload = write_candidate_challenger_report(
         run_dir=run_dir,
         experiments_dir=experiments_dir,

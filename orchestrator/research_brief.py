@@ -51,6 +51,10 @@ def build_research_brief(
         run_id=run_id,
         experiments_dir=experiments_dir,
         repo_root=repo_root,
+        ignored_iteration_required_files=(
+            "modifier_profile_recommendation.json",
+            "modifier_profile_recommendation.md",
+        ),
     )
     manifest = load_json_object(run_dir / "manifest.json")
     leaderboard = load_json_list(run_dir / "candidate_leaderboard.json")

@@ -15,6 +15,7 @@ def diagnose_run(
     run_id: str,
     experiments_dir: Path = Path("experiments"),
     repo_root: Path = Path("."),
+    ignored_iteration_required_files: tuple[str, ...] = (),
 ) -> dict[str, object]:
     """Return a compact diagnosis for one experiment run."""
     repo_root = repo_root.resolve()
@@ -24,6 +25,7 @@ def diagnose_run(
         run_id=run_id,
         experiments_dir=experiments_dir,
         repo_root=repo_root,
+        ignored_iteration_required_files=ignored_iteration_required_files,
     )
     base: dict[str, object] = {
         "run_id": run_id,

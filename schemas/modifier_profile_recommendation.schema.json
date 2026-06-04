@@ -1,0 +1,285 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Modifier Profile Recommendation",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "sources",
+    "summary",
+    "available_profiles",
+    "recommendations",
+    "operator_notes",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "modifier_profile_recommendation_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string"
+    },
+    "sources": {
+      "type": "object",
+      "required": [
+        "candidate_quality_trace",
+        "research_brief",
+        "config"
+      ],
+      "properties": {
+        "candidate_quality_trace": {
+          "$ref": "#/$defs/file_record"
+        },
+        "research_brief": {
+          "$ref": "#/$defs/file_record"
+        },
+        "config": {
+          "$ref": "#/$defs/file_record"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "status",
+        "primary_focus",
+        "top_failure_code",
+        "selected_directions",
+        "avoid_directions",
+        "suggested_directions",
+        "available_profile_count",
+        "recommendation_count",
+        "recommended_direction_tag",
+        "recommended_profile_name",
+        "recommended_adapter_name",
+        "recommendation_reason_code"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "ready_for_operator_review",
+            "missing_quality_trace",
+            "missing_research_brief",
+            "no_available_profile"
+          ]
+        },
+        "primary_focus": {
+          "type": "string"
+        },
+        "top_failure_code": {
+          "type": "string"
+        },
+        "selected_directions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "avoid_directions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "suggested_directions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "available_profile_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recommendation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recommended_direction_tag": {
+          "type": "string"
+        },
+        "recommended_profile_name": {
+          "type": "string"
+        },
+        "recommended_adapter_name": {
+          "type": "string"
+        },
+        "recommendation_reason_code": {
+          "type": "string"
+        }
+      }
+    },
+    "available_profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "profile_name",
+          "role",
+          "adapter_name",
+          "agent_role",
+          "enabled",
+          "supported_directions"
+        ],
+        "properties": {
+          "profile_name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "adapter_name": {
+            "type": "string"
+          },
+          "agent_role": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "supported_directions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "rank",
+          "direction_rank",
+          "direction_tag",
+          "profile_name",
+          "adapter_name",
+          "role",
+          "modifier_hint",
+          "description",
+          "reason_codes"
+        ],
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "direction_rank": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "direction_tag": {
+            "type": "string"
+          },
+          "profile_name": {
+            "type": "string"
+          },
+          "adapter_name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "modifier_hint": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "operator_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "advisory_only",
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_route_agents",
+        "does_not_apply_patches",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "advisory_only": {
+          "type": "boolean"
+        },
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_saved_artifacts_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_write_config": {
+          "type": "boolean"
+        },
+        "does_not_route_agents": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "file_record": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

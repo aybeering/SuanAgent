@@ -138,6 +138,8 @@ experiments/<run_id>/
   candidate_leaderboard.json
   candidate_quality_trace.json
   candidate_quality_trace.md
+  modifier_profile_recommendation.json
+  modifier_profile_recommendation.md
   memory_hygiene.json
   memory_hygiene.md
   memory_scope_recommendation.json
@@ -273,6 +275,13 @@ dashboard's fixed gate order, gate-to-summary bindings, read-only authority,
 policy flags, selected-candidate count, and watchlist alert count. The command
 is read-only: it does not write config, promote champions, execute agents, run
 backtests, route candidates, apply patches, or change acceptance.
+`python -m orchestrator.experiments profile-recommendation <run_id>` returns
+the saved or recomputed `modifier_profile_recommendation.json`. The payload
+reads `candidate_quality_trace.json`, `research_brief.json`, and the active
+config, then maps suggested directions to available deterministic modifier
+profiles for operator review. `profile-recommendation --markdown` renders the
+same recommendation. It is read-only: it does not write config, route agents,
+execute agents, run backtests, apply patches, or change acceptance.
 `operator_action_plan.json` and `operator_action_plan.md` translate the saved
 closeout dashboard action items into explicit command candidates for human
 review. `python -m orchestrator.experiments action-plan <run_id>` and
@@ -862,6 +871,15 @@ Replay artifacts:
   and can rebuild from current run evidence to catch drift before returning.
   They cannot route candidates, execute agents, run backtests, apply patches,
   or change acceptance.
+- `modifier_profile_recommendation.json` and
+  `modifier_profile_recommendation.md` translate saved candidate-quality and
+  research-focus evidence into an advisory next modifier profile and direction
+  for operator review. They bind to `candidate_quality_trace.json`,
+  `research_brief.json`, and `config/default.json`, list available deterministic
+  profiles, and rank matching profile/direction pairs. Artifact validation
+  recomputes source metadata, profile rows, recommendations, summary, and
+  policy from current evidence. They cannot write config, route agents,
+  execute agents, run backtests, apply patches, or change acceptance.
 - `candidate_challenger_report.json` and `candidate_challenger_report.md`
   compare saved candidate rows with the current champion registry when one
   exists. They expose validation gap, holdout stability flags, and top

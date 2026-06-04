@@ -31,6 +31,8 @@ ITERATION_RUN_REQUIRED_FILES = (
     "candidate_leaderboard.json",
     "candidate_quality_trace.json",
     "candidate_quality_trace.md",
+    "modifier_profile_recommendation.json",
+    "modifier_profile_recommendation.md",
     "memory_hygiene.json",
     "memory_hygiene.md",
     "memory_scope_recommendation.json",
@@ -114,6 +116,7 @@ def validate_run_artifacts(
     run_id: str,
     experiments_dir: Path = Path("experiments"),
     repo_root: Path = Path("."),
+    ignored_iteration_required_files: tuple[str, ...] = (),
 ) -> dict[str, object]:
     """Return a deterministic validation report for one experiment run."""
     repo_root = repo_root.resolve()
@@ -136,7 +139,12 @@ def validate_run_artifacts(
 
     if (run_dir / "manifest.json").exists():
         report["kind"] = "iteration_loop"
-        validate_iteration_run(run_dir=run_dir, repo_root=repo_root, report=report)
+        validate_iteration_run(
+            run_dir=run_dir,
+            repo_root=repo_root,
+            report=report,
+            ignored_required_files=ignored_iteration_required_files,
+        )
     elif (run_dir / "decision.json").exists():
         report["kind"] = "single_run"
         validate_required_files(
@@ -377,12 +385,14 @@ def validate_iteration_run(
     run_dir: Path,
     repo_root: Path,
     report: dict[str, object],
+    ignored_required_files: tuple[str, ...] = (),
 ) -> None:
     """Validate an iteration-loop run directory."""
     validate_required_files(
         base_dir=run_dir,
         filenames=ITERATION_RUN_REQUIRED_FILES,
         report=report,
+        ignored_filenames=ignored_required_files,
     )
     manifest = load_json_object(run_dir / "manifest.json", report)
     if manifest is None:
@@ -401,6 +411,15 @@ def validate_iteration_run(
         repo_root=repo_root,
         report=report,
     )
+    if (
+        "modifier_profile_recommendation.json" not in ignored_required_files
+        or (run_dir / "modifier_profile_recommendation.json").exists()
+    ):
+        validate_modifier_profile_recommendation(
+            run_dir=run_dir,
+            repo_root=repo_root,
+            report=report,
+        )
     validate_memory_hygiene(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -690,6 +709,122 @@ def validate_candidate_quality_trace(
     ):
         if policy.get(key) is not True:
             add_error(report, f"candidate_quality_trace.json policy false: {key}")
+
+
+def validate_modifier_profile_recommendation(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate run-level modifier profile recommendation artifact."""
+    path = run_dir / "modifier_profile_recommendation.json"
+    md_path = run_dir / "modifier_profile_recommendation.md"
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    validate_contract_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/modifier_profile_recommendation.schema.json",
+        report=report,
+    )
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(
+            report,
+            "modifier_profile_recommendation.json run_id does not match report",
+        )
+    sources = payload.get("sources", {})
+    if not isinstance(sources, dict):
+        add_error(report, "modifier_profile_recommendation.json sources invalid")
+        sources = {}
+    config_source_path = repo_root / "config/default.json"
+    for source_key, expected_name in (
+        ("candidate_quality_trace", "candidate_quality_trace.json"),
+        ("research_brief", "research_brief.json"),
+        ("config", ".json"),
+    ):
+        source = sources.get(source_key, {})
+        if not isinstance(source, dict):
+            add_error(
+                report,
+                f"modifier_profile_recommendation source invalid: {source_key}",
+            )
+            continue
+        validate_recorded_file_hash(
+            record=source,
+            repo_root=repo_root,
+            report=report,
+            label=f"modifier_profile_recommendation {source_key}",
+        )
+        source_path_text = str(source.get("path", ""))
+        if source_key == "config" and source_path_text:
+            config_source_path = resolve_path(Path(source_path_text), repo_root)
+        if source.get("exists") is True and not source_path_text.endswith(expected_name):
+            add_error(
+                report,
+                f"modifier_profile_recommendation source path invalid: {source_key}",
+            )
+    summary = payload.get("summary", {})
+    recommendations = payload.get("recommendations", [])
+    profiles = payload.get("available_profiles", [])
+    if not isinstance(summary, dict):
+        add_error(report, "modifier_profile_recommendation.json summary invalid")
+        summary = {}
+    if not isinstance(recommendations, list):
+        add_error(
+            report,
+            "modifier_profile_recommendation.json recommendations invalid",
+        )
+        recommendations = []
+    if not isinstance(profiles, list):
+        add_error(
+            report,
+            "modifier_profile_recommendation.json available profiles invalid",
+        )
+        profiles = []
+    if int(summary.get("recommendation_count", -1)) != len(recommendations):
+        add_error(
+            report,
+            "modifier_profile_recommendation.json recommendation count mismatch",
+        )
+    if int(summary.get("available_profile_count", -1)) != len(profiles):
+        add_error(
+            report,
+            "modifier_profile_recommendation.json profile count mismatch",
+        )
+    from orchestrator.modifier_profile_recommendation import (
+        validate_modifier_profile_recommendation_consistency,
+    )
+
+    for error in validate_modifier_profile_recommendation_consistency(
+        payload=payload,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        config_path=config_source_path,
+    ):
+        add_error(report, error)
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "modifier_profile_recommendation.json policy invalid")
+        return
+    for key in (
+        "advisory_only",
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_route_agents",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(key) is not True:
+            add_error(
+                report,
+                f"modifier_profile_recommendation.json policy false: {key}",
+            )
 
 
 def validate_memory_hygiene(
@@ -4490,11 +4625,14 @@ def validate_required_files(
     base_dir: Path,
     filenames: tuple[str, ...],
     report: dict[str, object],
+    ignored_filenames: tuple[str, ...] = (),
 ) -> None:
     """Check required files exist and record present files."""
     for filename in filenames:
         path = base_dir / filename
         if not path.exists():
+            if filename in ignored_filenames:
+                continue
             add_error(report, f"missing required artifact: {path}")
             continue
         checked_files(report).append(str(path))
@@ -4782,6 +4920,7 @@ def operator_action_plan_expected_artifacts() -> dict[str, str]:
         "promote_from_approval": "champion_promotion_receipt.json",
         "inspect_candidates": "candidate_leaderboard.json",
         "inspect_quality_trace": "candidate_quality_trace.json",
+        "inspect_profile_recommendation": "modifier_profile_recommendation.json",
         "start_next_iteration": "manifest.json",
         "review_run_dashboard": "run_closeout.md",
         "inspect_research_brief": "research_brief.json",

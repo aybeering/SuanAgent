@@ -125,6 +125,9 @@
           },
           "previous_value": {},
           "restored_value": {},
+          "restored_path_exists": {
+            "type": "boolean"
+          },
           "source_artifact": {
             "type": "string"
           }

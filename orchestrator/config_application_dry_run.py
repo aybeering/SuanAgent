@@ -186,6 +186,7 @@ def build_planned_changes(
     rows: list[dict[str, object]] = []
     for change in reviewed_changes:
         config_path = str(change.get("config_path", ""))
+        current_path_exists = path_exists(config_payload, config_path)
         current_config_value = value_at_path(config_payload, config_path)
         reviewed_current_value = change.get("current_value")
         proposed_value = change.get("proposed_value")
@@ -202,6 +203,7 @@ def build_planned_changes(
                 "review_decision": str(change.get("review_decision", "")),
                 "selected_for_application": selected,
                 "current_config_value": current_config_value,
+                "current_config_path_exists": current_path_exists,
                 "reviewed_current_value": reviewed_current_value,
                 "proposed_value": proposed_value,
                 "value_matches_review": value_matches_review,
@@ -438,6 +440,11 @@ def validate_config_application_dry_run_consistency(
         ready = bool(selected and value_matches)
         if bool(row.get("value_matches_review", False)) != value_matches:
             errors.append("config_application_dry_run value match mismatch")
+        if "current_config_path_exists" in row and not isinstance(
+            row.get("current_config_path_exists"),
+            bool,
+        ):
+            errors.append("config_application_dry_run path exists invalid")
         if bool(row.get("would_change_config", False)) != would_change:
             errors.append("config_application_dry_run would change mismatch")
         if bool(row.get("ready_for_manual_edit", False)) != ready:
@@ -484,6 +491,18 @@ def value_at_path(payload: dict[str, object], dotted_path: str) -> object:
             return None
         value = value[part]
     return value
+
+
+def path_exists(payload: dict[str, object], dotted_path: str) -> bool:
+    """Return whether a dotted JSON path exists."""
+    value: object = payload
+    for part in dotted_path.split("."):
+        if not part:
+            return False
+        if not isinstance(value, dict) or part not in value:
+            return False
+        value = value[part]
+    return True
 
 
 def load_json_object(path: Path) -> dict[str, object]:

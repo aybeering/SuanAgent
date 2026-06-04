@@ -4370,6 +4370,148 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
     )
 
 
+def test_config_application_restore_removes_new_agents_candidate(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/config-apply-agents"
+    run_dir.mkdir(parents=True)
+    config_path = repo / "config/default.json"
+    config_before = json.loads(config_path.read_text(encoding="utf-8"))
+    assert "agents" not in config_before
+    profile_payload = {
+        "schema_version": MODIFIER_PROFILE_RECOMMENDATION_SCHEMA_VERSION,
+        "run_id": "config-apply-agents",
+        "run_dir": "experiments/config-apply-agents",
+        "sources": {},
+        "summary": {
+            "status": "no_available_profile",
+            "primary_focus": "switch_modifier_direction",
+            "top_failure_code": "patch_memory_rejected",
+            "selected_directions": ["raise_min_edge"],
+            "avoid_directions": ["raise_min_edge", "lower_min_edge", "reduce_stake"],
+            "suggested_directions": ["new_modifier_profile"],
+            "available_profile_count": 3,
+            "recommendation_count": 0,
+            "recommended_direction_tag": "",
+            "recommended_profile_name": "",
+            "recommended_adapter_name": "",
+            "recommendation_reason_code": "no_available_profile",
+        },
+        "available_profiles": [],
+        "recommendations": [],
+        "operator_notes": [],
+        "policy": {
+            "advisory_only": True,
+            "inspection_only": True,
+            "reads_saved_artifacts_only": True,
+            "does_not_execute_agents": True,
+            "does_not_run_backtests": True,
+            "does_not_write_config": True,
+            "does_not_route_agents": True,
+            "does_not_apply_patches": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+    (run_dir / "modifier_profile_recommendation.json").write_text(
+        json.dumps(profile_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    write_config_change_candidate(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    )
+    write_operator_config_review(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        operator_id="test-operator",
+        decision="approve",
+        confirmation_phrase=CONFIG_REVIEW_APPROVAL_PHRASE,
+        candidate_ids=("modifier_profile_add_new_modifier_profile",),
+    )
+    approved_dry_run = write_config_application_dry_run(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        config_path=config_path,
+    )[2]
+    agents_plan = next(
+        row
+        for row in approved_dry_run["planned_changes"]
+        if row["config_path"] == "agents"
+    )
+
+    assert approved_dry_run["status"] == "ready_for_manual_application"
+    assert agents_plan["review_decision"] == "approved"
+    assert agents_plan["current_config_value"] is None
+    assert agents_plan["current_config_path_exists"] is False
+    assert agents_plan["ready_for_manual_edit"] is True
+    receipt = apply_config_with_approval(
+        run_id="config-apply-agents",
+        dry_run_path=run_dir / "config_application_dry_run.json",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        config_path=config_path,
+    )
+    applied_config = json.loads(config_path.read_text(encoding="utf-8"))
+
+    assert receipt["status"] == "applied"
+    assert receipt["applied_changes"][0]["config_path"] == "agents"
+    assert receipt["applied_changes"][0]["previous_value"] is None
+    assert receipt["applied_changes"][0]["previous_path_exists"] is False
+    assert applied_config["agents"][-1]["adapter"] == "codex_cli_dry_run"
+    assert applied_config["agents"][-1]["settings"] == {"execute": False}
+    _, _, preview = write_config_application_rollback_preview(
+        run_id="config-apply-agents",
+        receipt_path=run_dir / "config_application_receipt.json",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        config_path=config_path,
+    )
+    agents_restore = preview["rollback_plan"][0]
+
+    assert preview["status"] == "rollback_ready"
+    assert agents_restore["config_path"] == "agents"
+    assert agents_restore["restore_value"] is None
+    assert agents_restore["restore_path_exists"] is False
+    assert agents_restore["can_restore"] is True
+    restore_receipt = restore_config_with_preview(
+        run_id="config-apply-agents",
+        preview_path=run_dir / "config_application_rollback_preview.json",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        config_path=config_path,
+    )
+    restored_config = json.loads(config_path.read_text(encoding="utf-8"))
+
+    assert restore_receipt["status"] == "restored"
+    assert restore_receipt["restored_changes"][0]["config_path"] == "agents"
+    assert restore_receipt["restored_changes"][0]["restored_value"] is None
+    assert restore_receipt["restored_changes"][0]["restored_path_exists"] is False
+    assert "agents" not in restored_config
+    assert restored_config == config_before
+    report = validate_run_artifacts(
+        run_id="config-apply-agents",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert report["ok"] is False
+    assert not any(
+        "config_application_receipt.json" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+    assert not any(
+        "config_application_rollback_preview.json" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+    assert not any(
+        "config_application_restore_receipt.json" in error
+        for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
 def test_agent_contract_runner_writes_disabled_audit(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     round_dir = tmp_path / "round"

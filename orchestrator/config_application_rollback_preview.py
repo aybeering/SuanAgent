@@ -177,6 +177,7 @@ def build_rollback_plan(
         current_value = value_at_path(config_payload, path)
         expected_applied_value = change.get("new_value")
         restore_value = change.get("previous_value")
+        restore_path_exists = bool(change.get("previous_path_exists", True))
         current_matches = values_equal(current_value, expected_applied_value)
         rows.append(
             {
@@ -185,6 +186,7 @@ def build_rollback_plan(
                 "current_value": current_value,
                 "expected_applied_value": expected_applied_value,
                 "restore_value": restore_value,
+                "restore_path_exists": restore_path_exists,
                 "current_matches_expected_applied": current_matches,
                 "can_restore": bool(receipt_applied and current_matches),
                 "source_artifact": str(
@@ -266,6 +268,9 @@ def impact_summary(rollback_plan: list[dict[str, object]]) -> str:
 def likely_runtime_effect(config_path: str) -> str:
     """Return a deterministic human-readable effect for known config paths."""
     known_effects = {
+        "agents": (
+            "Changes which strategy modifier profiles future iteration runs can select."
+        ),
         "memory_filter.recent_record_limit": (
             "Changes how many recent outcome-memory rows candidate filtering reads."
         ),
@@ -436,6 +441,11 @@ def validate_config_application_rollback_preview_consistency(
         )
         if bool(row.get("current_matches_expected_applied", False)) != current_matches:
             errors.append("config_application_rollback_preview row match mismatch")
+        if "restore_path_exists" in row and not isinstance(
+            row.get("restore_path_exists"),
+            bool,
+        ):
+            errors.append("config_application_rollback_preview restore path invalid")
         if bool(row.get("can_restore", False)) != bool(
             receipt_applied and current_matches
         ):

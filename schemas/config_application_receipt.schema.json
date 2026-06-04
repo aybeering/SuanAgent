@@ -131,6 +131,9 @@
             "type": "string"
           },
           "previous_value": {},
+          "previous_path_exists": {
+            "type": "boolean"
+          },
           "new_value": {},
           "source_artifact": {
             "type": "string"

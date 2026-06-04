@@ -205,6 +205,9 @@ def applied_change_rows(
                 "candidate_id": str(change.get("candidate_id", "")),
                 "config_path": str(change.get("config_path", "")),
                 "previous_value": change.get("current_config_value"),
+                "previous_path_exists": bool(
+                    change.get("current_config_path_exists", True)
+                ),
                 "new_value": change.get("proposed_value"),
                 "source_artifact": "config_application_dry_run.json",
             }

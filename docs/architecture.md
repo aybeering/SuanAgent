@@ -155,6 +155,8 @@ not apply config changes.
 created by the explicit guarded apply command. That command binds the current
 config digest, the approved dry-run digest, and the operator-review digest
 before writing config, and it still does not run agents or change acceptance.
+The receipt records whether each changed config path existed before
+application, so restore can distinguish a missing path from a JSON `null`.
 `config_application_rollback_preview.json` and
 `config_application_rollback_preview.md` then provide a read-only manual
 restore plan and next-run impact summary from the receipt and current config.
@@ -163,7 +165,8 @@ They never restore config automatically.
 `config_application_restore_receipt.md` are only created by the explicit
 guarded restore command. That command restores config only when the rollback
 preview is ready and the preview, receipt, and current config digests still
-match; it does not run agents or change acceptance.
+match. If the applied change added a new config path, restore removes that path
+instead of writing `null`; it does not run agents or change acceptance.
 `config_lineage.json` and `config_lineage.md` connect the run's config
 candidate, review, dry-run, application receipt, rollback preview, and restore
 receipt artifacts into one read-only digest chain. They do not write config.

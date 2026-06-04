@@ -181,6 +181,9 @@
             "type": "boolean"
           },
           "current_config_value": {},
+          "current_config_path_exists": {
+            "type": "boolean"
+          },
           "reviewed_current_value": {},
           "proposed_value": {},
           "value_matches_review": {

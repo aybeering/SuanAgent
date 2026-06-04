@@ -176,11 +176,11 @@ def apply_restore_plan(
     updated = json.loads(json.dumps(config_payload))
     for row in rollback_plan:
         if row.get("can_restore") is True:
-            set_value_at_path(
-                updated,
-                str(row.get("config_path", "")),
-                row.get("restore_value"),
-            )
+            config_path = str(row.get("config_path", ""))
+            if row.get("restore_path_exists") is False:
+                delete_value_at_path(updated, config_path)
+            else:
+                set_value_at_path(updated, config_path, row.get("restore_value"))
     return updated
 
 
@@ -199,6 +199,7 @@ def restored_change_rows(
                 "config_path": str(row.get("config_path", "")),
                 "previous_value": row.get("current_value"),
                 "restored_value": row.get("restore_value"),
+                "restored_path_exists": bool(row.get("restore_path_exists", True)),
                 "source_artifact": "config_application_rollback_preview.json",
             }
         )
@@ -289,6 +290,20 @@ def write_restore_receipt(
             + "; ".join(errors)
         )
     return json_path, md_path
+
+
+def delete_value_at_path(payload: dict[str, Any], dotted_path: str) -> None:
+    """Delete a nested JSON value when it exists."""
+    parts = [part for part in dotted_path.split(".") if part]
+    if not parts:
+        raise ValueError("empty config path")
+    cursor: dict[str, Any] = payload
+    for part in parts[:-1]:
+        child = cursor.get(part)
+        if not isinstance(child, dict):
+            return
+        cursor = child
+    cursor.pop(parts[-1], None)
 
 
 def render_restore_receipt_markdown(payload: dict[str, object]) -> str:

@@ -127,6 +127,9 @@
           "current_value": {},
           "expected_applied_value": {},
           "restore_value": {},
+          "restore_path_exists": {
+            "type": "boolean"
+          },
           "current_matches_expected_applied": {
             "type": "boolean"
           },

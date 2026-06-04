@@ -713,7 +713,9 @@ Replay artifacts:
   the result of the guarded apply-config-approved command. The command writes
   config only when the saved dry-run is ready, the operator-review digest still
   matches, and the current config digest still matches the reviewed dry-run.
-  Blocked attempts write a receipt but leave config unchanged.
+  Receipts preserve whether each reviewed config path existed before the
+  application, so restore can delete newly-added fields instead of writing
+  `null`. Blocked attempts write a receipt but leave config unchanged.
 - `config_application_rollback_preview.json` and
   `config_application_rollback_preview.md` read a saved application receipt and
   current config to preview manual restore rows and next-run impact. They are
@@ -725,8 +727,9 @@ Replay artifacts:
   `config_application_restore_receipt.md` record the result of the guarded
   restore-config-approved command. The command writes config only when the
   saved rollback preview is ready and all preview, receipt, and current config
-  digests still match. Blocked attempts write a receipt but leave config
-  unchanged.
+  digests still match. If an applied candidate added a previously missing
+  config path, restore removes that path. Blocked attempts write a receipt but
+  leave config unchanged.
 - `config_lineage.json` and `config_lineage.md` connect config candidates,
   operator review, dry-run, apply receipt, rollback preview, and restore
   receipt artifacts into one read-only digest chain for the run.

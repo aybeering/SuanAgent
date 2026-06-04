@@ -2701,7 +2701,16 @@ def refresh_operator_views(
         run_id=run_id,
         experiments_dir=experiments_dir,
     )
+    home = build_operator_home(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
     operator_summary = operator_view_refresh_summary(cockpit)
+    home_summary = operator_view_refresh_home_summary(
+        home=home,
+        run_id=run_id,
+    )
     blocker_delta = operator_view_refresh_blocker_delta(
         before=pre_refresh_blockers,
         after=string_payload(cockpit.get("blockers", [])),
@@ -2747,6 +2756,7 @@ def refresh_operator_views(
         "refreshed_count": len(refreshed),
         "refreshed_artifacts": refreshed,
         "operator_summary": operator_summary,
+        "home_summary": home_summary,
         "blocker_delta": blocker_delta,
         "refresh_effect": refresh_effect,
         "review_summary": review_summary,
@@ -2818,6 +2828,46 @@ def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, objec
         "next_command": str(next_command.get("command", "")),
         "next_command_reason": str(next_command.get("reason", "")),
         "next_command_boundary": str(next_command_boundary.get("boundary_type", "")),
+    }
+
+
+def operator_view_refresh_home_summary(
+    *,
+    home: dict[str, object],
+    run_id: str,
+) -> dict[str, object]:
+    """Return the terminal-home navigation summary after refreshing views."""
+    action_home = dict_payload(home.get("action_home", {}))
+    codex_home = dict_payload(home.get("codex_home", {}))
+    next_command = dict_payload(home.get("next_command", {}))
+    next_boundary = dict_payload(next_command.get("boundary", {}))
+    return {
+        "schema_version": "operator_view_refresh_home_summary_v1",
+        "status": str(home.get("status", "")),
+        "ok": bool(home.get("ok", False)),
+        "headline": str(home.get("headline", "")),
+        "primary_focus": str(home.get("primary_focus", "")),
+        "action_step": str(action_home.get("active_step_id", "")),
+        "action_guide_status": str(action_home.get("guide_status", "")),
+        "codex_preflight_status": str(codex_home.get("preflight_status", "")),
+        "codex_readiness_diff_status": str(
+            codex_home.get("readiness_diff_status", "")
+        ),
+        "codex_intake_readiness_status": str(
+            codex_home.get("intake_readiness_status", "")
+        ),
+        "codex_intake_ready": bool(codex_home.get("intake_ready", False)),
+        "codex_intake_blocker_count": int(
+            codex_home.get("intake_blocker_count", 0) or 0
+        ),
+        "next_command_label": str(next_command.get("label", "")),
+        "next_command_boundary": str(next_boundary.get("boundary_type", "")),
+        "home_command_label": "review_operator_home",
+        "home_command": (
+            f"python -m orchestrator.experiments home {run_id} --markdown"
+        ),
+        "home_command_boundary": "read_only_inspection",
+        "home_command_is_hint_only": True,
     }
 
 
@@ -3045,6 +3095,7 @@ def validate_operator_view_refresh_consistency(
             )
 
     operator_summary = dict_payload(payload.get("operator_summary", {}))
+    home_summary = dict_payload(payload.get("home_summary", {}))
     blocker_delta = dict_payload(payload.get("blocker_delta", {}))
     if int_value(operator_summary.get("blocker_count", -1)) != int_value(
         blocker_delta.get("after_count", -2)
@@ -3079,6 +3130,26 @@ def validate_operator_view_refresh_consistency(
             errors.append(
                 "operator_view_refresh operator_summary digest boundary mismatch"
             )
+    run_id = str(payload.get("run_id", ""))
+    expected_home_command = (
+        f"python -m orchestrator.experiments home {run_id} --markdown"
+    )
+    if str(home_summary.get("schema_version", "")) != (
+        "operator_view_refresh_home_summary_v1"
+    ):
+        errors.append("operator_view_refresh home_summary schema_version mismatch")
+    if str(home_summary.get("primary_focus", "")) != str(
+        operator_summary.get("primary_focus", "")
+    ):
+        errors.append("operator_view_refresh home_summary primary_focus mismatch")
+    if str(home_summary.get("home_command_label", "")) != "review_operator_home":
+        errors.append("operator_view_refresh home_summary command label mismatch")
+    if str(home_summary.get("home_command", "")) != expected_home_command:
+        errors.append("operator_view_refresh home_summary command mismatch")
+    if str(home_summary.get("home_command_boundary", "")) != "read_only_inspection":
+        errors.append("operator_view_refresh home_summary boundary mismatch")
+    if bool(home_summary.get("home_command_is_hint_only", False)) is not True:
+        errors.append("operator_view_refresh home_summary hint-only mismatch")
 
     added_blockers = string_payload(blocker_delta.get("added_blockers", []))
     removed_blockers = string_payload(blocker_delta.get("removed_blockers", []))
@@ -3170,6 +3241,7 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     pre_freshness = dict_payload(payload.get("pre_refresh_snapshot_freshness", {}))
     freshness = dict_payload(payload.get("cockpit_snapshot_freshness", {}))
     operator_summary = dict_payload(payload.get("operator_summary", {}))
+    home_summary = dict_payload(payload.get("home_summary", {}))
     blocker_delta = dict_payload(payload.get("blocker_delta", {}))
     refresh_effect = dict_payload(payload.get("refresh_effect", {}))
     review_summary = dict_payload(payload.get("review_summary", {}))
@@ -3225,6 +3297,10 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Next command text: `{operator_summary.get('next_command', '')}`",
         f"- Next command boundary: `{operator_summary.get('next_command_boundary', '')}`",
         f"- Next command reason: {operator_summary.get('next_command_reason', '')}",
+        f"- Home status: `{home_summary.get('status', '')}`",
+        f"- Home command: `{home_summary.get('home_command_label', '')}`",
+        f"- Home command text: `{home_summary.get('home_command', '')}`",
+        f"- Home Codex intake: `{home_summary.get('codex_intake_readiness_status', '')}`",
         f"- Safety policy OK: `{policy_summary.get('ok', False)}`",
         f"- Safety policy false keys: `{policy_summary.get('false_count', 0)}`",
         "",
@@ -3290,6 +3366,28 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     lines.append(f"- Next command text: `{review_summary.get('next_command', '')}`")
     lines.append(
         f"- Next command boundary: `{review_summary.get('next_command_boundary', '')}`"
+    )
+    lines.extend(["", "## Operator Home", ""])
+    lines.append(f"- Status: `{home_summary.get('status', '')}`")
+    lines.append(f"- OK: `{home_summary.get('ok', False)}`")
+    lines.append(f"- Headline: {home_summary.get('headline', '')}")
+    lines.append(f"- Primary focus: `{home_summary.get('primary_focus', '')}`")
+    lines.append(f"- Action step: `{home_summary.get('action_step', '')}`")
+    lines.append(
+        f"- Codex readiness diff: `{home_summary.get('codex_readiness_diff_status', '')}`"
+    )
+    lines.append(
+        f"- Codex intake: `{home_summary.get('codex_intake_readiness_status', '')}`"
+    )
+    lines.append(
+        f"- Codex intake ready: `{home_summary.get('codex_intake_ready', False)}`"
+    )
+    lines.append(
+        f"- Home command: `{home_summary.get('home_command_label', '')}`"
+    )
+    lines.append(f"- Home command text: `{home_summary.get('home_command', '')}`")
+    lines.append(
+        f"- Home command boundary: `{home_summary.get('home_command_boundary', '')}`"
     )
     blocker_preview = operator_summary.get("blocker_preview", [])
     lines.extend(["", "## Current Blockers", ""])

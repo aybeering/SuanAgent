@@ -15,6 +15,7 @@
     "refreshed_count",
     "refreshed_artifacts",
     "operator_summary",
+    "home_summary",
     "blocker_delta",
     "refresh_effect",
     "review_summary",
@@ -70,6 +71,9 @@
     },
     "operator_summary": {
       "$ref": "#/$defs/operator_summary"
+    },
+    "home_summary": {
+      "$ref": "#/$defs/home_summary"
     },
     "blocker_delta": {
       "$ref": "#/$defs/blocker_delta"
@@ -379,6 +383,88 @@
         },
         "persisted_blocker_preview": {
           "$ref": "#/$defs/string_array"
+        }
+      }
+    },
+    "home_summary": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "ok",
+        "headline",
+        "primary_focus",
+        "action_step",
+        "action_guide_status",
+        "codex_preflight_status",
+        "codex_readiness_diff_status",
+        "codex_intake_readiness_status",
+        "codex_intake_ready",
+        "codex_intake_blocker_count",
+        "next_command_label",
+        "next_command_boundary",
+        "home_command_label",
+        "home_command",
+        "home_command_boundary",
+        "home_command_is_hint_only"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "operator_view_refresh_home_summary_v1"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "headline": {
+          "type": "string"
+        },
+        "primary_focus": {
+          "type": "string"
+        },
+        "action_step": {
+          "type": "string"
+        },
+        "action_guide_status": {
+          "type": "string"
+        },
+        "codex_preflight_status": {
+          "type": "string"
+        },
+        "codex_readiness_diff_status": {
+          "type": "string"
+        },
+        "codex_intake_readiness_status": {
+          "type": "string"
+        },
+        "codex_intake_ready": {
+          "type": "boolean"
+        },
+        "codex_intake_blocker_count": {
+          "type": "integer"
+        },
+        "next_command_label": {
+          "type": "string"
+        },
+        "next_command_boundary": {
+          "$ref": "#/$defs/command_boundary_type"
+        },
+        "home_command_label": {
+          "type": "string"
+        },
+        "home_command": {
+          "type": "string"
+        },
+        "home_command_boundary": {
+          "$ref": "#/$defs/command_boundary_type"
+        },
+        "home_command_is_hint_only": {
+          "type": "boolean"
         }
       }
     },

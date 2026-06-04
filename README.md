@@ -96,8 +96,9 @@ when one remains, a compact refresh-effect status, before/after blocker delta
 counts, whether operator review is still required, primary review reason codes,
 the action execution-readiness status, action path-closure status and step
 counts, the digest headline, reason, and boundary classification for the first
-recommended command, and a compact safety-policy summary. The terminal receipt
-is schema-validated before printing, but it does not create another artifact
+recommended command, an operator-home navigation summary with Codex intake
+status, and a compact safety-policy summary. The terminal receipt is
+schema-validated before printing, but it does not create another artifact
 family. `action-guide <run_id>` is the terminal-only guided path
 for the same operator action chain: it tells the operator whether approval,
 guarded read-only execution, audit refresh, or dashboard review is next, while

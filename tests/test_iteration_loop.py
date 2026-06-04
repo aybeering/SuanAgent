@@ -3911,6 +3911,20 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert refresh["review_summary"]["next_command_source"] == (
         refresh["operator_summary"]["next_command_source"]
     )
+    assert refresh["home_summary"]["schema_version"] == (
+        "operator_view_refresh_home_summary_v1"
+    )
+    assert refresh["home_summary"]["home_command_label"] == "review_operator_home"
+    assert refresh["home_summary"]["home_command"] == (
+        f"python -m orchestrator.experiments home {run_id} --markdown"
+    )
+    assert refresh["home_summary"]["home_command_boundary"] == "read_only_inspection"
+    assert refresh["home_summary"]["home_command_is_hint_only"] is True
+    assert refresh["home_summary"]["primary_focus"] == (
+        refresh["operator_summary"]["primary_focus"]
+    )
+    assert "## Operator Home" in refresh_markdown
+    assert "Home command: `review_operator_home`" in refresh_markdown
     assert "Refresh effect:" in refresh_markdown
     assert "## Refresh Effect" in refresh_markdown
     assert "Operator review required: `True`" in refresh_markdown
@@ -4075,6 +4089,11 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     assert refresh["review_summary"]["post_blocker_count"] == refresh[
         "blocker_delta"
     ]["after_count"]
+    assert refresh["home_summary"]["home_command"] == (
+        f"python -m orchestrator.experiments home {run_id} --markdown"
+    )
+    assert refresh["home_summary"]["home_command_is_hint_only"] is True
+    assert refresh["home_summary"]["codex_intake_readiness_status"]
     assert "Refresh effect: `refreshed_no_changes`" in refresh_markdown
     assert "## Refresh Effect" in refresh_markdown
     assert "Operator review required: `True`" in refresh_markdown
@@ -4148,6 +4167,8 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     assert "Next command boundary:" in refresh_markdown
     assert refresh["operator_summary"]["next_command_reason"] in refresh_markdown
     assert str(operator_digest["recommended_command"]) in refresh_markdown
+    assert "## Operator Home" in refresh_markdown
+    assert "Home command text:" in refresh_markdown
     for row in refresh["refreshed_artifacts"]:
         json_file = row["json_file"]
         markdown_file = row["markdown_file"]
@@ -4377,6 +4398,28 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             ),
             "next_command_reason": "review run closeout dashboard",
             "next_command_boundary": "read_only_inspection",
+        },
+        "home_summary": {
+            "schema_version": "operator_view_refresh_home_summary_v1",
+            "status": "review_ready",
+            "ok": True,
+            "headline": "Review the completed operator action path and run outcome.",
+            "primary_focus": "review",
+            "action_step": "dashboard_review",
+            "action_guide_status": "path_closed",
+            "codex_preflight_status": "no_real_execution_profiles",
+            "codex_readiness_diff_status": "missing_evidence",
+            "codex_intake_readiness_status": "not_available",
+            "codex_intake_ready": False,
+            "codex_intake_blocker_count": 0,
+            "next_command_label": "review_execution_receipt",
+            "next_command_boundary": "read_only_inspection",
+            "home_command_label": "review_operator_home",
+            "home_command": (
+                "python -m orchestrator.experiments home run --markdown"
+            ),
+            "home_command_boundary": "read_only_inspection",
+            "home_command_is_hint_only": True,
         },
         "blocker_delta": {
             "schema_version": "operator_view_refresh_blocker_delta_v1",

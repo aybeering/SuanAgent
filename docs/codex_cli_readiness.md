@@ -211,7 +211,8 @@ execution preflight, unlock checklist, readiness diff, and cockpit in dependency
 order. It uses the run's recorded config path unless `--config` is provided and
 returns a terminal-only receipt with the config source, path, existence flag,
 SHA-256 digest, pre-refresh cockpit stale-source evidence, post-refresh
-freshness, and per-artifact JSON/Markdown output hashes; it does not execute
+freshness, operator-home navigation status, Codex intake readiness status, and
+per-artifact JSON/Markdown output hashes; it does not execute
 Codex, record approval, create workspaces, modify config, apply patches, or
 change acceptance.
 Use `--markdown` for the same terminal-only receipt as a short operator summary

@@ -1298,6 +1298,7 @@ jobs:
           refresh_markdown = open("/tmp/operator_view_refresh.md").read()
           dashboard = json.load(open("experiments/ci-adaptive/operator_action_dashboard.json"))
           checklist = json.load(open("experiments/ci-adaptive/operator_unlock_checklist.json"))
+          runbook = json.load(open("experiments/ci-adaptive/codex_cli_unlock_runbook.json"))
           diff = json.load(open("experiments/ci-adaptive/codex_cli_execution_readiness_diff.json"))
           cockpit = json.load(open("experiments/ci-adaptive/operator_cockpit.json"))
           assert refresh["schema_version"] == "operator_view_refresh_v1"
@@ -1354,13 +1355,14 @@ jobs:
           assert "Operator digest:" in refresh_markdown
           assert operator_digest["headline"] in refresh_markdown
           assert operator_digest["recommended_command"] in refresh_markdown
-          assert refresh["refreshed_count"] == 5
+          assert refresh["refreshed_count"] == 6
           assert [
               row["artifact_name"] for row in refresh["refreshed_artifacts"]
           ] == [
               "operator_action_dashboard",
               "codex_cli_execution_preflight",
               "operator_unlock_checklist",
+              "codex_cli_unlock_runbook",
               "codex_cli_execution_readiness_diff",
               "operator_cockpit",
           ]
@@ -1390,6 +1392,13 @@ jobs:
           assert checklist["schema_version"] == "operator_unlock_checklist_v1"
           assert checklist["navigation"]["policy"]["does_not_execute_commands"] is True
           assert checklist["policy"]["does_not_execute_codex_cli"] is True
+          assert runbook["schema_version"] == "codex_cli_unlock_runbook_v1"
+          assert runbook["policy"]["does_not_execute_codex_cli"] is True
+          assert runbook["summary"]["codex_intake_readiness_status"] in {
+              "not_available",
+              "blocked",
+              "ready",
+          }
           assert diff["schema_version"] == "codex_cli_execution_readiness_diff_v1"
           assert diff["policy"]["does_not_execute_codex_cli"] is True
           assert diff["policy"]["does_not_modify_config"] is True

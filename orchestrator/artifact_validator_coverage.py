@@ -103,6 +103,10 @@ KNOWN_ARTIFACT_NAMES = {
         "config_application_restore_receipt.json",
         "config_application_restore_receipt.md",
     ),
+    "config_operator_runbook": (
+        "config_operator_runbook.json",
+        "config_operator_runbook.md",
+    ),
     "config_lineage": ("config_lineage.json", "config_lineage.md"),
     "experiment_scope_health": ("experiment_scope_health.json",),
     "run_closeout": ("run_closeout.json", "run_closeout.md"),
@@ -234,6 +238,10 @@ INSPECTION_COMMANDS = {
     "config_application_restore_receipt": (
         "python -m orchestrator.config_application_restore_executor",
         "python -m orchestrator.experiments restore-config-approved",
+    ),
+    "config_operator_runbook": (
+        "python -m orchestrator.config_operator_runbook",
+        "python -m orchestrator.experiments config-runbook",
     ),
     "config_lineage": (
         "python -m orchestrator.config_lineage",

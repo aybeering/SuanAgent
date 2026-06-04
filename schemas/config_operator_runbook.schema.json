@@ -1,0 +1,350 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Config Operator Runbook",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "status",
+    "ready",
+    "summary",
+    "steps",
+    "operator_commands",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "config_operator_runbook_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "needs_operator_action",
+        "applied",
+        "restored",
+        "not_applicable"
+      ]
+    },
+    "ready": {
+      "type": "boolean"
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "step_count",
+        "ready_step_count",
+        "missing_step_count",
+        "blocked_step_count",
+        "not_applicable_step_count",
+        "operator_command_count",
+        "workflow_phase",
+        "next_step_id",
+        "next_command_label",
+        "ready_steps",
+        "missing_steps",
+        "blocked_steps",
+        "not_applicable_steps"
+      ],
+      "properties": {
+        "step_count": {
+          "type": "integer"
+        },
+        "ready_step_count": {
+          "type": "integer"
+        },
+        "missing_step_count": {
+          "type": "integer"
+        },
+        "blocked_step_count": {
+          "type": "integer"
+        },
+        "not_applicable_step_count": {
+          "type": "integer"
+        },
+        "operator_command_count": {
+          "type": "integer"
+        },
+        "workflow_phase": {
+          "type": "string"
+        },
+        "next_step_id": {
+          "type": "string"
+        },
+        "next_command_label": {
+          "type": "string"
+        },
+        "ready_steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missing_steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blocked_steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "not_applicable_steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "operator_commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/command"
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "runbook_only",
+        "does_not_execute_commands",
+        "does_not_record_operator_review",
+        "does_not_write_config",
+        "does_not_delete_memory",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_route_candidates",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "commands_require_explicit_operator_invocation"
+      ],
+      "properties": {
+        "inspection_only": {
+          "type": "boolean"
+        },
+        "reads_saved_artifacts_only": {
+          "type": "boolean"
+        },
+        "runbook_only": {
+          "type": "boolean"
+        },
+        "does_not_execute_commands": {
+          "type": "boolean"
+        },
+        "does_not_record_operator_review": {
+          "type": "boolean"
+        },
+        "does_not_write_config": {
+          "type": "boolean"
+        },
+        "does_not_delete_memory": {
+          "type": "boolean"
+        },
+        "does_not_execute_agents": {
+          "type": "boolean"
+        },
+        "does_not_run_backtests": {
+          "type": "boolean"
+        },
+        "does_not_route_candidates": {
+          "type": "boolean"
+        },
+        "does_not_apply_patches": {
+          "type": "boolean"
+        },
+        "does_not_change_acceptance": {
+          "type": "boolean"
+        },
+        "commands_require_explicit_operator_invocation": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "step": {
+      "type": "object",
+      "required": [
+        "step_id",
+        "artifact_id",
+        "label",
+        "purpose",
+        "status",
+        "ready",
+        "artifact",
+        "blocking_reasons",
+        "command",
+        "authority"
+      ],
+      "properties": {
+        "step_id": {
+          "type": "string"
+        },
+        "artifact_id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "missing",
+            "blocked",
+            "not_applicable"
+          ]
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "artifact": {
+          "type": "object",
+          "required": [
+            "artifact_id",
+            "json_file",
+            "markdown_file",
+            "status"
+          ],
+          "properties": {
+            "artifact_id": {
+              "type": "string"
+            },
+            "json_file": {
+              "$ref": "#/$defs/file_record"
+            },
+            "markdown_file": {
+              "$ref": "#/$defs/file_record"
+            },
+            "status": {
+              "type": "string"
+            }
+          }
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "command": {
+          "$ref": "#/$defs/command"
+        },
+        "authority": {
+          "type": "object",
+          "required": [
+            "step_can_execute_command",
+            "step_can_record_review",
+            "step_can_write_config",
+            "step_can_execute_agents",
+            "step_can_run_backtests",
+            "step_can_change_acceptance"
+          ],
+          "properties": {
+            "step_can_execute_command": {
+              "type": "boolean"
+            },
+            "step_can_record_review": {
+              "type": "boolean"
+            },
+            "step_can_write_config": {
+              "type": "boolean"
+            },
+            "step_can_execute_agents": {
+              "type": "boolean"
+            },
+            "step_can_run_backtests": {
+              "type": "boolean"
+            },
+            "step_can_change_acceptance": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "command": {
+      "type": "object",
+      "required": [
+        "label",
+        "artifact_id",
+        "command",
+        "writes_artifacts",
+        "writes_config_if_invoked",
+        "requires_explicit_operator_invocation",
+        "runbook_executes_command"
+      ],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "artifact_id": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "writes_artifacts": {
+          "type": "boolean"
+        },
+        "writes_config_if_invoked": {
+          "type": "boolean"
+        },
+        "requires_explicit_operator_invocation": {
+          "type": "boolean"
+        },
+        "runbook_executes_command": {
+          "type": "boolean"
+        }
+      }
+    },
+    "file_record": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "byte_count",
+        "sha256"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "byte_count": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

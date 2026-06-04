@@ -52,7 +52,8 @@ validation, replay commands, read-only outcome-memory hygiene and scope
 recommendation artifacts, read-only config change candidate and operator review
 artifacts, read-only config application dry-run artifacts, guarded config
 application receipt artifacts, read-only config rollback preview artifacts, and
-guarded config restore receipt artifacts, read-only config lineage artifacts,
+guarded config restore receipt artifacts, read-only config operator runbook
+artifacts, read-only config lineage artifacts,
 read-only run closeout operator dashboard summaries, read-only operator action
 plans, read-only operator action approval receipts, guarded read-only operator
 action execution receipts, read-only operator action audit artifacts, read-only
@@ -66,11 +67,11 @@ leaderboard views, candidate quality trace views, candidate challenger report
 views, agent result stats views, champion lineage views, proposal outcome
 memory views, and memory diagnostics, memory hygiene, memory scope
 recommendation, config change candidate, operator config review, config
-application dry-run, config rollback preview, config lineage, operator action
-plan, and operator action dashboard views, plus operator action approval,
-operator action execution receipt, and operator action audit views, operator
-unlock checklist views, Codex CLI unlock runbook views, Codex CLI execution
-readiness diff views, and operator cockpit views.
+application dry-run, config rollback preview, config operator runbook, config
+lineage, operator action plan, and operator action dashboard views, plus
+operator action approval, operator action execution receipt, and operator action
+audit views, operator unlock checklist views, Codex CLI unlock runbook views,
+Codex CLI execution readiness diff views, and operator cockpit views.
 
 Still out of scope:
 
@@ -180,6 +181,11 @@ Config application restore receipts may be written only by an explicit guarded
 restore command after rollback preview evidence still matches current config.
 Receipts may write config only through that command and must not run agents or
 change iteration acceptance.
+Config operator runbook artifacts may summarize the config candidate, review,
+dry-run, guarded apply, rollback preview, guarded restore, and lineage command
+sequence for operator navigation. They must remain read-only and must not
+record approval, execute commands, write config, restore config, run agents, or
+change acceptance.
 Config lineage artifacts may connect config candidates, reviews, dry-runs,
 apply receipts, rollback previews, and restore receipts for audit. They must be
 read-only and must not write config.

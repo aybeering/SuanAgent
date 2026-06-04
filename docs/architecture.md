@@ -167,6 +167,11 @@ guarded restore command. That command restores config only when the rollback
 preview is ready and the preview, receipt, and current config digests still
 match. If the applied change added a new config path, restore removes that path
 instead of writing `null`; it does not run agents or change acceptance.
+`config_operator_runbook.json` and `config_operator_runbook.md` are read-only
+operator walkthrough artifacts for this chain. They list the inspect, review,
+dry-run, guarded apply, rollback preview, guarded restore, and lineage commands
+without executing them, and they mark which commands would write config if an
+operator explicitly invoked them.
 `config_lineage.json` and `config_lineage.md` connect the run's config
 candidate, review, dry-run, application receipt, rollback preview, and restore
 receipt artifacts into one read-only digest chain. They do not write config.

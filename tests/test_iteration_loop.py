@@ -144,6 +144,7 @@ from orchestrator.round_replay import ROUND_REPLAY_SCHEMA_VERSION, replay_round
 from orchestrator.artifact_validator import (
     snapshot_digest_from_payload,
     validate_optional_codex_cli_unlock_runbook,
+    validate_optional_config_operator_runbook,
     validate_optional_operator_action_approval,
     validate_optional_operator_action_execution_receipt,
     validate_optional_operator_action_plan,
@@ -187,6 +188,13 @@ from orchestrator.config_application_restore_executor import (
     CONFIG_APPLICATION_RESTORE_RECEIPT_SCHEMA_VERSION,
     restore_config_with_preview,
     validate_config_application_restore_receipt_file,
+)
+from orchestrator.config_operator_runbook import (
+    CONFIG_OPERATOR_RUNBOOK_SCHEMA_VERSION,
+    render_config_operator_runbook_markdown,
+    validate_config_operator_runbook_file,
+    validate_config_operator_runbook_payload,
+    write_config_operator_runbook,
 )
 from orchestrator.config_lineage import (
     CONFIG_LINEAGE_SCHEMA_VERSION,
@@ -360,6 +368,7 @@ from orchestrator.experiments import (
     candidate_leaderboard,
     candidate_quality_trace,
     config_application_dry_run_report,
+    config_operator_runbook_report,
     config_change_candidate_report,
     compare_experiments,
     experiment_leaderboard,
@@ -4510,6 +4519,193 @@ def test_config_application_restore_removes_new_agents_candidate(
         "config_application_restore_receipt.json" in error
         for error in report["errors"]  # type: ignore[union-attr]
     )
+
+
+def test_config_operator_runbook_guides_review_and_apply_workflow(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="config-operator-runbook",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments/config-operator-runbook"
+    profile_payload = {
+        "schema_version": MODIFIER_PROFILE_RECOMMENDATION_SCHEMA_VERSION,
+        "run_id": "config-operator-runbook",
+        "run_dir": "experiments/config-operator-runbook",
+        "sources": {},
+        "summary": {
+            "status": "no_available_profile",
+            "primary_focus": "switch_modifier_direction",
+            "top_failure_code": "patch_memory_rejected",
+            "selected_directions": ["raise_min_edge"],
+            "avoid_directions": ["raise_min_edge", "lower_min_edge", "reduce_stake"],
+            "suggested_directions": ["new_modifier_profile"],
+            "available_profile_count": 3,
+            "recommendation_count": 0,
+            "recommended_direction_tag": "",
+            "recommended_profile_name": "",
+            "recommended_adapter_name": "",
+            "recommendation_reason_code": "no_available_profile",
+        },
+        "available_profiles": [],
+        "recommendations": [],
+        "operator_notes": [],
+        "policy": {
+            "advisory_only": True,
+            "inspection_only": True,
+            "reads_saved_artifacts_only": True,
+            "does_not_execute_agents": True,
+            "does_not_run_backtests": True,
+            "does_not_write_config": True,
+            "does_not_route_agents": True,
+            "does_not_apply_patches": True,
+            "does_not_change_acceptance": True,
+        },
+    }
+    (run_dir / "modifier_profile_recommendation.json").write_text(
+        json.dumps(profile_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    write_config_change_candidate(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+    )
+    json_path, md_path, runbook = write_config_operator_runbook(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
+    markdown = md_path.read_text(encoding="utf-8")
+    report = config_operator_runbook_report(
+        run_id="config-operator-runbook",
+        experiments_dir=repo / "experiments",
+    )
+
+    assert json_path.exists()
+    assert md_path.exists()
+    assert runbook["schema_version"] == CONFIG_OPERATOR_RUNBOOK_SCHEMA_VERSION
+    assert runbook["status"] == "needs_operator_action"
+    assert runbook["ready"] is False
+    assert runbook["summary"]["workflow_phase"] == "needs_operator_review"
+    assert runbook["summary"]["next_command_label"] == "record_operator_approval"
+    assert runbook["steps"][0]["artifact_id"] == "config_change_candidate"
+    assert runbook["steps"][0]["status"] == "ready"
+    assert runbook["steps"][1]["artifact_id"] == "operator_config_review"
+    assert runbook["steps"][1]["status"] == "blocked"
+    assert "operator_review_not_recorded" in runbook["steps"][1]["blocking_reasons"]
+    assert all(
+        command["requires_explicit_operator_invocation"] is True
+        and command["runbook_executes_command"] is False
+        for command in runbook["operator_commands"]
+    )
+    assert any(
+        command["label"] == "apply_config_approved"
+        and command["writes_config_if_invoked"] is True
+        for command in runbook["operator_commands"]
+    )
+    assert runbook["policy"]["does_not_write_config"] is True
+    assert "# Config Operator Runbook" in markdown
+    assert "record_operator_approval" in markdown
+    assert report["from_artifact"] is True
+    assert render_config_operator_runbook_markdown(report).startswith(
+        "# Config Operator Runbook"
+    )
+    assert_matches_schema(json_path, "config_operator_runbook")
+    assert validate_config_operator_runbook_file(
+        payload_path=json_path,
+        repo_root=repo,
+    ) == ()
+    assert validate_config_operator_runbook_payload(
+        report,
+        run_dir=run_dir,
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+
+    write_operator_config_review(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        operator_id="test-operator",
+        decision="approve",
+        confirmation_phrase=CONFIG_REVIEW_APPROVAL_PHRASE,
+        candidate_ids=("modifier_profile_add_new_modifier_profile",),
+    )
+    write_config_application_dry_run(
+        run_dir=run_dir,
+        repo_root=repo,
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+    )
+    _, _, updated_runbook = write_config_operator_runbook(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
+    assert updated_runbook["summary"]["workflow_phase"] == "ready_for_apply"
+    assert updated_runbook["summary"]["next_command_label"] == "apply_config_approved"
+    assert updated_runbook["steps"][1]["status"] == "ready"
+    assert updated_runbook["steps"][2]["status"] == "ready"
+
+    runbook_validation: dict[str, object] = {
+        "run_id": "config-operator-runbook",
+        "checked_files": [],
+        "errors": [],
+        "warnings": [],
+    }
+    validate_optional_config_operator_runbook(
+        run_dir=run_dir,
+        repo_root=repo,
+        report=runbook_validation,
+    )
+    assert runbook_validation["errors"] == []
+
+    tampered_runbook = json.loads(json_path.read_text(encoding="utf-8"))
+    tampered_label = tampered_runbook["operator_commands"][0]["label"]
+    tampered_runbook["summary"]["workflow_phase"] = "restored"
+    tampered_runbook["summary"]["next_command_label"] = ""
+    tampered_runbook["operator_commands"][0]["command"] += (
+        " && python -m orchestrator.run_loop"
+    )
+    tampered_runbook["operator_commands"][0]["runbook_executes_command"] = True
+    tampered_runbook["operator_commands"][0][
+        "requires_explicit_operator_invocation"
+    ] = False
+    tampered_runbook["steps"][0]["authority"]["step_can_write_config"] = True
+    tampered_runbook["policy"]["does_not_write_config"] = False
+    json_path.write_text(
+        json.dumps(tampered_runbook, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    errors = validate_config_operator_runbook_file(
+        payload_path=json_path,
+        repo_root=repo,
+    )
+    assert "config_operator_runbook workflow phase mismatch" in errors
+    assert "config_operator_runbook next command mismatch" in errors
+    assert "config_operator_runbook command unsafe token" in errors
+    assert "config_operator_runbook command executes by itself" in errors
+    assert "config_operator_runbook command lacks explicit gate" in errors
+    assert "config_operator_runbook authority true: step_can_write_config" in errors
+    assert "config_operator_runbook policy false: does_not_write_config" in errors
+    tampered_validation: dict[str, object] = {
+        "run_id": "config-operator-runbook",
+        "checked_files": [],
+        "errors": [],
+        "warnings": [],
+    }
+    validate_optional_config_operator_runbook(
+        run_dir=run_dir,
+        repo_root=repo,
+        report=tampered_validation,
+    )
+    assert any(
+        "config_operator_runbook command unsafe token" in error
+        for error in tampered_validation["errors"]  # type: ignore[union-attr]
+    )
+    assert tampered_label == "inspect_config_candidates"
 
 
 def test_agent_contract_runner_writes_disabled_audit(tmp_path: Path) -> None:

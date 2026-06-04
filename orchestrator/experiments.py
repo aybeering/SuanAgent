@@ -30,6 +30,11 @@ from orchestrator.config_application_dry_run import (
     build_config_application_dry_run,
     validate_config_application_dry_run_payload,
 )
+from orchestrator.config_operator_runbook import (
+    build_config_operator_runbook,
+    render_config_operator_runbook_markdown,
+    validate_config_operator_runbook_payload,
+)
 from orchestrator.memory_diagnostics import (
     build_memory_diagnostics,
     validate_memory_diagnostics_payload,
@@ -1759,6 +1764,48 @@ def config_application_dry_run_report(
         raise ValueError(
             "config application dry run failed schema validation: "
             + "; ".join(errors)
+        )
+    payload["from_artifact"] = False
+    return payload
+
+
+def config_operator_runbook_report(
+    *,
+    run_id: str,
+    experiments_dir: Path = Path("experiments"),
+) -> dict[str, object]:
+    """Return config operator runbook for one iteration run."""
+    run_dir = experiments_dir / run_id
+    path = run_dir / "config_operator_runbook.json"
+    if path.exists():
+        payload = load_json(path)
+        errors = validate_config_operator_runbook_payload(
+            payload,
+            run_dir=run_dir,
+            repo_root=experiments_dir.parent,
+        )
+        if errors:
+            raise ValueError(
+                "config operator runbook failed schema validation: "
+                + "; ".join(errors)
+            )
+        payload["from_artifact"] = True
+        return payload
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Experiment run not found: {run_id}")
+    payload = build_config_operator_runbook(
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+    )
+    errors = validate_config_operator_runbook_payload(
+        payload,
+        run_dir=run_dir,
+        repo_root=experiments_dir.parent,
+        require_current_evidence=True,
+    )
+    if errors:
+        raise ValueError(
+            "config operator runbook failed schema validation: " + "; ".join(errors)
         )
     payload["from_artifact"] = False
     return payload
@@ -4425,6 +4472,17 @@ def main() -> None:
         default=Path("config/default.json"),
     )
 
+    config_runbook_parser = subparsers.add_parser(
+        "config-runbook",
+        help="Show read-only config operator runbook for one iteration run.",
+    )
+    config_runbook_parser.add_argument("run_id")
+    config_runbook_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the config operator runbook as markdown.",
+    )
+
     config_rollback_parser = subparsers.add_parser(
         "config-application-rollback-preview",
         help="Show read-only config rollback preview for one iteration run.",
@@ -4752,6 +4810,14 @@ def main() -> None:
             run_id=args.run_id,
             config_path=args.config,
         )
+    elif args.command == "config-runbook":
+        payload = config_operator_runbook_report(
+            experiments_dir=args.experiments_dir,
+            run_id=args.run_id,
+        )
+        if args.markdown:
+            print(render_config_operator_runbook_markdown(payload), end="")
+            return
     elif args.command == "config-application-rollback-preview":
         payload = config_application_rollback_preview_report(
             experiments_dir=args.experiments_dir,

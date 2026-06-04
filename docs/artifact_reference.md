@@ -50,6 +50,9 @@ python -m orchestrator.experiments lineage
 python -m orchestrator.experiments apply-config-approved <run_id> --dry-run-path experiments/<run_id>/config_application_dry_run.json
 python -m orchestrator.experiments config-application-rollback-preview <run_id> --receipt-path experiments/<run_id>/config_application_receipt.json
 python -m orchestrator.experiments restore-config-approved <run_id> --preview-path experiments/<run_id>/config_application_rollback_preview.json
+python -m orchestrator.config_operator_runbook experiments/<run_id>
+python -m orchestrator.experiments config-runbook <run_id>
+python -m orchestrator.experiments config-runbook <run_id> --markdown
 python -m orchestrator.experiments config-lineage <run_id>
 python -m orchestrator.experiments promote-approved <candidate_run_id> --approval-path experiments/<run_id>/champion_promotion_approval.json
 python -m orchestrator.operator_action_approval experiments/<run_id> --action-id <action_id> --command-label <label> --approve --operator-id <operator> --confirmation-phrase "APPROVE OPERATOR ACTION"
@@ -156,6 +159,8 @@ experiments/<run_id>/
   config_application_rollback_preview.md    # after rollback preview command
   config_application_restore_receipt.json  # after guarded restore command
   config_application_restore_receipt.md    # after guarded restore command
+  config_operator_runbook.json  # after optional config runbook command
+  config_operator_runbook.md    # after optional config runbook command
   config_lineage.json
   config_lineage.md
   agent_result_stats.json
@@ -730,6 +735,15 @@ Replay artifacts:
   digests still match. If an applied candidate added a previously missing
   config path, restore removes that path. Blocked attempts write a receipt but
   leave config unchanged.
+- `config_operator_runbook.json` and `config_operator_runbook.md` summarize the
+  config candidate, operator review, application dry-run, guarded apply,
+  rollback preview, guarded restore, and lineage chain into one ordered
+  operator guide. The runbook lists command hints, marks which commands would
+  write config if explicitly invoked, and remains read-only: it never records
+  approval, executes commands, writes config, restores config, runs agents, or
+  changes acceptance. `python -m orchestrator.experiments config-runbook
+  <run_id>` validates schema, step ordering, command safety, summary counters,
+  authority flags, and read-only policy before printing JSON or markdown.
 - `config_lineage.json` and `config_lineage.md` connect config candidates,
   operator review, dry-run, apply receipt, rollback preview, and restore
   receipt artifacts into one read-only digest chain for the run.

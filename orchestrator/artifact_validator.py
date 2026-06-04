@@ -236,6 +236,11 @@ def validate_run_artifacts(
         repo_root=repo_root,
         report=report,
     )
+    validate_optional_config_operator_runbook(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     validate_optional_config_lineage(
         run_dir=run_dir,
         repo_root=repo_root,
@@ -6805,6 +6810,62 @@ def validate_optional_config_application_restore_receipt(
                 report,
                 f"config_application_restore_receipt.json policy false: {key}",
             )
+
+
+def validate_optional_config_operator_runbook(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate config_operator_runbook.json when present."""
+    path = run_dir / "config_operator_runbook.json"
+    md_path = run_dir / "config_operator_runbook.md"
+    if not path.exists():
+        if md_path.exists():
+            add_error(report, "config_operator_runbook.md exists without JSON")
+        return
+    checked_files(report).append(str(path))
+    if md_path.exists():
+        checked_files(report).append(str(md_path))
+    else:
+        add_error(report, "config_operator_runbook.json missing markdown pair")
+    # Coverage marker: schemas/config_operator_runbook.schema.json is checked
+    # by validate_config_operator_runbook_file().
+    from orchestrator.config_operator_runbook import (
+        validate_config_operator_runbook_file,
+    )
+
+    for error in validate_config_operator_runbook_file(
+        payload_path=path,
+        repo_root=repo_root,
+    ):
+        add_error(report, error)
+    payload = validate_json_object(path=path, report=report)
+    if payload is None:
+        return
+    if payload.get("run_id") != report.get("run_id"):
+        add_error(report, "config_operator_runbook.json run_id mismatch")
+    policy = payload.get("policy", {})
+    if not isinstance(policy, dict):
+        add_error(report, "config_operator_runbook.json policy invalid")
+        return
+    for key in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "runbook_only",
+        "does_not_execute_commands",
+        "does_not_record_operator_review",
+        "does_not_write_config",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_route_candidates",
+        "does_not_apply_patches",
+        "does_not_change_acceptance",
+        "commands_require_explicit_operator_invocation",
+    ):
+        if policy.get(key) is not True:
+            add_error(report, f"config_operator_runbook.json policy false: {key}")
 
 
 def has_restored_config_application(

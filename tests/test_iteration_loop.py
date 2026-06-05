@@ -386,7 +386,12 @@ from orchestrator.operator_unlock_checklist import (
     validate_operator_unlock_checklist_payload,
     write_operator_unlock_checklist,
 )
-from orchestrator.run_diagnosis import diagnose_run, write_run_diagnosis
+from orchestrator.run_diagnosis import (
+    RUN_DIAGNOSIS_SCHEMA_VERSION,
+    diagnose_run,
+    validate_run_diagnosis_payload,
+    write_run_diagnosis,
+)
 from orchestrator.proposal_intent import build_proposal_intent
 from orchestrator.preflight import run_preflight
 from orchestrator.schema_validation import validate_json_file, validate_json_payload
@@ -12884,6 +12889,31 @@ def test_artifact_validator_reports_diagnosis_operator_navigation_drift(
     )
 
 
+def test_artifact_validator_reports_diagnosis_schema_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-diagnosis-schema-drift"
+    run_iteration_loop(run_id=run_id, max_rounds=1, repo_root=repo)
+    diagnosis_path = repo / "experiments" / run_id / "diagnosis.json"
+    diagnosis = json.loads(diagnosis_path.read_text(encoding="utf-8"))
+    diagnosis.pop("schema_version")
+    diagnosis_path.write_text(
+        json.dumps(diagnosis, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert "diagnosis.json schema: $: missing required property schema_version" in (
+        report["errors"]
+    )
+
+
 def test_artifact_validator_reports_diagnosis_navigation_static_safety_drift(
     tmp_path: Path,
 ) -> None:
@@ -15425,6 +15455,9 @@ def test_run_diagnosis_summarizes_single_run(tmp_path: Path) -> None:
         repo_root=repo,
     )
 
+    assert diagnosis["schema_version"] == RUN_DIAGNOSIS_SCHEMA_VERSION
+    assert_matches_schema_payload(diagnosis, "run_diagnosis")
+    assert validate_run_diagnosis_payload(payload=diagnosis, repo_root=repo) == ()
     assert diagnosis["kind"] == "single_run"
     assert diagnosis["artifact_ok"] is True
     assert diagnosis["status"] == "rejected"
@@ -15443,6 +15476,8 @@ def test_run_diagnosis_summarizes_single_run(tmp_path: Path) -> None:
         )
     )
     assert saved["summary"] == diagnosis["summary"]
+    assert saved["schema_version"] == RUN_DIAGNOSIS_SCHEMA_VERSION
+    assert_matches_schema(repo / "experiments/diagnose-single/diagnosis.json", "run_diagnosis")
 
 
 def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
@@ -15459,6 +15494,9 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
         repo_root=repo,
     )
 
+    assert diagnosis["schema_version"] == RUN_DIAGNOSIS_SCHEMA_VERSION
+    assert_matches_schema_payload(diagnosis, "run_diagnosis")
+    assert validate_run_diagnosis_payload(payload=diagnosis, repo_root=repo) == ()
     assert diagnosis["kind"] == "iteration_loop"
     assert diagnosis["artifact_ok"] is True
     assert diagnosis["status"] == manifest["status"]
@@ -15531,6 +15569,11 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
         )
     )
     assert saved["best_round"]["round_id"] == "round_001"
+    assert saved["schema_version"] == RUN_DIAGNOSIS_SCHEMA_VERSION
+    assert_matches_schema(
+        repo / "experiments/diagnose-iteration/diagnosis.json",
+        "run_diagnosis",
+    )
     assert saved["operator_navigation"]["available"] is True
     assert saved["operator_navigation"]["next_command"]["selector_command"] == (
         "python -m orchestrator.experiments next-command diagnose-iteration --markdown"
@@ -15570,6 +15613,8 @@ def test_run_diagnosis_includes_file_protocol_execution_status(
     )
 
     round_diagnosis = diagnosis["rounds"][0]  # type: ignore[index]
+    assert_matches_schema_payload(diagnosis, "run_diagnosis")
+    assert validate_run_diagnosis_payload(payload=diagnosis, repo_root=repo) == ()
     assert diagnosis["artifact_ok"] is True
     assert round_diagnosis["agent_name"] == "file_protocol_agent"
     assert round_diagnosis["file_protocol_status"] == "completed"
@@ -15605,6 +15650,9 @@ def test_experiments_diagnose_subcommand_outputs_json(tmp_path: Path) -> None:
     payload = json.loads(result.stdout)
 
     assert result.returncode == 0
+    assert payload["schema_version"] == RUN_DIAGNOSIS_SCHEMA_VERSION
+    assert_matches_schema_payload(payload, "run_diagnosis")
+    assert validate_run_diagnosis_payload(payload=payload, repo_root=repo) == ()
     assert payload["kind"] == "iteration_loop"
     assert payload["artifact_ok"] is True
     assert payload["rounds"][0]["round_id"] == "round_001"

@@ -194,7 +194,11 @@ def validate_run_artifacts(
         add_error(report, "run has neither manifest.json nor decision.json")
 
     if validate_diagnosis:
-        validate_optional_diagnosis(run_dir=run_dir, report=report)
+        validate_optional_diagnosis(
+            run_dir=run_dir,
+            repo_root=repo_root,
+            report=report,
+        )
     validate_optional_metadata(run_dir=run_dir, repo_root=repo_root, report=report)
     validate_optional_champion_comparison(
         run_dir=run_dir,
@@ -6256,6 +6260,7 @@ def validate_required_files(
 def validate_optional_diagnosis(
     *,
     run_dir: Path,
+    repo_root: Path,
     report: dict[str, object],
 ) -> None:
     """Validate diagnosis.json when a run has one."""
@@ -6263,6 +6268,11 @@ def validate_optional_diagnosis(
     if not path.exists():
         return
     checked_files(report).append(str(path))
+    for error in validate_json_file(
+        payload_path=path,
+        schema_path=repo_root / "schemas/run_diagnosis.schema.json",
+    ):
+        add_error(report, f"diagnosis.json schema: {error}")
     payload = validate_json_object(path=path, report=report)
     if payload is None:
         return

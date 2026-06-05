@@ -212,7 +212,8 @@ Core evaluation contracts:
 - Proposal normalization and validation: `orchestrator/proposal.py`
 - Policy acceptance: `orchestrator/policy_gate.py`
 - Experiment metadata and diagnosis: `orchestrator/run_metadata.py`,
-  `orchestrator/run_diagnosis.py`, and `orchestrator/research_brief.py`
+  `orchestrator/run_diagnosis.py`, `schemas/run_diagnosis.schema.json`, and
+  `orchestrator/research_brief.py`
 
 Agent-slot contracts:
 
@@ -451,6 +452,13 @@ Codex CLI readiness contracts:
     flags, non-negative completed round counts, champion-gap active/status/gap
     invariants, watchlist alert codes, and outer/watchlist policy flags before
     terminal JSON or markdown is emitted.
+    Saved and terminal run diagnosis payloads are schema-validated against
+    `schemas/run_diagnosis.schema.json` before `diagnosis.json` is written or
+    `python -m orchestrator.experiments diagnose` emits JSON or markdown. The
+    schema locks the top-level diagnosis envelope, compact round rows, selected
+    candidate rows, and read-only operator navigation shape while the artifact
+    validator continues to bind those fields back to manifest, candidate
+    leaderboard, and command-digest evidence.
     Experiment leaderboard terminal output is also schema-validated before JSON
     is emitted. Its validator checks row bounds, run identity uniqueness,
     ranking order, single-run EV delta arithmetic, and iteration round-count

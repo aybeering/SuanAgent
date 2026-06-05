@@ -1,0 +1,317 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Run Diagnosis",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "run_dir",
+    "artifact_ok",
+    "artifact_errors",
+    "artifact_warnings",
+    "metadata",
+    "kind",
+    "status",
+    "operator_navigation",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["run_diagnosis_v1"]
+    },
+    "run_id": {"type": "string", "minLength": 1},
+    "run_dir": {"type": "string", "minLength": 1},
+    "artifact_ok": {"type": "boolean"},
+    "artifact_errors": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "artifact_warnings": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "metadata": {"type": "object"},
+    "kind": {
+      "type": "string",
+      "enum": ["iteration_loop", "single_run", "unknown"]
+    },
+    "status": {"type": "string"},
+    "accepted": {"type": "boolean"},
+    "reasons": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "validation_ev_delta": {"type": "number"},
+    "trade_count_delta": {"type": "number"},
+    "completed_rounds": {"type": "integer"},
+    "accepted_round": {
+      "type": ["string", "integer", "null"]
+    },
+    "stop_reason": {
+      "type": ["string", "null"]
+    },
+    "final_strategy_commit": {
+      "type": ["string", "null"]
+    },
+    "best_round": {
+      "type": ["object", "null"]
+    },
+    "rounds": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/round"}
+    },
+    "agent_intake_summary": {"type": "object"},
+    "run_outcome_summary": {"type": "object"},
+    "operator_navigation": {"$ref": "#/$defs/operator_navigation"},
+    "selected_candidates": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/selected_candidate"}
+    },
+    "summary": {"type": "string"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "operator_navigation": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "available",
+        "reason",
+        "run_id",
+        "run_kind",
+        "home",
+        "next_command",
+        "policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": ["run_diagnosis_operator_navigation_v1"]
+        },
+        "available": {"type": "boolean"},
+        "reason": {"type": "string"},
+        "run_id": {"type": "string"},
+        "run_kind": {"type": "string"},
+        "home": {"$ref": "#/$defs/operator_navigation_home"},
+        "next_command": {"$ref": "#/$defs/operator_navigation_next_command"},
+        "policy": {"$ref": "#/$defs/operator_navigation_policy"}
+      },
+      "additionalProperties": false
+    },
+    "operator_navigation_home": {
+      "type": "object",
+      "required": [
+        "available",
+        "command_label",
+        "command",
+        "command_sha256",
+        "status",
+        "primary_focus",
+        "action_step",
+        "terminal_only",
+        "artifact_created",
+        "command_boundary",
+        "command_is_hint_only"
+      ],
+      "properties": {
+        "available": {"type": "boolean"},
+        "command_label": {"type": "string"},
+        "command": {"type": "string"},
+        "command_sha256": {"type": "string"},
+        "status": {"type": "string"},
+        "primary_focus": {"type": "string"},
+        "action_step": {"type": "string"},
+        "terminal_only": {"type": "boolean"},
+        "artifact_created": {"type": "boolean"},
+        "command_boundary": {"type": "string"},
+        "command_is_hint_only": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "operator_navigation_next_command": {
+      "type": "object",
+      "required": [
+        "available",
+        "selection_source",
+        "selector_command_label",
+        "selector_command",
+        "selector_command_sha256",
+        "selector_boundary",
+        "selected_command_label",
+        "selected_command",
+        "selected_command_sha256",
+        "status",
+        "blocked",
+        "blocker_count",
+        "operator_hint",
+        "boundary",
+        "writes_artifact",
+        "requires_explicit_operator_invocation",
+        "requires_operator_approval",
+        "records_operator_approval",
+        "uses_guarded_executor",
+        "command_is_hint_only"
+      ],
+      "properties": {
+        "available": {"type": "boolean"},
+        "selection_source": {"type": "string"},
+        "selector_command_label": {"type": "string"},
+        "selector_command": {"type": "string"},
+        "selector_command_sha256": {"type": "string"},
+        "selector_boundary": {"type": "string"},
+        "selected_command_label": {"type": "string"},
+        "selected_command": {"type": "string"},
+        "selected_command_sha256": {"type": "string"},
+        "status": {"type": "string"},
+        "blocked": {"type": "boolean"},
+        "blocker_count": {"type": "integer"},
+        "operator_hint": {"type": "string"},
+        "boundary": {"type": "string"},
+        "writes_artifact": {"type": "string"},
+        "requires_explicit_operator_invocation": {"type": "boolean"},
+        "requires_operator_approval": {"type": "boolean"},
+        "records_operator_approval": {"type": "boolean"},
+        "uses_guarded_executor": {"type": "boolean"},
+        "command_is_hint_only": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "operator_navigation_policy": {
+      "type": "object",
+      "required": [
+        "inspection_only",
+        "does_not_create_artifacts",
+        "does_not_record_approval",
+        "does_not_execute_commands",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance"
+      ],
+      "properties": {
+        "inspection_only": {"type": "boolean"},
+        "does_not_create_artifacts": {"type": "boolean"},
+        "does_not_record_approval": {"type": "boolean"},
+        "does_not_execute_commands": {"type": "boolean"},
+        "does_not_execute_agents": {"type": "boolean"},
+        "does_not_run_backtests": {"type": "boolean"},
+        "does_not_write_config": {"type": "boolean"},
+        "does_not_promote_champion": {"type": "boolean"},
+        "does_not_apply_patches": {"type": "boolean"},
+        "does_not_route_agents": {"type": "boolean"},
+        "does_not_change_acceptance": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "round": {
+      "type": "object",
+      "required": [
+        "round_id",
+        "accepted",
+        "reasons",
+        "failure_stage",
+        "failure_code",
+        "reason_codes",
+        "agent_name",
+        "direction_tag",
+        "proposal_applicable",
+        "contract_errors",
+        "agent_validation_ok",
+        "agent_validation_errors",
+        "agent_intake_diagnosis",
+        "agent_intake_status",
+        "agent_intake_primary_code",
+        "agent_bundle_present",
+        "agent_bundle_input_file_count",
+        "agent_bundle_output_file_count",
+        "agent_attempt_trace_present",
+        "agent_attempt_count",
+        "selected_attempt_id",
+        "agent_selection_present",
+        "selection_rank_order",
+        "workspace_manifest_present",
+        "workspace_initial_file_count",
+        "patch_sha256",
+        "selected_role",
+        "candidate_score",
+        "candidate_status",
+        "candidate_failure_code",
+        "selection_reason",
+        "probe_ev_delta",
+        "validation_ev_delta",
+        "trade_count_delta",
+        "file_protocol_status",
+        "file_protocol_returncode",
+        "summary"
+      ],
+      "properties": {
+        "round_id": {"type": "string"},
+        "accepted": {"type": "boolean"},
+        "reasons": {"type": "array"},
+        "failure_stage": {"type": "string"},
+        "failure_code": {"type": "string"},
+        "reason_codes": {"type": "array"},
+        "agent_name": {"type": "string"},
+        "direction_tag": {"type": "string"},
+        "proposal_applicable": {"type": "boolean"},
+        "contract_errors": {"type": "array"},
+        "agent_validation_ok": {"type": ["boolean", "null"]},
+        "agent_validation_errors": {"type": "array"},
+        "agent_intake_diagnosis": {"type": "object"},
+        "agent_intake_status": {"type": "string"},
+        "agent_intake_primary_code": {"type": "string"},
+        "agent_bundle_present": {"type": "boolean"},
+        "agent_bundle_input_file_count": {"type": "integer"},
+        "agent_bundle_output_file_count": {"type": "integer"},
+        "agent_attempt_trace_present": {"type": "boolean"},
+        "agent_attempt_count": {"type": "integer"},
+        "selected_attempt_id": {"type": "string"},
+        "agent_selection_present": {"type": "boolean"},
+        "selection_rank_order": {"type": "array"},
+        "workspace_manifest_present": {"type": "boolean"},
+        "workspace_initial_file_count": {"type": "integer"},
+        "patch_sha256": {"type": "string"},
+        "selected_role": {"type": "string"},
+        "candidate_score": {"type": "number"},
+        "candidate_status": {"type": "string"},
+        "candidate_failure_code": {"type": "string"},
+        "selection_reason": {"type": "string"},
+        "probe_ev_delta": {"type": "number"},
+        "validation_ev_delta": {"type": "number"},
+        "trade_count_delta": {"type": "number"},
+        "file_protocol_status": {"type": "string"},
+        "file_protocol_returncode": {"type": ["integer", "null"]},
+        "summary": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "selected_candidate": {
+      "type": "object",
+      "required": [
+        "round_id",
+        "role",
+        "agent_name",
+        "direction_tag",
+        "candidate_score",
+        "champion_gap",
+        "validation_ev_delta",
+        "status"
+      ],
+      "properties": {
+        "round_id": {"type": "string"},
+        "role": {"type": "string"},
+        "agent_name": {"type": "string"},
+        "direction_tag": {"type": "string"},
+        "candidate_score": {"type": "number"},
+        "champion_gap": {"type": "object"},
+        "validation_ev_delta": {"type": ["number", "null"]},
+        "status": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

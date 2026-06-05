@@ -9,6 +9,11 @@ from typing import Any
 
 from orchestrator.artifact_validator import validate_run_artifacts
 from orchestrator.run_outcome import build_run_outcome_summary
+from orchestrator.schema_validation import load_schema, validate_json_payload
+
+
+RUN_DIAGNOSIS_SCHEMA_VERSION = "run_diagnosis_v1"
+RUN_DIAGNOSIS_SCHEMA_PATH = Path("schemas/run_diagnosis.schema.json")
 
 
 def diagnose_run(
@@ -30,6 +35,7 @@ def diagnose_run(
         validate_diagnosis=False,
     )
     base: dict[str, object] = {
+        "schema_version": RUN_DIAGNOSIS_SCHEMA_VERSION,
         "run_id": run_id,
         "run_dir": str(run_dir),
         "artifact_ok": bool(artifact_report.get("ok", False)),
@@ -73,11 +79,29 @@ def write_run_diagnosis(
         experiments_dir=experiments_dir,
         repo_root=repo_root,
     )
+    errors = validate_run_diagnosis_payload(payload=payload, repo_root=repo_root)
+    if errors:
+        raise ValueError("run diagnosis schema failed: " + "; ".join(errors))
     output_path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
     return output_path
+
+
+def validate_run_diagnosis_payload(
+    *,
+    payload: object,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate a run diagnosis payload against its local JSON contract."""
+    schema_path = repo_root.resolve() / RUN_DIAGNOSIS_SCHEMA_PATH
+    schema = load_schema(schema_path)
+    return validate_json_payload(
+        payload=payload,
+        schema=schema,
+        schema_dir=schema_path.parent,
+    )
 
 
 def diagnose_single_run(

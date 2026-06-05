@@ -315,10 +315,12 @@ manifest records and round artifacts, so operator-facing data split, outcome,
 health, navigation, per-round, proposal-quality, candidate-ranking, and
 agent-output diagnosis fields stay tied to the machine-readable record.
 `diagnosis.json` is a compact machine-readable review artifact built from the
-saved run artifacts. For iteration runs, it includes per-round policy results,
-selected candidates, the best validation round, and the same agent-intake
-summary and run-outcome summary so adapter/proposal and gate failures can be
-grouped without changing acceptance. It also includes an
+saved run artifacts and validated against
+`schemas/run_diagnosis.schema.json` before the file is written or terminal JSON
+is printed. For iteration runs, it includes per-round policy results, selected
+candidates, the best validation round, and the same agent-intake summary and
+run-outcome summary so adapter/proposal and gate failures can be grouped
+without changing acceptance. It also includes an
 `operator_navigation` block. Single-run diagnoses mark this navigation
 unavailable. Iteration diagnoses copy the terminal-only operator-home command
 and the narrower next-command selector from `manifest.json`, including the
@@ -332,12 +334,13 @@ acceptance.
 `python -m orchestrator.artifact_validator <run_id>` validates this block when
 present, checking the diagnosis navigation against the saved
 `manifest.operator_home` row and requiring all diagnosis navigation policy flags
-to stay read-only. For iteration diagnoses, it also binds the diagnosis run
-status, completed-round count, accepted round, stop reason, final strategy
-commit, and agent-intake summary back to `manifest.json`, and binds selected
-candidate rows back to `candidate_leaderboard.json`. The saved diagnosis
-`best_round` must match the best validation EV delta from `manifest.rounds`
-and the corresponding diagnosis round row.
+to stay read-only. It also validates the saved diagnosis file against the local
+schema. For iteration diagnoses, it binds the diagnosis run status,
+completed-round count, accepted round, stop reason, final strategy commit, and
+agent-intake summary back to `manifest.json`, and binds selected candidate rows
+back to `candidate_leaderboard.json`. The saved diagnosis `best_round` must
+match the best validation EV delta from `manifest.rounds` and the corresponding
+diagnosis round row.
 
 `champion_history.jsonl` exists after guarded champion promotion.
 `champion_lineage.json` and `champion_lineage.md` are written by the lineage

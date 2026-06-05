@@ -149,7 +149,7 @@ from orchestrator.run_artifact_health import (
     render_run_artifact_health_history_markdown,
 )
 from orchestrator.run_closeout import build_run_closeout
-from orchestrator.run_diagnosis import diagnose_run
+from orchestrator.run_diagnosis import diagnose_run, validate_run_diagnosis_payload
 from orchestrator.schema_validation import load_schema, validate_json_payload
 
 
@@ -7507,6 +7507,12 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )
+        errors = validate_run_diagnosis_payload(
+            payload=payload,
+            repo_root=args.experiments_dir.parent,
+        )
+        if errors:
+            raise ValueError("run diagnosis schema failed: " + "; ".join(errors))
         if args.markdown:
             print(render_run_diagnosis_markdown(payload), end="")
             return

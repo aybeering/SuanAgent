@@ -12364,6 +12364,58 @@ def test_artifact_validator_reports_summary_operator_unlock_checklist_drift(
     assert "summary.md operator_unlock_checklist path mismatch" in report["errors"]
 
 
+def test_artifact_validator_reports_summary_codex_cli_unlock_runbook_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-summary-codex-unlock-runbook-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments" / run_id
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    runbook = manifest["codex_cli_unlock_runbook"]
+    summary_path = run_dir / "summary.md"
+    summary_text = summary_path.read_text(encoding="utf-8")
+    section_start = summary_text.index("## Codex CLI Unlock Runbook")
+    section_end = summary_text.index("\n## Operator Cockpit", section_start)
+    runbook_section = summary_text[section_start:section_end]
+    runbook_section = runbook_section.replace(
+        "- Ready / blocked / missing steps: "
+        f"`{runbook['ready_step_count']}` / "
+        f"`{runbook['blocked_step_count']}` / "
+        f"`{runbook['missing_step_count']}`",
+        "- Ready / blocked / missing steps: `999` / `999` / `999`",
+        1,
+    )
+    runbook_section = runbook_section.replace(
+        f"- Markdown: `{runbook['markdown_path']}`",
+        "- Markdown: `wrong_codex_cli_unlock_runbook.md`",
+        1,
+    )
+    summary_text = (
+        summary_text[:section_start] + runbook_section + summary_text[section_end:]
+    )
+    summary_path.write_text(summary_text, encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert "summary.md codex_cli_unlock_runbook step_counts mismatch" in report[
+        "errors"
+    ]
+    assert (
+        "summary.md codex_cli_unlock_runbook markdown_path mismatch"
+        in report["errors"]
+    )
+
+
 def test_artifact_validator_reports_summary_operator_next_command_drift(
     tmp_path: Path,
 ) -> None:

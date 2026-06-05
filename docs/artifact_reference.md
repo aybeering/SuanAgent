@@ -262,8 +262,8 @@ The artifact validator checks that the top-level run fields printed in
 `summary.md` continue to mirror the same `manifest.json` values, including run
 id, status, completed rounds, accepted round, stop reason, and final strategy
 commit. It also checks the `summary.md` dataset, run-outcome, agent-intake,
-health, operator-action-dashboard, operator-cockpit, operator-home,
-operator-next-command, operator-unlock-checklist, round-table,
+health, codex-cli-unlock-runbook, operator-action-dashboard, operator-cockpit,
+operator-home, operator-next-command, operator-unlock-checklist, round-table,
 proposal-quality, and candidate-leaderboard sections against the corresponding
 manifest records and round artifacts, so operator-facing data split, outcome,
 health, navigation, per-round, proposal-quality, candidate-ranking, and

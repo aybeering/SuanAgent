@@ -542,6 +542,11 @@ def validate_iteration_run(
         manifest=manifest,
         report=report,
     )
+    validate_iteration_summary_codex_cli_unlock_runbook(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
     validate_iteration_summary_operator_cockpit(
         run_dir=run_dir,
         manifest=manifest,
@@ -1038,6 +1043,53 @@ def validate_iteration_summary_operator_unlock_checklist(
             add_error(
                 report,
                 f"summary.md operator_unlock_checklist {field_name} mismatch",
+            )
+
+
+def validate_iteration_summary_codex_cli_unlock_runbook(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md Codex CLI unlock-runbook section mirrors manifest."""
+    runbook = manifest.get("codex_cli_unlock_runbook")
+    if not isinstance(runbook, dict):
+        return
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Codex CLI Unlock Runbook",
+    )
+    if not section:
+        add_error(report, "summary.md codex_cli_unlock_runbook section missing")
+        return
+    expected_lines: tuple[tuple[str, str], ...] = (
+        ("status", f"- Status: `{markdown_display_value(runbook.get('status'))}`"),
+        ("ready", f"- Ready: `{markdown_display_value(runbook.get('ready'))}`"),
+        (
+            "step_counts",
+            "- Ready / blocked / missing steps: "
+            f"`{markdown_display_value(runbook.get('ready_step_count'))}` / "
+            f"`{markdown_display_value(runbook.get('blocked_step_count'))}` / "
+            f"`{markdown_display_value(runbook.get('missing_step_count'))}`",
+        ),
+        (
+            "codex_intake_readiness_status",
+            "- Codex intake: "
+            f"`{markdown_display_value(runbook.get('codex_intake_readiness_status'))}`",
+        ),
+        ("path", f"- Artifact: `{markdown_display_value(runbook.get('path'))}`"),
+        (
+            "markdown_path",
+            "- Markdown: "
+            f"`{markdown_display_value(runbook.get('markdown_path'))}`",
+        ),
+    )
+    for field_name, expected_line in expected_lines:
+        if expected_line not in section:
+            add_error(
+                report,
+                f"summary.md codex_cli_unlock_runbook {field_name} mismatch",
             )
 
 

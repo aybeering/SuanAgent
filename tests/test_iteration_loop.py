@@ -275,11 +275,13 @@ from orchestrator.modifier_profile_recommendation import (
 from orchestrator.champion_promotion_dry_run import (
     CHAMPION_PROMOTION_DRY_RUN_SCHEMA_VERSION,
     validate_champion_promotion_dry_run_file,
+    write_champion_promotion_dry_run,
 )
 from orchestrator.champion_promotion_approval import (
     CHAMPION_PROMOTION_APPROVAL_SCHEMA_VERSION,
     REQUIRED_CONFIRMATION_PHRASE as CHAMPION_PROMOTION_CONFIRMATION_PHRASE,
     validate_champion_promotion_approval_file,
+    write_champion_promotion_approval,
 )
 from orchestrator.champion_promotion_executor import (
     CHAMPION_PROMOTION_RECEIPT_SCHEMA_VERSION,
@@ -304,13 +306,17 @@ from orchestrator.run_loop import run_pipeline
 from orchestrator.run_closeout import (
     RUN_CLOSEOUT_SCHEMA_VERSION,
     validate_run_closeout_file,
+    write_run_closeout,
 )
+from orchestrator.run_outcome import build_run_outcome_summary
+from orchestrator.run_summary import write_iteration_summary
 from orchestrator.operator_action_plan import (
     OPERATOR_ACTION_PLAN_SCHEMA_VERSION,
     build_operator_action_plan,
     render_operator_action_plan_markdown,
     validate_operator_action_plan_file,
     validate_operator_action_plan_payload,
+    write_operator_action_plan,
 )
 from orchestrator.operator_action_approval import (
     OPERATOR_ACTION_APPROVAL_SCHEMA_VERSION,
@@ -379,7 +385,7 @@ from orchestrator.operator_unlock_checklist import (
     validate_operator_unlock_checklist_payload,
     write_operator_unlock_checklist,
 )
-from orchestrator.run_diagnosis import diagnose_run
+from orchestrator.run_diagnosis import diagnose_run, write_run_diagnosis
 from orchestrator.proposal_intent import build_proposal_intent
 from orchestrator.preflight import run_preflight
 from orchestrator.schema_validation import validate_json_file, validate_json_payload
@@ -3659,6 +3665,180 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         "operator_action_dashboard recommended command unsafe token: "
         f"{tampered_label}"
     ) in tampered_validation["errors"]
+
+
+def test_operator_home_prioritizes_promotion_approval_after_action_path_closes(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_pipeline(
+        run_id="home-promotion-base",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    run_pipeline(
+        run_id="home-promotion-champion",
+        experiments_dir=repo / "experiments",
+        config_path=repo / "config/default.json",
+        repo_root=repo,
+    )
+    make_run_accepted_with_ev_lift(
+        repo=repo,
+        run_id="home-promotion-champion",
+        ev_lift=0.2,
+    )
+    promote_champion(
+        base_run_id="home-promotion-base",
+        candidate_run_id="home-promotion-champion",
+        experiments_dir=repo / "experiments",
+    )
+    run_id = "home-promotion-candidate"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    make_iteration_run_accepted_with_ev_lift(
+        repo=repo,
+        run_id=run_id,
+        ev_lift=0.5,
+    )
+    run_dir = repo / f"experiments/{run_id}"
+    write_run_diagnosis(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    _, _, dry_run = write_champion_promotion_dry_run(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    _, _, promotion_approval = write_champion_promotion_approval(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
+    write_run_closeout(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    write_operator_action_plan(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    write_operator_action_audit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    plan = build_operator_action_plan(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    action = next(
+        row
+        for row in plan["actions"]
+        if row["action_type"] == "review_champion_promotion"
+    )
+    command = next(
+        row
+        for row in action["command_candidates"]
+        if row["label"] == "inspect_promotion_approval"
+    )
+    assert command["command"] == (
+        f"python -m orchestrator.experiments promotion-approval {run_id}"
+    )
+    assert command_is_allowlisted(parse_command(command["command"])) is True
+    approval_path, _, _ = write_operator_action_approval(
+        run_dir=run_dir,
+        repo_root=repo,
+        action_id=action["action_id"],
+        command_label=command["label"],
+        operator_id="test-operator",
+        explicit_approval=True,
+        confirmation_phrase=OPERATOR_ACTION_CONFIRMATION_PHRASE,
+    )
+    execute_operator_action_with_approval(
+        run_id=run_id,
+        approval_path=approval_path,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        timeout_seconds=10,
+    )
+    write_operator_action_audit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    write_operator_action_dashboard(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    write_operator_cockpit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    cockpit = build_operator_cockpit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    home = build_operator_home(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    next_command = build_operator_next_command(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert dry_run["status"] == "promotion_recommended"
+    assert dry_run["dry_run_decision"]["would_promote"] is True
+    assert promotion_approval["status"] == "ready_for_operator_review"
+    assert cockpit["status"] == "promotion_pending_approval"
+    assert cockpit["review_priority"]["primary_reason"] == "promotion_pending_approval"
+    assert "operator_approval_not_recorded" not in cockpit["blockers"]
+    assert home["status"] == "needs_operator_review"
+    assert home["action_home"]["guide_status"] == "path_closed"
+    assert home["next_command"]["source"] == "review_priority"
+    assert home["action_home"]["next_command_label"] == "review_promotion_approval"
+    assert home["action_home"]["next_command_status"] == "ready_for_operator"
+    assert home["action_home"]["next_command_blocked"] is False
+    assert home["next_command"]["command"].endswith(
+        f"champion_promotion_approval experiments/{run_id}"
+    )
+    assert home["next_command"]["writes_artifact"] == (
+        "champion_promotion_approval.json"
+    )
+    assert next_command["label"] == "review_promotion_approval"
+    assert next_command["status"] == "ready_for_operator"
+    assert next_command["blocked"] is False
+    assert next_command["command"] == home["next_command"]["command"]
+    assert_matches_schema_payload(home, "operator_home")
+    assert validate_operator_home_payload(
+        home,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    assert_matches_schema_payload(next_command, "operator_next_command")
+    assert validate_operator_next_command_payload(
+        next_command,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
 
 
 def test_operator_cockpit_aggregates_operator_views_without_authority(
@@ -21656,6 +21836,62 @@ def make_run_accepted_with_ev_lift(
     decision_path.write_text(
         json.dumps(decision, indent=2, sort_keys=True),
         encoding="utf-8",
+    )
+
+
+def make_iteration_run_accepted_with_ev_lift(
+    *,
+    repo: Path,
+    run_id: str,
+    ev_lift: float,
+    round_id: str = "round_001",
+) -> None:
+    """Rewrite a test iteration run into an accepted candidate with an EV lift."""
+    round_dir = repo / f"experiments/{run_id}/{round_id}"
+    metrics_path = round_dir / "metrics_after.json"
+    metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+    metrics["ev"] = round(float(metrics["ev"]) + ev_lift, 6)
+    metrics_path.write_text(
+        json.dumps(metrics, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    decision_path = round_dir / "decision.json"
+    decision = json.loads(decision_path.read_text(encoding="utf-8"))
+    decision["accepted"] = True
+    decision["reasons"] = []
+    decision["reason_codes"] = []
+    decision["failure_stage"] = "none"
+    decision["failure_code"] = "none"
+    decision_path.write_text(
+        json.dumps(decision, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    manifest_path = repo / f"experiments/{run_id}/manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["status"] = "accepted"
+    manifest["accepted_round"] = round_id
+    manifest["stop_reason"] = "accepted"
+    for row in manifest["rounds"]:
+        if row.get("round_id") != round_id:
+            continue
+        row["accepted"] = True
+        row["reasons"] = []
+        row["reason_codes"] = []
+        row["failure_stage"] = "none"
+        row["failure_code"] = "none"
+        row["validation_ev_after"] = metrics["ev"]
+    manifest["run_outcome_summary"] = build_run_outcome_summary(
+        manifest=manifest,
+        artifact_ok=True,
+        artifact_error_count=0,
+    )
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    write_iteration_summary(
+        run_dir=repo / f"experiments/{run_id}",
+        manifest=manifest,
     )
 
 

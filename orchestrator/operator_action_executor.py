@@ -34,6 +34,7 @@ ALLOWED_EXPERIMENTS_SUBCOMMANDS = {
     "config-change-candidate",
     "config-lineage",
     "profile-recommendation",
+    "promotion-approval",
     "quality-trace",
     "review",
     "show",

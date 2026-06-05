@@ -218,8 +218,8 @@ def command_candidates(
             command_row(
                 label="inspect_promotion_approval",
                 command=(
-                    f"python -m orchestrator.champion_promotion_approval "
-                    f"experiments/{run_id}"
+                    f"python -m orchestrator.experiments "
+                    f"promotion-approval {run_id}"
                 ),
                 expected_artifact="champion_promotion_approval.json",
             )

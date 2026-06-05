@@ -55,7 +55,12 @@ def build_operator_home(
     digest = object_field(cockpit, "operator_digest")
     priority = object_field(cockpit, "review_priority")
     guided_path = object_field(guide, "guided_path")
-    next_command = object_field(guide, "next_command")
+    guide_next_command = object_field(guide, "next_command")
+    next_command = select_home_next_command(
+        guide=guide,
+        guide_next_command=guide_next_command,
+        cockpit=cockpit,
+    )
     next_command_boundary = object_field(next_command, "boundary")
     blockers = string_list(cockpit.get("blockers", []))
     command_state = next_command_state(
@@ -142,8 +147,8 @@ def build_operator_home(
             "priority": str(priority.get("priority", "")),
             "target_panel": str(priority.get("target_panel", "")),
             "target_panel_title": str(priority.get("target_panel_title", "")),
-            "command_label": str(object_field(priority, "command").get("label", "")),
-            "command": str(object_field(priority, "command").get("command", "")),
+            "command_label": str(priority.get("recommended_command_label", "")),
+            "command": str(priority.get("recommended_command", "")),
         },
         "command_center": command_center_rows(cockpit=cockpit, guide=guide),
         "blockers": blockers[:8],
@@ -304,6 +309,8 @@ def home_status(
         return "blocked"
     if blockers:
         return "needs_operator_review"
+    if cockpit.get("status") == "promotion_pending_approval":
+        return "needs_operator_review"
     if guide.get("status") == "ready_for_guarded_execution":
         return "ready_for_guarded_execution"
     if guide.get("status") == "awaiting_operator_approval":
@@ -347,7 +354,9 @@ def command_center_rows(
     guide_command = object_field(guide, "next_command")
     if guide_command:
         rows.append(command_row("action_next", guide_command))
-    priority_command = object_field(object_field(cockpit, "review_priority"), "command")
+    priority_command = command_from_review_priority(
+        object_field(cockpit, "review_priority")
+    )
     if priority_command and priority_command.get("label") != guide_command.get("label"):
         rows.append(command_row("review_priority", priority_command))
     for command in list_of_dicts(cockpit.get("recommended_commands", [])):
@@ -358,6 +367,61 @@ def command_center_rows(
             continue
         rows.append(command_row("cockpit", command))
     return rows
+
+
+def select_home_next_command(
+    *,
+    guide: dict[str, Any],
+    guide_next_command: dict[str, Any],
+    cockpit: dict[str, Any],
+) -> dict[str, object]:
+    """Return the command hint that should be surfaced as the home next step."""
+    guide_command = command_with_source(guide_next_command, "action_next")
+    priority = object_field(cockpit, "review_priority")
+    if (
+        guide.get("status") == "path_closed"
+        and priority.get("primary_reason") == "promotion_pending_approval"
+    ):
+        priority_command = command_from_review_priority(priority)
+        if priority_command:
+            return priority_command
+    return guide_command
+
+
+def command_from_review_priority(priority: dict[str, Any]) -> dict[str, object]:
+    """Return a command object from cockpit review-priority fields."""
+    label = str(priority.get("recommended_command_label", ""))
+    command = str(priority.get("recommended_command", ""))
+    if not label or not command:
+        return {}
+    boundary = object_field(priority, "recommended_command_boundary")
+    return {
+        "label": label,
+        "command": command,
+        "reason": str(priority.get("recommended_command_reason", ""))
+        or str(priority.get("next_step", "")),
+        "writes_artifact": str(priority.get("recommended_command_writes_artifact", "")),
+        "boundary": boundary,
+        "source": "review_priority",
+        "command_is_hint_only": True,
+        "requires_explicit_operator_invocation": bool(
+            boundary.get("requires_explicit_operator_invocation", False)
+        ),
+        "requires_operator_approval": bool(
+            boundary.get("requires_operator_approval", False)
+        ),
+        "records_operator_approval": bool(
+            boundary.get("records_operator_approval", False)
+        ),
+        "uses_guarded_executor": bool(boundary.get("uses_guarded_executor", False)),
+    }
+
+
+def command_with_source(command: dict[str, Any], source: str) -> dict[str, object]:
+    """Return a command hint with a stable source marker."""
+    if not command:
+        return {}
+    return {**command, "source": str(command.get("source", source))}
 
 
 def next_command_state(
@@ -388,6 +452,13 @@ def next_command_state(
             "blocked": True,
             "blocker_count": len(blockers),
             "operator_hint": "Review home blockers before invoking the next command hint.",
+        }
+    if str(next_command.get("source", "action_next")) != "action_next":
+        return {
+            "status": "ready_for_operator",
+            "blocked": False,
+            "blocker_count": 0,
+            "operator_hint": "The next command is a cockpit-priority hint and still requires explicit operator invocation.",
         }
     if active_status in {"active", "available"}:
         return {

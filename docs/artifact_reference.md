@@ -552,6 +552,11 @@ approval receipt, uses the guarded executor, and which artifact it would write
 when invoked through the dedicated command. The home action summary also
 reports whether the next command is currently blocked by home-level blockers,
 how many blockers apply, and the operator hint to review before invoking it.
+When the guided operator action path is closed and the cockpit has a
+deterministic champion-promotion approval pending, the home next-command hint
+surfaces the cockpit promotion-approval command instead of leaving the operator
+on the already-closed action receipt review. The command is still only a hint:
+approval and promotion remain explicit dedicated commands.
 Its source records include the saved unlock checklist, unlock runbook, and
 readiness diff so the first screen can point directly at Codex evidence without
 becoming an unlock authority. It does not create run artifacts, record
@@ -1124,7 +1129,8 @@ Replay artifacts:
   state, promote champions, run backtests, execute agents, apply patches, route
   agents, or change acceptance. The read-only allowlist includes the
   `quality-trace` experiment view for inspecting candidate quality failures
-  after a repeated-proposal stop.
+  after a repeated-proposal stop and the `promotion-approval` experiment view
+  for refreshing the non-promoting champion approval inspection artifact.
 - `operator_action_audit.json` and `operator_action_audit.md` summarize the
   action plan, approval, and execution receipt chain. They validate source
   artifact schema state, source file hashes, selected command consistency, and
@@ -1270,7 +1276,10 @@ Replay artifacts:
   apply patches, route agents, or change acceptance. The direct module
   `--markdown` mode and
   `python -m orchestrator.experiments promotion-approval <run_id> --markdown`
-  render the same non-promoting approval artifact as terminal markdown.
+  render the same non-promoting approval artifact as terminal markdown. The
+  `promotion-approval` experiment view is also eligible for guarded read-only
+  operator action execution because it writes only the approval inspection
+  artifact and cannot promote a champion.
 - `champion_promotion_receipt.json` and `champion_promotion_receipt.md` record
   the result of the guarded promote-approved command. The command writes
   `champion.json` and appends `champion_history.jsonl` only when the approval

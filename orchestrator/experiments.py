@@ -5839,11 +5839,20 @@ def compare_experiments(
     base_run_id: str,
     candidate_run_id: str,
     experiments_dir: Path = Path("experiments"),
+    repo_root: Path = Path("."),
     min_ev_delta: float = 0.0,
 ) -> dict[str, object]:
     """Compare two runs and return a deterministic promotion recommendation."""
-    base = diagnose_run(run_id=base_run_id, experiments_dir=experiments_dir)
-    candidate = diagnose_run(run_id=candidate_run_id, experiments_dir=experiments_dir)
+    base = diagnose_run(
+        run_id=base_run_id,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
+    candidate = diagnose_run(
+        run_id=candidate_run_id,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
     base_perf = comparable_performance(base)
     candidate_perf = comparable_performance(candidate)
     dataset_comparison = compare_dataset_hashes(base, candidate)

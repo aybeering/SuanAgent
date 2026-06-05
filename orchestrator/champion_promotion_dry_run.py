@@ -79,6 +79,7 @@ def build_champion_promotion_dry_run(
         run_id=run_id,
         champion=champion,
         experiments_dir=experiments_dir,
+        repo_root=repo_root,
         min_ev_delta=min_ev_delta,
     )
     blocking_reasons = promotion_blocking_reasons(
@@ -168,6 +169,7 @@ def dry_run_comparison(
     run_id: str,
     champion: dict[str, object],
     experiments_dir: Path,
+    repo_root: Path,
     min_ev_delta: float,
 ) -> dict[str, object]:
     """Return compact comparison metadata without writing champion artifacts."""
@@ -204,6 +206,7 @@ def dry_run_comparison(
         base_run_id=champion_run_id,
         candidate_run_id=run_id,
         experiments_dir=experiments_dir,
+        repo_root=repo_root,
         min_ev_delta=min_ev_delta,
     )
     metric_deltas = object_field(comparison, "metric_deltas")

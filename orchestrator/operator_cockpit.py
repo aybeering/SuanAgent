@@ -855,12 +855,38 @@ def cockpit_blockers(
     blockers.extend(
         string_rows(object_field(promotion, "promotion_gate").get("blockers", []))
     )
-    blockers.extend(
-        string_rows(object_field(approval, "approval_gate").get("approval_blockers", []))
+    approval_blockers = promotion_approval_blockers(
+        promotion=promotion,
+        approval=approval,
     )
+    blockers.extend(approval_blockers)
     if scope_health and scope_health.get("ok") is not True:
         blockers.append("scope_health_not_ok")
     return unique_strings(blockers)
+
+
+def promotion_approval_blockers(
+    *,
+    promotion: dict[str, Any],
+    approval: dict[str, Any],
+) -> list[str]:
+    """Return promotion approval blockers, keeping expected review work actionable."""
+    blockers = string_rows(
+        object_field(approval, "approval_gate").get("approval_blockers", [])
+    )
+    would_promote = bool(
+        object_field(promotion, "dry_run_decision").get("would_promote", False)
+    )
+    approval_recorded = bool(
+        object_field(approval, "operator_intent").get("approval_recorded", False)
+    )
+    if would_promote and not approval_recorded:
+        return [
+            blocker
+            for blocker in blockers
+            if blocker != "operator_approval_not_recorded"
+        ]
+    return blockers
 
 
 def cockpit_review_priority(

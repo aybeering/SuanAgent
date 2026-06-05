@@ -20432,6 +20432,34 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     )
 
 
+def test_experiment_summary_dashboard_rejects_selected_command_hint_drift() -> None:
+    payload = _minimal_experiment_summary_dashboard_payload()
+    operator_home = payload["operator_home_entry"]
+    operator_next_command = payload["operator_next_command_entry"]
+    assert isinstance(operator_home, dict)
+    assert isinstance(operator_next_command, dict)
+    operator_home["next_command_is_hint_only"] = False
+    operator_next_command["selected_command_is_hint_only"] = False
+
+    errors = validate_experiment_summary_dashboard_payload(
+        payload,
+        repo_root=Path(__file__).resolve().parents[1],
+    )
+
+    assert (
+        "experiment_summary_dashboard operator_home next command hint mismatch"
+        in errors
+    )
+    assert (
+        "experiment_summary_dashboard operator_next_command selected hint mismatch"
+        in errors
+    )
+    assert (
+        "experiment_summary_dashboard operator_next_command safety mismatch"
+        not in errors
+    )
+
+
 def test_operator_run_review_schema_rejects_missing_dashboard() -> None:
     payload = {
         "schema_version": "operator_run_review_v1",

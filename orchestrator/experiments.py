@@ -574,6 +574,10 @@ def validate_experiment_operator_home_entry(
             errors.append("experiment_summary_dashboard operator_home boundary mismatch")
         if bool(operator_home.get("command_is_hint_only", False)) is not True:
             errors.append("experiment_summary_dashboard operator_home hint mismatch")
+        if bool(operator_home.get("next_command_is_hint_only", False)) is not True:
+            errors.append(
+                "experiment_summary_dashboard operator_home next command hint mismatch"
+            )
         if bool(operator_home.get("terminal_only", False)) is not True:
             errors.append("experiment_summary_dashboard operator_home terminal mismatch")
         if bool(operator_home.get("artifact_created", True)) is not False:
@@ -710,6 +714,13 @@ def validate_experiment_operator_next_command_entry(
         if bool(operator_next_command.get("command_is_hint_only", False)) is not True:
             errors.append(
                 "experiment_summary_dashboard operator_next_command hint mismatch"
+            )
+        if (
+            bool(operator_next_command.get("selected_command_is_hint_only", False))
+            is not True
+        ):
+            errors.append(
+                "experiment_summary_dashboard operator_next_command selected hint mismatch"
             )
         if str(operator_next_command.get("selection_source", "")) != (
             "operator_home.next_command"

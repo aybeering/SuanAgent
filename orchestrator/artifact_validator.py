@@ -532,6 +532,11 @@ def validate_iteration_run(
         run_dir=run_dir,
         report=report,
     )
+    validate_iteration_summary_config_operator_runbook(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
     validate_iteration_summary_operator_action_dashboard(
         run_dir=run_dir,
         manifest=manifest,
@@ -949,6 +954,58 @@ def validate_iteration_summary_candidate_leaderboard(
         expected_line = candidate_leaderboard_row(row)
         if expected_line not in section:
             add_error(report, f"summary.md candidate_leaderboard row_{index} mismatch")
+
+
+def validate_iteration_summary_config_operator_runbook(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md config-operator-runbook section mirrors manifest."""
+    runbook = manifest.get("config_operator_runbook")
+    if not isinstance(runbook, dict):
+        return
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Config Operator Runbook",
+    )
+    if not section:
+        add_error(report, "summary.md config_operator_runbook section missing")
+        return
+    expected_lines: tuple[tuple[str, str], ...] = (
+        ("status", f"- Status: `{markdown_display_value(runbook.get('status'))}`"),
+        ("ready", f"- Ready: `{markdown_display_value(runbook.get('ready'))}`"),
+        (
+            "workflow_phase",
+            "- Workflow phase: "
+            f"`{markdown_display_value(runbook.get('workflow_phase'))}`",
+        ),
+        (
+            "next_command_label",
+            "- Next command: "
+            f"`{markdown_display_value(runbook.get('next_command_label'))}`",
+        ),
+        (
+            "step_counts",
+            "- Ready / blocked / missing steps: "
+            f"`{markdown_display_value(runbook.get('ready_step_count'))}` / "
+            f"`{markdown_display_value(runbook.get('blocked_step_count'))}` / "
+            f"`{markdown_display_value(runbook.get('missing_step_count'))}`",
+        ),
+        ("path", f"- Artifact: `{markdown_display_value(runbook.get('path'))}`"),
+        (
+            "markdown_path",
+            "- Markdown: "
+            f"`{markdown_display_value(runbook.get('markdown_path'))}`",
+        ),
+    )
+    for field_name, expected_line in expected_lines:
+        if expected_line not in section:
+            add_error(
+                report,
+                f"summary.md config_operator_runbook {field_name} mismatch",
+            )
 
 
 def validate_iteration_summary_operator_action_dashboard(

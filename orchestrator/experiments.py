@@ -6833,6 +6833,20 @@ def main() -> None:
         help="Render the champion promotion dry-run as markdown.",
     )
 
+    promotion_approval_parser = subparsers.add_parser(
+        "promotion-approval",
+        help="Write and show the non-promoting champion promotion approval artifact.",
+    )
+    promotion_approval_parser.add_argument("run_id")
+    promotion_approval_parser.add_argument("--operator-id", default="unassigned")
+    promotion_approval_parser.add_argument("--confirmation-phrase", default="")
+    promotion_approval_parser.add_argument("--approve", action="store_true")
+    promotion_approval_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the champion promotion approval artifact as markdown.",
+    )
+
     profile_recommendation_parser = subparsers.add_parser(
         "profile-recommendation",
         help="Show the read-only next modifier profile recommendation.",
@@ -7344,6 +7358,22 @@ def main() -> None:
         )
         if args.markdown:
             print(render_champion_promotion_markdown(payload), end="")
+            return
+    elif args.command == "promotion-approval":
+        from orchestrator.champion_promotion_approval import (
+            render_champion_promotion_approval_markdown,
+            write_champion_promotion_approval,
+        )
+
+        _, _, payload = write_champion_promotion_approval(
+            run_dir=args.experiments_dir / args.run_id,
+            repo_root=args.experiments_dir.parent,
+            operator_id=args.operator_id,
+            confirmation_phrase=args.confirmation_phrase,
+            explicit_approval=args.approve,
+        )
+        if args.markdown:
+            print(render_champion_promotion_approval_markdown(payload), end="")
             return
     elif args.command == "profile-recommendation":
         payload = modifier_profile_recommendation(

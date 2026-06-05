@@ -575,6 +575,11 @@ def main() -> None:
     parser.add_argument("--operator-id", default=DEFAULT_OPERATOR_ID)
     parser.add_argument("--confirmation-phrase", default="")
     parser.add_argument("--approve", action="store_true")
+    parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Print the champion promotion approval artifact as markdown.",
+    )
     args = parser.parse_args()
     _, _, payload = write_champion_promotion_approval(
         run_dir=args.run_dir,
@@ -583,7 +588,10 @@ def main() -> None:
         confirmation_phrase=args.confirmation_phrase,
         explicit_approval=args.approve,
     )
-    print(json.dumps(payload, indent=2, sort_keys=True))
+    if args.markdown:
+        print(render_champion_promotion_approval_markdown(payload), end="")
+    else:
+        print(json.dumps(payload, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

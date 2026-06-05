@@ -21863,6 +21863,65 @@ def test_champion_promotion_approval_records_operator_intent_without_promoting(
         text=True,
         check=False,
     )
+    approval_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.champion_promotion_approval",
+            "experiments/approval-candidate",
+            "--approve",
+            "--operator-id",
+            "test-operator",
+            "--confirmation-phrase",
+            CHAMPION_PROMOTION_CONFIRMATION_PHRASE,
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    approval_experiments_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "promotion-approval",
+            "approval-candidate",
+            "--approve",
+            "--operator-id",
+            "test-operator",
+            "--confirmation-phrase",
+            CHAMPION_PROMOTION_CONFIRMATION_PHRASE,
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    approval_experiments_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "promotion-approval",
+            "approval-candidate",
+            "--approve",
+            "--operator-id",
+            "test-operator",
+            "--confirmation-phrase",
+            CHAMPION_PROMOTION_CONFIRMATION_PHRASE,
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     after_champion = json.loads(
         (repo / "experiments/champion.json").read_text(encoding="utf-8")
     )
@@ -21873,6 +21932,14 @@ def test_champion_promotion_approval_records_operator_intent_without_promoting(
     assert dry_payload["status"] == "promotion_recommended"
     assert dry_payload["dry_run_decision"]["would_promote"] is True
     assert approval_result.returncode == 0, approval_result.stderr
+    assert approval_markdown_result.returncode == 0, approval_markdown_result.stderr
+    assert approval_experiments_result.returncode == 0, (
+        approval_experiments_result.stderr
+    )
+    approval_experiments_payload = json.loads(approval_experiments_result.stdout)
+    assert approval_experiments_markdown_result.returncode == 0, (
+        approval_experiments_markdown_result.stderr
+    )
     assert approval["schema_version"] == CHAMPION_PROMOTION_APPROVAL_SCHEMA_VERSION
     assert approval["status"] == "approval_recorded"
     assert approval["operator_intent"]["operator_id"] == "test-operator"
@@ -21885,6 +21952,21 @@ def test_champion_promotion_approval_records_operator_intent_without_promoting(
         "--approval-path "
         f"{repo}/experiments/approval-candidate/champion_promotion_approval.json"
     )
+    assert approval_experiments_payload["schema_version"] == (
+        CHAMPION_PROMOTION_APPROVAL_SCHEMA_VERSION
+    )
+    assert approval_experiments_payload["status"] == "approval_recorded"
+    assert approval_experiments_payload["operator_intent"]["operator_id"] == (
+        "test-operator"
+    )
+    assert "# Champion Promotion Approval" in approval_markdown_result.stdout
+    assert "approval-candidate" in approval_markdown_result.stdout
+    assert "Approval recorded: `True`" in approval_markdown_result.stdout
+    assert "# Champion Promotion Approval" in (
+        approval_experiments_markdown_result.stdout
+    )
+    assert "approval-candidate" in approval_experiments_markdown_result.stdout
+    assert "Approval recorded: `True`" in approval_experiments_markdown_result.stdout
     assert approval["policy"]["does_not_execute_promote_command"] is True
     assert approval["policy"]["approval_does_not_promote"] is True
     assert before_champion == after_champion
@@ -25114,6 +25196,50 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    approval_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.champion_promotion_approval",
+            "experiments/cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    approval_experiments_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "promotion-approval",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    approval_experiments_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "promotion-approval",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
     assert rows
     assert rows[0]["run_id"] == "cli-candidates"
@@ -26572,10 +26698,33 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     ) == ()
     assert approval_result.returncode == 0, approval_result.stderr
     approval_payload = json.loads(approval_result.stdout)
+    assert approval_markdown_result.returncode == 0, approval_markdown_result.stderr
+    assert approval_experiments_result.returncode == 0, (
+        approval_experiments_result.stderr
+    )
+    approval_experiments_payload = json.loads(approval_experiments_result.stdout)
+    assert approval_experiments_markdown_result.returncode == 0, (
+        approval_experiments_markdown_result.stderr
+    )
     assert approval_payload["schema_version"] == CHAMPION_PROMOTION_APPROVAL_SCHEMA_VERSION
     assert approval_payload["status"] == "approval_blocked"
     assert approval_payload["operator_intent"]["approval_recorded"] is False
     assert approval_payload["policy"]["approval_does_not_promote"] is True
+    assert approval_experiments_payload["schema_version"] == (
+        CHAMPION_PROMOTION_APPROVAL_SCHEMA_VERSION
+    )
+    assert approval_experiments_payload["status"] == approval_payload["status"]
+    assert approval_experiments_payload["policy"]["approval_does_not_promote"] is True
+    assert "# Champion Promotion Approval" in approval_markdown_result.stdout
+    assert "cli-candidates" in approval_markdown_result.stdout
+    assert "does not execute the promote command" in approval_markdown_result.stdout
+    assert "# Champion Promotion Approval" in (
+        approval_experiments_markdown_result.stdout
+    )
+    assert "cli-candidates" in approval_experiments_markdown_result.stdout
+    assert "explicit deterministic promote command" in (
+        approval_experiments_markdown_result.stdout
+    )
     assert validate_champion_promotion_approval_file(
         payload_path=repo / "experiments/cli-candidates/champion_promotion_approval.json",
         repo_root=repo,

@@ -69,6 +69,10 @@ python -m orchestrator.champion_promotion_dry_run experiments/<run_id>
 python -m orchestrator.champion_promotion_dry_run experiments/<run_id> --markdown
 python -m orchestrator.experiments promotion-dry-run <run_id>
 python -m orchestrator.experiments promotion-dry-run <run_id> --markdown
+python -m orchestrator.champion_promotion_approval experiments/<run_id>
+python -m orchestrator.champion_promotion_approval experiments/<run_id> --markdown
+python -m orchestrator.experiments promotion-approval <run_id>
+python -m orchestrator.experiments promotion-approval <run_id> --markdown
 python -m orchestrator.experiments apply-config-approved <run_id> --dry-run-path experiments/<run_id>/config_application_dry_run.json
 python -m orchestrator.experiments config-application-rollback-preview <run_id> --receipt-path experiments/<run_id>/config_application_receipt.json
 python -m orchestrator.experiments restore-config-approved <run_id> --preview-path experiments/<run_id>/config_application_rollback_preview.json
@@ -1259,7 +1263,10 @@ Replay artifacts:
   approval eligibility, blockers, next actions, evidence file hashes, and
   non-promoting policy flags. They do not execute the promote command, write
   `champion.json`, append `champion_history.jsonl`, run agents, run backtests,
-  apply patches, route agents, or change acceptance.
+  apply patches, route agents, or change acceptance. The direct module
+  `--markdown` mode and
+  `python -m orchestrator.experiments promotion-approval <run_id> --markdown`
+  render the same non-promoting approval artifact as terminal markdown.
 - `champion_promotion_receipt.json` and `champion_promotion_receipt.md` record
   the result of the guarded promote-approved command. The command writes
   `champion.json` and appends `champion_history.jsonl` only when the approval

@@ -285,6 +285,7 @@ INSPECTION_COMMANDS = {
     ),
     "champion_promotion_approval": (
         "python -m orchestrator.champion_promotion_approval",
+        "python -m orchestrator.experiments promotion-approval",
     ),
     "champion_promotion_receipt": (
         "python -m orchestrator.experiments promote-approved",

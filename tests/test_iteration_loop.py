@@ -24568,6 +24568,24 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    apply_config_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "apply-config-approved",
+            "cli-candidates",
+            "--dry-run-path",
+            "experiments/cli-candidates/config_application_dry_run.json",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     rollback_preview_result = subprocess.run(
         [
             sys.executable,
@@ -26019,6 +26037,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         "blockers"
     ]
     assert_matches_schema_payload(apply_config_payload, "config_application_receipt")
+    assert apply_config_markdown_result.returncode == 1
+    assert "# Config Application Receipt" in apply_config_markdown_result.stdout
+    assert "- Run: `cli-candidates`" in apply_config_markdown_result.stdout
+    assert "## Applied Changes" in apply_config_markdown_result.stdout
+    assert "operator_review_not_recorded" in apply_config_markdown_result.stdout
     assert rollback_preview_result.returncode == 0, rollback_preview_result.stderr
     rollback_preview_payload = json.loads(rollback_preview_result.stdout)
     assert rollback_preview_payload["schema_version"] == (

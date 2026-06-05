@@ -994,6 +994,10 @@ Replay artifacts:
   Receipts preserve whether each reviewed config path existed before the
   application, so restore can delete newly-added fields instead of writing
   `null`. Blocked attempts write a receipt but leave config unchanged.
+  `python -m orchestrator.experiments apply-config-approved <run_id>` and
+  `python -m orchestrator.experiments apply-config-approved <run_id> --markdown`
+  write the guarded receipt and print JSON or markdown, preserving blocked
+  attempts as non-zero exits.
 - `config_application_rollback_preview.json` and
   `config_application_rollback_preview.md` read a saved application receipt and
   current config to preview manual restore rows and next-run impact. They are

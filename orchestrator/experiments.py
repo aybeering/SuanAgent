@@ -6898,6 +6898,11 @@ def main() -> None:
         type=Path,
         default=Path("config/default.json"),
     )
+    apply_config_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the config application receipt as markdown.",
+    )
 
     restore_config_parser = subparsers.add_parser(
         "restore-config-approved",
@@ -7323,6 +7328,7 @@ def main() -> None:
     elif args.command == "apply-config-approved":
         from orchestrator.config_application_executor import (
             apply_config_with_approval,
+            render_receipt_markdown,
         )
 
         payload = apply_config_with_approval(
@@ -7332,6 +7338,11 @@ def main() -> None:
             dry_run_path=args.dry_run_path,
             config_path=args.config,
         )
+        if args.markdown:
+            print(render_receipt_markdown(payload), end="")
+            if not payload.get("applied", False):
+                raise SystemExit(1)
+            return
     elif args.command == "restore-config-approved":
         from orchestrator.config_application_restore_executor import (
             render_restore_receipt_markdown,

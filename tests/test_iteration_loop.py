@@ -24585,6 +24585,24 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    rollback_preview_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "config-application-rollback-preview",
+            "cli-candidates",
+            "--receipt-path",
+            "experiments/cli-candidates/config_application_receipt.json",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     write_rollback_preview_result = subprocess.run(
         [
             sys.executable,
@@ -26008,6 +26026,15 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         config_path=repo / "config/default.json",
         require_current_evidence=True,
     ) == ()
+    assert rollback_preview_markdown_result.returncode == 0, (
+        rollback_preview_markdown_result.stderr
+    )
+    assert "# Config Application Rollback Preview" in (
+        rollback_preview_markdown_result.stdout
+    )
+    assert "- Run: `cli-candidates`" in rollback_preview_markdown_result.stdout
+    assert "## Rollback Plan" in rollback_preview_markdown_result.stdout
+    assert "does not write config" in rollback_preview_markdown_result.stdout
     assert write_rollback_preview_result.returncode == 0, (
         write_rollback_preview_result.stderr
     )

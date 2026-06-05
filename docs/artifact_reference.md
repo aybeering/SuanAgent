@@ -999,8 +999,10 @@ Replay artifacts:
   current config to preview manual restore rows and next-run impact. They are
   read-only and never restore config automatically.
   `python -m orchestrator.experiments config-application-rollback-preview <run_id>`
-  validates schema, rollback gate counts, row restore readiness, next-run
-  impact, and optional current receipt/config evidence before printing JSON.
+  and `python -m orchestrator.experiments config-application-rollback-preview <run_id> --markdown`
+  validate schema, rollback gate counts, row restore readiness, next-run
+  impact, and optional current receipt/config evidence before printing JSON or
+  markdown.
 - `config_application_restore_receipt.json` and
   `config_application_restore_receipt.md` record the result of the guarded
   restore-config-approved command. The command writes config only when the

@@ -7030,6 +7030,11 @@ def main() -> None:
         type=Path,
         default=Path("config/default.json"),
     )
+    config_rollback_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the config rollback preview as markdown.",
+    )
 
     config_lineage_parser = subparsers.add_parser(
         "config-lineage",
@@ -7438,6 +7443,13 @@ def main() -> None:
             receipt_path=args.receipt_path,
             config_path=args.config,
         )
+        if args.markdown:
+            from orchestrator.config_application_rollback_preview import (
+                render_rollback_preview_markdown,
+            )
+
+            print(render_rollback_preview_markdown(payload), end="")
+            return
     elif args.command == "config-lineage":
         payload = config_lineage_report(
             experiments_dir=args.experiments_dir,

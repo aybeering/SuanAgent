@@ -288,7 +288,7 @@ from orchestrator.champion_lineage import (
     write_champion_lineage,
 )
 from orchestrator.git_manager import apply_patch, ensure_git_repo, rollback_strategy
-from orchestrator.iteration_loop import run_iteration_loop
+from orchestrator.iteration_loop import operator_home_manifest_row, run_iteration_loop
 from orchestrator.outcome_memory import (
     append_outcome_memory,
     direction_filter_rejection_reason,
@@ -12984,6 +12984,36 @@ def test_artifact_validator_reports_manifest_operator_next_command_drift(
         "manifest.operator_home next_command_is_hint_only mismatch"
         in report["errors"]
     )
+
+
+def test_manifest_operator_next_command_validates_pending_static_safety(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments" / "pending-operator-home-static"
+    run_dir.mkdir(parents=True)
+    manifest = {
+        "operator_home": operator_home_manifest_row(
+            run_id="pending-operator-home-static",
+            payload={},
+            pending=True,
+        )
+    }
+    manifest["operator_home"]["terminal_only"] = False
+    manifest["operator_home"]["command_is_hint_only"] = False
+    manifest["operator_home"]["next_command"] = "python -m orchestrator.run_loop"
+    report: dict[str, object] = {"errors": []}
+
+    validate_manifest_operator_next_command(
+        run_dir=run_dir,
+        repo_root=repo,
+        manifest=manifest,
+        report=report,
+    )
+
+    assert "manifest.operator_home terminal_only mismatch" in report["errors"]
+    assert "manifest.operator_home command_is_hint_only mismatch" in report["errors"]
+    assert "manifest.operator_home next_command mismatch" not in report["errors"]
 
 
 def test_manifest_operator_next_command_keeps_closeout_snapshot_after_codex_readiness(

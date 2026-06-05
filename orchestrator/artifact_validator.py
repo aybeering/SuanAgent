@@ -1782,12 +1782,12 @@ def validate_manifest_operator_next_command(
     operator_home = manifest.get("operator_home")
     if not isinstance(operator_home, dict):
         return
-    if str(operator_home.get("status", "")) == "pending":
-        return
     validate_manifest_operator_home_static_fields(
         operator_home=operator_home,
         report=report,
     )
+    if str(operator_home.get("status", "")) == "pending":
+        return
     if operator_home_sources_have_advanced(run_dir):
         return
 

@@ -144,7 +144,8 @@ Implemented or allowed V0.5 components:
     backtests, changing deterministic gates, or changing acceptance.
     The artifact validator binds iteration `diagnosis.json` run status,
     completed-round count, accepted round, stop reason, final strategy commit,
-    and agent-intake summary back to `manifest.json`.
+    and agent-intake summary back to `manifest.json`, and selected candidate
+    rows back to `candidate_leaderboard.json`.
     The artifact validator also binds the saved `summary.md` top-level run
     header back to `manifest.json` for run id, status, completed-round,
     accepted-round, stop-reason, and final-strategy-commit consistency, and

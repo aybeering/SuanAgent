@@ -6090,6 +6090,11 @@ def validate_optional_diagnosis(
             manifest=manifest,
             report=report,
         )
+        validate_iteration_diagnosis_selected_candidates(
+            payload=payload,
+            run_dir=run_dir,
+            report=report,
+        )
     validate_diagnosis_operator_navigation(
         payload=payload,
         run_dir=run_dir,
@@ -6118,6 +6123,37 @@ def validate_iteration_diagnosis_summary(
             add_error(report, f"diagnosis.json {field_name} mismatch")
     if payload.get("agent_intake_summary") != manifest.get("agent_intake_summary"):
         add_error(report, "diagnosis.json agent_intake_summary mismatch")
+
+
+def validate_iteration_diagnosis_selected_candidates(
+    *,
+    payload: dict[str, object],
+    run_dir: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate diagnosis selected candidates mirror candidate_leaderboard.json."""
+    candidate_rows = list_of_dicts(load_json_list(run_dir / "candidate_leaderboard.json"))
+    expected = [
+        compact_diagnosis_selected_candidate(row)
+        for row in candidate_rows
+        if row.get("selected") is True
+    ]
+    if payload.get("selected_candidates") != expected:
+        add_error(report, "diagnosis.json selected_candidates mismatch")
+
+
+def compact_diagnosis_selected_candidate(row: dict[str, object]) -> dict[str, object]:
+    """Return the compact selected-candidate shape saved in diagnosis.json."""
+    return {
+        "round_id": row.get("round_id", ""),
+        "role": row.get("role", ""),
+        "agent_name": row.get("agent_name", ""),
+        "direction_tag": row.get("direction_tag", ""),
+        "candidate_score": row.get("candidate_score", 0),
+        "champion_gap": row.get("champion_gap", {}),
+        "validation_ev_delta": row.get("validation_ev_delta"),
+        "status": row.get("status", ""),
+    }
 
 
 def validate_diagnosis_operator_navigation(

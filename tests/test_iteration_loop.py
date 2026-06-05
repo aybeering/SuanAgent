@@ -12229,6 +12229,75 @@ def test_artifact_validator_reports_diagnosis_navigation_static_safety_drift(
     assert "diagnosis.json operator_navigation next hint unsafe" in report["errors"]
 
 
+def test_artifact_validator_reports_unavailable_diagnosis_navigation_safety_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-unavailable-diagnosis-navigation-safety-drift"
+    run_pipeline(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    diagnosis_path = repo / "experiments" / run_id / "diagnosis.json"
+    diagnosis = json.loads(diagnosis_path.read_text(encoding="utf-8"))
+    home = diagnosis["operator_navigation"]["home"]
+    next_command = diagnosis["operator_navigation"]["next_command"]
+    home["command_label"] = "review_operator_home"
+    home["command_boundary"] = "mutation"
+    home["terminal_only"] = False
+    home["artifact_created"] = True
+    home["command_is_hint_only"] = False
+    next_command["selector_command"] = "python -m orchestrator.run_loop"
+    next_command["selector_boundary"] = "mutation"
+    next_command["writes_artifact"] = "decision.json"
+    next_command["requires_operator_approval"] = True
+    next_command["command_is_hint_only"] = False
+    diagnosis_path.write_text(
+        json.dumps(diagnosis, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert "diagnosis.json operator_navigation home label mismatch" in report["errors"]
+    assert (
+        "diagnosis.json operator_navigation home boundary mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation home terminal mismatch"
+        in report["errors"]
+    )
+    assert "diagnosis.json operator_navigation home artifact mismatch" in report["errors"]
+    assert "diagnosis.json operator_navigation home hint mismatch" in report["errors"]
+    assert (
+        "diagnosis.json operator_navigation selector command mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation selector boundary mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation next writes_artifact mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation next requires_operator_approval mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation next command hint mismatch"
+        in report["errors"]
+    )
+
+
 def test_artifact_validator_reports_iteration_diagnosis_summary_drift(
     tmp_path: Path,
 ) -> None:

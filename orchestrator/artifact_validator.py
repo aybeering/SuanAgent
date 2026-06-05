@@ -6587,14 +6587,43 @@ def validate_unavailable_diagnosis_operator_navigation(
     next_command = object_value(navigation.get("next_command", {}))
     if home.get("available") is not False or str(home.get("command", "")):
         add_error(report, "diagnosis.json operator_navigation home unavailable mismatch")
+    if str(home.get("command_label", "")):
+        add_error(report, "diagnosis.json operator_navigation home label mismatch")
+    if str(home.get("command_boundary", "")):
+        add_error(report, "diagnosis.json operator_navigation home boundary mismatch")
+    if home.get("terminal_only") is not True:
+        add_error(report, "diagnosis.json operator_navigation home terminal mismatch")
+    if home.get("artifact_created") is not False:
+        add_error(report, "diagnosis.json operator_navigation home artifact mismatch")
+    if home.get("command_is_hint_only") is not True:
+        add_error(report, "diagnosis.json operator_navigation home hint mismatch")
     if str(home.get("status", "")) != "unavailable":
         add_error(report, "diagnosis.json operator_navigation home status mismatch")
     if next_command.get("available") is not False:
         add_error(report, "diagnosis.json operator_navigation next unavailable mismatch")
+    if str(next_command.get("selection_source", "")) != "operator_home.next_command":
+        add_error(report, "diagnosis.json operator_navigation next source mismatch")
+    if str(next_command.get("selector_command_label", "")):
+        add_error(report, "diagnosis.json operator_navigation selector label mismatch")
+    if str(next_command.get("selector_command", "")):
+        add_error(report, "diagnosis.json operator_navigation selector command mismatch")
+    if str(next_command.get("selector_boundary", "")):
+        add_error(report, "diagnosis.json operator_navigation selector boundary mismatch")
     if str(next_command.get("status", "")) != "unavailable":
         add_error(report, "diagnosis.json operator_navigation next status mismatch")
+    if str(next_command.get("selected_command_label", "")):
+        add_error(report, "diagnosis.json operator_navigation next label mismatch")
     if str(next_command.get("selected_command", "")):
         add_error(report, "diagnosis.json operator_navigation next command mismatch")
+    if str(next_command.get("operator_hint", "")):
+        add_error(report, "diagnosis.json operator_navigation next hint text mismatch")
+    if str(next_command.get("boundary", "")):
+        add_error(report, "diagnosis.json operator_navigation next boundary mismatch")
+    if str(next_command.get("writes_artifact", "")):
+        add_error(
+            report,
+            "diagnosis.json operator_navigation next writes_artifact mismatch",
+        )
     if bool(next_command.get("blocked", False)) is not False:
         add_error(report, "diagnosis.json operator_navigation next blocked mismatch")
     if int_value(next_command.get("blocker_count", 0)) != 0:
@@ -6602,6 +6631,16 @@ def validate_unavailable_diagnosis_operator_navigation(
             report,
             "diagnosis.json operator_navigation next blocker_count mismatch",
         )
+    for key in (
+        "requires_explicit_operator_invocation",
+        "requires_operator_approval",
+        "records_operator_approval",
+        "uses_guarded_executor",
+    ):
+        if next_command.get(key) is not False:
+            add_error(report, f"diagnosis.json operator_navigation next {key} mismatch")
+    if next_command.get("command_is_hint_only") is not True:
+        add_error(report, "diagnosis.json operator_navigation next command hint mismatch")
 
 
 def validate_optional_metadata(

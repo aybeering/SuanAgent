@@ -84,7 +84,7 @@ Implemented or allowed V0.5 components:
 70. Startup preflight and artifact validation binding between an operator unlock request's reviewed execution plan and its recorded source real-execution dry-run plan.
 71. Operator request generation, startup preflight, and artifact validation binding that requires real Codex operator unlock requests to be written and stored as the canonical `codex_cli_operator_unlock_request.json` artifact inside the current run directory.
 72. A narrow iteration-loop startup exception that permits an existing run directory only when it contains the configured canonical real Codex operator unlock request artifact; ordinary or non-canonical existing run directories remain blocked.
-73. A deterministic `artifact_validator_coverage.json` report that audits whether each repository-local artifact schema has validator coverage, documentation references, tests, and inspection or replay support, with JSON or markdown terminal output through `python -m orchestrator.experiments coverage`.
+73. A deterministic `artifact_validator_coverage.json` report that audits whether each repository-local artifact schema has validator coverage, documentation references, tests, inspection or replay support, and local schema-keyword support, with JSON or markdown terminal output through `python -m orchestrator.experiments coverage`.
 74. A deterministic `run_artifact_health.json` report that batch-validates saved experiment run artifacts without rerunning backtests or calling agents, with JSON or markdown terminal output through `python -m orchestrator.run_artifact_health` and `python -m orchestrator.experiments validate`.
 75. A deterministic `run_artifact_health_history.jsonl` memory layer and `run_artifact_health_history_v1` summary that track repeated artifact-health failures across saved inspection runs, with JSON or markdown terminal output through `python -m orchestrator.run_artifact_health --history-summary` and `python -m orchestrator.experiments health-history`. The iteration loop automatically appends one scoped artifact-health record at run completion without running agents, running backtests, applying patches, or changing acceptance.
 76. A deterministic `memory_diagnostics.json` report that cross-references proposal outcome memory with artifact-health history by run id, agent, profile, direction, and patch hash without routing agents or changing acceptance.
@@ -304,8 +304,9 @@ Codex CLI readiness contracts:
 7. Visual and overfit roles may write deterministic read-only artifacts, but in
    V0.5 they cannot route, veto, or change final acceptance.
 8. Artifact coverage reports are inspection-only. They can identify missing
-   validators, docs, tests, and inspection commands, but they do not validate
-   run artifacts or change strategy acceptance.
+   validators, docs, tests, inspection commands, and local schema-keyword
+   support, but they do not validate run artifacts or change strategy
+   acceptance.
 9. Batch run artifact health reports inspect saved run artifacts only. They do
    not rerun simulations, invoke agents, apply patches, or change acceptance.
 10. Artifact health history is append-only local memory. It can guide future

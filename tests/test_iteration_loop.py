@@ -677,6 +677,12 @@ def test_artifact_validator_coverage_reports_repo_contracts(tmp_path: Path) -> N
     assert "const" in payload["schema_keyword_coverage"]["validated_keywords"]
     assert "$ref_note" in payload["schema_keyword_coverage"]["annotation_keywords"]
     assert payload["totals"]["schema_with_unsupported_keyword_count"] == 0
+    assert "local schema-keyword support" in Path(
+        "docs/artifact_reference.md"
+    ).read_text(encoding="utf-8")
+    assert "local schema-keyword support" in Path(
+        "docs/contract_roadmap.md"
+    ).read_text(encoding="utf-8")
     assert payload["ok"] is True
     assert payload["gaps"] == []
 

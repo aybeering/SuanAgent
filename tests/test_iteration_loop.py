@@ -415,6 +415,7 @@ from orchestrator.experiments import (
     proposal_memory,
     promote_champion,
     refresh_operator_views as refresh_operator_views_command,
+    render_experiment_leaderboard_markdown,
     render_experiment_list_markdown,
     render_experiment_show_markdown,
     render_experiment_summary_markdown,
@@ -22573,10 +22574,30 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
         text=True,
         check=False,
     )
+    leaderboard_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "leaderboard",
+            "--limit",
+            "1",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
     assert summary_result.returncode == 0, summary_result.stderr
     assert markdown_result.returncode == 0, markdown_result.stderr
     assert leaderboard_result.returncode == 0, leaderboard_result.stderr
+    assert leaderboard_markdown_result.returncode == 0, (
+        leaderboard_markdown_result.stderr
+    )
     summary = json.loads(summary_result.stdout)
     assert summary["total_runs"] == 1
     assert summary["dashboard"]["schema_version"] == "experiment_summary_dashboard_v1"
@@ -22647,6 +22668,26 @@ def test_experiments_cli_summary_and_leaderboard_work(tmp_path: Path) -> None:
         repo_root=repo,
         limit=1,
     ) == ()
+    leaderboard_markdown = render_experiment_leaderboard_markdown(cli_leaderboard)
+    assert "# Experiment Leaderboard" in leaderboard_markdown
+    assert "## Ranked Runs" in leaderboard_markdown
+    assert "`cli-summary`" in leaderboard_markdown
+    assert (
+        "`python -m orchestrator.experiments show cli-summary --markdown`"
+        in leaderboard_markdown
+    )
+    assert "Rank `1` show:" in leaderboard_markdown
+    assert "SHA-256:" in leaderboard_markdown
+    assert "Changes acceptance: `False`" in leaderboard_markdown
+    assert "# Experiment Leaderboard" in leaderboard_markdown_result.stdout
+    assert "`cli-summary`" in leaderboard_markdown_result.stdout
+    assert (
+        "`python -m orchestrator.experiments show cli-summary --markdown`"
+        in leaderboard_markdown_result.stdout
+    )
+    assert "Rank `1` show:" in leaderboard_markdown_result.stdout
+    assert "SHA-256:" in leaderboard_markdown_result.stdout
+    assert "Changes acceptance: `False`" in leaderboard_markdown_result.stdout
     assert "cli-summary" in markdown_result.stdout
     assert json.loads(leaderboard_result.stdout)[0]["run_id"] == "cli-summary"
 

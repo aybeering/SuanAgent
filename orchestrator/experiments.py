@@ -2109,6 +2109,72 @@ def render_experiment_list_markdown(payload: list[dict[str, object]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_experiment_leaderboard_markdown(payload: list[dict[str, object]]) -> str:
+    """Render ranked experiment rows as operator-facing markdown."""
+    lines = [
+        "# Experiment Leaderboard",
+        "",
+        f"- Row count: `{len(payload)}`",
+        "- Ranking: `validation_ev_delta_desc_then_created_at_desc`",
+        "",
+        "## Ranked Runs",
+        "",
+        "| Rank | Run | Kind | Status | EV Delta | Completed Rounds | Best Round | Show Command |",
+        "| ---: | --- | --- | --- | ---: | ---: | --- | --- |",
+    ]
+    if not payload:
+        lines.append("| 0 | none | none | none | 0.000000 | 0 | none | unavailable |")
+    for index, row in enumerate(payload, start=1):
+        run_id = str(row.get("run_id", ""))
+        show_command = f"python -m orchestrator.experiments show {run_id} --markdown"
+        completed_rounds = row.get("completed_rounds", "")
+        best_round = row.get("best_round", "") or ""
+        if str(row.get("kind", "")) == "single_run":
+            completed_rounds = ""
+            best_round = ""
+        lines.append(
+            "| "
+            f"{index} | "
+            f"`{markdown_cell(run_id)}` | "
+            f"`{markdown_cell(row.get('kind', 'unknown'))}` | "
+            f"`{markdown_cell(row.get('status', 'unknown'))}` | "
+            f"{number_text(row.get('ev_delta'))} | "
+            f"{markdown_cell(completed_rounds)} | "
+            f"`{markdown_cell(best_round or 'none')}` | "
+            f"`{markdown_cell(show_command)}` |"
+        )
+
+    lines.extend(["", "## Commands", ""])
+    if not payload:
+        lines.append("- No ranked runs are available.")
+    for index, row in enumerate(payload, start=1):
+        run_id = str(row.get("run_id", ""))
+        show_command = f"python -m orchestrator.experiments show {run_id} --markdown"
+        lines.extend(
+            [
+                f"- Rank `{index}` show: `{markdown_cell(show_command)}`",
+                f"  SHA-256: `{sha256_text(show_command)}`",
+            ]
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Policy",
+            "",
+            "- Inspection only: `True`",
+            "- Creates artifacts: `False`",
+            "- Executes agents: `False`",
+            "- Reruns backtests: `False`",
+            "- Applies patches: `False`",
+            "- Promotes champions: `False`",
+            "- Changes acceptance: `False`",
+            "- Writes config: `False`",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def render_experiment_show_markdown(payload: dict[str, object]) -> str:
     """Render one compact experiment record as operator-facing markdown."""
     kind = str(payload.get("kind", "unknown"))
@@ -6250,6 +6316,11 @@ def main() -> None:
         help="Rank experiments by validation EV improvement.",
     )
     leaderboard_parser.add_argument("--limit", type=int, default=10)
+    leaderboard_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the experiment leaderboard as markdown.",
+    )
 
     memory_parser = subparsers.add_parser(
         "memory",
@@ -6637,6 +6708,9 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             limit=args.limit,
         )
+        if args.markdown:
+            print(render_experiment_leaderboard_markdown(payload), end="")
+            return
     elif args.command == "memory":
         payload = proposal_memory(
             experiments_dir=args.experiments_dir,

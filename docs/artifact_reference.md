@@ -43,6 +43,7 @@ python -m orchestrator.experiments action-approval --latest --markdown
 python -m orchestrator.experiments summary
 python -m orchestrator.experiments summary --markdown
 python -m orchestrator.experiments leaderboard --limit 5
+python -m orchestrator.experiments leaderboard --limit 5 --markdown
 python -m orchestrator.experiments memory --limit 5
 python -m orchestrator.experiments memory-diagnostics
 python -m orchestrator.experiments diagnose <run_id>
@@ -360,7 +361,11 @@ ranked run list shape as before, but validates the terminal-only
 `schemas/experiment_leaderboard.schema.json` before printing. The consistency
 checks enforce the requested limit, descending EV-delta and creation-time
 ordering, unique run IDs, single-run EV delta arithmetic, and non-negative
-iteration completed-round counts.
+iteration completed-round counts. `leaderboard --markdown` renders the same
+ranked rows as a terminal-only table with per-run
+`show <run_id> --markdown` commands and command SHA-256 bindings, without
+creating artifacts, rerunning backtests, promoting champions, or changing
+acceptance.
 `python -m orchestrator.experiments review <run_id>` returns the saved
 `run_closeout.json` operator dashboard directly. `review --markdown` renders
 the same dashboard for terminal inspection. The terminal review payload is

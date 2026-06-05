@@ -138,6 +138,7 @@ from orchestrator.run_artifact_health import (
     DEFAULT_HISTORY_FILENAME,
     build_run_artifact_health,
     build_run_artifact_health_history,
+    render_run_artifact_health_markdown,
     render_run_artifact_health_history_markdown,
 )
 from orchestrator.run_closeout import build_run_closeout
@@ -6951,6 +6952,11 @@ def main() -> None:
     validate_parser.add_argument("--run-id", action="append", dest="run_ids", default=[])
     validate_parser.add_argument("--created-at-from", default="")
     validate_parser.add_argument("--strict", action="store_true")
+    validate_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render saved-run artifact health as markdown.",
+    )
 
     health_history_parser = subparsers.add_parser(
         "health-history",
@@ -7409,6 +7415,11 @@ def main() -> None:
             run_ids=args.run_ids,
             created_at_from=args.created_at_from,
         )
+        if args.markdown:
+            print(render_run_artifact_health_markdown(payload), end="")
+            if args.strict and not payload["ok"]:
+                raise SystemExit(1)
+            return
     elif args.command == "health-history":
         payload = build_run_artifact_health_history(
             experiments_dir=args.experiments_dir,

@@ -155,12 +155,14 @@ python -m orchestrator.round_replay experiments/<run_id>/round_001
 python -m orchestrator.agent_slot_health experiments/<run_id>
 python -m orchestrator.agent_output_intake experiments/<run_id>/round_001/agent_input.json experiments/<run_id>/round_001/demo_agent_output.json --output experiments/<run_id>/round_001/agent_validation.json
 python -m orchestrator.run_artifact_health --limit 10 --strict
+python -m orchestrator.run_artifact_health --limit 10 --strict --markdown
 python -m orchestrator.run_artifact_health --all --record-history
 python -m orchestrator.run_artifact_health --all --created-at-from 2026-06-02T00:00:00Z --strict
 python -m orchestrator.run_artifact_health --history-summary
 python -m orchestrator.run_artifact_health --history-summary --markdown
 python -m orchestrator.run_artifact_health --history-summary --created-at-from 2026-06-02T00:00:00Z
 python -m orchestrator.experiments validate --limit 10 --strict
+python -m orchestrator.experiments validate --limit 10 --strict --markdown
 python -m orchestrator.experiments health-history
 python -m orchestrator.experiments health-history --markdown
 python -m orchestrator.memory_diagnostics --strict
@@ -926,7 +928,10 @@ Replay artifacts:
 - `run_artifact_health.json` batch-validates saved experiment run artifacts
   and reports per-run artifact health without rerunning simulations.
   `--created-at-from` scopes indexed runs to a current contract era without
-  deleting older experiment directories.
+  deleting older experiment directories. The direct `--markdown` mode and
+  `python -m orchestrator.experiments validate --markdown` render the same
+  bounded read-only run rows for terminal review without executing agents,
+  rerunning backtests, applying patches, or changing acceptance.
 - `run_artifact_health_history.jsonl` appends compact health snapshots when
   explicitly requested or when the iteration loop completes, and
   `run_artifact_health_history_v1` summaries show repeated failing runs and

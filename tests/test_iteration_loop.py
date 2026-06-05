@@ -218,6 +218,7 @@ from orchestrator.run_artifact_health import (
     append_run_artifact_health_history,
     build_run_artifact_health,
     build_run_artifact_health_history,
+    render_run_artifact_health_markdown,
     render_run_artifact_health_history_markdown,
     validate_run_artifact_health_file,
     validate_run_artifact_health_history_file,
@@ -781,6 +782,25 @@ def test_run_artifact_health_reports_recent_runs(tmp_path: Path) -> None:
         text=True,
     )
     cli_payload = json.loads(cli_result.stdout)
+    cli_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "validate",
+            "--limit",
+            "10",
+            "--strict",
+            "--markdown",
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    markdown = render_run_artifact_health_markdown(payload)
 
     assert payload["schema_version"] == RUN_ARTIFACT_HEALTH_SCHEMA_VERSION
     assert_matches_schema_payload(payload, "run_artifact_health")
@@ -802,6 +822,11 @@ def test_run_artifact_health_reports_recent_runs(tmp_path: Path) -> None:
     ) == ()
     assert cli_payload["schema_version"] == RUN_ARTIFACT_HEALTH_SCHEMA_VERSION
     assert cli_payload["ok"] is True
+    assert "# Run Artifact Health" in markdown
+    assert "Runs: `2`" in markdown
+    assert "health-single" in cli_markdown_result.stdout
+    assert "health-iteration" in cli_markdown_result.stdout
+    assert "does not execute agents" in cli_markdown_result.stdout
 
 
 def test_run_artifact_health_filters_by_created_at(tmp_path: Path) -> None:
@@ -893,6 +918,30 @@ def test_run_artifact_health_strict_reports_invalid_runs(tmp_path: Path) -> None
         capture_output=True,
         text=True,
     )
+    markdown_strict_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.run_artifact_health",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "--repo-root",
+            str(repo),
+            "--run-id",
+            "health-invalid",
+            "--strict",
+            "--markdown",
+        ],
+        cwd=repo,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    noisy_payload = json.loads(json.dumps(payload))
+    noisy_payload["runs"][0]["errors"] = [
+        f"error-{index:02d}" for index in range(7)
+    ]
+    noisy_markdown = render_run_artifact_health_markdown(noisy_payload)
 
     assert payload["schema_version"] == RUN_ARTIFACT_HEALTH_SCHEMA_VERSION
     assert_matches_schema_payload(payload, "run_artifact_health")
@@ -902,6 +951,14 @@ def test_run_artifact_health_strict_reports_invalid_runs(tmp_path: Path) -> None
     assert strict_result.returncode == 1
     strict_payload = json.loads(strict_result.stdout)
     assert strict_payload["ok"] is False
+    assert markdown_strict_result.returncode == 1
+    assert "# Run Artifact Health" in markdown_strict_result.stdout
+    assert "health-invalid" in markdown_strict_result.stdout
+    assert "Failed runs: `1`" in markdown_strict_result.stdout
+    assert "error-00" in noisy_markdown
+    assert "error-02" in noisy_markdown
+    assert "error-03" not in noisy_markdown
+    assert "... +4 more" in noisy_markdown
 
 
 def test_run_artifact_health_history_summarizes_failures(tmp_path: Path) -> None:

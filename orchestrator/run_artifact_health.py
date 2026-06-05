@@ -182,6 +182,85 @@ def compact_markdown_list(values: list[str], *, max_items: int = 5) -> str:
     return text
 
 
+def render_run_artifact_health_markdown(payload: dict[str, Any]) -> str:
+    """Render saved-run artifact health as compact terminal markdown."""
+    selection = payload.get("selection", {})
+    if not isinstance(selection, dict):
+        selection = {}
+    filters = selection.get("filters", {})
+    if not isinstance(filters, dict):
+        filters = {}
+    totals = payload.get("totals", {})
+    if not isinstance(totals, dict):
+        totals = {}
+    runs = payload.get("runs", [])
+    if not isinstance(runs, list):
+        runs = []
+
+    lines = [
+        "# Run Artifact Health",
+        "",
+        f"- OK: `{payload.get('ok', False)}`",
+        f"- Experiments dir: `{payload.get('experiments_dir', '')}`",
+        f"- Selection mode: `{selection.get('mode', '')}`",
+        f"- Created at from: `{filters.get('created_at_from', '')}`",
+        "",
+        "## Totals",
+        "",
+        f"- Runs: `{totals.get('run_count', 0)}`",
+        f"- OK runs: `{totals.get('ok_count', 0)}`",
+        f"- Failed runs: `{totals.get('failed_count', 0)}`",
+        f"- Errors: `{totals.get('error_count', 0)}`",
+        f"- Warnings: `{totals.get('warning_count', 0)}`",
+        f"- Checked files: `{totals.get('checked_file_count', 0)}`",
+        f"- Rounds checked: `{totals.get('rounds_checked', 0)}`",
+        "",
+        "## Runs",
+        "",
+    ]
+
+    if not runs:
+        lines.append("- none")
+    for row in runs[:10]:
+        if not isinstance(row, dict):
+            continue
+        lines.append(
+            f"- `{row.get('run_id', '')}`: ok `{row.get('ok', False)}`, "
+            f"kind `{row.get('kind', '')}`, errors "
+            f"`{row.get('error_count', 0)}`, warnings "
+            f"`{row.get('warning_count', 0)}`, checked files "
+            f"`{row.get('checked_file_count', 0)}`"
+        )
+        errors = string_list(row.get("errors", []))
+        warnings = string_list(row.get("warnings", []))
+        if errors:
+            lines.append(
+                "  - errors: "
+                + compact_markdown_list(errors, max_items=3)
+            )
+        if warnings:
+            lines.append(
+                "  - warnings: "
+                + compact_markdown_list(warnings, max_items=3)
+            )
+    if len(runs) > 10:
+        lines.append(f"- ... +{len(runs) - 10} more runs")
+
+    lines.extend(
+        [
+            "",
+            "## Policy",
+            "",
+            (
+                "- This view is read-only and does not execute agents, run "
+                "backtests, apply patches, or change acceptance."
+            ),
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def render_run_artifact_health_history_markdown(payload: dict[str, Any]) -> str:
     """Render artifact-health history as compact terminal markdown."""
     scope = payload.get("scope", {})
@@ -667,7 +746,7 @@ def main() -> None:
     parser.add_argument(
         "--markdown",
         action="store_true",
-        help="Render history summaries as markdown.",
+        help="Render artifact health reports as markdown.",
     )
     parser.add_argument("--strict", action="store_true")
     args = parser.parse_args()
@@ -700,8 +779,11 @@ def main() -> None:
             run_ids=args.run_ids,
             created_at_from=args.created_at_from,
         )
-    if args.markdown and args.history_summary:
-        print(render_run_artifact_health_history_markdown(payload), end="")
+    if args.markdown:
+        if args.history_summary:
+            print(render_run_artifact_health_history_markdown(payload), end="")
+        else:
+            print(render_run_artifact_health_markdown(payload), end="")
     else:
         print(json.dumps(payload, indent=2, sort_keys=True))
     if args.record_history and not args.history_summary:

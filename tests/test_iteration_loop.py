@@ -24349,6 +24349,22 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    trace_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "quality-trace",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     profile_recommendation_result = subprocess.run(
         [
             sys.executable,
@@ -25752,6 +25768,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         repo_root=repo,
         require_current_evidence=True,
     ) == ()
+    assert trace_markdown_result.returncode == 0, trace_markdown_result.stderr
+    assert "# Candidate Quality Trace" in trace_markdown_result.stdout
+    assert "Run: `cli-candidates`" in trace_markdown_result.stdout
+    assert "## Rounds" in trace_markdown_result.stdout
+    assert "cannot change routing or acceptance" in trace_markdown_result.stdout
     assert profile_recommendation_result.returncode == 0, (
         profile_recommendation_result.stderr
     )

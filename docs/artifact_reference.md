@@ -53,6 +53,8 @@ python -m orchestrator.experiments candidates <run_id> --limit 5
 python -m orchestrator.experiments candidates <run_id> --limit 5 --markdown
 python -m orchestrator.experiments agents <run_id>
 python -m orchestrator.experiments agents <run_id> --markdown
+python -m orchestrator.experiments quality-trace <run_id>
+python -m orchestrator.experiments quality-trace <run_id> --markdown
 python -m orchestrator.experiments slots <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
@@ -1163,6 +1165,8 @@ Replay artifacts:
   candidate rows from the leaderboard. The same payload validator checks writer
   and terminal output after stripping transient fields such as `from_artifact`,
   and can rebuild from current run evidence to catch drift before returning.
+  `python -m orchestrator.experiments quality-trace <run_id>` prints the
+  validated terminal payload as JSON or markdown for operator inspection.
   They cannot route candidates, execute agents, run backtests, apply patches,
   or change acceptance.
 - `modifier_profile_recommendation.json` and

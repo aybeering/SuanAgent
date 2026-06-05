@@ -15,6 +15,7 @@ from orchestrator.agent_slot_health import build_agent_slot_health
 from orchestrator.artifact_validator_coverage import build_artifact_validator_coverage
 from orchestrator.candidate_quality_trace import (
     build_candidate_quality_trace,
+    render_candidate_quality_trace_markdown,
     validate_candidate_quality_trace_payload,
 )
 from orchestrator.config_change_candidate import (
@@ -6785,6 +6786,11 @@ def main() -> None:
         help="Show candidate quality trace for one iteration run.",
     )
     quality_trace_parser.add_argument("run_id")
+    quality_trace_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the candidate quality trace as markdown.",
+    )
 
     profile_recommendation_parser = subparsers.add_parser(
         "profile-recommendation",
@@ -7201,6 +7207,9 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )
+        if args.markdown:
+            print(render_candidate_quality_trace_markdown(payload), end="")
+            return
     elif args.command == "profile-recommendation":
         payload = modifier_profile_recommendation(
             experiments_dir=args.experiments_dir,

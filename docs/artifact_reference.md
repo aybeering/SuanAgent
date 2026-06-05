@@ -555,8 +555,12 @@ how many blockers apply, and the operator hint to review before invoking it.
 When the guided operator action path is closed and the cockpit has a
 deterministic champion-promotion approval pending, the home next-command hint
 surfaces the cockpit promotion-approval command instead of leaving the operator
-on the already-closed action receipt review. The command is still only a hint:
-approval and promotion remain explicit dedicated commands.
+on the already-closed action receipt review. After that approval is recorded,
+the home next-command hint advances to the guarded `promote-approved` command
+that can write `champion_promotion_receipt.json`; after a successful promotion
+receipt, it advances again to the read-only `lineage --markdown` refresh. These
+commands are still only hints: approval, promotion, and lineage refresh remain
+explicit dedicated commands.
 Its source records include the saved unlock checklist, unlock runbook, and
 readiness diff so the first screen can point directly at Codex evidence without
 becoming an unlock authority. It does not create run artifacts, record

@@ -259,17 +259,18 @@ The unlock checklist, unlock runbook, readiness diff, cockpit, and home share a
 state visible to operators without becoming an unlock approval, command
 executor, patch gate, or acceptance authority.
 The terminal-only operator home view copies the cockpit's Codex preflight,
-unlock-runbook, readiness-diff, and intake-binding status into a compact
-first-screen summary and points back to the saved unlock checklist, unlock
-runbook, and readiness diff source views.
+unlock-runbook, readiness-diff, intake-binding status, and champion-promotion
+follow-up state into a compact first-screen summary and points back to the
+saved unlock checklist, unlock runbook, readiness diff, promotion approval,
+promotion receipt, and lineage command hints.
 It remains hint-only and cannot refresh artifacts, unlock Codex, execute
-commands, or change acceptance.
+commands, promote champions, or change acceptance.
 `operator_cockpit.json` and `operator_cockpit.md` are the broader operator
 entrypoint. They collect the run closeout, config lineage, operator action
 dashboard, Codex CLI execution preflight, standalone operator unlock checklist,
 Codex CLI unlock runbook, Codex CLI execution readiness diff, challenger comparison,
 candidate quality trace state, champion-promotion review, promotion approval,
-and scope-health status into one read-only page with a first-screen operator
+promotion receipt, and scope-health status into one read-only page with a first-screen operator
 digest, panel rows, command hints, and a deterministic review-priority object
 that selects the first panel and existing saved command hint to inspect. The
 digest mirrors the priority target, next command hint, outcome, blocker,

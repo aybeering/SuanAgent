@@ -192,6 +192,7 @@ def build_operator_cockpit(
     challenger = load_json_object(run_dir / "candidate_challenger_report.json")
     promotion = load_json_object(run_dir / "champion_promotion_dry_run.json")
     approval = load_json_object(run_dir / "champion_promotion_approval.json")
+    receipt = load_json_object(run_dir / "champion_promotion_receipt.json")
     codex_preflight = load_json_object(run_dir / "codex_cli_execution_preflight.json")
     codex_unlock_runbook = load_json_object(run_dir / "codex_cli_unlock_runbook.json")
     codex_readiness_diff = load_json_object(
@@ -220,6 +221,7 @@ def build_operator_cockpit(
         challenger=challenger,
         promotion=promotion,
         approval=approval,
+        receipt=receipt,
         codex_preflight=codex_preflight,
         codex_unlock_runbook=codex_unlock_runbook,
         codex_readiness_diff=codex_readiness_diff,
@@ -238,6 +240,7 @@ def build_operator_cockpit(
         challenger=challenger,
         promotion=promotion,
         approval=approval,
+        receipt=receipt,
         codex_preflight=codex_preflight,
         codex_unlock_runbook=codex_unlock_runbook,
         codex_readiness_diff=codex_readiness_diff,
@@ -377,6 +380,7 @@ def cockpit_summary(
     challenger: dict[str, Any],
     promotion: dict[str, Any],
     approval: dict[str, Any],
+    receipt: dict[str, Any],
     codex_preflight: dict[str, Any],
     codex_unlock_runbook: dict[str, Any],
     codex_readiness_diff: dict[str, Any],
@@ -459,6 +463,8 @@ def cockpit_summary(
         "promotion_approval_recorded": bool(
             object_field(approval, "operator_intent").get("approval_recorded", False)
         ),
+        "promotion_receipt_status": str(receipt.get("status", "missing")),
+        "promotion_receipt_promoted": bool(receipt.get("promoted", False)),
         "codex_preflight_status": codex_preflight_status(
             preflight=codex_preflight,
             blockers=codex_blockers,
@@ -644,6 +650,7 @@ def cockpit_panels(
     challenger: dict[str, Any],
     promotion: dict[str, Any],
     approval: dict[str, Any],
+    receipt: dict[str, Any],
     codex_preflight: dict[str, Any],
     codex_unlock_runbook: dict[str, Any],
     codex_readiness_diff: dict[str, Any],
@@ -772,6 +779,14 @@ def cockpit_panels(
             ok=bool(object_field(approval, "operator_intent").get("approval_recorded", False)),
             artifact_path=run_dir / "champion_promotion_approval.json",
             next_step="approval does not promote automatically",
+        ),
+        panel(
+            panel_id="promotion_receipt",
+            title="Promotion Receipt",
+            status=str(receipt.get("status", "missing")),
+            ok=bool(receipt.get("promoted", False)),
+            artifact_path=run_dir / "champion_promotion_receipt.json",
+            next_step="refresh champion lineage after a successful receipt",
         ),
         panel(
             panel_id="scope_health",
@@ -1112,6 +1127,10 @@ def source_artifacts(*, run_dir: Path, repo_root: Path) -> dict[str, object]:
             run_dir / "champion_promotion_approval.json",
             "schemas/champion_promotion_approval.schema.json",
         ),
+        "champion_promotion_receipt": (
+            run_dir / "champion_promotion_receipt.json",
+            "schemas/champion_promotion_receipt.schema.json",
+        ),
         "experiment_scope_health": (
             run_dir / "experiment_scope_health.json",
             "schemas/experiment_scope_health.schema.json",
@@ -1388,6 +1407,11 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         f"- Codex CLI intake binding: `{summary.get('codex_intake_readiness_status', '')}`",
         f"- Codex CLI intake ready: `{summary.get('codex_intake_ready', False)}`",
         f"- Promotion: `{summary.get('promotion_status', '')}`",
+        f"- Promotion approval recorded: "
+        f"`{summary.get('promotion_approval_recorded', False)}`",
+        f"- Promotion receipt: `{summary.get('promotion_receipt_status', '')}`",
+        f"- Promotion receipt promoted: "
+        f"`{summary.get('promotion_receipt_promoted', False)}`",
         "",
         "## Operator Digest",
         "",

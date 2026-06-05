@@ -71,6 +71,7 @@ def promote_champion_with_approval(
             base_run_id=base_run_id,
             candidate_run_id=candidate_run_id,
             experiments_dir=experiments_dir,
+            repo_root=repo_root,
             min_ev_delta=min_ev_delta,
         )
         promoted = bool(promotion_result.get("promoted", False))
@@ -186,6 +187,7 @@ def promotion_evidence_checks(
             base_run_id=base_run_id,
             candidate_run_id=candidate_run_id,
             experiments_dir=experiments_dir,
+            repo_root=repo_root,
             min_ev_delta=min_ev_delta,
         )
         if comparison.get("recommendation") != "promote_candidate":

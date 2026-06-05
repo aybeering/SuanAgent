@@ -70,6 +70,7 @@
         "candidate_challenger_report",
         "champion_promotion_dry_run",
         "champion_promotion_approval",
+        "champion_promotion_receipt",
         "experiment_scope_health"
       ],
       "properties": {
@@ -104,6 +105,9 @@
           "$ref": "#/$defs/source_artifact"
         },
         "champion_promotion_approval": {
+          "$ref": "#/$defs/source_artifact"
+        },
+        "champion_promotion_receipt": {
           "$ref": "#/$defs/source_artifact"
         },
         "experiment_scope_health": {
@@ -145,6 +149,8 @@
         "promotion_would_promote",
         "promotion_approval_status",
         "promotion_approval_recorded",
+        "promotion_receipt_status",
+        "promotion_receipt_promoted",
         "codex_preflight_status",
         "codex_preflight_ok",
         "codex_real_execute_profile_count",
@@ -258,6 +264,12 @@
           "type": "string"
         },
         "promotion_approval_recorded": {
+          "type": "boolean"
+        },
+        "promotion_receipt_status": {
+          "type": "string"
+        },
+        "promotion_receipt_promoted": {
           "type": "boolean"
         },
         "codex_preflight_status": {

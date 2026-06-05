@@ -285,6 +285,7 @@ from orchestrator.champion_promotion_approval import (
 )
 from orchestrator.champion_promotion_executor import (
     CHAMPION_PROMOTION_RECEIPT_SCHEMA_VERSION,
+    promote_champion_with_approval,
     validate_champion_promotion_receipt_file,
 )
 from orchestrator.champion_lineage import (
@@ -3715,7 +3716,7 @@ def test_operator_home_prioritizes_promotion_approval_after_action_path_closes(
         experiments_dir=repo / "experiments",
         repo_root=repo,
     )
-    _, _, promotion_approval = write_champion_promotion_approval(
+    approval_path, _, promotion_approval = write_champion_promotion_approval(
         run_dir=run_dir,
         repo_root=repo,
     )
@@ -3834,6 +3835,118 @@ def test_operator_home_prioritizes_promotion_approval_after_action_path_closes(
     assert_matches_schema_payload(next_command, "operator_next_command")
     assert validate_operator_next_command_payload(
         next_command,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+
+    approval_path, _, recorded_approval = write_champion_promotion_approval(
+        run_dir=run_dir,
+        repo_root=repo,
+        operator_id="test-operator",
+        explicit_approval=True,
+        confirmation_phrase=CHAMPION_PROMOTION_CONFIRMATION_PHRASE,
+    )
+    write_operator_cockpit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    approved_home = build_operator_home(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    approved_next_command = build_operator_next_command(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert recorded_approval["status"] == "approval_recorded"
+    assert approved_home["status"] == "needs_operator_review"
+    assert approved_home["action_home"]["guide_status"] == "path_closed"
+    assert approved_home["action_home"]["next_command_label"] == (
+        "promote_approved_candidate"
+    )
+    assert approved_home["action_home"]["next_command_boundary"] == (
+        "guarded_champion_promotion"
+    )
+    assert approved_home["action_home"]["next_command_requires_operator_approval"] is True
+    assert approved_home["action_home"]["next_command_uses_guarded_executor"] is True
+    assert approved_home["next_command"]["source"] == "promotion_receipt"
+    assert approved_home["next_command"]["command"] == (
+        f"python -m orchestrator.experiments promote-approved {run_id} "
+        f"--approval-path {approval_path}"
+    )
+    assert approved_next_command["label"] == "promote_approved_candidate"
+    assert approved_next_command["boundary_type"] == "guarded_champion_promotion"
+    assert approved_next_command["blocked"] is False
+    assert validate_operator_home_payload(
+        approved_home,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    assert validate_operator_next_command_payload(
+        approved_next_command,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+
+    receipt = promote_champion_with_approval(
+        candidate_run_id=run_id,
+        approval_path=approval_path,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert receipt["status"] == "promoted"
+    assert receipt["promoted"] is True
+    assert validate_champion_promotion_receipt_file(
+        payload_path=run_dir / "champion_promotion_receipt.json",
+        repo_root=repo,
+    ) == ()
+    write_operator_cockpit(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    receipt_home = build_operator_home(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    receipt_next_command = build_operator_next_command(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert receipt_home["status"] == "review_ready"
+    assert receipt_home["action_home"]["next_command_label"] == (
+        "review_champion_lineage"
+    )
+    assert receipt_home["action_home"]["next_command_boundary"] == (
+        "read_only_artifact_refresh"
+    )
+    assert receipt_home["next_command"]["source"] == "champion_lineage"
+    assert receipt_home["next_command"]["command"] == (
+        "python -m orchestrator.experiments lineage --markdown"
+    )
+    assert receipt_home["next_command"]["writes_artifact"] == "champion_lineage.json"
+    assert receipt_next_command["label"] == "review_champion_lineage"
+    assert receipt_next_command["blocked"] is False
+    assert validate_operator_home_payload(
+        receipt_home,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    assert validate_operator_next_command_payload(
+        receipt_next_command,
         run_dir=run_dir,
         experiments_dir=repo / "experiments",
         repo_root=repo,

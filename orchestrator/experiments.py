@@ -6096,6 +6096,7 @@ def promote_champion(
     base_run_id: str,
     candidate_run_id: str,
     experiments_dir: Path = Path("experiments"),
+    repo_root: Path = Path("."),
     min_ev_delta: float = 0.0,
 ) -> dict[str, object]:
     """Legacy direct promotion helper; operator CLI should use promote-approved."""
@@ -6103,6 +6104,7 @@ def promote_champion(
         base_run_id=base_run_id,
         candidate_run_id=candidate_run_id,
         experiments_dir=experiments_dir,
+        repo_root=repo_root,
         min_ev_delta=min_ev_delta,
     )
     if comparison["recommendation"] != "promote_candidate":
@@ -6118,6 +6120,7 @@ def promote_champion(
     candidate = diagnose_run(
         run_id=candidate_run_id,
         experiments_dir=experiments_dir,
+        repo_root=repo_root,
     )
     payload = champion_payload(
         base_run_id=base_run_id,

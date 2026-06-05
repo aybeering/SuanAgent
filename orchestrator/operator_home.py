@@ -60,6 +60,7 @@ def build_operator_home(
         guide=guide,
         guide_next_command=guide_next_command,
         cockpit=cockpit,
+        run_dir=run_dir,
     )
     next_command_boundary = object_field(next_command, "boundary")
     blockers = string_list(cockpit.get("blockers", []))
@@ -311,6 +312,8 @@ def home_status(
         return "needs_operator_review"
     if cockpit.get("status") == "promotion_pending_approval":
         return "needs_operator_review"
+    if promotion_ready_for_guarded_execution(cockpit):
+        return "needs_operator_review"
     if guide.get("status") == "ready_for_guarded_execution":
         return "ready_for_guarded_execution"
     if guide.get("status") == "awaiting_operator_approval":
@@ -374,18 +377,132 @@ def select_home_next_command(
     guide: dict[str, Any],
     guide_next_command: dict[str, Any],
     cockpit: dict[str, Any],
+    run_dir: Path,
 ) -> dict[str, object]:
     """Return the command hint that should be surfaced as the home next step."""
     guide_command = command_with_source(guide_next_command, "action_next")
     priority = object_field(cockpit, "review_priority")
-    if (
-        guide.get("status") == "path_closed"
-        and priority.get("primary_reason") == "promotion_pending_approval"
-    ):
-        priority_command = command_from_review_priority(priority)
-        if priority_command:
-            return priority_command
+    if guide.get("status") == "path_closed":
+        followup = promotion_followup_command(
+            cockpit=cockpit,
+            priority=priority,
+            run_dir=run_dir,
+        )
+        if followup:
+            return followup
     return guide_command
+
+
+def promotion_followup_command(
+    *,
+    cockpit: dict[str, Any],
+    priority: dict[str, Any],
+    run_dir: Path,
+) -> dict[str, object]:
+    """Return the promotion-chain command that should follow a closed action path."""
+    summary = object_field(cockpit, "summary")
+    would_promote = summary.get("promotion_would_promote") is True
+    approval_recorded = summary.get("promotion_approval_recorded") is True
+    receipt_promoted = summary.get("promotion_receipt_promoted") is True
+    if not would_promote:
+        return {}
+    if receipt_promoted:
+        return champion_lineage_command()
+    if approval_recorded:
+        return promote_approved_candidate_command(
+            run_id=str(cockpit.get("run_id", run_dir.name)),
+            run_dir=run_dir,
+        )
+    if priority.get("primary_reason") == "promotion_pending_approval":
+        return command_from_review_priority(priority)
+    return {}
+
+
+def promotion_ready_for_guarded_execution(cockpit: dict[str, Any]) -> bool:
+    """Return whether promotion approval is recorded but no receipt has promoted."""
+    summary = object_field(cockpit, "summary")
+    return (
+        summary.get("promotion_would_promote") is True
+        and summary.get("promotion_approval_recorded") is True
+        and summary.get("promotion_receipt_promoted") is not True
+    )
+
+
+def promote_approved_candidate_command(
+    *,
+    run_id: str,
+    run_dir: Path,
+) -> dict[str, object]:
+    """Return a guarded champion-promotion command hint after approval is recorded."""
+    approval_path = run_dir / "champion_promotion_approval.json"
+    command = (
+        "python -m orchestrator.experiments promote-approved "
+        f"{run_id} --approval-path {approval_path}"
+    )
+    boundary = guarded_champion_promotion_boundary()
+    return {
+        "label": "promote_approved_candidate",
+        "command": command,
+        "reason": "Run the guarded promotion command only after approval evidence is recorded.",
+        "writes_artifact": "champion_promotion_receipt.json",
+        "boundary": boundary,
+        "source": "promotion_receipt",
+        "command_is_hint_only": True,
+        "requires_explicit_operator_invocation": True,
+        "requires_operator_approval": True,
+        "records_operator_approval": False,
+        "uses_guarded_executor": True,
+    }
+
+
+def champion_lineage_command() -> dict[str, object]:
+    """Return the lineage refresh command after a promotion receipt exists."""
+    boundary = read_only_artifact_refresh_boundary()
+    return {
+        "label": "review_champion_lineage",
+        "command": "python -m orchestrator.experiments lineage --markdown",
+        "reason": "Refresh and inspect champion lineage after the promotion receipt.",
+        "writes_artifact": "champion_lineage.json",
+        "boundary": boundary,
+        "source": "champion_lineage",
+        "command_is_hint_only": True,
+        "requires_explicit_operator_invocation": True,
+        "requires_operator_approval": False,
+        "records_operator_approval": False,
+        "uses_guarded_executor": False,
+    }
+
+
+def guarded_champion_promotion_boundary() -> dict[str, object]:
+    """Return the boundary metadata for a guarded champion promotion hint."""
+    return {
+        "boundary_type": "guarded_champion_promotion",
+        "requires_explicit_operator_invocation": True,
+        "requires_operator_approval": True,
+        "records_operator_approval": False,
+        "uses_guarded_executor": True,
+        "writes_artifact": True,
+        "executes_agents": False,
+        "runs_backtests": False,
+        "applies_patches": False,
+        "changes_acceptance": False,
+    }
+
+
+def read_only_artifact_refresh_boundary() -> dict[str, object]:
+    """Return the boundary metadata for a read-only lineage refresh hint."""
+    return {
+        "boundary_type": "read_only_artifact_refresh",
+        "requires_explicit_operator_invocation": True,
+        "requires_operator_approval": False,
+        "records_operator_approval": False,
+        "uses_guarded_executor": False,
+        "writes_artifact": True,
+        "executes_agents": False,
+        "runs_backtests": False,
+        "applies_patches": False,
+        "changes_acceptance": False,
+    }
 
 
 def command_from_review_priority(priority: dict[str, Any]) -> dict[str, object]:

@@ -146,7 +146,7 @@ Implemented or allowed V0.5 components:
     header back to `manifest.json` for run id, status, completed-round,
     accepted-round, stop-reason, and final-strategy-commit consistency, and
     binds the `summary.md` dataset, run-outcome, agent-intake, health,
-    codex-cli-unlock-runbook, config-operator-runbook,
+    codex-cli-unlock-runbook, config-operator-runbook, operator-action-plan,
     operator-action-dashboard, operator-cockpit, operator-home,
     operator-next-command, operator-unlock-checklist, round-table,
     proposal-quality, and candidate-leaderboard sections back to their

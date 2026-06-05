@@ -153,7 +153,11 @@ def build_operator_home(
             "command_label": str(priority.get("recommended_command_label", "")),
             "command": str(priority.get("recommended_command", "")),
         },
-        "command_center": command_center_rows(cockpit=cockpit, guide=guide),
+        "command_center": command_center_rows(
+            cockpit=cockpit,
+            guide=guide,
+            selected_next=next_command,
+        ),
         "blockers": blockers[:8],
         "source_views": source_views(run_dir=run_dir, repo_root=repo_root),
         "authority": {
@@ -352,13 +356,19 @@ def home_headline(
 
 
 def command_center_rows(
-    *, cockpit: dict[str, Any], guide: dict[str, Any]
+    *,
+    cockpit: dict[str, Any],
+    guide: dict[str, Any],
+    selected_next: dict[str, Any],
 ) -> list[dict[str, object]]:
     """Return compact command hints from guide and cockpit priority."""
     rows: list[dict[str, object]] = []
     guide_command = object_field(guide, "next_command")
     if guide_command:
         rows.append(command_row("action_next", guide_command))
+    selected_label = str(selected_next.get("label", ""))
+    if selected_label and not any(row.get("label") == selected_label for row in rows):
+        rows.append(command_row("selected_next", selected_next))
     priority_command = command_from_review_priority(
         object_field(cockpit, "review_priority")
     )

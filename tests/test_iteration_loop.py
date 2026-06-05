@@ -3879,6 +3879,13 @@ def test_operator_home_prioritizes_promotion_approval_after_action_path_closes(
         f"python -m orchestrator.experiments promote-approved {run_id} "
         f"--approval-path {approval_path}"
     )
+    approved_center = next(
+        row
+        for row in approved_home["command_center"]
+        if row["label"] == "promote_approved_candidate"
+    )
+    assert approved_center["source"] == "selected_next"
+    assert approved_center["boundary_type"] == "guarded_champion_promotion"
     assert approved_next_command["label"] == "promote_approved_candidate"
     assert approved_next_command["boundary_type"] == "guarded_champion_promotion"
     assert approved_next_command["blocked"] is False
@@ -3936,6 +3943,13 @@ def test_operator_home_prioritizes_promotion_approval_after_action_path_closes(
         "python -m orchestrator.experiments lineage --markdown"
     )
     assert receipt_home["next_command"]["writes_artifact"] == "champion_lineage.json"
+    receipt_center = next(
+        row
+        for row in receipt_home["command_center"]
+        if row["label"] == "review_champion_lineage"
+    )
+    assert receipt_center["source"] == "selected_next"
+    assert receipt_center["boundary_type"] == "read_only_artifact_refresh"
     assert receipt_next_command["label"] == "review_champion_lineage"
     assert receipt_next_command["blocked"] is False
     assert validate_operator_home_payload(
@@ -3984,6 +3998,13 @@ def test_operator_home_prioritizes_promotion_approval_after_action_path_closes(
     assert lineage_home["next_command"]["command"] == (
         "python -m orchestrator.experiments champion --markdown"
     )
+    lineage_center = next(
+        row
+        for row in lineage_home["command_center"]
+        if row["label"] == "review_champion_status"
+    )
+    assert lineage_center["source"] == "selected_next"
+    assert lineage_center["boundary_type"] == "read_only_inspection"
     assert lineage_next_command["label"] == "review_champion_status"
     assert lineage_next_command["boundary_type"] == "read_only_inspection"
     assert lineage_next_command["writes_artifact"] == ""

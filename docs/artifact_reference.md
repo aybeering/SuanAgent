@@ -552,6 +552,9 @@ approval receipt, uses the guarded executor, and which artifact it would write
 when invoked through the dedicated command. The home action summary also
 reports whether the next command is currently blocked by home-level blockers,
 how many blockers apply, and the operator hint to review before invoking it.
+The command center always includes the selected next command when it differs
+from the action-guide command, so dynamic promotion follow-ups remain visible
+next to the regular cockpit and guide command rows.
 When the guided operator action path is closed and the cockpit has a
 deterministic champion-promotion approval pending, the home next-command hint
 surfaces the cockpit promotion-approval command instead of leaving the operator

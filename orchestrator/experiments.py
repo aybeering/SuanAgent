@@ -20,6 +20,7 @@ from orchestrator.candidate_quality_trace import (
 )
 from orchestrator.config_change_candidate import (
     build_config_change_candidate,
+    render_config_change_candidate_markdown,
     validate_config_change_candidate_payload,
 )
 from orchestrator.experiment_index import read_experiment_index, recent_experiments
@@ -6972,6 +6973,11 @@ def main() -> None:
         help="Show advisory config change candidates for one iteration run.",
     )
     config_change_parser.add_argument("run_id")
+    config_change_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the config change candidates as markdown.",
+    )
 
     operator_config_parser = subparsers.add_parser(
         "operator-config-review",
@@ -7385,6 +7391,9 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )
+        if args.markdown:
+            print(render_config_change_candidate_markdown(payload), end="")
+            return
     elif args.command == "operator-config-review":
         payload = operator_config_review_report(
             experiments_dir=args.experiments_dir,

@@ -966,9 +966,10 @@ Replay artifacts:
   They include current value, proposed value, rationale, reason codes, and risk
   notes, but they never write config, route candidates, apply patches, run
   backtests, or change acceptance.
-  `python -m orchestrator.experiments config-change-candidate <run_id>` validates
-  schema, run binding, candidate summary, and operator-review status before
-  printing JSON.
+  `python -m orchestrator.experiments config-change-candidate <run_id>` and
+  `python -m orchestrator.experiments config-change-candidate <run_id> --markdown`
+  validate schema, run binding, candidate summary, and operator-review status
+  before printing JSON or markdown.
 - `operator_config_review.json` and `operator_config_review.md` record
   operator approve or reject intent for saved config candidates. Approval
   requires the configured confirmation phrase, rejection can be recorded without

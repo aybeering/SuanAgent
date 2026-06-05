@@ -162,6 +162,7 @@ python -m orchestrator.run_artifact_health --history-summary --created-at-from 2
 python -m orchestrator.experiments validate --limit 10 --strict
 python -m orchestrator.experiments health-history
 python -m orchestrator.memory_diagnostics --strict
+python -m orchestrator.memory_diagnostics --strict --markdown
 python -m orchestrator.memory_diagnostics --created-at-from 2026-06-02T00:00:00Z --strict
 python -m orchestrator.experiment_scope_health --created-at-from 2026-06-02T00:00:00Z --strict
 python -m orchestrator.experiment_scope_health --created-at-from 2026-06-02T00:00:00Z --strict --markdown
@@ -938,7 +939,9 @@ Replay artifacts:
   `python -m orchestrator.memory_diagnostics` and
   `python -m orchestrator.experiments memory-diagnostics` validate the terminal
   payload against `schemas/memory_diagnostics.schema.json` and the current
-  source artifacts before printing JSON.
+  source artifacts before printing JSON or markdown. The `--markdown` view
+  summarizes totals, matched and unmatched failed health runs, top groups, and
+  recent outcome-health links with bounded lists for terminal review.
 - `memory_hygiene.json` and `memory_hygiene.md` summarize the active outcome
   memory scope used by memory filters. They report total versus active records,
   ignored records from `created_at_from` or `recent_record_limit`, patch and

@@ -43,6 +43,7 @@ from orchestrator.config_operator_runbook import (
 )
 from orchestrator.memory_diagnostics import (
     build_memory_diagnostics,
+    render_memory_diagnostics_markdown,
     validate_memory_diagnostics_payload,
 )
 from orchestrator.memory_hygiene import (
@@ -6965,6 +6966,11 @@ def main() -> None:
     memory_diagnostics_parser.add_argument("--limit", type=int, default=20)
     memory_diagnostics_parser.add_argument("--history-path", type=Path)
     memory_diagnostics_parser.add_argument("--created-at-from", default="")
+    memory_diagnostics_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render memory diagnostics as markdown.",
+    )
 
     memory_hygiene_parser = subparsers.add_parser(
         "memory-hygiene",
@@ -7428,6 +7434,9 @@ def main() -> None:
             raise ValueError(
                 "memory diagnostics failed schema validation: " + "; ".join(errors)
             )
+        if args.markdown:
+            print(render_memory_diagnostics_markdown(payload), end="")
+            return
     elif args.command == "memory-hygiene":
         payload = memory_hygiene_report(
             experiments_dir=args.experiments_dir,

@@ -225,6 +225,7 @@ from orchestrator.run_artifact_health import (
 from orchestrator.memory_diagnostics import (
     SCHEMA_VERSION as MEMORY_DIAGNOSTICS_SCHEMA_VERSION,
     build_memory_diagnostics,
+    render_memory_diagnostics_markdown,
     validate_memory_diagnostics_file,
     validate_memory_diagnostics_payload,
     write_memory_diagnostics,
@@ -1226,6 +1227,15 @@ def test_memory_diagnostics_links_outcomes_to_artifact_health(
     assert payload["recent_outcome_health_links"][0]["artifact_health_failed"] is True
     assert payload["policy"]["does_not_change_acceptance"] is True
     assert payload["policy"]["does_not_route_agents"] is True
+    noisy_payload = json.loads(json.dumps(payload))
+    noisy_payload["matched_failed_run_ids"] = [
+        f"matched-run-{index:02d}" for index in range(12)
+    ]
+    noisy_markdown = render_memory_diagnostics_markdown(noisy_payload)
+    assert "matched-run-00" in noisy_markdown
+    assert "matched-run-09" in noisy_markdown
+    assert "matched-run-10" not in noisy_markdown
+    assert "... +2 more" in noisy_markdown
     assert empty_scope_payload["scope"]["created_at_from"] == (
         "9999-01-01T00:00:00Z"
     )
@@ -1302,6 +1312,46 @@ def test_memory_diagnostics_cli_and_experiments_command(
         capture_output=True,
         text=True,
     )
+    direct_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.memory_diagnostics",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "--repo-root",
+            str(repo),
+            "--history-path",
+            str(history_path),
+            "--created-at-from",
+            "2026-01-01T00:00:00Z",
+            "--strict",
+            "--markdown",
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    experiments_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "memory-diagnostics",
+            "--history-path",
+            str(history_path),
+            "--created-at-from",
+            "2026-01-01T00:00:00Z",
+            "--markdown",
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     direct_payload = json.loads(direct_result.stdout)
     experiments_payload = json.loads(experiments_result.stdout)
 
@@ -1327,6 +1377,15 @@ def test_memory_diagnostics_cli_and_experiments_command(
     assert experiments_payload["scope"]["created_at_from"] == "2026-01-01T00:00:00Z"
     assert direct_payload["policy"]["does_not_execute_agents"] is True
     assert experiments_payload["policy"]["does_not_run_backtests"] is True
+    assert "# Memory Diagnostics" in direct_markdown_result.stdout
+    assert "Created at from: `2026-01-01T00:00:00Z`" in (
+        direct_markdown_result.stdout
+    )
+    assert "## Top Groups" in direct_markdown_result.stdout
+    assert "does not execute agents" in direct_markdown_result.stdout
+    assert "# Memory Diagnostics" in experiments_markdown_result.stdout
+    assert "## Recent Links" in experiments_markdown_result.stdout
+    assert "Outcome records:" in experiments_markdown_result.stdout
     assert_matches_schema(repo / "memory_diagnostics.json", "memory_diagnostics")
     assert (
         repo / "strategies/current_strategy.py"

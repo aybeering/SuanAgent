@@ -356,6 +356,117 @@ def write_memory_diagnostics(
     return payload
 
 
+def render_memory_diagnostics_markdown(payload: dict[str, Any]) -> str:
+    """Render memory diagnostics as compact terminal markdown."""
+    def compact_list(values: list[str], *, max_items: int = 10) -> str:
+        if not values:
+            return "`none`"
+        shown = values[:max_items]
+        text = ", ".join(f"`{value}`" for value in shown)
+        remaining = len(values) - len(shown)
+        if remaining > 0:
+            text += f", ... +{remaining} more"
+        return text
+
+    def top_rows(rows: object, *, max_items: int = 5) -> list[dict[str, Any]]:
+        if not isinstance(rows, list):
+            return []
+        return [row for row in rows[:max_items] if isinstance(row, dict)]
+
+    totals = payload.get("totals", {})
+    if not isinstance(totals, dict):
+        totals = {}
+    scope = payload.get("scope", {})
+    if not isinstance(scope, dict):
+        scope = {}
+    groups = payload.get("groups", {})
+    if not isinstance(groups, dict):
+        groups = {}
+    recent_links = payload.get("recent_outcome_health_links", [])
+    if not isinstance(recent_links, list):
+        recent_links = []
+
+    lines = [
+        "# Memory Diagnostics",
+        "",
+        f"- OK: `{payload.get('ok', False)}`",
+        f"- Created at from: `{scope.get('created_at_from', '')}`",
+        f"- Experiments dir: `{payload.get('experiments_dir', '')}`",
+        f"- Memory path: `{payload.get('memory_path', '')}`",
+        f"- Health history path: `{payload.get('health_history_path', '')}`",
+        "",
+        "## Totals",
+        "",
+        f"- Outcome records: `{totals.get('outcome_record_count', 0)}`",
+        f"- Outcome runs: `{totals.get('outcome_run_count', 0)}`",
+        "- Health history records: "
+        f"`{totals.get('health_history_record_count', 0)}`",
+        f"- Failed health runs: `{totals.get('failed_health_run_count', 0)}`",
+        "- Matched failed health runs: "
+        f"`{totals.get('matched_failed_health_run_count', 0)}`",
+        "- Unmatched failed health runs: "
+        f"`{totals.get('unmatched_failed_health_run_count', 0)}`",
+        f"- Read errors: `{totals.get('read_error_count', 0)}`",
+        "",
+        "## Failed Health Runs",
+        "",
+        "- Matched to outcome memory: "
+        + compact_list(string_list(payload.get("matched_failed_run_ids", []))),
+        "- Unmatched in outcome memory: "
+        + compact_list(
+            string_list(payload.get("unmatched_failed_health_run_ids", []))
+        ),
+        "",
+        "## Top Groups",
+        "",
+    ]
+    for group_name, label in (
+        ("by_direction", "Direction"),
+        ("by_agent", "Agent"),
+        ("by_profile", "Profile"),
+        ("by_patch", "Patch"),
+    ):
+        lines.extend([f"### {label}", ""])
+        rows = top_rows(groups.get(group_name, []))
+        if not rows:
+            lines.append("- none")
+        for row in rows:
+            lines.append(
+                "- "
+                f"`{row.get('key', '')}`: records `{row.get('record_count', 0)}`, "
+                f"rejected `{row.get('rejected_count', 0)}`, "
+                "failed observations "
+                f"`{row.get('artifact_failed_run_observation_count', 0)}`"
+            )
+        lines.append("")
+
+    lines.extend(["## Recent Links", ""])
+    link_rows = [row for row in recent_links[:5] if isinstance(row, dict)]
+    if not link_rows:
+        lines.append("- none")
+    for row in link_rows:
+        lines.append(
+            "- "
+            f"`{row.get('run_id', '')}` "
+            f"direction `{row.get('direction_tag', '')}` "
+            f"accepted `{row.get('accepted', False)}` "
+            f"health_failed `{row.get('artifact_health_failed', False)}` "
+            f"errors `{row.get('artifact_error_count', 0)}`"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Policy",
+            "",
+            "- This view is read-only and does not execute agents, run backtests, route agents, apply patches, delete memory, or change acceptance.",
+            "- Use `--strict` when a nonzero exit is required for read errors.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def validate_memory_diagnostics_payload(
     payload: dict[str, Any],
     *,
@@ -448,6 +559,11 @@ def main() -> None:
     )
     parser.add_argument("--output", type=Path)
     parser.add_argument("--strict", action="store_true")
+    parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render memory diagnostics as markdown.",
+    )
     args = parser.parse_args()
 
     if args.output is not None:
@@ -477,7 +593,10 @@ def main() -> None:
         )
         if errors:
             raise ValueError(f"memory diagnostics failed schema validation: {errors}")
-    print(json.dumps(payload, indent=2, sort_keys=True))
+    if args.markdown:
+        print(render_memory_diagnostics_markdown(payload), end="")
+    else:
+        print(json.dumps(payload, indent=2, sort_keys=True))
     if args.strict and not payload["ok"]:
         raise SystemExit(1)
 

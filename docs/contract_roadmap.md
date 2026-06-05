@@ -151,8 +151,9 @@ Implemented or allowed V0.5 components:
     champion-promotion-dry-run, champion-promotion-approval, run-closeout,
     operator-action-plan, operator-action-dashboard, operator-cockpit,
     operator-home, operator-next-command, operator-unlock-checklist,
-    round-table, proposal-quality, and candidate-leaderboard sections back to their
-    corresponding manifest records and round artifacts.
+    best-validation-delta, round-table, proposal-quality, and
+    candidate-leaderboard sections back to their corresponding manifest records
+    and round artifacts.
     Experiment summary dashboards and operator cockpit summaries surface the
     same outcome category, primary stage, and primary code as read-only
     navigation so recent run history and per-run review show why the loop

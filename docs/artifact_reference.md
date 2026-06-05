@@ -267,7 +267,8 @@ config-application-dry-run, candidate-challenger,
 champion-promotion-dry-run, champion-promotion-approval, run-closeout,
 operator-action-plan, operator-action-dashboard, operator-cockpit,
 operator-home, operator-next-command, operator-unlock-checklist, round-table,
-proposal-quality, and candidate-leaderboard sections against the corresponding
+best-validation-delta, proposal-quality, and candidate-leaderboard sections
+against the corresponding
 manifest records and round artifacts, so operator-facing data split, outcome,
 health, navigation, per-round, proposal-quality, candidate-ranking, and
 agent-output diagnosis fields stay tied to the machine-readable record.

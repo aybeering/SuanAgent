@@ -15,7 +15,9 @@ from orchestrator.codex_cli_intake_readiness import (
 from orchestrator.operator_command_boundaries import classify_operator_command
 from orchestrator.run_outcome import build_run_outcome_summary
 from orchestrator.run_summary import (
+    best_validation_round,
     candidate_leaderboard_row,
+    format_number,
     proposal_quality_row,
     round_table_row,
 )
@@ -523,6 +525,11 @@ def validate_iteration_run(
         manifest=manifest,
         report=report,
     )
+    validate_iteration_summary_best_validation_delta(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
     validate_iteration_summary_rounds(
         run_dir=run_dir,
         manifest=manifest,
@@ -950,6 +957,39 @@ def validate_iteration_summary_config_application_dry_run(
                 report,
                 f"summary.md config_application_dry_run {field_name} mismatch",
             )
+
+
+def validate_iteration_summary_best_validation_delta(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md best-validation delta mirrors manifest rounds."""
+    rounds = [
+        round_payload
+        for round_payload in manifest.get("rounds", [])
+        if isinstance(round_payload, dict)
+    ]
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Best Validation Delta",
+    )
+    if not section:
+        add_error(report, "summary.md best_validation_delta section missing")
+        return
+    best_round = best_validation_round(rounds)
+    if best_round is None:
+        expected_line = "No completed rounds."
+    else:
+        before = float(best_round.get("validation_ev_before", 0.0))
+        after = float(best_round.get("validation_ev_after", 0.0))
+        expected_line = (
+            f"- {best_round.get('round_id')}: `{format_number(after - before)}` "
+            f"({format_number(before)} -> {format_number(after)})"
+        )
+    if expected_line not in section:
+        add_error(report, "summary.md best_validation_delta row mismatch")
 
 
 def validate_iteration_summary_rounds(

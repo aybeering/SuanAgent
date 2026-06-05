@@ -7527,6 +7527,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert "Terminal only: `True`" in summary_markdown
     assert "Next command status: `blocked_by_home_blockers`" in summary_markdown
     assert "Next command blocked: `True`" in summary_markdown
+    assert "Records approval: `True`" in summary_markdown
     assert "Command: `review_operator_home`" in summary_markdown
     assert (
         f"Command text: `python -m orchestrator.experiments home {run_id} --markdown`"
@@ -13040,6 +13041,11 @@ def test_artifact_validator_reports_summary_operator_next_command_drift(
         "- Hint-only: `False`",
         1,
     )
+    next_command_section = next_command_section.replace(
+        f"- Records approval: `{operator_home['next_command_records_operator_approval']}`",
+        "- Records approval: `False`",
+        1,
+    )
     summary_text = (
         summary_text[:section_start]
         + next_command_section
@@ -13057,6 +13063,10 @@ def test_artifact_validator_reports_summary_operator_next_command_drift(
     assert "summary.md operator_next_command status mismatch" in report["errors"]
     assert "summary.md operator_next_command command mismatch" in report["errors"]
     assert "summary.md operator_next_command hint_only mismatch" in report["errors"]
+    assert (
+        "summary.md operator_next_command records_approval mismatch"
+        in report["errors"]
+    )
 
 
 def test_artifact_validator_reports_manifest_operator_next_command_drift(

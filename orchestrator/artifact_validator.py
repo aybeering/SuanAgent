@@ -1758,6 +1758,11 @@ def validate_iteration_summary_operator_next_command(
             f"`{markdown_display_value(operator_home.get('next_command_requires_operator_approval'))}`",
         ),
         (
+            "records_approval",
+            "- Records approval: "
+            f"`{markdown_display_value(operator_home.get('next_command_records_operator_approval'))}`",
+        ),
+        (
             "uses_guarded_executor",
             "- Uses guarded executor: "
             f"`{markdown_display_value(operator_home.get('next_command_uses_guarded_executor'))}`",

@@ -506,6 +506,10 @@ def write_iteration_summary(
             f"`{display_value(operator_home.get('next_command_requires_operator_approval'))}`"
         )
         lines.append(
+            "- Records approval: "
+            f"`{display_value(operator_home.get('next_command_records_operator_approval'))}`"
+        )
+        lines.append(
             "- Uses guarded executor: "
             f"`{display_value(operator_home.get('next_command_uses_guarded_executor'))}`"
         )

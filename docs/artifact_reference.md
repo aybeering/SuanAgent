@@ -510,6 +510,9 @@ derived from the same manifest row. The validator binds its
 `operator_home.next_command` source marker, selected command, status, blocker
 state, boundary, write target, and safety flags back to `manifest.operator_home`,
 so the landing page and the narrow next-command selector cannot drift apart.
+Those safety flags include whether the hint is terminal-only, requires explicit
+operator invocation, requires approval, records operator approval, or uses the
+guarded executor.
 Before later operator action approval, execution, audit, or Codex readiness
 artifacts advance the source evidence, the validator also rebuilds the
 terminal-only next-command selector from current run evidence and checks the

@@ -12361,6 +12361,52 @@ def test_artifact_validator_reports_summary_config_lineage_drift(
     assert "summary.md config_lineage path mismatch" in report["errors"]
 
 
+def test_artifact_validator_reports_summary_config_application_dry_run_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-summary-config-application-dry-run-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments" / run_id
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    dry_run = manifest["config_application_dry_run"]
+    summary_path = run_dir / "summary.md"
+    summary_text = summary_path.read_text(encoding="utf-8")
+    section_start = summary_text.index("## Config Application Dry Run")
+    section_end = summary_text.index("\n## Config Lineage", section_start)
+    dry_run_section = summary_text[section_start:section_end]
+    dry_run_section = dry_run_section.replace(
+        f"- Status: `{dry_run['status']}`",
+        "- Status: `wrong_status`",
+        1,
+    )
+    dry_run_section = dry_run_section.replace(
+        f"- Artifact: `{dry_run['path']}`",
+        "- Artifact: `wrong_config_application_dry_run.json`",
+        1,
+    )
+    summary_text = (
+        summary_text[:section_start] + dry_run_section + summary_text[section_end:]
+    )
+    summary_path.write_text(summary_text, encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert "summary.md config_application_dry_run status mismatch" in report[
+        "errors"
+    ]
+    assert "summary.md config_application_dry_run path mismatch" in report["errors"]
+
+
 def test_artifact_validator_reports_summary_candidate_challenger_drift(
     tmp_path: Path,
 ) -> None:

@@ -518,6 +518,11 @@ def validate_iteration_run(
         manifest=manifest,
         report=report,
     )
+    validate_iteration_summary_config_application_dry_run(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
     validate_iteration_summary_rounds(
         run_dir=run_dir,
         manifest=manifest,
@@ -905,6 +910,45 @@ def validate_iteration_summary_artifact_health_history(
             add_error(
                 report,
                 f"summary.md artifact_health_history {field_name} mismatch",
+            )
+
+
+def validate_iteration_summary_config_application_dry_run(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md config-application dry-run section mirrors manifest."""
+    dry_run = manifest.get("config_application_dry_run")
+    if not isinstance(dry_run, dict):
+        return
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Config Application Dry Run",
+    )
+    if not section:
+        add_error(report, "summary.md config_application_dry_run section missing")
+        return
+    expected_lines: tuple[tuple[str, str], ...] = (
+        ("status", f"- Status: `{markdown_display_value(dry_run.get('status'))}`"),
+        (
+            "eligible_for_manual_application",
+            "- Eligible for manual application: "
+            f"`{markdown_display_value(dry_run.get('eligible_for_manual_application'))}`",
+        ),
+        ("path", f"- Artifact: `{markdown_display_value(dry_run.get('path'))}`"),
+        (
+            "markdown_path",
+            "- Markdown: "
+            f"`{markdown_display_value(dry_run.get('markdown_path'))}`",
+        ),
+    )
+    for field_name, expected_line in expected_lines:
+        if expected_line not in section:
+            add_error(
+                report,
+                f"summary.md config_application_dry_run {field_name} mismatch",
             )
 
 

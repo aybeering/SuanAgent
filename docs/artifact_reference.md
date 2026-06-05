@@ -263,10 +263,10 @@ The artifact validator checks that the top-level run fields printed in
 id, status, completed rounds, accepted round, stop reason, and final strategy
 commit. It also checks the `summary.md` dataset, run-outcome, agent-intake,
 health, codex-cli-unlock-runbook, config-lineage, config-operator-runbook,
-candidate-challenger, champion-promotion-dry-run,
-champion-promotion-approval, run-closeout, operator-action-plan,
-operator-action-dashboard, operator-cockpit, operator-home,
-operator-next-command, operator-unlock-checklist, round-table,
+config-application-dry-run, candidate-challenger,
+champion-promotion-dry-run, champion-promotion-approval, run-closeout,
+operator-action-plan, operator-action-dashboard, operator-cockpit,
+operator-home, operator-next-command, operator-unlock-checklist, round-table,
 proposal-quality, and candidate-leaderboard sections against the corresponding
 manifest records and round artifacts, so operator-facing data split, outcome,
 health, navigation, per-round, proposal-quality, candidate-ranking, and

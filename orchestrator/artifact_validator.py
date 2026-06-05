@@ -552,6 +552,11 @@ def validate_iteration_run(
         manifest=manifest,
         report=report,
     )
+    validate_iteration_summary_champion_promotion_approval(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
     validate_iteration_summary_run_closeout(
         run_dir=run_dir,
         manifest=manifest,
@@ -1148,6 +1153,46 @@ def validate_iteration_summary_champion_promotion_dry_run(
             add_error(
                 report,
                 f"summary.md champion_promotion_dry_run {field_name} mismatch",
+            )
+
+
+def validate_iteration_summary_champion_promotion_approval(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md champion-promotion approval section mirrors manifest."""
+    approval = manifest.get("champion_promotion_approval")
+    if not isinstance(approval, dict):
+        return
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Champion Promotion Approval",
+    )
+    if not section:
+        add_error(report, "summary.md champion_promotion_approval section missing")
+        return
+    expected_lines: tuple[tuple[str, str], ...] = (
+        ("status", f"- Status: `{markdown_display_value(approval.get('status'))}`"),
+        ("ok", f"- OK: `{markdown_display_value(approval.get('ok'))}`"),
+        (
+            "approval_recorded",
+            "- Approval recorded: "
+            f"`{markdown_display_value(approval.get('approval_recorded'))}`",
+        ),
+        ("path", f"- Artifact: `{markdown_display_value(approval.get('path'))}`"),
+        (
+            "markdown_path",
+            "- Markdown: "
+            f"`{markdown_display_value(approval.get('markdown_path'))}`",
+        ),
+    )
+    for field_name, expected_line in expected_lines:
+        if expected_line not in section:
+            add_error(
+                report,
+                f"summary.md champion_promotion_approval {field_name} mismatch",
             )
 
 

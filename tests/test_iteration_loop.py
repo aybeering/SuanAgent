@@ -12459,6 +12459,56 @@ def test_artifact_validator_reports_summary_champion_promotion_dry_run_drift(
     assert "summary.md champion_promotion_dry_run path mismatch" in report["errors"]
 
 
+def test_artifact_validator_reports_summary_champion_promotion_approval_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-summary-champion-promotion-approval-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments" / run_id
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    approval = manifest["champion_promotion_approval"]
+    summary_path = run_dir / "summary.md"
+    summary_text = summary_path.read_text(encoding="utf-8")
+    section_start = summary_text.index("## Champion Promotion Approval")
+    section_end = summary_text.index("\n## Run Closeout", section_start)
+    approval_section = summary_text[section_start:section_end]
+    approval_section = approval_section.replace(
+        f"- Status: `{approval['status']}`",
+        "- Status: `wrong_status`",
+        1,
+    )
+    approval_section = approval_section.replace(
+        f"- Markdown: `{approval['markdown_path']}`",
+        "- Markdown: `wrong_champion_promotion_approval.md`",
+        1,
+    )
+    summary_text = (
+        summary_text[:section_start]
+        + approval_section
+        + summary_text[section_end:]
+    )
+    summary_path.write_text(summary_text, encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert "summary.md champion_promotion_approval status mismatch" in report[
+        "errors"
+    ]
+    assert "summary.md champion_promotion_approval markdown_path mismatch" in report[
+        "errors"
+    ]
+
+
 def test_artifact_validator_reports_summary_run_closeout_drift(
     tmp_path: Path,
 ) -> None:

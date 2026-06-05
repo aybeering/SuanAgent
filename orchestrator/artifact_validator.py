@@ -547,6 +547,11 @@ def validate_iteration_run(
         manifest=manifest,
         report=report,
     )
+    validate_iteration_summary_champion_promotion_dry_run(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
     validate_iteration_summary_run_closeout(
         run_dir=run_dir,
         manifest=manifest,
@@ -1103,6 +1108,46 @@ def validate_iteration_summary_candidate_challenger_report(
             add_error(
                 report,
                 f"summary.md candidate_challenger_report {field_name} mismatch",
+            )
+
+
+def validate_iteration_summary_champion_promotion_dry_run(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md champion-promotion dry-run section mirrors manifest."""
+    promotion = manifest.get("champion_promotion_dry_run")
+    if not isinstance(promotion, dict):
+        return
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Champion Promotion Dry Run",
+    )
+    if not section:
+        add_error(report, "summary.md champion_promotion_dry_run section missing")
+        return
+    expected_lines: tuple[tuple[str, str], ...] = (
+        ("status", f"- Status: `{markdown_display_value(promotion.get('status'))}`"),
+        ("ok", f"- OK: `{markdown_display_value(promotion.get('ok'))}`"),
+        (
+            "would_promote",
+            "- Would promote: "
+            f"`{markdown_display_value(promotion.get('would_promote'))}`",
+        ),
+        ("path", f"- Artifact: `{markdown_display_value(promotion.get('path'))}`"),
+        (
+            "markdown_path",
+            "- Markdown: "
+            f"`{markdown_display_value(promotion.get('markdown_path'))}`",
+        ),
+    )
+    for field_name, expected_line in expected_lines:
+        if expected_line not in section:
+            add_error(
+                report,
+                f"summary.md champion_promotion_dry_run {field_name} mismatch",
             )
 
 

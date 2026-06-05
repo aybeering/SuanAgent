@@ -1788,7 +1788,7 @@ def validate_manifest_operator_next_command(
         operator_home=operator_home,
         report=report,
     )
-    if operator_action_path_has_advanced(run_dir):
+    if operator_home_sources_have_advanced(run_dir):
         return
 
     try:
@@ -1892,14 +1892,26 @@ def validate_manifest_operator_home_static_fields(
             add_error(report, f"manifest.operator_home {field_name} mismatch")
 
 
-def operator_action_path_has_advanced(run_dir: Path) -> bool:
-    """Return whether post-closeout operator action evidence can change views."""
+def operator_home_sources_have_advanced(run_dir: Path) -> bool:
+    """Return whether post-closeout evidence can change operator home views."""
     return any(
         (run_dir / artifact_name).exists()
         for artifact_name in (
             "operator_action_approval.json",
             "operator_action_execution_receipt.json",
             "operator_action_audit.json",
+            "codex_cli_replay_gate.json",
+            "codex_cli_enablement_gate.json",
+            "codex_cli_manual_approval.json",
+            "codex_cli_real_preflight.json",
+            "codex_cli_dry_invocation_guard.json",
+            "codex_cli_execution_unlock_gate.json",
+            "codex_cli_execution_unlock_snapshot.json",
+            "codex_cli_execution_candidate.json",
+            "codex_cli_real_execution_dry_run.json",
+            "codex_cli_readiness_summary.json",
+            "codex_cli_readiness_pipeline.json",
+            "codex_cli_operator_unlock_request.json",
         )
     )
 

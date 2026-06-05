@@ -20037,6 +20037,61 @@ def test_experiment_helpers_surface_manifest_operator_home_safety_drift(
     )
 
 
+def test_experiment_helpers_surface_missing_manifest_operator_home(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "iteration-manifest-home-missing"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+    )
+    manifest_path = repo / "experiments" / run_id / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    del manifest["operator_home"]
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    records = list_experiments(experiments_dir=repo / "experiments", limit=1)
+    shown = show_experiment(run_id=run_id, experiments_dir=repo / "experiments")
+    summary = summarize_experiments(experiments_dir=repo / "experiments")
+
+    assert records[0]["operator_home"]["available"] is False
+    assert records[0]["operator_home"]["reason"] == "operator_home_missing"
+    assert records[0]["operator_home"]["status"] == "operator_home_missing"
+    assert records[0]["operator_home"]["command"] == ""
+    assert records[0]["operator_home"]["next_command_status"] == "unavailable"
+    assert records[0]["operator_next_command"]["available"] is False
+    assert records[0]["operator_next_command"]["reason"] == "operator_home_missing"
+    assert records[0]["operator_next_command"]["selected_command"] == ""
+    assert shown["operator_home"]["available"] is False  # type: ignore[index]
+    assert shown["operator_home"]["reason"] == "operator_home_missing"  # type: ignore[index]
+    assert shown["operator_next_command"]["available"] is False  # type: ignore[index]
+    assert shown["operator_next_command"]["reason"] == "operator_home_missing"  # type: ignore[index]
+    dashboard = summary["dashboard"]
+    assert validate_experiment_summary_dashboard_payload(
+        dashboard,  # type: ignore[arg-type]
+        repo_root=repo,
+    ) == ()
+    assert dashboard["operator_home_entry"]["available"] is False  # type: ignore[index]
+    assert dashboard["operator_home_entry"]["reason"] == (  # type: ignore[index]
+        "latest_iteration_operator_home_missing"
+    )
+    assert dashboard["operator_home_entry"]["source"] == (  # type: ignore[index]
+        "manifest_operator_home_missing"
+    )
+    assert dashboard["operator_home_entry"]["command"] == ""  # type: ignore[index]
+    assert dashboard["operator_next_command_entry"]["available"] is False  # type: ignore[index]
+    assert dashboard["operator_next_command_entry"]["reason"] == (  # type: ignore[index]
+        "latest_iteration_operator_home_missing"
+    )
+    assert dashboard["operator_next_command_entry"]["selected_command"] == ""  # type: ignore[index]
+
+
 def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     run_pipeline(

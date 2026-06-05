@@ -532,21 +532,25 @@ def validate_experiment_operator_home_entry(
         if run_kind != str(latest_run.get("kind", "")):
             errors.append("experiment_summary_dashboard operator_home kind mismatch")
         if str(latest_run.get("kind", "")) == "iteration_loop":
-            if not available:
+            if not available and str(
+                operator_home.get("reason", "")
+            ) != "latest_iteration_operator_home_missing":
                 errors.append("experiment_summary_dashboard operator_home unavailable")
-            if command != expected_command:
+            if available and command != expected_command:
                 errors.append(
                     "experiment_summary_dashboard operator_home command mismatch"
                 )
-            if not next_command_status or next_command_status == "unavailable":
+            if available and (
+                not next_command_status or next_command_status == "unavailable"
+            ):
                 errors.append(
                     "experiment_summary_dashboard operator_home next command unavailable"
                 )
-            if not next_command_text:
+            if available and not next_command_text:
                 errors.append(
                     "experiment_summary_dashboard operator_home next command missing"
                 )
-            if not next_command_boundary:
+            if available and not next_command_boundary:
                 errors.append(
                     "experiment_summary_dashboard operator_home next boundary missing"
                 )
@@ -937,6 +941,12 @@ def experiment_list_operator_home_hint(
         experiments_dir=experiments_dir,
         run_id=run_id,
     )
+    if not manifest_home:
+        return {
+            **base,
+            "reason": "operator_home_missing",
+            "status": "operator_home_missing",
+        }
     command = f"python -m orchestrator.experiments home {run_id} --markdown"
     return {
         **base,
@@ -1130,6 +1140,15 @@ def experiment_operator_home_entry(
         experiments_dir=experiments_dir,
         run_id=run_id,
     )
+    if not manifest_home:
+        base.update(
+            {
+                "reason": "latest_iteration_operator_home_missing",
+                "status": "operator_home_missing",
+                "source": "manifest_operator_home_missing",
+            }
+        )
+        return base
     command = f"python -m orchestrator.experiments home {run_id} --markdown"
     base.update(
         {

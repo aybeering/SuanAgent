@@ -282,7 +282,8 @@
           "enum": [
             "no_runs",
             "latest_run_not_iteration",
-            "latest_iteration_run"
+            "latest_iteration_run",
+            "latest_iteration_operator_home_missing"
           ]
         },
         "run_id": {
@@ -416,6 +417,7 @@
             "not_iteration_run",
             "operator_home_unavailable",
             "latest_run_not_iteration",
+            "latest_iteration_operator_home_missing",
             "latest_iteration_run",
             "iteration_run"
           ]

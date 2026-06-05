@@ -45,6 +45,7 @@ python -m orchestrator.experiments summary --markdown
 python -m orchestrator.experiments leaderboard --limit 5
 python -m orchestrator.experiments leaderboard --limit 5 --markdown
 python -m orchestrator.experiments memory --limit 5
+python -m orchestrator.experiments memory --limit 5 --markdown
 python -m orchestrator.experiments memory-diagnostics
 python -m orchestrator.experiments diagnose <run_id>
 python -m orchestrator.experiments diagnose <run_id> --markdown
@@ -329,7 +330,11 @@ consistency checks bind the output to the bounded tail of
 `experiments/memory.jsonl`, require proposal-outcome identity fields and a
 boolean acceptance result, and keep the command read-only: it does not execute
 agents, rerun backtests, route candidates, apply patches, delete memory, or
-change acceptance.
+change acceptance. `memory --markdown` renders the same validated bounded tail
+as a terminal-only outcome table with run/round, agent, direction,
+acceptance, EV deltas, repeat-patch status, patch family, rejection reason,
+and per-row diagnose/candidate command SHA-256 bindings without creating
+artifacts or changing loop state.
 `python -m orchestrator.experiments summary` additionally embeds a compact
 dashboard with the latest indexed run, latest accepted and rejected runs, recent
 diagnosis rows, recent failure-code counts, recent outcome-category counts, a
@@ -1138,9 +1143,10 @@ Replay artifacts:
   `python -m orchestrator.experiments memory --limit N`. It reads
   `experiments/memory.jsonl`, returns only the bounded recent tail, validates
   against `schemas/proposal_outcome_memory.schema.json`, and checks core
-  proposal outcome identity before printing JSON. It is an inspection view
-  only and cannot execute agents, rerun backtests, route candidates, apply
-  patches, delete memory, or change acceptance.
+  proposal outcome identity before printing JSON or markdown. It is an
+  inspection view only and cannot create artifacts, execute agents, rerun
+  backtests, route candidates, apply patches, delete memory, or change
+  acceptance.
 - `candidate_quality_trace.json` and `candidate_quality_trace.md` summarize
   the saved leaderboard into an inspection-only trace of score components,
   probe/validation/holdout signals, selected attempts, patch families, and

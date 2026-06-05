@@ -2413,6 +2413,112 @@ def agent_result_stats_markdown_rows(rows: list[dict[str, object]]) -> list[str]
     ]
 
 
+def render_proposal_memory_markdown(payload: list[dict[str, object]]) -> str:
+    """Render recent proposal outcome memory rows as operator-facing markdown."""
+    accepted_count = sum(1 for row in payload if row.get("accepted") is True)
+    repeat_count = sum(1 for row in payload if row.get("is_repeat_patch") is True)
+    lines = [
+        "# Proposal Outcome Memory",
+        "",
+        f"- Row count: `{len(payload)}`",
+        f"- Accepted: `{accepted_count}`",
+        f"- Rejected: `{len(payload) - accepted_count}`",
+        f"- Repeat patches: `{repeat_count}`",
+        "- Source: `experiments/memory.jsonl`",
+        "",
+        "## Recent Outcomes",
+        "",
+        (
+            "| Row | Created | Run | Round | Agent | Direction | Accepted | "
+            "Validation EV | Holdout EV | Repeat | Patch | Reason |"
+        ),
+        "| ---: | --- | --- | --- | --- | --- | --- | ---: | ---: | --- | --- | --- |",
+    ]
+    if not payload:
+        lines.append(
+            "| 0 | none | none | none | none | none | False | n/a | n/a | False | none | none |"
+        )
+    for index, row in enumerate(payload, start=1):
+        patch_sha = str(row.get("patch_sha256", ""))
+        reason = proposal_memory_reason_text(row)
+        lines.append(
+            "| "
+            f"{index} | "
+            f"`{markdown_cell(row.get('created_at', ''))}` | "
+            f"`{markdown_cell(row.get('run_id', ''))}` | "
+            f"`{markdown_cell(row.get('round_id', ''))}` | "
+            f"`{markdown_cell(row.get('agent_name', '') or 'unknown')}` | "
+            f"`{markdown_cell(row.get('direction_tag', '') or 'none')}` | "
+            f"`{row.get('accepted', False)}` | "
+            f"{number_text(row.get('validation_ev_delta'))} | "
+            f"{number_text(row.get('holdout_ev_delta'))} | "
+            f"`{row.get('is_repeat_patch', False)}` | "
+            f"`{markdown_cell(patch_sha[:12] or 'none')}` | "
+            f"{markdown_cell(reason)} |"
+        )
+
+    lines.extend(["", "## Commands", ""])
+    if not payload:
+        lines.append("- No proposal outcome memory rows are available.")
+    for index, row in enumerate(payload, start=1):
+        run_id = str(row.get("run_id", ""))
+        if not run_id:
+            continue
+        diagnose_command = (
+            f"python -m orchestrator.experiments diagnose {run_id} --markdown"
+        )
+        candidates_command = (
+            f"python -m orchestrator.experiments candidates {run_id} "
+            "--limit 20 --markdown"
+        )
+        lines.extend(
+            [
+                f"- Row `{index}` diagnose: `{markdown_cell(diagnose_command)}`",
+                f"  SHA-256: `{sha256_text(diagnose_command)}`",
+                f"- Row `{index}` candidates: `{markdown_cell(candidates_command)}`",
+                f"  SHA-256: `{sha256_text(candidates_command)}`",
+            ]
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Policy",
+            "",
+            "- Inspection only: `True`",
+            "- Creates artifacts: `False`",
+            "- Executes agents: `False`",
+            "- Reruns backtests: `False`",
+            "- Routes candidates: `False`",
+            "- Applies patches: `False`",
+            "- Deletes memory: `False`",
+            "- Changes acceptance: `False`",
+            "- Writes config: `False`",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def proposal_memory_reason_text(row: dict[str, object]) -> str:
+    """Return the first compact reason string for a proposal memory row."""
+    reasons = row.get("reasons", [])
+    if isinstance(reasons, list):
+        for reason in reasons:
+            if isinstance(reason, str) and reason:
+                return reason
+    contract_errors = row.get("contract_errors", [])
+    if isinstance(contract_errors, list):
+        for error in contract_errors:
+            if isinstance(error, str) and error:
+                return error
+    holdout_policy = row.get("holdout_policy", {})
+    if isinstance(holdout_policy, dict):
+        failure_code = str(holdout_policy.get("failure_code", ""))
+        if failure_code and failure_code != "none":
+            return failure_code
+    return "none"
+
+
 def render_experiment_show_markdown(payload: dict[str, object]) -> str:
     """Render one compact experiment record as operator-facing markdown."""
     kind = str(payload.get("kind", "unknown"))
@@ -6565,6 +6671,11 @@ def main() -> None:
         help="List recent proposal outcome memory records.",
     )
     memory_parser.add_argument("--limit", type=int, default=10)
+    memory_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render proposal outcome memory as markdown.",
+    )
 
     candidates_parser = subparsers.add_parser(
         "candidates",
@@ -6964,6 +7075,9 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             limit=args.limit,
         )
+        if args.markdown:
+            print(render_proposal_memory_markdown(payload), end="")
+            return
     elif args.command == "candidates":
         payload = candidate_leaderboard(
             experiments_dir=args.experiments_dir,

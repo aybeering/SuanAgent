@@ -423,6 +423,7 @@ from orchestrator.experiments import (
     render_candidate_leaderboard_markdown,
     render_operator_view_refresh_markdown,
     render_operator_run_review_markdown,
+    render_proposal_memory_markdown,
     show_experiment,
     show_champion,
     summarize_experiments,
@@ -23015,6 +23016,10 @@ def test_experiments_cli_memory_work(tmp_path: Path) -> None:
         experiments_dir=repo / "experiments",
         limit=1,
     ) == ()
+    memory_markdown = render_proposal_memory_markdown(memory_rows)
+    assert "# Proposal Outcome Memory" in memory_markdown
+    assert "## Recent Outcomes" in memory_markdown
+    assert "Deletes memory: `False`" in memory_markdown
     drift_memory_rows = [dict(memory_rows[0]), dict(memory_rows[0])]
     drift_memory_rows[0]["created_at"] = "9999-01-01T00:00:00Z"
     drift_memory_rows[0]["kind"] = "other"
@@ -23048,6 +23053,23 @@ def test_experiments_cli_memory_work(tmp_path: Path) -> None:
         text=True,
         check=False,
     )
+    markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "memory",
+            "--limit",
+            "1",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
@@ -23060,6 +23082,10 @@ def test_experiments_cli_memory_work(tmp_path: Path) -> None:
     ) == ()
     assert payload[0]["run_id"] == "cli-memory"
     assert payload[0]["kind"] == "proposal_outcome"
+    assert markdown_result.returncode == 0, markdown_result.stderr
+    assert "# Proposal Outcome Memory" in markdown_result.stdout
+    assert "cli-memory" in markdown_result.stdout
+    assert "Deletes memory: `False`" in markdown_result.stdout
 
 
 def test_experiments_candidate_leaderboard_helpers_and_cli_work(

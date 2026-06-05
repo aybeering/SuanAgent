@@ -73,6 +73,8 @@ python -m orchestrator.champion_promotion_approval experiments/<run_id>
 python -m orchestrator.champion_promotion_approval experiments/<run_id> --markdown
 python -m orchestrator.experiments promotion-approval <run_id>
 python -m orchestrator.experiments promotion-approval <run_id> --markdown
+python -m orchestrator.champion_promotion_executor <candidate_run_id> --approval-path experiments/<run_id>/champion_promotion_approval.json
+python -m orchestrator.champion_promotion_executor <candidate_run_id> --approval-path experiments/<run_id>/champion_promotion_approval.json --markdown
 python -m orchestrator.experiments apply-config-approved <run_id> --dry-run-path experiments/<run_id>/config_application_dry_run.json
 python -m orchestrator.experiments config-application-rollback-preview <run_id> --receipt-path experiments/<run_id>/config_application_receipt.json
 python -m orchestrator.experiments restore-config-approved <run_id> --preview-path experiments/<run_id>/config_application_rollback_preview.json
@@ -1277,6 +1279,7 @@ Replay artifacts:
   and guarded-write policy flags. The artifact validator reuses the non-source
   consistency checks without treating older blocked receipts as unhealthy after
   a later approval artifact refresh.
+  The direct executor module can also print the same receipt as markdown.
   `python -m orchestrator.experiments promote-approved <candidate_run_id>` and
   `python -m orchestrator.experiments promote-approved <candidate_run_id> --markdown`
   write the guarded receipt and print JSON or markdown, preserving blocked

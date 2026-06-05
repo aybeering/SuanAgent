@@ -22075,6 +22075,21 @@ def test_champion_promote_approved_requires_recorded_approval(
         text=True,
         check=False,
     )
+    blocked_direct_promote_markdown = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.champion_promotion_executor",
+            "receipt-candidate",
+            "--approval-path",
+            "experiments/receipt-candidate/champion_promotion_approval.json",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
     assert blocked_dry.returncode == 0, blocked_dry.stderr
     assert blocked_approval.returncode == 0, blocked_approval.stderr
@@ -22095,6 +22110,13 @@ def test_champion_promote_approved_requires_recorded_approval(
     assert "- Candidate run: `receipt-candidate`" in blocked_promote_markdown.stdout
     assert "## Blockers" in blocked_promote_markdown.stdout
     assert "approval_not_recorded" in blocked_promote_markdown.stdout
+    assert blocked_direct_promote_markdown.returncode == 1
+    assert "# Champion Promotion Receipt" in blocked_direct_promote_markdown.stdout
+    assert "- Candidate run: `receipt-candidate`" in (
+        blocked_direct_promote_markdown.stdout
+    )
+    assert "## Blockers" in blocked_direct_promote_markdown.stdout
+    assert "approval_not_recorded" in blocked_direct_promote_markdown.stdout
 
     approval_result = subprocess.run(
         [

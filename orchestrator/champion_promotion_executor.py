@@ -489,6 +489,11 @@ def main() -> None:
     parser.add_argument("--experiments-dir", type=Path, default=Path("experiments"))
     parser.add_argument("--repo-root", type=Path, default=Path("."))
     parser.add_argument("--min-ev-delta", type=float, default=0.0)
+    parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Print the champion promotion receipt as markdown.",
+    )
     args = parser.parse_args()
     payload = promote_champion_with_approval(
         candidate_run_id=args.candidate_run_id,
@@ -497,7 +502,10 @@ def main() -> None:
         repo_root=args.repo_root,
         min_ev_delta=args.min_ev_delta,
     )
-    print(json.dumps(payload, indent=2, sort_keys=True))
+    if args.markdown:
+        print(render_receipt_markdown(payload), end="")
+    else:
+        print(json.dumps(payload, indent=2, sort_keys=True))
     if not payload.get("promoted", False):
         raise SystemExit(1)
 

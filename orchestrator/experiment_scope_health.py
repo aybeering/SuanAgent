@@ -211,6 +211,108 @@ def write_experiment_scope_health(
     return payload
 
 
+def render_experiment_scope_health_markdown(payload: dict[str, Any]) -> str:
+    """Render an experiment scope health payload as terminal markdown."""
+    def compact_list(values: list[str], *, max_items: int = 10) -> str:
+        if not values:
+            return "`none`"
+        shown = values[:max_items]
+        text = ", ".join(f"`{value}`" for value in shown)
+        remaining = len(values) - len(shown)
+        if remaining > 0:
+            text += f", ... +{remaining} more"
+        return text
+
+    summary = payload.get("summary", {})
+    if not isinstance(summary, dict):
+        summary = {}
+    component_status = payload.get("component_status", {})
+    if not isinstance(component_status, dict):
+        component_status = {}
+    scope = payload.get("scope", {})
+    if not isinstance(scope, dict):
+        scope = {}
+    components = payload.get("components", {})
+    if not isinstance(components, dict):
+        components = {}
+
+    run_health = components.get("run_artifact_health", {})
+    if not isinstance(run_health, dict):
+        run_health = {}
+    history = components.get("run_artifact_health_history", {})
+    if not isinstance(history, dict):
+        history = {}
+    memory = components.get("memory_diagnostics", {})
+    if not isinstance(memory, dict):
+        memory = {}
+
+    lines = [
+        "# Experiment Scope Health",
+        "",
+        f"- Status: `{payload.get('status', '')}`",
+        f"- OK: `{payload.get('ok', False)}`",
+        f"- Created at from: `{scope.get('created_at_from', '')}`",
+        f"- Experiments dir: `{payload.get('experiments_dir', '')}`",
+        f"- History path: `{payload.get('history_path', '')}`",
+        "",
+        "## Summary",
+        "",
+        f"- Scoped runs: `{summary.get('scoped_run_count', 0)}`",
+        f"- Artifact failed runs: `{summary.get('artifact_failed_run_count', 0)}`",
+        f"- Artifact errors: `{summary.get('artifact_error_count', 0)}`",
+        f"- Artifact warnings: `{summary.get('artifact_warning_count', 0)}`",
+        f"- History records: `{summary.get('history_record_count', 0)}`",
+        "- History failed run observations: "
+        f"`{summary.get('history_failed_run_observation_count', 0)}`",
+        f"- Memory outcome records: `{summary.get('memory_outcome_record_count', 0)}`",
+        "- Memory failed health runs: "
+        f"`{summary.get('memory_failed_health_run_count', 0)}`",
+        f"- Read errors: `{summary.get('read_error_count', 0)}`",
+        "",
+        "## Component Status",
+        "",
+    ]
+    for key in (
+        "run_artifact_health_ok",
+        "run_artifact_health_history_ok",
+        "memory_diagnostics_ok",
+        "history_scope_clean",
+        "memory_scope_clean",
+    ):
+        lines.append(f"- {key}: `{component_status.get(key, False)}`")
+
+    lines.extend(["", "## Failed Runs", ""])
+    failed_run_ids = string_list(run_health.get("failed_run_ids", []))
+    history_failed_run_ids = string_list(history.get("failed_run_ids", []))
+    memory_failed_run_ids = string_list(
+        memory.get("unmatched_failed_health_run_ids", [])
+    )
+    lines.append(
+        "- Current artifact health: "
+        + compact_list(failed_run_ids)
+    )
+    lines.append(
+        "- Artifact-health history: "
+        + compact_list(history_failed_run_ids)
+    )
+    lines.append(
+        "- Memory diagnostics unmatched: "
+        + compact_list(memory_failed_run_ids)
+    )
+
+    lines.extend(
+        [
+            "",
+            "## Policy",
+            "",
+            "- This view is read-only and does not execute agents, run backtests, route agents, apply patches, or change acceptance.",
+            "- Use `--strict` when a nonzero exit is required for unhealthy scopes.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def validate_experiment_scope_health_file(
     *,
     payload_path: Path,
@@ -249,6 +351,11 @@ def main() -> None:
     )
     parser.add_argument("--output", type=Path)
     parser.add_argument("--strict", action="store_true")
+    parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the scope health report as markdown.",
+    )
     args = parser.parse_args()
 
     if args.output is not None:
@@ -268,7 +375,10 @@ def main() -> None:
             limit=args.limit,
             created_at_from=args.created_at_from,
         )
-    print(json.dumps(payload, indent=2, sort_keys=True))
+    if args.markdown:
+        print(render_experiment_scope_health_markdown(payload), end="")
+    else:
+        print(json.dumps(payload, indent=2, sort_keys=True))
     if args.strict and not payload["ok"]:
         raise SystemExit(1)
 

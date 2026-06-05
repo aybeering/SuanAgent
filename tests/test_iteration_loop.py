@@ -246,6 +246,7 @@ from orchestrator.memory_scope_recommendation import (
 from orchestrator.experiment_scope_health import (
     SCHEMA_VERSION as EXPERIMENT_SCOPE_HEALTH_SCHEMA_VERSION,
     build_experiment_scope_health,
+    render_experiment_scope_health_markdown,
     validate_experiment_scope_health_file,
     write_experiment_scope_health,
 )
@@ -1379,6 +1380,15 @@ def test_experiment_scope_health_summarizes_current_scope(tmp_path: Path) -> Non
     assert payload["components"]["run_artifact_health"]["failed_run_ids"] == []
     assert payload["policy"]["does_not_execute_agents"] is True
     assert payload["policy"]["does_not_route_agents"] is True
+    noisy_payload = json.loads(json.dumps(payload))
+    noisy_payload["components"]["run_artifact_health"]["failed_run_ids"] = [
+        f"failed-run-{index:02d}" for index in range(12)
+    ]
+    noisy_markdown = render_experiment_scope_health_markdown(noisy_payload)
+    assert "failed-run-00" in noisy_markdown
+    assert "failed-run-09" in noisy_markdown
+    assert "failed-run-10" not in noisy_markdown
+    assert "... +2 more" in noisy_markdown
     assert_matches_schema_payload(payload, "experiment_scope_health")
     assert_matches_schema(output_path, "experiment_scope_health")
     assert validate_experiment_scope_health_file(
@@ -1452,6 +1462,47 @@ def test_experiment_scope_health_cli_and_experiments_command(
         capture_output=True,
         text=True,
     )
+    direct_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiment_scope_health",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "--repo-root",
+            str(repo),
+            "--history-path",
+            str(history_path),
+            "--created-at-from",
+            "2026-01-01T00:00:00Z",
+            "--strict",
+            "--markdown",
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    experiments_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "scope-health",
+            "--history-path",
+            str(history_path),
+            "--created-at-from",
+            "2026-01-01T00:00:00Z",
+            "--strict",
+            "--markdown",
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     direct_payload = json.loads(direct_result.stdout)
     experiments_payload = json.loads(experiments_result.stdout)
 
@@ -1464,6 +1515,15 @@ def test_experiment_scope_health_cli_and_experiments_command(
     assert direct_payload["policy"]["does_not_run_backtests"] is True
     assert experiments_payload["policy"]["does_not_change_acceptance"] is True
     assert_matches_schema(repo / "experiment_scope_health.json", "experiment_scope_health")
+    assert "# Experiment Scope Health" in direct_markdown_result.stdout
+    assert "Status: `healthy`" in direct_markdown_result.stdout
+    assert "## Component Status" in direct_markdown_result.stdout
+    assert "does not execute agents" in direct_markdown_result.stdout
+    assert "# Experiment Scope Health" in experiments_markdown_result.stdout
+    assert "Created at from: `2026-01-01T00:00:00Z`" in (
+        experiments_markdown_result.stdout
+    )
+    assert "Memory outcome records:" in experiments_markdown_result.stdout
     assert (
         repo / "strategies/current_strategy.py"
     ).read_text(encoding="utf-8") == strategy_before

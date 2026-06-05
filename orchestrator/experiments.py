@@ -27,7 +27,10 @@ from orchestrator.experiment_index import read_experiment_index, recent_experime
 from orchestrator.external_agent_sandbox_drill import (
     build_external_agent_sandbox_drill,
 )
-from orchestrator.experiment_scope_health import build_experiment_scope_health
+from orchestrator.experiment_scope_health import (
+    build_experiment_scope_health,
+    render_experiment_scope_health_markdown,
+)
 from orchestrator.config_application_dry_run import (
     build_config_application_dry_run,
     render_config_application_dry_run_markdown,
@@ -7075,6 +7078,11 @@ def main() -> None:
     scope_health_parser.add_argument("--history-path", type=Path)
     scope_health_parser.add_argument("--created-at-from", default="")
     scope_health_parser.add_argument("--strict", action="store_true")
+    scope_health_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render experiment scope health as markdown.",
+    )
 
     summary_parser = subparsers.add_parser(
         "summary",
@@ -7503,6 +7511,11 @@ def main() -> None:
             limit=args.limit,
             created_at_from=args.created_at_from,
         )
+        if args.markdown:
+            print(render_experiment_scope_health_markdown(payload), end="")
+            if args.strict and not payload.get("ok", False):
+                raise SystemExit(1)
+            return
     else:
         payload = summarize_experiments(experiments_dir=args.experiments_dir)
         if args.markdown:

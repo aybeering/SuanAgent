@@ -164,7 +164,9 @@ python -m orchestrator.experiments health-history
 python -m orchestrator.memory_diagnostics --strict
 python -m orchestrator.memory_diagnostics --created-at-from 2026-06-02T00:00:00Z --strict
 python -m orchestrator.experiment_scope_health --created-at-from 2026-06-02T00:00:00Z --strict
+python -m orchestrator.experiment_scope_health --created-at-from 2026-06-02T00:00:00Z --strict --markdown
 python -m orchestrator.experiments scope-health --created-at-from 2026-06-02T00:00:00Z --strict
+python -m orchestrator.experiments scope-health --created-at-from 2026-06-02T00:00:00Z --strict --markdown
 python -m orchestrator.artifact_validator_coverage --output artifact_validator_coverage.json --markdown artifact_validator_coverage.md
 python -m orchestrator.artifact_validator_coverage --strict
 python -m orchestrator.experiments coverage
@@ -1040,7 +1042,12 @@ Replay artifacts:
   component has read errors, current artifact failures, historical scoped
   failure observations, or memory-linked failed health runs. The iteration loop
   writes it automatically at run completion using the run's startup timestamp
-  as the current-contract scope boundary.
+  as the current-contract scope boundary. The direct
+  `python -m orchestrator.experiment_scope_health --markdown` command and
+  `python -m orchestrator.experiments scope-health --markdown` render the same
+  terminal-only health summary without writing config, running agents,
+  rerunning backtests, routing candidates, applying patches, or changing
+  acceptance.
 - `research_brief.json` and `research_brief.md` summarize the completed
   iteration run, selected candidates, champion comparison context, deterministic
   observations, next questions, a run-local watchlist, and a recommended

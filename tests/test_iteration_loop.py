@@ -12223,6 +12223,40 @@ def test_artifact_validator_reports_iteration_diagnosis_summary_drift(
     assert "diagnosis.json agent_intake_summary mismatch" in report["errors"]
 
 
+def test_artifact_validator_reports_iteration_diagnosis_best_round_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-diagnosis-best-round-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    diagnosis_path = repo / "experiments" / run_id / "diagnosis.json"
+    diagnosis = json.loads(diagnosis_path.read_text(encoding="utf-8"))
+    diagnosis["best_round"]["round_id"] = "round_999"
+    diagnosis["best_round"]["validation_ev_delta"] = 999.0
+    diagnosis_path.write_text(
+        json.dumps(diagnosis, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert "diagnosis.json best_round row mismatch" in report["errors"]
+    assert "diagnosis.json best_round round_id mismatch" in report["errors"]
+    assert (
+        "diagnosis.json best_round validation_ev_delta mismatch"
+        in report["errors"]
+    )
+
+
 def test_artifact_validator_reports_iteration_diagnosis_selected_candidates_drift(
     tmp_path: Path,
 ) -> None:

@@ -6090,6 +6090,11 @@ def validate_optional_diagnosis(
             manifest=manifest,
             report=report,
         )
+        validate_iteration_diagnosis_best_round(
+            payload=payload,
+            manifest=manifest,
+            report=report,
+        )
         validate_iteration_diagnosis_selected_candidates(
             payload=payload,
             run_dir=run_dir,
@@ -6123,6 +6128,84 @@ def validate_iteration_diagnosis_summary(
             add_error(report, f"diagnosis.json {field_name} mismatch")
     if payload.get("agent_intake_summary") != manifest.get("agent_intake_summary"):
         add_error(report, "diagnosis.json agent_intake_summary mismatch")
+
+
+def validate_iteration_diagnosis_best_round(
+    *,
+    payload: dict[str, object],
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate diagnosis best_round mirrors diagnosis rows and manifest deltas."""
+    best_round = payload.get("best_round")
+    if best_round is None:
+        if list_of_dicts(manifest.get("rounds", [])):
+            add_error(report, "diagnosis.json best_round missing")
+        return
+    if not isinstance(best_round, dict):
+        add_error(report, "diagnosis.json best_round invalid")
+        return
+
+    diagnosis_rounds = list_of_dicts(payload.get("rounds", []))
+    matching_round = next(
+        (
+            row
+            for row in diagnosis_rounds
+            if str(row.get("round_id", "")) == str(best_round.get("round_id", ""))
+        ),
+        None,
+    )
+    if matching_round is None or matching_round != best_round:
+        add_error(report, "diagnosis.json best_round row mismatch")
+
+    manifest_rounds = list_of_dicts(manifest.get("rounds", []))
+    expected = best_validation_manifest_round(manifest_rounds)
+    if expected is None:
+        return
+    expected_delta = metric_delta_from_round(
+        expected,
+        "validation_ev_before",
+        "validation_ev_after",
+    )
+    if str(best_round.get("round_id", "")) != str(expected.get("round_id", "")):
+        add_error(report, "diagnosis.json best_round round_id mismatch")
+    if float_from_object(best_round.get("validation_ev_delta", 0.0)) != expected_delta:
+        add_error(report, "diagnosis.json best_round validation_ev_delta mismatch")
+
+
+def best_validation_manifest_round(
+    rows: list[dict[str, object]],
+) -> dict[str, object] | None:
+    """Return the manifest round with the largest validation EV improvement."""
+    if not rows:
+        return None
+    return max(
+        rows,
+        key=lambda row: metric_delta_from_round(
+            row,
+            "validation_ev_before",
+            "validation_ev_after",
+        ),
+    )
+
+
+def metric_delta_from_round(
+    row: dict[str, object],
+    before_key: str,
+    after_key: str,
+) -> float:
+    """Return a numeric before/after delta from a manifest round row."""
+    return float_from_object(row.get(after_key, 0.0)) - float_from_object(
+        row.get(before_key, 0.0)
+    )
+
+
+def float_from_object(value: object) -> float:
+    """Return a float for validator comparisons, defaulting invalid values to 0."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def validate_iteration_diagnosis_selected_candidates(

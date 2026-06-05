@@ -145,7 +145,9 @@ Implemented or allowed V0.5 components:
     The artifact validator binds iteration `diagnosis.json` run status,
     completed-round count, accepted round, stop reason, final strategy commit,
     and agent-intake summary back to `manifest.json`, and selected candidate
-    rows back to `candidate_leaderboard.json`.
+    rows back to `candidate_leaderboard.json`. It also binds diagnosis
+    `best_round` to the best validation EV delta in `manifest.rounds` and the
+    corresponding diagnosis round row.
     The artifact validator also binds the saved `summary.md` top-level run
     header back to `manifest.json` for run id, status, completed-round,
     accepted-round, stop-reason, and final-strategy-commit consistency, and

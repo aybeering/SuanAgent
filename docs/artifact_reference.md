@@ -290,7 +290,9 @@ present, checking the diagnosis navigation against the saved
 to stay read-only. For iteration diagnoses, it also binds the diagnosis run
 status, completed-round count, accepted round, stop reason, final strategy
 commit, and agent-intake summary back to `manifest.json`, and binds selected
-candidate rows back to `candidate_leaderboard.json`.
+candidate rows back to `candidate_leaderboard.json`. The saved diagnosis
+`best_round` must match the best validation EV delta from `manifest.rounds`
+and the corresponding diagnosis round row.
 
 `champion_history.jsonl` exists after guarded champion promotion.
 `champion_lineage.json` and `champion_lineage.md` are written by the lineage

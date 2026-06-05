@@ -983,9 +983,10 @@ Replay artifacts:
   whether approved config candidates still match the current config value and
   are ready for a later manual edit. They remain dry-run only and never edit
   config, route candidates, apply patches, run backtests, or change acceptance.
-  `python -m orchestrator.experiments config-application-dry-run <run_id>`
-  validates schema, application gate counts, planned-row readiness, status, and
-  next actions before printing JSON.
+  `python -m orchestrator.experiments config-application-dry-run <run_id>` and
+  `python -m orchestrator.experiments config-application-dry-run <run_id> --markdown`
+  validate schema, application gate counts, planned-row readiness, status, and
+  next actions before printing JSON or markdown.
 - `config_application_receipt.json` and `config_application_receipt.md` record
   the result of the guarded apply-config-approved command. The command writes
   config only when the saved dry-run is ready, the operator-review digest still

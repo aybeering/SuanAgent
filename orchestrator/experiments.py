@@ -30,6 +30,7 @@ from orchestrator.external_agent_sandbox_drill import (
 from orchestrator.experiment_scope_health import build_experiment_scope_health
 from orchestrator.config_application_dry_run import (
     build_config_application_dry_run,
+    render_config_application_dry_run_markdown,
     validate_config_application_dry_run_payload,
 )
 from orchestrator.config_operator_runbook import (
@@ -7001,6 +7002,11 @@ def main() -> None:
         type=Path,
         default=Path("config/default.json"),
     )
+    config_application_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the config application dry run as markdown.",
+    )
 
     config_runbook_parser = subparsers.add_parser(
         "config-runbook",
@@ -7414,6 +7420,9 @@ def main() -> None:
             run_id=args.run_id,
             config_path=args.config,
         )
+        if args.markdown:
+            print(render_config_application_dry_run_markdown(payload), end="")
+            return
     elif args.command == "config-runbook":
         payload = config_operator_runbook_report(
             experiments_dir=args.experiments_dir,

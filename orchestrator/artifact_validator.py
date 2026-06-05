@@ -609,6 +609,12 @@ def validate_iteration_run(
         manifest=manifest,
         report=report,
     )
+    validate_manifest_operator_next_command(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        manifest=manifest,
+        report=report,
+    )
 
     for round_id in round_ids:
         round_dir = run_dir / round_id
@@ -1763,6 +1769,139 @@ def validate_iteration_summary_operator_next_command(
                 report,
                 f"summary.md operator_next_command {field_name} mismatch",
             )
+
+
+def validate_manifest_operator_next_command(
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate manifest operator-home next command against current selector."""
+    operator_home = manifest.get("operator_home")
+    if not isinstance(operator_home, dict):
+        return
+    if str(operator_home.get("status", "")) == "pending":
+        return
+    validate_manifest_operator_home_static_fields(
+        operator_home=operator_home,
+        report=report,
+    )
+    if operator_action_path_has_advanced(run_dir):
+        return
+
+    try:
+        from orchestrator.operator_home import build_operator_next_command
+
+        selector = build_operator_next_command(
+            run_dir=run_dir,
+            experiments_dir=run_dir.parent,
+            repo_root=repo_root,
+        )
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        add_error(report, f"manifest.operator_home selector unavailable: {exc}")
+        return
+
+    safety = dict_value(selector.get("safety"))
+    source_home = dict_value(selector.get("source_home"))
+    expected_text_fields: tuple[tuple[str, object], ...] = (
+        ("status", selector.get("home_status", "")),
+        ("primary_focus", selector.get("primary_focus", "")),
+        ("action_step", selector.get("action_step", "")),
+        ("next_command_label", selector.get("label", "")),
+        ("next_command", selector.get("command", "")),
+        ("next_command_status", selector.get("status", "")),
+        ("next_command_operator_hint", selector.get("operator_hint", "")),
+        ("next_command_boundary", selector.get("boundary_type", "")),
+        ("next_command_writes_artifact", selector.get("writes_artifact", "")),
+        (
+            "codex_unlock_runbook_status",
+            selector.get("codex_unlock_runbook_status", ""),
+        ),
+        (
+            "codex_intake_readiness_status",
+            selector.get("codex_intake_readiness_status", ""),
+        ),
+        ("command_label", source_home.get("command_label", "")),
+        ("command", source_home.get("command", "")),
+        ("markdown_command", source_home.get("command", "")),
+        ("command_boundary", source_home.get("boundary_type", "")),
+    )
+    for field_name, expected_value in expected_text_fields:
+        if str(operator_home.get(field_name, "")) != str(expected_value):
+            add_error(report, f"manifest.operator_home {field_name} mismatch")
+
+    expected_bool_fields: tuple[tuple[str, object], ...] = (
+        ("terminal_only", source_home.get("terminal_only", False)),
+        ("artifact_created", source_home.get("artifact_created", True)),
+        ("ok", str(selector.get("home_status", "")) != "blocked"),
+        ("next_command_blocked", selector.get("blocked", False)),
+        (
+            "next_command_requires_explicit_operator_invocation",
+            safety.get("requires_explicit_operator_invocation", False),
+        ),
+        (
+            "next_command_requires_operator_approval",
+            safety.get("requires_operator_approval", False),
+        ),
+        (
+            "next_command_records_operator_approval",
+            safety.get("records_operator_approval", False),
+        ),
+        (
+            "next_command_uses_guarded_executor",
+            safety.get("uses_guarded_executor", False),
+        ),
+        (
+            "next_command_is_hint_only",
+            safety.get("command_is_hint_only", False),
+        ),
+        ("command_is_hint_only", True),
+    )
+    for field_name, expected_value in expected_bool_fields:
+        if bool(operator_home.get(field_name, False)) != bool(expected_value):
+            add_error(report, f"manifest.operator_home {field_name} mismatch")
+
+    if int_value(operator_home.get("next_command_blocker_count", 0)) != int_value(
+        selector.get("blocker_count", 0)
+    ):
+        add_error(report, "manifest.operator_home next_command_blocker_count mismatch")
+
+
+def validate_manifest_operator_home_static_fields(
+    *,
+    operator_home: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate manifest operator-home fields that are closeout-invariant."""
+    expected_fields: tuple[tuple[str, object], ...] = (
+        ("terminal_only", True),
+        ("artifact_created", False),
+        ("command_label", "review_operator_home"),
+        ("command_boundary", "read_only_inspection"),
+        ("command_is_hint_only", True),
+        ("next_command_is_hint_only", True),
+    )
+    for field_name, expected_value in expected_fields:
+        actual = operator_home.get(field_name)
+        if isinstance(expected_value, bool):
+            if bool(actual) != expected_value:
+                add_error(report, f"manifest.operator_home {field_name} mismatch")
+        elif str(actual or "") != str(expected_value):
+            add_error(report, f"manifest.operator_home {field_name} mismatch")
+
+
+def operator_action_path_has_advanced(run_dir: Path) -> bool:
+    """Return whether post-closeout operator action evidence can change views."""
+    return any(
+        (run_dir / artifact_name).exists()
+        for artifact_name in (
+            "operator_action_approval.json",
+            "operator_action_execution_receipt.json",
+            "operator_action_audit.json",
+        )
+    )
 
 
 def markdown_display_value(value: object) -> str:

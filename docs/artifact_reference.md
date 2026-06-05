@@ -510,6 +510,15 @@ derived from the same manifest row. The validator binds its
 `operator_home.next_command` source marker, selected command, status, blocker
 state, boundary, write target, and safety flags back to `manifest.operator_home`,
 so the landing page and the narrow next-command selector cannot drift apart.
+Before later operator action approval, execution, or audit artifacts advance the
+action path, the validator also rebuilds the terminal-only next-command selector
+from current run evidence and checks the compact `manifest.operator_home`
+next-command row against it, including command text, status, blocker state,
+boundary, write target, Codex readiness statuses, source-home command, and
+hint-only safety flags. After those later operator artifacts exist, the manifest
+row remains a closeout-time snapshot; the validator still checks its static
+read-only and hint-only safety fields while terminal-only views derive the
+current next step from the newer evidence.
 When no run id is supplied, `home` resolves the latest indexed iteration-loop
 run with a saved `manifest.json`; `--latest` makes the same selection explicit.
 `python -m orchestrator.experiments next-command <run_id>`, `python -m

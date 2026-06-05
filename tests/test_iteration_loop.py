@@ -12949,6 +12949,42 @@ def test_artifact_validator_reports_summary_operator_next_command_drift(
     assert "summary.md operator_next_command hint_only mismatch" in report["errors"]
 
 
+def test_artifact_validator_reports_manifest_operator_next_command_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-manifest-next-command-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments" / run_id
+    manifest_path = run_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["operator_home"]["next_command"] = "python -m orchestrator.run_loop"
+    manifest["operator_home"]["next_command_blocked"] = False
+    manifest["operator_home"]["next_command_is_hint_only"] = False
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert "manifest.operator_home next_command mismatch" in report["errors"]
+    assert "manifest.operator_home next_command_blocked mismatch" in report["errors"]
+    assert (
+        "manifest.operator_home next_command_is_hint_only mismatch"
+        in report["errors"]
+    )
+
+
 def test_artifact_validator_reports_summary_header_drift(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     run_id = "artifact-summary-header-drift"

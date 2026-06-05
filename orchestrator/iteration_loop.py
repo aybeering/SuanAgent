@@ -824,6 +824,7 @@ def finalize_iteration_run(
             config_lineage_checks.get("existing_stage_count", 0) or 0
         ),
     }
+    write_json(run_dir / "manifest.json", manifest)
     write_iteration_summary(run_dir=run_dir, manifest=manifest)
     append_experiment_index(
         experiments_dir=experiments_dir,

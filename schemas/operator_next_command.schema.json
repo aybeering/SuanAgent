@@ -13,6 +13,7 @@
     "selection_source",
     "label",
     "command",
+    "command_sha256",
     "reason",
     "boundary_type",
     "writes_artifact",
@@ -55,6 +56,10 @@
     },
     "label": {"type": "string"},
     "command": {"type": "string"},
+    "command_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
     "reason": {"type": "string"},
     "boundary_type": {"type": "string"},
     "writes_artifact": {"type": "string"},
@@ -97,6 +102,7 @@
         "command_is_hint_only",
         "command_label",
         "command",
+        "command_sha256",
         "boundary_type"
       ],
       "properties": {
@@ -106,6 +112,10 @@
         "command_is_hint_only": {"type": "boolean"},
         "command_label": {"type": "string"},
         "command": {"type": "string"},
+        "command_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
         "boundary_type": {"type": "string"}
       }
     },

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -191,6 +192,10 @@ def build_operator_next_command(
     status = str(action_home.get("next_command_status", "unavailable"))
     blocked = bool(action_home.get("next_command_blocked", True))
     command = str(next_command.get("command", ""))
+    home_command = (
+        "python -m orchestrator.experiments "
+        f"home {home.get('run_id', run_dir.name)} --markdown"
+    )
     return {
         "schema_version": OPERATOR_NEXT_COMMAND_SCHEMA_VERSION,
         "run_id": str(home.get("run_id", run_dir.name)),
@@ -202,6 +207,7 @@ def build_operator_next_command(
         "selection_source": "operator_home.next_command",
         "label": str(next_command.get("label", "")),
         "command": command,
+        "command_sha256": sha256_text(command),
         "reason": str(next_command.get("reason", "")),
         "boundary_type": str(boundary.get("boundary_type", "")),
         "writes_artifact": str(next_command.get("writes_artifact", "")),
@@ -239,10 +245,8 @@ def build_operator_next_command(
             "artifact_created": False,
             "command_is_hint_only": True,
             "command_label": "review_operator_home",
-            "command": (
-                "python -m orchestrator.experiments "
-                f"home {home.get('run_id', run_dir.name)} --markdown"
-            ),
+            "command": home_command,
+            "command_sha256": sha256_text(home_command),
             "boundary_type": "read_only_inspection",
         },
         "authority": {
@@ -645,6 +649,8 @@ def render_operator_next_command_markdown(payload: dict[str, object]) -> str:
         str(payload.get("command", "")),
         "```",
         "",
+        f"- Command SHA-256: `{payload.get('command_sha256', '')}`",
+        "",
         "## Safety",
         "",
         f"- Hint-only: `{safety.get('command_is_hint_only', False)}`",
@@ -657,6 +663,7 @@ def render_operator_next_command_markdown(payload: dict[str, object]) -> str:
         "## Source",
         "",
         f"- Home command: `{source_home.get('command', '')}`",
+        f"- Home command SHA-256: `{source_home.get('command_sha256', '')}`",
         f"- Source boundary: `{source_home.get('boundary_type', '')}`",
         f"- Source terminal-only: `{source_home.get('terminal_only', False)}`",
         f"- Source creates artifact: `{source_home.get('artifact_created', True)}`",
@@ -776,6 +783,13 @@ def validate_operator_next_command_consistency(
     )
     if home_errors:
         errors.append("operator_next_command home validation failed")
+    command = str(payload.get("command", ""))
+    if str(payload.get("command_sha256", "")) != sha256_text(command):
+        errors.append("operator_next_command command sha256 mismatch")
+    source_home = object_field(payload, "source_home")
+    source_command = str(source_home.get("command", ""))
+    if str(source_home.get("command_sha256", "")) != sha256_text(source_command):
+        errors.append("operator_next_command source command sha256 mismatch")
     expected = build_operator_next_command(
         run_dir=run_dir,
         experiments_dir=experiments_dir,
@@ -856,6 +870,11 @@ def list_of_dicts(value: object) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
     return [row for row in value if isinstance(row, dict)]
+
+
+def sha256_text(value: str) -> str:
+    """Return a stable SHA-256 digest for text command bindings."""
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def main() -> None:

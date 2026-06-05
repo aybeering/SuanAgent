@@ -531,11 +531,13 @@ terminal-only `operator_next_command_v1` narrow view validated by
 `schemas/operator_next_command.schema.json`. It is derived from the same
 operator home payload and returns only the selected command, status, blocker
 count, boundary, write target, safety flags, source-home command, Codex
-readiness summary fields, authority flags, and read-only policy. Its markdown
-view also displays the selector source marker and source-home terminal-only,
-artifact-free, hint-only boundary. It creates no artifact and remains a hint;
-it does not record approval, execute commands, write config, promote champions,
-run agents, run backtests, apply patches, route agents, or change acceptance.
+readiness summary fields, authority flags, command SHA-256 bindings, and
+read-only policy. Its markdown view also displays the selector source marker,
+selected-command digest, source-home command digest, and source-home
+terminal-only, artifact-free, hint-only boundary. It creates no artifact and
+remains a hint; it does not record approval, execute commands, write config,
+promote champions, run agents, run backtests, apply patches, route agents, or
+change acceptance.
 The same selector command is also surfaced as a derived hint in
 `experiments list`, `experiments show`, and the `experiment_summary_dashboard`
 payload, so an operator can discover the narrow next-step view from recent run

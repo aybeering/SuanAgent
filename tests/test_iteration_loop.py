@@ -2948,6 +2948,9 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         pending_home["action_home"]["next_command_label"]
     )
     assert pending_next_command["command"] == pending_home["next_command"]["command"]
+    assert pending_next_command["command_sha256"] == sha256_text(
+        pending_next_command["command"]
+    )
     assert pending_next_command["status"] == (
         pending_home["action_home"]["next_command_status"]
     )
@@ -2972,11 +2975,16 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending_next_command["safety"]["records_operator_approval"] is True
     assert pending_next_command["source_home"]["artifact_created"] is False
     assert pending_next_command["source_home"]["terminal_only"] is True
+    assert pending_next_command["source_home"]["command_sha256"] == sha256_text(
+        pending_next_command["source_home"]["command"]
+    )
     assert pending_next_command["authority"]["selector_can_execute_commands"] is False
     assert pending_next_command["policy"]["does_not_create_artifacts"] is True
     assert pending_next_command["policy"]["does_not_execute_commands"] is True
     assert "# Operator Next Command" in pending_next_command_markdown
     assert "## Command" in pending_next_command_markdown
+    assert "Command SHA-256:" in pending_next_command_markdown
+    assert "Home command SHA-256:" in pending_next_command_markdown
     assert "## Safety" in pending_next_command_markdown
     assert_matches_schema_payload(pending_next_command, "operator_next_command")
     assert validate_operator_next_command_payload(
@@ -2986,6 +2994,33 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         repo_root=repo,
         require_current_evidence=True,
     ) == ()
+    tampered_next_command = {
+        **pending_next_command,
+        "command_sha256": "0" * 64,
+    }
+    assert "operator_next_command command sha256 mismatch" in (
+        validate_operator_next_command_payload(
+            tampered_next_command,
+            run_dir=run_dir,
+            experiments_dir=repo / "experiments",
+            repo_root=repo,
+        )
+    )
+    tampered_source_next_command = {
+        **pending_next_command,
+        "source_home": {
+            **pending_next_command["source_home"],
+            "command_sha256": "0" * 64,
+        },
+    }
+    assert "operator_next_command source command sha256 mismatch" in (
+        validate_operator_next_command_payload(
+            tampered_source_next_command,
+            run_dir=run_dir,
+            experiments_dir=repo / "experiments",
+            repo_root=repo,
+        )
+    )
     assert_matches_schema_payload(pending, "operator_action_dashboard")
     assert validate_operator_action_dashboard_file(
         payload_path=json_path,
@@ -24782,6 +24817,9 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         operator_home["action_home"]["next_command_label"]
     )
     assert operator_next_command["command"] == operator_home["next_command"]["command"]
+    assert operator_next_command["command_sha256"] == sha256_text(
+        operator_next_command["command"]
+    )
     assert operator_next_command["status"] == (
         operator_home["action_home"]["next_command_status"]
     )
@@ -24801,6 +24839,9 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert operator_next_command["source_home"]["artifact_created"] is False
     assert operator_next_command["source_home"]["terminal_only"] is True
     assert operator_next_command["source_home"]["command_is_hint_only"] is True
+    assert operator_next_command["source_home"]["command_sha256"] == sha256_text(
+        operator_next_command["source_home"]["command"]
+    )
     assert operator_next_command["policy"]["does_not_create_artifacts"] is True
     assert operator_next_command["policy"]["does_not_execute_commands"] is True
     assert (
@@ -24816,6 +24857,8 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     ) == ()
     assert "# Operator Next Command" in operator_next_command_markdown
     assert "## Safety" in operator_next_command_markdown
+    assert "Command SHA-256:" in operator_next_command_markdown
+    assert "Home command SHA-256:" in operator_next_command_markdown
     assert "Selection source: `operator_home.next_command`" in (
         operator_next_command_markdown
     )
@@ -24872,6 +24915,9 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert operator_next_command_payload["command"] == (
         operator_home_payload["next_command"]["command"]
     )
+    assert operator_next_command_payload["command_sha256"] == sha256_text(
+        operator_next_command_payload["command"]
+    )
     assert operator_next_command_payload["status"] == (
         operator_home_payload["action_home"]["next_command_status"]
     )
@@ -24899,6 +24945,8 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert "# Operator Next Command" in operator_next_command_markdown_result.stdout
     assert "## Command" in operator_next_command_markdown_result.stdout
+    assert "Command SHA-256:" in operator_next_command_markdown_result.stdout
+    assert "Home command SHA-256:" in operator_next_command_markdown_result.stdout
     assert "Selection source: `operator_home.next_command`" in (
         operator_next_command_markdown_result.stdout
     )

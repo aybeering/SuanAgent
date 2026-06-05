@@ -558,9 +558,11 @@ surfaces the cockpit promotion-approval command instead of leaving the operator
 on the already-closed action receipt review. After that approval is recorded,
 the home next-command hint advances to the guarded `promote-approved` command
 that can write `champion_promotion_receipt.json`; after a successful promotion
-receipt, it advances again to the read-only `lineage --markdown` refresh. These
-commands are still only hints: approval, promotion, and lineage refresh remain
-explicit dedicated commands.
+receipt, it advances again to the read-only `lineage --markdown` refresh. Once
+the saved global lineage matches current champion evidence, it stops repeating
+the refresh hint and surfaces the read-only champion status view instead. These
+commands are still only hints: approval, promotion, lineage refresh, and status
+inspection remain explicit dedicated commands.
 Its source records include the saved unlock checklist, unlock runbook, and
 readiness diff so the first screen can point directly at Codex evidence without
 becoming an unlock authority. It does not create run artifacts, record

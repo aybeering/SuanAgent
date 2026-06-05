@@ -61,6 +61,8 @@ def build_operator_home(
         guide_next_command=guide_next_command,
         cockpit=cockpit,
         run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
     )
     next_command_boundary = object_field(next_command, "boundary")
     blockers = string_list(cockpit.get("blockers", []))
@@ -378,6 +380,8 @@ def select_home_next_command(
     guide_next_command: dict[str, Any],
     cockpit: dict[str, Any],
     run_dir: Path,
+    experiments_dir: Path,
+    repo_root: Path,
 ) -> dict[str, object]:
     """Return the command hint that should be surfaced as the home next step."""
     guide_command = command_with_source(guide_next_command, "action_next")
@@ -387,6 +391,8 @@ def select_home_next_command(
             cockpit=cockpit,
             priority=priority,
             run_dir=run_dir,
+            experiments_dir=experiments_dir,
+            repo_root=repo_root,
         )
         if followup:
             return followup
@@ -398,6 +404,8 @@ def promotion_followup_command(
     cockpit: dict[str, Any],
     priority: dict[str, Any],
     run_dir: Path,
+    experiments_dir: Path,
+    repo_root: Path,
 ) -> dict[str, object]:
     """Return the promotion-chain command that should follow a closed action path."""
     summary = object_field(cockpit, "summary")
@@ -407,6 +415,11 @@ def promotion_followup_command(
     if not would_promote:
         return {}
     if receipt_promoted:
+        if champion_lineage_is_current(
+            experiments_dir=experiments_dir,
+            repo_root=repo_root,
+        ):
+            return champion_status_command()
         return champion_lineage_command()
     if approval_recorded:
         return promote_approved_candidate_command(
@@ -473,6 +486,51 @@ def champion_lineage_command() -> dict[str, object]:
     }
 
 
+def champion_status_command() -> dict[str, object]:
+    """Return the champion status inspection command after lineage is current."""
+    boundary = read_only_inspection_boundary()
+    return {
+        "label": "review_champion_status",
+        "command": "python -m orchestrator.experiments champion --markdown",
+        "reason": "Inspect champion status after lineage is current.",
+        "writes_artifact": "",
+        "boundary": boundary,
+        "source": "champion_status",
+        "command_is_hint_only": True,
+        "requires_explicit_operator_invocation": True,
+        "requires_operator_approval": False,
+        "records_operator_approval": False,
+        "uses_guarded_executor": False,
+    }
+
+
+def champion_lineage_is_current(
+    *,
+    experiments_dir: Path,
+    repo_root: Path,
+) -> bool:
+    """Return whether the saved global champion lineage matches current evidence."""
+    lineage_path = experiments_dir / "champion_lineage.json"
+    if not lineage_path.exists():
+        return False
+    try:
+        saved = json.loads(lineage_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(saved, dict):
+        return False
+    try:
+        from orchestrator.champion_lineage import build_champion_lineage
+
+        expected = build_champion_lineage(
+            experiments_dir=experiments_dir,
+            repo_root=repo_root,
+        )
+    except Exception:
+        return False
+    return saved == expected
+
+
 def guarded_champion_promotion_boundary() -> dict[str, object]:
     """Return the boundary metadata for a guarded champion promotion hint."""
     return {
@@ -498,6 +556,22 @@ def read_only_artifact_refresh_boundary() -> dict[str, object]:
         "records_operator_approval": False,
         "uses_guarded_executor": False,
         "writes_artifact": True,
+        "executes_agents": False,
+        "runs_backtests": False,
+        "applies_patches": False,
+        "changes_acceptance": False,
+    }
+
+
+def read_only_inspection_boundary() -> dict[str, object]:
+    """Return the boundary metadata for a read-only inspection hint."""
+    return {
+        "boundary_type": "read_only_inspection",
+        "requires_explicit_operator_invocation": True,
+        "requires_operator_approval": False,
+        "records_operator_approval": False,
+        "uses_guarded_executor": False,
+        "writes_artifact": False,
         "executes_agents": False,
         "runs_backtests": False,
         "applies_patches": False,

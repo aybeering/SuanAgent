@@ -3953,6 +3953,56 @@ def test_operator_home_prioritizes_promotion_approval_after_action_path_closes(
         require_current_evidence=True,
     ) == ()
 
+    lineage_path, _, lineage = write_champion_lineage(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert lineage["ok"] is True
+    assert validate_champion_lineage_file(
+        payload_path=lineage_path,
+        repo_root=repo,
+    ) == ()
+    lineage_home = build_operator_home(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    lineage_next_command = build_operator_next_command(
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert lineage_home["status"] == "review_ready"
+    assert lineage_home["action_home"]["next_command_label"] == (
+        "review_champion_status"
+    )
+    assert lineage_home["action_home"]["next_command_boundary"] == (
+        "read_only_inspection"
+    )
+    assert lineage_home["action_home"]["next_command_writes_artifact"] == ""
+    assert lineage_home["next_command"]["source"] == "champion_status"
+    assert lineage_home["next_command"]["command"] == (
+        "python -m orchestrator.experiments champion --markdown"
+    )
+    assert lineage_next_command["label"] == "review_champion_status"
+    assert lineage_next_command["boundary_type"] == "read_only_inspection"
+    assert lineage_next_command["writes_artifact"] == ""
+    assert lineage_next_command["blocked"] is False
+    assert validate_operator_home_payload(
+        lineage_home,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    assert validate_operator_next_command_payload(
+        lineage_next_command,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+
 
 def test_operator_cockpit_aggregates_operator_views_without_authority(
     tmp_path: Path,

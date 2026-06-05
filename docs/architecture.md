@@ -262,7 +262,10 @@ The terminal-only operator home view copies the cockpit's Codex preflight,
 unlock-runbook, readiness-diff, intake-binding status, and champion-promotion
 follow-up state into a compact first-screen summary and points back to the
 saved unlock checklist, unlock runbook, readiness diff, promotion approval,
-promotion receipt, and lineage command hints.
+promotion receipt, lineage refresh, and champion-status command hints. After a
+successful promotion receipt, the home view recommends lineage refresh only
+while the saved lineage is missing or stale; once lineage matches current
+champion evidence it surfaces the read-only champion status view.
 It remains hint-only and cannot refresh artifacts, unlock Codex, execute
 commands, promote champions, or change acceptance.
 `operator_cockpit.json` and `operator_cockpit.md` are the broader operator

@@ -56,6 +56,7 @@ python -m orchestrator.experiments agents <run_id> --markdown
 python -m orchestrator.experiments slots <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
+python -m orchestrator.experiments champion --markdown
 python -m orchestrator.experiments lineage
 python -m orchestrator.experiments apply-config-approved <run_id> --dry-run-path experiments/<run_id>/config_application_dry_run.json
 python -m orchestrator.experiments config-application-rollback-preview <run_id> --receipt-path experiments/<run_id>/config_application_receipt.json
@@ -321,7 +322,11 @@ The `champion` terminal output is a `champion_status_v1` payload validated
 against `schemas/champion_status.schema.json`, with deterministic consistency
 checks that bind the current registry champion to the embedded lineage summary,
 latest history row, validation EV delta, and read-only policy flags before JSON
-is printed.
+or markdown is printed. `champion --markdown` renders the same validated
+status as a terminal-only champion, lineage, artifact, command, and read-only
+policy view. It does not write champion registry files, append champion
+history, promote champions, rerun backtests, route candidates, apply patches,
+or change acceptance.
 `python -m orchestrator.experiments memory --limit N` returns the recent
 append-only proposal outcome memory records as a terminal-only
 `proposal_outcome_memory` payload validated against

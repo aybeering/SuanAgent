@@ -421,6 +421,7 @@ from orchestrator.experiments import (
     render_experiment_show_markdown,
     render_experiment_summary_markdown,
     render_candidate_leaderboard_markdown,
+    render_champion_status_markdown,
     render_operator_view_refresh_markdown,
     render_operator_run_review_markdown,
     render_proposal_memory_markdown,
@@ -22771,6 +22772,21 @@ def test_experiments_cli_legacy_direct_promote_remains_available(
         text=True,
         check=False,
     )
+    missing_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "champion",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     promote_result = subprocess.run(
         [
             sys.executable,
@@ -22801,11 +22817,31 @@ def test_experiments_cli_legacy_direct_promote_remains_available(
         text=True,
         check=False,
     )
+    champion_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "champion",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
     assert missing_result.returncode == 0, missing_result.stderr
+    assert missing_markdown_result.returncode == 0, missing_markdown_result.stderr
     assert promote_result.returncode == 0, promote_result.stderr
     assert champion_result.returncode == 0, champion_result.stderr
+    assert champion_markdown_result.returncode == 0, champion_markdown_result.stderr
     assert json.loads(missing_result.stdout)["exists"] is False
+    assert "# Champion Status" in missing_markdown_result.stdout
+    assert "Exists: `False`" in missing_markdown_result.stdout
+    assert "Promotes champion: `False`" in missing_markdown_result.stdout
     assert json.loads(promote_result.stdout)["promoted"] is True
     champion = json.loads(champion_result.stdout)
     assert champion["exists"] is True
@@ -22813,6 +22849,13 @@ def test_experiments_cli_legacy_direct_promote_remains_available(
     assert champion["lineage_summary"]["event_count"] == 1
     assert champion["lineage_summary"]["latest_promotion_source"] == "legacy_direct"
     assert champion["lineage_summary"]["current_champion_matches_last_history"] is True
+    champion_markdown = render_champion_status_markdown(champion)
+    assert "# Champion Status" in champion_markdown
+    assert "cli-champion-candidate" in champion_markdown
+    assert "Writes champion registry: `False`" in champion_markdown
+    assert "# Champion Status" in champion_markdown_result.stdout
+    assert "cli-champion-candidate" in champion_markdown_result.stdout
+    assert "Writes champion registry: `False`" in champion_markdown_result.stdout
 
     help_result = subprocess.run(
         [

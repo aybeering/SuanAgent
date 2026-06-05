@@ -2519,6 +2519,86 @@ def proposal_memory_reason_text(row: dict[str, object]) -> str:
     return "none"
 
 
+def render_champion_status_markdown(payload: dict[str, object]) -> str:
+    """Render champion registry status as operator-facing markdown."""
+    exists = payload.get("exists") is True
+    champion = dict_payload(payload.get("champion", {}))
+    lineage = dict_payload(payload.get("lineage_summary", {}))
+    champion_run_id = str(champion.get("champion_run_id", ""))
+    summary_command = "python -m orchestrator.experiments summary --markdown"
+    show_command = (
+        f"python -m orchestrator.experiments show {champion_run_id} --markdown"
+        if champion_run_id
+        else "unavailable"
+    )
+    lines = [
+        "# Champion Status",
+        "",
+        f"- Exists: `{exists}`",
+        f"- Champion path: `{markdown_cell(payload.get('champion_path', ''))}`",
+        f"- Current champion: `{markdown_cell(champion_run_id or 'none')}`",
+        f"- Promoted from: `{markdown_cell(champion.get('promoted_from_run_id', '') or 'none')}`",
+        f"- Promoted at: `{markdown_cell(champion.get('promoted_at', '') or 'none')}`",
+        f"- Validation EV delta: `{number_text(champion.get('validation_ev_delta'))}`",
+        f"- Strategy commit: `{markdown_cell(champion.get('strategy_commit', '') or 'none')}`",
+        "",
+        "## Lineage",
+        "",
+        "| Field | Value |",
+        "| --- | --- |",
+        f"| OK | `{lineage.get('ok', False)}` |",
+        f"| Event count | `{lineage.get('event_count', 0)}` |",
+        f"| Approved receipts | `{lineage.get('approved_receipt_count', 0)}` |",
+        f"| Legacy direct promotions | `{lineage.get('legacy_direct_count', 0)}` |",
+        f"| Parse errors | `{lineage.get('parse_error_count', 0)}` |",
+        f"| Latest source | `{markdown_cell(lineage.get('latest_promotion_source', '') or 'none')}` |",
+        f"| Latest champion | `{markdown_cell(lineage.get('latest_champion_run_id', '') or 'none')}` |",
+        (
+            "| Current matches last history | "
+            f"`{lineage.get('current_champion_matches_last_history', False)}` |"
+        ),
+        "",
+        "## Artifacts",
+        "",
+        "| Artifact | Exists | Path |",
+        "| --- | --- | --- |",
+        (
+            "| Champion history | n/a | "
+            f"`{markdown_cell(lineage.get('history_path', '') or 'none')}` |"
+        ),
+        (
+            "| Champion lineage JSON | "
+            f"`{lineage.get('lineage_artifact_exists', False)}` | "
+            f"`{markdown_cell(lineage.get('lineage_artifact_path', '') or 'none')}` |"
+        ),
+        (
+            "| Champion lineage markdown | "
+            f"`{lineage.get('lineage_markdown_exists', False)}` | "
+            f"`{markdown_cell(lineage.get('lineage_markdown_path', '') or 'none')}` |"
+        ),
+        "",
+        "## Commands",
+        "",
+        f"- Summary: `{markdown_cell(summary_command)}`",
+        f"  SHA-256: `{sha256_text(summary_command)}`",
+        f"- Champion run: `{markdown_cell(show_command)}`",
+        f"  SHA-256: `{sha256_text(show_command) if champion_run_id else 'unavailable'}`",
+        "",
+        "## Policy",
+        "",
+        "- Inspection only: `True`",
+        "- Reads saved artifacts only: `True`",
+        "- Writes champion registry: `False`",
+        "- Promotes champion: `False`",
+        "- Reruns backtests: `False`",
+        "- Routes candidates: `False`",
+        "- Applies patches: `False`",
+        "- Changes acceptance: `False`",
+        "- Writes config: `False`",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def render_experiment_show_markdown(payload: dict[str, object]) -> str:
     """Render one compact experiment record as operator-facing markdown."""
     kind = str(payload.get("kind", "unknown"))
@@ -6746,7 +6826,15 @@ def main() -> None:
         help="Report schema, validator, docs, and replay coverage.",
     )
 
-    subparsers.add_parser("champion", help="Show the current champion registry.")
+    champion_parser = subparsers.add_parser(
+        "champion",
+        help="Show the current champion registry.",
+    )
+    champion_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the champion status as markdown.",
+    )
     subparsers.add_parser("lineage", help="Write and show champion lineage.")
 
     compare_parser = subparsers.add_parser(
@@ -7128,6 +7216,9 @@ def main() -> None:
         payload = build_artifact_validator_coverage(repo_root=args.experiments_dir.parent)
     elif args.command == "champion":
         payload = show_champion(experiments_dir=args.experiments_dir)
+        if args.markdown:
+            print(render_champion_status_markdown(payload), end="")
+            return
     elif args.command == "lineage":
         from orchestrator.champion_lineage import write_champion_lineage
 

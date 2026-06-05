@@ -7459,6 +7459,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert manifest["operator_home"]["next_command"].startswith(
         "python -m orchestrator.operator_action_approval "
     )
+    assert manifest["operator_home"]["next_command_sha256"] == sha256_text(
+        manifest["operator_home"]["next_command"]
+    )
     assert manifest["operator_home"]["next_command_status"] == (
         "blocked_by_home_blockers"
     )
@@ -7495,6 +7498,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert manifest["operator_home"]["command_label"] == "review_operator_home"
     assert manifest["operator_home"]["markdown_command"] == (
         f"python -m orchestrator.experiments home {run_id} --markdown"
+    )
+    assert manifest["operator_home"]["command_sha256"] == sha256_text(
+        manifest["operator_home"]["markdown_command"]
     )
     assert manifest["operator_home"]["command_boundary"] == "read_only_inspection"
     assert manifest["operator_home"]["command_is_hint_only"] is True
@@ -7561,6 +7567,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert "## Operator Home" in summary_markdown
     assert "Terminal only: `True`" in summary_markdown
     assert "Next command status: `blocked_by_home_blockers`" in summary_markdown
+    assert "Next command SHA-256:" in summary_markdown
     assert "Next command blocked: `True`" in summary_markdown
     assert "Records approval: `True`" in summary_markdown
     assert "Command: `review_operator_home`" in summary_markdown
@@ -7568,6 +7575,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         f"Command text: `python -m orchestrator.experiments home {run_id} --markdown`"
         in summary_markdown
     )
+    assert "Command SHA-256:" in summary_markdown
     assert_matches_schema(run_dir / "operator_cockpit.json", "operator_cockpit")
     assert validate_operator_cockpit_file(
         payload_path=run_dir / "operator_cockpit.json",
@@ -13072,6 +13080,11 @@ def test_artifact_validator_reports_summary_operator_next_command_drift(
         1,
     )
     next_command_section = next_command_section.replace(
+        f"- Command SHA-256: `{operator_home['next_command_sha256']}`",
+        f"- Command SHA-256: `{'0' * 64}`",
+        1,
+    )
+    next_command_section = next_command_section.replace(
         f"- Hint-only: `{operator_home['next_command_is_hint_only']}`",
         "- Hint-only: `False`",
         1,
@@ -13097,6 +13110,9 @@ def test_artifact_validator_reports_summary_operator_next_command_drift(
     assert report["ok"] is False
     assert "summary.md operator_next_command status mismatch" in report["errors"]
     assert "summary.md operator_next_command command mismatch" in report["errors"]
+    assert "summary.md operator_next_command command_sha256 mismatch" in report[
+        "errors"
+    ]
     assert "summary.md operator_next_command hint_only mismatch" in report["errors"]
     assert (
         "summary.md operator_next_command records_approval mismatch"
@@ -13118,6 +13134,8 @@ def test_artifact_validator_reports_manifest_operator_next_command_drift(
     manifest_path = run_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["operator_home"]["next_command"] = "python -m orchestrator.run_loop"
+    manifest["operator_home"]["next_command_sha256"] = "0" * 64
+    manifest["operator_home"]["command_sha256"] = "0" * 64
     manifest["operator_home"]["next_command_blocked"] = False
     manifest["operator_home"]["next_command_is_hint_only"] = False
     manifest_path.write_text(
@@ -13133,6 +13151,8 @@ def test_artifact_validator_reports_manifest_operator_next_command_drift(
 
     assert report["ok"] is False
     assert "manifest.operator_home next_command mismatch" in report["errors"]
+    assert "manifest.operator_home next_command_sha256 mismatch" in report["errors"]
+    assert "manifest.operator_home command_sha256 mismatch" in report["errors"]
     assert "manifest.operator_home next_command_blocked mismatch" in report["errors"]
     assert (
         "manifest.operator_home next_command_is_hint_only mismatch"
@@ -13193,6 +13213,9 @@ def test_manifest_operator_next_command_keeps_closeout_snapshot_after_codex_read
     snapshot_manifest["operator_home"]["next_command"] = (
         "python -m orchestrator.run_loop"
     )
+    snapshot_manifest["operator_home"]["next_command_sha256"] = sha256_text(
+        snapshot_manifest["operator_home"]["next_command"]
+    )
     snapshot_manifest["operator_home"]["next_command_blocked"] = False
     snapshot_manifest["operator_home"]["codex_intake_readiness_status"] = "ready"
     report: dict[str, object] = {"errors": []}
@@ -13209,6 +13232,8 @@ def test_manifest_operator_next_command_keeps_closeout_snapshot_after_codex_read
     static_drift_manifest = json.loads(json.dumps(snapshot_manifest))
     static_drift_manifest["operator_home"]["command_is_hint_only"] = False
     static_drift_manifest["operator_home"]["next_command_is_hint_only"] = False
+    static_drift_manifest["operator_home"]["next_command_sha256"] = "0" * 64
+    static_drift_manifest["operator_home"]["command_sha256"] = "0" * 64
     static_report: dict[str, object] = {"errors": []}
 
     validate_manifest_operator_next_command(
@@ -13225,6 +13250,11 @@ def test_manifest_operator_next_command_keeps_closeout_snapshot_after_codex_read
         "manifest.operator_home next_command_is_hint_only mismatch"
         in static_report["errors"]
     )
+    assert (
+        "manifest.operator_home next_command_sha256 mismatch"
+        in static_report["errors"]
+    )
+    assert "manifest.operator_home command_sha256 mismatch" in static_report["errors"]
     assert "manifest.operator_home next_command mismatch" not in static_report["errors"]
     assert (
         "manifest.operator_home codex_intake_readiness_status mismatch"

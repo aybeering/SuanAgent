@@ -102,7 +102,7 @@ from orchestrator.operator_action_dashboard import write_operator_action_dashboa
 from orchestrator.operator_action_plan import write_operator_action_plan
 from orchestrator.operator_cockpit import write_operator_cockpit
 from orchestrator.operator_config_review import write_operator_config_review
-from orchestrator.operator_home import build_operator_home
+from orchestrator.operator_home import build_operator_home, sha256_text
 from orchestrator.operator_unlock_checklist import write_operator_unlock_checklist
 from orchestrator.overfit_validator import write_overfit_validation
 from orchestrator.policy_gate import (
@@ -1195,6 +1195,7 @@ def operator_home_manifest_row(
         else {}
     )
     command = f"python -m orchestrator.experiments home {run_id} --markdown"
+    next_command_text = "" if pending else str(next_command.get("command", ""))
     return {
         "path": "",
         "markdown_path": "",
@@ -1207,9 +1208,8 @@ def operator_home_manifest_row(
         "next_command_label": (
             "" if pending else str(action_home.get("next_command_label", ""))
         ),
-        "next_command": (
-            "" if pending else str(next_command.get("command", ""))
-        ),
+        "next_command": next_command_text,
+        "next_command_sha256": "" if pending else sha256_text(next_command_text),
         "next_command_status": (
             "pending"
             if pending
@@ -1272,6 +1272,7 @@ def operator_home_manifest_row(
         "command_label": "review_operator_home",
         "command": command,
         "markdown_command": command,
+        "command_sha256": sha256_text(command),
         "command_boundary": "read_only_inspection",
         "command_is_hint_only": True,
     }

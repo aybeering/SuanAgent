@@ -1605,6 +1605,11 @@ def validate_iteration_summary_operator_home(
             f"`{markdown_display_value(operator_home.get('next_command'))}`",
         ),
         (
+            "next_command_sha256",
+            "- Next command SHA-256: "
+            f"`{markdown_display_value(operator_home.get('next_command_sha256'))}`",
+        ),
+        (
             "next_command_boundary",
             "- Next command boundary: "
             f"`{markdown_display_value(operator_home.get('next_command_boundary'))}`",
@@ -1684,6 +1689,11 @@ def validate_iteration_summary_operator_home(
             "- Command text: "
             f"`{markdown_display_value(operator_home.get('markdown_command'))}`",
         ),
+        (
+            "command_sha256",
+            "- Command SHA-256: "
+            f"`{markdown_display_value(operator_home.get('command_sha256'))}`",
+        ),
     )
     for field_name, expected_line in expected_lines:
         if expected_line not in summary_text:
@@ -1731,6 +1741,11 @@ def validate_iteration_summary_operator_next_command(
             "command",
             "- Command: "
             f"`{markdown_display_value(operator_home.get('next_command'))}`",
+        ),
+        (
+            "command_sha256",
+            "- Command SHA-256: "
+            f"`{markdown_display_value(operator_home.get('next_command_sha256'))}`",
         ),
         (
             "boundary",
@@ -1816,6 +1831,7 @@ def validate_manifest_operator_next_command(
         ("action_step", selector.get("action_step", "")),
         ("next_command_label", selector.get("label", "")),
         ("next_command", selector.get("command", "")),
+        ("next_command_sha256", selector.get("command_sha256", "")),
         ("next_command_status", selector.get("status", "")),
         ("next_command_operator_hint", selector.get("operator_hint", "")),
         ("next_command_boundary", selector.get("boundary_type", "")),
@@ -1831,6 +1847,7 @@ def validate_manifest_operator_next_command(
         ("command_label", source_home.get("command_label", "")),
         ("command", source_home.get("command", "")),
         ("markdown_command", source_home.get("command", "")),
+        ("command_sha256", source_home.get("command_sha256", "")),
         ("command_boundary", source_home.get("boundary_type", "")),
     )
     for field_name, expected_value in expected_text_fields:
@@ -1895,6 +1912,16 @@ def validate_manifest_operator_home_static_fields(
                 add_error(report, f"manifest.operator_home {field_name} mismatch")
         elif str(actual or "") != str(expected_value):
             add_error(report, f"manifest.operator_home {field_name} mismatch")
+    next_command = str(operator_home.get("next_command", ""))
+    next_command_sha = str(operator_home.get("next_command_sha256", ""))
+    if next_command_sha and next_command_sha != sha256_text(next_command):
+        add_error(report, "manifest.operator_home next_command_sha256 mismatch")
+    command = str(
+        operator_home.get("markdown_command", operator_home.get("command", ""))
+    )
+    command_sha = str(operator_home.get("command_sha256", ""))
+    if command_sha != sha256_text(command):
+        add_error(report, "manifest.operator_home command_sha256 mismatch")
 
 
 def operator_home_sources_have_advanced(run_dir: Path) -> bool:

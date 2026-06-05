@@ -399,6 +399,10 @@ def write_iteration_summary(
             f"`{display_value(operator_home.get('next_command'))}`"
         )
         lines.append(
+            "- Next command SHA-256: "
+            f"`{display_value(operator_home.get('next_command_sha256'))}`"
+        )
+        lines.append(
             "- Next command boundary: "
             f"`{display_value(operator_home.get('next_command_boundary'))}`"
         )
@@ -462,6 +466,10 @@ def write_iteration_summary(
             "- Command text: "
             f"`{display_value(operator_home.get('markdown_command'))}`"
         )
+        lines.append(
+            "- Command SHA-256: "
+            f"`{display_value(operator_home.get('command_sha256'))}`"
+        )
 
         lines.extend(["", "## Operator Next Command", ""])
         lines.append("- Selection source: `operator_home.next_command`")
@@ -484,6 +492,10 @@ def write_iteration_summary(
         lines.append(
             "- Command: "
             f"`{display_value(operator_home.get('next_command'))}`"
+        )
+        lines.append(
+            "- Command SHA-256: "
+            f"`{display_value(operator_home.get('next_command_sha256'))}`"
         )
         lines.append(
             "- Boundary: "

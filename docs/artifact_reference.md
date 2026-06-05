@@ -30,6 +30,7 @@ Experiment inspection:
 ```bash
 python -m orchestrator.experiments list --limit 5
 python -m orchestrator.experiments show <run_id>
+python -m orchestrator.experiments show <run_id> --markdown
 python -m orchestrator.experiments review <run_id>
 python -m orchestrator.experiments review <run_id> --markdown
 python -m orchestrator.experiments action-plan <run_id>
@@ -118,10 +119,13 @@ promote champions, or change acceptance.
 Iteration-loop runs expose the terminal-only home markdown command, the
 next-command selector command, and the selected command label, status, blocked
 flag, blocker count, operator hint, command text, boundary, write target,
-command SHA-256 bindings, approval flags, guarded-executor flag, and hint-only flag; single-run payloads
-explicitly mark the home hint, selector hint, and next-command state
-unavailable. These are read-only convenience fields and do not rewrite index
-rows or create `operator_home.json` or `operator_next_command.json` artifacts.
+command SHA-256 bindings, approval flags, guarded-executor flag, and
+hint-only flag; single-run payloads explicitly mark the home hint, selector
+hint, and next-command state unavailable. `show <run_id> --markdown` renders
+the compact run record, round table, and operator navigation as a terminal-only
+human view with the same command digest bindings and safety flags. These are
+read-only convenience fields and do not rewrite index rows or create
+`operator_home.json` or `operator_next_command.json` artifacts.
 
 Replay and validation:
 

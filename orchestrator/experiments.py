@@ -1992,6 +1992,138 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_experiment_show_markdown(payload: dict[str, object]) -> str:
+    """Render one compact experiment record as operator-facing markdown."""
+    kind = str(payload.get("kind", "unknown"))
+    run_id = str(payload.get("run_id", ""))
+    operator_home = dict_payload(payload.get("operator_home", {}))
+    operator_next_command = dict_payload(payload.get("operator_next_command", {}))
+    manifest = dict_payload(payload.get("manifest", {}))
+    decision = dict_payload(payload.get("decision", {}))
+
+    lines = [
+        "# Experiment",
+        "",
+        f"- Run id: `{markdown_cell(run_id)}`",
+        f"- Kind: `{markdown_cell(kind)}`",
+        f"- Run directory: `{markdown_cell(payload.get('run_dir', ''))}`",
+        f"- Summary: `{markdown_cell(payload.get('summary_path', ''))}`",
+    ]
+    if kind == "iteration_loop":
+        rounds = list_payload(manifest.get("rounds", []))
+        lines.extend(
+            [
+                f"- Status: `{markdown_cell(manifest.get('status', 'unknown'))}`",
+                f"- Completed rounds: `{manifest.get('completed_rounds', 0)}`",
+                f"- Accepted round: `{manifest.get('accepted_round', None)}`",
+                "- Final strategy commit: "
+                f"`{markdown_cell(manifest.get('final_strategy_commit', ''))}`",
+                "- Candidate leaderboard: "
+                f"`{markdown_cell(payload.get('candidate_leaderboard_path', ''))}`",
+                "",
+                "## Rounds",
+                "",
+                "| Round | Decision | Accepted | Validation EV Delta | Holdout Veto | Reason |",
+                "| --- | --- | --- | ---: | --- | --- |",
+            ]
+        )
+        if not rounds:
+            lines.append("| none | none | False | 0.000000 | False | none |")
+        else:
+            for round_payload in rounds:
+                before = float_value(round_payload.get("validation_ev_before", 0.0))
+                after = float_value(round_payload.get("validation_ev_after", 0.0))
+                delta = round(after - before, 6)
+                decision_status = str(
+                    round_payload.get("decision_status", "")
+                    or round_payload.get("failure_code", "")
+                    or "unknown"
+                )
+                reason = str(
+                    round_payload.get("reject_reason", "")
+                    or round_payload.get("stop_reason", "")
+                    or round_payload.get("failure_message", "")
+                    or "none"
+                )
+                lines.append(
+                    "| "
+                    f"`{markdown_cell(round_payload.get('round_id', ''))}` | "
+                    f"`{markdown_cell(decision_status)}` | "
+                    f"`{round_payload.get('accepted', False)}` | "
+                    f"{delta:.6f} | "
+                    f"`{round_payload.get('holdout_veto', False)}` | "
+                    f"{markdown_cell(reason)} |"
+                )
+    else:
+        lines.extend(
+            [
+                f"- Accepted: `{decision.get('accepted', False)}`",
+                f"- Reason: `{markdown_cell(decision.get('reason', ''))}`",
+            ]
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Operator Navigation",
+            "",
+            f"- Home available: `{operator_home.get('available', False)}` "
+            f"({markdown_cell(operator_home.get('reason', 'unknown'))})",
+            "- Home command: "
+            f"`{markdown_cell(operator_home.get('command', '') or 'unavailable')}`",
+            "- Home command SHA-256: "
+            f"`{markdown_cell(operator_home.get('command_sha256', '') or 'unavailable')}`",
+            "- Home terminal-only: "
+            f"`{operator_home.get('terminal_only', False)}`",
+            "- Home creates artifact: "
+            f"`{operator_home.get('artifact_created', True)}`",
+            "- Home hint-only: "
+            f"`{operator_home.get('command_is_hint_only', False)}`",
+            "- Selector available: "
+            f"`{operator_next_command.get('available', False)}` "
+            f"({markdown_cell(operator_next_command.get('reason', 'unknown'))})",
+            "- Selector command: "
+            f"`{markdown_cell(operator_next_command.get('command', '') or 'unavailable')}`",
+            "- Selector command SHA-256: "
+            f"`{markdown_cell(operator_next_command.get('command_sha256', '') or 'unavailable')}`",
+            "- Selected command: "
+            f"`{markdown_cell(operator_next_command.get('selected_command', '') or 'unavailable')}`",
+            "- Selected command SHA-256: "
+            f"`{markdown_cell(operator_next_command.get('selected_command_sha256', '') or 'unavailable')}`",
+            "- Selected status: "
+            f"`{markdown_cell(operator_next_command.get('selected_command_status', 'unavailable'))}`",
+            "- Selected boundary: "
+            f"`{markdown_cell(operator_next_command.get('selected_command_boundary', '') or 'unavailable')}`",
+            "- Blocked: "
+            f"`{operator_next_command.get('blocked', False)}` "
+            f"({operator_next_command.get('blocker_count', 0)} blocker(s))",
+            "- Operator hint: "
+            f"{markdown_cell(operator_next_command.get('operator_hint', '') or 'none')}",
+            "- Writes artifact: "
+            f"`{markdown_cell(operator_next_command.get('selected_command_writes_artifact', '') or 'none')}`",
+            "- Requires explicit invocation: "
+            f"`{operator_next_command.get('selected_command_requires_explicit_operator_invocation', False)}`",
+            "- Requires approval: "
+            f"`{operator_next_command.get('selected_command_requires_operator_approval', False)}`",
+            "- Records approval: "
+            f"`{operator_next_command.get('selected_command_records_operator_approval', False)}`",
+            "- Uses guarded executor: "
+            f"`{operator_next_command.get('selected_command_uses_guarded_executor', False)}`",
+            "- Hint-only: "
+            f"`{operator_next_command.get('selected_command_is_hint_only', False)}`",
+            "",
+            "## Policy",
+            "",
+            "- Executes agents: `False`",
+            "- Reruns backtests: `False`",
+            "- Applies patches: `False`",
+            "- Changes acceptance: `False`",
+            "- Writes config: `False`",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def render_run_diagnosis_markdown(payload: dict[str, object]) -> str:
     """Render a run diagnosis payload as compact terminal-only markdown."""
     best_round = dict_payload(payload.get("best_round", {}))
@@ -5724,6 +5856,11 @@ def main() -> None:
 
     show_parser = subparsers.add_parser("show", help="Show one experiment.")
     show_parser.add_argument("run_id")
+    show_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the compact experiment view as markdown.",
+    )
 
     review_parser = subparsers.add_parser(
         "review",
@@ -6251,6 +6388,9 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )
+        if args.markdown:
+            print(render_experiment_show_markdown(payload), end="")
+            return
     elif args.command == "review":
         payload = operator_run_review(
             experiments_dir=args.experiments_dir,

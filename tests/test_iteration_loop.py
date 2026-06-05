@@ -24555,6 +24555,22 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    config_lineage_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "config-lineage",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     challenger_result = subprocess.run(
         [
             sys.executable,
@@ -25894,6 +25910,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         repo_root=repo,
         config_path=repo / "config/default.json",
     ) == ()
+    assert config_lineage_markdown_result.returncode == 0, (
+        config_lineage_markdown_result.stderr
+    )
+    assert "# Config Lineage" in config_lineage_markdown_result.stdout
+    assert "Run: `cli-candidates`" in config_lineage_markdown_result.stdout
+    assert "Status: `blocked`" in config_lineage_markdown_result.stdout
+    assert "does not write config" in config_lineage_markdown_result.stdout
     assert challenger_result.returncode == 0, challenger_result.stderr
     challenger_payload = json.loads(challenger_result.stdout)
     assert challenger_payload["schema_version"] == CANDIDATE_CHALLENGER_SCHEMA_VERSION

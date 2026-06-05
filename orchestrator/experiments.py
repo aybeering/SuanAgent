@@ -7005,6 +7005,11 @@ def main() -> None:
         type=Path,
         default=Path("config/default.json"),
     )
+    config_lineage_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the config lineage as markdown.",
+    )
 
     scope_health_parser = subparsers.add_parser(
         "scope-health",
@@ -7385,6 +7390,11 @@ def main() -> None:
             run_id=args.run_id,
             config_path=args.config,
         )
+        if args.markdown:
+            from orchestrator.config_lineage import render_config_lineage_markdown
+
+            print(render_config_lineage_markdown(payload), end="")
+            return
     elif args.command == "scope-health":
         payload = build_experiment_scope_health(
             experiments_dir=args.experiments_dir,

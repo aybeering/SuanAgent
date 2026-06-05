@@ -66,6 +66,7 @@ python -m orchestrator.config_operator_runbook experiments/<run_id>
 python -m orchestrator.experiments config-runbook <run_id>
 python -m orchestrator.experiments config-runbook <run_id> --markdown
 python -m orchestrator.experiments config-lineage <run_id>
+python -m orchestrator.experiments config-lineage <run_id> --markdown
 python -m orchestrator.experiments promote-approved <candidate_run_id> --approval-path experiments/<run_id>/champion_promotion_approval.json
 python -m orchestrator.operator_action_approval experiments/<run_id> --action-id <action_id> --command-label <label> --approve --operator-id <operator> --confirmation-phrase "APPROVE OPERATOR ACTION"
 python -m orchestrator.operator_action_executor <run_id> --approval-path experiments/<run_id>/operator_action_approval.json
@@ -1013,7 +1014,7 @@ Replay artifacts:
   receipt artifacts into one read-only digest chain for the run.
   `python -m orchestrator.experiments config-lineage <run_id>` validates schema,
   stage order, stage counts, action flags, current-config summary, status, and
-  optional current artifact evidence before printing JSON.
+  optional current artifact evidence before printing JSON or markdown.
 - `experiment_scope_health.json` combines current artifact health,
   artifact-health history, and memory diagnostics for one `--created-at-from`
   scope. It is a read-only status page and marks the scope unhealthy if any

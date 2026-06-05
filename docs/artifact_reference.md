@@ -566,11 +566,13 @@ the saved global lineage matches current champion evidence, it stops repeating
 the refresh hint and surfaces the read-only champion status view instead. These
 commands are still only hints: approval, promotion, lineage refresh, and status
 inspection remain explicit dedicated commands.
-Its source records include the saved unlock checklist, unlock runbook, and
-readiness diff so the first screen can point directly at Codex evidence without
-becoming an unlock authority. It does not create run artifacts, record
-approval, execute commands, write config, promote champions, run agents, run
-backtests, apply patches, route agents, or change acceptance.
+Its source records include the saved unlock checklist, unlock runbook,
+readiness diff, promotion approval, promotion receipt, global champion lineage,
+champion registry, and champion history so the first screen can point directly
+at the evidence behind Codex readiness and promotion follow-up decisions
+without becoming an unlock or promotion authority. It does not create run
+artifacts, record approval, execute commands, write config, promote champions,
+run agents, run backtests, apply patches, route agents, or change acceptance.
 Completed iteration runs also record an `operator_home` manifest row and
 `summary.md` section with the read-only markdown command, terminal-only flag,
 current home status, action step, next-command label/status/blocked state,

@@ -3820,6 +3820,11 @@ def test_operator_home_prioritizes_promotion_approval_after_action_path_closes(
     assert home["next_command"]["writes_artifact"] == (
         "champion_promotion_approval.json"
     )
+    assert home["source_views"]["champion_promotion_approval"]["exists"] is True
+    assert home["source_views"]["champion_promotion_receipt"]["exists"] is False
+    assert home["source_views"]["champion_lineage"]["exists"] is False
+    assert home["source_views"]["champion_registry"]["exists"] is True
+    assert home["source_views"]["champion_history"]["exists"] is True
     assert next_command["label"] == "review_promotion_approval"
     assert next_command["status"] == "ready_for_operator"
     assert next_command["blocked"] is False
@@ -3943,6 +3948,8 @@ def test_operator_home_prioritizes_promotion_approval_after_action_path_closes(
         "python -m orchestrator.experiments lineage --markdown"
     )
     assert receipt_home["next_command"]["writes_artifact"] == "champion_lineage.json"
+    assert receipt_home["source_views"]["champion_promotion_receipt"]["exists"] is True
+    assert receipt_home["source_views"]["champion_lineage"]["exists"] is False
     receipt_center = next(
         row
         for row in receipt_home["command_center"]
@@ -3998,6 +4005,10 @@ def test_operator_home_prioritizes_promotion_approval_after_action_path_closes(
     assert lineage_home["next_command"]["command"] == (
         "python -m orchestrator.experiments champion --markdown"
     )
+    assert lineage_home["source_views"]["champion_promotion_receipt"]["exists"] is True
+    assert lineage_home["source_views"]["champion_lineage"]["exists"] is True
+    assert lineage_home["source_views"]["champion_registry"]["exists"] is True
+    assert lineage_home["source_views"]["champion_history"]["exists"] is True
     lineage_center = next(
         row
         for row in lineage_home["command_center"]
@@ -24243,6 +24254,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         run_id="cli-candidates",
         experiments_dir=repo / "experiments",
     )
+    operator_home_current_errors = validate_operator_home_payload(
+        operator_home,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    )
     operator_home_markdown = render_operator_home_markdown(operator_home)
     operator_next_command = operator_next_command_report(
         run_id="cli-candidates",
@@ -24758,6 +24776,17 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    operator_home_result_current_errors: tuple[str, ...] = (
+        "operator_home_result_not_available",
+    )
+    if operator_home_result.returncode == 0:
+        operator_home_result_current_errors = validate_operator_home_payload(
+            json.loads(operator_home_result.stdout),
+            run_dir=repo / "experiments/cli-candidates",
+            experiments_dir=repo / "experiments",
+            repo_root=repo,
+            require_current_evidence=True,
+        )
     operator_home_markdown_result = subprocess.run(
         [
             sys.executable,
@@ -24859,6 +24888,17 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    operator_home_latest_current_errors: tuple[str, ...] = (
+        "operator_home_latest_result_not_available",
+    )
+    if operator_home_latest_result.returncode == 0:
+        operator_home_latest_current_errors = validate_operator_home_payload(
+            json.loads(operator_home_latest_result.stdout),
+            run_dir=repo / "experiments/cli-candidates",
+            experiments_dir=repo / "experiments",
+            repo_root=repo,
+            require_current_evidence=True,
+        )
     operator_home_latest_markdown_result = subprocess.run(
         [
             sys.executable,
@@ -25995,13 +26035,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert operator_home["policy"]["does_not_execute_commands"] is True
     assert operator_home["authority"]["home_can_execute_commands"] is False
     assert_matches_schema_payload(operator_home, "operator_home")
-    assert validate_operator_home_payload(
-        operator_home,
-        run_dir=repo / "experiments/cli-candidates",
-        experiments_dir=repo / "experiments",
-        repo_root=repo,
-        require_current_evidence=True,
-    ) == ()
+    assert operator_home_current_errors == ()
     assert "# Operator Home" in operator_home_markdown
     assert "## Codex CLI" in operator_home_markdown
     assert "Unlock runbook:" in operator_home_markdown
@@ -26432,13 +26466,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert operator_home_payload["policy"]["does_not_execute_commands"] is True
     assert operator_home_payload["authority"]["home_can_execute_commands"] is False
     assert_matches_schema_payload(operator_home_payload, "operator_home")
-    assert validate_operator_home_payload(
-        operator_home_payload,
-        run_dir=repo / "experiments/cli-candidates",
-        experiments_dir=repo / "experiments",
-        repo_root=repo,
-        require_current_evidence=True,
-    ) == ()
+    assert operator_home_result_current_errors == ()
     assert operator_next_command["schema_version"] == (
         OPERATOR_NEXT_COMMAND_SCHEMA_VERSION
     )
@@ -26517,13 +26545,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert operator_home_latest_payload["run_id"] == "cli-candidates"
     assert operator_home_latest_payload["schema_version"] == OPERATOR_HOME_SCHEMA_VERSION
     assert_matches_schema_payload(operator_home_latest_payload, "operator_home")
-    assert validate_operator_home_payload(
-        operator_home_latest_payload,
-        run_dir=repo / "experiments/cli-candidates",
-        experiments_dir=repo / "experiments",
-        repo_root=repo,
-        require_current_evidence=True,
-    ) == ()
+    assert operator_home_latest_current_errors == ()
     assert operator_home_latest_markdown_result.returncode == 0, (
         operator_home_latest_markdown_result.stderr
     )

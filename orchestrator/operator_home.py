@@ -159,7 +159,11 @@ def build_operator_home(
             selected_next=next_command,
         ),
         "blockers": blockers[:8],
-        "source_views": source_views(run_dir=run_dir, repo_root=repo_root),
+        "source_views": source_views(
+            run_dir=run_dir,
+            experiments_dir=experiments_dir,
+            repo_root=repo_root,
+        ),
         "authority": {
             "home_can_record_approval": False,
             "home_can_execute_commands": False,
@@ -774,7 +778,12 @@ def command_row(source: str, command: dict[str, Any]) -> dict[str, object]:
     }
 
 
-def source_views(*, run_dir: Path, repo_root: Path) -> dict[str, object]:
+def source_views(
+    *,
+    run_dir: Path,
+    experiments_dir: Path,
+    repo_root: Path,
+) -> dict[str, object]:
     """Return source view file records used by the home page."""
     return {
         "operator_cockpit": file_record(run_dir / "operator_cockpit.json", repo_root),
@@ -793,6 +802,21 @@ def source_views(*, run_dir: Path, repo_root: Path) -> dict[str, object]:
         ),
         "codex_cli_execution_readiness_diff": file_record(
             run_dir / "codex_cli_execution_readiness_diff.json", repo_root
+        ),
+        "champion_promotion_approval": file_record(
+            run_dir / "champion_promotion_approval.json", repo_root
+        ),
+        "champion_promotion_receipt": file_record(
+            run_dir / "champion_promotion_receipt.json", repo_root
+        ),
+        "champion_lineage": file_record(
+            experiments_dir / "champion_lineage.json", repo_root
+        ),
+        "champion_registry": file_record(
+            experiments_dir / "champion.json", repo_root
+        ),
+        "champion_history": file_record(
+            experiments_dir / "champion_history.jsonl", repo_root
         ),
     }
 

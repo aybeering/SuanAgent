@@ -222,7 +222,12 @@
         "run_closeout",
         "operator_unlock_checklist",
         "codex_cli_unlock_runbook",
-        "codex_cli_execution_readiness_diff"
+        "codex_cli_execution_readiness_diff",
+        "champion_promotion_approval",
+        "champion_promotion_receipt",
+        "champion_lineage",
+        "champion_registry",
+        "champion_history"
       ],
       "properties": {
         "operator_cockpit": {"$ref": "#/$defs/file_record"},
@@ -231,7 +236,12 @@
         "run_closeout": {"$ref": "#/$defs/file_record"},
         "operator_unlock_checklist": {"$ref": "#/$defs/file_record"},
         "codex_cli_unlock_runbook": {"$ref": "#/$defs/file_record"},
-        "codex_cli_execution_readiness_diff": {"$ref": "#/$defs/file_record"}
+        "codex_cli_execution_readiness_diff": {"$ref": "#/$defs/file_record"},
+        "champion_promotion_approval": {"$ref": "#/$defs/file_record"},
+        "champion_promotion_receipt": {"$ref": "#/$defs/file_record"},
+        "champion_lineage": {"$ref": "#/$defs/file_record"},
+        "champion_registry": {"$ref": "#/$defs/file_record"},
+        "champion_history": {"$ref": "#/$defs/file_record"}
       }
     },
     "file_record": {

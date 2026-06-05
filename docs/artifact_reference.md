@@ -47,6 +47,8 @@ python -m orchestrator.experiments leaderboard --limit 5 --markdown
 python -m orchestrator.experiments memory --limit 5
 python -m orchestrator.experiments memory --limit 5 --markdown
 python -m orchestrator.experiments memory-diagnostics
+python -m orchestrator.experiments memory-hygiene <run_id>
+python -m orchestrator.experiments memory-hygiene <run_id> --markdown
 python -m orchestrator.experiments diagnose <run_id>
 python -m orchestrator.experiments diagnose <run_id> --markdown
 python -m orchestrator.experiments candidates <run_id> --limit 5
@@ -944,7 +946,8 @@ Replay artifacts:
   `python -m orchestrator.memory_hygiene` validates dynamic terminal output
   against current outcome memory before printing JSON, while
   `python -m orchestrator.experiments memory-hygiene <run_id>` validates saved
-  artifacts for schema and internal consistency before adding terminal metadata.
+  artifacts for schema and internal consistency before printing JSON or
+  markdown with terminal metadata.
 - `memory_scope_recommendation.json` and `memory_scope_recommendation.md`
   summarize whether the current outcome-memory scope should remain full-history
   or be narrowed for future runs with a recent-record limit. They read saved

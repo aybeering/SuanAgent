@@ -42,6 +42,7 @@ from orchestrator.memory_diagnostics import (
 )
 from orchestrator.memory_hygiene import (
     build_memory_hygiene,
+    render_memory_hygiene_markdown,
     validate_memory_hygiene_payload,
 )
 from orchestrator.memory_scope_recommendation import (
@@ -6948,6 +6949,11 @@ def main() -> None:
         help="Show outcome memory hygiene for one iteration run.",
     )
     memory_hygiene_parser.add_argument("run_id")
+    memory_hygiene_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the memory hygiene report as markdown.",
+    )
 
     memory_scope_parser = subparsers.add_parser(
         "memory-scope-recommendation",
@@ -7357,6 +7363,9 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )
+        if args.markdown:
+            print(render_memory_hygiene_markdown(payload), end="")
+            return
     elif args.command == "memory-scope-recommendation":
         payload = memory_scope_recommendation_report(
             experiments_dir=args.experiments_dir,

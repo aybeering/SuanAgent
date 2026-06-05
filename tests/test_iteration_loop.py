@@ -24411,6 +24411,22 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    hygiene_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "memory-hygiene",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     scope_result = subprocess.run(
         [
             sys.executable,
@@ -24665,6 +24681,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         experiments_dir=repo / "experiments",
         repo_root=repo,
     ) == ()
+    assert hygiene_markdown_result.returncode == 0, hygiene_markdown_result.stderr
+    assert "# Memory Hygiene" in hygiene_markdown_result.stdout
+    assert "Active records:" in hygiene_markdown_result.stdout
+    assert "## Recommendations" in hygiene_markdown_result.stdout
+    assert "never deletes memory or changes acceptance" in (
+        hygiene_markdown_result.stdout
+    )
     assert scope_recommendation["from_artifact"] is True
     assert scope_recommendation["schema_version"] == (
         MEMORY_SCOPE_RECOMMENDATION_SCHEMA_VERSION

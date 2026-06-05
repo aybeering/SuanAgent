@@ -12185,7 +12185,14 @@ def test_artifact_validator_reports_diagnosis_operator_navigation_drift(
     diagnosis["operator_navigation"]["next_command"]["selector_command"] = (
         "python -m orchestrator.experiments summary"
     )
+    diagnosis["operator_navigation"]["home"]["command_sha256"] = "bad-home-sha"
+    diagnosis["operator_navigation"]["next_command"]["selector_command_sha256"] = (
+        "bad-selector-sha"
+    )
     diagnosis["operator_navigation"]["next_command"]["selected_command"] = ""
+    diagnosis["operator_navigation"]["next_command"]["selected_command_sha256"] = (
+        "bad-selected-sha"
+    )
     diagnosis["operator_navigation"]["next_command"]["blocked"] = False
     diagnosis["operator_navigation"]["next_command"]["blocker_count"] = 0
     diagnosis["operator_navigation"]["next_command"]["writes_artifact"] = ""
@@ -12210,7 +12217,19 @@ def test_artifact_validator_reports_diagnosis_operator_navigation_drift(
         in report["errors"]
     )
     assert (
+        "diagnosis.json operator_navigation home command_sha256 mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation selector command_sha256 mismatch"
+        in report["errors"]
+    )
+    assert (
         "diagnosis.json operator_navigation next selected_command mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation next selected_command_sha256 mismatch"
         in report["errors"]
     )
     assert (
@@ -14838,6 +14857,9 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     assert diagnosis["operator_navigation"]["home"]["command"] == (  # type: ignore[index]
         "python -m orchestrator.experiments home diagnose-iteration --markdown"
     )
+    assert diagnosis["operator_navigation"]["home"]["command_sha256"] == sha256_text(  # type: ignore[index]
+        diagnosis["operator_navigation"]["home"]["command"]  # type: ignore[index]
+    )
     assert diagnosis["operator_navigation"]["home"]["command_boundary"] == (  # type: ignore[index]
         "read_only_inspection"
     )
@@ -14845,8 +14867,14 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     assert diagnosis["operator_navigation"]["next_command"]["selector_command"] == (  # type: ignore[index]
         "python -m orchestrator.experiments next-command diagnose-iteration --markdown"
     )
+    assert diagnosis["operator_navigation"]["next_command"]["selector_command_sha256"] == sha256_text(  # type: ignore[index]
+        diagnosis["operator_navigation"]["next_command"]["selector_command"]  # type: ignore[index]
+    )
     assert diagnosis["operator_navigation"]["next_command"]["selected_command"].startswith(  # type: ignore[index]
         "python -m orchestrator.operator_action_approval "
+    )
+    assert diagnosis["operator_navigation"]["next_command"]["selected_command_sha256"] == sha256_text(  # type: ignore[index]
+        diagnosis["operator_navigation"]["next_command"]["selected_command"]  # type: ignore[index]
     )
     assert diagnosis["operator_navigation"]["next_command"]["status"] == (  # type: ignore[index]
         "blocked_by_home_blockers"
@@ -19890,13 +19918,17 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert records[0]["operator_home"]["available"] is False
     assert records[0]["operator_home"]["reason"] == "not_iteration_run"
     assert records[0]["operator_home"]["command"] == ""
+    assert records[0]["operator_home"]["command_sha256"] == ""
     assert records[0]["operator_home"]["next_command_status"] == "unavailable"
     assert records[0]["operator_home"]["next_command_blocked"] is False
     assert records[0]["operator_home"]["next_command"] == ""
+    assert records[0]["operator_home"]["next_command_sha256"] == ""
     assert records[0]["operator_home"]["next_command_boundary"] == ""
     assert records[0]["operator_next_command"]["available"] is False
     assert records[0]["operator_next_command"]["reason"] == "not_iteration_run"
     assert records[0]["operator_next_command"]["command"] == ""
+    assert records[0]["operator_next_command"]["command_sha256"] == ""
+    assert records[0]["operator_next_command"]["selected_command_sha256"] == ""
     assert records[0]["operator_next_command"]["selected_command_status"] == (
         "unavailable"
     )
@@ -19907,6 +19939,9 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert records[1]["operator_home"]["command"] == (
         "python -m orchestrator.experiments home iteration-show --markdown"
     )
+    assert records[1]["operator_home"]["command_sha256"] == sha256_text(
+        records[1]["operator_home"]["command"]
+    )
     assert records[1]["operator_home"]["command_boundary"] == "read_only_inspection"
     assert records[1]["operator_home"]["terminal_only"] is True
     assert records[1]["operator_home"]["artifact_created"] is False
@@ -19916,6 +19951,9 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     )
     assert records[1]["operator_home"]["next_command"].startswith(
         "python -m orchestrator.operator_action_approval "
+    )
+    assert records[1]["operator_home"]["next_command_sha256"] == sha256_text(
+        records[1]["operator_home"]["next_command"]
     )
     assert records[1]["operator_home"]["next_command_status"] == (
         "blocked_by_home_blockers"
@@ -19947,11 +19985,17 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert records[1]["operator_next_command"]["command"] == (
         "python -m orchestrator.experiments next-command iteration-show --markdown"
     )
+    assert records[1]["operator_next_command"]["command_sha256"] == sha256_text(
+        records[1]["operator_next_command"]["command"]
+    )
     assert records[1]["operator_next_command"]["selected_command_label"] == (
         records[1]["operator_home"]["next_command_label"]
     )
     assert records[1]["operator_next_command"]["selected_command"] == (
         records[1]["operator_home"]["next_command"]
+    )
+    assert records[1]["operator_next_command"]["selected_command_sha256"] == (
+        records[1]["operator_home"]["next_command_sha256"]
     )
     assert records[1]["operator_next_command"]["selected_command_boundary"] == (
         "operator_approval_receipt"
@@ -19973,6 +20017,7 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert single["operator_home"]["available"] is False  # type: ignore[index]
     assert single["operator_home"]["reason"] == "not_iteration_run"  # type: ignore[index]
     assert single["operator_home"]["command"] == ""  # type: ignore[index]
+    assert single["operator_home"]["command_sha256"] == ""  # type: ignore[index]
     assert single["operator_home"]["next_command_status"] == "unavailable"  # type: ignore[index]
     assert single["operator_home"]["next_command_blocked"] is False  # type: ignore[index]
     assert single["operator_home"]["next_command"] == ""  # type: ignore[index]
@@ -19980,6 +20025,7 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert single["operator_next_command"]["available"] is False  # type: ignore[index]
     assert single["operator_next_command"]["reason"] == "not_iteration_run"  # type: ignore[index]
     assert single["operator_next_command"]["command"] == ""  # type: ignore[index]
+    assert single["operator_next_command"]["command_sha256"] == ""  # type: ignore[index]
     assert single["operator_next_command"]["selected_command_status"] == (  # type: ignore[index]
         "unavailable"
     )
@@ -19995,6 +20041,9 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert iteration["operator_home"]["command"] == (  # type: ignore[index]
         "python -m orchestrator.experiments home iteration-show --markdown"
     )
+    assert iteration["operator_home"]["command_sha256"] == sha256_text(  # type: ignore[index]
+        iteration["operator_home"]["command"]  # type: ignore[index]
+    )
     assert iteration["operator_home"]["command_boundary"] == (  # type: ignore[index]
         "read_only_inspection"
     )
@@ -20006,6 +20055,9 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     )
     assert iteration["operator_home"]["next_command"].startswith(  # type: ignore[index]
         "python -m orchestrator.operator_action_approval "
+    )
+    assert iteration["operator_home"]["next_command_sha256"] == sha256_text(  # type: ignore[index]
+        iteration["operator_home"]["next_command"]  # type: ignore[index]
     )
     assert iteration["operator_home"]["next_command_status"] == (  # type: ignore[index]
         "blocked_by_home_blockers"
@@ -20037,8 +20089,14 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert iteration["operator_next_command"]["command"] == (  # type: ignore[index]
         "python -m orchestrator.experiments next-command iteration-show --markdown"
     )
+    assert iteration["operator_next_command"]["command_sha256"] == sha256_text(  # type: ignore[index]
+        iteration["operator_next_command"]["command"]  # type: ignore[index]
+    )
     assert iteration["operator_next_command"]["selected_command"] == (  # type: ignore[index]
         iteration["operator_home"]["next_command"]
+    )
+    assert iteration["operator_next_command"]["selected_command_sha256"] == (  # type: ignore[index]
+        iteration["operator_home"]["next_command_sha256"]
     )
     assert iteration["operator_next_command"]["selected_command_boundary"] == (  # type: ignore[index]
         "operator_approval_receipt"
@@ -20218,6 +20276,9 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     assert summary["dashboard"]["operator_home_entry"]["command"] == (  # type: ignore[index]
         "python -m orchestrator.experiments home iteration-rank --markdown"
     )
+    assert summary["dashboard"]["operator_home_entry"]["command_sha256"] == sha256_text(  # type: ignore[index]
+        summary["dashboard"]["operator_home_entry"]["command"]  # type: ignore[index]
+    )
     assert summary["dashboard"]["operator_home_entry"]["command_boundary"] == (  # type: ignore[index]
         "read_only_inspection"
     )
@@ -20229,6 +20290,9 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     )
     assert summary["dashboard"]["operator_home_entry"]["next_command"].startswith(  # type: ignore[index]
         "python -m orchestrator.operator_action_approval "
+    )
+    assert summary["dashboard"]["operator_home_entry"]["next_command_sha256"] == sha256_text(  # type: ignore[index]
+        summary["dashboard"]["operator_home_entry"]["next_command"]  # type: ignore[index]
     )
     assert summary["dashboard"]["operator_home_entry"]["next_command_status"] == (  # type: ignore[index]
         "blocked_by_home_blockers"
@@ -20265,8 +20329,14 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     assert summary["dashboard"]["operator_next_command_entry"]["command"] == (  # type: ignore[index]
         "python -m orchestrator.experiments next-command iteration-rank --markdown"
     )
+    assert summary["dashboard"]["operator_next_command_entry"]["command_sha256"] == sha256_text(  # type: ignore[index]
+        summary["dashboard"]["operator_next_command_entry"]["command"]  # type: ignore[index]
+    )
     assert summary["dashboard"]["operator_next_command_entry"]["selected_command"] == (  # type: ignore[index]
         summary["dashboard"]["operator_home_entry"]["next_command"]
+    )
+    assert summary["dashboard"]["operator_next_command_entry"]["selected_command_sha256"] == (  # type: ignore[index]
+        summary["dashboard"]["operator_home_entry"]["next_command_sha256"]
     )
     assert summary["dashboard"]["operator_next_command_entry"]["selected_command_status"] == (  # type: ignore[index]
         "blocked_by_home_blockers"
@@ -20309,6 +20379,10 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
         "`python -m orchestrator.experiments home iteration-rank --markdown`"
         in summary_markdown
     )
+    assert "Operator home command SHA-256:" in summary_markdown
+    assert "Operator home next command SHA-256:" in summary_markdown
+    assert "Operator next-command selector command SHA-256:" in summary_markdown
+    assert "Operator next-command selected command SHA-256:" in summary_markdown
     assert "Operator home terminal-only: `True`" in summary_markdown
     assert "Operator home creates artifact: `False`" in summary_markdown
     assert "Operator home hint-only: `True`" in summary_markdown
@@ -20527,6 +20601,10 @@ def _minimal_experiment_summary_dashboard_payload() -> dict[str, object]:
                 "python -m orchestrator.operator_action_approval "
                 "experiments/run-001 --action-id action_001 --approve"
             ),
+            "next_command_sha256": sha256_text(
+                "python -m orchestrator.operator_action_approval "
+                "experiments/run-001 --action-id action_001 --approve"
+            ),
             "next_command_status": "blocked_by_home_blockers",
             "next_command_blocked": True,
             "next_command_blocker_count": 1,
@@ -20542,6 +20620,9 @@ def _minimal_experiment_summary_dashboard_payload() -> dict[str, object]:
             "next_command_is_hint_only": True,
             "command_label": "review_operator_home",
             "command": "python -m orchestrator.experiments home run-001 --markdown",
+            "command_sha256": sha256_text(
+                "python -m orchestrator.experiments home run-001 --markdown"
+            ),
             "command_boundary": "read_only_inspection",
             "terminal_only": True,
             "artifact_created": False,
@@ -20565,6 +20646,10 @@ def _minimal_experiment_summary_dashboard_payload() -> dict[str, object]:
                 "python -m orchestrator.experiments next-command "
                 "run-001 --markdown"
             ),
+            "command_sha256": sha256_text(
+                "python -m orchestrator.experiments next-command "
+                "run-001 --markdown"
+            ),
             "command_boundary": "read_only_inspection",
             "terminal_only": True,
             "artifact_created": False,
@@ -20572,6 +20657,10 @@ def _minimal_experiment_summary_dashboard_payload() -> dict[str, object]:
             "selection_source": "operator_home.next_command",
             "selected_command_label": "record_operator_approval",
             "selected_command": (
+                "python -m orchestrator.operator_action_approval "
+                "experiments/run-001 --action-id action_001 --approve"
+            ),
+            "selected_command_sha256": sha256_text(
                 "python -m orchestrator.operator_action_approval "
                 "experiments/run-001 --action-id action_001 --approve"
             ),
@@ -20813,6 +20902,43 @@ def test_experiment_operator_navigation_pair_rejects_misleading_commands() -> No
         run_id="run-001",
         run_kind="iteration_loop",
     ) == ()
+
+    digest_home = dict(payload["operator_home_entry"])  # type: ignore[arg-type]
+    digest_next_command = dict(
+        payload["operator_next_command_entry"]  # type: ignore[arg-type]
+    )
+    digest_home["command_sha256"] = "bad-home"
+    digest_home["next_command_sha256"] = "bad-selected"
+    digest_next_command["command_sha256"] = "bad-selector"
+    digest_next_command["selected_command_sha256"] = "bad-selected-copy"
+
+    digest_errors = validate_experiment_operator_navigation_pair(
+        operator_home=digest_home,
+        operator_next_command=digest_next_command,
+        run_id="run-001",
+        run_kind="iteration_loop",
+    )
+
+    assert (
+        "experiment operator navigation home command_sha256 mismatch"
+        in digest_errors
+    )
+    assert (
+        "experiment operator navigation next command_sha256 mismatch"
+        in digest_errors
+    )
+    assert (
+        "experiment operator navigation home next command_sha256 mismatch"
+        in digest_errors
+    )
+    assert (
+        "experiment operator navigation selected command_sha256 mismatch"
+        in digest_errors
+    )
+    assert (
+        "experiment operator navigation selected command digest mismatch"
+        in digest_errors
+    )
 
     operator_next_command["selected_command"] = ""
     operator_next_command["selected_command_status"] = "ready"

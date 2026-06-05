@@ -248,6 +248,7 @@
         "codex_intake_readiness_status",
         "next_command_label",
         "next_command",
+        "next_command_sha256",
         "next_command_status",
         "next_command_blocked",
         "next_command_blocker_count",
@@ -261,6 +262,7 @@
         "next_command_is_hint_only",
         "command_label",
         "command",
+        "command_sha256",
         "command_boundary",
         "terminal_only",
         "artifact_created",
@@ -313,6 +315,9 @@
         "next_command": {
           "type": "string"
         },
+        "next_command_sha256": {
+          "type": "string"
+        },
         "next_command_status": {
           "type": "string"
         },
@@ -353,6 +358,9 @@
         "command": {
           "type": "string"
         },
+        "command_sha256": {
+          "type": "string"
+        },
         "command_boundary": {
           "type": "string"
         },
@@ -384,6 +392,7 @@
         "operator_hint",
         "command_label",
         "command",
+        "command_sha256",
         "command_boundary",
         "terminal_only",
         "artifact_created",
@@ -391,6 +400,7 @@
         "selection_source",
         "selected_command_label",
         "selected_command",
+        "selected_command_sha256",
         "selected_command_status",
         "selected_command_boundary",
         "selected_command_writes_artifact",
@@ -447,6 +457,9 @@
         "command": {
           "type": "string"
         },
+        "command_sha256": {
+          "type": "string"
+        },
         "command_boundary": {
           "type": "string"
         },
@@ -466,6 +479,9 @@
           "type": "string"
         },
         "selected_command": {
+          "type": "string"
+        },
+        "selected_command_sha256": {
           "type": "string"
         },
         "selected_command_status": {

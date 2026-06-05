@@ -107,8 +107,8 @@ index rows with derived `operator_home` and `operator_next_command` hints on
 each row. Iteration-loop rows include the terminal-only `home <run_id>
 --markdown` command, the narrower `next-command <run_id> --markdown`
 selector, status, boundary, hint-only policy flags, next-command text, blocker
-summary, and next-command safety flags; single-run rows mark both hints and
-next-command state unavailable. The command does not rewrite `index.jsonl`,
+summary, command SHA-256 bindings, and next-command safety flags; single-run
+rows mark both hints and next-command state unavailable. The command does not rewrite `index.jsonl`,
 create artifacts, execute commands, run agents, run backtests, apply patches,
 promote champions, or change acceptance.
 
@@ -117,7 +117,7 @@ promote champions, or change acceptance.
 Iteration-loop runs expose the terminal-only home markdown command, the
 next-command selector command, and the selected command label, status, blocked
 flag, blocker count, operator hint, command text, boundary, write target,
-approval flags, guarded-executor flag, and hint-only flag; single-run payloads
+command SHA-256 bindings, approval flags, guarded-executor flag, and hint-only flag; single-run payloads
 explicitly mark the home hint, selector hint, and next-command state
 unavailable. These are read-only convenience fields and do not rewrite index
 rows or create `operator_home.json` or `operator_next_command.json` artifacts.
@@ -280,8 +280,8 @@ grouped without changing acceptance. It also includes an
 `operator_navigation` block. Single-run diagnoses mark this navigation
 unavailable. Iteration diagnoses copy the terminal-only operator-home command
 and the narrower next-command selector from `manifest.json`, including the
-selected command, blocked state, blocker count, boundary, write target, and
-safety flags. These fields are diagnosis hints only; they do not create
+selected command, blocked state, blocker count, boundary, write target,
+command SHA-256 bindings, and safety flags. These fields are diagnosis hints only; they do not create
 artifacts, record approval, execute commands, write config, promote champions,
 run agents, run backtests, apply patches, route agents, or change acceptance.
 `python -m orchestrator.artifact_validator <run_id>` validates this block when
@@ -328,7 +328,7 @@ the latest indexed run is an iteration loop; it surfaces the read-only `home
 and Codex readiness snippets without creating an artifact. The
 operator-next-command entry mirrors the home-selected next command and exposes
 the read-only `next-command <run_id> --markdown` selector, selected command,
-status, blocker summary, boundary, and write target without creating an
+status, blocker summary, boundary, write target, and command SHA-256 bindings without creating an
 artifact. The dashboard is inspection-only and does not execute agents, run
 backtests, apply patches, promote champions, or change acceptance.
 The embedded dashboard is validated in memory against

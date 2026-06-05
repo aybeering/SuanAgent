@@ -545,12 +545,14 @@ def validate_experiment_operator_home_entry(
     run_id = str(operator_home.get("run_id", ""))
     run_kind = str(operator_home.get("run_kind", ""))
     command = str(operator_home.get("command", ""))
+    command_sha256 = str(operator_home.get("command_sha256", ""))
     next_command_status = str(operator_home.get("next_command_status", ""))
     next_command_blocked = bool(operator_home.get("next_command_blocked", False))
     next_command_blocker_count = int_value(
         operator_home.get("next_command_blocker_count", -1)
     )
     next_command_text = str(operator_home.get("next_command", ""))
+    next_command_sha256 = str(operator_home.get("next_command_sha256", ""))
     next_command_boundary = str(operator_home.get("next_command_boundary", ""))
     expected_command = (
         f"python -m orchestrator.experiments home {run_id} --markdown"
@@ -576,6 +578,10 @@ def validate_experiment_operator_home_entry(
                 errors.append(
                     "experiment_summary_dashboard operator_home command mismatch"
                 )
+            if available and command_sha256 != sha256_text(command):
+                errors.append(
+                    "experiment_summary_dashboard operator_home command_sha256 mismatch"
+                )
             if available and (
                 not next_command_status or next_command_status == "unavailable"
             ):
@@ -586,6 +592,10 @@ def validate_experiment_operator_home_entry(
                 errors.append(
                     "experiment_summary_dashboard operator_home next command missing"
                 )
+            if available and next_command_sha256 != sha256_text(next_command_text):
+                errors.append(
+                    "experiment_summary_dashboard operator_home next command sha256 mismatch"
+                )
             if available and not next_command_boundary:
                 errors.append(
                     "experiment_summary_dashboard operator_home next boundary missing"
@@ -594,6 +604,10 @@ def validate_experiment_operator_home_entry(
             if available or command:
                 errors.append(
                     "experiment_summary_dashboard operator_home non-iteration mismatch"
+                )
+            if command_sha256 or next_command_sha256:
+                errors.append(
+                    "experiment_summary_dashboard operator_home non-iteration digest"
                 )
             if next_command_status != "unavailable" or next_command_blocked:
                 errors.append(
@@ -646,7 +660,11 @@ def validate_experiment_operator_next_command_entry(
     run_id = str(operator_next_command.get("run_id", ""))
     run_kind = str(operator_next_command.get("run_kind", ""))
     command = str(operator_next_command.get("command", ""))
+    command_sha256 = str(operator_next_command.get("command_sha256", ""))
     selected_command = str(operator_next_command.get("selected_command", ""))
+    selected_command_sha256 = str(
+        operator_next_command.get("selected_command_sha256", "")
+    )
     selected_status = str(
         operator_next_command.get("selected_command_status", "unavailable")
     )
@@ -681,6 +699,10 @@ def validate_experiment_operator_next_command_entry(
                 errors.append(
                     "experiment_summary_dashboard operator_next_command command mismatch"
                 )
+            if command_sha256 != sha256_text(command):
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command command_sha256 mismatch"
+                )
             if selected_status != str(
                 operator_home.get("next_command_status", "unavailable")
             ):
@@ -690,6 +712,16 @@ def validate_experiment_operator_next_command_entry(
             if selected_command != str(operator_home.get("next_command", "")):
                 errors.append(
                     "experiment_summary_dashboard operator_next_command selected mismatch"
+                )
+            if selected_command_sha256 != str(
+                operator_home.get("next_command_sha256", "")
+            ):
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command selected sha256 mismatch"
+                )
+            if selected_command_sha256 != sha256_text(selected_command):
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command selected command_sha256 mismatch"
                 )
             if str(
                 operator_next_command.get("selected_command_label", "")
@@ -723,6 +755,10 @@ def validate_experiment_operator_next_command_entry(
             if available or command:
                 errors.append(
                     "experiment_summary_dashboard operator_next_command non-iteration mismatch"
+                )
+            if command_sha256 or selected_command_sha256:
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command non-iteration digest"
                 )
             if selected_status != "unavailable" or selected_command:
                 errors.append(
@@ -811,8 +847,14 @@ def validate_experiment_operator_navigation_pair(
     home_available = bool(operator_home.get("available", False))
     next_available = bool(operator_next_command.get("available", False))
     home_command = str(operator_home.get("command", ""))
+    home_command_sha256 = str(operator_home.get("command_sha256", ""))
+    home_next_command_sha256 = str(operator_home.get("next_command_sha256", ""))
     selector_command = str(operator_next_command.get("command", ""))
+    selector_command_sha256 = str(operator_next_command.get("command_sha256", ""))
     selected_command = str(operator_next_command.get("selected_command", ""))
+    selected_command_sha256 = str(
+        operator_next_command.get("selected_command_sha256", "")
+    )
     selected_status = str(
         operator_next_command.get("selected_command_status", "unavailable")
     )
@@ -831,6 +873,8 @@ def validate_experiment_operator_navigation_pair(
             errors.append("experiment operator navigation non-iteration available")
         if home_command or selector_command or selected_command:
             errors.append("experiment operator navigation non-iteration command")
+        if home_command_sha256 or selector_command_sha256 or selected_command_sha256:
+            errors.append("experiment operator navigation non-iteration digest")
         if selected_status != "unavailable":
             errors.append("experiment operator navigation non-iteration status")
         return tuple(errors)
@@ -838,6 +882,8 @@ def validate_experiment_operator_navigation_pair(
     if not home_available:
         if home_command or selector_command or selected_command:
             errors.append("experiment operator navigation unavailable command")
+        if home_command_sha256 or selector_command_sha256 or selected_command_sha256:
+            errors.append("experiment operator navigation unavailable digest")
         if next_available:
             errors.append("experiment operator navigation next available mismatch")
         if selected_status != "unavailable":
@@ -852,6 +898,8 @@ def validate_experiment_operator_navigation_pair(
         errors.append("experiment operator navigation home label mismatch")
     if home_command != expected_home_command:
         errors.append("experiment operator navigation home command mismatch")
+    if home_command_sha256 != sha256_text(home_command):
+        errors.append("experiment operator navigation home command_sha256 mismatch")
     if str(operator_home.get("command_boundary", "")) != "read_only_inspection":
         errors.append("experiment operator navigation home boundary mismatch")
     if bool(operator_home.get("terminal_only", False)) is not True:
@@ -868,6 +916,8 @@ def validate_experiment_operator_navigation_pair(
         errors.append("experiment operator navigation next label mismatch")
     if selector_command != expected_selector_command:
         errors.append("experiment operator navigation next command mismatch")
+    if selector_command_sha256 != sha256_text(selector_command):
+        errors.append("experiment operator navigation next command_sha256 mismatch")
     if str(operator_next_command.get("command_boundary", "")) != (
         "read_only_inspection"
     ):
@@ -886,6 +936,14 @@ def validate_experiment_operator_navigation_pair(
         errors.append("experiment operator navigation selected status mismatch")
     if selected_command != str(operator_home.get("next_command", "")):
         errors.append("experiment operator navigation selected command mismatch")
+    if home_next_command_sha256 != sha256_text(selected_command):
+        errors.append("experiment operator navigation home next command_sha256 mismatch")
+    if selected_command_sha256 != home_next_command_sha256:
+        errors.append("experiment operator navigation selected command_sha256 mismatch")
+    if selected_command_sha256 != sha256_text(selected_command):
+        errors.append(
+            "experiment operator navigation selected command digest mismatch"
+        )
     if str(operator_next_command.get("selected_command_label", "")) != str(
         operator_home.get("next_command_label", "")
     ):
@@ -991,6 +1049,11 @@ def int_value(value: object, default: int = -1) -> int:
         return default
 
 
+def sha256_text(value: str) -> str:
+    """Return a SHA-256 digest for command text."""
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
 def float_value(value: object, default: float = 0.0) -> float:
     """Return a float for validation without raising on malformed payloads."""
     try:
@@ -1088,12 +1151,14 @@ def experiment_list_operator_home_hint(
         "status": "unavailable",
         "command_label": "",
         "command": "",
+        "command_sha256": "",
         "command_boundary": "",
         "terminal_only": True,
         "artifact_created": False,
         "command_is_hint_only": True,
         "next_command_label": "",
         "next_command": "",
+        "next_command_sha256": "",
         "next_command_status": "unavailable",
         "next_command_blocked": False,
         "next_command_blocker_count": 0,
@@ -1120,6 +1185,7 @@ def experiment_list_operator_home_hint(
             "status": "operator_home_missing",
         }
     command = f"python -m orchestrator.experiments home {run_id} --markdown"
+    next_command = str(manifest_home.get("next_command", ""))
     return {
         **base,
         "available": True,
@@ -1127,12 +1193,19 @@ def experiment_list_operator_home_hint(
         "status": str(manifest_home.get("status", "unknown")),
         "command_label": "review_operator_home",
         "command": command,
+        "command_sha256": sha256_text(command),
         "command_boundary": "read_only_inspection",
         "terminal_only": bool(manifest_home.get("terminal_only", False)),
         "artifact_created": bool(manifest_home.get("artifact_created", True)),
         "command_is_hint_only": bool(manifest_home.get("command_is_hint_only", False)),
         "next_command_label": str(manifest_home.get("next_command_label", "")),
-        "next_command": str(manifest_home.get("next_command", "")),
+        "next_command": next_command,
+        "next_command_sha256": str(
+            manifest_home.get(
+                "next_command_sha256",
+                sha256_text(next_command) if next_command else "",
+            )
+        ),
         "next_command_status": str(
             manifest_home.get("next_command_status", "unknown")
         ),
@@ -1189,6 +1262,7 @@ def experiment_operator_next_command_hint(
         "operator_hint": "",
         "command_label": "",
         "command": "",
+        "command_sha256": "",
         "command_boundary": "",
         "terminal_only": True,
         "artifact_created": False,
@@ -1196,6 +1270,7 @@ def experiment_operator_next_command_hint(
         "selection_source": "operator_home.next_command",
         "selected_command_label": "",
         "selected_command": "",
+        "selected_command_sha256": "",
         "selected_command_status": selected_status,
         "selected_command_boundary": "",
         "selected_command_writes_artifact": "",
@@ -1215,6 +1290,10 @@ def experiment_operator_next_command_hint(
             **base,
             "reason": str(operator_home.get("reason", "operator_home_unavailable")),
         }
+    selector_command = (
+        f"python -m orchestrator.experiments next-command {run_id} --markdown"
+    )
+    selected_command = str(operator_home.get("next_command", ""))
     return {
         **base,
         "available": True,
@@ -1226,10 +1305,17 @@ def experiment_operator_next_command_hint(
         ),
         "operator_hint": str(operator_home.get("next_command_operator_hint", "")),
         "command_label": "review_operator_next_command",
-        "command": f"python -m orchestrator.experiments next-command {run_id} --markdown",
+        "command": selector_command,
+        "command_sha256": sha256_text(selector_command),
         "command_boundary": "read_only_inspection",
         "selected_command_label": str(operator_home.get("next_command_label", "")),
-        "selected_command": str(operator_home.get("next_command", "")),
+        "selected_command": selected_command,
+        "selected_command_sha256": str(
+            operator_home.get(
+                "next_command_sha256",
+                sha256_text(selected_command) if selected_command else "",
+            )
+        ),
         "selected_command_status": selected_status,
         "selected_command_boundary": str(
             operator_home.get("next_command_boundary", "")
@@ -1274,6 +1360,7 @@ def experiment_operator_home_entry(
         "codex_intake_readiness_status": "",
         "next_command_label": "",
         "next_command": "",
+        "next_command_sha256": "",
         "next_command_status": "unavailable",
         "next_command_blocked": False,
         "next_command_blocker_count": 0,
@@ -1287,6 +1374,7 @@ def experiment_operator_home_entry(
         "next_command_is_hint_only": True,
         "command_label": "",
         "command": "",
+        "command_sha256": "",
         "command_boundary": "",
         "terminal_only": True,
         "artifact_created": False,
@@ -1322,6 +1410,7 @@ def experiment_operator_home_entry(
         )
         return base
     command = f"python -m orchestrator.experiments home {run_id} --markdown"
+    next_command = str(manifest_home.get("next_command", ""))
     base.update(
         {
             "available": True,
@@ -1336,7 +1425,13 @@ def experiment_operator_home_entry(
                 manifest_home.get("codex_intake_readiness_status", "")
             ),
             "next_command_label": str(manifest_home.get("next_command_label", "")),
-            "next_command": str(manifest_home.get("next_command", "")),
+            "next_command": next_command,
+            "next_command_sha256": str(
+                manifest_home.get(
+                    "next_command_sha256",
+                    sha256_text(next_command) if next_command else "",
+                )
+            ),
             "next_command_status": str(
                 manifest_home.get("next_command_status", "unknown")
             ),
@@ -1374,6 +1469,7 @@ def experiment_operator_home_entry(
             ),
             "command_label": "review_operator_home",
             "command": command,
+            "command_sha256": sha256_text(command),
             "command_boundary": "read_only_inspection",
             "terminal_only": bool(manifest_home.get("terminal_only", False)),
             "artifact_created": bool(manifest_home.get("artifact_created", True)),
@@ -1731,6 +1827,8 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         f"({operator_home.get('reason', 'unknown')})",
         "- Operator home command: "
         f"`{operator_home.get('command', '') or 'unavailable'}`",
+        "- Operator home command SHA-256: "
+        f"`{operator_home.get('command_sha256', '') or 'unavailable'}`",
         "- Operator home terminal-only: "
         f"`{operator_home.get('terminal_only', False)}`",
         "- Operator home creates artifact: "
@@ -1741,6 +1839,8 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         f"`{operator_home.get('next_command_label', '') or 'unavailable'}`",
         "- Operator home next command text: "
         f"`{operator_home.get('next_command', '') or 'unavailable'}`",
+        "- Operator home next command SHA-256: "
+        f"`{operator_home.get('next_command_sha256', '') or 'unavailable'}`",
         "- Operator home next command status: "
         f"`{operator_home.get('next_command_status', 'unavailable')}`",
         "- Operator home next command boundary: "
@@ -1767,6 +1867,8 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         f"({operator_next_command.get('reason', 'unknown')})",
         "- Operator next-command selector command: "
         f"`{operator_next_command.get('command', '') or 'unavailable'}`",
+        "- Operator next-command selector command SHA-256: "
+        f"`{operator_next_command.get('command_sha256', '') or 'unavailable'}`",
         "- Operator next-command selector source: "
         f"`{operator_next_command.get('selection_source', '') or 'unavailable'}`",
         "- Operator next-command selector terminal-only: "
@@ -1779,6 +1881,8 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         f"`{operator_next_command.get('selected_command_label', '') or 'unavailable'}`",
         "- Operator next-command selected command: "
         f"`{operator_next_command.get('selected_command', '') or 'unavailable'}`",
+        "- Operator next-command selected command SHA-256: "
+        f"`{operator_next_command.get('selected_command_sha256', '') or 'unavailable'}`",
         "- Operator next-command selected status: "
         f"`{operator_next_command.get('selected_command_status', 'unavailable')}`",
         "- Operator next-command selected boundary: "

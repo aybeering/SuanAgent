@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -175,6 +176,10 @@ def operator_navigation_from_manifest(
             reason="operator_home_unavailable",
         )
     next_command = str(operator_home.get("next_command", ""))
+    home_command = str(operator_home.get("command", ""))
+    selector_command = (
+        f"python -m orchestrator.experiments next-command {run_id} --markdown"
+    )
     return {
         "schema_version": "run_diagnosis_operator_navigation_v1",
         "available": True,
@@ -184,7 +189,10 @@ def operator_navigation_from_manifest(
         "home": {
             "available": True,
             "command_label": str(operator_home.get("command_label", "")),
-            "command": str(operator_home.get("command", "")),
+            "command": home_command,
+            "command_sha256": str(
+                operator_home.get("command_sha256", sha256_text(home_command))
+            ),
             "status": str(operator_home.get("status", "unknown")),
             "primary_focus": str(operator_home.get("primary_focus", "")),
             "action_step": str(operator_home.get("action_step", "")),
@@ -199,14 +207,19 @@ def operator_navigation_from_manifest(
             "available": bool(next_command),
             "selection_source": "operator_home.next_command",
             "selector_command_label": "review_operator_next_command",
-            "selector_command": (
-                f"python -m orchestrator.experiments next-command {run_id} --markdown"
-            ),
+            "selector_command": selector_command,
+            "selector_command_sha256": sha256_text(selector_command),
             "selector_boundary": "read_only_inspection",
             "selected_command_label": str(
                 operator_home.get("next_command_label", "")
             ),
             "selected_command": next_command,
+            "selected_command_sha256": str(
+                operator_home.get(
+                    "next_command_sha256",
+                    sha256_text(next_command) if next_command else "",
+                )
+            ),
             "status": str(operator_home.get("next_command_status", "unavailable")),
             "blocked": bool(operator_home.get("next_command_blocked", False)),
             "blocker_count": int(
@@ -259,6 +272,7 @@ def operator_navigation_unavailable(
             "available": False,
             "command_label": "",
             "command": "",
+            "command_sha256": "",
             "status": "unavailable",
             "primary_focus": "",
             "action_step": "",
@@ -272,9 +286,11 @@ def operator_navigation_unavailable(
             "selection_source": "operator_home.next_command",
             "selector_command_label": "",
             "selector_command": "",
+            "selector_command_sha256": "",
             "selector_boundary": "",
             "selected_command_label": "",
             "selected_command": "",
+            "selected_command_sha256": "",
             "status": "unavailable",
             "blocked": False,
             "blocker_count": 0,
@@ -289,6 +305,11 @@ def operator_navigation_unavailable(
         },
         "policy": operator_navigation_policy(),
     }
+
+
+def sha256_text(value: str) -> str:
+    """Return a SHA-256 digest for a text command."""
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def operator_navigation_policy() -> dict[str, bool]:

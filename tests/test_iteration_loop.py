@@ -12266,6 +12266,56 @@ def test_artifact_validator_reports_summary_operator_cockpit_drift(
     assert "summary.md operator_cockpit path mismatch" in report["errors"]
 
 
+def test_artifact_validator_reports_summary_operator_action_dashboard_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-summary-action-dashboard-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments" / run_id
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    dashboard = manifest["operator_action_dashboard"]
+    summary_path = run_dir / "summary.md"
+    summary_text = summary_path.read_text(encoding="utf-8")
+    section_start = summary_text.index("## Operator Action Dashboard")
+    section_end = summary_text.index("\n## Operator Unlock Checklist", section_start)
+    dashboard_section = summary_text[section_start:section_end]
+    dashboard_section = dashboard_section.replace(
+        f"- Current step: `{dashboard['current_step']}`",
+        "- Current step: `wrong_step`",
+        1,
+    )
+    dashboard_section = dashboard_section.replace(
+        f"- Markdown: `{dashboard['markdown_path']}`",
+        "- Markdown: `wrong_operator_action_dashboard.md`",
+        1,
+    )
+    summary_text = (
+        summary_text[:section_start] + dashboard_section + summary_text[section_end:]
+    )
+    summary_path.write_text(summary_text, encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert (
+        "summary.md operator_action_dashboard current_step mismatch"
+        in report["errors"]
+    )
+    assert (
+        "summary.md operator_action_dashboard markdown_path mismatch"
+        in report["errors"]
+    )
+
+
 def test_artifact_validator_reports_summary_operator_next_command_drift(
     tmp_path: Path,
 ) -> None:

@@ -532,6 +532,11 @@ def validate_iteration_run(
         run_dir=run_dir,
         report=report,
     )
+    validate_iteration_summary_operator_action_dashboard(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
     validate_iteration_summary_operator_cockpit(
         run_dir=run_dir,
         manifest=manifest,
@@ -934,6 +939,46 @@ def validate_iteration_summary_candidate_leaderboard(
         expected_line = candidate_leaderboard_row(row)
         if expected_line not in section:
             add_error(report, f"summary.md candidate_leaderboard row_{index} mismatch")
+
+
+def validate_iteration_summary_operator_action_dashboard(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md operator-action-dashboard section mirrors manifest."""
+    dashboard = manifest.get("operator_action_dashboard")
+    if not isinstance(dashboard, dict):
+        return
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Operator Action Dashboard",
+    )
+    if not section:
+        add_error(report, "summary.md operator_action_dashboard section missing")
+        return
+    expected_lines: tuple[tuple[str, str], ...] = (
+        ("status", f"- Status: `{markdown_display_value(dashboard.get('status'))}`"),
+        ("ok", f"- OK: `{markdown_display_value(dashboard.get('ok'))}`"),
+        (
+            "current_step",
+            "- Current step: "
+            f"`{markdown_display_value(dashboard.get('current_step'))}`",
+        ),
+        ("path", f"- Artifact: `{markdown_display_value(dashboard.get('path'))}`"),
+        (
+            "markdown_path",
+            "- Markdown: "
+            f"`{markdown_display_value(dashboard.get('markdown_path'))}`",
+        ),
+    )
+    for field_name, expected_line in expected_lines:
+        if expected_line not in section:
+            add_error(
+                report,
+                f"summary.md operator_action_dashboard {field_name} mismatch",
+            )
 
 
 def validate_iteration_summary_operator_cockpit(

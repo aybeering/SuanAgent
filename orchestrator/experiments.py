@@ -6910,6 +6910,11 @@ def main() -> None:
         type=Path,
         default=Path("config/default.json"),
     )
+    restore_config_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the config restore receipt as markdown.",
+    )
 
     diagnose_parser = subparsers.add_parser(
         "diagnose",
@@ -7329,6 +7334,7 @@ def main() -> None:
         )
     elif args.command == "restore-config-approved":
         from orchestrator.config_application_restore_executor import (
+            render_restore_receipt_markdown,
             restore_config_with_preview,
         )
 
@@ -7339,6 +7345,11 @@ def main() -> None:
             preview_path=args.preview_path,
             config_path=args.config,
         )
+        if args.markdown:
+            print(render_restore_receipt_markdown(payload), end="")
+            if not payload.get("restored", False):
+                raise SystemExit(1)
+            return
     elif args.command == "diagnose":
         payload = diagnose_run(
             experiments_dir=args.experiments_dir,

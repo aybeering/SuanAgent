@@ -24638,6 +24638,24 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    restore_config_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "restore-config-approved",
+            "cli-candidates",
+            "--preview-path",
+            "experiments/cli-candidates/config_application_rollback_preview.json",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     write_config_lineage_result = subprocess.run(
         [
             sys.executable,
@@ -26050,6 +26068,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         restore_config_payload,
         "config_application_restore_receipt",
     )
+    assert restore_config_markdown_result.returncode == 1
+    assert "# Config Application Restore Receipt" in (
+        restore_config_markdown_result.stdout
+    )
+    assert "- Run: `cli-candidates`" in restore_config_markdown_result.stdout
+    assert "## Restored Changes" in restore_config_markdown_result.stdout
+    assert "preview_not_ready" in restore_config_markdown_result.stdout
     assert write_config_lineage_result.returncode == 0, (
         write_config_lineage_result.stderr
     )

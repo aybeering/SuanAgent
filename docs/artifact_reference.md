@@ -1009,7 +1009,10 @@ Replay artifacts:
   saved rollback preview is ready and all preview, receipt, and current config
   digests still match. If an applied candidate added a previously missing
   config path, restore removes that path. Blocked attempts write a receipt but
-  leave config unchanged.
+  leave config unchanged. `python -m orchestrator.experiments
+  restore-config-approved <run_id>` and `python -m orchestrator.experiments
+  restore-config-approved <run_id> --markdown` write the guarded receipt and
+  print JSON or markdown while preserving blocked attempts as non-zero exits.
 - `config_operator_runbook.json` and `config_operator_runbook.md` summarize the
   config candidate, operator review, application dry-run, guarded apply,
   rollback preview, guarded restore, and lineage chain into one ordered

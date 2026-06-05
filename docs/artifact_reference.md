@@ -51,6 +51,7 @@ python -m orchestrator.experiments diagnose <run_id> --markdown
 python -m orchestrator.experiments candidates <run_id> --limit 5
 python -m orchestrator.experiments candidates <run_id> --limit 5 --markdown
 python -m orchestrator.experiments agents <run_id>
+python -m orchestrator.experiments agents <run_id> --markdown
 python -m orchestrator.experiments slots <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
@@ -1128,7 +1129,11 @@ Replay artifacts:
   printing. Its consistency checks recompute totals, grouped rows, patch-family
   rows, routing hints, source path binding, and replay summaries from saved
   run artifacts without executing agents, rerunning backtests, routing
-  candidates, applying patches, or changing acceptance.
+  candidates, applying patches, or changing acceptance. `agents <run_id>
+  --markdown` renders the same validated payload as compact agent, direction,
+  patch-family, routing-hint, and round-replay tables with candidate
+  leaderboard and diagnosis command SHA-256 bindings. It remains terminal-only
+  and does not create artifacts or change loop state.
 - `proposal_outcome_memory` is the terminal-only payload returned by
   `python -m orchestrator.experiments memory --limit N`. It reads
   `experiments/memory.jsonl`, returns only the bounded recent tail, validates

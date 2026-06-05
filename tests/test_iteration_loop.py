@@ -415,6 +415,7 @@ from orchestrator.experiments import (
     proposal_memory,
     promote_champion,
     refresh_operator_views as refresh_operator_views_command,
+    render_agent_result_stats_markdown,
     render_experiment_leaderboard_markdown,
     render_experiment_list_markdown,
     render_experiment_show_markdown,
@@ -23132,6 +23133,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         run_id="cli-candidates",
         run_dir=repo / "experiments/cli-candidates",
     ) == ()
+    stats_markdown = render_agent_result_stats_markdown(stats)
+    assert "# Agent Result Stats" in stats_markdown
+    assert "## Routing Hints" in stats_markdown
+    assert "Candidate leaderboard:" in stats_markdown
+    assert "Routes candidates: `False`" in stats_markdown
     drift_stats = json.loads(json.dumps(stats))
     drift_stats["run_id"] = "other-run"
     drift_stats["totals"]["attempt_count"] = -1
@@ -23409,6 +23415,22 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "--experiments-dir",
             "experiments",
             "action-plan",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    agents_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "agents",
             "cli-candidates",
             "--markdown",
         ],
@@ -24828,6 +24850,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert action_plan_payload["from_artifact"] is True
     assert action_plan_payload["summary"]["command_candidate_count"] >= 1
     assert action_plan_payload["policy"]["does_not_execute_commands"] is True
+    assert agents_markdown_result.returncode == 0, agents_markdown_result.stderr
+    assert "# Agent Result Stats" in agents_markdown_result.stdout
+    assert "cli-candidates" in agents_markdown_result.stdout
+    assert "## Round Replays" in agents_markdown_result.stdout
+    assert "Routes candidates: `False`" in agents_markdown_result.stdout
     assert validate_operator_action_plan_payload(
         action_plan_payload,
         run_dir=repo / "experiments/cli-candidates",

@@ -2263,6 +2263,156 @@ def render_candidate_leaderboard_markdown(
     return "\n".join(lines) + "\n"
 
 
+def render_agent_result_stats_markdown(payload: dict[str, object]) -> str:
+    """Render aggregate agent result stats as operator-facing markdown."""
+    run_id = str(payload.get("run_id", ""))
+    totals = dict_payload(payload.get("totals", {}))
+    round_replays = dict_payload(payload.get("round_replays", {}))
+    candidate_command = (
+        f"python -m orchestrator.experiments candidates {run_id} --limit 20 --markdown"
+        if run_id
+        else "unavailable"
+    )
+    diagnose_command = (
+        f"python -m orchestrator.experiments diagnose {run_id} --markdown"
+        if run_id
+        else "unavailable"
+    )
+    lines = [
+        "# Agent Result Stats",
+        "",
+        f"- Run id: `{markdown_cell(run_id or 'unavailable')}`",
+        f"- Source: `{markdown_cell(payload.get('source_path', ''))}`",
+        f"- From saved artifact: `{payload.get('from_artifact', False)}`",
+        f"- Attempts: `{totals.get('attempt_count', 0)}`",
+        f"- Selected: `{totals.get('selected_count', 0)}`",
+        f"- Accepted: `{totals.get('accepted_count', 0)}`",
+        f"- Rejected: `{totals.get('rejected_count', 0)}`",
+        "",
+        "## Agents",
+        "",
+        "| Agent | Attempts | Selected | Accepted | Selection Rate | Avg Validation EV | Top Failure | Routing |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+    ]
+    lines.extend(agent_result_stats_markdown_rows(list_payload(payload.get("agents", []))))
+    lines.extend(
+        [
+            "",
+            "## Directions",
+            "",
+            "| Direction | Attempts | Selected | Accepted | Selection Rate | Avg Validation EV | Top Failure | Routing |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+        ]
+    )
+    lines.extend(agent_result_stats_markdown_rows(list_payload(payload.get("directions", []))))
+    lines.extend(
+        [
+            "",
+            "## Patch Families",
+            "",
+            "| Patch Family | Directions | Attempts | Selected | Accepted | Avg Validation EV | Top Failure | Routing |",
+            "| --- | --- | ---: | ---: | ---: | ---: | --- | --- |",
+        ]
+    )
+    patch_rows = list_payload(payload.get("patch_families", []))
+    if not patch_rows:
+        lines.append("| none | none | 0 | 0 | 0 | n/a | none | none |")
+    for row in patch_rows:
+        raw_directions = row.get("direction_tags", [])
+        if not isinstance(raw_directions, list):
+            raw_directions = []
+        directions = ", ".join(
+            str(value)
+            for value in raw_directions
+            if isinstance(value, str)
+        )
+        lines.append(
+            "| "
+            f"`{markdown_cell(row.get('key', ''))}` | "
+            f"`{markdown_cell(directions or 'none')}` | "
+            f"{int_value(row.get('attempt_count', 0), 0)} | "
+            f"{int_value(row.get('selected_count', 0), 0)} | "
+            f"{int_value(row.get('accepted_count', 0), 0)} | "
+            f"{number_text(row.get('avg_validation_ev_delta'))} | "
+            f"`{markdown_cell(row.get('top_failure_code', '') or 'none')}` | "
+            f"`{markdown_cell(row.get('routing_action', '') or 'none')}` |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Routing Hints",
+            "",
+            "| Target | Type | Action | Attempts | Accepted | Top Failure | Reason |",
+            "| --- | --- | --- | ---: | ---: | --- | --- |",
+        ]
+    )
+    hint_rows = list_payload(payload.get("routing_hints", []))
+    if not hint_rows:
+        lines.append("| none | none | none | 0 | 0 | none | none |")
+    for row in hint_rows:
+        lines.append(
+            "| "
+            f"`{markdown_cell(row.get('target', ''))}` | "
+            f"`{markdown_cell(row.get('target_type', ''))}` | "
+            f"`{markdown_cell(row.get('action', ''))}` | "
+            f"{int_value(row.get('attempt_count', 0), 0)} | "
+            f"{int_value(row.get('accepted_count', 0), 0)} | "
+            f"`{markdown_cell(row.get('top_failure_code', '') or 'none')}` | "
+            f"{markdown_cell(row.get('reason', '') or 'none')} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Round Replays",
+            "",
+            f"- Round count: `{round_replays.get('round_count', 0)}`",
+            f"- Replayed: `{round_replays.get('replayed_round_count', 0)}`",
+            f"- Missing: `{round_replays.get('missing_round_count', 0)}`",
+            f"- OK: `{round_replays.get('ok_count', 0)}`",
+            f"- Failures: `{round_replays.get('failure_count', 0)}`",
+            "",
+            "## Commands",
+            "",
+            f"- Candidate leaderboard: `{markdown_cell(candidate_command)}`",
+            f"  SHA-256: `{sha256_text(candidate_command) if run_id else 'unavailable'}`",
+            f"- Diagnose run: `{markdown_cell(diagnose_command)}`",
+            f"  SHA-256: `{sha256_text(diagnose_command) if run_id else 'unavailable'}`",
+            "",
+            "## Policy",
+            "",
+            "- Inspection only: `True`",
+            "- Creates artifacts: `False`",
+            "- Executes agents: `False`",
+            "- Reruns backtests: `False`",
+            "- Routes candidates: `False`",
+            "- Applies patches: `False`",
+            "- Changes acceptance: `False`",
+            "- Writes config: `False`",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def agent_result_stats_markdown_rows(rows: list[dict[str, object]]) -> list[str]:
+    """Return aggregate stats table rows for agents and directions."""
+    if not rows:
+        return ["| none | 0 | 0 | 0 | n/a | n/a | none | none |"]
+    return [
+        "| "
+        f"`{markdown_cell(row.get('key', ''))}` | "
+        f"{int_value(row.get('attempt_count', 0), 0)} | "
+        f"{int_value(row.get('selected_count', 0), 0)} | "
+        f"{int_value(row.get('accepted_count', 0), 0)} | "
+        f"{number_text(row.get('selection_rate'))} | "
+        f"{number_text(row.get('avg_validation_ev_delta'))} | "
+        f"`{markdown_cell(row.get('top_failure_code', '') or 'none')}` | "
+        f"`{markdown_cell(row.get('routing_action', '') or 'none')}` |"
+        for row in rows
+    ]
+
+
 def render_experiment_show_markdown(payload: dict[str, object]) -> str:
     """Render one compact experiment record as operator-facing markdown."""
     kind = str(payload.get("kind", "unknown"))
@@ -6433,6 +6583,11 @@ def main() -> None:
         help="Show aggregate agent, direction, and patch-family result stats.",
     )
     agents_parser.add_argument("run_id")
+    agents_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the agent result stats as markdown.",
+    )
 
     quality_trace_parser = subparsers.add_parser(
         "quality-trace",
@@ -6823,6 +6978,9 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )
+        if args.markdown:
+            print(render_agent_result_stats_markdown(payload), end="")
+            return
     elif args.command == "quality-trace":
         payload = candidate_quality_trace(
             experiments_dir=args.experiments_dir,

@@ -12222,6 +12222,50 @@ def test_artifact_validator_reports_summary_operator_home_drift(
     assert "summary.md operator_home markdown_command mismatch" in report["errors"]
 
 
+def test_artifact_validator_reports_summary_operator_cockpit_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-summary-cockpit-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments" / run_id
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    cockpit = manifest["operator_cockpit"]
+    summary_path = run_dir / "summary.md"
+    summary_text = summary_path.read_text(encoding="utf-8")
+    section_start = summary_text.index("## Operator Cockpit")
+    section_end = summary_text.index("\n## Operator Home", section_start)
+    cockpit_section = summary_text[section_start:section_end]
+    cockpit_section = cockpit_section.replace(
+        f"- Status: `{cockpit['status']}`",
+        "- Status: `wrong_status`",
+        1,
+    )
+    cockpit_section = cockpit_section.replace(
+        f"- Artifact: `{cockpit['path']}`",
+        "- Artifact: `wrong_operator_cockpit.json`",
+        1,
+    )
+    summary_text = (
+        summary_text[:section_start] + cockpit_section + summary_text[section_end:]
+    )
+    summary_path.write_text(summary_text, encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert "summary.md operator_cockpit status mismatch" in report["errors"]
+    assert "summary.md operator_cockpit path mismatch" in report["errors"]
+
+
 def test_artifact_validator_reports_summary_operator_next_command_drift(
     tmp_path: Path,
 ) -> None:

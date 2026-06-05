@@ -532,6 +532,11 @@ def validate_iteration_run(
         run_dir=run_dir,
         report=report,
     )
+    validate_iteration_summary_operator_cockpit(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
     validate_iteration_summary_operator_home(
         run_dir=run_dir,
         manifest=manifest,
@@ -929,6 +934,53 @@ def validate_iteration_summary_candidate_leaderboard(
         expected_line = candidate_leaderboard_row(row)
         if expected_line not in section:
             add_error(report, f"summary.md candidate_leaderboard row_{index} mismatch")
+
+
+def validate_iteration_summary_operator_cockpit(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md operator-cockpit section mirrors manifest.json."""
+    cockpit = manifest.get("operator_cockpit")
+    if not isinstance(cockpit, dict):
+        return
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Operator Cockpit",
+    )
+    if not section:
+        add_error(report, "summary.md operator_cockpit section missing")
+        return
+    expected_lines: tuple[tuple[str, str], ...] = (
+        ("status", f"- Status: `{markdown_display_value(cockpit.get('status'))}`"),
+        ("ok", f"- OK: `{markdown_display_value(cockpit.get('ok'))}`"),
+        (
+            "primary_focus",
+            "- Primary focus: "
+            f"`{markdown_display_value(cockpit.get('primary_focus'))}`",
+        ),
+        (
+            "codex_unlock_status",
+            "- Codex unlock: "
+            f"`{markdown_display_value(cockpit.get('codex_unlock_status'))}`",
+        ),
+        (
+            "codex_unlock_failed_count",
+            "- Codex unlock failed items: "
+            f"`{markdown_display_value(cockpit.get('codex_unlock_failed_count'))}`",
+        ),
+        ("path", f"- Artifact: `{markdown_display_value(cockpit.get('path'))}`"),
+        (
+            "markdown_path",
+            "- Markdown: "
+            f"`{markdown_display_value(cockpit.get('markdown_path'))}`",
+        ),
+    )
+    for field_name, expected_line in expected_lines:
+        if expected_line not in section:
+            add_error(report, f"summary.md operator_cockpit {field_name} mismatch")
 
 
 def validate_iteration_summary_operator_home(

@@ -6821,6 +6821,18 @@ def main() -> None:
         help="Render the challenger report as markdown.",
     )
 
+    promotion_dry_run_parser = subparsers.add_parser(
+        "promotion-dry-run",
+        help="Write and show the read-only champion promotion dry-run.",
+    )
+    promotion_dry_run_parser.add_argument("run_id")
+    promotion_dry_run_parser.add_argument("--min-ev-delta", type=float, default=0.0)
+    promotion_dry_run_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the champion promotion dry-run as markdown.",
+    )
+
     profile_recommendation_parser = subparsers.add_parser(
         "profile-recommendation",
         help="Show the read-only next modifier profile recommendation.",
@@ -7317,6 +7329,21 @@ def main() -> None:
         )
         if args.markdown:
             print(render_candidate_challenger_markdown(payload), end="")
+            return
+    elif args.command == "promotion-dry-run":
+        from orchestrator.champion_promotion_dry_run import (
+            render_champion_promotion_markdown,
+            write_champion_promotion_dry_run,
+        )
+
+        _, _, payload = write_champion_promotion_dry_run(
+            run_dir=args.experiments_dir / args.run_id,
+            experiments_dir=args.experiments_dir,
+            repo_root=args.experiments_dir.parent,
+            min_ev_delta=args.min_ev_delta,
+        )
+        if args.markdown:
+            print(render_champion_promotion_markdown(payload), end="")
             return
     elif args.command == "profile-recommendation":
         payload = modifier_profile_recommendation(

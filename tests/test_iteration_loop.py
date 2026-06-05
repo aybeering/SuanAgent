@@ -25058,6 +25058,50 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    promotion_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.champion_promotion_dry_run",
+            "experiments/cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    promotion_experiments_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "promotion-dry-run",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    promotion_experiments_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "promotion-dry-run",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     approval_result = subprocess.run(
         [
             sys.executable,
@@ -26488,6 +26532,16 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     ) == ()
     assert promotion_result.returncode == 0, promotion_result.stderr
     promotion_payload = json.loads(promotion_result.stdout)
+    assert promotion_markdown_result.returncode == 0, (
+        promotion_markdown_result.stderr
+    )
+    assert promotion_experiments_result.returncode == 0, (
+        promotion_experiments_result.stderr
+    )
+    promotion_experiments_payload = json.loads(promotion_experiments_result.stdout)
+    assert promotion_experiments_markdown_result.returncode == 0, (
+        promotion_experiments_markdown_result.stderr
+    )
     assert (
         promotion_payload["schema_version"]
         == CHAMPION_PROMOTION_DRY_RUN_SCHEMA_VERSION
@@ -26495,6 +26549,23 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert promotion_payload["status"] == "no_champion"
     assert promotion_payload["dry_run_decision"]["would_promote"] is False
     assert promotion_payload["policy"]["requires_explicit_promote_command"] is True
+    assert promotion_experiments_payload["schema_version"] == (
+        CHAMPION_PROMOTION_DRY_RUN_SCHEMA_VERSION
+    )
+    assert promotion_experiments_payload["status"] == promotion_payload["status"]
+    assert promotion_experiments_payload["policy"][
+        "requires_explicit_promote_command"
+    ] is True
+    assert "# Champion Promotion Dry Run" in promotion_markdown_result.stdout
+    assert "cli-candidates" in promotion_markdown_result.stdout
+    assert "does not execute agents" in promotion_markdown_result.stdout
+    assert "# Champion Promotion Dry Run" in (
+        promotion_experiments_markdown_result.stdout
+    )
+    assert "cli-candidates" in promotion_experiments_markdown_result.stdout
+    assert "explicit deterministic promote command" in (
+        promotion_experiments_markdown_result.stdout
+    )
     assert validate_champion_promotion_dry_run_file(
         payload_path=repo / "experiments/cli-candidates/champion_promotion_dry_run.json",
         repo_root=repo,

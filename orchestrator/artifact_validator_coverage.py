@@ -281,6 +281,7 @@ INSPECTION_COMMANDS = {
     ),
     "champion_promotion_dry_run": (
         "python -m orchestrator.champion_promotion_dry_run",
+        "python -m orchestrator.experiments promotion-dry-run",
     ),
     "champion_promotion_approval": (
         "python -m orchestrator.champion_promotion_approval",

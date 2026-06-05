@@ -65,6 +65,10 @@ python -m orchestrator.experiments champion
 python -m orchestrator.experiments champion --markdown
 python -m orchestrator.experiments lineage
 python -m orchestrator.experiments lineage --markdown
+python -m orchestrator.champion_promotion_dry_run experiments/<run_id>
+python -m orchestrator.champion_promotion_dry_run experiments/<run_id> --markdown
+python -m orchestrator.experiments promotion-dry-run <run_id>
+python -m orchestrator.experiments promotion-dry-run <run_id> --markdown
 python -m orchestrator.experiments apply-config-approved <run_id> --dry-run-path experiments/<run_id>/config_application_dry_run.json
 python -m orchestrator.experiments config-application-rollback-preview <run_id> --receipt-path experiments/<run_id>/config_application_receipt.json
 python -m orchestrator.experiments restore-config-approved <run_id> --preview-path experiments/<run_id>/config_application_rollback_preview.json
@@ -1244,8 +1248,10 @@ Replay artifacts:
   would-promote decision, recommended next actions, and read-only policy flags.
   They never write `champion.json`, append `champion_history.jsonl`, execute
   agents, run backtests, apply patches, route agents, or change acceptance.
-  Actual guarded promotion uses the explicit `experiments promote-approved`
-  command.
+  The direct module `--markdown` mode and
+  `python -m orchestrator.experiments promotion-dry-run <run_id> --markdown`
+  render the same preview as terminal markdown. Actual guarded promotion uses
+  the explicit `experiments promote-approved` command.
 - `champion_promotion_approval.json` and `champion_promotion_approval.md`
   record operator review intent, required confirmation phrase hashes, reviewed
   promote command digests, and source evidence hashes. The writer and artifact

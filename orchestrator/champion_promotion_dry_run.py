@@ -639,6 +639,11 @@ def main() -> None:
     parser.add_argument("--experiments-dir", type=Path, default=Path("experiments"))
     parser.add_argument("--repo-root", type=Path, default=Path("."))
     parser.add_argument("--min-ev-delta", type=float, default=0.0)
+    parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Print the champion promotion dry-run as markdown.",
+    )
     args = parser.parse_args()
     _, _, payload = write_champion_promotion_dry_run(
         run_dir=args.run_dir,
@@ -646,7 +651,10 @@ def main() -> None:
         repo_root=args.repo_root,
         min_ev_delta=args.min_ev_delta,
     )
-    print(json.dumps(payload, indent=2, sort_keys=True))
+    if args.markdown:
+        print(render_champion_promotion_markdown(payload), end="")
+    else:
+        print(json.dumps(payload, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

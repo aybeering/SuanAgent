@@ -8,6 +8,7 @@ It is not a general-purpose replacement for the jsonschema package.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -86,10 +87,27 @@ def validate_node(
     if isinstance(enum_values, list) and value not in enum_values:
         errors.append(f"{path}: expected one of {enum_values}, got {value!r}")
 
+    if "const" in schema and value != schema["const"]:
+        errors.append(f"{path}: expected constant {schema['const']!r}, got {value!r}")
+
     if isinstance(value, str):
         min_length = schema.get("minLength")
         if isinstance(min_length, int) and len(value) < min_length:
             errors.append(f"{path}: expected string length >= {min_length}")
+        pattern = schema.get("pattern")
+        if isinstance(pattern, str):
+            try:
+                matched = re.search(pattern, value) is not None
+            except re.error as exc:
+                errors.append(f"{path}: invalid schema pattern {pattern!r}: {exc}")
+            else:
+                if not matched:
+                    errors.append(f"{path}: expected string to match pattern {pattern!r}")
+
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        minimum = schema.get("minimum")
+        if isinstance(minimum, (int, float)) and value < minimum:
+            errors.append(f"{path}: expected number >= {minimum}")
 
     if isinstance(value, dict):
         validate_object(

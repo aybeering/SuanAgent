@@ -610,6 +610,47 @@ def test_schema_validator_resolves_same_directory_schema_refs(tmp_path: Path) ->
     assert "$.record.ok: expected boolean, got string" in errors
 
 
+def test_schema_validator_enforces_used_contract_keywords() -> None:
+    schema = {
+        "type": "object",
+        "required": ["digest", "count", "enabled"],
+        "properties": {
+            "digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$",
+            },
+            "count": {
+                "type": "integer",
+                "minimum": 1,
+            },
+            "enabled": {
+                "type": "boolean",
+                "const": True,
+            },
+        },
+    }
+    valid_payload = {
+        "digest": "a" * 64,
+        "count": 1,
+        "enabled": True,
+    }
+    invalid_payload = {
+        "digest": "not-a-sha",
+        "count": 0,
+        "enabled": False,
+    }
+
+    assert validate_json_payload(payload=valid_payload, schema=schema) == ()
+    errors = validate_json_payload(payload=invalid_payload, schema=schema)
+
+    assert (
+        "$.digest: expected string to match pattern '^[0-9a-f]{64}$'"
+        in errors
+    )
+    assert "$.count: expected number >= 1" in errors
+    assert "$.enabled: expected constant True, got False" in errors
+
+
 def test_artifact_validator_coverage_reports_repo_contracts(tmp_path: Path) -> None:
     payload = build_artifact_validator_coverage(repo_root=Path.cwd())
 

@@ -1234,6 +1234,10 @@ Replay artifacts:
   and guarded-write policy flags. The artifact validator reuses the non-source
   consistency checks without treating older blocked receipts as unhealthy after
   a later approval artifact refresh.
+  `python -m orchestrator.experiments promote-approved <candidate_run_id>` and
+  `python -m orchestrator.experiments promote-approved <candidate_run_id> --markdown`
+  write the guarded receipt and print JSON or markdown, preserving blocked
+  attempts as non-zero exits.
 - `champion_lineage.json` and `champion_lineage.md` are read-only global
   experiment reports that connect `champion.json`, `champion_history.jsonl`,
   promotion receipts, approval artifacts, dry-run reports, and comparison

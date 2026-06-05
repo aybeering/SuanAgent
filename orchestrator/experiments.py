@@ -6886,6 +6886,11 @@ def main() -> None:
     promote_approved_parser.add_argument("candidate_run_id")
     promote_approved_parser.add_argument("--approval-path", type=Path, required=True)
     promote_approved_parser.add_argument("--min-ev-delta", type=float, default=0.0)
+    promote_approved_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the champion promotion receipt as markdown.",
+    )
 
     apply_config_parser = subparsers.add_parser(
         "apply-config-approved",
@@ -7316,6 +7321,7 @@ def main() -> None:
     elif args.command == "promote-approved":
         from orchestrator.champion_promotion_executor import (
             promote_champion_with_approval,
+            render_receipt_markdown as render_champion_promotion_receipt_markdown,
         )
 
         payload = promote_champion_with_approval(
@@ -7325,6 +7331,11 @@ def main() -> None:
             approval_path=args.approval_path,
             min_ev_delta=args.min_ev_delta,
         )
+        if args.markdown:
+            print(render_champion_promotion_receipt_markdown(payload), end="")
+            if not payload.get("promoted", False):
+                raise SystemExit(1)
+            return
     elif args.command == "apply-config-approved":
         from orchestrator.config_application_executor import (
             apply_config_with_approval,

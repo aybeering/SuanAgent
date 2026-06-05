@@ -22239,6 +22239,33 @@ def test_champion_promote_approved_requires_recorded_approval(
         experiments_dir=repo / "experiments",
         repo_root=repo,
     )
+    direct_lineage_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.champion_lineage",
+            "--experiments-dir",
+            "experiments",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    direct_lineage_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.champion_lineage",
+            "--experiments-dir",
+            "experiments",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     assert lineage["schema_version"] == CHAMPION_LINEAGE_SCHEMA_VERSION
     assert lineage["ok"] is True
     assert lineage["current_champion"]["champion_run_id"] == "receipt-candidate"
@@ -22255,6 +22282,21 @@ def test_champion_promote_approved_requires_recorded_approval(
     assert lineage["lineage"][1]["evidence"]["dry_run"]["exists"] is True
     assert lineage["lineage"][1]["evidence"]["receipt_promoted"] is True
     assert lineage["policy"]["does_not_promote_champion"] is True
+    assert direct_lineage_result.returncode == 0, direct_lineage_result.stderr
+    direct_lineage_payload = json.loads(direct_lineage_result.stdout)
+    assert direct_lineage_payload["schema_version"] == CHAMPION_LINEAGE_SCHEMA_VERSION
+    assert direct_lineage_payload["ok"] is True
+    assert direct_lineage_payload["history"]["event_count"] == 2
+    assert direct_lineage_payload["current_champion"]["champion_run_id"] == (
+        "receipt-candidate"
+    )
+    assert direct_lineage_markdown_result.returncode == 0, (
+        direct_lineage_markdown_result.stderr
+    )
+    assert "# Champion Lineage" in direct_lineage_markdown_result.stdout
+    assert "`receipt-candidate`" in direct_lineage_markdown_result.stdout
+    assert "`approved_receipt`" in direct_lineage_markdown_result.stdout
+    assert "does not execute agents" in direct_lineage_markdown_result.stdout
     assert lineage_path.exists()
     assert lineage_md.exists()
     assert_matches_schema(lineage_path, "champion_lineage")

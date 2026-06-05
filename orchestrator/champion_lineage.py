@@ -537,12 +537,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Write a read-only champion lineage report.")
     parser.add_argument("--experiments-dir", type=Path, default=Path("experiments"))
     parser.add_argument("--repo-root", type=Path, default=Path("."))
+    parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Print the champion lineage report as markdown.",
+    )
     args = parser.parse_args()
     _, _, payload = write_champion_lineage(
         experiments_dir=args.experiments_dir,
         repo_root=args.repo_root,
     )
-    print(json.dumps(payload, indent=2, sort_keys=True))
+    if args.markdown:
+        print(render_champion_lineage_markdown(payload), end="")
+    else:
+        print(json.dumps(payload, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

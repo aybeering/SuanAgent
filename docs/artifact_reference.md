@@ -63,6 +63,8 @@ python -m orchestrator.experiments slots <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
 python -m orchestrator.experiments champion --markdown
+python -m orchestrator.champion_lineage
+python -m orchestrator.champion_lineage --markdown
 python -m orchestrator.experiments lineage
 python -m orchestrator.experiments lineage --markdown
 python -m orchestrator.champion_promotion_dry_run experiments/<run_id>
@@ -1295,10 +1297,10 @@ Replay artifacts:
   `from_artifact`, and can optionally rebuild the lineage from current
   champion/history evidence to catch drift before printing or writing. The
   experiment `summary` and `champion` inspection commands expose the same chain
-  as compact embedded JSON fields for quick status checks. The `lineage`
-  command writes `champion_lineage.json` and `champion_lineage.md`, and
-  `lineage --markdown` prints the same validated payload as a terminal-friendly
-  markdown view after writing those lineage artifacts.
+  as compact embedded JSON fields for quick status checks. The direct module
+  `--markdown` mode and `python -m orchestrator.experiments lineage --markdown`
+  write `champion_lineage.json` and `champion_lineage.md`, then print the same
+  validated payload as a terminal-friendly markdown view.
 - `python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>`
   remains available as a legacy deterministic helper for tests and fixtures,
   but operator-facing promotion should use `promote-approved` with a recorded

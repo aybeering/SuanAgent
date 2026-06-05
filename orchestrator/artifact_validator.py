@@ -537,6 +537,11 @@ def validate_iteration_run(
         manifest=manifest,
         report=report,
     )
+    validate_iteration_summary_run_closeout(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
     validate_iteration_summary_operator_action_plan(
         run_dir=run_dir,
         manifest=manifest,
@@ -1011,6 +1016,38 @@ def validate_iteration_summary_config_operator_runbook(
                 report,
                 f"summary.md config_operator_runbook {field_name} mismatch",
             )
+
+
+def validate_iteration_summary_run_closeout(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md run-closeout section mirrors manifest."""
+    closeout = manifest.get("run_closeout")
+    if not isinstance(closeout, dict):
+        return
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Run Closeout",
+    )
+    if not section:
+        add_error(report, "summary.md run_closeout section missing")
+        return
+    expected_lines: tuple[tuple[str, str], ...] = (
+        ("status", f"- Status: `{markdown_display_value(closeout.get('status'))}`"),
+        ("ok", f"- OK: `{markdown_display_value(closeout.get('ok'))}`"),
+        ("path", f"- Artifact: `{markdown_display_value(closeout.get('path'))}`"),
+        (
+            "markdown_path",
+            "- Markdown: "
+            f"`{markdown_display_value(closeout.get('markdown_path'))}`",
+        ),
+    )
+    for field_name, expected_line in expected_lines:
+        if expected_line not in section:
+            add_error(report, f"summary.md run_closeout {field_name} mismatch")
 
 
 def validate_iteration_summary_operator_action_plan(

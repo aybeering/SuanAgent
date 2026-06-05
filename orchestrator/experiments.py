@@ -21,6 +21,10 @@ from orchestrator.candidate_quality_trace import (
     render_candidate_quality_trace_markdown,
     validate_candidate_quality_trace_payload,
 )
+from orchestrator.candidate_challenger_report import (
+    render_candidate_challenger_markdown,
+    write_candidate_challenger_report,
+)
 from orchestrator.config_change_candidate import (
     build_config_change_candidate,
     render_config_change_candidate_markdown,
@@ -6806,6 +6810,17 @@ def main() -> None:
         help="Render the candidate quality trace as markdown.",
     )
 
+    challenger_parser = subparsers.add_parser(
+        "challenger",
+        help="Write and show the candidate-vs-champion challenger report.",
+    )
+    challenger_parser.add_argument("run_id")
+    challenger_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the challenger report as markdown.",
+    )
+
     profile_recommendation_parser = subparsers.add_parser(
         "profile-recommendation",
         help="Show the read-only next modifier profile recommendation.",
@@ -7293,6 +7308,15 @@ def main() -> None:
         )
         if args.markdown:
             print(render_candidate_quality_trace_markdown(payload), end="")
+            return
+    elif args.command == "challenger":
+        _, _, payload = write_candidate_challenger_report(
+            run_dir=args.experiments_dir / args.run_id,
+            experiments_dir=args.experiments_dir,
+            repo_root=args.experiments_dir.parent,
+        )
+        if args.markdown:
+            print(render_candidate_challenger_markdown(payload), end="")
             return
     elif args.command == "profile-recommendation":
         payload = modifier_profile_recommendation(

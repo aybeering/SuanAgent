@@ -25002,6 +25002,50 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    challenger_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.candidate_challenger_report",
+            "experiments/cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    challenger_experiments_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "challenger",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    challenger_experiments_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "challenger",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     promotion_result = subprocess.run(
         [
             sys.executable,
@@ -26398,11 +26442,41 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "does not write config" in config_lineage_markdown_result.stdout
     assert challenger_result.returncode == 0, challenger_result.stderr
     challenger_payload = json.loads(challenger_result.stdout)
+    assert challenger_markdown_result.returncode == 0, (
+        challenger_markdown_result.stderr
+    )
+    assert challenger_experiments_result.returncode == 0, (
+        challenger_experiments_result.stderr
+    )
+    challenger_experiments_payload = json.loads(challenger_experiments_result.stdout)
+    assert challenger_experiments_markdown_result.returncode == 0, (
+        challenger_experiments_markdown_result.stderr
+    )
     assert challenger_payload["schema_version"] == CANDIDATE_CHALLENGER_SCHEMA_VERSION
     assert challenger_payload["status"] == "no_champion"
     assert challenger_payload["policy"]["does_not_promote_champion"] is True
+    assert challenger_experiments_payload["schema_version"] == (
+        CANDIDATE_CHALLENGER_SCHEMA_VERSION
+    )
+    assert challenger_experiments_payload["status"] == challenger_payload["status"]
+    assert challenger_experiments_payload["policy"]["does_not_promote_champion"] is True
+    assert "# Candidate Challenger Report" in challenger_markdown_result.stdout
+    assert "cli-candidates" in challenger_markdown_result.stdout
+    assert "does not execute agents" in challenger_markdown_result.stdout
+    assert "# Candidate Challenger Report" in (
+        challenger_experiments_markdown_result.stdout
+    )
+    assert "cli-candidates" in challenger_experiments_markdown_result.stdout
+    assert "promote champions" in challenger_experiments_markdown_result.stdout
     assert validate_candidate_challenger_report_payload(
         challenger_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    assert validate_candidate_challenger_report_payload(
+        challenger_experiments_payload,
         run_dir=repo / "experiments/cli-candidates",
         experiments_dir=repo / "experiments",
         repo_root=repo,

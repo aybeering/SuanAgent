@@ -269,6 +269,7 @@ INSPECTION_COMMANDS = {
     ),
     "candidate_challenger_report": (
         "python -m orchestrator.candidate_challenger_report",
+        "python -m orchestrator.experiments challenger",
     ),
     "candidate_quality_trace": (
         "python -m orchestrator.candidate_quality_trace",

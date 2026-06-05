@@ -406,6 +406,12 @@ dashboard's fixed gate order, gate-to-summary bindings, read-only authority,
 policy flags, selected-candidate count, and watchlist alert count. The command
 is read-only: it does not write config, promote champions, execute agents, run
 backtests, route candidates, apply patches, or change acceptance.
+`python -m orchestrator.experiments challenger <run_id>` writes or refreshes
+`candidate_challenger_report.json` and `candidate_challenger_report.md` for the
+selected run, then prints the same payload. `challenger --markdown` renders the
+report for terminal inspection. The command is inspection-only: it does not
+promote champions, route agents, execute agents, run backtests, apply patches,
+or change acceptance.
 `python -m orchestrator.experiments profile-recommendation <run_id>` returns
 the saved or recomputed `modifier_profile_recommendation.json`. The payload
 reads `candidate_quality_trace.json`, `research_brief.json`, and the active
@@ -1228,7 +1234,9 @@ Replay artifacts:
   fields such as `from_artifact`, and can optionally rebuild the report from
   the current run evidence to catch drift before printing or writing. They
   cannot promote champions, route agents, run backtests, apply patches, or
-  change acceptance.
+  change acceptance. The direct module `--markdown` mode and
+  `python -m orchestrator.experiments challenger <run_id> --markdown` render
+  the report as terminal markdown.
 - `champion_promotion_dry_run.json` and `champion_promotion_dry_run.md`
   preview whether the completed run would satisfy the deterministic champion
   promotion comparison against the current champion. The writer and artifact

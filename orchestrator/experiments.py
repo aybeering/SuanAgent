@@ -125,6 +125,7 @@ from orchestrator.operator_action_plan import (
 )
 from orchestrator.operator_config_review import (
     build_operator_config_review,
+    render_operator_config_review_markdown,
     validate_operator_config_review_payload,
 )
 from orchestrator.outcome_memory import read_outcome_memory, recent_outcomes
@@ -6984,6 +6985,11 @@ def main() -> None:
         help="Show operator config review for one iteration run.",
     )
     operator_config_parser.add_argument("run_id")
+    operator_config_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the operator config review as markdown.",
+    )
 
     config_application_parser = subparsers.add_parser(
         "config-application-dry-run",
@@ -7399,6 +7405,9 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )
+        if args.markdown:
+            print(render_operator_config_review_markdown(payload), end="")
+            return
     elif args.command == "config-application-dry-run":
         payload = config_application_dry_run_report(
             experiments_dir=args.experiments_dir,

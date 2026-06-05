@@ -24504,6 +24504,22 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    config_review_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "operator-config-review",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     config_application_result = subprocess.run(
         [
             sys.executable,
@@ -25904,6 +25920,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         repo_root=repo,
         experiments_dir=repo / "experiments",
     ) == ()
+    assert config_review_markdown_result.returncode == 0, (
+        config_review_markdown_result.stderr
+    )
+    assert "# Operator Config Review" in config_review_markdown_result.stdout
+    assert "- Run: `cli-candidates`" in config_review_markdown_result.stdout
+    assert "## Reviewed Changes" in config_review_markdown_result.stdout
+    assert "does not write config" in config_review_markdown_result.stdout
     assert config_application_result.returncode == 0, config_application_result.stderr
     config_application_payload = json.loads(config_application_result.stdout)
     assert config_application_payload["schema_version"] == (

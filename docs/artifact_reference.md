@@ -975,9 +975,10 @@ Replay artifacts:
   requires the configured confirmation phrase, rejection can be recorded without
   applying anything, and both paths remain audit-only: they never edit config,
   route candidates, apply patches, run backtests, or change acceptance.
-  `python -m orchestrator.experiments operator-config-review <run_id>` validates
-  schema, candidate summary, review gate, reviewed-row decisions, and next
-  actions before printing JSON.
+  `python -m orchestrator.experiments operator-config-review <run_id>` and
+  `python -m orchestrator.experiments operator-config-review <run_id> --markdown`
+  validate schema, candidate summary, review gate, reviewed-row decisions, and
+  next actions before printing JSON or markdown.
 - `config_application_dry_run.json` and `config_application_dry_run.md` preview
   whether approved config candidates still match the current config value and
   are ready for a later manual edit. They remain dry-run only and never edit

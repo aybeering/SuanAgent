@@ -44,6 +44,7 @@ python -m orchestrator.experiments leaderboard --limit 5
 python -m orchestrator.experiments memory --limit 5
 python -m orchestrator.experiments memory-diagnostics
 python -m orchestrator.experiments diagnose <run_id>
+python -m orchestrator.experiments diagnose <run_id> --markdown
 python -m orchestrator.experiments agents <run_id>
 python -m orchestrator.experiments slots <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
@@ -281,9 +282,12 @@ grouped without changing acceptance. It also includes an
 unavailable. Iteration diagnoses copy the terminal-only operator-home command
 and the narrower next-command selector from `manifest.json`, including the
 selected command, blocked state, blocker count, boundary, write target,
-command SHA-256 bindings, and safety flags. These fields are diagnosis hints only; they do not create
-artifacts, record approval, execute commands, write config, promote champions,
-run agents, run backtests, apply patches, route agents, or change acceptance.
+command SHA-256 bindings, and safety flags. The `--markdown` flag renders the
+same diagnosis navigation as a terminal-only human review view with the same
+command digest bindings. These fields are diagnosis hints only; they do not
+create artifacts, record approval, execute commands, write config, promote
+champions, run agents, run backtests, apply patches, route agents, or change
+acceptance.
 `python -m orchestrator.artifact_validator <run_id>` validates this block when
 present, checking the diagnosis navigation against the saved
 `manifest.operator_home` row and requiring all diagnosis navigation policy flags

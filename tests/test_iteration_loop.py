@@ -14983,6 +14983,35 @@ def test_experiments_diagnose_subcommand_outputs_json(tmp_path: Path) -> None:
         "python -m orchestrator.experiments next-command diagnose-cli --markdown"
     )
     assert payload["operator_navigation"]["next_command"]["blocked"] is True
+    markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "diagnose",
+            "diagnose-cli",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert markdown_result.returncode == 0
+    assert "# Run Diagnosis" in markdown_result.stdout
+    assert "- Run id: `diagnose-cli`" in markdown_result.stdout
+    assert "## Operator Navigation" in markdown_result.stdout
+    assert (
+        "- Selector command: `python -m orchestrator.experiments next-command diagnose-cli --markdown`"
+        in markdown_result.stdout
+    )
+    assert "- Home command SHA-256:" in markdown_result.stdout
+    assert "- Selector command SHA-256:" in markdown_result.stdout
+    assert "- Selected command SHA-256:" in markdown_result.stdout
+    assert "- Changes acceptance: `False`" in markdown_result.stdout
 
 
 def test_schema_validator_reports_missing_required_property() -> None:

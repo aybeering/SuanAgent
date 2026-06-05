@@ -1992,6 +1992,114 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_run_diagnosis_markdown(payload: dict[str, object]) -> str:
+    """Render a run diagnosis payload as compact terminal-only markdown."""
+    best_round = dict_payload(payload.get("best_round", {}))
+    outcome = dict_payload(payload.get("run_outcome_summary", {}))
+    navigation = dict_payload(payload.get("operator_navigation", {}))
+    home = dict_payload(navigation.get("home", {}))
+    next_command = dict_payload(navigation.get("next_command", {}))
+    selected_candidates = list_payload(payload.get("selected_candidates", []))
+    rounds = list_payload(payload.get("rounds", []))
+    lines = [
+        "# Run Diagnosis",
+        "",
+        f"- Run id: `{markdown_cell(payload.get('run_id', ''))}`",
+        f"- Kind: `{markdown_cell(payload.get('kind', 'unknown'))}`",
+        f"- Status: `{markdown_cell(payload.get('status', 'unknown'))}`",
+        f"- Artifact OK: `{payload.get('artifact_ok', False)}`",
+        f"- Artifact errors: `{len(list_payload(payload.get('artifact_errors', [])))}`",
+        f"- Completed rounds: `{payload.get('completed_rounds', 0)}`",
+        f"- Accepted round: `{payload.get('accepted_round') or 'none'}`",
+        f"- Stop reason: `{markdown_cell(payload.get('stop_reason', '') or 'none')}`",
+        f"- Outcome: `{markdown_cell(outcome.get('category', '') or 'unavailable')}`",
+        f"- Primary code: `{markdown_cell(outcome.get('primary_code', '') or 'none')}`",
+        f"- Primary stage: `{markdown_cell(outcome.get('primary_stage', '') or 'none')}`",
+        "",
+        "## Best Round",
+        "",
+        f"- Round: `{markdown_cell(best_round.get('round_id', '') or 'none')}`",
+        f"- Direction: `{markdown_cell(best_round.get('direction_tag', '') or 'none')}`",
+        f"- Validation EV delta: `{number_text(best_round.get('validation_ev_delta'))}`",
+        f"- Failure code: `{markdown_cell(best_round.get('failure_code', '') or 'none')}`",
+        f"- Failure stage: `{markdown_cell(best_round.get('failure_stage', '') or 'none')}`",
+        "",
+        "## Operator Navigation",
+        "",
+        f"- Available: `{navigation.get('available', False)}`",
+        f"- Reason: `{markdown_cell(navigation.get('reason', '') or 'none')}`",
+        f"- Home command: `{markdown_cell(home.get('command', '') or 'unavailable')}`",
+        f"- Home command SHA-256: `{markdown_cell(home.get('command_sha256', '') or 'unavailable')}`",
+        f"- Home boundary: `{markdown_cell(home.get('command_boundary', '') or 'unavailable')}`",
+        f"- Home hint-only: `{home.get('command_is_hint_only', True)}`",
+        f"- Selector command: `{markdown_cell(next_command.get('selector_command', '') or 'unavailable')}`",
+        f"- Selector command SHA-256: `{markdown_cell(next_command.get('selector_command_sha256', '') or 'unavailable')}`",
+        f"- Selected command: `{markdown_cell(next_command.get('selected_command', '') or 'unavailable')}`",
+        f"- Selected command SHA-256: `{markdown_cell(next_command.get('selected_command_sha256', '') or 'unavailable')}`",
+        f"- Selected status: `{markdown_cell(next_command.get('status', '') or 'unavailable')}`",
+        f"- Selected boundary: `{markdown_cell(next_command.get('boundary', '') or 'unavailable')}`",
+        f"- Selected writes: `{markdown_cell(next_command.get('writes_artifact', '') or 'none')}`",
+        f"- Blocked: `{next_command.get('blocked', False)}` "
+        f"({next_command.get('blocker_count', 0)} blocker(s))",
+        f"- Operator hint: {markdown_cell(next_command.get('operator_hint', '') or 'none')}",
+        f"- Navigation changes acceptance: `{not bool(dict_payload(navigation.get('policy', {})).get('does_not_change_acceptance', True))}`",
+        "",
+        "## Selected Candidates",
+        "",
+        "| Round | Role | Direction | Status | Score | Validation EV Delta |",
+        "| --- | --- | --- | --- | ---: | ---: |",
+    ]
+    if selected_candidates:
+        for row in selected_candidates:
+            lines.append(
+                "| "
+                f"`{markdown_cell(row.get('round_id', ''))}` | "
+                f"`{markdown_cell(row.get('role', ''))}` | "
+                f"`{markdown_cell(row.get('direction_tag', ''))}` | "
+                f"`{markdown_cell(row.get('status', ''))}` | "
+                f"{number_text(row.get('candidate_score'))} | "
+                f"{number_text(row.get('validation_ev_delta'))} |"
+            )
+    else:
+        lines.append("| `none` |  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Rounds",
+            "",
+            "| Round | Accepted | Direction | EV Delta | Failure |",
+            "| --- | --- | --- | ---: | --- |",
+        ]
+    )
+    if rounds:
+        for row in rounds:
+            lines.append(
+                "| "
+                f"`{markdown_cell(row.get('round_id', ''))}` | "
+                f"`{row.get('accepted', False)}` | "
+                f"`{markdown_cell(row.get('direction_tag', ''))}` | "
+                f"{number_text(row.get('validation_ev_delta'))} | "
+                f"`{markdown_cell(row.get('failure_code', '') or 'none')}` |"
+            )
+    else:
+        lines.append("| `none` |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Policy",
+            "",
+            "- Inspection only: `True`",
+            "- Creates artifacts: `False`",
+            "- Executes commands: `False`",
+            "- Executes agents: `False`",
+            "- Runs backtests: `False`",
+            "- Applies patches: `False`",
+            "- Changes acceptance: `False`",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def watchlist_markdown_rows(watchlist: dict[str, object]) -> list[str]:
     """Return markdown rows for dashboard watchlist alerts."""
     alerts = list_payload(watchlist.get("alerts", []))
@@ -6012,6 +6120,11 @@ def main() -> None:
         help="Diagnose one run with artifact health and round outcomes.",
     )
     diagnose_parser.add_argument("run_id")
+    diagnose_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the run diagnosis as markdown.",
+    )
 
     validate_parser = subparsers.add_parser(
         "validate",
@@ -6370,6 +6483,9 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )
+        if args.markdown:
+            print(render_run_diagnosis_markdown(payload), end="")
+            return
     elif args.command == "validate":
         payload = build_run_artifact_health(
             experiments_dir=args.experiments_dir,

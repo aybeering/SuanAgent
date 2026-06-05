@@ -47,6 +47,7 @@ from orchestrator.memory_hygiene import (
 )
 from orchestrator.memory_scope_recommendation import (
     build_memory_scope_recommendation,
+    render_memory_scope_recommendation_markdown,
     validate_memory_scope_recommendation_payload,
 )
 from orchestrator.modifier_profile_recommendation import (
@@ -6960,6 +6961,11 @@ def main() -> None:
         help="Show outcome memory scope recommendation for one iteration run.",
     )
     memory_scope_parser.add_argument("run_id")
+    memory_scope_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the memory scope recommendation as markdown.",
+    )
 
     config_change_parser = subparsers.add_parser(
         "config-change-candidate",
@@ -7371,6 +7377,9 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )
+        if args.markdown:
+            print(render_memory_scope_recommendation_markdown(payload), end="")
+            return
     elif args.command == "config-change-candidate":
         payload = config_change_candidate_report(
             experiments_dir=args.experiments_dir,

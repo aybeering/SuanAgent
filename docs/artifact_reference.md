@@ -49,6 +49,8 @@ python -m orchestrator.experiments memory --limit 5 --markdown
 python -m orchestrator.experiments memory-diagnostics
 python -m orchestrator.experiments memory-hygiene <run_id>
 python -m orchestrator.experiments memory-hygiene <run_id> --markdown
+python -m orchestrator.experiments memory-scope-recommendation <run_id>
+python -m orchestrator.experiments memory-scope-recommendation <run_id> --markdown
 python -m orchestrator.experiments diagnose <run_id>
 python -m orchestrator.experiments diagnose <run_id> --markdown
 python -m orchestrator.experiments candidates <run_id> --limit 5
@@ -956,7 +958,7 @@ Replay artifacts:
   `python -m orchestrator.memory_scope_recommendation` and
   `python -m orchestrator.experiments memory-scope-recommendation <run_id>`
   validate the terminal payload against the schema and deterministic
-  recommendation derivation before printing JSON.
+  recommendation derivation before printing JSON or markdown.
 - `config_change_candidate.json` and `config_change_candidate.md` convert
   saved recommendations into operator-reviewed config field candidates, such as
   `memory_filter.recent_record_limit` or a guarded `agents` fallback profile

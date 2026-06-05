@@ -24442,6 +24442,22 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    scope_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "memory-scope-recommendation",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     config_candidate_result = subprocess.run(
         [
             sys.executable,
@@ -24700,6 +24716,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         repo_root=repo,
         experiments_dir=repo / "experiments",
     ) == ()
+    assert scope_markdown_result.returncode == 0, scope_markdown_result.stderr
+    assert "# Memory Scope Recommendation" in scope_markdown_result.stdout
+    assert "Run: `cli-candidates`" in scope_markdown_result.stdout
+    assert "## Candidate Scopes" in scope_markdown_result.stdout
+    assert "does not write config" in scope_markdown_result.stdout
     assert config_candidate["from_artifact"] is True
     assert config_candidate["schema_version"] == CONFIG_CHANGE_CANDIDATE_SCHEMA_VERSION
     assert config_candidate["policy"]["does_not_write_config"] is True

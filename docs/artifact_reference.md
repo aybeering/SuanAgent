@@ -58,6 +58,7 @@ python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
 python -m orchestrator.experiments champion --markdown
 python -m orchestrator.experiments lineage
+python -m orchestrator.experiments lineage --markdown
 python -m orchestrator.experiments apply-config-approved <run_id> --dry-run-path experiments/<run_id>/config_application_dry_run.json
 python -m orchestrator.experiments config-application-rollback-preview <run_id> --receipt-path experiments/<run_id>/config_application_receipt.json
 python -m orchestrator.experiments restore-config-approved <run_id> --preview-path experiments/<run_id>/config_application_rollback_preview.json
@@ -1222,8 +1223,10 @@ Replay artifacts:
   `from_artifact`, and can optionally rebuild the lineage from current
   champion/history evidence to catch drift before printing or writing. The
   experiment `summary` and `champion` inspection commands expose the same chain
-  as compact embedded JSON fields for quick status checks, but only the
-  `lineage` command writes `champion_lineage.json` and `champion_lineage.md`.
+  as compact embedded JSON fields for quick status checks. The `lineage`
+  command writes `champion_lineage.json` and `champion_lineage.md`, and
+  `lineage --markdown` prints the same validated payload as a terminal-friendly
+  markdown view after writing those lineage artifacts.
 - `python -m orchestrator.experiments promote <base_run_id> <candidate_run_id>`
   remains available as a legacy deterministic helper for tests and fixtures,
   but operator-facing promotion should use `promote-approved` with a recorded

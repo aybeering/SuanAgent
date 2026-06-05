@@ -425,8 +425,9 @@ Codex CLI readiness contracts:
     deltas, but they cannot promote champions, route candidates, run backtests,
     apply patches, write champion registry files, append champion history, or
     change strategy acceptance. Compact lineage summaries may appear in
-    experiment summary and champion inspection output, but only the explicit
-    lineage command writes lineage artifacts. The terminal-only
+    experiment summary and champion inspection output. The explicit lineage
+    command writes lineage artifacts, and `lineage --markdown` prints that same
+    validated payload as a terminal-friendly view. The terminal-only
     `champion_status_v1` payload exposed by the `champion` inspection command
     is validated against `schemas/champion_status.schema.json` before JSON
     output is printed, with deterministic consistency checks for current

@@ -6835,7 +6835,15 @@ def main() -> None:
         action="store_true",
         help="Render the champion status as markdown.",
     )
-    subparsers.add_parser("lineage", help="Write and show champion lineage.")
+    lineage_parser = subparsers.add_parser(
+        "lineage",
+        help="Write and show champion lineage.",
+    )
+    lineage_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the champion lineage as markdown.",
+    )
 
     compare_parser = subparsers.add_parser(
         "compare",
@@ -7220,12 +7228,18 @@ def main() -> None:
             print(render_champion_status_markdown(payload), end="")
             return
     elif args.command == "lineage":
-        from orchestrator.champion_lineage import write_champion_lineage
+        from orchestrator.champion_lineage import (
+            render_champion_lineage_markdown,
+            write_champion_lineage,
+        )
 
         _, _, payload = write_champion_lineage(
             experiments_dir=args.experiments_dir,
             repo_root=args.experiments_dir.parent,
         )
+        if args.markdown:
+            print(render_champion_lineage_markdown(payload), end="")
+            return
     elif args.command == "compare":
         payload = compare_experiments(
             experiments_dir=args.experiments_dir,

@@ -23011,6 +23011,27 @@ def test_experiments_cli_promote_approved_is_operator_path(
         require_current_evidence=True,
     ) == ()
 
+    lineage_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "lineage",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert lineage_markdown_result.returncode == 0, lineage_markdown_result.stderr
+    assert "# Champion Lineage" in lineage_markdown_result.stdout
+    assert "`cli-approved-candidate`" in lineage_markdown_result.stdout
+    assert "`approved_receipt`" in lineage_markdown_result.stdout
+    assert "does not execute agents" in lineage_markdown_result.stdout
+
     summary_result = subprocess.run(
         [
             sys.executable,

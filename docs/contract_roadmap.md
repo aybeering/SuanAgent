@@ -147,10 +147,10 @@ Implemented or allowed V0.5 components:
     accepted-round, stop-reason, and final-strategy-commit consistency, and
     binds the `summary.md` dataset, run-outcome, agent-intake, health,
     codex-cli-unlock-runbook, config-lineage, config-operator-runbook,
-    run-closeout, operator-action-plan, operator-action-dashboard,
-    operator-cockpit, operator-home, operator-next-command,
-    operator-unlock-checklist, round-table, proposal-quality, and
-    candidate-leaderboard sections back to their
+    candidate-challenger, run-closeout, operator-action-plan,
+    operator-action-dashboard, operator-cockpit, operator-home,
+    operator-next-command, operator-unlock-checklist, round-table,
+    proposal-quality, and candidate-leaderboard sections back to their
     corresponding manifest records and round artifacts.
     Experiment summary dashboards and operator cockpit summaries surface the
     same outcome category, primary stage, and primary code as read-only

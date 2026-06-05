@@ -19975,6 +19975,68 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert iteration["manifest"]["completed_rounds"] == 1  # type: ignore[index]
 
 
+def test_experiment_helpers_surface_manifest_operator_home_safety_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "iteration-manifest-home-safety-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+    )
+    manifest_path = repo / "experiments" / run_id / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["operator_home"]["terminal_only"] = False
+    manifest["operator_home"]["artifact_created"] = True
+    manifest["operator_home"]["command_is_hint_only"] = False
+    manifest["operator_home"]["next_command_is_hint_only"] = False
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    records = list_experiments(experiments_dir=repo / "experiments", limit=1)
+    shown = show_experiment(run_id=run_id, experiments_dir=repo / "experiments")
+    with pytest.raises(
+        ValueError,
+        match="experiment summary dashboard failed schema validation",
+    ) as excinfo:
+        summarize_experiments(experiments_dir=repo / "experiments")
+    error_text = str(excinfo.value)
+
+    assert records[0]["operator_home"]["terminal_only"] is False
+    assert records[0]["operator_home"]["artifact_created"] is True
+    assert records[0]["operator_home"]["command_is_hint_only"] is False
+    assert records[0]["operator_home"]["next_command_is_hint_only"] is False
+    assert records[0]["operator_next_command"]["selected_command_is_hint_only"] is False
+    assert shown["operator_home"]["terminal_only"] is False  # type: ignore[index]
+    assert shown["operator_home"]["artifact_created"] is True  # type: ignore[index]
+    assert shown["operator_home"]["command_is_hint_only"] is False  # type: ignore[index]
+    assert shown["operator_home"]["next_command_is_hint_only"] is False  # type: ignore[index]
+    assert (
+        "experiment_summary_dashboard operator_home terminal mismatch"
+        in error_text
+    )
+    assert (
+        "experiment_summary_dashboard operator_home artifact mismatch"
+        in error_text
+    )
+    assert (
+        "experiment_summary_dashboard operator_home hint mismatch"
+        in error_text
+    )
+    assert (
+        "experiment_summary_dashboard operator_home next command hint mismatch"
+        in error_text
+    )
+    assert (
+        "experiment_summary_dashboard operator_next_command selected hint mismatch"
+        in error_text
+    )
+
+
 def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     run_pipeline(

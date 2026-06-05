@@ -946,6 +946,9 @@ def experiment_list_operator_home_hint(
         "command_label": "review_operator_home",
         "command": command,
         "command_boundary": "read_only_inspection",
+        "terminal_only": bool(manifest_home.get("terminal_only", False)),
+        "artifact_created": bool(manifest_home.get("artifact_created", True)),
+        "command_is_hint_only": bool(manifest_home.get("command_is_hint_only", False)),
         "next_command_label": str(manifest_home.get("next_command_label", "")),
         "next_command": str(manifest_home.get("next_command", "")),
         "next_command_status": str(
@@ -977,7 +980,7 @@ def experiment_list_operator_home_hint(
             manifest_home.get("next_command_uses_guarded_executor", False)
         ),
         "next_command_is_hint_only": bool(
-            manifest_home.get("next_command_is_hint_only", True)
+            manifest_home.get("next_command_is_hint_only", False)
         ),
     }
 
@@ -1065,7 +1068,7 @@ def experiment_operator_next_command_hint(
             operator_home.get("next_command_uses_guarded_executor", False)
         ),
         "selected_command_is_hint_only": bool(
-            operator_home.get("next_command_is_hint_only", True)
+            operator_home.get("next_command_is_hint_only", False)
         ),
     }
 
@@ -1176,11 +1179,16 @@ def experiment_operator_home_entry(
                 manifest_home.get("next_command_uses_guarded_executor", False)
             ),
             "next_command_is_hint_only": bool(
-                manifest_home.get("next_command_is_hint_only", True)
+                manifest_home.get("next_command_is_hint_only", False)
             ),
             "command_label": "review_operator_home",
             "command": command,
             "command_boundary": "read_only_inspection",
+            "terminal_only": bool(manifest_home.get("terminal_only", False)),
+            "artifact_created": bool(manifest_home.get("artifact_created", True)),
+            "command_is_hint_only": bool(
+                manifest_home.get("command_is_hint_only", False)
+            ),
             "source": (
                 "latest_run_manifest_operator_home"
                 if manifest_home

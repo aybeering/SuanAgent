@@ -539,9 +539,10 @@ The same selector command is also surfaced as a derived hint in
 `experiments list`, `experiments show`, and the `experiment_summary_dashboard`
 payload, so an operator can discover the narrow next-step view from recent run
 history, per-run inspection, or the summary dashboard without creating any run
-artifacts. These surfaces validate that the selector's copied selected-command
-status, boundary, write target, blocked state, blocker count, and safety flags
-still match the source operator-home row.
+artifacts. These surfaces validate that the home and selector remain
+terminal-only, artifact-free hints and that the selector's copied
+selected-command status, boundary, write target, blocked state, blocker count,
+source marker, and safety flags still match the source operator-home row.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose the
 Codex CLI operator-unlock evidence chain as a standalone read-only checklist.
 The iteration loop writes it during closeout before the final cockpit so cockpit

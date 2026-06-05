@@ -19986,7 +19986,7 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert iteration["manifest"]["completed_rounds"] == 1  # type: ignore[index]
 
 
-def test_experiment_helpers_surface_manifest_operator_home_safety_drift(
+def test_experiment_helpers_reject_manifest_operator_home_safety_drift(
     tmp_path: Path,
 ) -> None:
     repo = copy_repo_fixture(tmp_path)
@@ -20008,24 +20008,31 @@ def test_experiment_helpers_surface_manifest_operator_home_safety_drift(
         encoding="utf-8",
     )
 
-    records = list_experiments(experiments_dir=repo / "experiments", limit=1)
-    shown = show_experiment(run_id=run_id, experiments_dir=repo / "experiments")
+    with pytest.raises(
+        ValueError,
+        match="experiment operator navigation failed validation",
+    ) as list_excinfo:
+        list_experiments(experiments_dir=repo / "experiments", limit=1)
+    with pytest.raises(
+        ValueError,
+        match="experiment operator navigation failed validation",
+    ) as show_excinfo:
+        show_experiment(run_id=run_id, experiments_dir=repo / "experiments")
     with pytest.raises(
         ValueError,
         match="experiment summary dashboard failed schema validation",
     ) as excinfo:
         summarize_experiments(experiments_dir=repo / "experiments")
+    list_error_text = str(list_excinfo.value)
+    show_error_text = str(show_excinfo.value)
     error_text = str(excinfo.value)
 
-    assert records[0]["operator_home"]["terminal_only"] is False
-    assert records[0]["operator_home"]["artifact_created"] is True
-    assert records[0]["operator_home"]["command_is_hint_only"] is False
-    assert records[0]["operator_home"]["next_command_is_hint_only"] is False
-    assert records[0]["operator_next_command"]["selected_command_is_hint_only"] is False
-    assert shown["operator_home"]["terminal_only"] is False  # type: ignore[index]
-    assert shown["operator_home"]["artifact_created"] is True  # type: ignore[index]
-    assert shown["operator_home"]["command_is_hint_only"] is False  # type: ignore[index]
-    assert shown["operator_home"]["next_command_is_hint_only"] is False  # type: ignore[index]
+    assert "experiment operator navigation home terminal mismatch" in list_error_text
+    assert "experiment operator navigation home artifact mismatch" in list_error_text
+    assert "experiment operator navigation home hint mismatch" in list_error_text
+    assert "experiment operator navigation home terminal mismatch" in show_error_text
+    assert "experiment operator navigation home artifact mismatch" in show_error_text
+    assert "experiment operator navigation home hint mismatch" in show_error_text
     assert (
         "experiment_summary_dashboard operator_home terminal mismatch"
         in error_text
@@ -20766,6 +20773,33 @@ def test_experiment_operator_navigation_pair_rejects_misleading_commands() -> No
     assert safety_errors.count(
         "experiment operator navigation selected safety mismatch"
     ) == 5
+
+    authority_home = dict(payload["operator_home_entry"])  # type: ignore[arg-type]
+    authority_next_command = dict(
+        payload["operator_next_command_entry"]  # type: ignore[arg-type]
+    )
+    authority_home["terminal_only"] = False
+    authority_home["artifact_created"] = True
+    authority_home["command_is_hint_only"] = False
+    authority_next_command["terminal_only"] = False
+    authority_next_command["artifact_created"] = True
+    authority_next_command["command_is_hint_only"] = False
+    authority_next_command["selection_source"] = "manual"
+
+    authority_errors = validate_experiment_operator_navigation_pair(
+        operator_home=authority_home,
+        operator_next_command=authority_next_command,
+        run_id="run-001",
+        run_kind="iteration_loop",
+    )
+
+    assert "experiment operator navigation home terminal mismatch" in authority_errors
+    assert "experiment operator navigation home artifact mismatch" in authority_errors
+    assert "experiment operator navigation home hint mismatch" in authority_errors
+    assert "experiment operator navigation next terminal mismatch" in authority_errors
+    assert "experiment operator navigation next artifact mismatch" in authority_errors
+    assert "experiment operator navigation next hint mismatch" in authority_errors
+    assert "experiment operator navigation next source mismatch" in authority_errors
 
     unavailable_home = {
         "available": False,

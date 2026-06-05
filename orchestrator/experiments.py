@@ -854,6 +854,12 @@ def validate_experiment_operator_navigation_pair(
         errors.append("experiment operator navigation home command mismatch")
     if str(operator_home.get("command_boundary", "")) != "read_only_inspection":
         errors.append("experiment operator navigation home boundary mismatch")
+    if bool(operator_home.get("terminal_only", False)) is not True:
+        errors.append("experiment operator navigation home terminal mismatch")
+    if bool(operator_home.get("artifact_created", True)) is not False:
+        errors.append("experiment operator navigation home artifact mismatch")
+    if bool(operator_home.get("command_is_hint_only", False)) is not True:
+        errors.append("experiment operator navigation home hint mismatch")
     if not next_available:
         errors.append("experiment operator navigation next unavailable")
     if str(operator_next_command.get("command_label", "")) != (
@@ -866,6 +872,16 @@ def validate_experiment_operator_navigation_pair(
         "read_only_inspection"
     ):
         errors.append("experiment operator navigation next boundary mismatch")
+    if bool(operator_next_command.get("terminal_only", False)) is not True:
+        errors.append("experiment operator navigation next terminal mismatch")
+    if bool(operator_next_command.get("artifact_created", True)) is not False:
+        errors.append("experiment operator navigation next artifact mismatch")
+    if bool(operator_next_command.get("command_is_hint_only", False)) is not True:
+        errors.append("experiment operator navigation next hint mismatch")
+    if str(operator_next_command.get("selection_source", "")) != (
+        "operator_home.next_command"
+    ):
+        errors.append("experiment operator navigation next source mismatch")
     if selected_status != str(operator_home.get("next_command_status", "")):
         errors.append("experiment operator navigation selected status mismatch")
     if selected_command != str(operator_home.get("next_command", "")):

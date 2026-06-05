@@ -6195,8 +6195,10 @@ def metric_delta_from_round(
     after_key: str,
 ) -> float:
     """Return a numeric before/after delta from a manifest round row."""
-    return float_from_object(row.get(after_key, 0.0)) - float_from_object(
-        row.get(before_key, 0.0)
+    return round(
+        float_from_object(row.get(after_key, 0.0))
+        - float_from_object(row.get(before_key, 0.0)),
+        6,
     )
 
 

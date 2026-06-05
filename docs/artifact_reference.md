@@ -175,6 +175,7 @@ python -m orchestrator.experiments scope-health --created-at-from 2026-06-02T00:
 python -m orchestrator.artifact_validator_coverage --output artifact_validator_coverage.json --markdown artifact_validator_coverage.md
 python -m orchestrator.artifact_validator_coverage --strict
 python -m orchestrator.experiments coverage
+python -m orchestrator.experiments coverage --markdown
 ```
 
 ## Single-Run Artifacts
@@ -1280,6 +1281,10 @@ Replay artifacts:
   approval artifact.
 - `artifact_validator_coverage.json` reports schema, validator, documentation,
   test, and inspection/replay coverage for repository artifact contracts.
+  `python -m orchestrator.experiments coverage --markdown` renders the same
+  bounded read-only coverage summary for terminal review without validating run
+  artifacts, executing agents, rerunning backtests, applying patches, or
+  changing acceptance.
 
 ## Validation
 

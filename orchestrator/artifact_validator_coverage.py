@@ -547,7 +547,10 @@ def coverage_markdown(payload: dict[str, Any]) -> str:
     else:
         lines.append("No coverage gaps detected.")
     lines.append("")
-    lines.append("This report is inspection-only and does not validate run artifacts.")
+    lines.append(
+        "This report is inspection-only and does not validate run artifacts, "
+        "execute agents, run backtests, apply patches, or change acceptance."
+    )
     return "\n".join(lines) + "\n"
 
 

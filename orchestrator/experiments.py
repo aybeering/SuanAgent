@@ -12,7 +12,10 @@ from pathlib import Path
 from orchestrator.agent_result_stats import build_agent_result_stats
 from orchestrator.agent_slot_readiness_gate import build_agent_slot_readiness_gate
 from orchestrator.agent_slot_health import build_agent_slot_health
-from orchestrator.artifact_validator_coverage import build_artifact_validator_coverage
+from orchestrator.artifact_validator_coverage import (
+    build_artifact_validator_coverage,
+    coverage_markdown,
+)
 from orchestrator.candidate_quality_trace import (
     build_candidate_quality_trace,
     render_candidate_quality_trace_markdown,
@@ -6838,9 +6841,14 @@ def main() -> None:
     )
     sandbox_parser.add_argument("run_id")
 
-    subparsers.add_parser(
+    coverage_parser = subparsers.add_parser(
         "coverage",
         help="Report schema, validator, docs, and replay coverage.",
+    )
+    coverage_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render artifact validator coverage as markdown.",
     )
 
     champion_parser = subparsers.add_parser(
@@ -7312,6 +7320,9 @@ def main() -> None:
         )
     elif args.command == "coverage":
         payload = build_artifact_validator_coverage(repo_root=args.experiments_dir.parent)
+        if args.markdown:
+            print(coverage_markdown(payload), end="")
+            return
     elif args.command == "champion":
         payload = show_champion(experiments_dir=args.experiments_dir)
         if args.markdown:

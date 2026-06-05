@@ -732,10 +732,29 @@ def test_experiments_coverage_command_reports_artifact_contracts(tmp_path: Path)
         text=True,
     )
     payload = json.loads(result.stdout)
+    markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "coverage",
+            "--markdown",
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
     assert payload["schema_version"] == ARTIFACT_VALIDATOR_COVERAGE_SCHEMA_VERSION
     assert payload["policy"]["inspection_only"] is True
     assert_matches_schema_payload(payload, "artifact_validator_coverage")
+    assert "# Artifact Validator Coverage" in markdown_result.stdout
+    assert "Schemas with gaps" in markdown_result.stdout
+    assert "does not validate run artifacts" in markdown_result.stdout
+    assert "execute agents" in markdown_result.stdout
 
 
 def test_run_artifact_health_reports_recent_runs(tmp_path: Path) -> None:

@@ -672,6 +672,11 @@ def test_artifact_validator_coverage_reports_repo_contracts(tmp_path: Path) -> N
     assert rows["artifact_validator_coverage"]["tests_covered"] is True
     assert rows["artifact_validator_coverage"]["docs_covered"] is True
     assert rows["champion"]["validator_covered"] is True
+    assert payload["schema_keyword_coverage"]["unsupported_keywords"] == []
+    assert payload["schema_keyword_coverage"]["unsupported_by_schema"] == []
+    assert "const" in payload["schema_keyword_coverage"]["validated_keywords"]
+    assert "$ref_note" in payload["schema_keyword_coverage"]["annotation_keywords"]
+    assert payload["totals"]["schema_with_unsupported_keyword_count"] == 0
     assert payload["ok"] is True
     assert payload["gaps"] == []
 
@@ -705,6 +710,7 @@ def test_artifact_validator_coverage_reports_new_schema_gap(tmp_path: Path) -> N
                     "schema_version": {
                         "type": "string",
                         "enum": ["uncovered_demo_v1"],
+                        "maxLength": 18,
                     }
                 },
             },
@@ -727,6 +733,9 @@ def test_artifact_validator_coverage_reports_new_schema_gap(tmp_path: Path) -> N
     assert "docs_missing" in gap_codes
     assert "tests_missing" in gap_codes
     assert "inspection_or_replay_support_missing" in gap_codes
+    assert "schema_keyword_unsupported" in gap_codes
+    assert rows["uncovered_demo"]["unsupported_schema_keywords"] == ["maxLength"]
+    assert payload["schema_keyword_coverage"]["unsupported_keywords"] == ["maxLength"]
 
     result = subprocess.run(
         [

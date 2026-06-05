@@ -7,6 +7,7 @@
     "repo_root",
     "ok",
     "totals",
+    "schema_keyword_coverage",
     "schemas",
     "gaps",
     "policy"
@@ -33,6 +34,7 @@
         "docs_covered_count",
         "tests_covered_count",
         "inspection_or_replay_supported_count",
+        "schema_with_unsupported_keyword_count",
         "schema_with_gap_count"
       ],
       "properties": {
@@ -51,8 +53,73 @@
         "inspection_or_replay_supported_count": {
           "type": "integer"
         },
+        "schema_with_unsupported_keyword_count": {
+          "type": "integer"
+        },
         "schema_with_gap_count": {
           "type": "integer"
+        }
+      }
+    },
+    "schema_keyword_coverage": {
+      "type": "object",
+      "required": [
+        "used_keyword_count",
+        "validated_keywords",
+        "annotation_keywords",
+        "unsupported_keyword_count",
+        "unsupported_keywords",
+        "unsupported_by_schema"
+      ],
+      "properties": {
+        "used_keyword_count": {
+          "type": "integer"
+        },
+        "validated_keywords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "annotation_keywords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unsupported_keyword_count": {
+          "type": "integer"
+        },
+        "unsupported_keywords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unsupported_by_schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "schema_name",
+              "schema_path",
+              "unsupported_schema_keywords"
+            ],
+            "properties": {
+              "schema_name": {
+                "type": "string"
+              },
+              "schema_path": {
+                "type": "string"
+              },
+              "unsupported_schema_keywords": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -63,6 +130,8 @@
         "required": [
           "schema_name",
           "schema_path",
+          "schema_keywords",
+          "unsupported_schema_keywords",
           "artifact_names",
           "validator_covered",
           "validator_reference_count",
@@ -81,6 +150,18 @@
           },
           "schema_path": {
             "type": "string"
+          },
+          "schema_keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unsupported_schema_keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "artifact_names": {
             "type": "array",

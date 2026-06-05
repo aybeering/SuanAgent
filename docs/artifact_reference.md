@@ -1329,7 +1329,8 @@ Replay artifacts:
   but operator-facing promotion should use `promote-approved` with a recorded
   approval artifact.
 - `artifact_validator_coverage.json` reports schema, validator, documentation,
-  test, and inspection/replay coverage for repository artifact contracts.
+  test, inspection/replay, and local schema-keyword support coverage for
+  repository artifact contracts.
   `python -m orchestrator.experiments coverage --markdown` renders the same
   bounded read-only coverage summary for terminal review without validating run
   artifacts, executing agents, rerunning backtests, applying patches, or

@@ -13,9 +13,62 @@ from pathlib import Path
 from typing import Any
 
 
+VALIDATED_SCHEMA_KEYWORDS = frozenset(
+    {
+        "$ref",
+        "additionalProperties",
+        "const",
+        "enum",
+        "items",
+        "minItems",
+        "minLength",
+        "minimum",
+        "pattern",
+        "properties",
+        "required",
+        "type",
+    }
+)
+ANNOTATION_SCHEMA_KEYWORDS = frozenset(
+    {
+        "$defs",
+        "$ref_note",
+        "$schema",
+        "description",
+        "title",
+    }
+)
+SUPPORTED_SCHEMA_KEYWORDS = VALIDATED_SCHEMA_KEYWORDS | ANNOTATION_SCHEMA_KEYWORDS
+PROPERTY_CONTAINER_KEYWORDS = frozenset({"$defs", "properties"})
+SCHEMA_OBJECT_KEYWORDS = frozenset({"additionalProperties", "items"})
+SCHEMA_ARRAY_KEYWORDS = frozenset({"allOf", "anyOf", "oneOf", "prefixItems"})
+
+
 def load_schema(path: Path) -> dict[str, Any]:
     """Load a JSON schema document."""
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def collect_schema_keywords(schema: dict[str, Any]) -> tuple[str, ...]:
+    """Return schema-node keywords without treating property names as keywords."""
+    keywords: set[str] = set()
+
+    def walk(node: Any) -> None:
+        if not isinstance(node, dict):
+            return
+        for key, child in node.items():
+            keywords.add(key)
+            if key in PROPERTY_CONTAINER_KEYWORDS and isinstance(child, dict):
+                for property_schema in child.values():
+                    walk(property_schema)
+            elif key in SCHEMA_OBJECT_KEYWORDS and isinstance(child, dict):
+                walk(child)
+            elif key in SCHEMA_ARRAY_KEYWORDS and isinstance(child, list):
+                for item_schema in child:
+                    walk(item_schema)
+
+    walk(schema)
+    return tuple(sorted(keywords))
 
 
 def validate_json_file(*, payload_path: Path, schema_path: Path) -> tuple[str, ...]:

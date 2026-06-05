@@ -7,7 +7,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from orchestrator.schema_validation import validate_json_file
+from orchestrator.schema_validation import (
+    ANNOTATION_SCHEMA_KEYWORDS,
+    SUPPORTED_SCHEMA_KEYWORDS,
+    VALIDATED_SCHEMA_KEYWORDS,
+    collect_schema_keywords,
+    load_schema,
+    validate_json_file,
+)
 
 
 SCHEMA_VERSION = "artifact_validator_coverage_v1"
@@ -376,6 +383,7 @@ def build_artifact_validator_coverage(*, repo_root: Path = Path(".")) -> dict[st
     ]
     rows.sort(key=lambda row: str(row["schema_name"]))
     totals = coverage_totals(rows)
+    keyword_coverage = schema_keyword_coverage(rows)
     gaps = [
         {
             "schema_name": row["schema_name"],
@@ -388,8 +396,10 @@ def build_artifact_validator_coverage(*, repo_root: Path = Path(".")) -> dict[st
     return {
         "schema_version": SCHEMA_VERSION,
         "repo_root": str(repo_root),
-        "ok": totals["schema_with_gap_count"] == 0,
+        "ok": totals["schema_with_gap_count"] == 0
+        and keyword_coverage["unsupported_keyword_count"] == 0,
         "totals": totals,
+        "schema_keyword_coverage": keyword_coverage,
         "schemas": rows,
         "gaps": gaps,
         "policy": {
@@ -416,6 +426,10 @@ def coverage_row(
     """Return one schema coverage row."""
     schema_file = schema_path.name
     schema_name = schema_file.removesuffix(".schema.json")
+    schema_keywords = keywords_for_schema(schema_path)
+    unsupported_schema_keywords = tuple(
+        keyword for keyword in schema_keywords if keyword not in SUPPORTED_SCHEMA_KEYWORDS
+    )
     artifact_names = artifact_names_for_schema(schema_name)
     validator_references = count_any(validator_text, (schema_file,))
     if schema_name in CONTRACT_SCHEMA_NAMES:
@@ -428,10 +442,13 @@ def coverage_row(
         docs_references=docs_references,
         tests_references=tests_references,
         support_commands=support_commands,
+        unsupported_schema_keywords=unsupported_schema_keywords,
     )
     return {
         "schema_name": schema_name,
         "schema_path": stable_path(schema_path, repo_root),
+        "schema_keywords": list(schema_keywords),
+        "unsupported_schema_keywords": list(unsupported_schema_keywords),
         "artifact_names": list(artifact_names),
         "validator_covered": validator_references > 0,
         "validator_reference_count": validator_references,
@@ -468,9 +485,12 @@ def gap_codes_for_row(
     docs_references: int,
     tests_references: int,
     support_commands: tuple[str, ...],
+    unsupported_schema_keywords: tuple[str, ...] = (),
 ) -> list[str]:
     """Return stable coverage gap codes."""
     gaps: list[str] = []
+    if unsupported_schema_keywords:
+        gaps.append("schema_keyword_unsupported")
     if validator_references == 0:
         gaps.append("validator_missing")
     if docs_references == 0:
@@ -487,6 +507,9 @@ def recommended_action(gap_codes: list[str]) -> str:
     if not gap_codes:
         return "covered"
     actions = {
+        "schema_keyword_unsupported": (
+            "implement keyword in schema_validation or remove unsupported schema keyword"
+        ),
         "validator_missing": "add artifact_validator schema validation",
         "docs_missing": "document artifact or command in docs",
         "tests_missing": "add schema/validator test coverage",
@@ -506,7 +529,45 @@ def coverage_totals(rows: list[dict[str, Any]]) -> dict[str, int]:
         "inspection_or_replay_supported_count": sum(
             1 for row in rows if row["inspection_or_replay_supported"]
         ),
+        "schema_with_unsupported_keyword_count": sum(
+            1 for row in rows if row["unsupported_schema_keywords"]
+        ),
         "schema_with_gap_count": sum(1 for row in rows if row["gap_codes"]),
+    }
+
+
+def schema_keyword_coverage(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Return repository-wide coverage for schema keywords understood locally."""
+    used_keywords = sorted(
+        {
+            str(keyword)
+            for row in rows
+            for keyword in row.get("schema_keywords", [])
+        }
+    )
+    unsupported_keywords = sorted(
+        keyword for keyword in used_keywords if keyword not in SUPPORTED_SCHEMA_KEYWORDS
+    )
+    unsupported_by_schema = [
+        {
+            "schema_name": row["schema_name"],
+            "schema_path": row["schema_path"],
+            "unsupported_schema_keywords": row["unsupported_schema_keywords"],
+        }
+        for row in rows
+        if row["unsupported_schema_keywords"]
+    ]
+    return {
+        "used_keyword_count": len(used_keywords),
+        "validated_keywords": sorted(
+            keyword for keyword in used_keywords if keyword in VALIDATED_SCHEMA_KEYWORDS
+        ),
+        "annotation_keywords": sorted(
+            keyword for keyword in used_keywords if keyword in ANNOTATION_SCHEMA_KEYWORDS
+        ),
+        "unsupported_keyword_count": len(unsupported_keywords),
+        "unsupported_keywords": unsupported_keywords,
+        "unsupported_by_schema": unsupported_by_schema,
     }
 
 
@@ -525,10 +586,34 @@ def coverage_markdown(payload: dict[str, Any]) -> str:
         "- Inspection/replay supported: "
         f"`{totals.get('inspection_or_replay_supported_count', 0)}`",
         f"- Schemas with gaps: `{totals.get('schema_with_gap_count', 0)}`",
-        "",
-        "## Gaps",
+        "- Schemas with unsupported keywords: "
+        f"`{totals.get('schema_with_unsupported_keyword_count', 0)}`",
         "",
     ]
+    keyword_coverage = dict(payload.get("schema_keyword_coverage", {}))
+    lines.extend(
+        [
+            "## Schema Keywords",
+            "",
+            "- Unsupported schema keywords: "
+            f"`{keyword_coverage.get('unsupported_keyword_count', 0)}`",
+        ]
+    )
+    unsupported_keywords = keyword_coverage.get("unsupported_keywords", [])
+    if isinstance(unsupported_keywords, list) and unsupported_keywords:
+        lines.append(
+            "- Unsupported: "
+            + ", ".join(f"`{keyword}`" for keyword in unsupported_keywords)
+        )
+    else:
+        lines.append("All schema keywords are supported by the local validator.")
+    lines.extend(
+        [
+            "",
+            "## Gaps",
+            "",
+        ]
+    )
     gaps = payload.get("gaps", [])
     if isinstance(gaps, list) and gaps:
         lines.extend(
@@ -588,6 +673,15 @@ def validate_coverage_payload_file(
     """Validate a saved artifact validator coverage report."""
     schema_path = repo_root.resolve() / COVERAGE_SCHEMA_PATH
     return validate_json_file(payload_path=payload_path, schema_path=schema_path)
+
+
+def keywords_for_schema(schema_path: Path) -> tuple[str, ...]:
+    """Return schema keywords used by one schema file."""
+    try:
+        schema = load_schema(schema_path)
+    except json.JSONDecodeError:
+        return ()
+    return collect_schema_keywords(schema)
 
 
 def count_any(text: str, needles: tuple[str, ...]) -> int:

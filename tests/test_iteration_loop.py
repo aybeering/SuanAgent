@@ -425,6 +425,7 @@ from orchestrator.experiments import (
     validate_candidate_leaderboard_payload,
     validate_champion_status_payload,
     validate_experiment_leaderboard_payload,
+    validate_experiment_operator_navigation_pair,
     validate_experiment_summary_dashboard_payload,
     validate_operator_run_review_payload,
     validate_operator_view_refresh_payload,
@@ -20683,6 +20684,62 @@ def test_experiment_summary_dashboard_rejects_selected_command_hint_drift() -> N
         "experiment_summary_dashboard operator_next_command safety mismatch"
         not in errors
     )
+
+
+def test_experiment_operator_navigation_pair_rejects_misleading_commands() -> None:
+    payload = _minimal_experiment_summary_dashboard_payload()
+    operator_home = dict(payload["operator_home_entry"])  # type: ignore[arg-type]
+    operator_next_command = dict(
+        payload["operator_next_command_entry"]  # type: ignore[arg-type]
+    )
+    operator_home["reason"] = "iteration_run"
+
+    assert validate_experiment_operator_navigation_pair(
+        operator_home=operator_home,
+        operator_next_command=operator_next_command,
+        run_id="run-001",
+        run_kind="iteration_loop",
+    ) == ()
+
+    operator_next_command["selected_command"] = ""
+    operator_next_command["selected_command_status"] = "ready"
+    operator_next_command["blocked"] = False
+    operator_next_command["blocker_count"] = 0
+
+    errors = validate_experiment_operator_navigation_pair(
+        operator_home=operator_home,
+        operator_next_command=operator_next_command,
+        run_id="run-001",
+        run_kind="iteration_loop",
+    )
+
+    assert "experiment operator navigation selected status mismatch" in errors
+    assert "experiment operator navigation selected command mismatch" in errors
+    assert "experiment operator navigation blocked mismatch" in errors
+    assert "experiment operator navigation blocker count mismatch" in errors
+
+    unavailable_home = {
+        "available": False,
+        "reason": "operator_home_missing",
+        "next_command_status": "unavailable",
+    }
+    misleading_next_command = {
+        "available": False,
+        "reason": "operator_home_missing",
+        "command": "python -m orchestrator.experiments next-command run-001 --markdown",
+        "selected_command": "python -m orchestrator.operator_action_approval",
+        "selected_command_status": "ready",
+    }
+
+    unavailable_errors = validate_experiment_operator_navigation_pair(
+        operator_home=unavailable_home,
+        operator_next_command=misleading_next_command,
+        run_id="run-001",
+        run_kind="iteration_loop",
+    )
+
+    assert "experiment operator navigation unavailable command" in unavailable_errors
+    assert "experiment operator navigation unavailable status" in unavailable_errors
 
 
 def test_operator_run_review_schema_rejects_missing_dashboard() -> None:

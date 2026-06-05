@@ -166,15 +166,27 @@ def list_experiments(
             record=record,
             experiments_dir=experiments_dir,
         )
+        operator_next_command = experiment_operator_next_command_hint(
+            operator_home=operator_home,
+            run_id=str(record.get("run_id", "")),
+            run_kind=str(record.get("kind", "")),
+        )
+        errors = validate_experiment_operator_navigation_pair(
+            operator_home=operator_home,
+            operator_next_command=operator_next_command,
+            run_id=str(record.get("run_id", "")),
+            run_kind=str(record.get("kind", "")),
+        )
+        if errors:
+            raise ValueError(
+                "experiment operator navigation failed validation: "
+                + "; ".join(errors)
+            )
         rows.append(
             {
                 **record,
                 "operator_home": operator_home,
-                "operator_next_command": experiment_operator_next_command_hint(
-                    operator_home=operator_home,
-                    run_id=str(record.get("run_id", "")),
-                    run_kind=str(record.get("kind", "")),
-                ),
+                "operator_next_command": operator_next_command,
             }
         )
     return rows
@@ -212,6 +224,22 @@ def show_experiment(
             record={"kind": "iteration_loop", "run_id": run_id},
             experiments_dir=experiments_dir,
         )
+        operator_next_command = experiment_operator_next_command_hint(
+            operator_home=operator_home,
+            run_id=run_id,
+            run_kind="iteration_loop",
+        )
+        errors = validate_experiment_operator_navigation_pair(
+            operator_home=operator_home,
+            operator_next_command=operator_next_command,
+            run_id=run_id,
+            run_kind="iteration_loop",
+        )
+        if errors:
+            raise ValueError(
+                "experiment operator navigation failed validation: "
+                + "; ".join(errors)
+            )
         return {
             "kind": "iteration_loop",
             "run_id": run_id,
@@ -219,11 +247,7 @@ def show_experiment(
             "summary_path": str(run_dir / "summary.md"),
             "candidate_leaderboard_path": str(run_dir / "candidate_leaderboard.json"),
             "operator_home": operator_home,
-            "operator_next_command": experiment_operator_next_command_hint(
-                operator_home=operator_home,
-                run_id=run_id,
-                run_kind="iteration_loop",
-            ),
+            "operator_next_command": operator_next_command,
             "manifest": manifest,
         }
     if decision_path.exists():
@@ -232,17 +256,29 @@ def show_experiment(
             record={"kind": "single_run", "run_id": run_id},
             experiments_dir=experiments_dir,
         )
+        operator_next_command = experiment_operator_next_command_hint(
+            operator_home=operator_home,
+            run_id=run_id,
+            run_kind="single_run",
+        )
+        errors = validate_experiment_operator_navigation_pair(
+            operator_home=operator_home,
+            operator_next_command=operator_next_command,
+            run_id=run_id,
+            run_kind="single_run",
+        )
+        if errors:
+            raise ValueError(
+                "experiment operator navigation failed validation: "
+                + "; ".join(errors)
+            )
         return {
             "kind": "single_run",
             "run_id": run_id,
             "run_dir": str(run_dir),
             "summary_path": str(run_dir / "summary.md"),
             "operator_home": operator_home,
-            "operator_next_command": experiment_operator_next_command_hint(
-                operator_home=operator_home,
-                run_id=run_id,
-                run_kind="single_run",
-            ),
+            "operator_next_command": operator_next_command,
             "decision": decision,
         }
     raise FileNotFoundError(f"No manifest.json or decision.json for run: {run_id}")
@@ -760,6 +796,100 @@ def validate_experiment_operator_next_command_entry(
                 errors.append(
                     "experiment_summary_dashboard operator_next_command safety mismatch"
                 )
+    return tuple(errors)
+
+
+def validate_experiment_operator_navigation_pair(
+    *,
+    operator_home: dict[str, object],
+    operator_next_command: dict[str, object],
+    run_id: str,
+    run_kind: str,
+) -> tuple[str, ...]:
+    """Validate compact list/show operator navigation without hiding drift."""
+    errors: list[str] = []
+    home_available = bool(operator_home.get("available", False))
+    next_available = bool(operator_next_command.get("available", False))
+    home_command = str(operator_home.get("command", ""))
+    selector_command = str(operator_next_command.get("command", ""))
+    selected_command = str(operator_next_command.get("selected_command", ""))
+    selected_status = str(
+        operator_next_command.get("selected_command_status", "unavailable")
+    )
+    expected_home_command = (
+        f"python -m orchestrator.experiments home {run_id} --markdown"
+        if run_id
+        else ""
+    )
+    expected_selector_command = (
+        f"python -m orchestrator.experiments next-command {run_id} --markdown"
+        if run_id
+        else ""
+    )
+    if run_kind != "iteration_loop" or not run_id:
+        if home_available or next_available:
+            errors.append("experiment operator navigation non-iteration available")
+        if home_command or selector_command or selected_command:
+            errors.append("experiment operator navigation non-iteration command")
+        if selected_status != "unavailable":
+            errors.append("experiment operator navigation non-iteration status")
+        return tuple(errors)
+
+    if not home_available:
+        if home_command or selector_command or selected_command:
+            errors.append("experiment operator navigation unavailable command")
+        if next_available:
+            errors.append("experiment operator navigation next available mismatch")
+        if selected_status != "unavailable":
+            errors.append("experiment operator navigation unavailable status")
+        if str(operator_next_command.get("reason", "")) != str(
+            operator_home.get("reason", "")
+        ):
+            errors.append("experiment operator navigation unavailable reason mismatch")
+        return tuple(errors)
+
+    if str(operator_home.get("command_label", "")) != "review_operator_home":
+        errors.append("experiment operator navigation home label mismatch")
+    if home_command != expected_home_command:
+        errors.append("experiment operator navigation home command mismatch")
+    if str(operator_home.get("command_boundary", "")) != "read_only_inspection":
+        errors.append("experiment operator navigation home boundary mismatch")
+    if not next_available:
+        errors.append("experiment operator navigation next unavailable")
+    if str(operator_next_command.get("command_label", "")) != (
+        "review_operator_next_command"
+    ):
+        errors.append("experiment operator navigation next label mismatch")
+    if selector_command != expected_selector_command:
+        errors.append("experiment operator navigation next command mismatch")
+    if str(operator_next_command.get("command_boundary", "")) != (
+        "read_only_inspection"
+    ):
+        errors.append("experiment operator navigation next boundary mismatch")
+    if selected_status != str(operator_home.get("next_command_status", "")):
+        errors.append("experiment operator navigation selected status mismatch")
+    if selected_command != str(operator_home.get("next_command", "")):
+        errors.append("experiment operator navigation selected command mismatch")
+    if str(operator_next_command.get("selected_command_label", "")) != str(
+        operator_home.get("next_command_label", "")
+    ):
+        errors.append("experiment operator navigation selected label mismatch")
+    if str(operator_next_command.get("selected_command_boundary", "")) != str(
+        operator_home.get("next_command_boundary", "")
+    ):
+        errors.append("experiment operator navigation selected boundary mismatch")
+    if str(operator_next_command.get("selected_command_writes_artifact", "")) != str(
+        operator_home.get("next_command_writes_artifact", "")
+    ):
+        errors.append("experiment operator navigation selected artifact mismatch")
+    if bool(operator_next_command.get("blocked", False)) != bool(
+        operator_home.get("next_command_blocked", False)
+    ):
+        errors.append("experiment operator navigation blocked mismatch")
+    if int_value(operator_next_command.get("blocker_count", 0)) != int_value(
+        operator_home.get("next_command_blocker_count", 0)
+    ):
+        errors.append("experiment operator navigation blocker count mismatch")
     return tuple(errors)
 
 

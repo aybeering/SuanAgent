@@ -48,6 +48,8 @@ python -m orchestrator.experiments memory --limit 5
 python -m orchestrator.experiments memory-diagnostics
 python -m orchestrator.experiments diagnose <run_id>
 python -m orchestrator.experiments diagnose <run_id> --markdown
+python -m orchestrator.experiments candidates <run_id> --limit 5
+python -m orchestrator.experiments candidates <run_id> --limit 5 --markdown
 python -m orchestrator.experiments agents <run_id>
 python -m orchestrator.experiments slots <run_id>
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
@@ -1113,7 +1115,11 @@ Replay artifacts:
   stable candidate sort order, positive attempt indexes, quality-score binding,
   and selected-row validation/holdout signal presence without executing agents,
   rerunning backtests, routing candidates, applying patches, or changing
-  acceptance.
+  acceptance. `candidates <run_id> --markdown` renders the same validated rows
+  as a terminal-only table with selected status, candidate score,
+  validation/holdout deltas, failure navigation, read-only policy flags, and
+  per-run show/diagnose command SHA-256 bindings, without creating artifacts or
+  changing the loop state.
 - `agent_result_stats.json` aggregates the saved candidate leaderboard by
   agent, direction, and patch family, plus deterministic routing hints for
   future review. `python -m orchestrator.experiments agents <run_id>` returns

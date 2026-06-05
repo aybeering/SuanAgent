@@ -419,6 +419,7 @@ from orchestrator.experiments import (
     render_experiment_list_markdown,
     render_experiment_show_markdown,
     render_experiment_summary_markdown,
+    render_candidate_leaderboard_markdown,
     render_operator_view_refresh_markdown,
     render_operator_run_review_markdown,
     show_experiment,
@@ -23084,6 +23085,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         run_id="cli-candidates",
         limit=20,
     ) == ()
+    candidate_markdown = render_candidate_leaderboard_markdown(rows[:1])
+    assert "# Candidate Leaderboard" in candidate_markdown
+    assert "Show run:" in candidate_markdown
+    assert "Diagnose run:" in candidate_markdown
+    assert "Routes candidates: `False`" in candidate_markdown
     drift_rows = [dict(rows[0]), dict(rows[0])]
     drift_rows[0]["run_id"] = "other-run"
     drift_rows[0]["selected"] = False
@@ -23325,6 +23331,24 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "cli-candidates",
             "--limit",
             "1",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "candidates",
+            "cli-candidates",
+            "--limit",
+            "1",
+            "--markdown",
         ],
         cwd=repo,
         capture_output=True,
@@ -24782,6 +24806,10 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert payload[0]["run_id"] == "cli-candidates"
     assert "probe_ev_delta" in payload[0]
     assert "quality_breakdown" in payload[0]
+    assert markdown_result.returncode == 0, markdown_result.stderr
+    assert "# Candidate Leaderboard" in markdown_result.stdout
+    assert "cli-candidates" in markdown_result.stdout
+    assert "Routes candidates: `False`" in markdown_result.stdout
     assert review_result.returncode == 0, review_result.stderr
     review_payload = json.loads(review_result.stdout)
     assert review_payload["schema_version"] == "operator_run_review_v1"

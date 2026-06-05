@@ -2175,6 +2175,94 @@ def render_experiment_leaderboard_markdown(payload: list[dict[str, object]]) -> 
     return "\n".join(lines) + "\n"
 
 
+def render_candidate_leaderboard_markdown(
+    payload: list[dict[str, object]],
+) -> str:
+    """Render candidate leaderboard rows as operator-facing markdown."""
+    run_id = str(payload[0].get("run_id", "")) if payload else ""
+    show_command = (
+        f"python -m orchestrator.experiments show {run_id} --markdown"
+        if run_id
+        else "unavailable"
+    )
+    diagnose_command = (
+        f"python -m orchestrator.experiments diagnose {run_id} --markdown"
+        if run_id
+        else "unavailable"
+    )
+    lines = [
+        "# Candidate Leaderboard",
+        "",
+        f"- Run id: `{markdown_cell(run_id or 'unavailable')}`",
+        f"- Row count: `{len(payload)}`",
+        "- Ranking: `selected_then_validation_ev_delta_then_probe_ev_delta_then_score`",
+        "",
+        "## Candidates",
+        "",
+        (
+            "| Rank | Round | Attempt | Agent | Direction | Selected | Status | "
+            "Score | Validation EV Delta | Holdout EV Delta | Failure |"
+        ),
+        "| ---: | --- | ---: | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
+    ]
+    if not payload:
+        lines.append(
+            "| 0 | none | 0 | none | none | False | none | n/a | n/a | n/a | none |"
+        )
+    for index, row in enumerate(payload, start=1):
+        agent_name = str(
+            row.get("agent_name")
+            or row.get("profile_name")
+            or row.get("adapter_name")
+            or row.get("runner_name")
+            or "unknown"
+        )
+        failure = str(
+            row.get("failure_code")
+            or row.get("failure_stage")
+            or row.get("validation_status")
+            or "none"
+        )
+        lines.append(
+            "| "
+            f"{index} | "
+            f"`{markdown_cell(row.get('round_id', ''))}` | "
+            f"{int_value(row.get('attempt_index', 0), 0)} | "
+            f"`{markdown_cell(agent_name)}` | "
+            f"`{markdown_cell(row.get('direction_tag', '') or 'none')}` | "
+            f"`{row.get('selected', False)}` | "
+            f"`{markdown_cell(row.get('status', 'unknown'))}` | "
+            f"{number_text(row.get('candidate_score'))} | "
+            f"{number_text(row.get('validation_ev_delta'))} | "
+            f"{number_text(row.get('holdout_ev_delta'))} | "
+            f"`{markdown_cell(failure)}` |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Commands",
+            "",
+            f"- Show run: `{markdown_cell(show_command)}`",
+            f"  SHA-256: `{sha256_text(show_command) if run_id else 'unavailable'}`",
+            f"- Diagnose run: `{markdown_cell(diagnose_command)}`",
+            f"  SHA-256: `{sha256_text(diagnose_command) if run_id else 'unavailable'}`",
+            "",
+            "## Policy",
+            "",
+            "- Inspection only: `True`",
+            "- Creates artifacts: `False`",
+            "- Executes agents: `False`",
+            "- Reruns backtests: `False`",
+            "- Routes candidates: `False`",
+            "- Applies patches: `False`",
+            "- Changes acceptance: `False`",
+            "- Writes config: `False`",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def render_experiment_show_markdown(payload: dict[str, object]) -> str:
     """Render one compact experiment record as operator-facing markdown."""
     kind = str(payload.get("kind", "unknown"))
@@ -6334,6 +6422,11 @@ def main() -> None:
     )
     candidates_parser.add_argument("run_id")
     candidates_parser.add_argument("--limit", type=int, default=20)
+    candidates_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the candidate leaderboard as markdown.",
+    )
 
     agents_parser = subparsers.add_parser(
         "agents",
@@ -6722,6 +6815,9 @@ def main() -> None:
             run_id=args.run_id,
             limit=args.limit,
         )
+        if args.markdown:
+            print(render_candidate_leaderboard_markdown(payload), end="")
+            return
     elif args.command == "agents":
         payload = agent_result_stats(
             experiments_dir=args.experiments_dir,

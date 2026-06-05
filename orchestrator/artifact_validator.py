@@ -537,6 +537,11 @@ def validate_iteration_run(
         manifest=manifest,
         report=report,
     )
+    validate_iteration_summary_operator_unlock_checklist(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
     validate_iteration_summary_operator_cockpit(
         run_dir=run_dir,
         manifest=manifest,
@@ -978,6 +983,61 @@ def validate_iteration_summary_operator_action_dashboard(
             add_error(
                 report,
                 f"summary.md operator_action_dashboard {field_name} mismatch",
+            )
+
+
+def validate_iteration_summary_operator_unlock_checklist(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md operator-unlock-checklist section mirrors manifest."""
+    checklist = manifest.get("operator_unlock_checklist")
+    if not isinstance(checklist, dict):
+        return
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Operator Unlock Checklist",
+    )
+    if not section:
+        add_error(report, "summary.md operator_unlock_checklist section missing")
+        return
+    expected_lines: tuple[tuple[str, str], ...] = (
+        ("status", f"- Status: `{markdown_display_value(checklist.get('status'))}`"),
+        ("ready", f"- Ready: `{markdown_display_value(checklist.get('ready'))}`"),
+        (
+            "failed_count",
+            "- Failed items: "
+            f"`{markdown_display_value(checklist.get('failed_count'))}`",
+        ),
+        (
+            "navigation_blocking_count",
+            "- Blocking navigation items: "
+            f"`{markdown_display_value(checklist.get('navigation_blocking_count'))}`",
+        ),
+        (
+            "primary_blocker",
+            "- Primary blocker: "
+            f"`{markdown_display_value(checklist.get('primary_blocker'))}`",
+        ),
+        (
+            "command_hint_count",
+            "- Command hints: "
+            f"`{markdown_display_value(checklist.get('command_hint_count'))}`",
+        ),
+        ("path", f"- Artifact: `{markdown_display_value(checklist.get('path'))}`"),
+        (
+            "markdown_path",
+            "- Markdown: "
+            f"`{markdown_display_value(checklist.get('markdown_path'))}`",
+        ),
+    )
+    for field_name, expected_line in expected_lines:
+        if expected_line not in section:
+            add_error(
+                report,
+                f"summary.md operator_unlock_checklist {field_name} mismatch",
             )
 
 

@@ -12316,6 +12316,54 @@ def test_artifact_validator_reports_summary_operator_action_dashboard_drift(
     )
 
 
+def test_artifact_validator_reports_summary_operator_unlock_checklist_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-summary-unlock-checklist-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments" / run_id
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    checklist = manifest["operator_unlock_checklist"]
+    summary_path = run_dir / "summary.md"
+    summary_text = summary_path.read_text(encoding="utf-8")
+    section_start = summary_text.index("## Operator Unlock Checklist")
+    section_end = summary_text.index("\n## Codex CLI Unlock Runbook", section_start)
+    checklist_section = summary_text[section_start:section_end]
+    checklist_section = checklist_section.replace(
+        "- Blocking navigation items: "
+        f"`{checklist['navigation_blocking_count']}`",
+        "- Blocking navigation items: `999`",
+        1,
+    )
+    checklist_section = checklist_section.replace(
+        f"- Artifact: `{checklist['path']}`",
+        "- Artifact: `wrong_operator_unlock_checklist.json`",
+        1,
+    )
+    summary_text = (
+        summary_text[:section_start] + checklist_section + summary_text[section_end:]
+    )
+    summary_path.write_text(summary_text, encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert (
+        "summary.md operator_unlock_checklist navigation_blocking_count mismatch"
+        in report["errors"]
+    )
+    assert "summary.md operator_unlock_checklist path mismatch" in report["errors"]
+
+
 def test_artifact_validator_reports_summary_operator_next_command_drift(
     tmp_path: Path,
 ) -> None:

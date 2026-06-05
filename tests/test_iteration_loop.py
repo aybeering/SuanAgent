@@ -216,8 +216,9 @@ from orchestrator.run_artifact_health import (
     HISTORY_SCHEMA_VERSION as RUN_ARTIFACT_HEALTH_HISTORY_SCHEMA_VERSION,
     SCHEMA_VERSION as RUN_ARTIFACT_HEALTH_SCHEMA_VERSION,
     append_run_artifact_health_history,
-    build_run_artifact_health_history,
     build_run_artifact_health,
+    build_run_artifact_health_history,
+    render_run_artifact_health_history_markdown,
     validate_run_artifact_health_file,
     validate_run_artifact_health_history_file,
     write_run_artifact_health,
@@ -958,6 +959,28 @@ def test_run_artifact_health_history_summarizes_failures(tmp_path: Path) -> None
         text=True,
     )
     cli_summary = json.loads(cli_result.stdout)
+    cli_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "health-history",
+            "--history-path",
+            str(history_path),
+            "--markdown",
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    noisy_summary = json.loads(json.dumps(summary))
+    noisy_summary["artifact_failures"][0]["run_ids"] = [
+        f"bad-run-{index:02d}" for index in range(12)
+    ]
+    noisy_markdown = render_run_artifact_health_history_markdown(noisy_summary)
 
     assert good_record["schema_version"] == "run_artifact_health_history_record_v1"
     assert good_record["ok"] is True
@@ -973,6 +996,14 @@ def test_run_artifact_health_history_summarizes_failures(tmp_path: Path) -> None
     assert summary["recent_records"][-1]["failed_run_ids"] == ["history-bad"]
     assert cli_summary["schema_version"] == RUN_ARTIFACT_HEALTH_HISTORY_SCHEMA_VERSION
     assert cli_summary["artifact_failures"][0]["artifact_name"] == "agent_input.json"
+    assert "# Run Artifact Health History" in cli_markdown_result.stdout
+    assert "history-bad" in cli_markdown_result.stdout
+    assert "agent_input.json" in cli_markdown_result.stdout
+    assert "does not execute agents" in cli_markdown_result.stdout
+    assert "bad-run-00" in noisy_markdown
+    assert "bad-run-04" in noisy_markdown
+    assert "bad-run-05" not in noisy_markdown
+    assert "... +7 more" in noisy_markdown
 
 
 def test_run_artifact_health_history_filters_by_created_at(tmp_path: Path) -> None:
@@ -1101,6 +1132,25 @@ def test_run_artifact_health_history_cli_records_and_validates(
         capture_output=True,
         text=True,
     )
+    markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.run_artifact_health",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "--repo-root",
+            str(repo),
+            "--history-summary",
+            "--history-path",
+            str(history_path),
+            "--markdown",
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     summary = json.loads(summary_result.stdout)
     summary_path = repo / "run_artifact_health_history.json"
     summary_path.write_text(
@@ -1114,6 +1164,9 @@ def test_run_artifact_health_history_cli_records_and_validates(
     assert summary["schema_version"] == RUN_ARTIFACT_HEALTH_HISTORY_SCHEMA_VERSION
     assert summary["record_count"] == 1
     assert summary["totals"]["records_with_failures"] == 0
+    assert "# Run Artifact Health History" in markdown_result.stdout
+    assert "Records: `1`" in markdown_result.stdout
+    assert "does not execute agents" in markdown_result.stdout
     assert validate_run_artifact_health_history_file(
         payload_path=summary_path,
         repo_root=repo,

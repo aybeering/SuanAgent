@@ -158,9 +158,11 @@ python -m orchestrator.run_artifact_health --limit 10 --strict
 python -m orchestrator.run_artifact_health --all --record-history
 python -m orchestrator.run_artifact_health --all --created-at-from 2026-06-02T00:00:00Z --strict
 python -m orchestrator.run_artifact_health --history-summary
+python -m orchestrator.run_artifact_health --history-summary --markdown
 python -m orchestrator.run_artifact_health --history-summary --created-at-from 2026-06-02T00:00:00Z
 python -m orchestrator.experiments validate --limit 10 --strict
 python -m orchestrator.experiments health-history
+python -m orchestrator.experiments health-history --markdown
 python -m orchestrator.memory_diagnostics --strict
 python -m orchestrator.memory_diagnostics --strict --markdown
 python -m orchestrator.memory_diagnostics --created-at-from 2026-06-02T00:00:00Z --strict
@@ -931,6 +933,10 @@ Replay artifacts:
   artifact filenames. Automatic iteration records use the run's startup
   timestamp as the scope boundary. The same `--created-at-from` scope can
   exclude legacy failed runs from the summary without rewriting history.
+  `python -m orchestrator.run_artifact_health --history-summary --markdown` and
+  `python -m orchestrator.experiments health-history --markdown` render the same
+  bounded read-only summary for terminal review without executing agents,
+  rerunning backtests, applying patches, or changing acceptance.
 - `memory_diagnostics.json` cross-references proposal outcome memory with
   artifact-health history by run id, agent, profile, direction, and patch hash.
   `--created-at-from` applies the same current-contract scope to outcome memory

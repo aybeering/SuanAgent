@@ -138,6 +138,7 @@ from orchestrator.run_artifact_health import (
     DEFAULT_HISTORY_FILENAME,
     build_run_artifact_health,
     build_run_artifact_health_history,
+    render_run_artifact_health_history_markdown,
 )
 from orchestrator.run_closeout import build_run_closeout
 from orchestrator.run_diagnosis import diagnose_run
@@ -6958,6 +6959,11 @@ def main() -> None:
     health_history_parser.add_argument("--limit", type=int, default=10)
     health_history_parser.add_argument("--history-path", type=Path)
     health_history_parser.add_argument("--created-at-from", default="")
+    health_history_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render artifact-health history as markdown.",
+    )
 
     memory_diagnostics_parser = subparsers.add_parser(
         "memory-diagnostics",
@@ -7412,6 +7418,9 @@ def main() -> None:
             limit=args.limit,
             created_at_from=args.created_at_from,
         )
+        if args.markdown:
+            print(render_run_artifact_health_history_markdown(payload), end="")
+            return
     elif args.command == "memory-diagnostics":
         payload = build_memory_diagnostics(
             experiments_dir=args.experiments_dir,

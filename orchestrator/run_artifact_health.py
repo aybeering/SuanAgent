@@ -170,6 +170,110 @@ def string_list(value: object) -> list[str]:
     return [str(item) for item in value]
 
 
+def compact_markdown_list(values: list[str], *, max_items: int = 5) -> str:
+    """Return a bounded inline markdown list."""
+    if not values:
+        return "`none`"
+    shown = values[:max_items]
+    text = ", ".join(f"`{value}`" for value in shown)
+    extra_count = len(values) - len(shown)
+    if extra_count > 0:
+        text += f", ... +{extra_count} more"
+    return text
+
+
+def render_run_artifact_health_history_markdown(payload: dict[str, Any]) -> str:
+    """Render artifact-health history as compact terminal markdown."""
+    scope = payload.get("scope", {})
+    if not isinstance(scope, dict):
+        scope = {}
+    totals = payload.get("totals", {})
+    if not isinstance(totals, dict):
+        totals = {}
+    run_failures = payload.get("run_failures", [])
+    if not isinstance(run_failures, list):
+        run_failures = []
+    artifact_failures = payload.get("artifact_failures", [])
+    if not isinstance(artifact_failures, list):
+        artifact_failures = []
+    recent_records = payload.get("recent_records", [])
+    if not isinstance(recent_records, list):
+        recent_records = []
+
+    lines = [
+        "# Run Artifact Health History",
+        "",
+        f"- OK: `{payload.get('ok', False)}`",
+        f"- Created at from: `{scope.get('created_at_from', '')}`",
+        f"- Experiments dir: `{payload.get('experiments_dir', '')}`",
+        f"- History path: `{payload.get('history_path', '')}`",
+        "",
+        "## Totals",
+        "",
+        f"- Records: `{totals.get('record_count', 0)}`",
+        f"- Records with failures: `{totals.get('records_with_failures', 0)}`",
+        (
+            "- Failed run observations: "
+            f"`{totals.get('failed_run_observation_count', 0)}`"
+        ),
+        f"- Artifact failures: `{totals.get('artifact_failure_count', 0)}`",
+        f"- Read errors: `{totals.get('read_error_count', 0)}`",
+        "",
+        "## Top Failing Runs",
+        "",
+    ]
+
+    if not run_failures:
+        lines.append("- none")
+    for row in run_failures[:10]:
+        if not isinstance(row, dict):
+            continue
+        lines.append(
+            f"- `{row.get('run_id', '')}`: failures "
+            f"`{row.get('failure_count', 0)}`, errors "
+            f"`{row.get('total_error_count', 0)}`"
+        )
+
+    lines.extend(["", "## Top Artifact Failures", ""])
+    if not artifact_failures:
+        lines.append("- none")
+    for row in artifact_failures[:10]:
+        if not isinstance(row, dict):
+            continue
+        lines.append(
+            f"- `{row.get('artifact_name', '')}`: failures "
+            f"`{row.get('failure_count', 0)}`, runs "
+            + compact_markdown_list(string_list(row.get("run_ids", [])))
+        )
+
+    lines.extend(["", "## Recent Records", ""])
+    if not recent_records:
+        lines.append("- none")
+    for row in recent_records[:5]:
+        if not isinstance(row, dict):
+            continue
+        lines.append(
+            f"- `{row.get('recorded_at', '')}`: ok `{row.get('ok', False)}`, "
+            f"runs `{row.get('run_count', 0)}`, failed "
+            f"`{row.get('failed_count', 0)}`, failed ids "
+            + compact_markdown_list(string_list(row.get("failed_run_ids", [])))
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Policy",
+            "",
+            (
+                "- This view is read-only and does not execute agents, run "
+                "backtests, apply patches, or change acceptance."
+            ),
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def write_run_artifact_health(
     *,
     output_path: Path,
@@ -560,6 +664,11 @@ def main() -> None:
     parser.add_argument("--record-history", action="store_true")
     parser.add_argument("--history-summary", action="store_true")
     parser.add_argument("--history-path", type=Path)
+    parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render history summaries as markdown.",
+    )
     parser.add_argument("--strict", action="store_true")
     args = parser.parse_args()
 
@@ -591,7 +700,10 @@ def main() -> None:
             run_ids=args.run_ids,
             created_at_from=args.created_at_from,
         )
-    print(json.dumps(payload, indent=2, sort_keys=True))
+    if args.markdown and args.history_summary:
+        print(render_run_artifact_health_history_markdown(payload), end="")
+    else:
+        print(json.dumps(payload, indent=2, sort_keys=True))
     if args.record_history and not args.history_summary:
         append_run_artifact_health_history(
             payload=payload,

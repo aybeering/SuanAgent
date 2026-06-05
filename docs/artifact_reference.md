@@ -287,7 +287,9 @@ run agents, run backtests, apply patches, route agents, or change acceptance.
 `python -m orchestrator.artifact_validator <run_id>` validates this block when
 present, checking the diagnosis navigation against the saved
 `manifest.operator_home` row and requiring all diagnosis navigation policy flags
-to stay read-only.
+to stay read-only. For iteration diagnoses, it also binds the diagnosis run
+status, completed-round count, accepted round, stop reason, final strategy
+commit, and agent-intake summary back to `manifest.json`.
 
 `champion_history.jsonl` exists after guarded champion promotion.
 `champion_lineage.json` and `champion_lineage.md` are written by the lineage

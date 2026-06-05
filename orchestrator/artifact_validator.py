@@ -6083,17 +6083,48 @@ def validate_optional_diagnosis(
     payload = validate_json_object(path=path, report=report)
     if payload is None:
         return
+    manifest = load_json_object(run_dir / "manifest.json", report)
+    if manifest is not None:
+        validate_iteration_diagnosis_summary(
+            payload=payload,
+            manifest=manifest,
+            report=report,
+        )
     validate_diagnosis_operator_navigation(
         payload=payload,
         run_dir=run_dir,
+        manifest=manifest,
         report=report,
     )
+
+
+def validate_iteration_diagnosis_summary(
+    *,
+    payload: dict[str, object],
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate iteration diagnosis summary fields mirror manifest.json."""
+    if str(payload.get("kind", "")) != "iteration_loop":
+        add_error(report, "diagnosis.json kind mismatch")
+    for field_name in (
+        "status",
+        "completed_rounds",
+        "accepted_round",
+        "stop_reason",
+        "final_strategy_commit",
+    ):
+        if payload.get(field_name) != manifest.get(field_name):
+            add_error(report, f"diagnosis.json {field_name} mismatch")
+    if payload.get("agent_intake_summary") != manifest.get("agent_intake_summary"):
+        add_error(report, "diagnosis.json agent_intake_summary mismatch")
 
 
 def validate_diagnosis_operator_navigation(
     *,
     payload: dict[str, object],
     run_dir: Path,
+    manifest: dict[str, object] | None,
     report: dict[str, object],
 ) -> None:
     """Validate diagnosis operator navigation when the block is present."""
@@ -6125,7 +6156,6 @@ def validate_diagnosis_operator_navigation(
         if policy.get(key) is not True:
             add_error(report, f"diagnosis.json operator_navigation policy false: {key}")
 
-    manifest = load_json_object(run_dir / "manifest.json", report)
     if manifest is not None:
         validate_iteration_diagnosis_operator_navigation(
             navigation=navigation,

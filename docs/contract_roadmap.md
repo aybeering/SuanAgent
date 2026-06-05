@@ -142,6 +142,9 @@ Implemented or allowed V0.5 components:
     blocks, artifact-invalid diagnoses, and runtime failures as read-only
     operator navigation without routing candidates, applying patches, rerunning
     backtests, changing deterministic gates, or changing acceptance.
+    The artifact validator binds iteration `diagnosis.json` run status,
+    completed-round count, accepted round, stop reason, final strategy commit,
+    and agent-intake summary back to `manifest.json`.
     The artifact validator also binds the saved `summary.md` top-level run
     header back to `manifest.json` for run id, status, completed-round,
     accepted-round, stop-reason, and final-strategy-commit consistency, and

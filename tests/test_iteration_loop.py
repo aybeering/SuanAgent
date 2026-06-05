@@ -12189,6 +12189,40 @@ def test_artifact_validator_reports_diagnosis_operator_navigation_drift(
     )
 
 
+def test_artifact_validator_reports_iteration_diagnosis_summary_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-diagnosis-summary-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    diagnosis_path = repo / "experiments" / run_id / "diagnosis.json"
+    diagnosis = json.loads(diagnosis_path.read_text(encoding="utf-8"))
+    diagnosis["status"] = "accepted"
+    diagnosis["completed_rounds"] = 99
+    diagnosis["final_strategy_commit"] = "wrong-commit"
+    diagnosis["agent_intake_summary"]["blocked_round_count"] = 99
+    diagnosis_path.write_text(
+        json.dumps(diagnosis, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert "diagnosis.json status mismatch" in report["errors"]
+    assert "diagnosis.json completed_rounds mismatch" in report["errors"]
+    assert "diagnosis.json final_strategy_commit mismatch" in report["errors"]
+    assert "diagnosis.json agent_intake_summary mismatch" in report["errors"]
+
+
 def test_artifact_validator_reports_summary_operator_home_drift(
     tmp_path: Path,
 ) -> None:

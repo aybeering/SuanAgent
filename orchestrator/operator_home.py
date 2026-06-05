@@ -237,6 +237,7 @@ def build_operator_next_command(
             "schema_version": str(home.get("schema_version", "")),
             "terminal_only": True,
             "artifact_created": False,
+            "command_is_hint_only": True,
             "command_label": "review_operator_home",
             "command": (
                 "python -m orchestrator.experiments "
@@ -636,6 +637,7 @@ def render_operator_next_command_markdown(payload: dict[str, object]) -> str:
         f"- Writes artifact: `{payload.get('writes_artifact', '')}`",
         f"- Codex unlock runbook: `{payload.get('codex_unlock_runbook_status', '')}`",
         f"- Codex intake: `{payload.get('codex_intake_readiness_status', '')}`",
+        f"- Selection source: `{payload.get('selection_source', '')}`",
         "",
         "## Command",
         "",
@@ -656,6 +658,9 @@ def render_operator_next_command_markdown(payload: dict[str, object]) -> str:
         "",
         f"- Home command: `{source_home.get('command', '')}`",
         f"- Source boundary: `{source_home.get('boundary_type', '')}`",
+        f"- Source terminal-only: `{source_home.get('terminal_only', False)}`",
+        f"- Source creates artifact: `{source_home.get('artifact_created', True)}`",
+        f"- Source hint-only: `{source_home.get('command_is_hint_only', False)}`",
         "",
         "## Policy",
         "",

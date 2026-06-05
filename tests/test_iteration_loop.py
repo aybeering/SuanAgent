@@ -24800,6 +24800,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert operator_next_command["safety"]["command_is_hint_only"] is True
     assert operator_next_command["source_home"]["artifact_created"] is False
     assert operator_next_command["source_home"]["terminal_only"] is True
+    assert operator_next_command["source_home"]["command_is_hint_only"] is True
     assert operator_next_command["policy"]["does_not_create_artifacts"] is True
     assert operator_next_command["policy"]["does_not_execute_commands"] is True
     assert (
@@ -24815,6 +24816,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     ) == ()
     assert "# Operator Next Command" in operator_next_command_markdown
     assert "## Safety" in operator_next_command_markdown
+    assert "Selection source: `operator_home.next_command`" in (
+        operator_next_command_markdown
+    )
+    assert "Source terminal-only: `True`" in operator_next_command_markdown
+    assert "Source creates artifact: `False`" in operator_next_command_markdown
+    assert "Source hint-only: `True`" in operator_next_command_markdown
     assert operator_home_markdown_result.returncode == 0, (
         operator_home_markdown_result.stderr
     )
@@ -24892,6 +24899,16 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert "# Operator Next Command" in operator_next_command_markdown_result.stdout
     assert "## Command" in operator_next_command_markdown_result.stdout
+    assert "Selection source: `operator_home.next_command`" in (
+        operator_next_command_markdown_result.stdout
+    )
+    assert "Source terminal-only: `True`" in (
+        operator_next_command_markdown_result.stdout
+    )
+    assert "Source creates artifact: `False`" in (
+        operator_next_command_markdown_result.stdout
+    )
+    assert "Source hint-only: `True`" in operator_next_command_markdown_result.stdout
     assert operator_next_command_module_result.returncode == 0, (
         operator_next_command_module_result.stderr
     )
@@ -24910,6 +24927,9 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         operator_next_command_module_markdown_result.stderr
     )
     assert "# Operator Next Command" in (
+        operator_next_command_module_markdown_result.stdout
+    )
+    assert "Selection source: `operator_home.next_command`" in (
         operator_next_command_module_markdown_result.stdout
     )
     assert operator_next_command_latest_result.returncode == 0, (
@@ -24940,6 +24960,9 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         operator_next_command_latest_markdown_result.stdout
     )
     assert "cli-candidates" in operator_next_command_latest_markdown_result.stdout
+    assert "Source creates artifact: `False`" in (
+        operator_next_command_latest_markdown_result.stdout
+    )
     assert unlock_checklist_result.returncode == 0, unlock_checklist_result.stderr
     unlock_checklist_payload = json.loads(unlock_checklist_result.stdout)
     assert unlock_checklist_payload["schema_version"] == (

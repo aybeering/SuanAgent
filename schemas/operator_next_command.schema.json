@@ -94,6 +94,7 @@
         "schema_version",
         "terminal_only",
         "artifact_created",
+        "command_is_hint_only",
         "command_label",
         "command",
         "boundary_type"
@@ -102,6 +103,7 @@
         "schema_version": {"type": "string"},
         "terminal_only": {"type": "boolean"},
         "artifact_created": {"type": "boolean"},
+        "command_is_hint_only": {"type": "boolean"},
         "command_label": {"type": "string"},
         "command": {"type": "string"},
         "boundary_type": {"type": "string"}

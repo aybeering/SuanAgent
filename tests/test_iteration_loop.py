@@ -144,6 +144,7 @@ from orchestrator.attempt_replay import replay_attempt
 from orchestrator.round_replay import ROUND_REPLAY_SCHEMA_VERSION, replay_round
 from orchestrator.artifact_validator import (
     snapshot_digest_from_payload,
+    validate_manifest_operator_next_command,
     validate_optional_codex_cli_unlock_runbook,
     validate_optional_config_operator_runbook,
     validate_optional_operator_action_approval,
@@ -12982,6 +12983,68 @@ def test_artifact_validator_reports_manifest_operator_next_command_drift(
     assert (
         "manifest.operator_home next_command_is_hint_only mismatch"
         in report["errors"]
+    )
+
+
+def test_manifest_operator_next_command_keeps_closeout_snapshot_after_codex_readiness(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-manifest-next-command-snapshot"
+    config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments" / run_id
+    round_dir = run_dir / "round_001"
+    write_codex_cli_contract_fixture(round_dir=round_dir, repo_root=repo)
+    replay_round(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_replay_gate(run_dir=run_dir, repo_root=repo)
+
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    snapshot_manifest = json.loads(json.dumps(manifest))
+    snapshot_manifest["operator_home"]["next_command"] = (
+        "python -m orchestrator.run_loop"
+    )
+    snapshot_manifest["operator_home"]["next_command_blocked"] = False
+    snapshot_manifest["operator_home"]["codex_intake_readiness_status"] = "ready"
+    report: dict[str, object] = {"errors": []}
+
+    validate_manifest_operator_next_command(
+        run_dir=run_dir,
+        repo_root=repo,
+        manifest=snapshot_manifest,
+        report=report,
+    )
+
+    assert report["errors"] == []
+
+    static_drift_manifest = json.loads(json.dumps(snapshot_manifest))
+    static_drift_manifest["operator_home"]["command_is_hint_only"] = False
+    static_drift_manifest["operator_home"]["next_command_is_hint_only"] = False
+    static_report: dict[str, object] = {"errors": []}
+
+    validate_manifest_operator_next_command(
+        run_dir=run_dir,
+        repo_root=repo,
+        manifest=static_drift_manifest,
+        report=static_report,
+    )
+
+    assert "manifest.operator_home command_is_hint_only mismatch" in static_report[
+        "errors"
+    ]
+    assert (
+        "manifest.operator_home next_command_is_hint_only mismatch"
+        in static_report["errors"]
+    )
+    assert "manifest.operator_home next_command mismatch" not in static_report["errors"]
+    assert (
+        "manifest.operator_home codex_intake_readiness_status mismatch"
+        not in static_report["errors"]
     )
 
 

@@ -12190,6 +12190,45 @@ def test_artifact_validator_reports_diagnosis_operator_navigation_drift(
     )
 
 
+def test_artifact_validator_reports_diagnosis_navigation_static_safety_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-diagnosis-navigation-static-safety-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments" / run_id
+    manifest_path = run_dir / "manifest.json"
+    diagnosis_path = run_dir / "diagnosis.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    diagnosis = json.loads(diagnosis_path.read_text(encoding="utf-8"))
+    manifest["operator_home"]["command_is_hint_only"] = False
+    manifest["operator_home"]["next_command_is_hint_only"] = False
+    diagnosis["operator_navigation"]["home"]["command_is_hint_only"] = False
+    diagnosis["operator_navigation"]["next_command"]["command_is_hint_only"] = False
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    diagnosis_path.write_text(
+        json.dumps(diagnosis, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert "diagnosis.json operator_navigation home hint unsafe" in report["errors"]
+    assert "diagnosis.json operator_navigation next hint unsafe" in report["errors"]
+
+
 def test_artifact_validator_reports_iteration_diagnosis_summary_drift(
     tmp_path: Path,
 ) -> None:

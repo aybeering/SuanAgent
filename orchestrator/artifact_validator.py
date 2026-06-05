@@ -6481,6 +6481,16 @@ def validate_iteration_diagnosis_operator_navigation(
     )
     if home.get("available") is not True:
         add_error(report, "diagnosis.json operator_navigation home unavailable")
+    if str(home.get("command_label", "")) != "review_operator_home":
+        add_error(report, "diagnosis.json operator_navigation home label unsafe")
+    if str(home.get("command_boundary", "")) != "read_only_inspection":
+        add_error(report, "diagnosis.json operator_navigation home boundary unsafe")
+    if home.get("terminal_only") is not True:
+        add_error(report, "diagnosis.json operator_navigation home terminal unsafe")
+    if home.get("artifact_created") is not False:
+        add_error(report, "diagnosis.json operator_navigation home artifact unsafe")
+    if home.get("command_is_hint_only") is not True:
+        add_error(report, "diagnosis.json operator_navigation home hint unsafe")
     for nav_key, manifest_key in expected_home_fields:
         if str(home.get(nav_key, "")) != str(manifest_home.get(manifest_key, "")):
             add_error(
@@ -6513,6 +6523,8 @@ def validate_iteration_diagnosis_operator_navigation(
         add_error(report, "diagnosis.json operator_navigation selector command mismatch")
     if str(next_command.get("selector_boundary", "")) != "read_only_inspection":
         add_error(report, "diagnosis.json operator_navigation selector boundary mismatch")
+    if next_command.get("command_is_hint_only") is not True:
+        add_error(report, "diagnosis.json operator_navigation next hint unsafe")
 
     for nav_key, manifest_key in (
         ("selected_command_label", "next_command_label"),

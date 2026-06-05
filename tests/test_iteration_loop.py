@@ -20244,6 +20244,9 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
         "`python -m orchestrator.experiments home iteration-rank --markdown`"
         in summary_markdown
     )
+    assert "Operator home terminal-only: `True`" in summary_markdown
+    assert "Operator home creates artifact: `False`" in summary_markdown
+    assert "Operator home hint-only: `True`" in summary_markdown
     assert (
         "Operator home next command status: `blocked_by_home_blockers`"
         in summary_markdown
@@ -20261,6 +20264,17 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
         "`python -m orchestrator.experiments next-command iteration-rank --markdown`"
         in summary_markdown
     )
+    assert (
+        "Operator next-command selector source: `operator_home.next_command`"
+        in summary_markdown
+    )
+    assert "Operator next-command selector terminal-only: `True`" in (
+        summary_markdown
+    )
+    assert "Operator next-command selector creates artifact: `False`" in (
+        summary_markdown
+    )
+    assert "Operator next-command selector hint-only: `True`" in summary_markdown
     assert "Operator next-command selected status: `blocked_by_home_blockers`" in (
         summary_markdown
     )

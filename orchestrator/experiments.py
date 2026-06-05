@@ -1731,6 +1731,12 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         f"({operator_home.get('reason', 'unknown')})",
         "- Operator home command: "
         f"`{operator_home.get('command', '') or 'unavailable'}`",
+        "- Operator home terminal-only: "
+        f"`{operator_home.get('terminal_only', False)}`",
+        "- Operator home creates artifact: "
+        f"`{operator_home.get('artifact_created', True)}`",
+        "- Operator home hint-only: "
+        f"`{operator_home.get('command_is_hint_only', False)}`",
         "- Operator home next command: "
         f"`{operator_home.get('next_command_label', '') or 'unavailable'}`",
         "- Operator home next command text: "
@@ -1761,6 +1767,14 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         f"({operator_next_command.get('reason', 'unknown')})",
         "- Operator next-command selector command: "
         f"`{operator_next_command.get('command', '') or 'unavailable'}`",
+        "- Operator next-command selector source: "
+        f"`{operator_next_command.get('selection_source', '') or 'unavailable'}`",
+        "- Operator next-command selector terminal-only: "
+        f"`{operator_next_command.get('terminal_only', False)}`",
+        "- Operator next-command selector creates artifact: "
+        f"`{operator_next_command.get('artifact_created', True)}`",
+        "- Operator next-command selector hint-only: "
+        f"`{operator_next_command.get('command_is_hint_only', False)}`",
         "- Operator next-command selected label: "
         f"`{operator_next_command.get('selected_command_label', '') or 'unavailable'}`",
         "- Operator next-command selected command: "

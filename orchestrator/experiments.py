@@ -882,6 +882,32 @@ def validate_experiment_operator_navigation_pair(
         operator_home.get("next_command_writes_artifact", "")
     ):
         errors.append("experiment operator navigation selected artifact mismatch")
+    for next_key, home_key in (
+        (
+            "selected_command_requires_explicit_operator_invocation",
+            "next_command_requires_explicit_operator_invocation",
+        ),
+        (
+            "selected_command_requires_operator_approval",
+            "next_command_requires_operator_approval",
+        ),
+        (
+            "selected_command_records_operator_approval",
+            "next_command_records_operator_approval",
+        ),
+        (
+            "selected_command_uses_guarded_executor",
+            "next_command_uses_guarded_executor",
+        ),
+        (
+            "selected_command_is_hint_only",
+            "next_command_is_hint_only",
+        ),
+    ):
+        if bool(operator_next_command.get(next_key, False)) != bool(
+            operator_home.get(home_key, False)
+        ):
+            errors.append("experiment operator navigation selected safety mismatch")
     if bool(operator_next_command.get("blocked", False)) != bool(
         operator_home.get("next_command_blocked", False)
     ):
@@ -1732,6 +1758,16 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         f"({operator_next_command.get('blocker_count', 0)} blocker(s))",
         "- Operator next-command selected writes: "
         f"`{operator_next_command.get('selected_command_writes_artifact', '') or 'none'}`",
+        "- Operator next-command selected requires explicit invocation: "
+        f"`{operator_next_command.get('selected_command_requires_explicit_operator_invocation', False)}`",
+        "- Operator next-command selected requires approval: "
+        f"`{operator_next_command.get('selected_command_requires_operator_approval', False)}`",
+        "- Operator next-command selected records approval: "
+        f"`{operator_next_command.get('selected_command_records_operator_approval', False)}`",
+        "- Operator next-command selected uses guarded executor: "
+        f"`{operator_next_command.get('selected_command_uses_guarded_executor', False)}`",
+        "- Operator next-command selected hint-only: "
+        f"`{operator_next_command.get('selected_command_is_hint_only', False)}`",
         "",
         "## Watchlist",
         "",

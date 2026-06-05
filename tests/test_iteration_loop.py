@@ -20261,6 +20261,23 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
         "Operator next-command selected boundary: `operator_approval_receipt`"
         in summary_markdown
     )
+    assert (
+        "Operator next-command selected requires explicit invocation: `True`"
+        in summary_markdown
+    )
+    assert (
+        "Operator next-command selected requires approval: `False`"
+        in summary_markdown
+    )
+    assert (
+        "Operator next-command selected records approval: `True`"
+        in summary_markdown
+    )
+    assert (
+        "Operator next-command selected uses guarded executor: `False`"
+        in summary_markdown
+    )
+    assert "Operator next-command selected hint-only: `True`" in summary_markdown
     assert summary["champion_lineage"]["ok"] is True  # type: ignore[index]
     assert summary["champion_lineage"]["event_count"] == 0  # type: ignore[index]
     assert summary["champion_lineage"]["current_champion_run_id"] == ""  # type: ignore[index]
@@ -20727,6 +20744,28 @@ def test_experiment_operator_navigation_pair_rejects_misleading_commands() -> No
     assert "experiment operator navigation selected command mismatch" in errors
     assert "experiment operator navigation blocked mismatch" in errors
     assert "experiment operator navigation blocker count mismatch" in errors
+
+    safety_next_command = dict(
+        payload["operator_next_command_entry"]  # type: ignore[arg-type]
+    )
+    safety_next_command["selected_command_requires_explicit_operator_invocation"] = (
+        False
+    )
+    safety_next_command["selected_command_requires_operator_approval"] = True
+    safety_next_command["selected_command_records_operator_approval"] = False
+    safety_next_command["selected_command_uses_guarded_executor"] = True
+    safety_next_command["selected_command_is_hint_only"] = False
+
+    safety_errors = validate_experiment_operator_navigation_pair(
+        operator_home=operator_home,
+        operator_next_command=safety_next_command,
+        run_id="run-001",
+        run_kind="iteration_loop",
+    )
+
+    assert safety_errors.count(
+        "experiment operator navigation selected safety mismatch"
+    ) == 5
 
     unavailable_home = {
         "available": False,

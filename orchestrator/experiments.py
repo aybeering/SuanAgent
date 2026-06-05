@@ -1992,6 +1992,123 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_experiment_list_markdown(payload: list[dict[str, object]]) -> str:
+    """Render recent experiment rows as operator-facing markdown."""
+    lines = [
+        "# Experiments",
+        "",
+        f"- Row count: `{len(payload)}`",
+        "- Source: `experiments/index.jsonl`",
+        "",
+        "## Recent Runs",
+        "",
+        "| Run | Kind | Status | Show | Home | Next Command | Blocked | Boundary |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    if not payload:
+        lines.append("| none | none | none | unavailable | unavailable | unavailable | False | none |")
+    for row in payload:
+        run_id = str(row.get("run_id", ""))
+        kind = str(row.get("kind", "unknown"))
+        show_command = f"python -m orchestrator.experiments show {run_id} --markdown"
+        operator_home = dict_payload(row.get("operator_home", {}))
+        operator_next_command = dict_payload(row.get("operator_next_command", {}))
+        home_command = str(operator_home.get("command", "") or "unavailable")
+        selector_command = str(operator_next_command.get("command", "") or "unavailable")
+        boundary = str(
+            operator_next_command.get("selected_command_boundary", "")
+            or operator_next_command.get("command_boundary", "")
+            or "unavailable"
+        )
+        lines.append(
+            "| "
+            f"`{markdown_cell(run_id)}` | "
+            f"`{markdown_cell(kind)}` | "
+            f"`{markdown_cell(row.get('status', 'unknown'))}` | "
+            f"`{markdown_cell(show_command)}` | "
+            f"`{markdown_cell(home_command)}` | "
+            f"`{markdown_cell(selector_command)}` | "
+            f"`{operator_next_command.get('blocked', False)}` | "
+            f"`{markdown_cell(boundary)}` |"
+        )
+
+    lines.extend(["", "## Operator Navigation", ""])
+    if not payload:
+        lines.append("- No indexed runs are available.")
+    for row in payload:
+        run_id = str(row.get("run_id", ""))
+        operator_home = dict_payload(row.get("operator_home", {}))
+        operator_next_command = dict_payload(row.get("operator_next_command", {}))
+        show_command = f"python -m orchestrator.experiments show {run_id} --markdown"
+        selected_command = str(
+            operator_next_command.get("selected_command", "") or "unavailable"
+        )
+        lines.extend(
+            [
+                "",
+                f"### `{markdown_cell(run_id)}`",
+                "",
+                f"- Kind: `{markdown_cell(row.get('kind', 'unknown'))}`",
+                f"- Status: `{markdown_cell(row.get('status', 'unknown'))}`",
+                f"- Show command: `{markdown_cell(show_command)}`",
+                f"- Show command SHA-256: `{sha256_text(show_command)}`",
+                "- Home available: "
+                f"`{operator_home.get('available', False)}` "
+                f"({markdown_cell(operator_home.get('reason', 'unknown'))})",
+                "- Home command: "
+                f"`{markdown_cell(operator_home.get('command', '') or 'unavailable')}`",
+                "- Home command SHA-256: "
+                f"`{markdown_cell(operator_home.get('command_sha256', '') or 'unavailable')}`",
+                "- Selector available: "
+                f"`{operator_next_command.get('available', False)}` "
+                f"({markdown_cell(operator_next_command.get('reason', 'unknown'))})",
+                "- Selector command: "
+                f"`{markdown_cell(operator_next_command.get('command', '') or 'unavailable')}`",
+                "- Selector command SHA-256: "
+                f"`{markdown_cell(operator_next_command.get('command_sha256', '') or 'unavailable')}`",
+                "- Selected command: "
+                f"`{markdown_cell(selected_command)}`",
+                "- Selected command SHA-256: "
+                f"`{markdown_cell(operator_next_command.get('selected_command_sha256', '') or 'unavailable')}`",
+                "- Selected status: "
+                f"`{markdown_cell(operator_next_command.get('selected_command_status', 'unavailable'))}`",
+                "- Selected boundary: "
+                f"`{markdown_cell(operator_next_command.get('selected_command_boundary', '') or 'unavailable')}`",
+                "- Blocked: "
+                f"`{operator_next_command.get('blocked', False)}` "
+                f"({operator_next_command.get('blocker_count', 0)} blocker(s))",
+                "- Operator hint: "
+                f"{markdown_cell(operator_next_command.get('operator_hint', '') or 'none')}",
+                "- Writes artifact: "
+                f"`{markdown_cell(operator_next_command.get('selected_command_writes_artifact', '') or 'none')}`",
+                "- Requires explicit invocation: "
+                f"`{operator_next_command.get('selected_command_requires_explicit_operator_invocation', False)}`",
+                "- Records approval: "
+                f"`{operator_next_command.get('selected_command_records_operator_approval', False)}`",
+                "- Uses guarded executor: "
+                f"`{operator_next_command.get('selected_command_uses_guarded_executor', False)}`",
+                "- Hint-only: "
+                f"`{operator_next_command.get('selected_command_is_hint_only', False)}`",
+            ]
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Policy",
+            "",
+            "- Inspection only: `True`",
+            "- Creates artifacts: `False`",
+            "- Executes agents: `False`",
+            "- Reruns backtests: `False`",
+            "- Applies patches: `False`",
+            "- Changes acceptance: `False`",
+            "- Writes config: `False`",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def render_experiment_show_markdown(payload: dict[str, object]) -> str:
     """Render one compact experiment record as operator-facing markdown."""
     kind = str(payload.get("kind", "unknown"))
@@ -5853,6 +5970,11 @@ def main() -> None:
 
     list_parser = subparsers.add_parser("list", help="List recent experiments.")
     list_parser.add_argument("--limit", type=int, default=10)
+    list_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render recent experiments as an operator markdown table.",
+    )
 
     show_parser = subparsers.add_parser("show", help="Show one experiment.")
     show_parser.add_argument("run_id")
@@ -6383,6 +6505,9 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             limit=args.limit,
         )
+        if args.markdown:
+            print(render_experiment_list_markdown(payload), end="")
+            return
     elif args.command == "show":
         payload = show_experiment(
             experiments_dir=args.experiments_dir,

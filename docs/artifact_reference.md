@@ -29,6 +29,7 @@ Experiment inspection:
 
 ```bash
 python -m orchestrator.experiments list --limit 5
+python -m orchestrator.experiments list --limit 5 --markdown
 python -m orchestrator.experiments show <run_id>
 python -m orchestrator.experiments show <run_id> --markdown
 python -m orchestrator.experiments review <run_id>
@@ -110,9 +111,11 @@ each row. Iteration-loop rows include the terminal-only `home <run_id>
 --markdown` command, the narrower `next-command <run_id> --markdown`
 selector, status, boundary, hint-only policy flags, next-command text, blocker
 summary, command SHA-256 bindings, and next-command safety flags; single-run
-rows mark both hints and next-command state unavailable. The command does not rewrite `index.jsonl`,
-create artifacts, execute commands, run agents, run backtests, apply patches,
-promote champions, or change acceptance.
+rows mark both hints and next-command state unavailable. `list --markdown`
+renders the recent-run table plus per-run `show <run_id> --markdown`, home, and
+next-command navigation with the same command SHA-256 bindings. The command
+does not rewrite `index.jsonl`, create artifacts, execute commands, run agents,
+run backtests, apply patches, promote champions, or change acceptance.
 
 `python -m orchestrator.experiments show <run_id>` includes the same derived
 `operator_home` and `operator_next_command` hints in the compact run payload.

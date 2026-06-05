@@ -415,6 +415,7 @@ from orchestrator.experiments import (
     proposal_memory,
     promote_champion,
     refresh_operator_views as refresh_operator_views_command,
+    render_experiment_list_markdown,
     render_experiment_show_markdown,
     render_experiment_summary_markdown,
     render_operator_view_refresh_markdown,
@@ -22320,6 +22321,23 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
         text=True,
         check=False,
     )
+    list_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "list",
+            "--limit",
+            "2",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     show_result = subprocess.run(
         [
             sys.executable,
@@ -22337,6 +22355,7 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
     )
 
     assert list_result.returncode == 0, list_result.stderr
+    assert list_markdown_result.returncode == 0, list_markdown_result.stderr
     assert show_result.returncode == 0, show_result.stderr
     list_payload = json.loads(list_result.stdout)
     assert [row["run_id"] for row in list_payload] == [
@@ -22372,6 +22391,40 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
         "operator_approval_receipt"
     )
     assert list_payload[1]["operator_next_command"]["blocked"] is True
+    assert "# Experiments" in list_markdown_result.stdout
+    assert "`cli-list-show`" in list_markdown_result.stdout
+    assert "`cli-list-iteration`" in list_markdown_result.stdout
+    assert (
+        "`python -m orchestrator.experiments show cli-list-iteration --markdown`"
+        in list_markdown_result.stdout
+    )
+    assert (
+        "Home command: `python -m orchestrator.experiments home "
+        "cli-list-iteration --markdown`"
+    ) in list_markdown_result.stdout
+    assert "Show command SHA-256:" in list_markdown_result.stdout
+    assert "Selector command SHA-256:" in list_markdown_result.stdout
+    assert "Selected command SHA-256:" in list_markdown_result.stdout
+    assert "Changes acceptance: `False`" in list_markdown_result.stdout
+    list_markdown = render_experiment_list_markdown(list_payload)
+    assert "# Experiments" in list_markdown
+    assert "## Recent Runs" in list_markdown
+    assert "`cli-list-show`" in list_markdown
+    assert "`cli-list-iteration`" in list_markdown
+    assert (
+        "`python -m orchestrator.experiments show cli-list-iteration --markdown`"
+        in list_markdown
+    )
+    assert (
+        "Home command: `python -m orchestrator.experiments home "
+        "cli-list-iteration --markdown`"
+    ) in list_markdown
+    assert "Show command SHA-256:" in list_markdown
+    assert "Selector command SHA-256:" in list_markdown
+    assert "Selected command SHA-256:" in list_markdown
+    assert "Selected boundary: `operator_approval_receipt`" in list_markdown
+    assert "Creates artifacts: `False`" in list_markdown
+    assert "Changes acceptance: `False`" in list_markdown
     show_payload = json.loads(show_result.stdout)
     assert show_payload["kind"] == "single_run"
     assert show_payload["operator_home"]["available"] is False

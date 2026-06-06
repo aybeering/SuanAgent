@@ -6368,6 +6368,11 @@ def test_operator_view_refresh_payload_validation_reports_summary_drift(
     review_summary["reason_count"] = 2
     review_summary["primary_reason"] = "stale_sources_fixed"
     review_summary["post_blocker_count"] = 1
+    home_summary = payload["home_summary"]
+    assert isinstance(home_summary, dict)
+    home_summary["next_command_blocked"] = True
+    home_summary["next_command_blocker_count"] = 1
+    home_summary["next_command_first_blocker"] = ""
 
     errors = validate_operator_view_refresh_payload(payload, repo_root=tmp_path)
 
@@ -6382,6 +6387,7 @@ def test_operator_view_refresh_payload_validation_reports_summary_drift(
     assert "operator_view_refresh blocker_delta changed mismatch" in errors
     assert "operator_view_refresh policy_summary mismatch" in errors
     assert "operator_view_refresh refresh_effect mismatch" in errors
+    assert "operator_view_refresh home_summary first blocker mismatch" in errors
     assert "operator_view_refresh review_summary mismatch" in errors
     assert (
         "operator_view_refresh review_summary next_command_label mismatch"

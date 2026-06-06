@@ -5286,6 +5286,12 @@ def validate_operator_view_refresh_consistency(
         and str(home_summary.get("next_command_first_blocker", ""))
     ):
         errors.append("operator_view_refresh home_summary first blocker mismatch")
+    if (
+        bool(home_summary.get("next_command_blocked", False))
+        and int_value(home_summary.get("next_command_blocker_count", 0)) > 0
+        and not str(home_summary.get("next_command_first_blocker", ""))
+    ):
+        errors.append("operator_view_refresh home_summary first blocker mismatch")
     if str(home_summary.get("next_command_label", "")):
         if not str(home_summary.get("next_command", "")):
             errors.append("operator_view_refresh home_summary next command missing")

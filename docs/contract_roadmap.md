@@ -58,7 +58,9 @@ Implemented or allowed V0.5 components:
 44. A deterministic `agent_output_quarantine.json` report that quarantines selected agent output before git apply and releases only validated strategy patches, with schema-validated consistency checks that bind release status, selected attempt id, patch hash, validation status, and source artifact hashes.
 45. A deterministic `agent_golden_replay.json` report that freezes one saved
     agent input/output pair as a replayable protocol fixture and verifies the
-    saved raw-output hash still matches the replayed raw-output hash.
+    saved raw-output hash still matches the replayed raw-output hash, with
+    saved and replayed patch/raw-output hash fields schema-constrained to
+    empty-or-64-lowercase-hex strings.
 46. A deterministic `codex_cli_contract_fixture.json` report that freezes guarded Codex CLI stdin/stdout expectations without executing Codex.
 47. A deterministic `codex_cli_replay_gate.json` report that gates Codex CLI
     enablement using saved execution, fixture, quarantine, and replay artifacts,

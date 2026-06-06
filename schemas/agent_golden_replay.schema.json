@@ -125,16 +125,16 @@
       ],
       "properties": {
         "saved_patch_sha256": {
-          "type": "string"
+          "$ref": "#/$defs/sha256_or_empty"
         },
         "replayed_patch_sha256": {
-          "type": "string"
+          "$ref": "#/$defs/sha256_or_empty"
         },
         "saved_raw_output_sha256": {
-          "type": "string"
+          "$ref": "#/$defs/sha256_or_empty"
         },
         "replayed_raw_output_sha256": {
-          "type": "string"
+          "$ref": "#/$defs/sha256_or_empty"
         },
         "saved_direction_tag": {
           "type": "string"
@@ -182,6 +182,12 @@
           "type": "boolean"
         }
       }
+    }
+  },
+  "$defs": {
+    "sha256_or_empty": {
+      "type": "string",
+      "pattern": "^$|^[a-f0-9]{64}$"
     }
   }
 }

@@ -14554,6 +14554,44 @@ def test_agent_golden_replay_freezes_file_protocol_fixture(
     assert golden["comparison"]["saved_raw_output_sha256"] == (
         golden["comparison"]["replayed_raw_output_sha256"]
     )
+    golden_replay_schema = json.loads(
+        (Path.cwd() / "schemas/agent_golden_replay.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    invalid_golden_digest = json.loads(json.dumps(golden))
+    invalid_golden_digest["comparison"]["saved_patch_sha256"] = "bad-saved-patch-sha"
+    invalid_golden_digest["comparison"]["replayed_patch_sha256"] = (
+        "bad-replayed-patch-sha"
+    )
+    invalid_golden_digest["comparison"]["saved_raw_output_sha256"] = (
+        "bad-saved-raw-output-sha"
+    )
+    invalid_golden_digest["comparison"]["replayed_raw_output_sha256"] = (
+        "bad-replayed-raw-output-sha"
+    )
+    invalid_golden_digest_errors = validate_json_payload(
+        payload=invalid_golden_digest,
+        schema=golden_replay_schema,
+    )
+    assert any(
+        "$.comparison.saved_patch_sha256: expected string to match pattern" in error
+        for error in invalid_golden_digest_errors
+    )
+    assert any(
+        "$.comparison.replayed_patch_sha256: expected string to match pattern" in error
+        for error in invalid_golden_digest_errors
+    )
+    assert any(
+        "$.comparison.saved_raw_output_sha256: expected string to match pattern"
+        in error
+        for error in invalid_golden_digest_errors
+    )
+    assert any(
+        "$.comparison.replayed_raw_output_sha256: expected string to match pattern"
+        in error
+        for error in invalid_golden_digest_errors
+    )
     assert golden["artifacts"]["golden_output"]["exists"] is True
     assert golden["artifacts"]["golden_validation"]["exists"] is True
     assert golden["artifacts"]["golden_proposal"]["exists"] is True

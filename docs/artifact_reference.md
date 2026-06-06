@@ -1087,6 +1087,10 @@ Replay artifacts:
 
 - `attempt_replay.json` validates one saved candidate attempt without changing
   final acceptance.
+- `agent_golden_replay.json` freezes one saved agent input/output pair as a
+  replayable protocol fixture. Its saved and replayed patch/raw-output
+  SHA-256 comparison fields are schema-constrained to
+  empty-or-64-lowercase-hex strings.
 - `attempt_output.json` links one saved attempt's input, proposal, raw output,
   patch, selection explanation, validation status, proposal intent summary, and
   optional execution audit.

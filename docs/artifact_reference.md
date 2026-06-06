@@ -1135,7 +1135,8 @@ Replay artifacts:
   print JSON or markdown while preserving blocked attempts as non-zero exits.
   The receipt validator reports field-specific drift for source preview and
   receipt hashes, restore gate fields, restored-change rows, and guarded write
-  policy fields.
+  policy fields, then surfaces a current-evidence mismatch when those saved
+  receipt fields no longer match the current preview/config evidence.
 - `config_operator_runbook.json` and `config_operator_runbook.md` summarize the
   config candidate, operator review, application dry-run, guarded apply,
   rollback preview, guarded restore, and lineage chain into one ordered

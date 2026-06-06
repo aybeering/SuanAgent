@@ -366,18 +366,19 @@ def validate_config_application_restore_receipt_file(
     errors = list(
         validate_json_file(
             payload_path=payload_path,
-            schema_path=repo_root / SCHEMA_PATH,
+            schema_path=effective_repo_root / SCHEMA_PATH,
         )
     )
     if payload_path.exists():
-        errors.extend(
-            validate_config_application_restore_receipt_consistency(
-                load_json_object(payload_path),
-                run_id=payload_path.parent.name,
-                run_dir=payload_path.parent,
-                repo_root=effective_repo_root,
-            )
+        current_errors = validate_config_application_restore_receipt_consistency(
+            load_json_object(payload_path),
+            run_id=payload_path.parent.name,
+            run_dir=payload_path.parent,
+            repo_root=effective_repo_root,
         )
+        errors.extend(current_errors)
+        if current_errors:
+            errors.append("config_application_restore_receipt current evidence mismatch")
     return tuple(errors)
 
 

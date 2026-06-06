@@ -6764,6 +6764,10 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
         "config_application_restore_receipt policy writes_only_config mismatch"
         in restore_errors
     )
+    assert (
+        "config_application_restore_receipt current evidence mismatch"
+        in restore_errors
+    )
     restore_path.write_text(
         json.dumps(restore_receipt, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",

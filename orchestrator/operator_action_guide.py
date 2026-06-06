@@ -635,7 +635,13 @@ def validate_operator_action_guide_consistency(
     if string_list(payload.get("blocker_preview", [])) != blockers[:5]:
         errors.append("operator_action_guide blocker preview mismatch")
     expected_sequence = command_sequence(commands)
-    if list_of_dicts(payload.get("command_sequence", [])) != expected_sequence:
+    command_sequence_payload = list_of_dicts(payload.get("command_sequence", []))
+    append_command_sequence_errors(
+        errors,
+        payload_rows=command_sequence_payload,
+        expected_rows=expected_sequence,
+    )
+    if command_sequence_payload != expected_sequence:
         errors.append("operator_action_guide command sequence mismatch")
     boundary = object_field(expected_command, "boundary")
     expected_guidance = guidance_summary(
@@ -738,6 +744,53 @@ def validate_operator_action_guide_consistency(
     if policy != expected_policy:
         errors.append("operator_action_guide policy mismatch")
     return tuple(errors)
+
+
+def append_command_sequence_errors(
+    errors: list[str],
+    *,
+    payload_rows: list[dict[str, Any]],
+    expected_rows: list[dict[str, Any]],
+) -> None:
+    """Append field-specific command-sequence mismatch messages."""
+    payload_by_label = command_sequence_by_label(payload_rows)
+    expected_by_label = command_sequence_by_label(expected_rows)
+    payload_counts = command_sequence_label_counts(payload_rows)
+    expected_counts = command_sequence_label_counts(expected_rows)
+    for label, expected_row in expected_by_label.items():
+        if payload_by_label.get(label) != expected_row:
+            errors.append(f"operator_action_guide command_sequence {label} mismatch")
+    for label in sorted(set(payload_by_label) - set(expected_by_label)):
+        errors.append(f"operator_action_guide command_sequence {label} unexpected")
+    for label, label_count in payload_counts.items():
+        if label_count > 1:
+            errors.append(f"operator_action_guide command_sequence {label} duplicate")
+    for label in sorted(set(expected_by_label) - set(payload_by_label)):
+        errors.append(f"operator_action_guide command_sequence {label} missing")
+    for label, expected_count in expected_counts.items():
+        if payload_counts.get(label, 0) != expected_count:
+            errors.append(
+                f"operator_action_guide command_sequence {label} count mismatch"
+            )
+
+
+def command_sequence_by_label(
+    rows: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Return command-sequence rows keyed by their stable label."""
+    indexed: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        indexed.setdefault(str(row.get("label", "")), row)
+    return indexed
+
+
+def command_sequence_label_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    """Return command-sequence row counts keyed by their stable label."""
+    counts: dict[str, int] = {}
+    for row in rows:
+        label = str(row.get("label", ""))
+        counts[label] = counts.get(label, 0) + 1
+    return counts
 
 
 def file_record(path: Path, repo_root: Path) -> dict[str, object]:

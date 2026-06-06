@@ -4311,6 +4311,13 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
             },
             *pending_home["command_center"][1:],
         ],
+        "source_views": {
+            **pending_home["source_views"],
+            "operator_cockpit": {
+                **pending_home["source_views"]["operator_cockpit"],
+                "sha256": "bad-source-view-sha",
+            },
+        },
     }
     malformed_home_errors = validate_operator_home_payload(
         malformed_digest_home,
@@ -4329,6 +4336,11 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     )
     assert any(
         "command_center[0].command_sha256: expected string to match pattern"
+        in str(error)
+        for error in malformed_home_errors
+    )
+    assert any(
+        "source_views.operator_cockpit.sha256: expected string to match pattern"
         in str(error)
         for error in malformed_home_errors
     )

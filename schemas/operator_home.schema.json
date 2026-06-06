@@ -272,7 +272,10 @@
       "properties": {
         "path": {"type": "string"},
         "exists": {"type": "boolean"},
-        "sha256": {"type": "string"},
+        "sha256": {
+          "type": "string",
+          "pattern": "^$|^[a-f0-9]{64}$"
+        },
         "byte_count": {"type": "integer"}
       }
     },

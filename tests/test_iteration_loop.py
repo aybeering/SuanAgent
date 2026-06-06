@@ -5519,6 +5519,19 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     )
     assert fresh["snapshot_freshness"]["ok"] is True
     assert fresh["snapshot_freshness"]["stale_count"] == 0
+    tampered_freshness = json.loads(json.dumps(fresh))
+    tampered_freshness["snapshot_freshness"]["stale_count"] = 1
+    tampered_freshness_errors = validate_operator_cockpit_payload(
+        tampered_freshness,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    )
+    assert (
+        "operator_cockpit snapshot_freshness stale_count mismatch"
+        in tampered_freshness_errors
+    )
     assert validate_run_artifacts(
         run_id=run_id,
         experiments_dir=repo / "experiments",

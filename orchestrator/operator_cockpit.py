@@ -1582,6 +1582,13 @@ def validate_operator_cockpit_payload(
                     expected=expected,
                 )
             )
+            errors.extend(
+                validate_operator_cockpit_snapshot_freshness(
+                    payload,
+                    comparable_payload=comparable_payload,
+                    repo_root=repo_root,
+                )
+            )
             if comparable_payload != expected:
                 errors.append("operator_cockpit current evidence mismatch")
     return tuple(errors)
@@ -1726,6 +1733,40 @@ def validate_operator_cockpit_source_artifacts(
         if source_payload.get(source_name) != expected_record:
             errors.append(
                 f"operator_cockpit source_artifacts {source_name} mismatch"
+            )
+    return tuple(errors)
+
+
+def validate_operator_cockpit_snapshot_freshness(
+    payload: dict[str, object],
+    *,
+    comparable_payload: dict[str, object],
+    repo_root: Path,
+) -> tuple[str, ...]:
+    """Validate transient snapshot freshness matches current source files."""
+    if "snapshot_freshness" not in payload:
+        return ()
+    errors: list[str] = []
+    freshness = object_field(payload, "snapshot_freshness")
+    expected = cockpit_snapshot_freshness(
+        payload=comparable_payload,
+        repo_root=repo_root,
+    )
+    for field_name in (
+        "schema_version",
+        "ok",
+        "status",
+        "source_count",
+        "fresh_count",
+        "stale_count",
+        "stale_sources",
+        "rows",
+        "recommended_command",
+        "policy",
+    ):
+        if freshness.get(field_name) != expected.get(field_name):
+            errors.append(
+                f"operator_cockpit snapshot_freshness {field_name} mismatch"
             )
     return tuple(errors)
 

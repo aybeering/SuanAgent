@@ -5187,6 +5187,49 @@ def validate_operator_view_refresh_payload(
             repo_root=repo_root,
         )
     )
+    errors.extend(
+        validate_operator_view_refresh_operator_source_binding(
+            payload,
+            repo_root=repo_root,
+        )
+    )
+    return tuple(errors)
+
+
+def validate_operator_view_refresh_operator_source_binding(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate refresh operator summary fields against the current cockpit."""
+    run_id = str(payload.get("run_id", ""))
+    run_dir_text = str(payload.get("run_dir", ""))
+    if not run_id or not run_dir_text:
+        return ()
+
+    repo_root = repo_root.resolve()
+    run_dir = Path(run_dir_text)
+    if not run_dir.is_absolute():
+        run_dir = repo_root / run_dir
+    if not run_dir.exists():
+        return ()
+
+    try:
+        cockpit = operator_cockpit_report(
+            run_id=run_id,
+            experiments_dir=run_dir.parent,
+        )
+        expected = operator_view_refresh_summary(cockpit)
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        return (f"operator_view_refresh operator_summary source unavailable: {exc}",)
+
+    operator_summary = dict_payload(payload.get("operator_summary", {}))
+    errors: list[str] = []
+    for key, expected_value in expected.items():
+        if operator_summary.get(key) != expected_value:
+            errors.append(
+                f"operator_view_refresh operator_summary source mismatch: {key}"
+            )
     return tuple(errors)
 
 

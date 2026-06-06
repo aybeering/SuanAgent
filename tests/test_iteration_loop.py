@@ -6430,6 +6430,35 @@ def test_operator_view_refresh_validation_binds_home_summary_to_source(
     )
 
 
+def test_operator_view_refresh_validation_binds_operator_summary_to_cockpit(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "operator-view-refresh-operator-source"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    payload = refresh_operator_views_command(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+    )
+
+    assert validate_operator_view_refresh_payload(payload, repo_root=repo) == ()
+
+    operator_summary = payload["operator_summary"]
+    assert isinstance(operator_summary, dict)
+    operator_summary["next_command_label"] = "stale_cockpit_command"
+
+    errors = validate_operator_view_refresh_payload(payload, repo_root=repo)
+
+    assert (
+        "operator_view_refresh operator_summary source mismatch: next_command_label"
+        in errors
+    )
+
+
 def test_config_application_receipt_applies_only_from_approved_dry_run(
     tmp_path: Path,
 ) -> None:

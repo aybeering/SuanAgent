@@ -4021,6 +4021,11 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
                 **pending_home["command_center"][0],
                 "command": "python -m orchestrator.experiments wrong-command",
             },
+            {
+                **pending_home["command_center"][0],
+                "source": "manual_override",
+            },
+            pending_home["command_center"][0],
             *pending_home["command_center"][1:],
         ],
         "authority": {
@@ -4048,7 +4053,18 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert "operator_home source_views operator_cockpit mismatch" in (
         tampered_home_errors
     )
-    assert "operator_home command_center action_next mismatch" in (
+    command_marker = "action_next:record_operator_approval"
+    manual_marker = "manual_override:record_operator_approval"
+    assert f"operator_home command_center {command_marker} mismatch" in (
+        tampered_home_errors
+    )
+    assert f"operator_home command_center {manual_marker} unexpected" in (
+        tampered_home_errors
+    )
+    assert f"operator_home command_center {command_marker} duplicate" in (
+        tampered_home_errors
+    )
+    assert f"operator_home command_center {command_marker} count mismatch" in (
         tampered_home_errors
     )
     assert "operator_home authority home_can_execute_commands mismatch" in (

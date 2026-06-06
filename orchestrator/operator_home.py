@@ -1301,14 +1301,20 @@ def validate_operator_home_consistency(
     )
     expected_action_home = object_field(expected, "action_home")
     expected_codex_home = object_field(expected, "codex_home")
-    expected_command_center = command_center_by_source(
+    expected_command_center = command_center_by_marker(
+        list_of_dicts(expected.get("command_center", []))
+    )
+    expected_command_center_counts = command_center_marker_counts(
         list_of_dicts(expected.get("command_center", []))
     )
     expected_source_views = object_field(expected, "source_views")
     expected_authority = object_field(expected, "authority")
     expected_policy = object_field(expected, "policy")
     action_home = object_field(payload, "action_home")
-    command_center_payload = command_center_by_source(
+    command_center_payload = command_center_by_marker(
+        list_of_dicts(payload.get("command_center", []))
+    )
+    command_center_payload_counts = command_center_marker_counts(
         list_of_dicts(payload.get("command_center", []))
     )
     source_views_payload = object_field(payload, "source_views")
@@ -1364,9 +1370,25 @@ def validate_operator_home_consistency(
     for source_name, expected_record in expected_source_views.items():
         if source_views_payload.get(source_name) != expected_record:
             errors.append(f"operator_home source_views {source_name} mismatch")
-    for source_name, expected_record in expected_command_center.items():
-        if command_center_payload.get(source_name) != expected_record:
-            errors.append(f"operator_home command_center {source_name} mismatch")
+    for marker, expected_record in expected_command_center.items():
+        if command_center_payload.get(marker) != expected_record:
+            errors.append(f"operator_home command_center {marker} mismatch")
+    unexpected_markers = sorted(
+        set(command_center_payload) - set(expected_command_center)
+    )
+    for marker in unexpected_markers:
+        errors.append(f"operator_home command_center {marker} unexpected")
+    for marker, marker_count in command_center_payload_counts.items():
+        if marker_count > 1:
+            errors.append(f"operator_home command_center {marker} duplicate")
+    missing_markers = sorted(
+        set(expected_command_center) - set(command_center_payload)
+    )
+    for marker in missing_markers:
+        errors.append(f"operator_home command_center {marker} missing")
+    for marker, expected_count in expected_command_center_counts.items():
+        if command_center_payload_counts.get(marker, 0) != expected_count:
+            errors.append(f"operator_home command_center {marker} count mismatch")
     for field_name in (
         "home_can_record_approval",
         "home_can_execute_commands",
@@ -1400,9 +1422,26 @@ def validate_operator_home_consistency(
     return tuple(errors)
 
 
-def command_center_by_source(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """Return command-center rows keyed by their stable source marker."""
-    return {str(row.get("source", "")): row for row in rows}
+def command_center_by_marker(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Return command-center rows keyed by their stable command marker."""
+    indexed: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        indexed.setdefault(command_center_marker(row), row)
+    return indexed
+
+
+def command_center_marker_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    """Return command-center row counts keyed by their stable command marker."""
+    counts: dict[str, int] = {}
+    for row in rows:
+        marker = command_center_marker(row)
+        counts[marker] = counts.get(marker, 0) + 1
+    return counts
+
+
+def command_center_marker(row: dict[str, Any]) -> str:
+    """Return the stable source/label marker for one command-center row."""
+    return f"{row.get('source', '')}:{row.get('label', '')}"
 
 
 def list_of_dicts(value: object) -> list[dict[str, Any]]:

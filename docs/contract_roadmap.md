@@ -388,9 +388,10 @@ Codex CLI readiness contracts:
     round-level agent input, the normalized proposal, patch hash, and validation
     result. `agent_output.json` and `agent_validation.json` both reuse
     `schemas/strategy_proposal.schema.json` for the shared strategy proposal
-    field shape. `agent_validation.json` also records `semantic_checks`, a
-    structured deterministic breakdown of protocol, expected round, target,
-    metadata, and patch-target contract rules. It also records
+    field shape, including empty-or-64-lowercase-hex `patch_sha256` bindings.
+    `agent_validation.json` also records `semantic_checks`, a structured
+    deterministic breakdown of protocol, expected round, target, metadata, and
+    patch-target contract rules. It also records
     `intake_diagnosis`, a compact stable-code summary for blocked external
     adapter outputs such as invalid patch targets, workspace mutation, missing
     patch data, malformed JSON, oversized raw output, oversized normalized

@@ -163,6 +163,10 @@ schemas/agent_output.schema.json
 schemas/agent_execution.schema.json
 ```
 
+The shared proposal schema constrains `patch_sha256` to either an empty string
+or a 64-character lowercase hexadecimal SHA-256 value, so external adapters
+cannot provide free-form patch identity strings.
+
 The `file_protocol` modifier is a guarded bridge for this contract: when
 `execute=true`, it runs a configured command with `agent_input.json` and an
 output path as arguments, then parses the command's JSON or diff output into the

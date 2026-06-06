@@ -10856,6 +10856,16 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert "$.proposal: unexpected property unexpected_field" in (
         extra_proposal_field_errors
     )
+    invalid_proposal_patch_sha = json.loads(json.dumps(agent_validation))
+    invalid_proposal_patch_sha["proposal"]["patch_sha256"] = "bad-proposal-sha"
+    invalid_proposal_patch_sha_errors = validate_json_payload(
+        payload=invalid_proposal_patch_sha,
+        schema=validation_schema,
+    )
+    assert any(
+        "$.proposal.patch_sha256: expected string to match pattern" in error
+        for error in invalid_proposal_patch_sha_errors
+    )
     assert agent_output_quarantine["schema_version"] == (
         AGENT_OUTPUT_QUARANTINE_SCHEMA_VERSION
     )

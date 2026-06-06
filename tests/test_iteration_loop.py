@@ -11041,6 +11041,31 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         schema=quarantine_schema,
     )
     assert "$: missing required property consistency_checks" in quarantine_errors
+    invalid_quarantine_digest = json.loads(json.dumps(agent_output_quarantine))
+    invalid_quarantine_digest["proposal"]["patch_sha256"] = "bad-quarantine-sha"
+    invalid_quarantine_digest["consistency_checks"]["proposal_patch_sha256"] = (
+        "bad-quarantine-check-sha"
+    )
+    invalid_quarantine_digest["artifacts"]["agent_input"]["sha256"] = (
+        "bad-quarantine-file-sha"
+    )
+    quarantine_digest_errors = validate_json_payload(
+        payload=invalid_quarantine_digest,
+        schema=quarantine_schema,
+    )
+    assert any(
+        "$.proposal.patch_sha256: expected string to match pattern" in error
+        for error in quarantine_digest_errors
+    )
+    assert any(
+        "$.consistency_checks.proposal_patch_sha256: "
+        "expected string to match pattern" in error
+        for error in quarantine_digest_errors
+    )
+    assert any(
+        "$.artifacts.agent_input.sha256: expected string to match pattern" in error
+        for error in quarantine_digest_errors
+    )
     assert agent_output_quarantine["policy"]["quarantine_before_git_apply"] is True
     assert (
         agent_output_quarantine["policy"][

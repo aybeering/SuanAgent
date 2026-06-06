@@ -399,7 +399,9 @@ Codex CLI readiness contracts:
     `agent_selection_report.json` attempt rows also schema-constrain
     `patch_sha256` to empty-or-64-lowercase-hex strings, and
     `agent_routing_policy.json` candidate rows plus `agent_executor_report.json`
-    embedded proposals use the same constraint.
+    embedded proposals use the same constraint. `agent_output_quarantine.json`
+    also schema-constrains its proposal patch hash, consistency-check patch
+    hash, and artifact file SHA-256 digests.
     `agent_validation.json` also records `semantic_checks`, a structured
     deterministic breakdown of protocol, expected round, target, metadata, and
     patch-target contract rules. It also records

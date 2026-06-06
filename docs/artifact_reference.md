@@ -1024,7 +1024,9 @@ Proposal and intake artifacts:
   released before git apply, including the same proposal intent summary used by
   `agent_output.json`. It also records schema-validated consistency checks that
   bind release status, selected attempt id, patch hash, validation status, and
-  source artifact hashes before any patch can be applied.
+  source artifact hashes before any patch can be applied. Its proposal patch
+  hash, consistency-check patch hash, and artifact file SHA-256 digests are
+  schema-constrained before release.
 - `proposal.json` is the auditable proposal used by the loop.
 - `patch.diff` is the validated strategy patch.
 

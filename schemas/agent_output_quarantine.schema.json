@@ -112,7 +112,8 @@
           "minimum": 0
         },
         "sha256": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         }
       },
       "additionalProperties": false
@@ -191,7 +192,8 @@
           "type": "string"
         },
         "patch_sha256": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^$|^[a-f0-9]{64}$"
         },
         "contract_errors": {
           "$ref": "#/$defs/string_array"
@@ -310,7 +312,8 @@
           "type": "string"
         },
         "proposal_patch_sha256": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^$|^[a-f0-9]{64}$"
         },
         "artifact_paths": {
           "$ref": "#/$defs/string_object"

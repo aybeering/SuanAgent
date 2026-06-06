@@ -6465,6 +6465,35 @@ def test_operator_view_refresh_validation_binds_operator_summary_to_cockpit(
     )
 
 
+def test_operator_view_refresh_validation_binds_freshness_to_cockpit(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "operator-view-refresh-freshness-source"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    payload = refresh_operator_views_command(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+    )
+
+    assert validate_operator_view_refresh_payload(payload, repo_root=repo) == ()
+
+    freshness = payload["cockpit_snapshot_freshness"]
+    assert isinstance(freshness, dict)
+    freshness["status"] = "stale_sources"
+
+    errors = validate_operator_view_refresh_payload(payload, repo_root=repo)
+
+    assert (
+        "operator_view_refresh cockpit_snapshot_freshness source mismatch"
+        in errors
+    )
+
+
 def test_operator_view_refresh_validation_binds_file_records_to_disk(
     tmp_path: Path,
 ) -> None:

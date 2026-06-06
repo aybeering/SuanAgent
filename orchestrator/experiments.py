@@ -5194,6 +5194,12 @@ def validate_operator_view_refresh_payload(
         )
     )
     errors.extend(
+        validate_operator_view_refresh_freshness_source_binding(
+            payload,
+            repo_root=repo_root,
+        )
+    )
+    errors.extend(
         validate_operator_view_refresh_file_source_binding(
             payload,
             repo_root=repo_root,
@@ -5206,6 +5212,41 @@ def validate_operator_view_refresh_payload(
         )
     )
     return tuple(errors)
+
+
+def validate_operator_view_refresh_freshness_source_binding(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate post-refresh freshness against the current cockpit."""
+    run_id = str(payload.get("run_id", ""))
+    run_dir_text = str(payload.get("run_dir", ""))
+    if not run_id or not run_dir_text:
+        return ()
+
+    repo_root = repo_root.resolve()
+    run_dir = Path(run_dir_text)
+    if not run_dir.is_absolute():
+        run_dir = repo_root / run_dir
+    if not run_dir.exists():
+        return ()
+
+    try:
+        cockpit = operator_cockpit_report(
+            run_id=run_id,
+            experiments_dir=run_dir.parent,
+        )
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        return (
+            "operator_view_refresh cockpit_snapshot_freshness source "
+            f"unavailable: {exc}",
+        )
+
+    expected = dict_payload(cockpit.get("snapshot_freshness", {}))
+    if dict_payload(payload.get("cockpit_snapshot_freshness", {})) != expected:
+        return ("operator_view_refresh cockpit_snapshot_freshness source mismatch",)
+    return ()
 
 
 def validate_operator_view_refresh_config_source_binding(

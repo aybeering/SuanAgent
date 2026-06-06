@@ -6911,6 +6911,22 @@ def test_config_operator_runbook_guides_review_and_apply_workflow(
     )
     assert runbook_validation["errors"] == []
 
+    source_candidate_path = run_dir / "config_change_candidate.json"
+    source_candidate_original = source_candidate_path.read_text(encoding="utf-8")
+    tampered_source_candidate = json.loads(source_candidate_original)
+    tampered_source_candidate["summary"]["status"] = "source_drift"
+    source_candidate_path.write_text(
+        json.dumps(tampered_source_candidate, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    source_drift_errors = validate_config_operator_runbook_file(
+        payload_path=json_path,
+        repo_root=repo,
+    )
+    assert "config_operator_runbook step 0 artifact mismatch" in source_drift_errors
+    assert "config_operator_runbook current evidence mismatch" in source_drift_errors
+    source_candidate_path.write_text(source_candidate_original, encoding="utf-8")
+
     tampered_runbook = json.loads(json_path.read_text(encoding="utf-8"))
     tampered_label = tampered_runbook["operator_commands"][0]["label"]
     tampered_runbook["summary"]["workflow_phase"] = "restored"
@@ -6934,10 +6950,14 @@ def test_config_operator_runbook_guides_review_and_apply_workflow(
     )
     assert "config_operator_runbook workflow phase mismatch" in errors
     assert "config_operator_runbook next command mismatch" in errors
+    assert "config_operator_runbook summary workflow_phase mismatch" in errors
+    assert "config_operator_runbook operator_commands 0 command mismatch" in errors
+    assert "config_operator_runbook step 0 authority mismatch" in errors
     assert "config_operator_runbook command unsafe token" in errors
     assert "config_operator_runbook command executes by itself" in errors
     assert "config_operator_runbook command lacks explicit gate" in errors
     assert "config_operator_runbook authority true: step_can_write_config" in errors
+    assert "config_operator_runbook policy does_not_write_config mismatch" in errors
     assert "config_operator_runbook policy false: does_not_write_config" in errors
     tampered_validation: dict[str, object] = {
         "run_id": "config-operator-runbook",

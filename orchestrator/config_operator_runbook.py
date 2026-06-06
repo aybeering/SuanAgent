@@ -489,6 +489,7 @@ def validate_config_operator_runbook_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved config operator runbook artifact."""
+    repo_root = infer_repo_root_from_payload_path(payload_path, repo_root)
     schema_errors = tuple(
         validate_json_file(
             payload_path=payload_path,
@@ -497,8 +498,11 @@ def validate_config_operator_runbook_file(
     )
     if schema_errors:
         return schema_errors
-    return schema_errors + validate_config_operator_runbook_consistency(
-        load_json_object(payload_path)
+    return validate_config_operator_runbook_payload(
+        load_json_object(payload_path),
+        run_dir=payload_path.resolve().parent,
+        repo_root=repo_root,
+        require_current_evidence=True,
     )
 
 
@@ -525,6 +529,13 @@ def validate_config_operator_runbook_payload(
         if run_dir is None:
             errors.append("config_operator_runbook run_dir required")
         else:
+            errors.extend(
+                validate_config_operator_runbook_current_evidence(
+                    comparable_payload,
+                    run_dir=resolve_path(run_dir, repo_root),
+                    repo_root=repo_root,
+                )
+            )
             expected = build_config_operator_runbook(
                 run_dir=resolve_path(run_dir, repo_root),
                 repo_root=repo_root,
@@ -532,6 +543,96 @@ def validate_config_operator_runbook_payload(
             if comparable_payload != expected:
                 errors.append("config_operator_runbook current evidence mismatch")
     return tuple(errors)
+
+
+def validate_config_operator_runbook_current_evidence(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+    repo_root: Path,
+) -> tuple[str, ...]:
+    """Validate runbook fields against current saved artifact evidence."""
+    errors: list[str] = []
+    expected = build_config_operator_runbook(run_dir=run_dir, repo_root=repo_root)
+    append_field_mismatches(
+        errors,
+        prefix="config_operator_runbook source",
+        payload=payload,
+        expected=expected,
+        field_names=("run_id", "run_dir", "status", "ready"),
+    )
+    append_field_mismatches(
+        errors,
+        prefix="config_operator_runbook summary",
+        payload=dict_field(payload, "summary"),
+        expected=dict_field(expected, "summary"),
+        field_names=tuple(dict_field(expected, "summary")),
+    )
+    steps = list_of_dicts(payload.get("steps", []))
+    expected_steps = list_of_dicts(expected.get("steps", []))
+    for index, row in enumerate(steps):
+        expected_row = expected_steps[index] if index < len(expected_steps) else {}
+        append_field_mismatches(
+            errors,
+            prefix=f"config_operator_runbook step {index}",
+            payload=row,
+            expected=expected_row,
+            field_names=(
+                "step_id",
+                "artifact_id",
+                "label",
+                "purpose",
+                "status",
+                "ready",
+                "artifact",
+                "blocking_reasons",
+                "command",
+                "authority",
+            ),
+        )
+    commands = list_of_dicts(payload.get("operator_commands", []))
+    expected_commands = list_of_dicts(expected.get("operator_commands", []))
+    for index, row in enumerate(commands):
+        expected_row = (
+            expected_commands[index] if index < len(expected_commands) else {}
+        )
+        append_field_mismatches(
+            errors,
+            prefix=f"config_operator_runbook operator_commands {index}",
+            payload=row,
+            expected=expected_row,
+            field_names=(
+                "label",
+                "artifact_id",
+                "command",
+                "writes_artifacts",
+                "writes_config_if_invoked",
+                "requires_explicit_operator_invocation",
+                "runbook_executes_command",
+            ),
+        )
+    append_field_mismatches(
+        errors,
+        prefix="config_operator_runbook policy",
+        payload=dict_field(payload, "policy"),
+        expected=dict_field(expected, "policy"),
+        field_names=tuple(dict_field(expected, "policy")),
+    )
+    return tuple(errors)
+
+
+def append_field_mismatches(
+    errors: list[str],
+    *,
+    prefix: str,
+    payload: dict[str, Any],
+    expected: dict[str, Any],
+    field_names: tuple[str, ...],
+) -> None:
+    """Append field-specific mismatch messages for comparable objects."""
+    for field_name in field_names:
+        if payload.get(field_name) != expected.get(field_name):
+            errors.append(f"{prefix} {field_name} mismatch")
 
 
 def strip_terminal_metadata(payload: dict[str, object]) -> dict[str, object]:
@@ -734,6 +835,22 @@ def relative_path(path: Path, root: Path) -> str:
         return path.resolve().relative_to(root.resolve()).as_posix()
     except ValueError:
         return path.as_posix()
+
+
+def infer_repo_root_from_payload_path(payload_path: Path, repo_root: Path) -> Path:
+    """Infer repo root for experiment artifacts when caller passes another cwd."""
+    resolved_payload = payload_path.resolve()
+    resolved_repo = repo_root.resolve()
+    try:
+        resolved_payload.relative_to(resolved_repo)
+        return resolved_repo
+    except ValueError:
+        pass
+    run_dir = resolved_payload.parent
+    experiments_dir = run_dir.parent
+    if experiments_dir.name == "experiments":
+        return experiments_dir.parent
+    return resolved_repo
 
 
 def main() -> None:

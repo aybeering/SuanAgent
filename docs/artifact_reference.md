@@ -1128,8 +1128,10 @@ Replay artifacts:
   never records approval, executes commands, writes config, restores config,
   runs agents, or changes acceptance. `python -m orchestrator.experiments
   config-runbook <run_id>` validates schema, step ordering, command safety,
-  summary counters, authority flags, and read-only policy before printing JSON
-  or markdown.
+  summary counters, authority flags, current artifact evidence, and read-only
+  policy before printing JSON or markdown. The saved-file validator reports
+  field-specific drift for source fields, summary counters, step rows, command
+  hints, and read-only policy fields.
 - `config_lineage.json` and `config_lineage.md` connect config candidates,
   operator review, dry-run, apply receipt, rollback preview, and restore
   receipt artifacts into one read-only digest chain for the run.

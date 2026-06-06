@@ -8953,6 +8953,15 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         payload_path=closeout_path,
         repo_root=Path.cwd(),
     ) == ("run_closeout current evidence mismatch",)
+    closeout_artifact_report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert (
+        "run_closeout.json file: run_closeout current evidence mismatch"
+        in closeout_artifact_report["warnings"]
+    )
     closeout_path.write_text(original_closeout_text, encoding="utf-8")
     assert manifest["operator_action_plan"]["path"] == "operator_action_plan.json"
     assert manifest["operator_action_plan"]["markdown_path"] == (

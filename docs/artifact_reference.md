@@ -1191,10 +1191,12 @@ Replay artifacts:
   champion/promotion review status, an operator-facing dashboard, and
   recommended next actions. The saved-file validator rebuilds the closeout from
   the current run-local source artifacts and reports current-evidence drift
-  when the saved closeout no longer matches those sources. The dashboard
-  includes a read-only candidate quality review with selectable counts, selected
-  directions, top failure code, and source path. It cannot execute agents, run
-  backtests, write config,
+  when the saved closeout no longer matches those sources; the run artifact
+  validator surfaces the same drift as a whole-run health warning because later
+  operator artifacts may legitimately advance after an earlier closeout
+  snapshot. The dashboard includes a read-only candidate quality review with
+  selectable counts, selected directions, top failure code, and source path. It
+  cannot execute agents, run backtests, write config,
   promote champions, apply patches, route agents, or change acceptance.
 - `operator_action_plan.json` and `operator_action_plan.md` derive explicit
   command candidates from the saved closeout dashboard. They bind to

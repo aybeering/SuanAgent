@@ -7003,6 +7003,13 @@ def validate_optional_run_closeout(
         schema_path=repo_root / "schemas/run_closeout.schema.json",
         report=report,
     )
+    from orchestrator.run_closeout import validate_run_closeout_file
+
+    for error in validate_run_closeout_file(
+        payload_path=path,
+        repo_root=repo_root,
+    ):
+        add_warning(report, f"run_closeout.json file: {error}")
     payload = validate_json_object(path=path, report=report)
     if payload is None:
         return

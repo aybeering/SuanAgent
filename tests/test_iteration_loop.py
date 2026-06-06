@@ -23535,6 +23535,62 @@ def test_codex_cli_operator_unlock_request_schema_requires_evidence_contract(
         in unexpected_errors
     )
 
+    malformed_digests = json.loads(json.dumps(request))
+    malformed_digests["request"]["required_confirmation_phrase_sha256"] = (
+        "bad-required-phrase-sha"
+    )
+    malformed_digests["request"]["provided_confirmation_phrase_sha256"] = (
+        "bad-provided-phrase-sha"
+    )
+    malformed_digests["source_unlock_snapshot"]["snapshot_digest"] = (
+        "bad-snapshot-digest"
+    )
+    malformed_digests["source_pipeline"]["file"]["sha256"] = "bad-pipeline-file-sha"
+    malformed_digests["source_execution_candidate"]["file"]["sha256"] = (
+        "bad-candidate-file-sha"
+    )
+    malformed_digests["planned_execution_review"]["command_sha256"] = (
+        "bad-command-sha"
+    )
+    digest_errors = validate_json_payload(
+        payload=malformed_digests,
+        schema=schema,
+    )
+    assert any(
+        "$.request.required_confirmation_phrase_sha256: "
+        "expected string to match pattern"
+        in error
+        for error in digest_errors
+    )
+    assert any(
+        "$.request.provided_confirmation_phrase_sha256: "
+        "expected string to match pattern"
+        in error
+        for error in digest_errors
+    )
+    assert any(
+        "$.source_unlock_snapshot.snapshot_digest: "
+        "expected string to match pattern"
+        in error
+        for error in digest_errors
+    )
+    assert any(
+        "$.source_pipeline.file.sha256: expected string to match pattern" in error
+        for error in digest_errors
+    )
+    assert any(
+        "$.source_execution_candidate.file.sha256: "
+        "expected string to match pattern"
+        in error
+        for error in digest_errors
+    )
+    assert any(
+        "$.planned_execution_review.command_sha256: "
+        "expected string to match pattern"
+        in error
+        for error in digest_errors
+    )
+
 
 def test_codex_cli_operator_unlock_request_requires_canonical_output_paths(
     tmp_path: Path,
@@ -32490,7 +32546,7 @@ def write_operator_unlock_request_fixture(
                 {
                     "ok": True,
                     "real_codex_execution_unlocked": True,
-                    "snapshot_digest": "fixture",
+                    "snapshot_digest": sha256_text("operator unlock fixture"),
                     "blocking_reasons": [],
                 },
                 sort_keys=True,

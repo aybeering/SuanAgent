@@ -200,10 +200,10 @@
           "type": "string"
         },
         "required_confirmation_phrase_sha256": {
-          "type": "string"
+          "$ref": "#/$defs/sha256"
         },
         "provided_confirmation_phrase_sha256": {
-          "type": "string"
+          "$ref": "#/$defs/sha256"
         },
         "confirmation_phrase_matches": {
           "type": "boolean"
@@ -286,7 +286,7 @@
           "type": "boolean"
         },
         "snapshot_digest": {
-          "type": "string"
+          "$ref": "#/$defs/sha256_or_empty"
         },
         "blocking_reasons": {
           "type": "array",
@@ -373,7 +373,7 @@
           }
         },
         "command_sha256": {
-          "type": "string"
+          "$ref": "#/$defs/sha256"
         },
         "execution_enabled_by_this_artifact": {
           "type": "boolean"
@@ -483,10 +483,18 @@
           "type": "integer"
         },
         "sha256": {
-          "type": "string"
+          "$ref": "#/$defs/sha256_or_empty"
         }
       },
       "additionalProperties": false
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sha256_or_empty": {
+      "type": "string",
+      "pattern": "^$|^[a-f0-9]{64}$"
     }
   }
 }

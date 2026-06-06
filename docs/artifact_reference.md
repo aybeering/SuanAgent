@@ -738,7 +738,10 @@ schema-constrained to empty-or-64-lowercase-hex strings.
 canonical file records for the readiness pipeline, execution unlock snapshot,
 execution candidate, and real-execution dry-run artifacts. Artifact validation
 and startup preflight re-check those recorded hashes so reviewed source
-evidence cannot drift after the request is written.
+evidence cannot drift after the request is written. Request phrase, snapshot,
+planned command, and source-file digests are schema-constrained to 64-lowercase
+hex strings or empty-or-64-lowercase-hex strings where source evidence may be
+absent.
 `codex_cli_unlock_runbook.json` and `codex_cli_unlock_runbook.md` convert the
 same Codex CLI unlock chain into an ordered operator guide. The iteration loop
 writes it during closeout and no-round real-Codex startup failures after the

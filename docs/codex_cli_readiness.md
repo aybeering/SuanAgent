@@ -118,7 +118,9 @@ If any of these change, execution remains blocked:
 ## Operator Request
 
 `codex_cli_operator_unlock_request.json` records explicit operator intent. It is
-read-only and includes policy checks proving that the request itself does not:
+read-only and schema-constrains request phrase, snapshot, planned command, and
+source-file digests before any startup preflight may consume it. It also
+includes policy checks proving that the request itself does not:
 
 - Execute Codex CLI.
 - Send a strategy prompt.

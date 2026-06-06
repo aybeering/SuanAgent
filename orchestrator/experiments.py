@@ -5181,6 +5181,48 @@ def validate_operator_view_refresh_payload(
     schema = load_schema(repo_root / OPERATOR_VIEW_REFRESH_SCHEMA_PATH)
     errors = list(validate_json_payload(payload=payload, schema=schema))
     errors.extend(validate_operator_view_refresh_consistency(payload))
+    errors.extend(
+        validate_operator_view_refresh_home_source_binding(
+            payload,
+            repo_root=repo_root,
+        )
+    )
+    return tuple(errors)
+
+
+def validate_operator_view_refresh_home_source_binding(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate refresh home summary fields against the derived operator home."""
+    run_id = str(payload.get("run_id", ""))
+    run_dir_text = str(payload.get("run_dir", ""))
+    if not run_id or not run_dir_text:
+        return ()
+
+    repo_root = repo_root.resolve()
+    run_dir = Path(run_dir_text)
+    if not run_dir.is_absolute():
+        run_dir = repo_root / run_dir
+    if not run_dir.exists():
+        return ()
+
+    try:
+        home = build_operator_home(
+            run_dir=run_dir,
+            experiments_dir=run_dir.parent,
+            repo_root=repo_root,
+        )
+        expected = operator_view_refresh_home_summary(home=home, run_id=run_id)
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        return (f"operator_view_refresh home_summary source unavailable: {exc}",)
+
+    home_summary = dict_payload(payload.get("home_summary", {}))
+    errors: list[str] = []
+    for key, expected_value in expected.items():
+        if home_summary.get(key) != expected_value:
+            errors.append(f"operator_view_refresh home_summary source mismatch: {key}")
     return tuple(errors)
 
 

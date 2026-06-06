@@ -6401,6 +6401,35 @@ def test_operator_view_refresh_payload_validation_reports_summary_drift(
     )
 
 
+def test_operator_view_refresh_validation_binds_home_summary_to_source(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "operator-view-refresh-home-source"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    payload = refresh_operator_views_command(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+    )
+
+    assert validate_operator_view_refresh_payload(payload, repo_root=repo) == ()
+
+    home_summary = payload["home_summary"]
+    assert isinstance(home_summary, dict)
+    home_summary["next_command_label"] = "stale_home_command"
+
+    errors = validate_operator_view_refresh_payload(payload, repo_root=repo)
+
+    assert (
+        "operator_view_refresh home_summary source mismatch: next_command_label"
+        in errors
+    )
+
+
 def test_config_application_receipt_applies_only_from_approved_dry_run(
     tmp_path: Path,
 ) -> None:

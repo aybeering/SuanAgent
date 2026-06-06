@@ -541,6 +541,9 @@ records approval, executes commands, writes config, promotes champions, runs
 agents, runs backtests, applies patches, routes agents, or changes acceptance;
 all commands remain hints that require the dedicated approval, guarded
 executor, audit, or dashboard commands.
+The guide consistency validator reports field-specific drift for action state,
+next-command safety, guidance, guided-path status, authority, and read-only
+policy before falling back to the broader derived-block comparisons.
 `python -m orchestrator.experiments home <run_id>` and `python -m
 orchestrator.operator_home experiments/<run_id>` expose a terminal-only
 `operator_home_v1` payload validated by `schemas/operator_home.schema.json`.

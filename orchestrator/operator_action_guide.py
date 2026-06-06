@@ -581,6 +581,21 @@ def validate_operator_action_guide_consistency(
         closure=closure,
         blockers=blockers,
     )
+    action_state = object_field(payload, "action_state")
+    for field_name in (
+        "dashboard_status",
+        "dashboard_ok",
+        "readiness_status",
+        "readiness_ready",
+        "path_closure_status",
+        "path_closed",
+        "path_completed_step_count",
+        "path_required_step_count",
+        "blocker_count",
+        "selected_command_label",
+    ):
+        if action_state.get(field_name) != expected_state.get(field_name):
+            errors.append(f"operator_action_guide action_state {field_name} mismatch")
     if object_field(payload, "action_state") != expected_state:
         errors.append("operator_action_guide action state mismatch")
     expected_status = action_guide_status(
@@ -596,7 +611,26 @@ def validate_operator_action_guide_consistency(
     commands = list_of_dicts(dashboard.get("recommended_commands", []))
     expected_raw_command = select_guide_command(commands, expected_status)
     expected_command = guide_command(expected_raw_command)
-    if object_field(payload, "next_command") != expected_command:
+    next_command = object_field(payload, "next_command")
+    for field_name in (
+        "label",
+        "command",
+        "reason",
+        "writes_artifact",
+        "command_is_hint_only",
+        "requires_explicit_operator_invocation",
+        "requires_operator_approval",
+        "records_operator_approval",
+        "uses_guarded_executor",
+    ):
+        if next_command.get(field_name) != expected_command.get(field_name):
+            errors.append(f"operator_action_guide next_command {field_name} mismatch")
+    if object_field(next_command, "boundary") != object_field(
+        expected_command,
+        "boundary",
+    ):
+        errors.append("operator_action_guide next_command boundary mismatch")
+    if next_command != expected_command:
         errors.append("operator_action_guide next command mismatch")
     if string_list(payload.get("blocker_preview", [])) != blockers[:5]:
         errors.append("operator_action_guide blocker preview mismatch")
@@ -610,7 +644,19 @@ def validate_operator_action_guide_consistency(
         next_command=expected_raw_command,
         boundary=boundary,
     )
-    if object_field(payload, "guidance") != expected_guidance:
+    guidance = object_field(payload, "guidance")
+    for field_name in (
+        "headline",
+        "instruction",
+        "next_command_label",
+        "next_command_boundary",
+        "can_invoke_guarded_executor_now",
+        "command_is_hint_only",
+        "requires_manual_operator_step",
+    ):
+        if guidance.get(field_name) != expected_guidance.get(field_name):
+            errors.append(f"operator_action_guide guidance {field_name} mismatch")
+    if guidance != expected_guidance:
         errors.append("operator_action_guide guidance mismatch")
     expected_guided_path = guided_path_summary(
         dashboard=dashboard,
@@ -618,7 +664,24 @@ def validate_operator_action_guide_consistency(
         status=expected_status,
         next_command=expected_raw_command,
     )
-    if object_field(payload, "guided_path") != expected_guided_path:
+    guided_path = object_field(payload, "guided_path")
+    for field_name in (
+        "schema_version",
+        "status",
+        "current_step",
+        "active_step_id",
+        "next_command_label",
+        "completed_step_count",
+        "step_count",
+    ):
+        if guided_path.get(field_name) != expected_guided_path.get(field_name):
+            errors.append(f"operator_action_guide guided_path {field_name} mismatch")
+    if object_field(guided_path, "policy") != object_field(
+        expected_guided_path,
+        "policy",
+    ):
+        errors.append("operator_action_guide guided_path policy mismatch")
+    if guided_path != expected_guided_path:
         errors.append("operator_action_guide guided path mismatch")
     if str(source.get("artifact_name", "")) != "operator_action_dashboard":
         errors.append("operator_action_guide source artifact mismatch")
@@ -631,7 +694,17 @@ def validate_operator_action_guide_consistency(
         "approval_must_use_operator_action_approval": True,
         "execution_must_use_guarded_executor": True,
     }
-    if object_field(payload, "authority") != expected_authority:
+    authority = object_field(payload, "authority")
+    for field_name in (
+        "guide_can_record_approval",
+        "guide_can_execute_commands",
+        "guide_can_change_repository",
+        "approval_must_use_operator_action_approval",
+        "execution_must_use_guarded_executor",
+    ):
+        if authority.get(field_name) != expected_authority.get(field_name):
+            errors.append(f"operator_action_guide authority {field_name} mismatch")
+    if authority != expected_authority:
         errors.append("operator_action_guide authority mismatch")
     expected_policy = {
         "inspection_only": True,
@@ -646,7 +719,23 @@ def validate_operator_action_guide_consistency(
         "does_not_route_agents": True,
         "does_not_change_acceptance": True,
     }
-    if object_field(payload, "policy") != expected_policy:
+    policy = object_field(payload, "policy")
+    for field_name in (
+        "inspection_only",
+        "reads_saved_or_derived_dashboard_only",
+        "does_not_record_approval",
+        "does_not_execute_commands",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(field_name) != expected_policy.get(field_name):
+            errors.append(f"operator_action_guide policy {field_name} mismatch")
+    if policy != expected_policy:
         errors.append("operator_action_guide policy mismatch")
     return tuple(errors)
 

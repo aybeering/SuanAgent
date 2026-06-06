@@ -3566,6 +3566,57 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         repo_root=repo,
         require_current_evidence=True,
     ) == ()
+    tampered_guide = {
+        **pending_guide,
+        "action_state": {
+            **pending_guide["action_state"],
+            "readiness_ready": not pending_guide["action_state"]["readiness_ready"],
+        },
+        "next_command": {
+            **pending_guide["next_command"],
+            "command_is_hint_only": False,
+        },
+        "guidance": {
+            **pending_guide["guidance"],
+            "command_is_hint_only": False,
+        },
+        "guided_path": {
+            **pending_guide["guided_path"],
+            "active_step_id": "wrong_step",
+        },
+        "authority": {
+            **pending_guide["authority"],
+            "guide_can_execute_commands": True,
+        },
+        "policy": {
+            **pending_guide["policy"],
+            "does_not_execute_commands": False,
+        },
+    }
+    tampered_guide_errors = validate_operator_action_guide_payload(
+        tampered_guide,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert "operator_action_guide action_state readiness_ready mismatch" in (
+        tampered_guide_errors
+    )
+    assert "operator_action_guide next_command command_is_hint_only mismatch" in (
+        tampered_guide_errors
+    )
+    assert "operator_action_guide guidance command_is_hint_only mismatch" in (
+        tampered_guide_errors
+    )
+    assert "operator_action_guide guided_path active_step_id mismatch" in (
+        tampered_guide_errors
+    )
+    assert "operator_action_guide authority guide_can_execute_commands mismatch" in (
+        tampered_guide_errors
+    )
+    assert "operator_action_guide policy does_not_execute_commands mismatch" in (
+        tampered_guide_errors
+    )
     pending_home = build_operator_home(
         run_dir=run_dir,
         experiments_dir=repo / "experiments",

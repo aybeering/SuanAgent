@@ -28383,6 +28383,174 @@ def test_codex_structured_json_output_is_converted_to_proposal(
     assert "MIN_EDGE = 0.04" in proposal.patch_diff
 
 
+def test_external_agent_raw_failure_fixtures_share_intake_contract(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    report_path = repo / "experiments/raw-fixtures/round_001/train_report_before.md"
+    report_path.parent.mkdir(parents=True)
+    report_path.write_text("# Report\n", encoding="utf-8")
+    workspace = repo / "workspaces/raw-fixtures/round_001/strategy_workspace"
+    agent_input_path = workspace / "experiments/raw-fixtures/round_001/agent_input.json"
+    strategy_patch = (
+        "--- a/strategies/current_strategy.py\n"
+        "+++ b/strategies/current_strategy.py\n"
+        "@@ -9,7 +9,7 @@\n"
+        "-MIN_EDGE = 0.05\n"
+        "+MIN_EDGE = 0.04\n"
+    )
+    readme_patch = (
+        "--- a/README.md\n"
+        "+++ b/README.md\n"
+        "@@ -1,1 +1,1 @@\n"
+        "-# Self Iterating Strategy Agent V0.5\n"
+        "+# Changed by external agent\n"
+    )
+    cases = [
+        (
+            "codex_text_wrapped_docs_patch",
+            "codex_cli",
+            "I made the safest change.\n\n```diff\n" + readme_patch + "```\n",
+            {
+                "agent_name": "codex_cli",
+                "direction_tag": "codex_cli_unknown",
+                "applicable": True,
+                "error_fragments": ("patch_diff target validation failed",),
+            },
+        ),
+        (
+            "codex_malformed_json_with_strategy_diff",
+            "codex_cli",
+            (
+                "```json\n"
+                '{"summary": "half written"\n'
+                "```\n\n"
+                "```diff\n"
+                + strategy_patch
+                + "```\n"
+            ),
+            {
+                "agent_name": "codex_cli",
+                "direction_tag": "codex_cli_unknown",
+                "applicable": True,
+                "error_fragments": ("agent output JSON parse failed",),
+            },
+        ),
+        (
+            "file_protocol_selected_proposal_overrides_safe_fallback",
+            "file_protocol",
+            json.dumps(
+                {
+                    "proposal": {
+                        "summary": "Safe fallback proposal.",
+                        "risk_notes": "This fallback must not be selected.",
+                        "direction_tag": "safe_fallback",
+                        "expected_metric_change": {"ev": "unknown"},
+                        "hypotheses": ["Fallback patch touches strategy."],
+                        "patch_diff": strategy_patch,
+                    },
+                    "selected_proposal": {
+                        "summary": "Selected proposal touches docs.",
+                        "risk_notes": "selected_proposal must be validated.",
+                        "direction_tag": "selected_bad_target",
+                        "expected_metric_change": {"ev": "unknown"},
+                        "hypotheses": ["Selected patch touches README."],
+                        "patch_diff": readme_patch,
+                    },
+                },
+                indent=2,
+                sort_keys=True,
+            ),
+            {
+                "agent_name": "file_protocol_agent",
+                "direction_tag": "selected_bad_target",
+                "applicable": True,
+                "error_fragments": ("patch_diff target validation failed",),
+            },
+        ),
+        (
+            "file_protocol_first_diff_block_wins",
+            "file_protocol",
+            (
+                "Trying two options.\n\n"
+                "```diff\n"
+                + readme_patch
+                + "```\n\n"
+                "```diff\n"
+                + strategy_patch
+                + "```\n"
+            ),
+            {
+                "agent_name": "file_protocol_agent",
+                "direction_tag": "file_protocol_unknown",
+                "applicable": True,
+                "error_fragments": ("patch_diff target validation failed",),
+            },
+        ),
+        (
+            "codex_absolute_target_metadata",
+            "codex_cli",
+            json.dumps(
+                {
+                    "target_file": str(repo / "strategies/current_strategy.py"),
+                    "summary": "Absolute target metadata must be rejected.",
+                    "risk_notes": "Patch text is strategy-only.",
+                    "direction_tag": "absolute_target",
+                    "expected_metric_change": {"ev": "unknown"},
+                    "hypotheses": ["Absolute metadata should not pass."],
+                    "patch_diff": strategy_patch,
+                },
+                indent=2,
+                sort_keys=True,
+            ),
+            {
+                "agent_name": "codex_cli",
+                "direction_tag": "absolute_target",
+                "applicable": True,
+                "error_fragments": (
+                    "target_file must be strategies/current_strategy.py",
+                    "target_file must be a relative path inside the repository",
+                ),
+            },
+        ),
+    ]
+
+    for label, adapter_name, raw_output, expected in cases:
+        if adapter_name == "codex_cli":
+            proposal = proposal_from_codex_output(
+                raw_output=raw_output,
+                report_path=report_path,
+                target_file=repo / "strategies/current_strategy.py",
+                round_index=1,
+                repo_root=repo,
+                prompt=f"prompt for {label}",
+                command=["codex", "exec"],
+                workspace_path=workspace,
+            )
+        else:
+            proposal = proposal_from_file_protocol_output(
+                raw_output=raw_output,
+                target_file=repo / "strategies/current_strategy.py",
+                round_index=1,
+                repo_root=repo,
+                command=["file-agent"],
+                agent_input_path=agent_input_path,
+                workspace_path=workspace,
+            )
+        errors = validate_proposal_contract(
+            proposal=proposal,
+            expected_target_file=Path("strategies/current_strategy.py"),
+            expected_round_index=1,
+        )
+
+        assert proposal.agent_name == expected["agent_name"], label
+        assert proposal.direction_tag == expected["direction_tag"], label
+        assert proposal.applicable is expected["applicable"], label
+        assert errors, label
+        for fragment in expected["error_fragments"]:
+            assert any(str(fragment) in error for error in errors), label
+
+
 def test_file_protocol_output_records_coercion_prone_metadata_errors(
     tmp_path: Path,
 ) -> None:

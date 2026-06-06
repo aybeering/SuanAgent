@@ -682,16 +682,19 @@ applying patches, routing agents, or changing acceptance. The
 `navigation` section lists expected evidence artifacts, failed evidence groups,
 blocking reason codes, related artifact paths, and command hints that still
 require explicit operator invocation. Those command hints include SHA-256
-bindings for the displayed command text. Artifact validation checks those
-navigation command hints through the shared operator command-hint validator for
-known labels, artifact ids, write flags, command SHA-256 bindings, command
-prefixes, and shell-control token safety. The checklist writer and terminal
-view validate saved or derived payloads against the schema and deterministic
+bindings for the displayed command text, and each navigation artifact row binds
+its manual write command with `write_command_sha256`. Artifact validation checks
+those navigation command hints through the shared operator command-hint
+validator for known labels, artifact ids, write flags, command SHA-256
+bindings, command prefixes, and shell-control token safety, then checks artifact
+write-command SHA-256 drift directly. The checklist writer and terminal view
+validate saved or derived payloads against the schema and deterministic
 consistency checks before
 returning them, stripping terminal-only metadata before schema checks.
 Those checks include top-level item counts, item-level failed-check and
 blocker-code mappings, navigation blocking counts, primary blocker, expected
-artifact ordering, command-hint coverage, and command digest bindings. The
+artifact ordering, command-hint coverage, artifact write-command digest binding,
+and command digest bindings. The
 saved-file validator also rebuilds the checklist from current run evidence and
 surfaces a
 current-evidence mismatch when the saved checklist drifts. If real Codex
@@ -1312,10 +1315,11 @@ Replay artifacts:
   `navigation.expected_artifacts`, `navigation.blocking_items`, and
   `navigation.commands` so an operator can see the next artifact to inspect or
   generate. Artifact validation rejects unknown navigation command labels,
-  artifact mismatches, write-flag mismatches, unsafe shell control tokens, and
-  invalid command prefixes. The writer and terminal view validate saved or
-  derived payloads against the schema and deterministic consistency checks
-  before returning them, stripping terminal-only metadata before schema checks.
+  artifact mismatches, write-flag mismatches, artifact write-command SHA-256
+  drift, unsafe shell control tokens, and invalid command prefixes. The writer
+  and terminal view validate saved or derived payloads against the schema and
+  deterministic consistency checks before returning them, stripping
+  terminal-only metadata before schema checks.
   Command rows are hints only; the checklist cannot record approval, execute
   Codex, create workspaces, apply patches, route
   agents, or change acceptance. Startup preflight failures for real Codex

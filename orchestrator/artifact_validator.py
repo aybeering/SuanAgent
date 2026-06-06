@@ -8344,6 +8344,14 @@ def validate_operator_unlock_navigation(
             )
         if artifact.get("required_for_real_codex_unlock") is not True:
             add_error(report, "operator_unlock_checklist artifact not required")
+        write_command = str(artifact.get("write_command", ""))
+        if str(artifact.get("write_command_sha256", "")) != sha256_text(
+            write_command
+        ):
+            add_error(
+                report,
+                f"operator_unlock_checklist artifact write command sha256 mismatch: {artifact_id}",
+            )
     for artifact_id in (
         "codex_cli_readiness_pipeline",
         "codex_cli_execution_candidate",
@@ -8373,6 +8381,22 @@ def validate_operator_unlock_navigation(
             add_error(report, "operator_unlock_checklist command executes codex")
         if command.get("requires_explicit_operator_invocation") is not True:
             add_error(report, "operator_unlock_checklist command lacks explicit gate")
+    for blocker in blocking_items:
+        if not isinstance(blocker, dict):
+            continue
+        for artifact in blocker.get("related_artifacts", []):
+            if not isinstance(artifact, dict):
+                continue
+            artifact_id = str(artifact.get("artifact_id", ""))
+            write_command = str(artifact.get("write_command", ""))
+            if str(artifact.get("write_command_sha256", "")) != sha256_text(
+                write_command
+            ):
+                add_error(
+                    report,
+                    "operator_unlock_checklist related artifact write command "
+                    f"sha256 mismatch: {artifact_id}",
+                )
     nav_policy = navigation.get("policy", {})
     if not isinstance(nav_policy, dict):
         add_error(report, "operator_unlock_checklist navigation policy invalid")

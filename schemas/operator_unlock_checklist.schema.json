@@ -478,7 +478,8 @@
         "markdown_path",
         "markdown_file",
         "write_command_label",
-        "write_command"
+        "write_command",
+        "write_command_sha256"
       ],
       "properties": {
         "artifact_id": {
@@ -509,6 +510,9 @@
           "type": "string"
         },
         "write_command": {
+          "type": "string"
+        },
+        "write_command_sha256": {
           "type": "string"
         }
       }

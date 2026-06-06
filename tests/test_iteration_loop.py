@@ -5339,6 +5339,10 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     )
     assert unlock_checklist["navigation"]["blocking_count"] == 0
     assert len(unlock_checklist["navigation"]["expected_artifacts"]) == 5
+    assert all(
+        row["write_command_sha256"] == sha256_text(row["write_command"])
+        for row in unlock_checklist["navigation"]["expected_artifacts"]
+    )
     assert unlock_checklist["navigation"]["policy"]["does_not_execute_commands"] is True
     assert unlock_checklist["codex_intake_readiness"]["status"] == "not_available"
     assert unlock_checklist["codex_intake_readiness"]["ready"] is False
@@ -9627,6 +9631,10 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert unlock_checklist["navigation"]["commands"] == []
     assert any(
         row["artifact_id"] == "codex_cli_operator_unlock_request"
+        for row in unlock_checklist["navigation"]["expected_artifacts"]
+    )
+    assert all(
+        row["write_command_sha256"] == sha256_text(row["write_command"])
         for row in unlock_checklist["navigation"]["expected_artifacts"]
     )
     assert unlock_checklist["source_artifacts"]["codex_cli_execution_preflight"][
@@ -23102,6 +23110,15 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
         row["artifact_id"] == "codex_cli_real_execution_dry_run"
         for row in full_checklist["navigation"]["expected_artifacts"]
     )
+    assert all(
+        row["write_command_sha256"] == sha256_text(row["write_command"])
+        for row in full_checklist["navigation"]["expected_artifacts"]
+    )
+    assert all(
+        artifact["write_command_sha256"] == sha256_text(artifact["write_command"])
+        for blocker in full_checklist["navigation"]["blocking_items"]
+        for artifact in blocker["related_artifacts"]
+    )
     assert "## Blocking Navigation" in markdown
     assert "## Evidence Artifacts" in markdown
     assert "[sha256 `" in markdown
@@ -23128,6 +23145,20 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
         repo_root=repo,
         require_current_evidence=True,
     ) == ()
+    digest_tampered_checklist = json.loads(json.dumps(full_checklist))
+    digest_tampered_checklist["navigation"]["expected_artifacts"][0][
+        "write_command_sha256"
+    ] = "bad"
+    digest_errors = validate_operator_unlock_checklist_payload(
+        digest_tampered_checklist,
+        run_dir=run_dir,
+        repo_root=repo,
+        require_current_evidence=False,
+    )
+    assert (
+        "operator_unlock_checklist artifact write command sha256 mismatch"
+        in digest_errors
+    )
     tampered_summary = json.loads(checklist_path.read_text(encoding="utf-8"))
     tampered_summary["ready"] = True
     tampered_summary["item_count"] = 0
@@ -23240,6 +23271,37 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
         report=checklist_validation,
     )
     assert checklist_validation["errors"] == []
+
+    artifact_tampered_checklist = json.loads(checklist_path.read_text(encoding="utf-8"))
+    tampered_artifact_id = artifact_tampered_checklist["navigation"][
+        "expected_artifacts"
+    ][0]["artifact_id"]
+    artifact_tampered_checklist["navigation"]["expected_artifacts"][0][
+        "write_command_sha256"
+    ] = "bad"
+    checklist_path.write_text(
+        json.dumps(artifact_tampered_checklist, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    artifact_tampered_validation: dict[str, object] = {
+        "run_id": "codex-execute-without-operator-request",
+        "checked_files": [],
+        "errors": [],
+        "warnings": [],
+    }
+    validate_optional_operator_unlock_checklist(
+        run_dir=run_dir,
+        repo_root=repo,
+        report=artifact_tampered_validation,
+    )
+    assert (
+        "operator_unlock_checklist artifact write command sha256 mismatch: "
+        f"{tampered_artifact_id}"
+    ) in artifact_tampered_validation["errors"]
+    checklist_path.write_text(
+        json.dumps(full_checklist, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     tampered_checklist = json.loads(checklist_path.read_text(encoding="utf-8"))
     tampered_label = tampered_checklist["navigation"]["commands"][0]["label"]

@@ -620,6 +620,10 @@ def artifact_navigation_record(
     json_path = run_dir / str(spec.get("json_filename", ""))
     markdown_filename = str(spec.get("markdown_filename", ""))
     markdown_path = run_dir / markdown_filename if markdown_filename else None
+    write_command = command_for_artifact(
+        artifact_id=artifact_id,
+        run_arg=display_path(run_dir, repo_root),
+    )
     return {
         "artifact_id": artifact_id,
         "label": str(spec.get("label", "")),
@@ -636,10 +640,8 @@ def artifact_navigation_record(
             else {"exists": False, "path": "", "sha256": "", "byte_count": 0}
         ),
         "write_command_label": str(spec.get("command_label", "")),
-        "write_command": command_for_artifact(
-            artifact_id=artifact_id,
-            run_arg=display_path(run_dir, repo_root),
-        ),
+        "write_command": write_command,
+        "write_command_sha256": sha256_text(write_command),
     }
 
 
@@ -872,7 +874,8 @@ def render_operator_unlock_checklist_markdown(payload: dict[str, object]) -> str
             f"{artifact.get('artifact_id', '')} | "
             f"`{json_file.get('exists', False)}` | "
             f"`{artifact.get('json_path', '')}` | "
-            f"`{artifact.get('write_command_label', '')}` |"
+            f"`{artifact.get('write_command_label', '')}` "
+            f"[sha256 `{str(artifact.get('write_command_sha256', ''))[:12]}`] |"
         )
     lines.extend(
         [
@@ -1081,6 +1084,14 @@ def validate_unlock_navigation_consistency(
     ]
     if artifact_ids != expected_artifact_ids:
         errors.append("operator_unlock_checklist expected artifacts mismatch")
+    for artifact in list_of_dicts(navigation.get("expected_artifacts", [])):
+        if str(artifact.get("write_command_sha256", "")) != sha256_text(
+            str(artifact.get("write_command", ""))
+        ):
+            errors.append(
+                "operator_unlock_checklist artifact write command sha256 mismatch"
+            )
+            break
 
     expected_blocker_ids = [str(item.get("check_id", "")) for item in failed_items]
     if str(payload.get("status", "")) == "missing_preflight":
@@ -1106,6 +1117,14 @@ def validate_unlock_navigation_consistency(
             source_item.get("failed_checks", [])
         ):
             errors.append("operator_unlock_checklist blocking failed checks mismatch")
+        for artifact in list_of_dicts(row.get("related_artifacts", [])):
+            if str(artifact.get("write_command_sha256", "")) != sha256_text(
+                str(artifact.get("write_command", ""))
+            ):
+                errors.append(
+                    "operator_unlock_checklist related artifact write command sha256 mismatch"
+                )
+                break
 
     expected_command_labels = unique_command_labels(blocking_items)
     command_labels = [

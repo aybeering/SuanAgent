@@ -552,10 +552,12 @@ orchestrator.experiments action-guide --latest`, and `python -m
 orchestrator.operator_action_guide experiments/<run_id>` expose a
 terminal-only `operator_action_guide_v1` payload validated by
 `schemas/operator_action_guide.schema.json`. The guide reads the saved or
-derived action dashboard, reports the current step, first recommended command,
-execution-readiness state, path-closure state, blockers, a compact operator
-instruction, and a `guided_path` checklist covering action-audit refresh,
-operator approval, guarded read-only execution, and dashboard review. It never
+derived action dashboard, reports the current step, first recommended command
+with a SHA-256 digest, execution-readiness state, path-closure state, blockers,
+a compact operator instruction, and a `guided_path` checklist covering
+action-audit refresh, operator approval, guarded read-only execution, and
+dashboard review. Its command sequence rows also include command text and
+SHA-256 digests for terminal review. It never
 records approval, executes commands, writes config, promotes champions, runs
 agents, runs backtests, applies patches, routes agents, or changes acceptance;
 all commands remain hints that require the dedicated approval, guarded

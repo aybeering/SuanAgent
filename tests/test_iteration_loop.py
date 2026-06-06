@@ -3847,6 +3847,9 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending_guide["next_command"]["label"] == "record_operator_approval"
     assert pending_guide["next_command"]["records_operator_approval"] is True
     assert pending_guide["next_command"]["command_is_hint_only"] is True
+    assert pending_guide["next_command"]["command_sha256"] == sha256_text(
+        pending_guide["next_command"]["command"]
+    )
     assert pending_guide["guided_path"]["schema_version"] == (
         "operator_action_guided_path_v1"
     )
@@ -3861,6 +3864,9 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     )
     assert pending_steps["guarded_execution"]["status"] == "waiting"
     assert pending_guide["guided_path"]["policy"]["commands_are_hints_only"] is True
+    assert pending_guide["command_sequence"][0]["command_sha256"] == sha256_text(
+        pending_guide["command_sequence"][0]["command"]
+    )
     assert pending_guide["authority"]["guide_can_execute_commands"] is False
     assert pending_guide["policy"]["does_not_record_approval"] is True
     assert "# Operator Action Guide" in pending_guide_markdown
@@ -3906,6 +3912,7 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
             {
                 **pending_guide["command_sequence"][0],
                 "boundary_type": "wrong_boundary",
+                "command_sha256": "0" * 64,
             },
             {
                 **pending_guide["command_sequence"][0],

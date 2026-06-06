@@ -199,9 +199,11 @@ def select_guide_command(commands: list[dict[str, Any]], status: str) -> dict[st
 def guide_command(command: dict[str, Any]) -> dict[str, object]:
     """Return the next command hint used by the guide."""
     boundary = object_field(command, "boundary")
+    command_text = str(command.get("command", ""))
     return {
         "label": str(command.get("label", "")),
-        "command": str(command.get("command", "")),
+        "command": command_text,
+        "command_sha256": sha256_text(command_text),
         "reason": str(command.get("reason", "")),
         "writes_artifact": str(command.get("writes_artifact", "")),
         "boundary": boundary,
@@ -432,10 +434,13 @@ def command_sequence(commands: list[dict[str, Any]]) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for index, command in enumerate(commands, start=1):
         boundary = object_field(command, "boundary")
+        command_text = str(command.get("command", ""))
         rows.append(
             {
                 "index": index,
                 "label": str(command.get("label", "")),
+                "command": command_text,
+                "command_sha256": sha256_text(command_text),
                 "boundary_type": str(boundary.get("boundary_type", "")),
                 "writes_artifact": str(command.get("writes_artifact", "")),
             }
@@ -471,6 +476,7 @@ def render_operator_action_guide_markdown(payload: dict[str, object]) -> str:
         f"- Label: `{command.get('label', '')}`",
         f"- Boundary: `{boundary.get('boundary_type', '')}`",
         f"- Reason: {command.get('reason', '')}",
+        f"- Command SHA-256: `{command.get('command_sha256', '')}`",
         f"- Hint only: `{command.get('command_is_hint_only', False)}`",
         "",
         "```bash",
@@ -496,7 +502,8 @@ def render_operator_action_guide_markdown(payload: dict[str, object]) -> str:
     for row in list_of_dicts(payload.get("command_sequence", [])):
         lines.append(
             f"- `{row.get('index', 0)}` `{row.get('label', '')}` "
-            f"(`{row.get('boundary_type', '')}`)"
+            f"(`{row.get('boundary_type', '')}`) "
+            f"`{str(row.get('command_sha256', ''))[:12]}`"
         )
     lines.extend(["", "## Blockers", ""])
     blockers = string_list(payload.get("blocker_preview", []))
@@ -615,6 +622,7 @@ def validate_operator_action_guide_consistency(
     for field_name in (
         "label",
         "command",
+        "command_sha256",
         "reason",
         "writes_artifact",
         "command_is_hint_only",
@@ -860,6 +868,11 @@ def file_sha256(path: Path) -> str:
     if not path.exists() or not path.is_file():
         return ""
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def sha256_text(value: str) -> str:
+    """Return SHA-256 for command text."""
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def load_json_object(path: Path) -> dict[str, Any]:

@@ -248,6 +248,7 @@
       "required": [
         "label",
         "command",
+        "command_sha256",
         "reason",
         "writes_artifact",
         "boundary",
@@ -262,6 +263,9 @@
           "type": "string"
         },
         "command": {
+          "type": "string"
+        },
+        "command_sha256": {
           "type": "string"
         },
         "reason": {
@@ -383,6 +387,8 @@
       "required": [
         "index",
         "label",
+        "command",
+        "command_sha256",
         "boundary_type",
         "writes_artifact"
       ],
@@ -391,6 +397,12 @@
           "type": "integer"
         },
         "label": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "command_sha256": {
           "type": "string"
         },
         "boundary_type": {

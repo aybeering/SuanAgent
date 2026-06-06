@@ -5477,6 +5477,15 @@ def validate_operator_view_refresh_consistency(
         artifact_name = str(row.get("artifact_name", ""))
         json_file = dict_payload(row.get("json_file", {}))
         markdown_file = dict_payload(row.get("markdown_file", {}))
+        if Path(str(row.get("json_path", ""))).name != f"{artifact_name}.json":
+            errors.append(
+                f"operator_view_refresh refreshed json artifact mismatch: {artifact_name}"
+            )
+        if Path(str(row.get("markdown_path", ""))).name != f"{artifact_name}.md":
+            errors.append(
+                "operator_view_refresh refreshed markdown artifact mismatch: "
+                f"{artifact_name}"
+            )
         if str(row.get("json_path", "")) != str(json_file.get("path", "")):
             errors.append(
                 f"operator_view_refresh refreshed json path mismatch: {artifact_name}"

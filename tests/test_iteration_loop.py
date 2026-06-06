@@ -6352,6 +6352,12 @@ def test_operator_view_refresh_payload_validation_reports_summary_drift(
     assert isinstance(refreshed_artifacts, list)
     refreshed_artifacts[0]["artifact_name"] = "wrong_artifact"
     refreshed_artifacts[1]["json_file"]["path"] = "wrong.json"
+    refreshed_artifacts[2]["json_path"] = (
+        "experiments/run/operator_cockpit.json"
+    )
+    refreshed_artifacts[3]["markdown_path"] = (
+        "experiments/run/operator_cockpit.md"
+    )
     operator_summary = payload["operator_summary"]
     assert isinstance(operator_summary, dict)
     operator_summary["blocker_count"] = 1
@@ -6387,6 +6393,14 @@ def test_operator_view_refresh_payload_validation_reports_summary_drift(
     assert (
         "operator_view_refresh refreshed json path mismatch: "
         "codex_cli_execution_preflight"
+    ) in errors
+    assert (
+        "operator_view_refresh refreshed json artifact mismatch: "
+        "operator_unlock_checklist"
+    ) in errors
+    assert (
+        "operator_view_refresh refreshed markdown artifact mismatch: "
+        "codex_cli_unlock_runbook"
     ) in errors
     assert "operator_view_refresh operator_summary blocker_count mismatch" in errors
     assert "operator_view_refresh blocker_delta added_count mismatch" in errors

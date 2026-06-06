@@ -87,6 +87,7 @@
           "blocking_issues",
           "requirements",
           "artifacts",
+          "artifact_records",
           "evidence"
         ],
         "properties": {
@@ -142,6 +143,29 @@
           "artifacts": {
             "type": "object"
           },
+          "artifact_records": {
+            "type": "object",
+            "required": [
+              "agent_execution",
+              "codex_cli_contract_fixture",
+              "agent_output_quarantine",
+              "round_replay"
+            ],
+            "properties": {
+              "agent_execution": {
+                "$ref": "#/$defs/artifact_record"
+              },
+              "codex_cli_contract_fixture": {
+                "$ref": "#/$defs/artifact_record"
+              },
+              "agent_output_quarantine": {
+                "$ref": "#/$defs/artifact_record"
+              },
+              "round_replay": {
+                "$ref": "#/$defs/artifact_record"
+              }
+            }
+          },
           "evidence": {
             "type": "object"
           }
@@ -192,6 +216,31 @@
         },
         "deterministic_code_keeps_acceptance_authority": {
           "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "artifact_record": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
         }
       }
     }

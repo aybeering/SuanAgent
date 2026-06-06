@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from collections import Counter
 from pathlib import Path
@@ -149,6 +150,14 @@ def codex_slot_row(
     replay_ok = bool(replay_row.get("ok", False)) if replay_present else False
     quarantine_present = bool(quarantine)
     fixture_present = bool(fixture)
+    artifact_records = {
+        "agent_execution": file_record(execution_path, repo_root)
+        if execution_path
+        else missing_file_record("", repo_root),
+        "codex_cli_contract_fixture": file_record(fixture_path, repo_root),
+        "agent_output_quarantine": file_record(quarantine_path, repo_root),
+        "round_replay": file_record(round_dir / "round_replay.json", repo_root),
+    }
     requirements = {
         "attempt_saved": bool(manifest_row),
         "adapter_is_codex_cli": str(planned.get("adapter_name", "")) == "codex_cli",
@@ -190,6 +199,10 @@ def codex_slot_row(
         )
         if replay_present
         else False,
+        "artifact_hashes_recorded": all(
+            bool(record.get("exists", False)) and bool(str(record.get("sha256", "")))
+            for record in artifact_records.values()
+        ),
     }
     blocking_issues = codex_replay_blockers(requirements)
     return {
@@ -213,6 +226,7 @@ def codex_slot_row(
             "agent_output_quarantine": str(quarantine_path) if quarantine_present else "",
             "round_replay": str(round_dir / "round_replay.json") if replay_present else "",
         },
+        "artifact_records": artifact_records,
         "evidence": {
             "execution_status": str(execution.get("status", "")),
             "fixture_failure_code": str(fixture.get("failure_code", "")),
@@ -258,6 +272,7 @@ def codex_replay_blockers(requirements: dict[str, bool]) -> list[str]:
         ("round_replay_present", "round_replay_missing"),
         ("round_replay_ok", "round_replay_failed"),
         ("round_replay_plan_matches_manifest", "round_replay_plan_mismatch"),
+        ("artifact_hashes_recorded", "artifact_hash_missing"),
     ):
         if not requirements.get(key, False):
             blockers.append(code)
@@ -336,12 +351,44 @@ def resolve_path(path: Path, repo_root: Path) -> Path:
     return path if path.is_absolute() else repo_root / path
 
 
+def relative_path(path: Path, root: Path) -> str:
+    """Return a stable POSIX path relative to root when possible."""
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
 def load_json_object(path: Path) -> dict[str, Any]:
     """Load a JSON object from disk, returning an empty object when absent."""
     if not path.exists() or not path.is_file():
         return {}
     payload = json.loads(path.read_text(encoding="utf-8"))
     return payload if isinstance(payload, dict) else {}
+
+
+def file_record(path: Path, repo_root: Path) -> dict[str, object]:
+    """Return deterministic metadata for an artifact file."""
+    if not path.exists() or not path.is_file():
+        return missing_file_record(str(path), repo_root)
+    data = path.read_bytes()
+    return {
+        "exists": True,
+        "path": relative_path(path, repo_root),
+        "bytes": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+    }
+
+
+def missing_file_record(path_text: str, repo_root: Path) -> dict[str, object]:
+    """Return deterministic metadata for an absent artifact file."""
+    path = Path(path_text) if path_text else Path()
+    return {
+        "exists": False,
+        "path": relative_path(path, repo_root) if path_text else "",
+        "bytes": 0,
+        "sha256": "",
+    }
 
 
 def write_json(path: Path, payload: object) -> None:

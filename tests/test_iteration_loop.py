@@ -17025,6 +17025,17 @@ def test_codex_cli_replay_gate_passes_guarded_fixture_replay(
     assert slot["requirements"]["contract_fixture_ok"] is True
     assert slot["requirements"]["quarantine_not_released_for_disabled_codex"] is True
     assert slot["requirements"]["round_replay_ok"] is True
+    assert slot["requirements"]["artifact_hashes_recorded"] is True
+    for artifact_key in (
+        "agent_execution",
+        "codex_cli_contract_fixture",
+        "agent_output_quarantine",
+        "round_replay",
+    ):
+        record = slot["artifact_records"][artifact_key]
+        assert record["exists"] is True
+        assert record["bytes"] > 0
+        assert len(record["sha256"]) == 64
     assert slot["evidence"]["execution_status"] == "disabled"
     assert slot["evidence"]["quarantine_status"] == "not_applicable"
     assert_matches_schema(run_dir / "codex_cli_replay_gate.json", "codex_cli_replay_gate")
@@ -17033,6 +17044,48 @@ def test_codex_cli_replay_gate_passes_guarded_fixture_replay(
     assert cli_result.returncode == 0, cli_result.stderr
     assert cli_payload["schema_version"] == CODEX_CLI_REPLAY_GATE_SCHEMA_VERSION
     assert cli_payload["ready_to_enable_codex_cli"] is True
+
+
+def test_codex_cli_replay_gate_detects_artifact_sha_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-replay-gate-sha-drift",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/codex-replay-gate-sha-drift"
+    round_dir = run_dir / "round_001"
+    replay_round(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_contract_fixture(round_dir=round_dir, repo_root=repo)
+    gate = write_codex_cli_replay_gate(run_dir=run_dir, repo_root=repo)
+    fixture_path = round_dir / "codex_cli_contract_fixture.json"
+    fixture_payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    fixture_payload["contract"]["fixture_direction_tag"] = "tampered_direction"
+    fixture_path.write_text(
+        json.dumps(fixture_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="codex-replay-gate-sha-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    recorded_sha = gate["slots"][0]["artifact_records"][
+        "codex_cli_contract_fixture"
+    ]["sha256"]
+    current_sha = hashlib.sha256(fixture_path.read_bytes()).hexdigest()
+    assert recorded_sha != current_sha
+    assert validation_report["ok"] is False
+    assert (
+        "codex_cli_replay_gate artifact sha mismatch: codex_cli_contract_fixture"
+        in validation_report["errors"]
+    )
 
 
 def test_codex_cli_replay_gate_blocks_missing_fixture(

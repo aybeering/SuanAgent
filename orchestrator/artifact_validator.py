@@ -9626,6 +9626,10 @@ def validate_optional_codex_cli_replay_gate(
         if not isinstance(artifacts, dict):
             add_error(report, "codex_cli_replay_gate.json artifacts invalid")
             continue
+        artifact_records = slot.get("artifact_records", {})
+        if not isinstance(artifact_records, dict):
+            add_error(report, "codex_cli_replay_gate.json artifact_records invalid")
+            continue
         for key in (
             "agent_execution",
             "codex_cli_contract_fixture",
@@ -9641,6 +9645,40 @@ def validate_optional_codex_cli_replay_gate(
                     )
                     continue
                 checked_files(report).append(str(artifact_path))
+            record = artifact_records.get(key, {})
+            if not isinstance(record, dict):
+                add_error(
+                    report,
+                    f"codex_cli_replay_gate artifact record invalid: {key}",
+                )
+                continue
+            record_path = resolve_path(Path(str(record.get("path", ""))), repo_root)
+            if bool(slot.get("ready_to_enable", False)):
+                if not bool(record.get("exists", False)):
+                    add_error(
+                        report,
+                        f"codex_cli_replay_gate artifact record missing: {key}",
+                    )
+                    continue
+                if record_path != artifact_path:
+                    add_error(
+                        report,
+                        f"codex_cli_replay_gate artifact path mismatch: {key}",
+                    )
+                    continue
+                recorded_sha = str(record.get("sha256", ""))
+                if not recorded_sha:
+                    add_error(
+                        report,
+                        f"codex_cli_replay_gate artifact sha missing: {key}",
+                    )
+                    continue
+                current_sha = file_sha256(record_path)
+                if current_sha != recorded_sha:
+                    add_error(
+                        report,
+                        f"codex_cli_replay_gate artifact sha mismatch: {key}",
+                    )
     markdown_path = run_dir / "codex_cli_replay_gate.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))

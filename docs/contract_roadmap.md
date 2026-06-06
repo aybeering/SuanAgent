@@ -60,7 +60,10 @@ Implemented or allowed V0.5 components:
     agent input/output pair as a replayable protocol fixture and verifies the
     saved raw-output hash still matches the replayed raw-output hash.
 46. A deterministic `codex_cli_contract_fixture.json` report that freezes guarded Codex CLI stdin/stdout expectations without executing Codex.
-47. A deterministic `codex_cli_replay_gate.json` report that gates Codex CLI enablement using saved execution, fixture, quarantine, and replay artifacts.
+47. A deterministic `codex_cli_replay_gate.json` report that gates Codex CLI
+    enablement using saved execution, fixture, quarantine, and replay artifacts,
+    with per-slot artifact SHA records that validator checks can use to detect
+    source-artifact drift after the gate is written.
 48. A deterministic `codex_cli_enablement_gate.json` report that checks an explicit execute=true candidate config without executing Codex or modifying config files.
 49. A deterministic `codex_cli_manual_approval.json` report that records explicit approval for a passing enablement gate without executing Codex.
 50. A deterministic `codex_cli_canary_gate.json` report that validates a checked-in local Codex CLI canary executable through the guarded execution path without running real Codex.

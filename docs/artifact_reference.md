@@ -1050,6 +1050,9 @@ Replay artifacts:
   `python -m orchestrator.experiments memory-scope-recommendation <run_id>`
   validate the terminal payload against the schema and deterministic
   recommendation derivation before printing JSON or markdown.
+  The saved-file validator reports field-specific drift for source evidence,
+  scope, observed totals, recommendation fields, candidate scopes, and read-only
+  policy fields.
 - `config_change_candidate.json` and `config_change_candidate.md` convert
   saved recommendations into operator-reviewed config field candidates, such as
   `memory_filter.recent_record_limit` or a guarded `agents` fallback profile

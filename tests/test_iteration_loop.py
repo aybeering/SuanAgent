@@ -2368,6 +2368,44 @@ def test_memory_scope_recommendation_suggests_recent_limit(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
+    file_drift_scope = json.loads(json.dumps(payload))
+    file_drift_scope["source"]["sha256"] = "bad-digest"
+    file_drift_scope["observed_totals"]["active_record_count"] = 999
+    file_drift_scope["recommendation"]["recommended_recent_record_limit"] = 50
+    file_drift_scope["candidate_scopes"][0]["recent_record_limit"] = 999
+    file_drift_scope["policy"]["does_not_write_config"] = False
+    json_path.write_text(
+        json.dumps(file_drift_scope, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    file_drift_errors = validate_memory_scope_recommendation_file(
+        payload_path=json_path,
+        repo_root=repo,
+    )
+    assert "memory_scope_recommendation source sha256 mismatch" in file_drift_errors
+    assert (
+        "memory_scope_recommendation observed_totals active_record_count mismatch"
+        in file_drift_errors
+    )
+    assert (
+        "memory_scope_recommendation recommendation recommended_recent_record_limit "
+        "mismatch"
+    ) in file_drift_errors
+    assert (
+        "memory_scope_recommendation candidate_scopes 0 recent_record_limit mismatch"
+        in file_drift_errors
+    )
+    assert (
+        "memory_scope_recommendation policy does_not_write_config mismatch"
+        in file_drift_errors
+    )
+    assert (
+        "memory_scope_recommendation current evidence mismatch" in file_drift_errors
+    )
+    json_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def test_config_change_candidate_records_manual_config_edits(

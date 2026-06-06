@@ -299,8 +299,29 @@ def validate_memory_scope_recommendation_file(
     repo_root: Path,
 ) -> tuple[str, ...]:
     """Validate a saved memory scope recommendation report."""
-    schema_path = repo_root / SCHEMA_PATH
-    return tuple(validate_json_file(payload_path=payload_path, schema_path=schema_path))
+    effective_repo_root = infer_repo_root_from_payload_path(payload_path, repo_root)
+    schema_path = effective_repo_root / SCHEMA_PATH
+    errors = list(validate_json_file(payload_path=payload_path, schema_path=schema_path))
+    if payload_path.exists():
+        payload = load_json_object(payload_path)
+        errors.extend(
+            validate_memory_scope_recommendation_payload(
+                payload,
+                run_dir=payload_path.parent,
+                repo_root=effective_repo_root,
+                experiments_dir=payload_path.parent.parent,
+            )
+        )
+        current_errors = validate_memory_scope_recommendation_current_evidence(
+            payload,
+            run_dir=payload_path.parent,
+            repo_root=effective_repo_root,
+            experiments_dir=payload_path.parent.parent,
+        )
+        errors.extend(current_errors)
+        if current_errors:
+            errors.append("memory_scope_recommendation current evidence mismatch")
+    return tuple(errors)
 
 
 def validate_memory_scope_recommendation_payload(
@@ -325,6 +346,13 @@ def validate_memory_scope_recommendation_payload(
     )
     errors.extend(validate_memory_scope_recommendation_consistency(normalized))
     if require_current_evidence:
+        current_errors = validate_memory_scope_recommendation_current_evidence(
+            normalized,
+            run_dir=run_dir,
+            repo_root=repo_root,
+            experiments_dir=experiments_dir,
+        )
+        errors.extend(current_errors)
         expected = build_memory_scope_recommendation(
             run_dir=run_dir,
             repo_root=repo_root,
@@ -332,6 +360,78 @@ def validate_memory_scope_recommendation_payload(
         )
         if normalized != expected:
             errors.append("memory_scope_recommendation current evidence mismatch")
+    return tuple(errors)
+
+
+def validate_memory_scope_recommendation_current_evidence(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    experiments_dir: Path | None = None,
+) -> tuple[str, ...]:
+    """Validate recommendation fields against current memory hygiene evidence."""
+    errors: list[str] = []
+    expected = build_memory_scope_recommendation(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        experiments_dir=experiments_dir,
+    )
+    append_field_mismatches(
+        errors,
+        prefix="memory_scope_recommendation",
+        payload=payload,
+        expected=expected,
+        field_names=("run_id", "run_dir", "source_from_artifact"),
+    )
+    append_field_mismatches(
+        errors,
+        prefix="memory_scope_recommendation source",
+        payload=object_value(payload.get("source", {})),
+        expected=object_value(expected.get("source", {})),
+        field_names=tuple(object_value(expected.get("source", {}))),
+    )
+    append_field_mismatches(
+        errors,
+        prefix="memory_scope_recommendation current_scope",
+        payload=object_value(payload.get("current_scope", {})),
+        expected=object_value(expected.get("current_scope", {})),
+        field_names=tuple(object_value(expected.get("current_scope", {}))),
+    )
+    append_field_mismatches(
+        errors,
+        prefix="memory_scope_recommendation observed_totals",
+        payload=object_value(payload.get("observed_totals", {})),
+        expected=object_value(expected.get("observed_totals", {})),
+        field_names=tuple(object_value(expected.get("observed_totals", {}))),
+    )
+    append_field_mismatches(
+        errors,
+        prefix="memory_scope_recommendation recommendation",
+        payload=object_value(payload.get("recommendation", {})),
+        expected=object_value(expected.get("recommendation", {})),
+        field_names=tuple(object_value(expected.get("recommendation", {}))),
+    )
+    rows = list_of_objects(payload.get("candidate_scopes", []))
+    expected_rows = list_of_objects(expected.get("candidate_scopes", []))
+    if len(rows) != len(expected_rows):
+        errors.append("memory_scope_recommendation candidate_scopes count mismatch")
+    for index, row in enumerate(rows):
+        expected_row = expected_rows[index] if index < len(expected_rows) else {}
+        append_field_mismatches(
+            errors,
+            prefix=f"memory_scope_recommendation candidate_scopes {index}",
+            payload=row,
+            expected=expected_row,
+            field_names=tuple(expected_row),
+        )
+    append_field_mismatches(
+        errors,
+        prefix="memory_scope_recommendation policy",
+        payload=object_value(payload.get("policy", {})),
+        expected=object_value(expected.get("policy", {})),
+        field_names=tuple(object_value(expected.get("policy", {}))),
+    )
     return tuple(errors)
 
 
@@ -404,6 +504,20 @@ def string_list(value: object) -> list[str]:
     return []
 
 
+def append_field_mismatches(
+    errors: list[str],
+    *,
+    prefix: str,
+    payload: dict[str, object],
+    expected: dict[str, object],
+    field_names: tuple[str, ...],
+) -> None:
+    """Append field-specific mismatch messages for comparable objects."""
+    for field_name in field_names:
+        if payload.get(field_name) != expected.get(field_name):
+            errors.append(f"{prefix} {field_name} mismatch")
+
+
 def file_record(path: Path, repo_root: Path) -> dict[str, object]:
     """Return deterministic metadata for one source file."""
     if not path.exists():
@@ -428,6 +542,22 @@ def relative_path(path: Path, root: Path) -> str:
         return path.resolve().relative_to(root.resolve()).as_posix()
     except ValueError:
         return path.as_posix()
+
+
+def infer_repo_root_from_payload_path(payload_path: Path, repo_root: Path) -> Path:
+    """Infer repo root for experiment artifacts when caller passes another cwd."""
+    resolved_payload = payload_path.resolve()
+    resolved_repo = repo_root.resolve()
+    try:
+        resolved_payload.relative_to(resolved_repo)
+        return resolved_repo
+    except ValueError:
+        pass
+    run_dir = resolved_payload.parent
+    experiments_dir = run_dir.parent
+    if experiments_dir.name == "experiments":
+        return experiments_dir.parent
+    return resolved_repo
 
 
 def main() -> None:

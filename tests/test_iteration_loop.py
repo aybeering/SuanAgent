@@ -6599,6 +6599,49 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
         payload_path=run_dir / "config_application_rollback_preview.json",
         repo_root=repo,
     ) == ()
+    preview_path = run_dir / "config_application_rollback_preview.json"
+    file_drift_preview = json.loads(json.dumps(preview))
+    file_drift_preview["current_config_sha256"] = "bad-digest"
+    file_drift_preview["rollback_gate"]["restorable_change_count"] = 99
+    file_drift_preview["rollback_plan"][0]["can_restore"] = False
+    file_drift_preview["next_run_impact"]["summary"] = "bad impact"
+    file_drift_preview["policy"]["read_only"] = False
+    preview_path.write_text(
+        json.dumps(file_drift_preview, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    file_drift_preview_errors = validate_config_application_rollback_preview_file(
+        payload_path=preview_path,
+        repo_root=repo,
+    )
+    assert (
+        "config_application_rollback_preview source current_config_sha256 mismatch"
+        in file_drift_preview_errors
+    )
+    assert (
+        "config_application_rollback_preview rollback_gate "
+        "restorable_change_count mismatch"
+    ) in file_drift_preview_errors
+    assert (
+        "config_application_rollback_preview rollback_plan 0 can_restore mismatch"
+        in file_drift_preview_errors
+    )
+    assert (
+        "config_application_rollback_preview next_run_impact summary mismatch"
+        in file_drift_preview_errors
+    )
+    assert (
+        "config_application_rollback_preview policy read_only mismatch"
+        in file_drift_preview_errors
+    )
+    assert (
+        "config_application_rollback_preview current evidence mismatch"
+        in file_drift_preview_errors
+    )
+    preview_path.write_text(
+        json.dumps(preview, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     assert validate_config_application_rollback_preview_payload(
         preview,
         run_id="config-apply-approved",

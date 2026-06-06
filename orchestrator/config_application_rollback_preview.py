@@ -348,16 +348,26 @@ def validate_config_application_rollback_preview_file(
     errors = list(
         validate_json_file(
             payload_path=payload_path,
-            schema_path=repo_root / SCHEMA_PATH,
+            schema_path=effective_repo_root / SCHEMA_PATH,
         )
     )
     if payload_path.exists():
+        payload = load_json_object(payload_path)
         errors.extend(
-            validate_config_application_rollback_preview_consistency(
-                load_json_object(payload_path),
+            validate_config_application_rollback_preview_payload(
+                payload,
                 run_id=payload_path.parent.name,
                 run_dir=payload_path.parent,
                 repo_root=effective_repo_root,
+                receipt_path=resolve_path(
+                    Path(str(payload.get("source_receipt_path", ""))),
+                    effective_repo_root,
+                ),
+                config_path=resolve_path(
+                    Path(str(payload.get("config_path", ""))),
+                    effective_repo_root,
+                ),
+                require_current_evidence=True,
             )
         )
     return tuple(errors)

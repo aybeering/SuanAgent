@@ -1120,6 +1120,9 @@ Replay artifacts:
   The consistency validator reports field-specific drift for source receipt
   and config hashes, rollback gate fields, rollback-plan rows, next-run impact,
   and read-only policy fields.
+  The saved-file validator also rechecks current receipt/config evidence and
+  surfaces a current-evidence mismatch when the saved preview no longer matches
+  the deterministic rebuild.
 - `config_application_restore_receipt.json` and
   `config_application_restore_receipt.md` record the result of the guarded
   restore-config-approved command. The command writes config only when the

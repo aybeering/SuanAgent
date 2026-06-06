@@ -406,6 +406,8 @@
         "terminal_only",
         "artifact_created",
         "command_is_hint_only",
+        "source_home_command",
+        "source_home_command_sha256",
         "selection_source",
         "selected_command_label",
         "selected_command",
@@ -495,6 +497,12 @@
         },
         "command_is_hint_only": {
           "type": "boolean"
+        },
+        "source_home_command": {
+          "type": "string"
+        },
+        "source_home_command_sha256": {
+          "type": "string"
         },
         "selection_source": {
           "type": "string"

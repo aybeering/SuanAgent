@@ -389,17 +389,19 @@ the latest indexed run is an iteration loop; it surfaces the read-only `home
 and Codex readiness snippets without creating an artifact. The
 operator-next-command entry mirrors the home-selected next command and exposes
 the read-only `next-command <run_id> --markdown` selector, selected command,
-status, blocker summary, boundary, write target, and command SHA-256 bindings without creating an
-artifact. The dashboard is inspection-only and does not execute agents, run
+status, blocker summary, boundary, write target, source home command, and
+command SHA-256 bindings without creating an artifact. The dashboard is
+inspection-only and does not execute agents, run
 backtests, apply patches, promote champions, or change acceptance.
 The embedded dashboard is validated in memory against
 `schemas/experiment_summary_dashboard.schema.json` before JSON or markdown is
 printed, with deterministic consistency checks for recent failure/outcome
 counts, top recent code/category fields, latest accepted/rejected status
 summaries, latest-run to recent-tail binding, accepted-row flags,
-operator-home run/command/boundary binding, operator-next-command selector and
-selected-command binding, champion-gap status and delta invariants, watchlist
-alert counts, severity counts, status, alert codes, and read-only policy flags.
+operator-home run/command/boundary binding, operator-next-command selector,
+source-home, and selected-command binding, champion-gap status and delta
+invariants, watchlist alert counts, severity counts, status, alert codes, and
+read-only policy flags.
 `python -m orchestrator.experiments summary --markdown` renders the same
 summary payload, including the latest-run operator-home entry,
 operator-next-command entry, and watchlist, as a compact terminal-friendly

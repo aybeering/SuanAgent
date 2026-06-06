@@ -672,9 +672,11 @@ payloads against the schema and deterministic consistency checks before
 returning them, stripping terminal-only metadata before schema checks.
 Those checks include top-level item counts, item-level failed-check and
 blocker-code mappings, navigation blocking counts, primary blocker, expected
-artifact ordering, and command-hint coverage. If real Codex execute=true
-startup preflight is blocked before any round starts, the failed run still
-writes this checklist and
+artifact ordering, and command-hint coverage. The saved-file validator also
+rebuilds the checklist from current run evidence and surfaces a
+current-evidence mismatch when the saved checklist drifts. If real Codex
+execute=true startup preflight is blocked before any round starts, the failed
+run still writes this checklist and
 the run summary points at the primary blocker. The checklist also includes a
 read-only `codex_intake_readiness` block so an operator can distinguish
 `not_available` intake evidence from blocked or ready selected-attempt binding

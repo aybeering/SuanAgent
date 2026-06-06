@@ -901,13 +901,17 @@ def validate_operator_unlock_checklist_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved operator unlock checklist artifact."""
+    repo_root = infer_repo_root_from_payload_path(payload_path, repo_root)
     schema_errors = tuple(
         validate_json_file(payload_path=payload_path, schema_path=repo_root / SCHEMA_PATH)
     )
     if schema_errors:
         return schema_errors
-    return schema_errors + validate_operator_unlock_checklist_consistency(
-        load_json_object(payload_path)
+    return schema_errors + validate_operator_unlock_checklist_payload(
+        load_json_object(payload_path),
+        run_dir=payload_path.parent,
+        repo_root=repo_root,
+        require_current_evidence=True,
     )
 
 
@@ -1114,6 +1118,22 @@ def unique_command_labels(blocking_items: list[dict[str, Any]]) -> list[str]:
                 labels.append(label)
                 seen.add(label)
     return labels
+
+
+def infer_repo_root_from_payload_path(payload_path: Path, repo_root: Path) -> Path:
+    """Infer repo root for experiment artifacts when caller passes another cwd."""
+    resolved_payload = payload_path.resolve()
+    resolved_repo = repo_root.resolve()
+    try:
+        resolved_payload.relative_to(resolved_repo)
+        return resolved_repo
+    except ValueError:
+        pass
+    run_dir = resolved_payload.parent
+    experiments_dir = run_dir.parent
+    if experiments_dir.name == "experiments":
+        return experiments_dir.parent
+    return resolved_repo
 
 
 def list_of_dicts(value: object) -> list[dict[str, Any]]:

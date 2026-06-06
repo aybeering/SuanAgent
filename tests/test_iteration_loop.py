@@ -22040,6 +22040,9 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
     assert "operator_unlock_checklist navigation commands mismatch" in (
         checklist_consistency_errors
     )
+    assert "operator_unlock_checklist current evidence mismatch" in (
+        checklist_consistency_errors
+    )
     checklist_path.write_text(
         json.dumps(full_checklist, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",

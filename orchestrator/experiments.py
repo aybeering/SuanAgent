@@ -5390,6 +5390,18 @@ def validate_operator_view_refresh_consistency(
             return default
 
     errors: list[str] = []
+    config_record = dict_payload(payload.get("config_record", {}))
+    if str(payload.get("config_path", "")) != str(config_record.get("path", "")):
+        errors.append("operator_view_refresh config_path mismatch")
+    if bool(payload.get("config_path_exists", False)) != bool(
+        config_record.get("exists", False)
+    ):
+        errors.append("operator_view_refresh config_path_exists mismatch")
+    if str(payload.get("config_sha256", "")) != str(
+        config_record.get("sha256", "")
+    ):
+        errors.append("operator_view_refresh config_sha256 mismatch")
+
     refreshed_artifacts = list_payload(payload.get("refreshed_artifacts", []))
     if int_value(payload.get("refreshed_count", -1)) != len(refreshed_artifacts):
         errors.append("operator_view_refresh refreshed_count mismatch")

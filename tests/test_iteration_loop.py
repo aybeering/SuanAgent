@@ -6344,6 +6344,9 @@ def test_operator_view_refresh_payload_validation_reports_summary_drift(
 
     assert validate_operator_view_refresh_payload(payload, repo_root=tmp_path) == ()
 
+    payload["config_path"] = "config/stale.json"
+    payload["config_path_exists"] = False
+    payload["config_sha256"] = "stale-config-digest"
     payload["refreshed_count"] = 4
     refreshed_artifacts = payload["refreshed_artifacts"]
     assert isinstance(refreshed_artifacts, list)
@@ -6376,6 +6379,9 @@ def test_operator_view_refresh_payload_validation_reports_summary_drift(
 
     errors = validate_operator_view_refresh_payload(payload, repo_root=tmp_path)
 
+    assert "operator_view_refresh config_path mismatch" in errors
+    assert "operator_view_refresh config_path_exists mismatch" in errors
+    assert "operator_view_refresh config_sha256 mismatch" in errors
     assert "operator_view_refresh refreshed_count mismatch" in errors
     assert "operator_view_refresh refreshed artifact order mismatch" in errors
     assert (

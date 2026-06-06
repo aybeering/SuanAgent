@@ -6273,6 +6273,9 @@ def test_operator_view_refresh_review_summary_prioritizes_safety() -> None:
             "next_command_source": "review_priority",
             "next_command_label": "review_cockpit",
             "next_command": "python -m orchestrator.experiments cockpit run --markdown",
+            "next_command_sha256": sha256_text(
+                "python -m orchestrator.experiments cockpit run --markdown"
+            ),
             "next_command_reason": "Review this read-only cockpit.",
             "next_command_boundary": "",
         },
@@ -6291,6 +6294,9 @@ def test_operator_view_refresh_review_summary_prioritizes_safety() -> None:
         "next_command_source": "review_priority",
         "next_command_label": "review_cockpit",
         "next_command": "python -m orchestrator.experiments cockpit run --markdown",
+        "next_command_sha256": sha256_text(
+            "python -m orchestrator.experiments cockpit run --markdown"
+        ),
         "next_command_reason": "Review this read-only cockpit.",
         "next_command_boundary": "",
     }
@@ -6309,6 +6315,10 @@ def _copy_operator_view_refresh_schema(tmp_path: Path) -> None:
 def _minimal_operator_view_refresh_payload() -> dict[str, object]:
     refreshed_artifacts = []
     home_command = "python -m orchestrator.experiments home run --markdown"
+    operator_next_command = "python -m orchestrator.experiments cockpit run --markdown"
+    home_next_command = (
+        "python -m orchestrator.operator_action_audit experiments/run --markdown"
+    )
     for artifact_name in (
         "operator_action_dashboard",
         "codex_cli_execution_preflight",
@@ -6392,9 +6402,8 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             "blocker_preview": [],
             "next_command_source": "operator_digest",
             "next_command_label": "review_cockpit",
-            "next_command": (
-                "python -m orchestrator.experiments cockpit run --markdown"
-            ),
+            "next_command": operator_next_command,
+            "next_command_sha256": sha256_text(operator_next_command),
             "next_command_reason": "review run closeout dashboard",
             "next_command_boundary": "read_only_inspection",
         },
@@ -6420,10 +6429,8 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             "codex_intake_ready": False,
             "codex_intake_blocker_count": 0,
             "next_command_label": "review_execution_receipt",
-            "next_command": (
-                "python -m orchestrator.operator_action_audit "
-                "experiments/run --markdown"
-            ),
+            "next_command": home_next_command,
+            "next_command_sha256": sha256_text(home_next_command),
             "next_command_status": "ready_for_operator",
             "next_command_blocked": False,
             "next_command_blocker_count": 0,
@@ -6478,9 +6485,8 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             "post_blocker_count": 0,
             "next_command_source": "operator_digest",
             "next_command_label": "review_cockpit",
-            "next_command": (
-                "python -m orchestrator.experiments cockpit run --markdown"
-            ),
+            "next_command": operator_next_command,
+            "next_command_sha256": sha256_text(operator_next_command),
             "next_command_reason": "review run closeout dashboard",
             "next_command_boundary": "read_only_inspection",
         },
@@ -6563,6 +6569,9 @@ def test_operator_view_refresh_payload_validation_reports_summary_drift(
     home_summary["next_command_blocker_count"] = 1
     home_summary["next_command_first_blocker"] = ""
     home_summary["home_command_sha256"] = "0" * 64
+    home_summary["next_command_sha256"] = "1" * 64
+    operator_summary["next_command_sha256"] = "2" * 64
+    review_summary["next_command_sha256"] = "3" * 64
 
     errors = validate_operator_view_refresh_payload(payload, repo_root=tmp_path)
 
@@ -6590,6 +6599,22 @@ def test_operator_view_refresh_payload_validation_reports_summary_drift(
     assert "operator_view_refresh refresh_effect mismatch" in errors
     assert "operator_view_refresh home_summary first blocker mismatch" in errors
     assert "operator_view_refresh home_summary command sha256 mismatch" in errors
+    assert (
+        "operator_view_refresh home_summary next command sha256 mismatch"
+        in errors
+    )
+    assert (
+        "operator_view_refresh operator_summary next command sha256 mismatch"
+        in errors
+    )
+    assert (
+        "operator_view_refresh review_summary next_command_sha256 mismatch"
+        in errors
+    )
+    assert (
+        "operator_view_refresh review_summary next command sha256 mismatch"
+        in errors
+    )
     assert "operator_view_refresh review_summary mismatch" in errors
     assert (
         "operator_view_refresh review_summary next_command_label mismatch"

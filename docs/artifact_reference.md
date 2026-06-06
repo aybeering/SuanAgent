@@ -816,7 +816,7 @@ post-refresh cockpit freshness, refresh-effect status, operator-review-required
 flag, deterministic review reason codes, refreshed-cockpit operator digest
 headline/priority/target-panel state, digest-backed next-command boundary,
 action execution-readiness status, operator-home navigation status,
-operator-home next-command text, first blocker, and safety flags, Codex
+operator-home next-command text and SHA-256, first blocker, and safety flags, Codex
 unlock-runbook status and command hint, Codex readiness-diff status, Codex
 intake readiness status, blocker delta counts, and per-artifact JSON/Markdown
 output hashes, and still
@@ -827,10 +827,11 @@ The receipt is validated in memory against
 additional deterministic consistency check for refreshed artifact count and
 order, per-artifact file-path bindings, blocker-delta counters, policy-summary
 derivation, refresh-effect derivation, operator-digest command reason binding,
-operator-digest command boundary binding, home-command hint-only binding, and
-copied home and review-summary next command, safety, reason, boundary,
-first-blocker, and post-refresh blocker fields, even though it is not written
-as a new artifact family.
+operator-digest command boundary binding, home-command hint-only binding,
+home-command SHA-256 binding, next-command SHA-256 binding, and copied home and
+review-summary next command, safety, reason, boundary, first-blocker, and
+post-refresh blocker fields, even though it is not written as a new artifact
+family.
 Add `--markdown` to render the same terminal-only receipt as a compact operator
 summary with refreshed artifact paths, hash prefixes, config provenance,
 pre-refresh stale sources, and post-refresh snapshot freshness. The receipt

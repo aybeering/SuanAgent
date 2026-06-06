@@ -4911,6 +4911,7 @@ def operator_view_refresh_summary(cockpit: dict[str, object]) -> dict[str, objec
         "next_command_source": str(next_command.get("source", "")),
         "next_command_label": str(next_command.get("label", "")),
         "next_command": str(next_command.get("command", "")),
+        "next_command_sha256": sha256_text(str(next_command.get("command", ""))),
         "next_command_reason": str(next_command.get("reason", "")),
         "next_command_boundary": str(next_command_boundary.get("boundary_type", "")),
     }
@@ -4961,6 +4962,7 @@ def operator_view_refresh_home_summary(
         ),
         "next_command_label": str(next_command.get("label", "")),
         "next_command": str(next_command.get("command", "")),
+        "next_command_sha256": sha256_text(str(next_command.get("command", ""))),
         "next_command_status": str(action_home.get("next_command_status", "")),
         "next_command_blocked": bool(action_home.get("next_command_blocked", False)),
         "next_command_blocker_count": int(
@@ -5141,6 +5143,10 @@ def operator_view_refresh_review_summary(
     if post_blocker_count:
         reason_codes.append("blockers_present")
     required = bool(reason_codes)
+    next_command_text = str(operator_summary.get("next_command", ""))
+    next_command_sha256 = str(operator_summary.get("next_command_sha256", ""))
+    if not next_command_sha256:
+        next_command_sha256 = sha256_text(next_command_text)
     return {
         "schema_version": "operator_view_refresh_review_summary_v1",
         "required": required,
@@ -5151,7 +5157,8 @@ def operator_view_refresh_review_summary(
         "post_blocker_count": post_blocker_count,
         "next_command_source": str(operator_summary.get("next_command_source", "")),
         "next_command_label": str(operator_summary.get("next_command_label", "")),
-        "next_command": str(operator_summary.get("next_command", "")),
+        "next_command": next_command_text,
+        "next_command_sha256": next_command_sha256,
         "next_command_reason": str(operator_summary.get("next_command_reason", "")),
         "next_command_boundary": str(
             operator_summary.get("next_command_boundary", "")
@@ -5552,6 +5559,12 @@ def validate_operator_view_refresh_consistency(
         str(home_summary.get("home_command", ""))
     ):
         errors.append("operator_view_refresh home_summary command sha256 mismatch")
+    if str(home_summary.get("next_command_sha256", "")) != sha256_text(
+        str(home_summary.get("next_command", ""))
+    ):
+        errors.append(
+            "operator_view_refresh home_summary next command sha256 mismatch"
+        )
     if str(home_summary.get("home_command_boundary", "")) != "read_only_inspection":
         errors.append("operator_view_refresh home_summary boundary mismatch")
     if bool(home_summary.get("home_command_is_hint_only", False)) is not True:
@@ -5641,11 +5654,24 @@ def validate_operator_view_refresh_consistency(
         "next_command_source",
         "next_command_label",
         "next_command",
+        "next_command_sha256",
         "next_command_reason",
         "next_command_boundary",
     ):
         if str(operator_summary.get(key, "")) != str(review_summary.get(key, "")):
             errors.append(f"operator_view_refresh review_summary {key} mismatch")
+    if str(operator_summary.get("next_command_sha256", "")) != sha256_text(
+        str(operator_summary.get("next_command", ""))
+    ):
+        errors.append(
+            "operator_view_refresh operator_summary next command sha256 mismatch"
+        )
+    if str(review_summary.get("next_command_sha256", "")) != sha256_text(
+        str(review_summary.get("next_command", ""))
+    ):
+        errors.append(
+            "operator_view_refresh review_summary next command sha256 mismatch"
+        )
 
     reason_codes = string_payload(review_summary.get("reason_codes", []))
     reason_count = int_value(review_summary.get("reason_count", -1))
@@ -5726,6 +5752,8 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Next command source: `{operator_summary.get('next_command_source', '')}`",
         f"- Next command: `{operator_summary.get('next_command_label', '')}`",
         f"- Next command text: `{operator_summary.get('next_command', '')}`",
+        "- Next command SHA-256: "
+        f"`{operator_summary.get('next_command_sha256', '')}`",
         f"- Next command boundary: `{operator_summary.get('next_command_boundary', '')}`",
         f"- Next command reason: {operator_summary.get('next_command_reason', '')}",
         f"- Home status: `{home_summary.get('status', '')}`",

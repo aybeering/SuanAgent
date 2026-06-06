@@ -249,6 +249,7 @@
         "next_command_source",
         "next_command_label",
         "next_command",
+        "next_command_sha256",
         "next_command_reason",
         "next_command_boundary"
       ],
@@ -326,6 +327,9 @@
           "type": "string"
         },
         "next_command": {
+          "type": "string"
+        },
+        "next_command_sha256": {
           "type": "string"
         },
         "next_command_reason": {
@@ -408,6 +412,7 @@
         "codex_intake_blocker_count",
         "next_command_label",
         "next_command",
+        "next_command_sha256",
         "next_command_status",
         "next_command_blocked",
         "next_command_blocker_count",
@@ -485,6 +490,9 @@
           "type": "string"
         },
         "next_command": {
+          "type": "string"
+        },
+        "next_command_sha256": {
           "type": "string"
         },
         "next_command_status": {
@@ -603,6 +611,7 @@
         "next_command_source",
         "next_command_label",
         "next_command",
+        "next_command_sha256",
         "next_command_reason",
         "next_command_boundary"
       ],
@@ -638,6 +647,9 @@
           "type": "string"
         },
         "next_command": {
+          "type": "string"
+        },
+        "next_command_sha256": {
           "type": "string"
         },
         "next_command_reason": {

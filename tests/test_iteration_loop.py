@@ -4016,6 +4016,13 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
                 "sha256": "stale-cockpit-source",
             },
         },
+        "command_center": [
+            {
+                **pending_home["command_center"][0],
+                "command": "python -m orchestrator.experiments wrong-command",
+            },
+            *pending_home["command_center"][1:],
+        ],
         "authority": {
             **pending_home["authority"],
             "home_can_execute_commands": True,
@@ -4039,6 +4046,9 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     )
     assert "operator_home codex_home intake_ready mismatch" in tampered_home_errors
     assert "operator_home source_views operator_cockpit mismatch" in (
+        tampered_home_errors
+    )
+    assert "operator_home command_center action_next mismatch" in (
         tampered_home_errors
     )
     assert "operator_home authority home_can_execute_commands mismatch" in (

@@ -1301,10 +1301,16 @@ def validate_operator_home_consistency(
     )
     expected_action_home = object_field(expected, "action_home")
     expected_codex_home = object_field(expected, "codex_home")
+    expected_command_center = command_center_by_source(
+        list_of_dicts(expected.get("command_center", []))
+    )
     expected_source_views = object_field(expected, "source_views")
     expected_authority = object_field(expected, "authority")
     expected_policy = object_field(expected, "policy")
     action_home = object_field(payload, "action_home")
+    command_center_payload = command_center_by_source(
+        list_of_dicts(payload.get("command_center", []))
+    )
     source_views_payload = object_field(payload, "source_views")
     authority = object_field(payload, "authority")
     policy = object_field(payload, "policy")
@@ -1358,6 +1364,9 @@ def validate_operator_home_consistency(
     for source_name, expected_record in expected_source_views.items():
         if source_views_payload.get(source_name) != expected_record:
             errors.append(f"operator_home source_views {source_name} mismatch")
+    for source_name, expected_record in expected_command_center.items():
+        if command_center_payload.get(source_name) != expected_record:
+            errors.append(f"operator_home command_center {source_name} mismatch")
     for field_name in (
         "home_can_record_approval",
         "home_can_execute_commands",
@@ -1389,6 +1398,11 @@ def validate_operator_home_consistency(
     if payload_for_compare != expected:
         errors.append("operator_home derived fields mismatch")
     return tuple(errors)
+
+
+def command_center_by_source(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Return command-center rows keyed by their stable source marker."""
+    return {str(row.get("source", "")): row for row in rows}
 
 
 def list_of_dicts(value: object) -> list[dict[str, Any]]:

@@ -424,6 +424,7 @@
       "required": [
         "label",
         "command",
+        "command_sha256",
         "reason",
         "writes_artifact",
         "boundary"
@@ -433,6 +434,9 @@
           "type": "string"
         },
         "command": {
+          "type": "string"
+        },
+        "command_sha256": {
           "type": "string"
         },
         "reason": {

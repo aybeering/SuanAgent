@@ -523,10 +523,10 @@ orchestrator.experiments action-dashboard --latest`, and `action-dashboard
 command counts, audit failure reasons, blockers derived from those reason
 codes, and suggested read-only/guarded commands with explicit boundary
 classification (`read_only_inspection`, `read_only_artifact_refresh`,
-`operator_approval_receipt`, or `guarded_read_only_execution`) without
-recording approval, executing commands, writing config, promoting champions,
-running agents, running backtests, applying patches, routing agents, or
-changing acceptance.
+`operator_approval_receipt`, or `guarded_read_only_execution`) plus SHA-256
+bindings for each recommended command, without recording approval, executing
+commands, writing config, promoting champions, running agents, running
+backtests, applying patches, routing agents, or changing acceptance.
 It also includes an `execution_readiness` summary that binds the current
 action-chain status, first recommended command boundary, required dependency
 artifacts, missing artifacts, blockers, selected-command digest status, and
@@ -546,7 +546,8 @@ read-only policy fields before falling back to the full summary comparison.
 Artifact validation checks dashboard command hints through the shared operator
 command-hint validator for known labels, expected write targets, boundary
 classification, current-step coverage, execution-readiness command binding,
-path-closure completion rules, and simple shell-control-token guards.
+path-closure completion rules, command SHA-256 bindings, and simple
+shell-control-token guards.
 `python -m orchestrator.experiments action-guide <run_id>`, `python -m
 orchestrator.experiments action-guide --latest`, and `python -m
 orchestrator.operator_action_guide experiments/<run_id>` expose a

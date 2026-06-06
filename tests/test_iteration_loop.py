@@ -3819,6 +3819,13 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending["recommended_commands"][0]["boundary"]["boundary_type"] == (
         "read_only_artifact_refresh"
     )
+    assert pending["recommended_commands"][0]["command_sha256"] == sha256_text(
+        pending["recommended_commands"][0]["command"]
+    )
+    assert all(
+        row["command_sha256"] == sha256_text(row["command"])
+        for row in pending["recommended_commands"]
+    )
     assert any(
         row["label"] == "record_operator_approval"
         for row in pending["recommended_commands"]
@@ -4715,6 +4722,10 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert tampered_validation["ok"] is False
     assert (
         "operator_action_dashboard recommended command unsafe token: "
+        f"{tampered_label}"
+    ) in tampered_validation["errors"]
+    assert (
+        "operator_action_dashboard recommended command sha256 mismatch: "
         f"{tampered_label}"
     ) in tampered_validation["errors"]
 

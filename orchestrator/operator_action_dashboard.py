@@ -21,6 +21,7 @@ from orchestrator.operator_action_audit import (
 from orchestrator.operator_command_boundaries import classify_operator_command
 from orchestrator.operator_action_executor import command_is_allowlisted, parse_command
 from orchestrator.operator_action_plan import build_operator_action_plan
+from orchestrator.operator_action_plan import sha256_text
 from orchestrator.schema_validation import validate_json_file, validate_json_payload
 
 
@@ -853,6 +854,7 @@ def command_hint(
     return {
         "label": label,
         "command": command,
+        "command_sha256": sha256_text(command),
         "reason": reason,
         "writes_artifact": writes_artifact,
         "boundary": classify_operator_command(
@@ -1011,7 +1013,8 @@ def render_operator_action_dashboard_markdown(payload: dict[str, object]) -> str
         lines.append(
             f"- `{command.get('label', '')}` "
             f"(`{boundary.get('boundary_type', '')}`): "
-            f"`{command.get('command', '')}`"
+            f"`{command.get('command', '')}` "
+            f"[sha256 `{str(command.get('command_sha256', ''))[:12]}`]"
         )
     lines.extend(
         [
@@ -1139,6 +1142,11 @@ def validate_operator_action_dashboard_consistency(
         )
         if object_field(command, "boundary") != expected_boundary:
             errors.append("operator_action_dashboard command boundary mismatch")
+            break
+        if str(command.get("command_sha256", "")) != sha256_text(
+            str(command.get("command", ""))
+        ):
+            errors.append("operator_action_dashboard command sha256 mismatch")
             break
     expected_readiness = execution_readiness_summary(
         status=status,

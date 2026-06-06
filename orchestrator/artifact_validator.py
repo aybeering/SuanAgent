@@ -8119,6 +8119,13 @@ def validate_recommended_command_hints(
         labels.add(label)
         command = str(row.get("command", ""))
         writes_artifact = row.get(writes_field, "")
+        if "command_sha256" in row and row.get("command_sha256") != sha256_text(
+            command
+        ):
+            add_error(
+                report,
+                f"{artifact_label} {command_noun} sha256 mismatch: {label}",
+            )
         if label not in allowed_writes:
             add_error(report, f"{artifact_label} {command_noun} unknown: {label}")
         elif writes_artifact != allowed_writes[label]:

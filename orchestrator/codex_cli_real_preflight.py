@@ -10,9 +10,12 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from orchestrator.schema_validation import validate_json_file
+
 
 CODEX_CLI_REAL_PREFLIGHT_SCHEMA_VERSION = "codex_cli_real_preflight_v1"
 PREFLIGHT_TIMEOUT_SECONDS = 10
+SCHEMA_PATH = Path("schemas/codex_cli_real_preflight.schema.json")
 
 
 def build_codex_cli_real_preflight(
@@ -128,6 +131,47 @@ def write_codex_cli_real_preflight(
         encoding="utf-8",
     )
     return payload
+
+
+def validate_codex_cli_real_preflight_file(
+    *,
+    payload_path: Path,
+    repo_root: Path = Path("."),
+    schema_path: Path | None = None,
+    require_current_evidence: bool = True,
+) -> tuple[str, ...]:
+    """Validate a saved real preflight against schema and current evidence."""
+    repo_root = repo_root.resolve()
+    schema_errors = tuple(
+        validate_json_file(
+            payload_path=payload_path,
+            schema_path=schema_path or repo_root / SCHEMA_PATH,
+        )
+    )
+    if schema_errors or not require_current_evidence:
+        return schema_errors
+    payload = load_json_object(payload_path)
+    run_dir_value = str(payload.get("run_dir", ""))
+    config_path_value = str(payload.get("config_path", ""))
+    if not run_dir_value:
+        return schema_errors + ("codex_cli_real_preflight run_dir required",)
+    if not config_path_value:
+        return schema_errors + ("codex_cli_real_preflight config_path required",)
+    timeout_seconds = int_value(
+        object_value(payload.get("version_probe", {})).get(
+            "timeout_seconds",
+            PREFLIGHT_TIMEOUT_SECONDS,
+        )
+    )
+    expected = build_codex_cli_real_preflight(
+        run_dir=resolve_path(Path(run_dir_value), repo_root),
+        config_path=resolve_path(Path(config_path_value), repo_root),
+        repo_root=repo_root,
+        timeout_seconds=timeout_seconds or PREFLIGHT_TIMEOUT_SECONDS,
+    )
+    if payload != expected:
+        return schema_errors + ("codex_cli_real_preflight current evidence mismatch",)
+    return schema_errors
 
 
 def probe_codex_version(

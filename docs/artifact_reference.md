@@ -927,11 +927,13 @@ Proposal and intake artifacts:
   artifacts to detect stale saved readiness. Canary gate file validation now
   also exposes stale rows as a current-evidence mismatch. Final unlock gate
   validation is also re-derived from current replay, enablement, manual
-  approval, canary, real-preflight, and dry-invocation evidence. Manual
-  approval validation also replays its saved approval intent against the
-  current enablement gate and candidate config, so stale approval snapshots
-  surface as current-evidence mismatches while keeping the approval artifact
-  non-executing.
+  approval, canary, real-preflight, and dry-invocation evidence. Real preflight
+  file validation re-runs the harmless version probe against the current
+  candidate config, so stale executable or config evidence is surfaced before
+  execution can be unlocked. Manual approval validation also replays its saved
+  approval intent against the current enablement gate and candidate config, so
+  stale approval snapshots surface as current-evidence mismatches while keeping
+  the approval artifact non-executing.
 - `agent_output.json` stores normalized selected proposal data and the
   proposal intent summary used by the round-level agent input. Its selected
   proposal uses `schemas/strategy_proposal.schema.json`.

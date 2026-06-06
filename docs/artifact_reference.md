@@ -1135,7 +1135,9 @@ Replay artifacts:
   receipt artifacts into one read-only digest chain for the run.
   `python -m orchestrator.experiments config-lineage <run_id>` validates schema,
   stage order, stage counts, action flags, current-config summary, status, and
-  optional current artifact evidence before printing JSON or markdown.
+  current artifact evidence before printing JSON or markdown. The saved-file
+  validator reports field-specific drift for current-config fields, stage rows,
+  lineage checks, and read-only policy fields.
 - `experiment_scope_health.json` combines current artifact health,
   artifact-health history, and memory diagnostics for one `--created-at-from`
   scope. It is a read-only status page and marks the scope unhealthy if any

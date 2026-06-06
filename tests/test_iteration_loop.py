@@ -6569,6 +6569,28 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
         config_path=repo / "config/default.json",
         require_current_evidence=True,
     ) == ()
+    lineage_path = run_dir / "config_lineage.json"
+    tampered_lineage_file = json.loads(lineage_path.read_text(encoding="utf-8"))
+    tampered_lineage_file["current_config"]["sha256"] = "bad-digest"
+    tampered_lineage_file["stages"][0]["sha256"] = "bad-digest"
+    tampered_lineage_file["checks"]["current_config_sha256"] = "bad-digest"
+    tampered_lineage_file["policy"]["does_not_write_config"] = False
+    lineage_path.write_text(
+        json.dumps(tampered_lineage_file, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    lineage_file_errors = validate_config_lineage_file(
+        payload_path=lineage_path,
+        repo_root=repo,
+    )
+    assert "config_lineage current_config sha256 mismatch" in lineage_file_errors
+    assert "config_lineage stage 0 sha256 mismatch" in lineage_file_errors
+    assert "config_lineage checks current_config_sha256 mismatch" in lineage_file_errors
+    assert "config_lineage policy does_not_write_config mismatch" in lineage_file_errors
+    lineage_path.write_text(
+        json.dumps(lineage, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     drift_lineage = json.loads(json.dumps(lineage))
     drift_lineage["checks"]["existing_stage_count"] = 99
     drift_lineage_errors = validate_config_lineage_payload(

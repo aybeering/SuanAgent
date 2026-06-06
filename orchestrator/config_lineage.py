@@ -394,11 +394,29 @@ def validate_config_lineage_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved config lineage report."""
-    return tuple(
+    repo_root = infer_repo_root_from_payload_path(payload_path, repo_root)
+    schema_errors = tuple(
         validate_json_file(
             payload_path=payload_path,
             schema_path=repo_root / SCHEMA_PATH,
         )
+    )
+    if schema_errors:
+        return schema_errors
+    payload = load_json_object(payload_path)
+    current_config = object_field(payload, "current_config")
+    config_path = resolve_path(
+        Path(str(current_config.get("path", DEFAULT_CONFIG_PATH))),
+        repo_root,
+    )
+    run_dir = payload_path.resolve().parent
+    return validate_config_lineage_payload(
+        payload,
+        run_id=run_dir.name,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        config_path=config_path,
+        require_current_evidence=True,
     )
 
 
@@ -433,6 +451,15 @@ def validate_config_lineage_payload(
         )
     )
     if require_current_evidence:
+        errors.extend(
+            validate_config_lineage_current_evidence(
+                normalized,
+                run_id=run_id,
+                run_dir=run_dir,
+                repo_root=repo_root,
+                config_path=config_path,
+            )
+        )
         expected = build_config_lineage(
             run_id=run_id,
             run_dir=run_dir,
@@ -496,6 +523,144 @@ def validate_config_lineage_consistency(
     if str(payload.get("status", "")) != expected_status:
         errors.append("config_lineage status mismatch")
     return tuple(errors)
+
+
+def validate_config_lineage_current_evidence(
+    payload: dict[str, object],
+    *,
+    run_id: str,
+    run_dir: Path,
+    repo_root: Path,
+    config_path: Path,
+) -> tuple[str, ...]:
+    """Validate lineage fields against the saved stage artifacts and config."""
+    errors: list[str] = []
+    artifacts = {
+        stage_name: run_dir / filename for stage_name, filename in STAGE_FILES
+    }
+    payloads = {
+        stage_name: load_json_object(path) for stage_name, path in artifacts.items()
+    }
+    expected_current_config = {
+        "path": relative_path(config_path, repo_root),
+        "exists": config_path.exists(),
+        "sha256": file_sha256(config_path),
+    }
+    append_field_mismatches(
+        errors,
+        prefix="config_lineage current_config",
+        payload=object_field(payload, "current_config"),
+        expected=expected_current_config,
+        field_names=tuple(expected_current_config),
+    )
+
+    stages = list_of_objects(payload.get("stages", []))
+    expected_stages = [
+        stage_row(
+            stage_name=stage_name,
+            path=artifacts[stage_name],
+            payload=payloads[stage_name],
+            repo_root=repo_root,
+        )
+        for stage_name, _ in STAGE_FILES
+    ]
+    for index, row in enumerate(stages):
+        expected_row = expected_stages[index] if index < len(expected_stages) else {}
+        append_field_mismatches(
+            errors,
+            prefix=f"config_lineage stage {index}",
+            payload=row,
+            expected=expected_row,
+            field_names=(
+                "stage_name",
+                "artifact_path",
+                "exists",
+                "sha256",
+                "schema_version",
+                "status",
+                "action_succeeded",
+                "config_before_sha256",
+                "config_after_sha256",
+                "blockers",
+                "source_links",
+            ),
+        )
+
+    expected_checks = lineage_checks(
+        run_id=run_id,
+        current_config_path=config_path,
+        artifacts=artifacts,
+        payloads=payloads,
+    )
+    append_field_mismatches(
+        errors,
+        prefix="config_lineage checks",
+        payload=object_field(payload, "checks"),
+        expected=expected_checks,
+        field_names=tuple(expected_checks),
+    )
+    expected_status = lineage_status(payloads)
+    if str(payload.get("status", "")) != expected_status:
+        errors.append("config_lineage source status mismatch")
+    if bool(payload.get("ok", False)) != bool(expected_checks.get("ok", False)):
+        errors.append("config_lineage source ok mismatch")
+
+    expected_policy = {
+        "inspection_only": True,
+        "reads_saved_artifacts_only": True,
+        "does_not_write_config": True,
+        "does_not_delete_memory": True,
+        "does_not_execute_agents": True,
+        "does_not_run_backtests": True,
+        "does_not_route_candidates": True,
+        "does_not_apply_patches": True,
+        "does_not_change_acceptance": True,
+    }
+    append_field_mismatches(
+        errors,
+        prefix="config_lineage policy",
+        payload=object_field(payload, "policy"),
+        expected=expected_policy,
+        field_names=tuple(expected_policy),
+    )
+    return tuple(errors)
+
+
+def append_field_mismatches(
+    errors: list[str],
+    *,
+    prefix: str,
+    payload: dict[str, object],
+    expected: dict[str, object],
+    field_names: tuple[str, ...],
+) -> None:
+    """Append field-specific mismatch messages for comparable objects."""
+    for field_name in field_names:
+        if payload.get(field_name) != expected.get(field_name):
+            errors.append(f"{prefix} {field_name} mismatch")
+
+
+def list_of_objects(value: object) -> list[dict[str, object]]:
+    """Return dictionary rows from an arbitrary JSON value."""
+    if not isinstance(value, list):
+        return []
+    return [row for row in value if isinstance(row, dict)]
+
+
+def infer_repo_root_from_payload_path(payload_path: Path, repo_root: Path) -> Path:
+    """Infer repo root for experiment artifacts when caller passes another cwd."""
+    resolved_payload = payload_path.resolve()
+    resolved_repo = repo_root.resolve()
+    try:
+        resolved_payload.relative_to(resolved_repo)
+        return resolved_repo
+    except ValueError:
+        pass
+    run_dir = resolved_payload.parent
+    experiments_dir = run_dir.parent
+    if experiments_dir.name == "experiments":
+        return experiments_dir.parent
+    return resolved_repo
 
 
 def stage_by_name(

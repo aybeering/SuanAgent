@@ -8,8 +8,11 @@ import json
 from pathlib import Path
 from typing import Any
 
+from orchestrator.schema_validation import validate_json_file
+
 
 CODEX_CLI_ENABLEMENT_GATE_SCHEMA_VERSION = "codex_cli_enablement_gate_v1"
+SCHEMA_PATH = Path("schemas/codex_cli_enablement_gate.schema.json")
 
 
 def build_codex_cli_enablement_gate(
@@ -137,6 +140,40 @@ def write_codex_cli_enablement_gate(
         encoding="utf-8",
     )
     return payload
+
+
+def validate_codex_cli_enablement_gate_file(
+    *,
+    payload_path: Path,
+    repo_root: Path = Path("."),
+    schema_path: Path | None = None,
+    require_current_evidence: bool = True,
+) -> tuple[str, ...]:
+    """Validate a saved Codex CLI enablement gate against schema and evidence."""
+    repo_root = repo_root.resolve()
+    schema_errors = tuple(
+        validate_json_file(
+            payload_path=payload_path,
+            schema_path=schema_path or repo_root / SCHEMA_PATH,
+        )
+    )
+    if schema_errors or not require_current_evidence:
+        return schema_errors
+    payload = load_json_object(payload_path)
+    run_dir_value = str(payload.get("run_dir", ""))
+    config_path_value = str(payload.get("config_path", ""))
+    if not run_dir_value:
+        return schema_errors + ("codex_cli_enablement_gate run_dir required",)
+    if not config_path_value:
+        return schema_errors + ("codex_cli_enablement_gate config_path required",)
+    expected = build_codex_cli_enablement_gate(
+        run_dir=resolve_path(Path(run_dir_value), repo_root),
+        config_path=resolve_path(Path(config_path_value), repo_root),
+        repo_root=repo_root,
+    )
+    if payload != expected:
+        return schema_errors + ("codex_cli_enablement_gate current evidence mismatch",)
+    return schema_errors
 
 
 def enablement_blockers(checks: dict[str, bool]) -> list[str]:

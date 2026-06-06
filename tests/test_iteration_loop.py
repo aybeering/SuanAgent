@@ -63,6 +63,7 @@ from orchestrator.codex_cli_replay_gate import (
 )
 from orchestrator.codex_cli_enablement_gate import (
     CODEX_CLI_ENABLEMENT_GATE_SCHEMA_VERSION,
+    validate_codex_cli_enablement_gate_file,
     write_codex_cli_enablement_gate,
 )
 from orchestrator.codex_cli_manual_approval import (
@@ -18078,11 +18079,24 @@ def test_codex_cli_enablement_gate_detects_replay_gate_sha_drift(
         repo_root=repo,
         config_path=repo / "config/codex_cli_enable_candidate.json",
     )
+    gate_path = run_dir / "codex_cli_enablement_gate.json"
+    assert (
+        validate_codex_cli_enablement_gate_file(
+            payload_path=gate_path,
+            repo_root=repo,
+        )
+        == ()
+    )
     replay_gate_path = run_dir / "codex_cli_replay_gate.json"
     replay_gate_path.write_text(
         replay_gate_path.read_text(encoding="utf-8") + "\n",
         encoding="utf-8",
     )
+
+    assert validate_codex_cli_enablement_gate_file(
+        payload_path=gate_path,
+        repo_root=repo,
+    ) == ("codex_cli_enablement_gate current evidence mismatch",)
 
     validation_report = validate_run_artifacts(
         run_id="codex-enablement-replay-gate-sha-drift",
@@ -18094,6 +18108,10 @@ def test_codex_cli_enablement_gate_detects_replay_gate_sha_drift(
     current_sha = hashlib.sha256(replay_gate_path.read_bytes()).hexdigest()
     assert recorded_sha != current_sha
     assert validation_report["ok"] is False
+    assert (
+        "codex_cli_enablement_gate.json file: "
+        "codex_cli_enablement_gate current evidence mismatch"
+    ) in validation_report["errors"]
     assert (
         "codex_cli_enablement_gate artifact sha mismatch: codex_cli_replay_gate"
         in validation_report["errors"]
@@ -18122,12 +18140,25 @@ def test_codex_cli_enablement_gate_detects_candidate_config_sha_drift(
         repo_root=repo,
         config_path=config_path,
     )
+    gate_path = run_dir / "codex_cli_enablement_gate.json"
+    assert (
+        validate_codex_cli_enablement_gate_file(
+            payload_path=gate_path,
+            repo_root=repo,
+        )
+        == ()
+    )
     candidate_config = json.loads(config_path.read_text(encoding="utf-8"))
     candidate_config["codex_cli"]["timeout_seconds"] = 123
     config_path.write_text(
         json.dumps(candidate_config, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+    assert validate_codex_cli_enablement_gate_file(
+        payload_path=gate_path,
+        repo_root=repo,
+    ) == ("codex_cli_enablement_gate current evidence mismatch",)
 
     validation_report = validate_run_artifacts(
         run_id="codex-enablement-config-sha-drift",
@@ -18139,6 +18170,10 @@ def test_codex_cli_enablement_gate_detects_candidate_config_sha_drift(
     current_sha = hashlib.sha256(config_path.read_bytes()).hexdigest()
     assert recorded_sha != current_sha
     assert validation_report["ok"] is False
+    assert (
+        "codex_cli_enablement_gate.json file: "
+        "codex_cli_enablement_gate current evidence mismatch"
+    ) in validation_report["errors"]
     assert (
         "codex_cli_enablement_gate artifact sha mismatch: candidate_config"
         in validation_report["errors"]

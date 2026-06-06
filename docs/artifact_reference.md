@@ -770,22 +770,24 @@ diff so source hashes bind to the final closeout artifacts;
 `python -m orchestrator.experiments cockpit <run_id>`, `python -m
 orchestrator.experiments cockpit --latest`, and `cockpit --markdown` expose
 panel rows, blockers, primary focus, a deterministic `review_priority`
-navigation object, a first-screen `operator_digest`, and command hints without
-recording approval, executing commands, writing config, promoting champions,
-running agents, running backtests, applying patches, routing agents, or
-changing acceptance. The `review_priority` object chooses the first panel and
-existing saved command hint to inspect from blocker, config lineage, action,
-Codex readiness, challenger, promotion, scope-health, and run-outcome state;
-the digest mirrors that priority plus the recommended command boundary, action
-execution-readiness status, outcome, blocker, config, action,
+navigation object, a first-screen `operator_digest`, and command hints with
+SHA-256 bindings without recording approval, executing commands, writing
+config, promoting champions, running agents, running backtests, applying
+patches, routing agents, or changing acceptance. The `review_priority` object
+chooses the first panel and existing saved command hint to inspect from blocker,
+config lineage, action, Codex readiness, challenger, promotion, scope-health,
+and run-outcome state; the digest mirrors that priority plus the recommended
+command boundary and command SHA-256 binding, action execution-readiness status,
+outcome, blocker, config, action,
 candidate-quality, Codex, and promotion status as a compact read-only header.
 Artifact validation checks cockpit command hints through the shared operator
 command-hint validator for known labels, expected write targets, the required
-`review_cockpit` first command, boundary classification, and simple
-shell-control-token guards. It also cross-checks the `review_priority`
-navigation object against the saved panel row, saved command hint, and command
-boundary so the priority target cannot drift from the cockpit payload it
-summarizes. The cockpit writer itself also validates the operator digest,
+`review_cockpit` first command, command SHA-256 bindings, boundary
+classification, and simple shell-control-token guards. It also cross-checks the
+`review_priority` navigation object against the saved panel row, saved command
+hint, command digest, and command boundary so the priority target cannot drift
+from the cockpit payload it summarizes. The cockpit writer itself also
+validates the operator digest,
 status-derived OK and focus fields, action failure-reason
 summaries,
 `operator_action:<code>` blocker coverage, Codex unlock checklist counts, and

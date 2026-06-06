@@ -24,6 +24,7 @@ from orchestrator.codex_cli_intake_readiness import (
     build_codex_cli_intake_readiness,
     validate_codex_cli_intake_readiness,
 )
+from orchestrator.operator_action_plan import sha256_text
 from orchestrator.schema_validation import validate_json_file, validate_json_payload
 
 
@@ -627,6 +628,9 @@ def cockpit_operator_digest(
             review_priority.get("recommended_command_label", "")
         ),
         "recommended_command": str(review_priority.get("recommended_command", "")),
+        "recommended_command_sha256": str(
+            review_priority.get("recommended_command_sha256", "")
+        ),
         "recommended_command_boundary": object_field(
             review_priority,
             "recommended_command_boundary",
@@ -972,6 +976,7 @@ def cockpit_review_priority(
         "next_step": str(target_panel.get("next_step", "")),
         "recommended_command_label": str(command.get("label", "")),
         "recommended_command": str(command.get("command", "")),
+        "recommended_command_sha256": str(command.get("command_sha256", "")),
         "recommended_command_writes_artifact": str(
             command.get("writes_artifact", "")
         ),
@@ -1307,6 +1312,7 @@ def command_hint(
     return {
         "label": label,
         "command": command,
+        "command_sha256": sha256_text(command),
         "reason": reason,
         "writes_artifact": writes_artifact,
         "boundary": classify_operator_command(
@@ -1425,6 +1431,7 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         f"- Next command: `{digest.get('recommended_command_label', '')}`",
         f"- Command boundary: "
         f"`{object_field(digest, 'recommended_command_boundary').get('boundary_type', '')}`",
+        f"- Command SHA-256: `{digest.get('recommended_command_sha256', '')}`",
         f"- Command hint: `{digest.get('recommended_command', '')}`",
         "",
         "## Review Priority",
@@ -1436,6 +1443,8 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         f"- Target artifact: `{priority.get('target_artifact_path', '')}`",
         f"- Next step: {priority.get('next_step', '')}",
         f"- Recommended command: `{priority.get('recommended_command', '')}`",
+        f"- Recommended command SHA-256: "
+        f"`{priority.get('recommended_command_sha256', '')}`",
         f"- Recommended command boundary: "
         f"`{object_field(priority, 'recommended_command_boundary').get('boundary_type', '')}`",
         "",
@@ -1489,7 +1498,8 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         lines.append(
             f"- `{command.get('label', '')}` "
             f"(`{boundary.get('boundary_type', '')}`): "
-            f"`{command.get('command', '')}`"
+            f"`{command.get('command', '')}` "
+            f"[sha256 `{str(command.get('command_sha256', ''))[:12]}`]"
         )
     checklist = object_field(payload, "codex_unlock_checklist")
     lines.extend(
@@ -1820,6 +1830,10 @@ def validate_operator_cockpit_review_priority_consistency(
             )
 
     command_label = str(priority.get("recommended_command_label", ""))
+    if str(priority.get("recommended_command_sha256", "")) != sha256_text(
+        str(priority.get("recommended_command", ""))
+    ):
+        errors.append("operator_cockpit review_priority command sha256 mismatch")
     command = next(
         (row for row in commands if str(row.get("label", "")) == command_label),
         None,
@@ -1843,6 +1857,11 @@ def validate_operator_cockpit_review_priority_consistency(
                 "reason",
                 "operator_cockpit review_priority command reason mismatch",
             ),
+            (
+                "recommended_command_sha256",
+                "command_sha256",
+                "operator_cockpit review_priority command sha256 mismatch",
+            ),
         ):
             if str(priority.get(priority_key, "")) != str(command.get(command_key, "")):
                 errors.append(error)
@@ -1863,6 +1882,11 @@ def validate_operator_cockpit_review_priority_consistency(
         )
         if object_field(command, "boundary") != expected_boundary:
             errors.append("operator_cockpit command boundary mismatch")
+            break
+        if str(command.get("command_sha256", "")) != sha256_text(
+            str(command.get("command", ""))
+        ):
+            errors.append("operator_cockpit command sha256 mismatch")
             break
 
     return tuple(errors)

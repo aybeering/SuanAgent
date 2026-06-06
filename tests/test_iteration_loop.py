@@ -5192,6 +5192,17 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     }
     assert cockpit["review_priority"]["policy"]["does_not_execute_commands"] is True
     assert cockpit["review_priority"]["policy"]["does_not_change_acceptance"] is True
+    priority_command = next(
+        row
+        for row in cockpit["recommended_commands"]
+        if row["label"] == cockpit["review_priority"]["recommended_command_label"]
+    )
+    assert cockpit["review_priority"]["recommended_command_sha256"] == sha256_text(
+        cockpit["review_priority"]["recommended_command"]
+    )
+    assert cockpit["review_priority"]["recommended_command_sha256"] == (
+        priority_command["command_sha256"]
+    )
     assert cockpit["operator_digest"]["schema_version"] == "operator_digest_v1"
     assert cockpit["operator_digest"]["status"] == cockpit["status"]
     assert cockpit["operator_digest"]["primary_focus"] == cockpit["primary_focus"]
@@ -5216,6 +5227,9 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     )
     assert cockpit["operator_digest"]["recommended_command"] == (
         cockpit["review_priority"]["recommended_command"]
+    )
+    assert cockpit["operator_digest"]["recommended_command_sha256"] == (
+        cockpit["review_priority"]["recommended_command_sha256"]
     )
     assert cockpit["operator_digest"]["recommended_command_boundary"] == (
         cockpit["review_priority"]["recommended_command_boundary"]
@@ -5348,6 +5362,10 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert any(row["panel_id"] == "codex_cli_intake" for row in cockpit["panels"])
     assert any(row["panel_id"] == "candidate_quality" for row in cockpit["panels"])
     assert any(row["label"] == "review_cockpit" for row in cockpit["recommended_commands"])
+    assert all(
+        row["command_sha256"] == sha256_text(row["command"])
+        for row in cockpit["recommended_commands"]
+    )
     assert any(
         row["label"] == "review_run_diagnosis"
         for row in cockpit["recommended_commands"]
@@ -5392,10 +5410,12 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     assert "## Operator Digest" in markdown
     assert "Command hint:" in markdown
     assert "Command boundary:" in markdown
+    assert "Command SHA-256:" in markdown
     assert "Action execution readiness:" in markdown
     assert "Codex CLI unlock runbook:" in markdown
     assert "Codex CLI intake binding:" in markdown
     assert "## Review Priority" in markdown
+    assert "Recommended command SHA-256:" in markdown
     assert "Run outcome: `policy_reject` (`policy_ev_improvement_low`)" in markdown
     assert "# Operator Cockpit" in md_path.read_text(encoding="utf-8")
     assert built["schema_version"] == OPERATOR_COCKPIT_SCHEMA_VERSION
@@ -5552,6 +5572,10 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
         "operator_cockpit review_priority command mismatch"
         in cockpit_consistency_errors
     )
+    assert (
+        "operator_cockpit review_priority command sha256 mismatch"
+        in cockpit_consistency_errors
+    )
 
     json_path.write_text(
         json.dumps(cockpit_with_action_break, indent=2, sort_keys=True) + "\n",
@@ -5596,6 +5620,9 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     )
     assert tampered_validation["ok"] is False
     assert "operator_cockpit recommended command unsafe token: review_cockpit" in (
+        tampered_validation["errors"]
+    )
+    assert "operator_cockpit recommended command sha256 mismatch: review_cockpit" in (
         tampered_validation["errors"]
     )
 

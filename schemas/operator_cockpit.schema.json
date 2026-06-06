@@ -608,6 +608,7 @@
       "required": [
         "label",
         "command",
+        "command_sha256",
         "reason",
         "writes_artifact",
         "boundary"
@@ -617,6 +618,9 @@
           "type": "string"
         },
         "command": {
+          "type": "string"
+        },
+        "command_sha256": {
           "type": "string"
         },
         "reason": {
@@ -721,6 +725,7 @@
         "next_step",
         "recommended_command_label",
         "recommended_command",
+        "recommended_command_sha256",
         "recommended_command_boundary",
         "policy"
       ],
@@ -833,6 +838,9 @@
         "recommended_command": {
           "type": "string"
         },
+        "recommended_command_sha256": {
+          "type": "string"
+        },
         "recommended_command_boundary": {
           "$ref": "#/$defs/command_boundary"
         },
@@ -879,6 +887,7 @@
         "next_step",
         "recommended_command_label",
         "recommended_command",
+        "recommended_command_sha256",
         "recommended_command_writes_artifact",
         "recommended_command_reason",
         "recommended_command_boundary",
@@ -931,6 +940,9 @@
           "type": "string"
         },
         "recommended_command": {
+          "type": "string"
+        },
+        "recommended_command_sha256": {
           "type": "string"
         },
         "recommended_command_writes_artifact": {

@@ -4060,6 +4060,9 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending_home["codex_home"]["runbook_command_sha256"] == sha256_text(
         pending_home["codex_home"]["runbook_command"]
     )
+    assert pending_home["review_priority"]["command_sha256"] == sha256_text(
+        pending_home["review_priority"]["command"]
+    )
     assert pending_home["next_command"]["command_is_hint_only"] is True
     assert pending_home["command_center"][0]["command_sha256"] == sha256_text(
         pending_home["command_center"][0]["command"]
@@ -4071,6 +4074,7 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert "Next command blocked:" in pending_home_markdown
     assert "Next command needs explicit invocation:" in pending_home_markdown
     assert "Next command records approval:" in pending_home_markdown
+    assert "Review priority command SHA-256:" in pending_home_markdown
     assert "## Codex CLI" in pending_home_markdown
     assert "Review command SHA-256:" in pending_home_markdown
     assert "Runbook command SHA-256:" in pending_home_markdown
@@ -4095,6 +4099,10 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
             "intake_ready": not pending_home["codex_home"]["intake_ready"],
             "review_command_sha256": "0" * 64,
             "runbook_command_sha256": "1" * 64,
+        },
+        "review_priority": {
+            **pending_home["review_priority"],
+            "command_sha256": "2" * 64,
         },
         "source_views": {
             **pending_home["source_views"],
@@ -4142,6 +4150,9 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         tampered_home_errors
     )
     assert "operator_home codex_home runbook_command_sha256 mismatch" in (
+        tampered_home_errors
+    )
+    assert "operator_home review_priority command_sha256 mismatch" in (
         tampered_home_errors
     )
     assert "operator_home source_views operator_cockpit mismatch" in (
@@ -4902,6 +4913,9 @@ def test_operator_home_prioritizes_promotion_approval_after_action_path_closes(
     assert home["status"] == "needs_operator_review"
     assert home["action_home"]["guide_status"] == "path_closed"
     assert home["next_command"]["source"] == "review_priority"
+    assert home["review_priority"]["command_sha256"] == sha256_text(
+        home["review_priority"]["command"]
+    )
     assert home["action_home"]["next_command_label"] == "review_promotion_approval"
     assert home["action_home"]["next_command_status"] == "ready_for_operator"
     assert home["action_home"]["next_command_blocked"] is False

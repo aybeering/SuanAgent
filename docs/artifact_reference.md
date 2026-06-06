@@ -634,9 +634,10 @@ Before later operator action approval, execution, audit, or Codex readiness
 artifacts advance the source evidence, the validator also rebuilds the
 terminal-only next-command selector from current run evidence and checks the
 compact `manifest.operator_home` next-command row against it, including command
-text and digest, status, blocker state, boundary, write target, Codex readiness
-statuses, Codex review and unlock-runbook command digests, source-home command
-and digest, and hint-only safety flags. After
+text and digest, status, blocker state, boundary, write target,
+digest-backed review priority, Codex readiness statuses, Codex review and
+unlock-runbook command digests, source-home command and digest, and hint-only
+safety flags. After
 those later artifacts exist, the manifest row remains a closeout-time snapshot;
 the validator still checks its static read-only and hint-only safety fields and
 saved command digest bindings while terminal-only views derive the current next

@@ -190,14 +190,16 @@
         "target_panel",
         "target_panel_title",
         "command_label",
-        "command"
+        "command",
+        "command_sha256"
       ],
       "properties": {
         "priority": {"type": "string"},
         "target_panel": {"type": "string"},
         "target_panel_title": {"type": "string"},
         "command_label": {"type": "string"},
-        "command": {"type": "string"}
+        "command": {"type": "string"},
+        "command_sha256": {"type": "string"}
       }
     },
     "command_row": {

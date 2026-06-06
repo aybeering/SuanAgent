@@ -74,6 +74,7 @@ def build_operator_home(
     codex_home = codex_home_summary(cockpit)
     status = home_status(cockpit=cockpit, guide=guide, blockers=blockers)
     next_command_first_blocker = blockers[0] if blockers else ""
+    review_priority_command = str(priority.get("recommended_command", ""))
     return {
         "schema_version": OPERATOR_HOME_SCHEMA_VERSION,
         "run_id": str(cockpit.get("run_id", run_dir.name)),
@@ -153,7 +154,8 @@ def build_operator_home(
             "target_panel": str(priority.get("target_panel", "")),
             "target_panel_title": str(priority.get("target_panel_title", "")),
             "command_label": str(priority.get("recommended_command_label", "")),
-            "command": str(priority.get("recommended_command", "")),
+            "command": review_priority_command,
+            "command_sha256": sha256_text(review_priority_command),
         },
         "command_center": command_center_rows(
             cockpit=cockpit,
@@ -879,6 +881,7 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
     run_summary = object_field(payload, "run_summary")
     action_home = object_field(payload, "action_home")
     codex_home = object_field(payload, "codex_home")
+    review_priority = object_field(payload, "review_priority")
     lines = [
         "# Operator Home",
         "",
@@ -909,6 +912,8 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
         f"`{action_home.get('next_command_records_operator_approval', False)}`",
         f"- Next command uses guarded executor: "
         f"`{action_home.get('next_command_uses_guarded_executor', False)}`",
+        f"- Review priority command label: `{review_priority.get('command_label', '')}`",
+        f"- Review priority command SHA-256: `{review_priority.get('command_sha256', '')}`",
         f"- Codex intake: `{codex_home.get('intake_readiness_status', '')}`",
         f"- Codex intake ready: `{codex_home.get('intake_ready', False)}`",
         "",
@@ -1320,6 +1325,8 @@ def validate_operator_home_consistency(
     expected_authority = object_field(expected, "authority")
     expected_policy = object_field(expected, "policy")
     action_home = object_field(payload, "action_home")
+    review_priority = object_field(payload, "review_priority")
+    expected_review_priority = object_field(expected, "review_priority")
     command_center_payload = command_center_by_marker(
         list_of_dicts(payload.get("command_center", []))
     )
@@ -1386,6 +1393,20 @@ def validate_operator_home_consistency(
             str(codex_home.get(field_name, ""))
         ):
             errors.append(f"operator_home codex_home {digest_field} mismatch")
+    for field_name in (
+        "priority",
+        "target_panel",
+        "target_panel_title",
+        "command_label",
+        "command",
+        "command_sha256",
+    ):
+        if review_priority.get(field_name) != expected_review_priority.get(field_name):
+            errors.append(f"operator_home review_priority {field_name} mismatch")
+    if str(review_priority.get("command_sha256", "")) != sha256_text(
+        str(review_priority.get("command", ""))
+    ):
+        errors.append("operator_home review_priority command_sha256 mismatch")
     for source_name, expected_record in expected_source_views.items():
         if source_views_payload.get(source_name) != expected_record:
             errors.append(f"operator_home source_views {source_name} mismatch")

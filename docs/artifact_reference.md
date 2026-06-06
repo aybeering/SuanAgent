@@ -576,7 +576,8 @@ action-audit refresh, operator approval, guarded read-only execution, and
 dashboard review. Each guided-path step and command sequence row includes
 command text plus a SHA-256 digest for terminal review, and the schema requires
 the next-command, command-sequence, and guided-path command digests to use 64
-lowercase hexadecimal characters. It never records approval, executes commands,
+lowercase hexadecimal characters, while the source-dashboard file digest must
+be empty or 64-lowercase-hex. It never records approval, executes commands,
 writes config, promotes champions, runs agents, runs backtests, applies
 patches, routes agents, or changes acceptance; all commands remain hints that
 require the dedicated approval, guarded executor, audit, or dashboard commands.

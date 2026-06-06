@@ -4067,6 +4067,13 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     ) == ()
     malformed_digest_guide = {
         **pending_guide,
+        "source_dashboard": {
+            **pending_guide["source_dashboard"],
+            "file": {
+                **pending_guide["source_dashboard"]["file"],
+                "sha256": "bad-source-dashboard-sha",
+            },
+        },
         "next_command": {
             **pending_guide["next_command"],
             "command_sha256": "bad",
@@ -4092,6 +4099,11 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     )
     assert any(
         "command_sequence[0].command_sha256: expected string to match pattern"
+        in str(error)
+        for error in malformed_guide_errors
+    )
+    assert any(
+        "source_dashboard.file.sha256: expected string to match pattern"
         in str(error)
         for error in malformed_guide_errors
     )

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from agents.file_protocol_demo_agent import build_proposal, load_proposal_intent
-from orchestrator.agent_output_intake import proposal_metadata_type_errors
+from orchestrator.agent_output_intake import proposal_from_raw_agent_output
 from orchestrator.proposal import StrategyProposal, validate_proposal_contract
 
 
@@ -77,29 +77,16 @@ def replay_payload_to_strategy_proposal(
 ) -> StrategyProposal:
     """Convert replay JSON into the StrategyProposal contract shape."""
     raw_response = json.dumps(proposal_payload, indent=2, sort_keys=True)
-    raw_patch_diff = proposal_payload.get("patch_diff", "")
-    patch_diff = raw_patch_diff if isinstance(raw_patch_diff, str) else ""
-    contract_errors = list(proposal_metadata_type_errors(proposal_payload))
-    if "patch_diff" in proposal_payload and not isinstance(raw_patch_diff, str):
-        contract_errors.append("patch_diff must be a string")
-    return StrategyProposal(
+    return proposal_from_raw_agent_output(
+        raw_output=raw_response,
+        agent_input=agent_input,
         agent_name=REPLAY_AGENT_NAME,
-        round_index=int(agent_input["round_index"]),
-        target_file=str(agent_input["target_file"]),
-        summary=str(proposal_payload.get("summary", "")),
-        risk_notes=str(proposal_payload.get("risk_notes", "")),
-        expected_metric_change=string_mapping(
-            proposal_payload.get("expected_metric_change", {}),
+        default_summary="Replayed proposal output.",
+        default_risk_notes="Replay validation uses the shared proposal intake path.",
+        default_direction_tag="agent_replay_unknown",
+        default_hypotheses=(
+            "The replayed agent output must satisfy the shared proposal contract.",
         ),
-        raw_response=raw_response,
-        patch_diff=patch_diff,
-        applicable=bool(patch_diff.strip()),
-        direction_tag=str(proposal_payload.get("direction_tag", "")),
-        hypotheses=string_tuple(proposal_payload.get("hypotheses", [])),
-        rejection_reason=(
-            "" if patch_diff.strip() else "replayed proposal did not include patch_diff"
-        ),
-        contract_errors=tuple(contract_errors),
     )
 
 
@@ -134,26 +121,6 @@ def load_json_object(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"Expected JSON object: {path}")
     return payload
-
-
-def string_mapping(value: object) -> dict[str, str]:
-    """Return a string-to-string mapping from arbitrary JSON metadata."""
-    if not isinstance(value, dict):
-        return {}
-    return {
-        key: item
-        for key, item in value.items()
-        if isinstance(key, str) and isinstance(item, str)
-    }
-
-
-def string_tuple(value: object) -> tuple[str, ...]:
-    """Return non-empty string items as a tuple."""
-    if isinstance(value, str):
-        return (value,) if value.strip() else ()
-    if not isinstance(value, list | tuple):
-        return ()
-    return tuple(item for item in value if isinstance(item, str) and item.strip())
 
 
 def main() -> None:

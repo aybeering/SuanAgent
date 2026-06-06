@@ -12,14 +12,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from orchestrator.agent_output_intake import (
-    proposal_from_raw_agent_output,
-    proposal_metadata_type_errors,
-)
-from orchestrator.patch_parser import (
-    PatchParseError,
-    extract_json_object,
-)
+from orchestrator.agent_output_intake import proposal_from_raw_agent_output
 from orchestrator.proposal import StrategyProposal
 from orchestrator.workspace_manager import (
     create_isolated_workspace,
@@ -242,64 +235,6 @@ def proposal_from_codex_output(
             "The parsed patch is intended to improve validation metrics after simulation.",
         ),
     )
-
-
-def extract_proposal_metadata(raw_output: str) -> dict[str, object]:
-    """Return optional structured proposal metadata from Codex output."""
-    try:
-        payload = extract_json_object(raw_output)
-    except PatchParseError:
-        return {}
-    proposal_payload = payload.get("proposal", payload)
-    return proposal_payload if isinstance(proposal_payload, dict) else {}
-
-
-def metadata_patch_diff(metadata: dict[str, object]) -> str:
-    """Return patch_diff from metadata with a trailing newline, if present."""
-    raw_patch_diff = metadata.get("patch_diff", "")
-    if not isinstance(raw_patch_diff, str):
-        return ""
-    patch_diff = raw_patch_diff
-    if not patch_diff.strip():
-        return ""
-    return patch_diff if patch_diff.endswith("\n") else patch_diff + "\n"
-
-
-def metadata_expected_metric_change(metadata: dict[str, object]) -> dict[str, str]:
-    """Return expected metric metadata from parsed proposal JSON."""
-    raw_value = metadata.get("expected_metric_change", {})
-    if not isinstance(raw_value, dict):
-        return {}
-    return {
-        key: value
-        for key, value in raw_value.items()
-        if isinstance(key, str) and isinstance(value, str)
-    }
-
-
-def metadata_hypotheses(
-    metadata: dict[str, object],
-    default: tuple[str, ...],
-) -> tuple[str, ...]:
-    """Return hypotheses from parsed proposal JSON."""
-    raw_value = metadata.get("hypotheses", ())
-    if isinstance(raw_value, str) and raw_value.strip():
-        return (raw_value,)
-    if isinstance(raw_value, list | tuple):
-        hypotheses = tuple(
-            item for item in raw_value if isinstance(item, str) and item.strip()
-        )
-        if hypotheses:
-            return hypotheses
-    return default
-
-
-def metadata_contract_errors(metadata: dict[str, object]) -> tuple[str, ...]:
-    """Return proposal contract errors for parsed metadata types."""
-    errors = list(proposal_metadata_type_errors(metadata))
-    if "patch_diff" in metadata and not isinstance(metadata["patch_diff"], str):
-        errors.append("patch_diff must be a string")
-    return tuple(errors)
 
 
 def workspace_ids_from_report(report_path: Path) -> tuple[str, str]:

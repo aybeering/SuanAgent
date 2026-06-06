@@ -11943,7 +11943,14 @@ pathlib.Path(sys.argv[2]).write_text(json.dumps({
 
     assert proposal["applicable"] is False
     assert proposal["direction_tag"] == "touch_readme"
-    assert proposal["rejection_reason"] == "Patch touches disallowed files: README.md"
+    assert proposal["rejection_reason"] == (
+        "proposal contract invalid: patch_diff target validation failed: "
+        "Patch touches disallowed files: README.md"
+    )
+    assert proposal["contract_errors"] == [
+        "patch_diff target validation failed: "
+        "Patch touches disallowed files: README.md",
+    ]
     assert agent_execution["status"] == "completed"
     assert agent_execution["profile_name"] == "primary"
     assert agent_execution["adapter_name"] == "file_protocol"

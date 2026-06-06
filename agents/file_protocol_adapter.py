@@ -7,19 +7,10 @@ import shutil
 from pathlib import Path
 
 from agents.codex_dry_run_adapter import (
-    extract_proposal_metadata,
-    metadata_contract_errors,
-    metadata_expected_metric_change,
-    metadata_hypotheses,
-    metadata_patch_diff,
     workspace_manifest_output_path,
     workspace_ids_from_report,
 )
-from orchestrator.patch_parser import (
-    PatchParseError,
-    extract_unified_diff,
-    validate_patch_targets,
-)
+from orchestrator.agent_output_intake import proposal_from_raw_agent_output
 from orchestrator.proposal import StrategyProposal
 from orchestrator.agent_contract_runner import (
     AGENT_EXECUTION_SCHEMA_VERSION,
@@ -262,68 +253,22 @@ def proposal_from_file_protocol_output(
 ) -> StrategyProposal:
     """Convert file-protocol output text into a StrategyProposal."""
     target_relative = target_file.relative_to(repo_root)
-    metadata = extract_proposal_metadata(raw_output)
-    contract_errors = metadata_contract_errors(metadata)
-    try:
-        patch_diff = metadata_patch_diff(metadata) or extract_unified_diff(raw_output)
-        validate_patch_targets(patch_diff, target_relative)
-    except PatchParseError as exc:
-        return StrategyProposal(
-            agent_name="file_protocol_agent",
-            round_index=round_index,
-            target_file=str(target_relative),
-            summary=str(
-                metadata.get(
-                    "summary",
-                    "File-protocol output did not contain an applicable patch.",
-                )
-            ),
-            risk_notes=str(
-                metadata.get(
-                    "risk_notes",
-                    "Patch parser rejected the external agent output.",
-                )
-            ),
-            expected_metric_change=metadata_expected_metric_change(metadata),
-            raw_response=raw_output,
-            patch_diff="",
-            applicable=False,
-            direction_tag=str(metadata.get("direction_tag", "file_protocol_unknown")),
-            hypotheses=metadata_hypotheses(
-                metadata,
-                ("The external agent output must include a strategy-file patch.",),
-            ),
-            rejection_reason=str(exc),
-            prompt=str(agent_input_path),
-            command=tuple(command),
-            workspace_path=str(workspace_path),
-            contract_errors=contract_errors,
-        )
-
-    return StrategyProposal(
+    return proposal_from_raw_agent_output(
+        raw_output=raw_output,
+        agent_input={
+            "target_file": str(target_relative),
+            "round_index": round_index,
+        },
         agent_name="file_protocol_agent",
-        round_index=round_index,
-        target_file=str(target_relative),
-        summary=str(
-            metadata.get("summary", "File-protocol agent produced a strategy patch.")
-        ),
-        risk_notes=str(
-            metadata.get("risk_notes", "Patch targets were validated before git apply.")
-        ),
-        expected_metric_change=metadata_expected_metric_change(metadata),
-        raw_response=raw_output,
-        patch_diff=patch_diff,
-        applicable=True,
-        direction_tag=str(metadata.get("direction_tag", "file_protocol_unknown")),
-        hypotheses=metadata_hypotheses(
-            metadata,
-            ("The parsed patch is intended to improve validation metrics.",),
-        ),
-        rejection_reason="",
         prompt=str(agent_input_path),
         command=tuple(command),
         workspace_path=str(workspace_path),
-        contract_errors=contract_errors,
+        default_summary="File-protocol agent produced a strategy patch.",
+        default_risk_notes="Patch targets are checked by the shared proposal intake.",
+        default_direction_tag="file_protocol_unknown",
+        default_hypotheses=(
+            "The parsed patch is intended to improve validation metrics.",
+        ),
     )
 
 

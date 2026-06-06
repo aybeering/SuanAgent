@@ -9621,6 +9621,33 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         experiments_dir=Path.cwd() / "experiments",
         repo_root=Path.cwd(),
     ) == ()
+    malformed_action_plan_digest = {
+        **action_plan,
+        "actions": [
+            {
+                **action_plan["actions"][0],
+                "command_candidates": [
+                    {
+                        **action_plan["actions"][0]["command_candidates"][0],
+                        "command_sha256": "bad-command-sha",
+                    },
+                    *action_plan["actions"][0]["command_candidates"][1:],
+                ],
+            },
+            *action_plan["actions"][1:],
+        ],
+    }
+    malformed_action_plan_digest_errors = validate_operator_action_plan_payload(
+        malformed_action_plan_digest,
+        run_dir=run_dir,
+        experiments_dir=Path.cwd() / "experiments",
+        repo_root=Path.cwd(),
+    )
+    assert any(
+        "actions[0].command_candidates[0].command_sha256: "
+        "expected string to match pattern" in str(error)
+        for error in malformed_action_plan_digest_errors
+    )
     action_plan_validation: dict[str, object] = {
         "run_id": run_id,
         "checked_files": [],

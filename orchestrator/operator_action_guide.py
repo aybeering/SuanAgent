@@ -687,6 +687,11 @@ def validate_operator_action_guide_consistency(
         "policy",
     ):
         errors.append("operator_action_guide guided_path policy mismatch")
+    append_guided_path_step_errors(
+        errors,
+        payload_rows=list_of_dicts(guided_path.get("steps", [])),
+        expected_rows=list_of_dicts(expected_guided_path.get("steps", [])),
+    )
     if guided_path != expected_guided_path:
         errors.append("operator_action_guide guided path mismatch")
     if str(source.get("artifact_name", "")) != "operator_action_dashboard":
@@ -790,6 +795,53 @@ def command_sequence_label_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
     for row in rows:
         label = str(row.get("label", ""))
         counts[label] = counts.get(label, 0) + 1
+    return counts
+
+
+def append_guided_path_step_errors(
+    errors: list[str],
+    *,
+    payload_rows: list[dict[str, Any]],
+    expected_rows: list[dict[str, Any]],
+) -> None:
+    """Append field-specific guided-path step mismatch messages."""
+    payload_by_step = guided_path_steps_by_id(payload_rows)
+    expected_by_step = guided_path_steps_by_id(expected_rows)
+    payload_counts = guided_path_step_counts(payload_rows)
+    expected_counts = guided_path_step_counts(expected_rows)
+    for step_id, expected_row in expected_by_step.items():
+        if payload_by_step.get(step_id) != expected_row:
+            errors.append(f"operator_action_guide guided_path step {step_id} mismatch")
+    for step_id in sorted(set(payload_by_step) - set(expected_by_step)):
+        errors.append(f"operator_action_guide guided_path step {step_id} unexpected")
+    for step_id, step_count in payload_counts.items():
+        if step_count > 1:
+            errors.append(f"operator_action_guide guided_path step {step_id} duplicate")
+    for step_id in sorted(set(expected_by_step) - set(payload_by_step)):
+        errors.append(f"operator_action_guide guided_path step {step_id} missing")
+    for step_id, expected_count in expected_counts.items():
+        if payload_counts.get(step_id, 0) != expected_count:
+            errors.append(
+                f"operator_action_guide guided_path step {step_id} count mismatch"
+            )
+
+
+def guided_path_steps_by_id(
+    rows: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Return guided-path rows keyed by their stable step id."""
+    indexed: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        indexed.setdefault(str(row.get("step_id", "")), row)
+    return indexed
+
+
+def guided_path_step_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    """Return guided-path row counts keyed by their stable step id."""
+    counts: dict[str, int] = {}
+    for row in rows:
+        step_id = str(row.get("step_id", ""))
+        counts[step_id] = counts.get(step_id, 0) + 1
     return counts
 
 

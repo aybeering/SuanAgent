@@ -3889,6 +3889,18 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         "guided_path": {
             **pending_guide["guided_path"],
             "active_step_id": "wrong_step",
+            "steps": [
+                {
+                    **pending_guide["guided_path"]["steps"][0],
+                    "status": "blocked",
+                },
+                {
+                    **pending_guide["guided_path"]["steps"][0],
+                    "step_id": "manual_override",
+                },
+                pending_guide["guided_path"]["steps"][0],
+                *pending_guide["guided_path"]["steps"][1:],
+            ],
         },
         "command_sequence": [
             {
@@ -3928,6 +3940,22 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     )
     assert "operator_action_guide guided_path active_step_id mismatch" in (
         tampered_guide_errors
+    )
+    guide_step_id = str(pending_guide["guided_path"]["steps"][0]["step_id"])
+    assert (
+        f"operator_action_guide guided_path step {guide_step_id} mismatch"
+        in tampered_guide_errors
+    )
+    assert "operator_action_guide guided_path step manual_override unexpected" in (
+        tampered_guide_errors
+    )
+    assert (
+        f"operator_action_guide guided_path step {guide_step_id} duplicate"
+        in tampered_guide_errors
+    )
+    assert (
+        f"operator_action_guide guided_path step {guide_step_id} count mismatch"
+        in tampered_guide_errors
     )
     guide_command_label = str(pending_guide["command_sequence"][0]["label"])
     assert (

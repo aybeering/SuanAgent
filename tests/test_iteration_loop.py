@@ -18222,6 +18222,13 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     assert validate_run_diagnosis_payload(payload=diagnosis, repo_root=repo) == ()
     malformed_digest_diagnosis = {
         **diagnosis,
+        "rounds": [
+            {
+                **diagnosis["rounds"][0],  # type: ignore[index]
+                "patch_sha256": "bad-round-patch-sha",
+            },
+            *diagnosis["rounds"][1:],  # type: ignore[index]
+        ],
         "operator_navigation": {
             **diagnosis["operator_navigation"],  # type: ignore[index]
             "home": {
@@ -18258,6 +18265,10 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     assert any(
         "operator_navigation.next_command.selected_command_sha256: "
         "expected string to match pattern" in str(error)
+        for error in malformed_digest_errors
+    )
+    assert any(
+        "rounds[0].patch_sha256: expected string to match pattern" in str(error)
         for error in malformed_digest_errors
     )
     assert diagnosis["kind"] == "iteration_loop"

@@ -292,7 +292,10 @@
         "selection_rank_order": {"type": "array"},
         "workspace_manifest_present": {"type": "boolean"},
         "workspace_initial_file_count": {"type": "integer"},
-        "patch_sha256": {"type": "string"},
+        "patch_sha256": {
+          "type": "string",
+          "pattern": "^$|^[a-f0-9]{64}$"
+        },
         "selected_role": {"type": "string"},
         "candidate_score": {"type": "number"},
         "candidate_status": {"type": "string"},

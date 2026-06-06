@@ -587,7 +587,10 @@ review before invoking it.
 The command center always includes the selected next command when it differs
 from the action-guide command, so dynamic promotion follow-ups remain visible
 next to the regular cockpit and guide command rows. Each command-center row
-also carries a SHA-256 digest of its command text for terminal review.
+also carries a SHA-256 digest of its command text for terminal review. The
+operator-home schema requires Codex review/runbook command digests, review
+priority command digests, and command-center digests to use 64 lowercase
+hexadecimal characters.
 The home consistency validator reports field-specific drift for the selected
 action step, next-command safety flags, Codex readiness summary, authority
 flags, and read-only policy before falling back to the full derived-payload

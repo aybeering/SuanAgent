@@ -4087,6 +4087,44 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         repo_root=repo,
         require_current_evidence=True,
     ) == ()
+    malformed_digest_home = {
+        **pending_home,
+        "codex_home": {
+            **pending_home["codex_home"],
+            "review_command_sha256": "bad",
+        },
+        "review_priority": {
+            **pending_home["review_priority"],
+            "command_sha256": "bad",
+        },
+        "command_center": [
+            {
+                **pending_home["command_center"][0],
+                "command_sha256": "bad",
+            },
+            *pending_home["command_center"][1:],
+        ],
+    }
+    malformed_home_errors = validate_operator_home_payload(
+        malformed_digest_home,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert any(
+        "review_command_sha256: expected string to match pattern" in str(error)
+        for error in malformed_home_errors
+    )
+    assert any(
+        "review_priority.command_sha256: expected string to match pattern"
+        in str(error)
+        for error in malformed_home_errors
+    )
+    assert any(
+        "command_center[0].command_sha256: expected string to match pattern"
+        in str(error)
+        for error in malformed_home_errors
+    )
     tampered_home = {
         **pending_home,
         "action_home": {

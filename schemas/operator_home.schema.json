@@ -177,10 +177,16 @@
         "next_step": {"type": "string"},
         "review_command_label": {"type": "string"},
         "review_command": {"type": "string"},
-        "review_command_sha256": {"type": "string"},
+        "review_command_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
         "runbook_command_label": {"type": "string"},
         "runbook_command": {"type": "string"},
-        "runbook_command_sha256": {"type": "string"}
+        "runbook_command_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
       }
     },
     "review_priority": {
@@ -199,7 +205,10 @@
         "target_panel_title": {"type": "string"},
         "command_label": {"type": "string"},
         "command": {"type": "string"},
-        "command_sha256": {"type": "string"}
+        "command_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
       }
     },
     "command_row": {
@@ -217,7 +226,10 @@
         "source": {"type": "string"},
         "label": {"type": "string"},
         "command": {"type": "string"},
-        "command_sha256": {"type": "string"},
+        "command_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
         "reason": {"type": "string"},
         "boundary_type": {"type": "string"},
         "command_is_hint_only": {"type": "boolean"}

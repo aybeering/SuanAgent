@@ -4009,6 +4009,13 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
             **pending_home["codex_home"],
             "intake_ready": not pending_home["codex_home"]["intake_ready"],
         },
+        "source_views": {
+            **pending_home["source_views"],
+            "operator_cockpit": {
+                **pending_home["source_views"]["operator_cockpit"],
+                "sha256": "stale-cockpit-source",
+            },
+        },
         "authority": {
             **pending_home["authority"],
             "home_can_execute_commands": True,
@@ -4031,6 +4038,9 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         tampered_home_errors
     )
     assert "operator_home codex_home intake_ready mismatch" in tampered_home_errors
+    assert "operator_home source_views operator_cockpit mismatch" in (
+        tampered_home_errors
+    )
     assert "operator_home authority home_can_execute_commands mismatch" in (
         tampered_home_errors
     )

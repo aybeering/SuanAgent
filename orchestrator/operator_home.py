@@ -1299,9 +1299,11 @@ def validate_operator_home_consistency(
     )
     expected_action_home = object_field(expected, "action_home")
     expected_codex_home = object_field(expected, "codex_home")
+    expected_source_views = object_field(expected, "source_views")
     expected_authority = object_field(expected, "authority")
     expected_policy = object_field(expected, "policy")
     action_home = object_field(payload, "action_home")
+    source_views_payload = object_field(payload, "source_views")
     authority = object_field(payload, "authority")
     policy = object_field(payload, "policy")
     for field_name in (
@@ -1351,6 +1353,9 @@ def validate_operator_home_consistency(
     ):
         if codex_home.get(field_name) != expected_codex_home.get(field_name):
             errors.append(f"operator_home codex_home {field_name} mismatch")
+    for source_name, expected_record in expected_source_views.items():
+        if source_views_payload.get(source_name) != expected_record:
+            errors.append(f"operator_home source_views {source_name} mismatch")
     for field_name in (
         "home_can_record_approval",
         "home_can_execute_commands",

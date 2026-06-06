@@ -2718,6 +2718,52 @@ def test_operator_config_review_records_intent_without_applying_config(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
+    file_drift_review = json.loads(json.dumps(payload))
+    file_drift_review["source"]["file"]["sha256"] = "bad-digest"
+    file_drift_review["candidate_summary"]["candidate_count"] = 45
+    file_drift_review["operator_intent"]["review_recorded"] = True
+    file_drift_review["review_gate"]["config_changes_must_be_manual"] = False
+    file_drift_review["reviewed_changes"][0]["requires_manual_config_edit"] = False
+    file_drift_review["policy"]["does_not_write_config"] = False
+    json_path.write_text(
+        json.dumps(file_drift_review, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    file_drift_review_errors = validate_operator_config_review_file(
+        payload_path=json_path,
+        repo_root=repo,
+    )
+    assert (
+        "operator_config_review source file mismatch" in file_drift_review_errors
+    )
+    assert (
+        "operator_config_review candidate_summary candidate_count mismatch"
+        in file_drift_review_errors
+    )
+    assert (
+        "operator_config_review operator_intent review_recorded mismatch"
+        in file_drift_review_errors
+    )
+    assert (
+        "operator_config_review review_gate config_changes_must_be_manual mismatch"
+        in file_drift_review_errors
+    )
+    assert (
+        f"operator_config_review reviewed_changes {drift_candidate_id} "
+        "requires_manual_config_edit mismatch"
+    ) in file_drift_review_errors
+    assert (
+        "operator_config_review policy does_not_write_config mismatch"
+        in file_drift_review_errors
+    )
+    assert (
+        "operator_config_review current evidence mismatch"
+        in file_drift_review_errors
+    )
+    json_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     dry_json_path, dry_md_path, dry_payload = write_config_application_dry_run(
         run_dir=run_dir,
         repo_root=repo,

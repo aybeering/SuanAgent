@@ -394,17 +394,32 @@ def validate_operator_config_review_file(
     errors = list(
         validate_json_file(
             payload_path=payload_path,
-            schema_path=repo_root / SCHEMA_PATH,
+            schema_path=effective_repo_root / SCHEMA_PATH,
         )
     )
     if payload_path.exists():
+        payload = load_json_object(payload_path)
         errors.extend(
-            validate_operator_config_review_consistency(
-                load_json_object(payload_path),
+            validate_operator_config_review_payload(
+                payload,
                 run_dir=payload_path.parent,
                 repo_root=effective_repo_root,
+                experiments_dir=payload_path.parent.parent,
             )
         )
+        current_errors = validate_operator_config_review_current_evidence(
+            payload,
+            run_dir=payload_path.parent,
+            repo_root=effective_repo_root,
+            experiments_dir=payload_path.parent.parent,
+            operator_id=None,
+            decision=None,
+            confirmation_phrase=None,
+            candidate_ids=None,
+        )
+        errors.extend(current_errors)
+        if current_errors:
+            errors.append("operator_config_review current evidence mismatch")
     return tuple(errors)
 
 
@@ -441,6 +456,17 @@ def validate_operator_config_review_payload(
         )
     )
     if require_current_evidence:
+        current_errors = validate_operator_config_review_current_evidence(
+            normalized,
+            run_dir=run_dir,
+            repo_root=repo_root,
+            experiments_dir=experiments_dir,
+            operator_id=operator_id,
+            decision=decision,
+            confirmation_phrase=confirmation_phrase,
+            candidate_ids=candidate_ids,
+        )
+        errors.extend(current_errors)
         expected = build_operator_config_review(
             run_dir=run_dir,
             repo_root=repo_root,
@@ -452,6 +478,121 @@ def validate_operator_config_review_payload(
         )
         if normalized != expected:
             errors.append("operator_config_review current evidence mismatch")
+    return tuple(errors)
+
+
+def validate_operator_config_review_current_evidence(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    experiments_dir: Path | None = None,
+    operator_id: str | None = DEFAULT_OPERATOR_ID,
+    decision: str | None = "none",
+    confirmation_phrase: str | None = "",
+    candidate_ids: tuple[str, ...] | None = (),
+) -> tuple[str, ...]:
+    """Validate review fields against current candidate artifact evidence."""
+    errors: list[str] = []
+    intent = object_value(payload.get("operator_intent", {}))
+    effective_operator_id = (
+        str(intent.get("operator_id", DEFAULT_OPERATOR_ID))
+        if operator_id is None
+        else operator_id
+    )
+    effective_decision = (
+        str(intent.get("decision_requested", "none")) if decision is None else decision
+    )
+    effective_candidate_ids = (
+        tuple(string_list(intent.get("target_candidate_ids", [])))
+        if candidate_ids is None
+        else candidate_ids
+    )
+    phrase_is_exact = confirmation_phrase is not None
+    if confirmation_phrase is None:
+        effective_confirmation_phrase = (
+            REQUIRED_APPROVAL_PHRASE
+            if bool(intent.get("confirmation_phrase_matches", False))
+            else ""
+        )
+    else:
+        effective_confirmation_phrase = confirmation_phrase
+    expected = build_operator_config_review(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        experiments_dir=experiments_dir,
+        operator_id=effective_operator_id,
+        decision=effective_decision,
+        confirmation_phrase=effective_confirmation_phrase,
+        candidate_ids=effective_candidate_ids,
+    )
+    append_field_mismatches(
+        errors,
+        prefix="operator_config_review",
+        payload=payload,
+        expected=expected,
+        field_names=("run_id", "run_dir", "status", "ok"),
+    )
+    append_field_mismatches(
+        errors,
+        prefix="operator_config_review source",
+        payload=object_value(payload.get("source", {})),
+        expected=object_value(expected.get("source", {})),
+        field_names=("artifact_name", "from_artifact", "file"),
+    )
+    append_field_mismatches(
+        errors,
+        prefix="operator_config_review candidate_summary",
+        payload=object_value(payload.get("candidate_summary", {})),
+        expected=object_value(expected.get("candidate_summary", {})),
+        field_names=tuple(object_value(expected.get("candidate_summary", {}))),
+    )
+    intent_fields = tuple(object_value(expected.get("operator_intent", {})))
+    if not phrase_is_exact:
+        intent_fields = tuple(
+            field_name
+            for field_name in intent_fields
+            if field_name != "provided_confirmation_phrase_hash"
+        )
+    append_field_mismatches(
+        errors,
+        prefix="operator_config_review operator_intent",
+        payload=intent,
+        expected=object_value(expected.get("operator_intent", {})),
+        field_names=intent_fields,
+    )
+    append_field_mismatches(
+        errors,
+        prefix="operator_config_review review_gate",
+        payload=object_value(payload.get("review_gate", {})),
+        expected=object_value(expected.get("review_gate", {})),
+        field_names=tuple(object_value(expected.get("review_gate", {}))),
+    )
+    rows = list_of_objects(payload.get("reviewed_changes", []))
+    expected_rows = list_of_objects(expected.get("reviewed_changes", []))
+    if len(rows) != len(expected_rows):
+        errors.append("operator_config_review reviewed_changes count mismatch")
+    for index, row in enumerate(rows):
+        expected_row = expected_rows[index] if index < len(expected_rows) else {}
+        candidate_id = str(row.get("candidate_id", index))
+        append_field_mismatches(
+            errors,
+            prefix=f"operator_config_review reviewed_changes {candidate_id}",
+            payload=row,
+            expected=expected_row,
+            field_names=tuple(expected_row),
+        )
+    if payload.get("recommended_next_actions") != expected.get(
+        "recommended_next_actions"
+    ):
+        errors.append("operator_config_review next actions mismatch")
+    append_field_mismatches(
+        errors,
+        prefix="operator_config_review policy",
+        payload=object_value(payload.get("policy", {})),
+        expected=object_value(expected.get("policy", {})),
+        field_names=tuple(object_value(expected.get("policy", {}))),
+    )
     return tuple(errors)
 
 

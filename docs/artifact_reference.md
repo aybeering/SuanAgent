@@ -1074,6 +1074,9 @@ Replay artifacts:
   next actions before printing JSON or markdown.
   The consistency validator reports field-specific drift for candidate summary,
   operator intent, review gate, reviewed changes, and read-only policy fields.
+  The saved-file validator also checks current source candidate evidence and
+  reports source-file, summary, intent, gate, row, and policy drift before
+  surfacing a current-evidence mismatch.
 - `config_application_dry_run.json` and `config_application_dry_run.md` preview
   whether approved config candidates still match the current config value and
   are ready for a later manual edit. They remain dry-run only and never edit

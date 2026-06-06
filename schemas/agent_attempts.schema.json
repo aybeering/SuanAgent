@@ -161,7 +161,8 @@
             }
           },
           "patch_sha256": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^$|^[a-f0-9]{64}$"
           },
           "attempt_dir": {
             "type": "string"
@@ -193,7 +194,8 @@
                   "type": "integer"
                 },
                 "sha256": {
-                  "type": "string"
+                  "type": "string",
+                  "pattern": "^$|^[a-f0-9]{64}$"
                 }
               }
             }

@@ -10645,6 +10645,30 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert agent_attempts["attempts"][0]["failure_code"] == "policy_ev_improvement_low"
     assert agent_attempts["attempts"][0]["files"]
+    agent_attempts_schema = json.loads(
+        (Path.cwd() / "schemas/agent_attempts.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    invalid_agent_attempts_digest = json.loads(json.dumps(agent_attempts))
+    invalid_agent_attempts_digest["attempts"][0]["patch_sha256"] = (
+        "bad-attempt-manifest-patch-sha"
+    )
+    invalid_agent_attempts_digest["attempts"][0]["files"][0]["sha256"] = (
+        "bad-attempt-file-sha"
+    )
+    invalid_agent_attempts_digest_errors = validate_json_payload(
+        payload=invalid_agent_attempts_digest,
+        schema=agent_attempts_schema,
+    )
+    assert any(
+        "$.attempts[0].patch_sha256: expected string to match pattern" in error
+        for error in invalid_agent_attempts_digest_errors
+    )
+    assert any(
+        "$.attempts[0].files[0].sha256: expected string to match pattern" in error
+        for error in invalid_agent_attempts_digest_errors
+    )
     assert_matches_schema(round_dir / "agent_selection_report.json", "agent_selection")
     assert agent_selection["schema_version"] == "agent_selection_v1"
     assert agent_selection["selected_attempt_id"] == "attempt_001_primary"

@@ -418,7 +418,9 @@ Codex CLI readiness contracts:
     holdout veto.
 26. Cross-artifact candidate quality checks use `proposal_attempts.json` as the
     round-local source of truth for `candidate_score`, `score_reasons`, and
-    `quality_breakdown` per `attempt_id`. They can reject inconsistent saved
+    `quality_breakdown` per `attempt_id`, while the attempt manifest
+    schema-constrains attempt patch hashes and saved file hashes to
+    empty-or-64-lowercase-hex strings. They can reject inconsistent saved
     artifacts during inspection, but they cannot execute agents, rerun
     backtests, apply patches, or change acceptance.
 27. Candidate challenger reports are read-only comparison summaries. They can

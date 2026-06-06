@@ -519,6 +519,7 @@
         "label",
         "artifact_id",
         "command",
+        "command_sha256",
         "writes_artifacts",
         "executes_codex_cli",
         "requires_explicit_operator_invocation"
@@ -531,6 +532,9 @@
           "type": "string"
         },
         "command": {
+          "type": "string"
+        },
+        "command_sha256": {
           "type": "string"
         },
         "writes_artifacts": {

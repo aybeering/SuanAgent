@@ -676,16 +676,19 @@ recording approval, executing Codex, executing agents, creating workspaces,
 applying patches, routing agents, or changing acceptance. The
 `navigation` section lists expected evidence artifacts, failed evidence groups,
 blocking reason codes, related artifact paths, and command hints that still
-require explicit operator invocation. Artifact validation checks those
+require explicit operator invocation. Those command hints include SHA-256
+bindings for the displayed command text. Artifact validation checks those
 navigation command hints through the shared operator command-hint validator for
-known labels, artifact ids, write flags, command prefixes, and shell-control
-token safety. The checklist writer and terminal view validate saved or derived
-payloads against the schema and deterministic consistency checks before
+known labels, artifact ids, write flags, command SHA-256 bindings, command
+prefixes, and shell-control token safety. The checklist writer and terminal
+view validate saved or derived payloads against the schema and deterministic
+consistency checks before
 returning them, stripping terminal-only metadata before schema checks.
 Those checks include top-level item counts, item-level failed-check and
 blocker-code mappings, navigation blocking counts, primary blocker, expected
-artifact ordering, and command-hint coverage. The saved-file validator also
-rebuilds the checklist from current run evidence and surfaces a
+artifact ordering, command-hint coverage, and command digest bindings. The
+saved-file validator also rebuilds the checklist from current run evidence and
+surfaces a
 current-evidence mismatch when the saved checklist drifts. If real Codex
 execute=true startup preflight is blocked before any round starts, the failed
 run still writes this checklist and

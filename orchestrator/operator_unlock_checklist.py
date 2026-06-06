@@ -18,6 +18,7 @@ from orchestrator.codex_cli_intake_readiness import (
     build_codex_cli_intake_readiness,
     validate_codex_cli_intake_readiness,
 )
+from orchestrator.operator_action_plan import sha256_text
 from orchestrator.schema_validation import validate_json_file, validate_json_payload
 
 
@@ -736,19 +737,23 @@ def command_hints_for_group(
         else artifact_ids_for_group(group_id)
     )
     return [
-        {
-            "label": str(artifact_spec(artifact_id).get("command_label", "")),
-            "artifact_id": artifact_id,
-            "command": command_for_artifact(
-                artifact_id=artifact_id,
-                run_arg=run_arg,
-            ),
-            "writes_artifacts": True,
-            "executes_codex_cli": False,
-            "requires_explicit_operator_invocation": True,
-        }
+        command_hint_for_artifact(artifact_id=artifact_id, run_arg=run_arg)
         for artifact_id in artifact_ids
     ]
+
+
+def command_hint_for_artifact(*, artifact_id: str, run_arg: str) -> dict[str, object]:
+    """Return one non-executing command hint for an expected unlock artifact."""
+    command = command_for_artifact(artifact_id=artifact_id, run_arg=run_arg)
+    return {
+        "label": str(artifact_spec(artifact_id).get("command_label", "")),
+        "artifact_id": artifact_id,
+        "command": command,
+        "command_sha256": sha256_text(command),
+        "writes_artifacts": True,
+        "executes_codex_cli": False,
+        "requires_explicit_operator_invocation": True,
+    }
 
 
 def unique_command_hints(commands: list[dict[str, Any]]) -> list[dict[str, object]]:
@@ -880,7 +885,8 @@ def render_operator_unlock_checklist_markdown(payload: dict[str, object]) -> str
         lines.append("- none")
     for command in commands:
         lines.append(
-            f"- `{command.get('label', '')}`: `{command.get('command', '')}`"
+            f"- `{command.get('label', '')}`: `{command.get('command', '')}` "
+            f"[sha256 `{str(command.get('command_sha256', ''))[:12]}`]"
         )
     lines.extend(
         [
@@ -1024,6 +1030,10 @@ def validate_unlock_item_consistency(item: dict[str, Any]) -> tuple[str, ...]:
     if hint_ids != expected_hint_ids:
         errors.append("operator_unlock_checklist item command hints mismatch")
     for command in command_hints:
+        if str(command.get("command_sha256", "")) != sha256_text(
+            str(command.get("command", ""))
+        ):
+            errors.append("operator_unlock_checklist item command sha256 mismatch")
         if command.get("executes_codex_cli") is not False:
             errors.append("operator_unlock_checklist item command executes codex")
         if command.get("requires_explicit_operator_invocation") is not True:
@@ -1104,6 +1114,14 @@ def validate_unlock_navigation_consistency(
     ]
     if command_labels != expected_command_labels:
         errors.append("operator_unlock_checklist navigation commands mismatch")
+    for command in list_of_dicts(navigation.get("commands", [])):
+        if str(command.get("command_sha256", "")) != sha256_text(
+            str(command.get("command", ""))
+        ):
+            errors.append(
+                "operator_unlock_checklist navigation command sha256 mismatch"
+            )
+            break
     return tuple(errors)
 
 

@@ -22908,6 +22908,8 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
         and item["status"] == "failed"
         and "codex_cli_operator_unlock_request" in item["related_artifacts"]
         and item["command_hints"][0]["executes_codex_cli"] is False
+        and item["command_hints"][0]["command_sha256"]
+        == sha256_text(item["command_hints"][0]["command"])
         for item in blocked_checklist["items"]
     )
     assert blocked_checklist["authority"]["checklist_can_unlock_codex"] is False
@@ -22930,7 +22932,14 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
     assert "codex_cli_operator_unlock_request" in first_blocker["command_hints"][0][
         "command"
     ]
+    assert first_blocker["command_hints"][0]["command_sha256"] == sha256_text(
+        first_blocker["command_hints"][0]["command"]
+    )
     assert full_checklist["navigation"]["commands"][0]["executes_codex_cli"] is False
+    assert all(
+        row["command_sha256"] == sha256_text(row["command"])
+        for row in full_checklist["navigation"]["commands"]
+    )
     assert full_checklist["navigation"]["commands"][0][
         "requires_explicit_operator_invocation"
     ] is True
@@ -22940,6 +22949,7 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
     )
     assert "## Blocking Navigation" in markdown
     assert "## Evidence Artifacts" in markdown
+    assert "[sha256 `" in markdown
     assert "Primary blocker: `primary:operator_unlock_request`" in summary_markdown
     assert "## Codex CLI Unlock Runbook" in summary_markdown
     assert "# Codex CLI Unlock Runbook" in runbook_markdown
@@ -23098,6 +23108,9 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
     )
     assert (
         f"operator_unlock_checklist command unsafe token: {tampered_label}"
+    ) in tampered_validation["errors"]
+    assert (
+        f"operator_unlock_checklist command sha256 mismatch: {tampered_label}"
     ) in tampered_validation["errors"]
 
 

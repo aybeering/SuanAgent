@@ -4926,6 +4926,7 @@ def operator_view_refresh_home_summary(
     codex_home = dict_payload(home.get("codex_home", {}))
     next_command = dict_payload(home.get("next_command", {}))
     next_boundary = dict_payload(next_command.get("boundary", {}))
+    home_command = f"python -m orchestrator.experiments home {run_id} --markdown"
     return {
         "schema_version": "operator_view_refresh_home_summary_v1",
         "status": str(home.get("status", "")),
@@ -4991,9 +4992,8 @@ def operator_view_refresh_home_summary(
             next_command.get("command_is_hint_only", False)
         ),
         "home_command_label": "review_operator_home",
-        "home_command": (
-            f"python -m orchestrator.experiments home {run_id} --markdown"
-        ),
+        "home_command": home_command,
+        "home_command_sha256": sha256_text(home_command),
         "home_command_boundary": "read_only_inspection",
         "home_command_is_hint_only": True,
     }
@@ -5548,6 +5548,10 @@ def validate_operator_view_refresh_consistency(
         errors.append("operator_view_refresh home_summary command label mismatch")
     if str(home_summary.get("home_command", "")) != expected_home_command:
         errors.append("operator_view_refresh home_summary command mismatch")
+    if str(home_summary.get("home_command_sha256", "")) != sha256_text(
+        str(home_summary.get("home_command", ""))
+    ):
+        errors.append("operator_view_refresh home_summary command sha256 mismatch")
     if str(home_summary.get("home_command_boundary", "")) != "read_only_inspection":
         errors.append("operator_view_refresh home_summary boundary mismatch")
     if bool(home_summary.get("home_command_is_hint_only", False)) is not True:
@@ -5727,6 +5731,7 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Home status: `{home_summary.get('status', '')}`",
         f"- Home command: `{home_summary.get('home_command_label', '')}`",
         f"- Home command text: `{home_summary.get('home_command', '')}`",
+        f"- Home command SHA-256: `{home_summary.get('home_command_sha256', '')}`",
         f"- Home Codex unlock runbook: `{home_summary.get('codex_unlock_runbook_status', '')}`",
         f"- Home Codex intake: `{home_summary.get('codex_intake_readiness_status', '')}`",
         f"- Safety policy OK: `{policy_summary.get('ok', False)}`",
@@ -5875,6 +5880,9 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Home command: `{home_summary.get('home_command_label', '')}`"
     )
     lines.append(f"- Home command text: `{home_summary.get('home_command', '')}`")
+    lines.append(
+        f"- Home command SHA-256: `{home_summary.get('home_command_sha256', '')}`"
+    )
     lines.append(
         f"- Home command boundary: `{home_summary.get('home_command_boundary', '')}`"
     )

@@ -5753,6 +5753,9 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert refresh["home_summary"]["home_command"] == (
         f"python -m orchestrator.experiments home {run_id} --markdown"
     )
+    assert refresh["home_summary"]["home_command_sha256"] == sha256_text(
+        refresh["home_summary"]["home_command"]
+    )
     assert refresh["home_summary"]["home_command_boundary"] == "read_only_inspection"
     assert refresh["home_summary"]["home_command_is_hint_only"] is True
     assert refresh["home_summary"]["primary_focus"] == (
@@ -6029,6 +6032,9 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     assert refresh["home_summary"]["home_command"] == (
         f"python -m orchestrator.experiments home {run_id} --markdown"
     )
+    assert refresh["home_summary"]["home_command_sha256"] == sha256_text(
+        refresh["home_summary"]["home_command"]
+    )
     assert refresh["home_summary"]["home_command_is_hint_only"] is True
     assert refresh["home_summary"]["codex_intake_readiness_status"]
     assert "Refresh effect: `refreshed_no_changes`" in refresh_markdown
@@ -6248,6 +6254,7 @@ def _copy_operator_view_refresh_schema(tmp_path: Path) -> None:
 
 def _minimal_operator_view_refresh_payload() -> dict[str, object]:
     refreshed_artifacts = []
+    home_command = "python -m orchestrator.experiments home run --markdown"
     for artifact_name in (
         "operator_action_dashboard",
         "codex_cli_execution_preflight",
@@ -6378,9 +6385,8 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             "next_command_uses_guarded_executor": False,
             "next_command_is_hint_only": True,
             "home_command_label": "review_operator_home",
-            "home_command": (
-                "python -m orchestrator.experiments home run --markdown"
-            ),
+            "home_command": home_command,
+            "home_command_sha256": sha256_text(home_command),
             "home_command_boundary": "read_only_inspection",
             "home_command_is_hint_only": True,
         },
@@ -6502,6 +6508,7 @@ def test_operator_view_refresh_payload_validation_reports_summary_drift(
     home_summary["next_command_blocked"] = True
     home_summary["next_command_blocker_count"] = 1
     home_summary["next_command_first_blocker"] = ""
+    home_summary["home_command_sha256"] = "0" * 64
 
     errors = validate_operator_view_refresh_payload(payload, repo_root=tmp_path)
 
@@ -6528,6 +6535,7 @@ def test_operator_view_refresh_payload_validation_reports_summary_drift(
     assert "operator_view_refresh policy_summary mismatch" in errors
     assert "operator_view_refresh refresh_effect mismatch" in errors
     assert "operator_view_refresh home_summary first blocker mismatch" in errors
+    assert "operator_view_refresh home_summary command sha256 mismatch" in errors
     assert "operator_view_refresh review_summary mismatch" in errors
     assert (
         "operator_view_refresh review_summary next_command_label mismatch"

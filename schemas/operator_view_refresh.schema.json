@@ -422,6 +422,7 @@
         "next_command_is_hint_only",
         "home_command_label",
         "home_command",
+        "home_command_sha256",
         "home_command_boundary",
         "home_command_is_hint_only"
       ],
@@ -526,6 +527,9 @@
           "type": "string"
         },
         "home_command": {
+          "type": "string"
+        },
+        "home_command_sha256": {
           "type": "string"
         },
         "home_command_boundary": {

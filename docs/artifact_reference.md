@@ -319,10 +319,13 @@ saved run artifacts and validated against
 `schemas/run_diagnosis.schema.json` before the file is written or terminal JSON
 is printed. The saved-file validator also rebuilds the diagnosis from current
 run-local artifacts and reports current-evidence drift when the saved diagnosis
-no longer matches those sources. For iteration runs, it includes per-round
-policy results, selected candidates, the best validation round, and the same
-agent-intake summary and run-outcome summary so adapter/proposal and gate
-failures can be grouped without changing acceptance. It also includes an
+no longer matches those sources; the run artifact validator surfaces the same
+drift as a whole-run health warning because later operator artifacts may
+legitimately advance after an earlier diagnosis snapshot. For iteration runs,
+it includes per-round policy results, selected candidates, the best validation
+round, and the same agent-intake summary and run-outcome summary so
+adapter/proposal and gate failures can be grouped without changing acceptance.
+It also includes an
 `operator_navigation` block. Single-run diagnoses mark this navigation
 unavailable. Iteration diagnoses copy the terminal-only operator-home command
 and the narrower next-command selector from `manifest.json`, including the

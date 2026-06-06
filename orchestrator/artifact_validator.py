@@ -6455,11 +6455,22 @@ def validate_optional_diagnosis(
     if not path.exists():
         return
     checked_files(report).append(str(path))
-    for error in validate_json_file(
-        payload_path=path,
-        schema_path=repo_root / "schemas/run_diagnosis.schema.json",
-    ):
+    schema_errors = tuple(
+        validate_json_file(
+            payload_path=path,
+            schema_path=repo_root / "schemas/run_diagnosis.schema.json",
+        )
+    )
+    for error in schema_errors:
         add_error(report, f"diagnosis.json schema: {error}")
+    if not schema_errors:
+        from orchestrator.run_diagnosis import validate_run_diagnosis_file
+
+        for error in validate_run_diagnosis_file(
+            payload_path=path,
+            repo_root=repo_root,
+        ):
+            add_warning(report, f"diagnosis.json file: {error}")
     payload = validate_json_object(path=path, report=report)
     if payload is None:
         return

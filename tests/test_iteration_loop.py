@@ -14698,6 +14698,10 @@ def test_artifact_validator_reports_iteration_diagnosis_summary_drift(
     assert "diagnosis.json completed_rounds mismatch" in report["errors"]
     assert "diagnosis.json final_strategy_commit mismatch" in report["errors"]
     assert "diagnosis.json agent_intake_summary mismatch" in report["errors"]
+    assert (
+        "diagnosis.json file: run_diagnosis current evidence mismatch"
+        in report["warnings"]
+    )
 
 
 def test_artifact_validator_reports_iteration_diagnosis_best_round_drift(

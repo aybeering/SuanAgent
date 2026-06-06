@@ -815,10 +815,12 @@ def command_for_label(
 def command_row(source: str, command: dict[str, Any]) -> dict[str, object]:
     """Return one command-center row."""
     boundary = object_field(command, "boundary")
+    command_text = str(command.get("command", ""))
     return {
         "source": source,
         "label": str(command.get("label", "")),
-        "command": str(command.get("command", "")),
+        "command": command_text,
+        "command_sha256": sha256_text(command_text),
         "reason": str(command.get("reason", "")),
         "boundary_type": str(boundary.get("boundary_type", "")),
         "command_is_hint_only": True,
@@ -947,7 +949,8 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
     for row in list_of_dicts(payload.get("command_center", [])):
         lines.append(
             f"- `{row.get('source', '')}` `{row.get('label', '')}` "
-            f"(`{row.get('boundary_type', '')}`)"
+            f"(`{row.get('boundary_type', '')}`) "
+            f"`{str(row.get('command_sha256', ''))[:12]}`"
         )
     lines.extend(["", "## Blockers", ""])
     blockers = string_list(payload.get("blockers", []))

@@ -202,6 +202,7 @@
         "source",
         "label",
         "command",
+        "command_sha256",
         "reason",
         "boundary_type",
         "command_is_hint_only"
@@ -210,6 +211,7 @@
         "source": {"type": "string"},
         "label": {"type": "string"},
         "command": {"type": "string"},
+        "command_sha256": {"type": "string"},
         "reason": {"type": "string"},
         "boundary_type": {"type": "string"},
         "command_is_hint_only": {"type": "boolean"}

@@ -580,7 +580,8 @@ how many blockers apply, the first blocker identity, and the operator hint to
 review before invoking it.
 The command center always includes the selected next command when it differs
 from the action-guide command, so dynamic promotion follow-ups remain visible
-next to the regular cockpit and guide command rows.
+next to the regular cockpit and guide command rows. Each command-center row
+also carries a SHA-256 digest of its command text for terminal review.
 The home consistency validator reports field-specific drift for the selected
 action step, next-command safety flags, Codex readiness summary, authority
 flags, and read-only policy before falling back to the full derived-payload

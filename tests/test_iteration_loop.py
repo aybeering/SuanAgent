@@ -4037,6 +4037,9 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         pending_cockpit["summary"]["codex_intake_blocker_count"]
     )
     assert pending_home["next_command"]["command_is_hint_only"] is True
+    assert pending_home["command_center"][0]["command_sha256"] == sha256_text(
+        pending_home["command_center"][0]["command"]
+    )
     assert pending_home["authority"]["home_can_execute_commands"] is False
     assert pending_home["policy"]["does_not_execute_commands"] is True
     assert "# Operator Home" in pending_home_markdown
@@ -4076,6 +4079,7 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
             {
                 **pending_home["command_center"][0],
                 "command": "python -m orchestrator.experiments wrong-command",
+                "command_sha256": "0" * 64,
             },
             {
                 **pending_home["command_center"][0],
@@ -4931,6 +4935,9 @@ def test_operator_home_prioritizes_promotion_approval_after_action_path_closes(
     )
     assert approved_center["source"] == "selected_next"
     assert approved_center["boundary_type"] == "guarded_champion_promotion"
+    assert approved_center["command_sha256"] == sha256_text(
+        approved_center["command"]
+    )
     assert approved_next_command["label"] == "promote_approved_candidate"
     assert approved_next_command["boundary_type"] == "guarded_champion_promotion"
     assert approved_next_command["blocked"] is False
@@ -4997,6 +5004,7 @@ def test_operator_home_prioritizes_promotion_approval_after_action_path_closes(
     )
     assert receipt_center["source"] == "selected_next"
     assert receipt_center["boundary_type"] == "read_only_artifact_refresh"
+    assert receipt_center["command_sha256"] == sha256_text(receipt_center["command"])
     assert receipt_next_command["label"] == "review_champion_lineage"
     assert receipt_next_command["blocked"] is False
     assert validate_operator_home_payload(
@@ -5056,6 +5064,7 @@ def test_operator_home_prioritizes_promotion_approval_after_action_path_closes(
     )
     assert lineage_center["source"] == "selected_next"
     assert lineage_center["boundary_type"] == "read_only_inspection"
+    assert lineage_center["command_sha256"] == sha256_text(lineage_center["command"])
     assert lineage_next_command["label"] == "review_champion_status"
     assert lineage_next_command["boundary_type"] == "read_only_inspection"
     assert lineage_next_command["writes_artifact"] == ""

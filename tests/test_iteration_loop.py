@@ -6518,11 +6518,16 @@ def test_operator_view_refresh_validation_binds_file_records_to_disk(
     json_file = first_artifact["json_file"]
     assert isinstance(json_file, dict)
     json_file["sha256"] = "stale-file-record"
+    first_artifact["schema_version"] = "stale_schema_version"
 
     errors = validate_operator_view_refresh_payload(payload, repo_root=repo)
 
     assert (
         "operator_view_refresh refreshed json file record mismatch: "
+        "operator_action_dashboard"
+    ) in errors
+    assert (
+        "operator_view_refresh refreshed schema_version mismatch: "
         "operator_action_dashboard"
     ) in errors
 

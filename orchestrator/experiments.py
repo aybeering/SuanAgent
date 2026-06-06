@@ -5344,6 +5344,22 @@ def validate_operator_view_refresh_file_source_binding(
                     "operator_view_refresh refreshed "
                     f"{label} file record mismatch: {artifact_name}"
                 )
+            if label == "json" and artifact_path.exists():
+                try:
+                    artifact_payload = load_json(artifact_path)
+                except json.JSONDecodeError as exc:
+                    errors.append(
+                        "operator_view_refresh refreshed json schema_version "
+                        f"unavailable: {artifact_name}: {exc}"
+                    )
+                    continue
+                if str(row.get("schema_version", "")) != str(
+                    artifact_payload.get("schema_version", "")
+                ):
+                    errors.append(
+                        "operator_view_refresh refreshed schema_version mismatch: "
+                        f"{artifact_name}"
+                    )
     return tuple(errors)
 
 

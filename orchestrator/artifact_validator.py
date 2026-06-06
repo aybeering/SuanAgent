@@ -10263,11 +10263,16 @@ def validate_optional_codex_cli_manual_approval(
     if not path.exists():
         return
     checked_files(report).append(str(path))
-    validate_contract_file(
-        payload_path=path,
-        schema_path=repo_root / "schemas/codex_cli_manual_approval.schema.json",
-        report=report,
+    from orchestrator.codex_cli_manual_approval import (
+        validate_codex_cli_manual_approval_file,
     )
+
+    for error in validate_codex_cli_manual_approval_file(
+        payload_path=path,
+        repo_root=repo_root,
+        schema_path=repo_root / "schemas/codex_cli_manual_approval.schema.json",
+    ):
+        add_error(report, f"codex_cli_manual_approval.json file: {error}")
     payload = validate_json_object(path=path, report=report)
     if payload is None:
         return

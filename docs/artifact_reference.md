@@ -926,7 +926,10 @@ Proposal and intake artifacts:
   artifact validation re-derives canary gate rows from the current source
   artifacts to detect stale saved readiness. Final unlock gate validation is
   also re-derived from current replay, enablement, manual approval, canary,
-  real-preflight, and dry-invocation evidence.
+  real-preflight, and dry-invocation evidence. Manual approval validation also
+  replays its saved approval intent against the current enablement gate and
+  candidate config, so stale approval snapshots surface as current-evidence
+  mismatches while keeping the approval artifact non-executing.
 - `agent_output.json` stores normalized selected proposal data and the
   proposal intent summary used by the round-level agent input. Its selected
   proposal uses `schemas/strategy_proposal.schema.json`.

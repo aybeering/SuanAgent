@@ -8,11 +8,14 @@ import json
 from pathlib import Path
 from typing import Any
 
+from orchestrator.schema_validation import validate_json_file
+
 
 CODEX_CLI_MANUAL_APPROVAL_SCHEMA_VERSION = "codex_cli_manual_approval_v1"
 REQUIRED_CONFIRMATION_PHRASE = (
     "I approve this Codex CLI candidate for manual enablement"
 )
+SCHEMA_PATH = Path("schemas/codex_cli_manual_approval.schema.json")
 
 
 def build_codex_cli_manual_approval(
@@ -140,6 +143,79 @@ def write_codex_cli_manual_approval(
         encoding="utf-8",
     )
     return payload
+
+
+def validate_codex_cli_manual_approval_file(
+    *,
+    payload_path: Path,
+    repo_root: Path = Path("."),
+    schema_path: Path | None = None,
+    require_current_evidence: bool = True,
+) -> tuple[str, ...]:
+    """Validate a saved manual approval against schema and current evidence."""
+    repo_root = repo_root.resolve()
+    schema_errors = tuple(
+        validate_json_file(
+            payload_path=payload_path,
+            schema_path=schema_path or repo_root / SCHEMA_PATH,
+        )
+    )
+    if schema_errors or not require_current_evidence:
+        return schema_errors
+    payload = load_json_object(payload_path)
+    expected = rebuild_codex_cli_manual_approval_from_payload(
+        payload=payload,
+        repo_root=repo_root,
+    )
+    if "error" in expected:
+        return schema_errors + (str(expected["error"]),)
+    if payload != expected:
+        return schema_errors + ("codex_cli_manual_approval current evidence mismatch",)
+    return schema_errors
+
+
+def rebuild_codex_cli_manual_approval_from_payload(
+    *,
+    payload: dict[str, Any],
+    repo_root: Path,
+) -> dict[str, Any]:
+    """Rebuild a manual approval payload from saved intent and live sources."""
+    run_dir_value = str(payload.get("run_dir", ""))
+    config_path_value = str(payload.get("config_path", ""))
+    if not run_dir_value:
+        return {"error": "codex_cli_manual_approval run_dir required"}
+    if not config_path_value:
+        return {"error": "codex_cli_manual_approval config_path required"}
+    approval = object_value(payload.get("approval", {}))
+    approved = bool(approval.get("approved", False))
+    approved_by = str(approval.get("approved_by", ""))
+    approval_scope = str(approval.get("approval_scope", "manual_enablement_candidate"))
+    confirmation_matches = bool(approval.get("confirmation_phrase_matches", False))
+    provided_hash = str(approval.get("provided_confirmation_phrase_sha256", ""))
+    confirmation_phrase = (
+        REQUIRED_CONFIRMATION_PHRASE if confirmation_matches else ""
+    )
+    expected = build_codex_cli_manual_approval(
+        run_dir=resolve_path(Path(run_dir_value), repo_root),
+        config_path=resolve_path(Path(config_path_value), repo_root),
+        approved=approved,
+        approved_by=approved_by,
+        confirmation_phrase=confirmation_phrase,
+        approval_scope=approval_scope,
+        repo_root=repo_root,
+    )
+    if not confirmation_matches:
+        expected["approval"]["provided_confirmation_phrase_sha256"] = provided_hash
+        expected["approval"]["confirmation_phrase_matches"] = False
+        expected_checks = object_value(expected.get("checks", {}))
+        expected_checks["confirmation_phrase_matches"] = False
+        blocking_reasons = manual_approval_blockers(expected_checks)
+        granted = not blocking_reasons
+        expected["blocking_reasons"] = blocking_reasons
+        expected["ok"] = granted
+        expected["manual_approval_granted"] = granted
+        expected["ready_for_controlled_codex_cli_execution"] = granted
+    return expected
 
 
 def manual_approval_blockers(checks: dict[str, bool]) -> list[str]:

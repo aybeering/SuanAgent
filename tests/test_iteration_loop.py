@@ -69,6 +69,7 @@ from orchestrator.codex_cli_enablement_gate import (
 from orchestrator.codex_cli_manual_approval import (
     CODEX_CLI_MANUAL_APPROVAL_SCHEMA_VERSION,
     REQUIRED_CONFIRMATION_PHRASE,
+    validate_codex_cli_manual_approval_file,
     write_codex_cli_manual_approval,
 )
 from orchestrator.codex_cli_canary_gate import (
@@ -18302,6 +18303,13 @@ def test_codex_cli_manual_approval_grants_after_enablement_gate(
         assert record["bytes"] > 0
         assert len(record["sha256"]) == 64
     assert approval["policy"]["does_not_execute_codex_cli"] is True
+    assert (
+        validate_codex_cli_manual_approval_file(
+            payload_path=run_dir / "codex_cli_manual_approval.json",
+            repo_root=repo,
+        )
+        == ()
+    )
     assert_matches_schema(
         run_dir / "codex_cli_manual_approval.json",
         "codex_cli_manual_approval",
@@ -18348,6 +18356,11 @@ def test_codex_cli_manual_approval_detects_enablement_gate_sha_drift(
         encoding="utf-8",
     )
 
+    assert validate_codex_cli_manual_approval_file(
+        payload_path=run_dir / "codex_cli_manual_approval.json",
+        repo_root=repo,
+    ) == ("codex_cli_manual_approval current evidence mismatch",)
+
     validation_report = validate_run_artifacts(
         run_id="codex-manual-approval-enable-drift",
         experiments_dir=repo / "experiments",
@@ -18358,6 +18371,10 @@ def test_codex_cli_manual_approval_detects_enablement_gate_sha_drift(
     current_sha = hashlib.sha256(enablement_gate_path.read_bytes()).hexdigest()
     assert recorded_sha != current_sha
     assert validation_report["ok"] is False
+    assert (
+        "codex_cli_manual_approval.json file: "
+        "codex_cli_manual_approval current evidence mismatch"
+    ) in validation_report["errors"]
     assert (
         "codex_cli_manual_approval artifact sha mismatch: "
         "codex_cli_enablement_gate"
@@ -18401,6 +18418,11 @@ def test_codex_cli_manual_approval_detects_candidate_config_sha_drift(
         encoding="utf-8",
     )
 
+    assert validate_codex_cli_manual_approval_file(
+        payload_path=run_dir / "codex_cli_manual_approval.json",
+        repo_root=repo,
+    ) == ("codex_cli_manual_approval current evidence mismatch",)
+
     validation_report = validate_run_artifacts(
         run_id="codex-manual-approval-config-drift",
         experiments_dir=repo / "experiments",
@@ -18411,6 +18433,10 @@ def test_codex_cli_manual_approval_detects_candidate_config_sha_drift(
     current_sha = hashlib.sha256(config_path.read_bytes()).hexdigest()
     assert recorded_sha != current_sha
     assert validation_report["ok"] is False
+    assert (
+        "codex_cli_manual_approval.json file: "
+        "codex_cli_manual_approval current evidence mismatch"
+    ) in validation_report["errors"]
     assert (
         "codex_cli_manual_approval artifact sha mismatch: candidate_config"
         in validation_report["errors"]
@@ -18477,6 +18503,13 @@ def test_codex_cli_manual_approval_blocks_bad_confirmation(
     assert approval["checks"]["confirmation_phrase_matches"] is False
     assert cli_result.returncode == 1
     assert cli_payload["manual_approval_granted"] is False
+    assert (
+        validate_codex_cli_manual_approval_file(
+            payload_path=run_dir / "codex_cli_manual_approval.json",
+            repo_root=repo,
+        )
+        == ()
+    )
     assert_matches_schema(
         run_dir / "codex_cli_manual_approval.json",
         "codex_cli_manual_approval",

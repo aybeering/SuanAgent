@@ -531,7 +531,11 @@ def string_mapping(value: object) -> dict[str, str]:
     """Return a string-to-string mapping from JSON metadata."""
     if not isinstance(value, dict):
         return {}
-    return {str(key): str(item) for key, item in value.items()}
+    return {
+        key: item
+        for key, item in value.items()
+        if isinstance(key, str) and isinstance(item, str)
+    }
 
 
 def integer_metadata_value(
@@ -572,11 +576,26 @@ def proposal_metadata_type_errors(metadata: dict[str, object]) -> list[str]:
         dict,
     ):
         errors.append("expected_metric_change must be a mapping")
+    elif isinstance(metadata.get("expected_metric_change"), dict):
+        expected_metric_change = metadata["expected_metric_change"]
+        for key, item in expected_metric_change.items():
+            if not isinstance(key, str) or not key:
+                errors.append(
+                    "expected_metric_change keys must be non-empty strings"
+                )
+                continue
+            if not isinstance(item, str):
+                errors.append(f"expected_metric_change[{key}] must be a string")
     if "hypotheses" in metadata and not isinstance(
         metadata["hypotheses"],
         str | list | tuple,
     ):
         errors.append("hypotheses must be a tuple or list of strings")
+    elif isinstance(metadata.get("hypotheses"), list | tuple):
+        hypotheses = metadata["hypotheses"]
+        for index, item in enumerate(hypotheses, start=1):
+            if not isinstance(item, str):
+                errors.append(f"hypotheses[{index}] must be a string")
     return errors
 
 
@@ -586,7 +605,7 @@ def string_tuple(value: object) -> tuple[str, ...]:
         return (value,) if value.strip() else ()
     if not isinstance(value, list | tuple):
         return ()
-    return tuple(str(item) for item in value if str(item).strip())
+    return tuple(item for item in value if isinstance(item, str) and item.strip())
 
 
 def string_list(value: object) -> list[str]:

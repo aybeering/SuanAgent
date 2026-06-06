@@ -13004,6 +13004,95 @@ def test_agent_output_intake_rejects_non_string_patch_diff(
     )
 
 
+def test_agent_output_intake_rejects_non_string_metadata_values(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="intake-bad-metadata-values",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    round_dir = repo / "experiments/intake-bad-metadata-values/round_001"
+    valid_patch = json.loads(
+        (round_dir / "proposal.json").read_text(encoding="utf-8")
+    )["patch_diff"]
+
+    cases = [
+        (
+            "bad_metric_value",
+            {
+                "expected_metric_change": {"ev": 1},
+                "hypotheses": ["Metric values must stay strings."],
+            },
+            "expected_metric_change_invalid",
+            "expected_metric_change[ev] must be a string",
+        ),
+        (
+            "bad_hypothesis_item",
+            {
+                "expected_metric_change": {"ev": "unknown"},
+                "hypotheses": [123],
+            },
+            "hypotheses_invalid",
+            "hypotheses[1] must be a string",
+        ),
+    ]
+
+    for filename, metadata, expected_failure_code, expected_error in cases:
+        bad_output_path = round_dir / f"{filename}_agent_output.json"
+        bad_output_path.write_text(
+            json.dumps(
+                {
+                    "proposal": {
+                        "protocol_version": "proposal_v1",
+                        "agent_name": f"{filename}_agent",
+                        "round_index": 1,
+                        "target_file": "strategies/current_strategy.py",
+                        "summary": "Metadata fields use strict JSON types.",
+                        "risk_notes": (
+                            "The intake layer must reject coercion-prone values."
+                        ),
+                        "direction_tag": filename,
+                        "patch_diff": valid_patch,
+                        **metadata,
+                    }
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        report = verify_agent_output(
+            agent_input_path=round_dir / "agent_input.json",
+            agent_output_path=bad_output_path,
+            repo_root=repo,
+            output_path=round_dir / f"{filename}_agent_validation.json",
+        )
+        reason_codes = [row["code"] for row in report["reason_codes"]]
+
+        assert report["ok"] is False
+        assert report["failure_code"] == expected_failure_code
+        assert expected_failure_code in reason_codes
+        assert report["proposal_applicable"] is True
+        assert report["checks"]["contract_valid"] is False  # type: ignore[index]
+        assert report["checks"]["git_apply_check"] == (  # type: ignore[index]
+            "skipped_contract_invalid"
+        )
+        assert expected_error in report["proposal"]["contract_errors"]  # type: ignore[index]
+        assert expected_error in report["errors"]  # type: ignore[operator]
+        assert_matches_schema(
+            round_dir / f"{filename}_agent_validation.json",
+            "agent_validation",
+        )
+
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
 def test_agent_output_intake_rejects_oversized_raw_output_without_reading(
     tmp_path: Path,
 ) -> None:

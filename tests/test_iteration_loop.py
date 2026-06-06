@@ -2908,10 +2908,29 @@ def test_operator_action_approval_records_intent_without_executing_command(
 
     tampered_approval = json.loads(json_path.read_text(encoding="utf-8"))
     tampered_approval["selected_command"]["expected_artifact"] = "unexpected.json"
+    tampered_approval["operator_intent"]["approval_recorded"] = False
+    tampered_approval["approval_gate"]["requires_action_plan"] = False
+    tampered_approval["policy"]["does_not_execute_commands"] = False
     json_path.write_text(
         json.dumps(tampered_approval, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    approval_errors = validate_operator_action_approval_file(
+        payload_path=json_path,
+        repo_root=repo,
+    )
+    assert (
+        "operator_action_approval selected_command expected_artifact mismatch"
+    ) in approval_errors
+    assert (
+        "operator_action_approval operator_intent approval_recorded mismatch"
+    ) in approval_errors
+    assert (
+        "operator_action_approval approval_gate requires_action_plan mismatch"
+    ) in approval_errors
+    assert (
+        "operator_action_approval policy does_not_execute_commands mismatch"
+    ) in approval_errors
     approval_validation: dict[str, object] = {
         "run_id": "operator-action-approval",
         "checked_files": [],
@@ -3016,12 +3035,35 @@ def test_operator_action_execution_receipt_runs_only_approved_read_only_commands
 
     receipt_path = run_dir / "operator_action_execution_receipt.json"
     tampered_receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    tampered_receipt["source_approval"]["approval_recorded"] = False
+    tampered_receipt["selected_command"]["expected_artifact"] = "unexpected.json"
+    tampered_receipt["evidence_checks"]["ok"] = False
     tampered_receipt["command_execution"]["command"] += " --markdown"
     tampered_receipt["command_execution"]["argv"].append("--markdown")
+    tampered_receipt["mutation_guard"]["ok"] = False
+    tampered_receipt["policy"]["blocks_backtest_commands"] = False
     receipt_path.write_text(
         json.dumps(tampered_receipt, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    receipt_errors = validate_operator_action_execution_receipt_file(
+        payload_path=receipt_path,
+        repo_root=repo,
+    )
+    assert (
+        "operator_action_execution source_approval approval_recorded mismatch"
+    ) in receipt_errors
+    assert (
+        "operator_action_execution selected_command expected_artifact mismatch"
+    ) in receipt_errors
+    assert "operator_action_execution evidence_checks ok mismatch" in receipt_errors
+    assert (
+        "operator_action_execution command_execution command mismatch"
+    ) in receipt_errors
+    assert "operator_action_execution mutation_guard ok mismatch" in receipt_errors
+    assert (
+        "operator_action_execution policy blocks_backtest_commands mismatch"
+    ) in receipt_errors
     receipt_validation: dict[str, object] = {
         "run_id": run_id,
         "checked_files": [],

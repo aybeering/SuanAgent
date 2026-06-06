@@ -510,6 +510,32 @@ def validate_operator_action_approval_consistency(
     plan_command = find_command(action=plan_action, command_label=command_label)
     expected_selected_action = selected_action_record(plan_action)
     expected_selected_command = selected_command_record(plan_command)
+    append_field_mismatches(
+        errors,
+        prefix="operator_action_approval selected_action",
+        payload=selected_action,
+        expected=expected_selected_action,
+        field_names=("action_id", "action_type", "status", "source_text"),
+    )
+    append_field_mismatches(
+        errors,
+        prefix="operator_action_approval selected_command",
+        payload=selected_command,
+        expected=expected_selected_command,
+        field_names=(
+            "label",
+            "command",
+            "command_sha256",
+            "computed_command_sha256",
+            "command_sha256_matches",
+            "expected_artifact",
+            "writes_repository",
+            "promotes_champion",
+            "runs_backtests",
+            "requires_explicit_operator_invocation",
+            "executed_by_approval",
+        ),
+    )
     if selected_action != expected_selected_action:
         errors.append("operator_action_approval selected action mismatch")
     if selected_command != expected_selected_command:
@@ -563,12 +589,47 @@ def validate_operator_action_approval_consistency(
         approval_recorded=approval_recorded,
         explicit_approval=explicit_approval,
     )
+    expected_intent = {
+        "approval_recorded": approval_recorded,
+        "explicit_approval": explicit_approval,
+        "target_action_id": action_id,
+        "target_command_label": command_label,
+        "required_confirmation_phrase_hash": required_hash,
+        "provided_confirmation_phrase_hash": provided_hash,
+        "confirmation_phrase_matches": bool(
+            provided_hash == required_hash and bool(provided_hash)
+        ),
+    }
+    append_field_mismatches(
+        errors,
+        prefix="operator_action_approval operator_intent",
+        payload=intent,
+        expected=expected_intent,
+        field_names=tuple(expected_intent),
+    )
     if bool(payload.get("ok", False)) != bool(action_plan):
         errors.append("operator_action_approval ok mismatch")
     if str(payload.get("status", "")) != expected_status:
         errors.append("operator_action_approval status mismatch")
     if intent.get("approval_recorded") is not approval_recorded:
         errors.append("operator_action_approval recorded mismatch")
+    expected_gate = {
+        "eligible_for_approval": eligible,
+        "approval_blockers": expected_blockers,
+        "requires_action_plan": True,
+        "requires_known_action_id": True,
+        "requires_known_command_label": True,
+        "requires_explicit_approval_flag": True,
+        "requires_matching_confirmation_phrase": True,
+        "approval_does_not_execute_command": True,
+    }
+    append_field_mismatches(
+        errors,
+        prefix="operator_action_approval approval_gate",
+        payload=gate,
+        expected=expected_gate,
+        field_names=tuple(expected_gate),
+    )
     if gate.get("eligible_for_approval") is not eligible:
         errors.append("operator_action_approval eligibility mismatch")
     if string_list(gate.get("approval_blockers", [])) != expected_blockers:
@@ -596,6 +657,13 @@ def validate_operator_action_approval_consistency(
         "approval_does_not_execute_command": True,
         "command_still_requires_explicit_execution": True,
     }
+    append_field_mismatches(
+        errors,
+        prefix="operator_action_approval policy",
+        payload=policy,
+        expected=expected_policy,
+        field_names=tuple(expected_policy),
+    )
     if policy != expected_policy:
         errors.append("operator_action_approval policy mismatch")
     return tuple(errors)
@@ -652,6 +720,20 @@ def list_of_dicts(value: object) -> list[dict[str, Any]]:
 def string_list(value: object) -> list[str]:
     """Return string rows from a possible list."""
     return [str(item) for item in value] if isinstance(value, list) else []
+
+
+def append_field_mismatches(
+    errors: list[str],
+    *,
+    prefix: str,
+    payload: dict[str, Any],
+    expected: dict[str, object],
+    field_names: tuple[str, ...],
+) -> None:
+    """Append field-specific mismatch messages for comparable objects."""
+    for field_name in field_names:
+        if payload.get(field_name) != expected.get(field_name):
+            errors.append(f"{prefix} {field_name} mismatch")
 
 
 def unique_strings(values: list[str]) -> list[str]:

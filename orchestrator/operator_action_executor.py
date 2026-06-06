@@ -524,12 +524,54 @@ def validate_operator_action_execution_receipt_consistency(
         errors.append("operator_action_execution source artifact mismatch")
     if str(source_file.get("sha256", "")) != file_sha256(approval_path):
         errors.append("operator_action_execution source approval digest mismatch")
+    expected_source = {
+        "artifact_name": "operator_action_approval",
+        "approval_status": str(approval.get("status", "")),
+        "approval_recorded": bool(
+            object_field(approval, "operator_intent").get("approval_recorded", False)
+        ),
+    }
+    append_field_mismatches(
+        errors,
+        prefix="operator_action_execution source_approval",
+        payload=source,
+        expected=expected_source,
+        field_names=("artifact_name", "approval_status", "approval_recorded"),
+    )
     if str(source.get("approval_status", "")) != str(approval.get("status", "")):
         errors.append("operator_action_execution approval status mismatch")
     if bool(source.get("approval_recorded", False)) != bool(
         object_field(approval, "operator_intent").get("approval_recorded", False)
     ):
         errors.append("operator_action_execution approval recorded mismatch")
+    expected_selected_action = object_field(approval, "selected_action")
+    expected_selected_command = object_field(approval, "selected_command")
+    append_field_mismatches(
+        errors,
+        prefix="operator_action_execution selected_action",
+        payload=selected_action,
+        expected=expected_selected_action,
+        field_names=("action_id", "action_type", "status", "source_text"),
+    )
+    append_field_mismatches(
+        errors,
+        prefix="operator_action_execution selected_command",
+        payload=selected_command,
+        expected=expected_selected_command,
+        field_names=(
+            "label",
+            "command",
+            "command_sha256",
+            "computed_command_sha256",
+            "command_sha256_matches",
+            "expected_artifact",
+            "writes_repository",
+            "promotes_champion",
+            "runs_backtests",
+            "requires_explicit_operator_invocation",
+            "executed_by_approval",
+        ),
+    )
     if selected_action != object_field(approval, "selected_action"):
         errors.append("operator_action_execution selected action mismatch")
     if selected_command != object_field(approval, "selected_command"):
@@ -563,10 +605,29 @@ def validate_operator_action_execution_receipt_consistency(
             expected_checks.get("allowed_experiments_subcommands", [])
         ),
     }
+    append_field_mismatches(
+        errors,
+        prefix="operator_action_execution evidence_checks",
+        payload=checks,
+        expected=expected_evidence,
+        field_names=tuple(expected_evidence),
+    )
     if checks != expected_evidence:
         errors.append("operator_action_execution evidence checks mismatch")
 
     command_text = str(selected_command.get("command", ""))
+    expected_execution_fields = {
+        "command": command_text,
+        "argv": parse_command(command_text),
+        "executed": bool(payload.get("executed", False)),
+    }
+    append_field_mismatches(
+        errors,
+        prefix="operator_action_execution command_execution",
+        payload=execution,
+        expected=expected_execution_fields,
+        field_names=tuple(expected_execution_fields),
+    )
     if str(execution.get("command", "")) != command_text:
         errors.append("operator_action_execution command_execution command mismatch")
     if string_list(execution.get("argv", [])) != parse_command(command_text):
@@ -580,6 +641,17 @@ def validate_operator_action_execution_receipt_consistency(
         errors.append("operator_action_execution mutation unchanged mismatch")
     if mutation_guard.get("ok") is not expected_mutation_ok:
         errors.append("operator_action_execution mutation ok mismatch")
+    expected_mutation_guard = {
+        "tracked_status_unchanged": expected_mutation_ok,
+        "ok": expected_mutation_ok,
+    }
+    append_field_mismatches(
+        errors,
+        prefix="operator_action_execution mutation_guard",
+        payload=mutation_guard,
+        expected=expected_mutation_guard,
+        field_names=tuple(expected_mutation_guard),
+    )
 
     expected_status = receipt_status(
         checks_ok=bool(checks.get("ok", False)),
@@ -611,6 +683,13 @@ def validate_operator_action_execution_receipt_consistency(
         "does_not_route_agents": True,
         "does_not_change_acceptance": True,
     }
+    append_field_mismatches(
+        errors,
+        prefix="operator_action_execution policy",
+        payload=policy,
+        expected=expected_policy,
+        field_names=tuple(expected_policy),
+    )
     if policy != expected_policy:
         errors.append("operator_action_execution policy mismatch")
     return tuple(errors)
@@ -742,6 +821,20 @@ def unique_strings(values: list[str]) -> list[str]:
             seen.add(value)
             unique.append(value)
     return unique
+
+
+def append_field_mismatches(
+    errors: list[str],
+    *,
+    prefix: str,
+    payload: dict[str, Any],
+    expected: dict[str, object],
+    field_names: tuple[str, ...],
+) -> None:
+    """Append field-specific mismatch messages for comparable objects."""
+    for field_name in field_names:
+        if payload.get(field_name) != expected.get(field_name):
+            errors.append(f"{prefix} {field_name} mismatch")
 
 
 def resolve_path(path: Path, repo_root: Path) -> Path:

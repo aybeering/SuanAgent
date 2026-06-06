@@ -460,6 +460,9 @@ keeping a valid source digest. The writer and terminal view also validate the
 payload against `schemas/operator_action_approval.schema.json` and check the
 selected action, selected command, confirmation phrase hashes, approval gate,
 status, recommended next actions, and read-only policy before returning.
+Approval consistency validation reports field-specific drift for selected
+action, selected command, operator intent, approval gate, and read-only policy
+fields before the aggregate mismatch messages.
 `python -m orchestrator.experiments action-approval --latest` resolves the
 latest indexed iteration run while preserving optional `--action-id` and
 `--command-label` filters.
@@ -478,6 +481,10 @@ validate the payload against
 `schemas/operator_action_execution_receipt.schema.json` and check source
 approval binding, selected action and command equality, execution command and
 argv, evidence fields, mutation guard, status, and policy before returning.
+Execution receipt consistency validation reports field-specific drift for
+source approval, selected action, selected command, evidence checks, command
+execution, mutation guard, and read-only policy fields before aggregate
+messages.
 `python -m orchestrator.experiments action-execution --latest` resolves the
 latest indexed iteration run and still only reads a saved execution receipt.
 The allowlist includes `python -m orchestrator.experiments quality-trace

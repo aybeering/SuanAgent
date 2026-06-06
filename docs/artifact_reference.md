@@ -890,7 +890,8 @@ Proposal and intake artifacts:
   they can report readiness. Guarded Codex CLI audits also carry
   `preflight_binding`, which binds the saved command digest, workspace prefix,
   strategy-only mutation allowlist, and mutation guard back to the startup
-  `codex_cli_execution_preflight.json` profile.
+  `codex_cli_execution_preflight.json` profile. Local canary and final unlock
+  readiness also require that preflight binding to be blocker-free.
 - `agent_output.json` stores normalized selected proposal data and the
   proposal intent summary used by the round-level agent input. Its selected
   proposal uses `schemas/strategy_proposal.schema.json`.

@@ -74,6 +74,7 @@ def build_codex_cli_execution_unlock_gate(
         run_dir / "codex_cli_dry_invocation_guard.json"
     )
     canary_intake_binding_ready = canary_gate_intake_binding_ready(canary_gate)
+    canary_preflight_binding_ready = canary_gate_preflight_binding_ready(canary_gate)
     config_binding = candidate_config_binding(
         expected_record=artifacts["candidate_config"],
         gate_payloads={
@@ -123,6 +124,7 @@ def build_codex_cli_execution_unlock_gate(
             canary_gate.get("controlled_execution_ready", False)
         ),
         "canary_intake_binding_ready": canary_intake_binding_ready,
+        "canary_preflight_binding_ready": canary_preflight_binding_ready,
         "real_preflight_exists": bool(artifacts["codex_cli_real_preflight"]["exists"]),
         "real_preflight_ok": bool(real_preflight.get("ok", False)),
         "real_codex_cli_ready": bool(real_preflight.get("real_codex_cli_ready", False)),
@@ -215,6 +217,7 @@ def build_codex_cli_execution_unlock_gate(
             "requires_manual_approval": True,
             "requires_controlled_canary": True,
             "requires_canary_intake_binding": True,
+            "requires_canary_preflight_binding": True,
             "requires_real_preflight": True,
             "requires_successful_dry_invocation": True,
             "requires_candidate_config_hash_binding": True,
@@ -329,6 +332,22 @@ def canary_gate_intake_binding_ready(canary_gate: dict[str, Any]) -> bool:
     return True
 
 
+def canary_gate_preflight_binding_ready(canary_gate: dict[str, Any]) -> bool:
+    """Return whether every canary slot proves startup-preflight binding."""
+    slots = canary_gate.get("slots", [])
+    if not isinstance(slots, list) or not slots:
+        return False
+    for slot in slots:
+        if not isinstance(slot, dict):
+            return False
+        requirements = object_value(slot.get("requirements", {}))
+        if not bool(requirements.get("preflight_binding_bound", False)):
+            return False
+        if not bool(requirements.get("preflight_binding_clean", False)):
+            return False
+    return True
+
+
 def unlock_blockers(checks: dict[str, bool]) -> list[str]:
     """Return stable blocker codes for real Codex CLI execution unlock."""
     blockers: list[str] = []
@@ -362,6 +381,7 @@ def unlock_blockers(checks: dict[str, bool]) -> list[str]:
             "canary_controlled_execution_not_ready",
         ),
         ("canary_intake_binding_ready", "canary_intake_binding_not_ready"),
+        ("canary_preflight_binding_ready", "canary_preflight_binding_not_ready"),
         ("real_preflight_exists", "real_preflight_missing"),
         ("real_preflight_ok", "real_preflight_not_ok"),
         ("real_codex_cli_ready", "real_codex_cli_not_ready"),

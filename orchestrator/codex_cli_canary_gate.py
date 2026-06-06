@@ -132,6 +132,7 @@ def build_codex_cli_canary_gate(
             "does_not_change_acceptance": True,
             "requires_guarded_execution_audit": True,
             "requires_intake_binding": True,
+            "requires_preflight_binding": True,
             "requires_quarantine_release": True,
             "requires_deterministic_reject_and_rollback": True,
             "deterministic_code_keeps_acceptance_authority": True,
@@ -189,6 +190,10 @@ def canary_slot(
     mutation_guard = object_value(execution.get("mutation_guard", {}))
     intake_binding = object_value(execution.get("intake_binding", {}))
     intake_binding_blockers = string_list(intake_binding.get("blocking_reasons", []))
+    preflight_binding = object_value(execution.get("preflight_binding", {}))
+    preflight_binding_blockers = string_list(
+        preflight_binding.get("blocking_reasons", [])
+    )
     requirements = {
         "execution_audit_present": bool(execution),
         "runner_is_guarded_codex_cli": str(execution.get("runner_name", ""))
@@ -205,6 +210,8 @@ def canary_slot(
         "mutation_guard_passed": bool(mutation_guard.get("passed", False)),
         "intake_binding_bound": bool(intake_binding.get("bound", False)),
         "intake_binding_clean": not intake_binding_blockers,
+        "preflight_binding_bound": bool(preflight_binding.get("bound", False)),
+        "preflight_binding_clean": not preflight_binding_blockers,
         "proposal_applicable": bool(proposal.get("applicable", False)),
         "proposal_direction_matches": str(proposal.get("direction_tag", ""))
         == expected_direction_tag,
@@ -228,6 +235,8 @@ def canary_slot(
             ("mutation_guard_passed", "mutation_guard_failed"),
             ("intake_binding_bound", "intake_binding_not_bound"),
             ("intake_binding_clean", "intake_binding_has_blockers"),
+            ("preflight_binding_bound", "preflight_binding_not_bound"),
+            ("preflight_binding_clean", "preflight_binding_has_blockers"),
             ("proposal_applicable", "proposal_not_applicable"),
             ("proposal_direction_matches", "proposal_direction_mismatch"),
             ("agent_validation_ok", "agent_validation_failed"),
@@ -257,6 +266,9 @@ def canary_slot(
             "intake_binding_status": str(intake_binding.get("status", "")),
             "intake_binding_bound": bool(intake_binding.get("bound", False)),
             "intake_binding_blocking_reasons": intake_binding_blockers,
+            "preflight_binding_status": str(preflight_binding.get("status", "")),
+            "preflight_binding_bound": bool(preflight_binding.get("bound", False)),
+            "preflight_binding_blocking_reasons": preflight_binding_blockers,
             "quarantine_status": str(quarantine.get("quarantine_status", "")),
             "release_to_apply": bool(quarantine.get("release_to_apply", False)),
             "proposal_direction_tag": str(proposal.get("direction_tag", "")),

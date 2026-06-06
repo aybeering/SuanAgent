@@ -17904,11 +17904,16 @@ def test_codex_cli_canary_config_runs_controlled_execution_gate(
     assert slot["requirements"]["execution_completed"] is True
     assert slot["requirements"]["intake_binding_bound"] is True
     assert slot["requirements"]["intake_binding_clean"] is True
+    assert slot["requirements"]["preflight_binding_bound"] is True
+    assert slot["requirements"]["preflight_binding_clean"] is True
     assert slot["requirements"]["quarantine_released"] is True
     assert slot["requirements"]["decision_rejected"] is True
     assert slot["evidence"]["intake_binding_status"] == "bound"
     assert slot["evidence"]["intake_binding_blocking_reasons"] == []
+    assert slot["evidence"]["preflight_binding_status"] == "bound"
+    assert slot["evidence"]["preflight_binding_blocking_reasons"] == []
     assert gate["policy"]["requires_intake_binding"] is True
+    assert gate["policy"]["requires_preflight_binding"] is True
     assert operator_unlock_view["codex_intake_readiness"]["status"] == "ready"
     assert operator_unlock_view["codex_intake_readiness"]["ready"] is True
     assert operator_unlock_view["codex_intake_readiness"]["source"] == (
@@ -17925,6 +17930,60 @@ def test_codex_cli_canary_config_runs_controlled_execution_gate(
     assert cli_result.returncode == 0, cli_result.stderr
     assert cli_payload["schema_version"] == CODEX_CLI_CANARY_GATE_SCHEMA_VERSION
     assert cli_payload["controlled_execution_ready"] is True
+
+
+def test_codex_cli_canary_gate_blocks_preflight_binding_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_canary.json")
+    run_iteration_loop(
+        run_id="codex-canary-preflight-binding-drift",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/codex-canary-preflight-binding-drift"
+    audit_path = run_dir / "round_001/agent_executions/attempt_001_primary.json"
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    audit["preflight_binding"]["bound"] = False
+    audit["preflight_binding"]["status"] = "mismatch"
+    audit["preflight_binding"]["blocking_reasons"] = [
+        "preflight_binding:workspace_path_under_preflight_prefix"
+    ]
+    audit_path.write_text(
+        json.dumps(audit, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    gate = write_codex_cli_canary_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_canary.json",
+    )
+
+    assert gate["ok"] is False
+    assert gate["controlled_execution_ready"] is False
+    assert gate["checks"]["all_slots_ready"] is False
+    assert "slot_not_ready" in gate["blocking_reasons"]
+    slot = gate["slots"][0]
+    assert slot["ready"] is False
+    assert slot["requirements"]["intake_binding_bound"] is True
+    assert slot["requirements"]["intake_binding_clean"] is True
+    assert slot["requirements"]["preflight_binding_bound"] is False
+    assert slot["requirements"]["preflight_binding_clean"] is False
+    assert slot["blocking_issues"] == [
+        "preflight_binding_not_bound",
+        "preflight_binding_has_blockers",
+    ]
+    assert slot["evidence"]["preflight_binding_status"] == "mismatch"
+    assert slot["evidence"]["preflight_binding_blocking_reasons"] == [
+        "preflight_binding:workspace_path_under_preflight_prefix"
+    ]
+    assert_matches_schema(
+        run_dir / "codex_cli_canary_gate.json",
+        "codex_cli_canary_gate",
+    )
 
 
 def test_artifact_validator_blocks_codex_execution_preflight_mismatch(
@@ -18575,12 +18634,14 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
     assert "dry_invocation_not_executed" in gate["blocking_reasons"]
     assert gate["checks"]["canary_controlled_execution_ready"] is True
     assert gate["checks"]["canary_intake_binding_ready"] is True
+    assert gate["checks"]["canary_preflight_binding_ready"] is True
     assert gate["checks"]["candidate_config_binding_consistent"] is True
     assert gate["checks"]["does_not_execute_codex_cli"] is True
     assert gate["config_binding"]["all_matched"] is True
     assert gate["policy"]["read_only"] is True
     assert gate["policy"]["does_not_apply_patches"] is True
     assert gate["policy"]["requires_canary_intake_binding"] is True
+    assert gate["policy"]["requires_canary_preflight_binding"] is True
     assert gate["policy"]["requires_candidate_config_hash_binding"] is True
     assert snapshot["schema_version"] == CODEX_CLI_EXECUTION_UNLOCK_SNAPSHOT_SCHEMA_VERSION
     assert snapshot["ok"] is True
@@ -18906,10 +18967,12 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert gate["gate_status"]["codex_cli_replay_gate"]["ready"] is True
     assert gate["gate_status"]["codex_cli_dry_invocation_guard"]["ready"] is True
     assert gate["checks"]["canary_intake_binding_ready"] is True
+    assert gate["checks"]["canary_preflight_binding_ready"] is True
     assert gate["config_binding"]["all_matched"] is True
     assert gate["config_binding"]["mismatched_gate_names"] == []
     assert gate["policy"]["does_not_execute_codex_cli"] is True
     assert gate["policy"]["requires_canary_intake_binding"] is True
+    assert gate["policy"]["requires_canary_preflight_binding"] is True
     assert gate["policy"]["requires_successful_dry_invocation"] is True
     assert gate["policy"]["requires_candidate_config_hash_binding"] is True
     assert snapshot["schema_version"] == CODEX_CLI_EXECUTION_UNLOCK_SNAPSHOT_SCHEMA_VERSION
@@ -19077,7 +19140,41 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert cli_result.returncode == 0, cli_result.stderr
     assert cli_payload["real_codex_execution_unlocked"] is True
     canary_gate_path = canary_run_dir / "codex_cli_canary_gate.json"
-    tampered_canary_gate = json.loads(canary_gate_path.read_text(encoding="utf-8"))
+    original_canary_gate = json.loads(canary_gate_path.read_text(encoding="utf-8"))
+    tampered_preflight_gate = json.loads(json.dumps(original_canary_gate))
+    tampered_preflight_gate["slots"][0]["requirements"][
+        "preflight_binding_bound"
+    ] = False
+    canary_gate_path.write_text(
+        json.dumps(tampered_preflight_gate, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    preflight_tampered_gate = write_codex_cli_execution_unlock_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        canary_run_dir=canary_run_dir,
+        output_path=(
+            run_dir / "codex_cli_execution_unlock_gate_tampered_preflight.json"
+        ),
+        markdown_path=(
+            run_dir / "codex_cli_execution_unlock_gate_tampered_preflight.md"
+        ),
+    )
+    assert preflight_tampered_gate["real_codex_execution_unlocked"] is False
+    assert preflight_tampered_gate["checks"]["canary_intake_binding_ready"] is True
+    assert (
+        preflight_tampered_gate["checks"]["canary_preflight_binding_ready"]
+        is False
+    )
+    assert "canary_preflight_binding_not_ready" in preflight_tampered_gate[
+        "blocking_reasons"
+    ]
+    canary_gate_path.write_text(
+        json.dumps(original_canary_gate, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    tampered_canary_gate = json.loads(json.dumps(original_canary_gate))
     tampered_canary_gate["slots"][0]["requirements"]["intake_binding_bound"] = False
     canary_gate_path.write_text(
         json.dumps(tampered_canary_gate, indent=2, sort_keys=True) + "\n",

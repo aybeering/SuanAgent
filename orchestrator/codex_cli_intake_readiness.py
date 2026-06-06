@@ -105,7 +105,7 @@ def readiness_from_unlock_gate(
         next_step=(
             "intake binding evidence is ready for operator review"
             if status == "ready"
-            else "regenerate canary evidence until selected executions have bound, blocker-free intake records"
+            else "regenerate canary evidence until selected executions have bound, blocker-free intake and preflight records"
         ),
     )
 
@@ -144,7 +144,7 @@ def readiness_from_canary_gate(
         next_step=(
             "intake binding evidence is ready for operator review"
             if ready
-            else "inspect canary gate intake-binding slot blockers"
+            else "inspect canary gate intake/preflight-binding slot blockers"
         ),
     )
 
@@ -157,22 +157,32 @@ def canary_slot_summary(canary_gate: dict[str, Any]) -> dict[str, Any]:
     blocked_count = 0
     for slot in slots:
         requirements = object_value(slot.get("requirements", {}))
-        bound = bool(requirements.get("intake_binding_bound", False))
-        clean = bool(requirements.get("intake_binding_clean", False))
-        if bound and clean:
+        intake_bound = bool(requirements.get("intake_binding_bound", False))
+        intake_clean = bool(requirements.get("intake_binding_clean", False))
+        preflight_bound = bool(requirements.get("preflight_binding_bound", False))
+        preflight_clean = bool(requirements.get("preflight_binding_clean", False))
+        if intake_bound and intake_clean and preflight_bound and preflight_clean:
             bound_count += 1
         else:
             blocked_count += 1
             slot_id = str(slot.get("slot_id", ""))
-            if not bound:
+            if not intake_bound:
                 blockers.append(f"{slot_id}:intake_binding_not_bound")
-            if not clean:
+            if not intake_clean:
                 blockers.append(f"{slot_id}:intake_binding_has_blockers")
+            if not preflight_bound:
+                blockers.append(f"{slot_id}:preflight_binding_not_bound")
+            if not preflight_clean:
+                blockers.append(f"{slot_id}:preflight_binding_has_blockers")
         for issue in string_list(slot.get("blocking_issues", [])):
-            if "intake_binding" in issue:
+            if "intake_binding" in issue or "preflight_binding" in issue:
                 blockers.append(f"{slot.get('slot_id', '')}:{issue}")
         evidence = object_value(slot.get("evidence", {}))
         for reason in string_list(evidence.get("intake_binding_blocking_reasons", [])):
+            blockers.append(f"{slot.get('slot_id', '')}:{reason}")
+        for reason in string_list(
+            evidence.get("preflight_binding_blocking_reasons", [])
+        ):
             blockers.append(f"{slot.get('slot_id', '')}:{reason}")
     return {
         "slot_count": len(slots),

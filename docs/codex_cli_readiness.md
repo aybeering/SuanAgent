@@ -164,17 +164,19 @@ python -m orchestrator.iteration_loop --config config/codex_cli_canary.json --ru
 python -m orchestrator.codex_cli_canary_gate experiments/canary-demo --config config/codex_cli_canary.json
 ```
 
-The canary gate requires each selected canary execution audit to have a bound,
-blocker-free `agent_execution.intake_binding`. The final execution unlock gate
-also exposes `canary_intake_binding_ready`, so a future real Codex enablement
-cannot rely on canary subprocess evidence unless that output was normalized
-through the shared proposal-intake path.
+The canary gate requires each selected canary execution audit to have bound,
+blocker-free `agent_execution.intake_binding` and
+`agent_execution.preflight_binding`. The final execution unlock gate exposes
+both `canary_intake_binding_ready` and `canary_preflight_binding_ready`, so a
+future real Codex enablement cannot rely on canary subprocess evidence unless
+that output was normalized through the shared proposal-intake path and stayed
+inside the startup preflight command, workspace, and mutation boundary.
 Operator-facing views now surface the same condition as a shared
 `codex_intake_readiness` block in the unlock checklist, unlock runbook,
 execution readiness diff, cockpit, and terminal-only operator home. It is
 read-only display evidence: `blocked` points to missing or dirty
-selected-attempt intake binding, while `not_available` means no canary or
-unlock evidence exists for that run yet.
+selected-attempt intake or preflight binding, while `not_available` means no
+canary or unlock evidence exists for that run yet.
 
 Run the read-only readiness pipeline:
 

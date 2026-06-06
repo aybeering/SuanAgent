@@ -6825,6 +6825,13 @@ def validate_iteration_diagnosis_operator_navigation(
             report,
             "diagnosis.json operator_navigation next blocker_count mismatch",
         )
+    if str(next_command.get("first_blocker", "")) != str(
+        manifest_home.get("next_command_first_blocker", "")
+    ):
+        add_error(
+            report,
+            "diagnosis.json operator_navigation next first_blocker mismatch",
+        )
     for nav_key, manifest_key in (
         (
             "requires_explicit_operator_invocation",
@@ -6917,6 +6924,11 @@ def validate_unavailable_diagnosis_operator_navigation(
         add_error(
             report,
             "diagnosis.json operator_navigation next blocker_count mismatch",
+        )
+    if str(next_command.get("first_blocker", "")):
+        add_error(
+            report,
+            "diagnosis.json operator_navigation next first_blocker mismatch",
         )
     for key in (
         "requires_explicit_operator_invocation",

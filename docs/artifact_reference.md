@@ -329,8 +329,8 @@ It also includes an
 `operator_navigation` block. Single-run diagnoses mark this navigation
 unavailable. Iteration diagnoses copy the terminal-only operator-home command
 and the narrower next-command selector from `manifest.json`, including the
-selected command, blocked state, blocker count, boundary, write target,
-command SHA-256 bindings, and safety flags. The `--markdown` flag renders the
+selected command, blocked state, blocker count, first blocker, boundary, write
+target, command SHA-256 bindings, and safety flags. The `--markdown` flag renders the
 same diagnosis navigation as a terminal-only human review view with the same
 command digest bindings. These fields are diagnosis hints only; they do not
 create artifacts, record approval, execute commands, write config, promote

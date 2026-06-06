@@ -14664,6 +14664,7 @@ def test_artifact_validator_reports_diagnosis_operator_navigation_drift(
     )
     diagnosis["operator_navigation"]["next_command"]["blocked"] = False
     diagnosis["operator_navigation"]["next_command"]["blocker_count"] = 0
+    diagnosis["operator_navigation"]["next_command"]["first_blocker"] = ""
     diagnosis["operator_navigation"]["next_command"]["writes_artifact"] = ""
     diagnosis["operator_navigation"]["next_command"]["command_is_hint_only"] = False
     diagnosis["operator_navigation"]["policy"]["does_not_execute_commands"] = False
@@ -14707,6 +14708,10 @@ def test_artifact_validator_reports_diagnosis_operator_navigation_drift(
     )
     assert (
         "diagnosis.json operator_navigation next blocker_count mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation next first_blocker mismatch"
         in report["errors"]
     )
     assert (
@@ -17390,6 +17395,9 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
         "blocked_by_home_blockers"
     )
     assert diagnosis["operator_navigation"]["next_command"]["blocked"] is True  # type: ignore[index]
+    assert diagnosis["operator_navigation"]["next_command"]["first_blocker"] == (  # type: ignore[index]
+        manifest["operator_home"]["next_command_first_blocker"]
+    )
     assert diagnosis["operator_navigation"]["next_command"]["boundary"] == (  # type: ignore[index]
         "operator_approval_receipt"
     )

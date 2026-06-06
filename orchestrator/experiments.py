@@ -2949,6 +2949,7 @@ def render_run_diagnosis_markdown(payload: dict[str, object]) -> str:
         f"- Selected writes: `{markdown_cell(next_command.get('writes_artifact', '') or 'none')}`",
         f"- Blocked: `{next_command.get('blocked', False)}` "
         f"({next_command.get('blocker_count', 0)} blocker(s))",
+        f"- First blocker: `{markdown_cell(next_command.get('first_blocker', '') or 'none')}`",
         f"- Operator hint: {markdown_cell(next_command.get('operator_hint', '') or 'none')}",
         f"- Navigation changes acceptance: `{not bool(dict_payload(navigation.get('policy', {})).get('does_not_change_acceptance', True))}`",
         "",

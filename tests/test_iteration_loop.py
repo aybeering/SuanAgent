@@ -6493,6 +6493,40 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
         payload_path=run_dir / "config_application_restore_receipt.json",
         repo_root=repo,
     ) == ()
+    restore_path = run_dir / "config_application_restore_receipt.json"
+    tampered_restore = json.loads(restore_path.read_text(encoding="utf-8"))
+    tampered_restore["config_after_sha256"] = "bad-digest"
+    tampered_restore["restore_gate"]["restore_plan_count"] = 99
+    tampered_restore["restored_changes"][0]["restored_value"] = 999
+    tampered_restore["policy"]["writes_only_config"] = False
+    restore_path.write_text(
+        json.dumps(tampered_restore, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    restore_errors = validate_config_application_restore_receipt_file(
+        payload_path=restore_path,
+        repo_root=repo,
+    )
+    assert (
+        "config_application_restore_receipt source config_after_sha256 mismatch"
+        in restore_errors
+    )
+    assert (
+        "config_application_restore_receipt restore_gate restore_plan_count mismatch"
+        in restore_errors
+    )
+    assert (
+        "config_application_restore_receipt restored_changes 0 "
+        "restored_value mismatch"
+    ) in restore_errors
+    assert (
+        "config_application_restore_receipt policy writes_only_config mismatch"
+        in restore_errors
+    )
+    restore_path.write_text(
+        json.dumps(restore_receipt, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     _, _, lineage = write_config_lineage(
         run_id="config-apply-approved",
         experiments_dir=repo / "experiments",

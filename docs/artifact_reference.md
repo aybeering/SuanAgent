@@ -1116,6 +1116,9 @@ Replay artifacts:
   restore-config-approved <run_id>` and `python -m orchestrator.experiments
   restore-config-approved <run_id> --markdown` write the guarded receipt and
   print JSON or markdown while preserving blocked attempts as non-zero exits.
+  The receipt validator reports field-specific drift for source preview and
+  receipt hashes, restore gate fields, restored-change rows, and guarded write
+  policy fields.
 - `config_operator_runbook.json` and `config_operator_runbook.md` summarize the
   config candidate, operator review, application dry-run, guarded apply,
   rollback preview, guarded restore, and lineage chain into one ordered

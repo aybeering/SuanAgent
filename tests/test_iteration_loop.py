@@ -3638,6 +3638,41 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         repo_root=repo,
         require_current_evidence=True,
     ) == ()
+    tampered_home = {
+        **pending_home,
+        "action_home": {
+            **pending_home["action_home"],
+            "next_command_is_hint_only": False,
+        },
+        "codex_home": {
+            **pending_home["codex_home"],
+            "intake_ready": not pending_home["codex_home"]["intake_ready"],
+        },
+        "authority": {
+            **pending_home["authority"],
+            "home_can_execute_commands": True,
+        },
+        "policy": {
+            **pending_home["policy"],
+            "does_not_execute_commands": False,
+        },
+    }
+    tampered_home_errors = validate_operator_home_payload(
+        tampered_home,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert "operator_home action_home next_command_is_hint_only mismatch" in (
+        tampered_home_errors
+    )
+    assert "operator_home codex_home intake_ready mismatch" in tampered_home_errors
+    assert "operator_home authority home_can_execute_commands mismatch" in (
+        tampered_home_errors
+    )
+    assert "operator_home policy does_not_execute_commands mismatch" in (
+        tampered_home_errors
+    )
     pending_next_command = build_operator_next_command(
         run_dir=run_dir,
         experiments_dir=repo / "experiments",

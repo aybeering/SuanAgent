@@ -1231,6 +1231,85 @@ def validate_operator_home_consistency(
         experiments_dir=experiments_dir,
         repo_root=repo_root,
     )
+    expected_action_home = object_field(expected, "action_home")
+    expected_codex_home = object_field(expected, "codex_home")
+    expected_authority = object_field(expected, "authority")
+    expected_policy = object_field(expected, "policy")
+    action_home = object_field(payload, "action_home")
+    authority = object_field(payload, "authority")
+    policy = object_field(payload, "policy")
+    for field_name in (
+        "run_id",
+        "run_dir",
+        "status",
+        "ok",
+        "headline",
+        "primary_focus",
+    ):
+        if payload.get(field_name) != expected.get(field_name):
+            errors.append(f"operator_home {field_name} mismatch")
+    for field_name in (
+        "guide_status",
+        "current_step",
+        "active_step_id",
+        "completed_step_count",
+        "step_count",
+        "next_command_label",
+        "next_command_status",
+        "next_command_blocked",
+        "next_command_blocker_count",
+        "next_command_operator_hint",
+        "next_command_boundary",
+        "next_command_writes_artifact",
+        "next_command_requires_explicit_operator_invocation",
+        "next_command_requires_operator_approval",
+        "next_command_records_operator_approval",
+        "next_command_uses_guarded_executor",
+        "next_command_is_hint_only",
+        "can_invoke_guarded_executor_now",
+    ):
+        if action_home.get(field_name) != expected_action_home.get(field_name):
+            errors.append(f"operator_home action_home {field_name} mismatch")
+    for field_name in (
+        "unlock_runbook_status",
+        "unlock_runbook_ready",
+        "readiness_diff_status",
+        "readiness_diff_ready",
+        "intake_readiness_status",
+        "intake_ready",
+        "intake_blocker_count",
+        "startup_preflight_ok",
+        "review_command_label",
+        "review_command",
+    ):
+        if codex_home.get(field_name) != expected_codex_home.get(field_name):
+            errors.append(f"operator_home codex_home {field_name} mismatch")
+    for field_name in (
+        "home_can_record_approval",
+        "home_can_execute_commands",
+        "home_can_write_config",
+        "home_can_promote_champion",
+        "home_can_change_acceptance",
+        "approval_must_use_operator_action_approval",
+        "execution_must_use_guarded_executor",
+    ):
+        if authority.get(field_name) != expected_authority.get(field_name):
+            errors.append(f"operator_home authority {field_name} mismatch")
+    for field_name in (
+        "inspection_only",
+        "terminal_only",
+        "does_not_record_approval",
+        "does_not_execute_commands",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(field_name) != expected_policy.get(field_name):
+            errors.append(f"operator_home policy {field_name} mismatch")
     payload_for_compare = dict(payload)
     payload_for_compare.pop("from_artifact", None)
     if payload_for_compare != expected:

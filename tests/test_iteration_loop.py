@@ -3966,6 +3966,16 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
             },
             *pending["available_actions"][1:],
         ],
+        "source_artifacts": {
+            **pending["source_artifacts"],
+            "action_plan": {
+                **pending["source_artifacts"]["action_plan"],
+                "file": {
+                    **pending["source_artifacts"]["action_plan"]["file"],
+                    "sha256": "bad-source-file-sha",
+                },
+            },
+        },
         "recommended_commands": [
             {
                 **pending["recommended_commands"][0],
@@ -3986,6 +3996,11 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert any(
         "recommended_commands[0].command_sha256: expected string to match pattern"
         in str(error)
+        for error in malformed_dashboard_digest_errors
+    )
+    assert any(
+        "source_artifacts.action_plan.file.sha256: "
+        "expected string to match pattern" in str(error)
         for error in malformed_dashboard_digest_errors
     )
     assert any(

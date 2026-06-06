@@ -287,11 +287,24 @@ def validate_array(
 ) -> None:
     """Validate array-specific schema keywords."""
     min_items = schema.get("minItems")
-    if isinstance(min_items, int) and len(value) < min_items:
+    if "minItems" in schema and (
+        not isinstance(min_items, int)
+        or isinstance(min_items, bool)
+        or min_items < 0
+    ):
+        errors.append(
+            f"{path}: unsupported minItems keyword "
+            f"{schema_value_label(min_items)}"
+        )
+    elif isinstance(min_items, int) and len(value) < min_items:
         errors.append(f"{path}: expected at least {min_items} items")
 
     item_schema = schema.get("items")
-    if isinstance(item_schema, dict):
+    if "items" in schema and not isinstance(item_schema, (dict, bool)):
+        errors.append(
+            f"{path}: unsupported items keyword {schema_value_label(item_schema)}"
+        )
+    elif isinstance(item_schema, (dict, bool)):
         for index, item in enumerate(value):
             validate_node(
                 value=item,

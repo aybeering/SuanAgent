@@ -821,6 +821,69 @@ def test_schema_validator_rejects_malformed_object_schema_keywords() -> None:
     )
 
 
+def test_schema_validator_rejects_malformed_array_schema_keywords() -> None:
+    malformed_items_errors = validate_json_payload(
+        payload=[
+            "demo",
+        ],
+        schema={
+            "type": "array",
+            "items": "string",
+        },
+    )
+    malformed_min_items_errors = validate_json_payload(
+        payload=[],
+        schema={
+            "type": "array",
+            "minItems": "1",
+        },
+    )
+    boolean_min_items_errors = validate_json_payload(
+        payload=[],
+        schema={
+            "type": "array",
+            "minItems": True,
+        },
+    )
+    negative_min_items_errors = validate_json_payload(
+        payload=[],
+        schema={
+            "type": "array",
+            "minItems": -1,
+        },
+    )
+
+    assert "$: unsupported items keyword string" in malformed_items_errors
+    assert "$: unsupported minItems keyword 1" in malformed_min_items_errors
+    assert "$: unsupported minItems keyword true" in boolean_min_items_errors
+    assert "$: unsupported minItems keyword -1" in negative_min_items_errors
+    assert (
+        validate_json_payload(
+            payload=[
+                "demo",
+                1,
+            ],
+            schema={
+                "type": "array",
+                "items": True,
+            },
+        )
+        == ()
+    )
+    assert (
+        "$[0]: rejected by false schema"
+        in validate_json_payload(
+            payload=[
+                "demo",
+            ],
+            schema={
+                "type": "array",
+                "items": False,
+            },
+        )
+    )
+
+
 def test_artifact_validator_coverage_reports_repo_contracts(tmp_path: Path) -> None:
     payload = build_artifact_validator_coverage(repo_root=Path.cwd())
 

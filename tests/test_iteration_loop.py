@@ -3126,6 +3126,44 @@ def test_operator_action_approval_records_intent_without_executing_command(
         run_dir=run_dir,
         repo_root=repo,
     ) == ()
+    malformed_approval_digests = {
+        **approval,
+        "operator_intent": {
+            **approval["operator_intent"],
+            "required_confirmation_phrase_hash": "bad-required-phrase-hash",
+            "provided_confirmation_phrase_hash": "bad-provided-phrase-hash",
+        },
+        "selected_command": {
+            **approval["selected_command"],
+            "command_sha256": "bad-command-sha",
+            "computed_command_sha256": "bad-computed-command-sha",
+        },
+    }
+    malformed_approval_digest_errors = validate_operator_action_approval_payload(
+        malformed_approval_digests,
+        run_dir=run_dir,
+        repo_root=repo,
+    )
+    assert any(
+        "operator_intent.required_confirmation_phrase_hash: "
+        "expected string to match pattern" in str(error)
+        for error in malformed_approval_digest_errors
+    )
+    assert any(
+        "operator_intent.provided_confirmation_phrase_hash: "
+        "expected string to match pattern" in str(error)
+        for error in malformed_approval_digest_errors
+    )
+    assert any(
+        "selected_command.command_sha256: expected string to match pattern"
+        in str(error)
+        for error in malformed_approval_digest_errors
+    )
+    assert any(
+        "selected_command.computed_command_sha256: "
+        "expected string to match pattern" in str(error)
+        for error in malformed_approval_digest_errors
+    )
     refresh_operator_views(repo, "operator-action-approval")
     assert validate_run_artifacts(
         run_id="operator-action-approval",

@@ -466,6 +466,9 @@ change acceptance.
 record explicit operator approval for one action-plan command candidate. The
 approval binds to `operator_action_plan.json`, records the selected action id,
 command label, command digest, operator id, and confirmation phrase hashes.
+The schema allows preview-state command and phrase digest fields to remain
+empty, but any present approval command or confirmation digest must use 64
+lowercase hexadecimal characters.
 Artifact validation replays the selected action and command lookup from the
 saved action plan so the approval cannot drift to a different command while
 keeping a valid source digest. The writer and terminal view also validate the

@@ -23595,6 +23595,16 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
         "operator_action_approval.json"
     )
     assert records[1]["operator_next_command"]["blocked"] is True
+    assert (
+        records[1]["operator_next_command"]["can_invoke_selected_command"] is False
+    )
+    assert records[1]["operator_next_command"]["navigation_summary"] == (
+        "Command is blocked with status blocked_by_home_blockers."
+    )
+    assert records[1]["operator_next_command"]["first_blocker"] == ""
+    assert records[1]["operator_next_command"]["next_step"] == (
+        "Review home blockers before invoking the next command hint."
+    )
     assert records[1]["operator_next_command"]["terminal_only"] is True
     assert records[1]["operator_next_command"]["artifact_created"] is False
     index_text = (repo / "experiments/index.jsonl").read_text(encoding="utf-8")
@@ -23617,6 +23627,10 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert single["operator_next_command"]["reason"] == "not_iteration_run"  # type: ignore[index]
     assert single["operator_next_command"]["command"] == ""  # type: ignore[index]
     assert single["operator_next_command"]["command_sha256"] == ""  # type: ignore[index]
+    assert single["operator_next_command"]["can_invoke_selected_command"] is False  # type: ignore[index]
+    assert single["operator_next_command"]["navigation_summary"] == (  # type: ignore[index]
+        "No selected command is available."
+    )
     assert single["operator_next_command"]["selected_command_status"] == (  # type: ignore[index]
         "unavailable"
     )
@@ -23696,6 +23710,13 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
         "operator_action_approval.json"
     )
     assert iteration["operator_next_command"]["blocked"] is True  # type: ignore[index]
+    assert iteration["operator_next_command"]["can_invoke_selected_command"] is False  # type: ignore[index]
+    assert iteration["operator_next_command"]["navigation_summary"] == (  # type: ignore[index]
+        "Command is blocked with status blocked_by_home_blockers."
+    )
+    assert iteration["operator_next_command"]["next_step"] == (  # type: ignore[index]
+        "Review home blockers before invoking the next command hint."
+    )
     assert iteration["operator_next_command"]["command_is_hint_only"] is True  # type: ignore[index]
     assert iteration["manifest"]["completed_rounds"] == 1  # type: ignore[index]
     single_markdown = render_experiment_show_markdown(single)
@@ -23714,6 +23735,11 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
         "iteration-show --markdown`"
     ) in iteration_markdown
     assert "Home command SHA-256:" in iteration_markdown
+    assert "Can invoke selected command: `False`" in iteration_markdown
+    assert (
+        "Navigation summary: Command is blocked with status "
+        "blocked_by_home_blockers."
+    ) in iteration_markdown
     assert (
         "Selector command: `python -m orchestrator.experiments next-command "
         "iteration-show --markdown`"
@@ -23965,6 +23991,14 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     )
     assert summary["dashboard"]["operator_next_command_entry"]["blocked"] is True  # type: ignore[index]
     assert summary["dashboard"]["operator_next_command_entry"]["blocker_count"] >= 1  # type: ignore[index]
+    assert summary["dashboard"]["operator_next_command_entry"]["can_invoke_selected_command"] is False  # type: ignore[index]
+    assert summary["dashboard"]["operator_next_command_entry"]["navigation_summary"] == (  # type: ignore[index]
+        "Command is blocked with status blocked_by_home_blockers."
+    )
+    assert summary["dashboard"]["operator_next_command_entry"]["first_blocker"] == ""  # type: ignore[index]
+    assert summary["dashboard"]["operator_next_command_entry"]["next_step"] == (  # type: ignore[index]
+        "Review home blockers before invoking the next command hint."
+    )
     assert summary["dashboard"]["operator_next_command_entry"]["terminal_only"] is True  # type: ignore[index]
     assert summary["dashboard"]["operator_next_command_entry"]["artifact_created"] is False  # type: ignore[index]
     assert summary["dashboard"]["operator_next_command_entry"]["command_is_hint_only"] is True  # type: ignore[index]
@@ -24257,6 +24291,15 @@ def _minimal_experiment_summary_dashboard_payload() -> dict[str, object]:
             "operator_hint": (
                 "Review home blockers before invoking the next command hint."
             ),
+            "can_invoke_selected_command": False,
+            "navigation_summary": (
+                "Command is blocked with status blocked_by_home_blockers."
+            ),
+            "first_blocker": "",
+            "next_step": (
+                "Review home blockers before invoking the next command hint."
+            ),
+            "codex_next_step": "",
             "command_label": "review_operator_next_command",
             "command": (
                 "python -m orchestrator.experiments next-command "
@@ -24393,6 +24436,9 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     operator_next_command["selected_command_writes_artifact"] = "decision.json"
     operator_next_command["blocked"] = False
     operator_next_command["blocker_count"] = 2
+    operator_next_command["can_invoke_selected_command"] = False
+    operator_next_command["navigation_summary"] = "ready"
+    operator_next_command["next_step"] = "run unsafe command"
     watchlist["alert_count"] = 2
     watchlist["severity_counts"] = {"critical": 1, "warning": 0, "info": 0}
     watchlist["status"] = "critical"
@@ -24447,6 +24493,18 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     assert "experiment_summary_dashboard operator_next_command blocked mismatch" in errors
     assert (
         "experiment_summary_dashboard operator_next_command blocker count mismatch"
+        in errors
+    )
+    assert (
+        "experiment_summary_dashboard operator_next_command invoke readiness mismatch"
+        in errors
+    )
+    assert (
+        "experiment_summary_dashboard operator_next_command navigation summary mismatch"
+        in errors
+    )
+    assert (
+        "experiment_summary_dashboard operator_next_command next step mismatch"
         in errors
     )
     assert "experiment_summary_dashboard operator_next_command terminal mismatch" in errors

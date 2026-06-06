@@ -390,6 +390,11 @@
         "blocked",
         "blocker_count",
         "operator_hint",
+        "can_invoke_selected_command",
+        "navigation_summary",
+        "first_blocker",
+        "next_step",
+        "codex_next_step",
         "command_label",
         "command",
         "command_sha256",
@@ -449,6 +454,21 @@
           "minimum": 0
         },
         "operator_hint": {
+          "type": "string"
+        },
+        "can_invoke_selected_command": {
+          "type": "boolean"
+        },
+        "navigation_summary": {
+          "type": "string"
+        },
+        "first_blocker": {
+          "type": "string"
+        },
+        "next_step": {
+          "type": "string"
+        },
+        "codex_next_step": {
           "type": "string"
         },
         "command_label": {

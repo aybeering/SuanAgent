@@ -659,7 +659,8 @@ history, per-run inspection, or the summary dashboard without creating any run
 artifacts. These surfaces validate and display that the home and selector
 remain terminal-only, artifact-free hints and that the selector's copied
 selected-command status, boundary, write target, blocked state, blocker count,
-source marker, and safety flags still match the source operator-home row.
+compact navigation readiness, navigation summary, first blocker, next-step
+hint, source marker, and safety flags still match the source operator-home row.
 `operator_unlock_checklist.json` and `operator_unlock_checklist.md` expose the
 Codex CLI operator-unlock evidence chain as a standalone read-only checklist.
 The iteration loop writes it during closeout before the final cockpit so cockpit

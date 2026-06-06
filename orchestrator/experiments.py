@@ -689,6 +689,13 @@ def validate_experiment_operator_next_command_entry(
     )
     blocked = bool(operator_next_command.get("blocked", False))
     blocker_count = int_value(operator_next_command.get("blocker_count", -1))
+    expected_navigation = experiment_operator_next_command_navigation(
+        selected_status=selected_status,
+        selected_command=selected_command,
+        blocked=blocked,
+        operator_hint=str(operator_next_command.get("operator_hint", "")),
+        codex_next_step=str(operator_home.get("codex_next_step", "")),
+    )
     expected_command = (
         f"python -m orchestrator.experiments next-command {run_id} --markdown"
         if run_id
@@ -770,6 +777,20 @@ def validate_experiment_operator_next_command_entry(
                 errors.append(
                     "experiment_summary_dashboard operator_next_command blocker count mismatch"
                 )
+            for field_name, error_suffix in (
+                ("can_invoke_selected_command", "invoke readiness"),
+                ("navigation_summary", "navigation summary"),
+                ("first_blocker", "first blocker"),
+                ("next_step", "next step"),
+                ("codex_next_step", "codex next step"),
+            ):
+                if operator_next_command.get(field_name) != expected_navigation.get(
+                    field_name
+                ):
+                    errors.append(
+                        "experiment_summary_dashboard operator_next_command "
+                        f"{error_suffix} mismatch"
+                    )
         else:
             if available or command:
                 errors.append(
@@ -877,6 +898,13 @@ def validate_experiment_operator_navigation_pair(
     selected_status = str(
         operator_next_command.get("selected_command_status", "unavailable")
     )
+    expected_navigation = experiment_operator_next_command_navigation(
+        selected_status=selected_status,
+        selected_command=selected_command,
+        blocked=bool(operator_next_command.get("blocked", False)),
+        operator_hint=str(operator_next_command.get("operator_hint", "")),
+        codex_next_step=str(operator_home.get("codex_next_step", "")),
+    )
     expected_home_command = (
         f"python -m orchestrator.experiments home {run_id} --markdown"
         if run_id
@@ -951,6 +979,17 @@ def validate_experiment_operator_navigation_pair(
         "operator_home.next_command"
     ):
         errors.append("experiment operator navigation next source mismatch")
+    for field_name in (
+        "can_invoke_selected_command",
+        "navigation_summary",
+        "first_blocker",
+        "next_step",
+        "codex_next_step",
+    ):
+        if operator_next_command.get(field_name) != expected_navigation.get(
+            field_name
+        ):
+            errors.append(f"experiment operator navigation {field_name} mismatch")
     if selected_status != str(operator_home.get("next_command_status", "")):
         errors.append("experiment operator navigation selected status mismatch")
     if selected_command != str(operator_home.get("next_command", "")):
@@ -1279,6 +1318,11 @@ def experiment_operator_next_command_hint(
         "blocked": False,
         "blocker_count": 0,
         "operator_hint": "",
+        "can_invoke_selected_command": False,
+        "navigation_summary": "No selected command is available.",
+        "first_blocker": "",
+        "next_step": "Open the operator home and inspect the guided path.",
+        "codex_next_step": "",
         "command_label": "",
         "command": "",
         "command_sha256": "",
@@ -1313,16 +1357,25 @@ def experiment_operator_next_command_hint(
         f"python -m orchestrator.experiments next-command {run_id} --markdown"
     )
     selected_command = str(operator_home.get("next_command", ""))
+    blocked = bool(operator_home.get("next_command_blocked", False))
+    navigation = experiment_operator_next_command_navigation(
+        selected_status=selected_status,
+        selected_command=selected_command,
+        blocked=blocked,
+        operator_hint=str(operator_home.get("next_command_operator_hint", "")),
+        codex_next_step=str(operator_home.get("codex_next_step", "")),
+    )
     return {
         **base,
         "available": True,
         "reason": "iteration_run",
         "status": selected_status,
-        "blocked": bool(operator_home.get("next_command_blocked", False)),
+        "blocked": blocked,
         "blocker_count": int(
             operator_home.get("next_command_blocker_count", 0) or 0
         ),
         "operator_hint": str(operator_home.get("next_command_operator_hint", "")),
+        **navigation,
         "command_label": "review_operator_next_command",
         "command": selector_command,
         "command_sha256": sha256_text(selector_command),
@@ -1357,6 +1410,37 @@ def experiment_operator_next_command_hint(
         "selected_command_is_hint_only": bool(
             operator_home.get("next_command_is_hint_only", False)
         ),
+    }
+
+
+def experiment_operator_next_command_navigation(
+    *,
+    selected_status: str,
+    selected_command: str,
+    blocked: bool,
+    operator_hint: str,
+    codex_next_step: str,
+) -> dict[str, object]:
+    """Return compact navigation fields for list and dashboard selectors."""
+    can_invoke = bool(selected_command) and not blocked
+    if not selected_command:
+        summary = "No selected command is available."
+        next_step = "Open the operator home and inspect the guided path."
+    elif blocked:
+        summary = f"Command is blocked with status {selected_status}."
+        next_step = operator_hint or "Review operator home blockers."
+    else:
+        summary = "Selected command is ready for explicit operator invocation."
+        next_step = (
+            operator_hint
+            or "Invoke the next-command selector to inspect the selected command."
+        )
+    return {
+        "can_invoke_selected_command": can_invoke,
+        "navigation_summary": summary,
+        "first_blocker": "",
+        "next_step": next_step,
+        "codex_next_step": codex_next_step,
     }
 
 
@@ -1909,6 +1993,16 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         "- Operator next-command blocked: "
         f"`{operator_next_command.get('blocked', False)}` "
         f"({operator_next_command.get('blocker_count', 0)} blocker(s))",
+        "- Operator next-command can invoke selected command: "
+        f"`{operator_next_command.get('can_invoke_selected_command', False)}`",
+        "- Operator next-command navigation summary: "
+        f"{operator_next_command.get('navigation_summary', '') or 'none'}",
+        "- Operator next-command first blocker: "
+        f"`{operator_next_command.get('first_blocker', '') or 'none'}`",
+        "- Operator next-command next step: "
+        f"{operator_next_command.get('next_step', '') or 'none'}",
+        "- Operator next-command Codex next step: "
+        f"{operator_next_command.get('codex_next_step', '') or 'none'}",
         "- Operator next-command selected writes: "
         f"`{operator_next_command.get('selected_command_writes_artifact', '') or 'none'}`",
         "- Operator next-command selected requires explicit invocation: "
@@ -2021,11 +2115,17 @@ def render_experiment_list_markdown(payload: list[dict[str, object]]) -> str:
         "",
         "## Recent Runs",
         "",
-        "| Run | Kind | Status | Show | Home | Next Command | Blocked | Boundary |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        (
+            "| Run | Kind | Status | Show | Home | Next Command | Blocked | "
+            "Can Invoke | Navigation | Boundary |"
+        ),
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     if not payload:
-        lines.append("| none | none | none | unavailable | unavailable | unavailable | False | none |")
+        lines.append(
+            "| none | none | none | unavailable | unavailable | unavailable | "
+            "False | False | none | none |"
+        )
     for row in payload:
         run_id = str(row.get("run_id", ""))
         kind = str(row.get("kind", "unknown"))
@@ -2048,6 +2148,8 @@ def render_experiment_list_markdown(payload: list[dict[str, object]]) -> str:
             f"`{markdown_cell(home_command)}` | "
             f"`{markdown_cell(selector_command)}` | "
             f"`{operator_next_command.get('blocked', False)}` | "
+            f"`{operator_next_command.get('can_invoke_selected_command', False)}` | "
+            f"{markdown_cell(operator_next_command.get('navigation_summary', '') or 'none')} | "
             f"`{markdown_cell(boundary)}` |"
         )
 
@@ -2096,6 +2198,16 @@ def render_experiment_list_markdown(payload: list[dict[str, object]]) -> str:
                 "- Blocked: "
                 f"`{operator_next_command.get('blocked', False)}` "
                 f"({operator_next_command.get('blocker_count', 0)} blocker(s))",
+                "- Can invoke selected command: "
+                f"`{operator_next_command.get('can_invoke_selected_command', False)}`",
+                "- Navigation summary: "
+                f"{markdown_cell(operator_next_command.get('navigation_summary', '') or 'none')}",
+                "- First blocker: "
+                f"`{markdown_cell(operator_next_command.get('first_blocker', '') or 'none')}`",
+                "- Next step: "
+                f"{markdown_cell(operator_next_command.get('next_step', '') or 'none')}",
+                "- Codex next step: "
+                f"{markdown_cell(operator_next_command.get('codex_next_step', '') or 'none')}",
                 "- Operator hint: "
                 f"{markdown_cell(operator_next_command.get('operator_hint', '') or 'none')}",
                 "- Writes artifact: "
@@ -2723,6 +2835,16 @@ def render_experiment_show_markdown(payload: dict[str, object]) -> str:
             "- Blocked: "
             f"`{operator_next_command.get('blocked', False)}` "
             f"({operator_next_command.get('blocker_count', 0)} blocker(s))",
+            "- Can invoke selected command: "
+            f"`{operator_next_command.get('can_invoke_selected_command', False)}`",
+            "- Navigation summary: "
+            f"{markdown_cell(operator_next_command.get('navigation_summary', '') or 'none')}",
+            "- First blocker: "
+            f"`{markdown_cell(operator_next_command.get('first_blocker', '') or 'none')}`",
+            "- Next step: "
+            f"{markdown_cell(operator_next_command.get('next_step', '') or 'none')}",
+            "- Codex next step: "
+            f"{markdown_cell(operator_next_command.get('codex_next_step', '') or 'none')}",
             "- Operator hint: "
             f"{markdown_cell(operator_next_command.get('operator_hint', '') or 'none')}",
             "- Writes artifact: "

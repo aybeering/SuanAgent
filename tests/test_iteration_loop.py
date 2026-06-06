@@ -3360,6 +3360,43 @@ def test_operator_action_audit_tracks_plan_approval_execution_chain(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
+    tampered_audit = json.loads(json_path.read_text(encoding="utf-8"))
+    tampered_audit["summary"]["execution_completed"] = False
+    tampered_audit["selected_action"]["exists_in_plan"] = False
+    tampered_audit["selected_command"]["digest_matches_plan"] = False
+    tampered_audit["approval_record"]["approval_recorded"] = False
+    tampered_audit["execution_record"]["executed"] = False
+    tampered_audit["chain_checks"]["ok"] = False
+    tampered_audit["policy"]["does_not_execute_commands"] = False
+    json_path.write_text(
+        json.dumps(tampered_audit, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    audit_errors = validate_operator_action_audit_file(
+        payload_path=json_path,
+        repo_root=repo,
+    )
+    assert "operator_action_audit summary execution_completed mismatch" in (
+        audit_errors
+    )
+    assert "operator_action_audit selected_action exists_in_plan mismatch" in (
+        audit_errors
+    )
+    assert "operator_action_audit selected_command digest_matches_plan mismatch" in (
+        audit_errors
+    )
+    assert "operator_action_audit approval_record approval_recorded mismatch" in (
+        audit_errors
+    )
+    assert "operator_action_audit execution_record executed mismatch" in audit_errors
+    assert "operator_action_audit chain_checks ok mismatch" in audit_errors
+    assert "operator_action_audit policy does_not_execute_commands mismatch" in (
+        audit_errors
+    )
+    json_path.write_text(
+        json.dumps(completed, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     refresh_operator_views(repo, run_id)
     assert validate_run_artifacts(
         run_id=run_id,

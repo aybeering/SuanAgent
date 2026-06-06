@@ -674,6 +674,126 @@ def validate_operator_action_audit_consistency(
         experiments_dir=experiments_dir,
         repo_root=repo_root,
     )
+    summary = object_field(payload, "summary")
+    expected_summary = object_field(expected, "summary")
+    for field_name in (
+        "action_count",
+        "command_candidate_count",
+        "approval_present",
+        "approval_status",
+        "approval_recorded",
+        "execution_present",
+        "execution_status",
+        "execution_completed",
+        "chain_ok",
+        "consistency_error_count",
+        "failure_reason_count",
+        "first_failure_stage",
+    ):
+        if summary.get(field_name) != expected_summary.get(field_name):
+            errors.append(f"operator_action_audit summary {field_name} mismatch")
+    selected_action = object_field(payload, "selected_action")
+    expected_selected_action = object_field(expected, "selected_action")
+    for field_name in (
+        "action_id",
+        "action_type",
+        "status",
+        "source_text",
+        "exists_in_plan",
+    ):
+        if selected_action.get(field_name) != expected_selected_action.get(field_name):
+            errors.append(
+                f"operator_action_audit selected_action {field_name} mismatch"
+            )
+    selected_command = object_field(payload, "selected_command")
+    expected_selected_command = object_field(expected, "selected_command")
+    for field_name in (
+        "label",
+        "command",
+        "command_sha256",
+        "expected_artifact",
+        "writes_repository",
+        "promotes_champion",
+        "runs_backtests",
+        "exists_in_plan",
+        "digest_matches_plan",
+    ):
+        if selected_command.get(field_name) != expected_selected_command.get(
+            field_name
+        ):
+            errors.append(
+                f"operator_action_audit selected_command {field_name} mismatch"
+            )
+    approval_record_payload = object_field(payload, "approval_record")
+    expected_approval_record = object_field(expected, "approval_record")
+    for field_name in (
+        "present",
+        "status",
+        "approval_recorded",
+        "operator_id",
+        "target_action_id",
+        "target_command_label",
+        "confirmation_phrase_matches",
+    ):
+        if approval_record_payload.get(field_name) != expected_approval_record.get(
+            field_name
+        ):
+            errors.append(
+                f"operator_action_audit approval_record {field_name} mismatch"
+            )
+    execution_record_payload = object_field(payload, "execution_record")
+    expected_execution_record = object_field(expected, "execution_record")
+    for field_name in (
+        "present",
+        "status",
+        "ok",
+        "executed",
+        "returncode",
+        "stdout_sha256",
+        "stderr_sha256",
+        "tracked_status_unchanged",
+    ):
+        if execution_record_payload.get(field_name) != expected_execution_record.get(
+            field_name
+        ):
+            errors.append(
+                f"operator_action_audit execution_record {field_name} mismatch"
+            )
+    chain_checks_payload = object_field(payload, "chain_checks")
+    expected_chain_checks = object_field(expected, "chain_checks")
+    for field_name in (
+        "ok",
+        "plan_schema_errors",
+        "approval_schema_errors",
+        "execution_schema_errors",
+        "consistency_errors",
+        "failure_reasons",
+        "plan_sha256",
+        "approval_sha256",
+        "execution_sha256",
+        "approval_source_plan_sha256",
+        "execution_source_approval_sha256",
+    ):
+        if chain_checks_payload.get(field_name) != expected_chain_checks.get(
+            field_name
+        ):
+            errors.append(f"operator_action_audit chain_checks {field_name} mismatch")
+    policy = object_field(payload, "policy")
+    expected_policy = object_field(expected, "policy")
+    for field_name in (
+        "inspection_only",
+        "reads_saved_artifacts_only",
+        "does_not_execute_commands",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(field_name) != expected_policy.get(field_name):
+            errors.append(f"operator_action_audit policy {field_name} mismatch")
     expected_fields = [
         "status",
         "ok",

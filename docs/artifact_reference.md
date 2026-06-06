@@ -493,6 +493,10 @@ and terminal view validate the payload against
 records, status, summary, selected action, selected command, execution record,
 chain checks, next actions, and policy against the current digest chain before
 returning.
+The audit consistency validator reports field-specific drift for summary,
+selected action, selected command, approval record, execution record, chain
+check, and read-only policy fields before falling back to the full block
+comparison.
 `python -m orchestrator.experiments action-audit <run_id>`,
 `python -m orchestrator.experiments action-audit --latest`, and `action-audit
 --markdown` expose the saved or derived audit without executing commands,

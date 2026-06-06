@@ -11541,6 +11541,8 @@ def validate_optional_codex_cli_operator_unlock_request(
                 )
         for key in (
             "readiness_pipeline_path_is_canonical_run_artifact",
+            "unlock_snapshot_path_is_canonical_run_artifact",
+            "execution_candidate_path_is_canonical_run_artifact",
             "real_execution_dry_run_path_is_canonical_run_artifact",
         ):
             if not bool(checks.get(key, False)):
@@ -11593,6 +11595,62 @@ def validate_optional_codex_cli_operator_unlock_request(
             )
     else:
         add_error(report, "codex_cli_operator_unlock_request.json source_pipeline invalid")
+    source_snapshot = payload.get("source_unlock_snapshot", {})
+    if isinstance(source_snapshot, dict):
+        validate_source_artifact_provenance(
+            source=source_snapshot,
+            expected_path=run_dir / "codex_cli_execution_unlock_snapshot.json",
+            repo_root=repo_root,
+            report=report,
+            label="codex_cli_operator_unlock_request source_unlock_snapshot",
+            invalid_file_error=(
+                "codex_cli_operator_unlock_request.json "
+                "source unlock snapshot file invalid"
+            ),
+            not_canonical_error=(
+                "codex_cli_operator_unlock_request source_unlock_snapshot "
+                "not canonical run artifact"
+            ),
+        )
+        if ready and not bool(
+            source_snapshot.get("real_codex_execution_unlocked", False)
+        ):
+            add_error(
+                report,
+                "codex_cli_operator_unlock_request.json source unlock snapshot not unlocked",
+            )
+    else:
+        add_error(
+            report,
+            "codex_cli_operator_unlock_request.json source_unlock_snapshot invalid",
+        )
+    source_candidate = payload.get("source_execution_candidate", {})
+    if isinstance(source_candidate, dict):
+        validate_source_artifact_provenance(
+            source=source_candidate,
+            expected_path=run_dir / "codex_cli_execution_candidate.json",
+            repo_root=repo_root,
+            report=report,
+            label="codex_cli_operator_unlock_request source_execution_candidate",
+            invalid_file_error=(
+                "codex_cli_operator_unlock_request.json "
+                "source execution candidate file invalid"
+            ),
+            not_canonical_error=(
+                "codex_cli_operator_unlock_request source_execution_candidate "
+                "not canonical run artifact"
+            ),
+        )
+        if ready and not bool(source_candidate.get("execution_candidate_ready", False)):
+            add_error(
+                report,
+                "codex_cli_operator_unlock_request.json source execution candidate not ready",
+            )
+    else:
+        add_error(
+            report,
+            "codex_cli_operator_unlock_request.json source_execution_candidate invalid",
+        )
     source_dry_run = payload.get("source_real_execution_dry_run", {})
     source_dry_run_plan: dict[str, Any] = {}
     if isinstance(source_dry_run, dict):
@@ -11724,6 +11782,8 @@ def validate_optional_codex_cli_operator_unlock_request(
             "read_only",
             "requires_readiness_pipeline",
             "requires_pipeline_final_ready",
+            "requires_unlock_snapshot",
+            "requires_execution_candidate",
             "requires_real_execution_dry_run_ready",
             "requires_explicit_operator_request",
             "requires_exact_confirmation_phrase",

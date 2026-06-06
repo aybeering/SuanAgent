@@ -159,8 +159,12 @@ def profile_execution_row(
     operator_intent = object_value(request.get("request", {}))
     planned = object_value(request.get("planned_execution_review", {}))
     source_pipeline = object_value(request.get("source_pipeline", {}))
+    source_snapshot = object_value(request.get("source_unlock_snapshot", {}))
+    source_candidate = object_value(request.get("source_execution_candidate", {}))
     source_dry_run = object_value(request.get("source_real_execution_dry_run", {}))
     source_pipeline_file = object_value(source_pipeline.get("file", {}))
+    source_snapshot_file = object_value(source_snapshot.get("file", {}))
+    source_candidate_file = object_value(source_candidate.get("file", {}))
     source_dry_run_file = object_value(source_dry_run.get("file", {}))
     source_dry_run_payload = load_recorded_json(
         record=source_dry_run_file,
@@ -262,6 +266,44 @@ def profile_execution_row(
                 expected_path=run_dir / "codex_cli_readiness_pipeline.json",
                 repo_root=repo_root,
             )
+        ),
+        "operator_request_source_snapshot_hash_matches": recorded_file_matches(
+            record=source_snapshot_file,
+            repo_root=repo_root,
+        ),
+        "operator_request_source_snapshot_path_matches_record": recorded_path_matches(
+            declared_path=str(source_snapshot.get("path", "")),
+            record=source_snapshot_file,
+            repo_root=repo_root,
+        ),
+        "operator_request_source_snapshot_path_is_canonical_run_artifact": (
+            path_is_expected_artifact(
+                path_text=str(source_snapshot.get("path", "")),
+                expected_path=run_dir / "codex_cli_execution_unlock_snapshot.json",
+                repo_root=repo_root,
+            )
+        ),
+        "operator_request_source_snapshot_unlocked": bool(
+            source_snapshot.get("real_codex_execution_unlocked", False)
+        ),
+        "operator_request_source_candidate_hash_matches": recorded_file_matches(
+            record=source_candidate_file,
+            repo_root=repo_root,
+        ),
+        "operator_request_source_candidate_path_matches_record": recorded_path_matches(
+            declared_path=str(source_candidate.get("path", "")),
+            record=source_candidate_file,
+            repo_root=repo_root,
+        ),
+        "operator_request_source_candidate_path_is_canonical_run_artifact": (
+            path_is_expected_artifact(
+                path_text=str(source_candidate.get("path", "")),
+                expected_path=run_dir / "codex_cli_execution_candidate.json",
+                repo_root=repo_root,
+            )
+        ),
+        "operator_request_source_candidate_ready": bool(
+            source_candidate.get("execution_candidate_ready", False)
         ),
         "operator_request_source_dry_run_hash_matches": recorded_file_matches(
             record=source_dry_run_file,
@@ -417,6 +459,38 @@ def operator_unlock_blockers(checks: dict[str, bool]) -> list[str]:
         (
             "operator_request_source_pipeline_path_is_canonical_run_artifact",
             "operator_request_source_pipeline_path_not_canonical_run_artifact",
+        ),
+        (
+            "operator_request_source_snapshot_hash_matches",
+            "operator_request_source_snapshot_hash_mismatch",
+        ),
+        (
+            "operator_request_source_snapshot_path_matches_record",
+            "operator_request_source_snapshot_path_mismatch",
+        ),
+        (
+            "operator_request_source_snapshot_path_is_canonical_run_artifact",
+            "operator_request_source_snapshot_path_not_canonical_run_artifact",
+        ),
+        (
+            "operator_request_source_snapshot_unlocked",
+            "operator_request_source_snapshot_not_unlocked",
+        ),
+        (
+            "operator_request_source_candidate_hash_matches",
+            "operator_request_source_candidate_hash_mismatch",
+        ),
+        (
+            "operator_request_source_candidate_path_matches_record",
+            "operator_request_source_candidate_path_mismatch",
+        ),
+        (
+            "operator_request_source_candidate_path_is_canonical_run_artifact",
+            "operator_request_source_candidate_path_not_canonical_run_artifact",
+        ),
+        (
+            "operator_request_source_candidate_ready",
+            "operator_request_source_candidate_not_ready",
         ),
         (
             "operator_request_source_dry_run_hash_matches",

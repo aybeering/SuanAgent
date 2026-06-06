@@ -18872,6 +18872,14 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert operator_request["operator_request_ready"] is True
     assert operator_request["blocking_reasons"] == []
     assert operator_request["source_pipeline"]["final_ready"] is True
+    assert (
+        operator_request["source_unlock_snapshot"]["real_codex_execution_unlocked"]
+        is True
+    )
+    assert (
+        operator_request["source_execution_candidate"]["execution_candidate_ready"]
+        is True
+    )
     assert operator_request["source_real_execution_dry_run"][
         "real_execution_dry_run_ready"
     ] is True
@@ -18897,6 +18905,12 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert execution_preflight["profiles"][0]["requires_operator_unlock"] is True
     assert execution_preflight["profiles"][0]["operator_unlock_ready"] is True
     assert execution_preflight["profiles"][0]["operator_unlock_request"]["exists"] is True
+    assert execution_preflight["profiles"][0]["checks"][
+        "operator_request_source_snapshot_hash_matches"
+    ] is True
+    assert execution_preflight["profiles"][0]["checks"][
+        "operator_request_source_candidate_hash_matches"
+    ] is True
     ready_checklist = build_codex_unlock_checklist(
         codex_preflight=execution_preflight,
     )
@@ -19487,6 +19501,66 @@ def test_codex_cli_execution_preflight_blocks_operator_source_drift(
     )
 
 
+def test_codex_cli_execution_preflight_blocks_operator_snapshot_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_snapshot_drift.py",
+        "#!/usr/bin/env python3\nprint('{}')\n",
+    )
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        repo / "operator_unlock_fixtures/snapshot_drift_request.json",
+        run_id="snapshot-drift",
+        executable=str(fake_codex),
+        model="snapshot-drift-test",
+        sandbox="workspace-write",
+        workspace_root="workspaces",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    source_snapshot_path = repo / request["source_unlock_snapshot"]["file"]["path"]
+    source_snapshot_path.write_text(
+        json.dumps({"ok": False, "tampered": True}, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    default = load_project_config(repo)
+    config = replace(
+        default,
+        strategy_modifier="codex_cli",
+        modifier_settings={
+            "executable": str(fake_codex),
+            "model": "snapshot-drift-test",
+            "sandbox": "workspace-write",
+            "workspace_root": "workspaces",
+            "execute": True,
+            "operator_unlock_request_path": str(request_path.relative_to(repo)),
+        },
+    )
+
+    preflight = write_codex_cli_execution_preflight(
+        output_path=repo
+        / "experiments/snapshot-drift/codex_cli_execution_preflight.json",
+        markdown_path=repo
+        / "experiments/snapshot-drift/codex_cli_execution_preflight.md",
+        run_dir=repo / "experiments/snapshot-drift",
+        repo_root=repo,
+        config=config,
+    )
+
+    profile = preflight["profiles"][0]
+    assert preflight["ok"] is False
+    assert profile["checks"]["operator_unlock_request_ready"] is True
+    assert profile["checks"]["operator_request_source_snapshot_hash_matches"] is False
+    assert profile["checks"]["operator_request_source_candidate_hash_matches"] is True
+    assert profile["checks"]["operator_request_source_dry_run_hash_matches"] is True
+    assert (
+        "profile primary: operator_request_source_snapshot_hash_mismatch"
+        in preflight["blocking_errors"]
+    )
+
+
 def test_codex_cli_execution_preflight_blocks_operator_source_path_drift(
     tmp_path: Path,
 ) -> None:
@@ -20028,6 +20102,39 @@ def test_artifact_validator_reports_operator_source_path_mismatch(
     assert validation_report["ok"] is False
     assert any(
         "codex_cli_operator_unlock_request source_dry_run path mismatch" in str(error)
+        for error in validation_report["errors"]
+    )
+
+
+def test_artifact_validator_reports_operator_candidate_hash_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/operator-candidate-drift"
+    request_path = write_operator_unlock_request_fixture(
+        repo,
+        run_dir / "codex_cli_operator_unlock_request.json",
+        run_id="operator-candidate-drift",
+    )
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    source_candidate_path = repo / request["source_execution_candidate"]["file"][
+        "path"
+    ]
+    source_candidate_path.write_text(
+        json.dumps({"ok": False, "tampered": True}, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="operator-candidate-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_operator_unlock_request source_execution_candidate "
+        "sha256 mismatch" in str(error)
         for error in validation_report["errors"]
     )
 
@@ -29151,6 +29258,7 @@ def write_operator_unlock_request_fixture(
             run_dir=run_dir,
             repo_root=repo,
         )
+        source_snapshot_path = run_dir / "codex_cli_execution_unlock_snapshot.json"
         source_candidate_path = run_dir / "codex_cli_execution_candidate.json"
         source_candidate_path.write_text(
             json.dumps(
@@ -29167,6 +29275,20 @@ def write_operator_unlock_request_fixture(
             encoding="utf-8",
         )
     else:
+        source_snapshot_path = support_dir / "codex_cli_execution_unlock_snapshot.json"
+        source_snapshot_path.write_text(
+            json.dumps(
+                {
+                    "ok": True,
+                    "real_codex_execution_unlocked": True,
+                    "snapshot_digest": "fixture",
+                    "blocking_reasons": [],
+                },
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         source_candidate_path = support_dir / "codex_cli_execution_candidate.json"
         source_candidate_path.write_text(
             json.dumps({"ok": True, "execution_candidate_ready": True}, sort_keys=True)
@@ -29229,6 +29351,16 @@ def write_operator_unlock_request_fixture(
             "readiness_pipeline_completed": True,
             "readiness_pipeline_final_ready": True,
             "readiness_pipeline_hash_present": True,
+            "unlock_snapshot_exists": True,
+            "unlock_snapshot_path_is_canonical_run_artifact": True,
+            "unlock_snapshot_ok": True,
+            "unlock_snapshot_unlocked": True,
+            "unlock_snapshot_hash_present": True,
+            "execution_candidate_exists": True,
+            "execution_candidate_path_is_canonical_run_artifact": True,
+            "execution_candidate_ok": True,
+            "execution_candidate_ready": True,
+            "execution_candidate_hash_present": True,
             "real_execution_dry_run_exists": True,
             "real_execution_dry_run_path_is_canonical_run_artifact": True,
             "real_execution_dry_run_ok": True,
@@ -29265,6 +29397,24 @@ def write_operator_unlock_request_fixture(
             "blocking_reasons": [],
             "file": file_record(source_pipeline_path, repo),
         },
+        "source_unlock_snapshot": {
+            "path": str(source_snapshot_path.relative_to(repo)),
+            "real_codex_execution_unlocked": True,
+            "snapshot_digest": (
+                json.loads(source_snapshot_path.read_text(encoding="utf-8")).get(
+                    "snapshot_digest",
+                    "",
+                )
+            ),
+            "blocking_reasons": [],
+            "file": file_record(source_snapshot_path, repo),
+        },
+        "source_execution_candidate": {
+            "path": str(source_candidate_path.relative_to(repo)),
+            "execution_candidate_ready": True,
+            "blocking_reasons": [],
+            "file": file_record(source_candidate_path, repo),
+        },
         "source_real_execution_dry_run": {
             "path": str(source_dry_run_path.relative_to(repo)),
             "real_execution_dry_run_ready": True,
@@ -29288,6 +29438,8 @@ def write_operator_unlock_request_fixture(
             "read_only": True,
             "requires_readiness_pipeline": True,
             "requires_pipeline_final_ready": True,
+            "requires_unlock_snapshot": True,
+            "requires_execution_candidate": True,
             "requires_real_execution_dry_run_ready": True,
             "requires_explicit_operator_request": True,
             "requires_exact_confirmation_phrase": True,

@@ -12,6 +12,8 @@
     "checks",
     "request",
     "source_pipeline",
+    "source_unlock_snapshot",
+    "source_execution_candidate",
     "source_real_execution_dry_run",
     "planned_execution_review",
     "policy"
@@ -50,6 +52,16 @@
         "readiness_pipeline_completed",
         "readiness_pipeline_final_ready",
         "readiness_pipeline_hash_present",
+        "unlock_snapshot_exists",
+        "unlock_snapshot_path_is_canonical_run_artifact",
+        "unlock_snapshot_ok",
+        "unlock_snapshot_unlocked",
+        "unlock_snapshot_hash_present",
+        "execution_candidate_exists",
+        "execution_candidate_path_is_canonical_run_artifact",
+        "execution_candidate_ok",
+        "execution_candidate_ready",
+        "execution_candidate_hash_present",
         "real_execution_dry_run_exists",
         "real_execution_dry_run_path_is_canonical_run_artifact",
         "real_execution_dry_run_ok",
@@ -84,6 +96,36 @@
           "type": "boolean"
         },
         "readiness_pipeline_hash_present": {
+          "type": "boolean"
+        },
+        "unlock_snapshot_exists": {
+          "type": "boolean"
+        },
+        "unlock_snapshot_path_is_canonical_run_artifact": {
+          "type": "boolean"
+        },
+        "unlock_snapshot_ok": {
+          "type": "boolean"
+        },
+        "unlock_snapshot_unlocked": {
+          "type": "boolean"
+        },
+        "unlock_snapshot_hash_present": {
+          "type": "boolean"
+        },
+        "execution_candidate_exists": {
+          "type": "boolean"
+        },
+        "execution_candidate_path_is_canonical_run_artifact": {
+          "type": "boolean"
+        },
+        "execution_candidate_ok": {
+          "type": "boolean"
+        },
+        "execution_candidate_ready": {
+          "type": "boolean"
+        },
+        "execution_candidate_hash_present": {
           "type": "boolean"
         },
         "real_execution_dry_run_exists": {
@@ -227,6 +269,64 @@
       },
       "additionalProperties": false
     },
+    "source_unlock_snapshot": {
+      "type": "object",
+      "required": [
+        "path",
+        "real_codex_execution_unlocked",
+        "snapshot_digest",
+        "blocking_reasons",
+        "file"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "real_codex_execution_unlocked": {
+          "type": "boolean"
+        },
+        "snapshot_digest": {
+          "type": "string"
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "file": {
+          "$ref": "#/$defs/file_record"
+        }
+      },
+      "additionalProperties": false
+    },
+    "source_execution_candidate": {
+      "type": "object",
+      "required": [
+        "path",
+        "execution_candidate_ready",
+        "blocking_reasons",
+        "file"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "execution_candidate_ready": {
+          "type": "boolean"
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "file": {
+          "$ref": "#/$defs/file_record"
+        }
+      },
+      "additionalProperties": false
+    },
     "planned_execution_review": {
       "type": "object",
       "required": [
@@ -288,6 +388,8 @@
         "read_only",
         "requires_readiness_pipeline",
         "requires_pipeline_final_ready",
+        "requires_unlock_snapshot",
+        "requires_execution_candidate",
         "requires_real_execution_dry_run_ready",
         "requires_explicit_operator_request",
         "requires_exact_confirmation_phrase",
@@ -312,6 +414,12 @@
           "type": "boolean"
         },
         "requires_pipeline_final_ready": {
+          "type": "boolean"
+        },
+        "requires_unlock_snapshot": {
+          "type": "boolean"
+        },
+        "requires_execution_candidate": {
           "type": "boolean"
         },
         "requires_real_execution_dry_run_ready": {

@@ -113,6 +113,10 @@ read-only and includes policy checks proving that the request itself does not:
 - Modify config.
 
 The request must include the expected confirmation phrase hash and operator id.
+It also records canonical source records for the readiness pipeline, execution
+unlock snapshot, execution candidate, and real-execution dry run. Startup
+preflight and artifact validation re-check those source hashes before treating
+the request as ready.
 It may still be `operator_request_ready=false` when upstream readiness evidence
 is blocked; this is valid audit output, not execution permission.
 

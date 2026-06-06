@@ -45,6 +45,8 @@ def build_codex_cli_operator_unlock_request(
         pipeline_path or run_dir / "codex_cli_readiness_pipeline.json",
         repo_root,
     )
+    snapshot_path = run_dir / "codex_cli_execution_unlock_snapshot.json"
+    candidate_path = run_dir / "codex_cli_execution_candidate.json"
     dry_run_path = resolve_path(
         dry_run_path or run_dir / "codex_cli_real_execution_dry_run.json",
         repo_root,
@@ -56,6 +58,8 @@ def build_codex_cli_operator_unlock_request(
         repo_root=repo_root,
     )
     pipeline = load_json_object(pipeline_path)
+    snapshot = load_json_object(snapshot_path)
+    candidate = load_json_object(candidate_path)
     dry_run = load_json_object(dry_run_path)
     planned_execution = object_value(dry_run.get("planned_execution", {}))
     allowed_mutation_paths = string_list(
@@ -75,6 +79,33 @@ def build_codex_cli_operator_unlock_request(
         "readiness_pipeline_final_ready": bool(pipeline.get("final_ready", False)),
         "readiness_pipeline_hash_present": bool(
             file_record(pipeline_path, repo_root).get("sha256", "")
+        ),
+        "unlock_snapshot_exists": snapshot_path.exists() and snapshot_path.is_file(),
+        "unlock_snapshot_path_is_canonical_run_artifact": path_is_canonical_artifact(
+            path=snapshot_path,
+            expected_path=run_dir / "codex_cli_execution_unlock_snapshot.json",
+        ),
+        "unlock_snapshot_ok": bool(snapshot.get("ok", False)),
+        "unlock_snapshot_unlocked": bool(
+            snapshot.get("real_codex_execution_unlocked", False)
+        ),
+        "unlock_snapshot_hash_present": bool(
+            file_record(snapshot_path, repo_root).get("sha256", "")
+        ),
+        "execution_candidate_exists": candidate_path.exists()
+        and candidate_path.is_file(),
+        "execution_candidate_path_is_canonical_run_artifact": (
+            path_is_canonical_artifact(
+                path=candidate_path,
+                expected_path=run_dir / "codex_cli_execution_candidate.json",
+            )
+        ),
+        "execution_candidate_ok": bool(candidate.get("ok", False)),
+        "execution_candidate_ready": bool(
+            candidate.get("execution_candidate_ready", False)
+        ),
+        "execution_candidate_hash_present": bool(
+            file_record(candidate_path, repo_root).get("sha256", "")
         ),
         "real_execution_dry_run_exists": dry_run_path.exists() and dry_run_path.is_file(),
         "real_execution_dry_run_path_is_canonical_run_artifact": (
@@ -132,6 +163,23 @@ def build_codex_cli_operator_unlock_request(
             "blocking_reasons": string_list(pipeline.get("blocking_reasons", [])),
             "file": file_record(pipeline_path, repo_root),
         },
+        "source_unlock_snapshot": {
+            "path": relative_path(snapshot_path, repo_root),
+            "real_codex_execution_unlocked": bool(
+                snapshot.get("real_codex_execution_unlocked", False)
+            ),
+            "snapshot_digest": str(snapshot.get("snapshot_digest", "")),
+            "blocking_reasons": string_list(snapshot.get("blocking_reasons", [])),
+            "file": file_record(snapshot_path, repo_root),
+        },
+        "source_execution_candidate": {
+            "path": relative_path(candidate_path, repo_root),
+            "execution_candidate_ready": bool(
+                candidate.get("execution_candidate_ready", False)
+            ),
+            "blocking_reasons": string_list(candidate.get("blocking_reasons", [])),
+            "file": file_record(candidate_path, repo_root),
+        },
         "source_real_execution_dry_run": {
             "path": relative_path(dry_run_path, repo_root),
             "real_execution_dry_run_ready": bool(
@@ -157,6 +205,8 @@ def build_codex_cli_operator_unlock_request(
             "read_only": True,
             "requires_readiness_pipeline": True,
             "requires_pipeline_final_ready": True,
+            "requires_unlock_snapshot": True,
+            "requires_execution_candidate": True,
             "requires_real_execution_dry_run_ready": True,
             "requires_explicit_operator_request": True,
             "requires_exact_confirmation_phrase": True,
@@ -283,6 +333,22 @@ def request_blockers(checks: dict[str, bool]) -> list[str]:
         ("readiness_pipeline_completed", "readiness_pipeline_incomplete"),
         ("readiness_pipeline_final_ready", "readiness_pipeline_not_final_ready"),
         ("readiness_pipeline_hash_present", "readiness_pipeline_hash_missing"),
+        ("unlock_snapshot_exists", "unlock_snapshot_missing"),
+        (
+            "unlock_snapshot_path_is_canonical_run_artifact",
+            "unlock_snapshot_path_not_canonical_run_artifact",
+        ),
+        ("unlock_snapshot_ok", "unlock_snapshot_not_ok"),
+        ("unlock_snapshot_unlocked", "unlock_snapshot_not_unlocked"),
+        ("unlock_snapshot_hash_present", "unlock_snapshot_hash_missing"),
+        ("execution_candidate_exists", "execution_candidate_missing"),
+        (
+            "execution_candidate_path_is_canonical_run_artifact",
+            "execution_candidate_path_not_canonical_run_artifact",
+        ),
+        ("execution_candidate_ok", "execution_candidate_not_ok"),
+        ("execution_candidate_ready", "execution_candidate_not_ready"),
+        ("execution_candidate_hash_present", "execution_candidate_hash_missing"),
         ("real_execution_dry_run_exists", "real_execution_dry_run_missing"),
         (
             "real_execution_dry_run_path_is_canonical_run_artifact",

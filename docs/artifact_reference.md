@@ -661,6 +661,11 @@ generated artifact file records, the final summary artifact hash, and
 pipeline-level readiness fields. These checks are schema-validated audit
 evidence only; they cannot execute Codex, create workspaces, route agents,
 apply patches, or change acceptance.
+`codex_cli_operator_unlock_request.json` records explicit operator intent plus
+canonical file records for the readiness pipeline, execution unlock snapshot,
+execution candidate, and real-execution dry-run artifacts. Artifact validation
+and startup preflight re-check those recorded hashes so reviewed source
+evidence cannot drift after the request is written.
 `codex_cli_unlock_runbook.json` and `codex_cli_unlock_runbook.md` convert the
 same Codex CLI unlock chain into an ordered operator guide. The iteration loop
 writes it during closeout and no-round real-Codex startup failures after the

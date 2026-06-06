@@ -19041,6 +19041,49 @@ def test_artifact_validator_reports_unlock_snapshot_source_gate_alias(
     )
 
 
+def test_artifact_validator_reports_unlock_snapshot_missing_evidence(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_dir = repo / "experiments/snapshot-missing-evidence"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    write_codex_cli_execution_unlock_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+        canary_run_dir=run_dir,
+    )
+    snapshot_path = run_dir / "codex_cli_execution_unlock_snapshot.json"
+    write_codex_cli_execution_unlock_snapshot(
+        run_dir=run_dir,
+        repo_root=repo,
+    )
+    snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    del snapshot["evidence_artifacts"]["codex_cli_manual_approval"]
+    snapshot["snapshot_digest"] = snapshot_digest_from_payload(snapshot)
+    snapshot_path.write_text(
+        json.dumps(snapshot, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="snapshot-missing-evidence",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_execution_unlock_snapshot evidence missing: "
+        "codex_cli_manual_approval" in str(error)
+        for error in validation_report["errors"]
+    )
+    assert not any(
+        "codex_cli_execution_unlock_snapshot.json digest mismatch" in str(error)
+        for error in validation_report["errors"]
+    )
+
+
 def test_artifact_validator_reports_execution_candidate_source_snapshot_alias(
     tmp_path: Path,
 ) -> None:

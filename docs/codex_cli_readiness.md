@@ -64,7 +64,9 @@ files inside the same run directory and that the recorded hashes still match.
 Important canonical bindings include:
 
 - `codex_cli_execution_unlock_snapshot.json` must source the canonical
-  `codex_cli_execution_unlock_gate.json`.
+  `codex_cli_execution_unlock_gate.json` and must retain the complete frozen
+  evidence set from the unlock gate: candidate config, replay gate, enablement
+  gate, manual approval, canary gate, real preflight, and dry-invocation guard.
 - `codex_cli_execution_candidate.json` must source the canonical
   `codex_cli_execution_unlock_snapshot.json`.
 - `codex_cli_real_execution_dry_run.json` must source the canonical

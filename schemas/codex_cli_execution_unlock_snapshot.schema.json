@@ -68,7 +68,42 @@
       "type": "object"
     },
     "evidence_artifacts": {
-      "type": "object"
+      "type": "object",
+      "required": [
+        "candidate_config",
+        "codex_cli_replay_gate",
+        "codex_cli_enablement_gate",
+        "codex_cli_manual_approval",
+        "codex_cli_canary_gate",
+        "codex_cli_real_preflight",
+        "codex_cli_dry_invocation_guard"
+      ],
+      "additionalProperties": {
+        "$ref": "#/$defs/file_record"
+      },
+      "properties": {
+        "candidate_config": {
+          "$ref": "#/$defs/file_record"
+        },
+        "codex_cli_replay_gate": {
+          "$ref": "#/$defs/file_record"
+        },
+        "codex_cli_enablement_gate": {
+          "$ref": "#/$defs/file_record"
+        },
+        "codex_cli_manual_approval": {
+          "$ref": "#/$defs/file_record"
+        },
+        "codex_cli_canary_gate": {
+          "$ref": "#/$defs/file_record"
+        },
+        "codex_cli_real_preflight": {
+          "$ref": "#/$defs/file_record"
+        },
+        "codex_cli_dry_invocation_guard": {
+          "$ref": "#/$defs/file_record"
+        }
+      }
     },
     "policy": {
       "type": "object",
@@ -85,6 +120,32 @@
         "freezes_evidence_artifact_sha256",
         "deterministic_code_keeps_acceptance_authority"
       ]
+    }
+  },
+  "$defs": {
+    "file_record": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string"
+        }
+      }
     }
   }
 }

@@ -10846,10 +10846,25 @@ def validate_optional_codex_cli_execution_unlock_snapshot(
     expected_digest = snapshot_digest_from_payload(payload)
     if str(payload.get("snapshot_digest", "")) != expected_digest:
         add_error(report, "codex_cli_execution_unlock_snapshot.json digest mismatch")
+    expected_evidence_keys = (
+        "candidate_config",
+        "codex_cli_replay_gate",
+        "codex_cli_enablement_gate",
+        "codex_cli_manual_approval",
+        "codex_cli_canary_gate",
+        "codex_cli_real_preflight",
+        "codex_cli_dry_invocation_guard",
+    )
     evidence = payload.get("evidence_artifacts", {})
     if not isinstance(evidence, dict):
         add_error(report, "codex_cli_execution_unlock_snapshot.json evidence invalid")
     else:
+        for key in expected_evidence_keys:
+            if key not in evidence:
+                add_error(
+                    report,
+                    f"codex_cli_execution_unlock_snapshot evidence missing: {key}",
+                )
         for key, record in evidence.items():
             if not isinstance(record, dict):
                 add_error(

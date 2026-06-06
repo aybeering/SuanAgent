@@ -376,7 +376,10 @@ Codex CLI readiness contracts:
 22. Proposal intent summaries in `agent_output.json` bind selected-output
     contracts to the same context recorded in round-level agent input. They can
     prove output/input consistency, but they cannot route agents, score
-    candidates, apply patches, or change acceptance.
+    candidates, apply patches, or change acceptance. Agent-output attempt rows
+    schema-constrain patch SHA-256 values to empty-or-64-lowercase-hex strings
+    so selected and non-selected candidate patch identities use the same
+    deterministic shape.
 23. Proposal intent summaries and consistency checks in
     `agent_output_quarantine.json` bind pre-apply quarantine reports to the same
     context, selected attempt, patch hash, validation result, and source

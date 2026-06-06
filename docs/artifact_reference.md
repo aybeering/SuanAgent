@@ -1000,6 +1000,7 @@ Proposal and intake artifacts:
   proposal intent summary used by the round-level agent input. Its selected
   proposal uses `schemas/strategy_proposal.schema.json`, including an
   empty-or-64-lowercase-hex `patch_sha256` binding when a patch is present.
+  Attempt rows schema-constrain their patch SHA-256 fields the same way.
 - `agent_validation.json` records contract, patch-target, `git apply` checks,
   and the proposal intent summary used by the validated agent input. It also
   records schema-validated consistency checks that bind the raw output,

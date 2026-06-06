@@ -10778,6 +10778,23 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_output["attempts"][0]["quality_breakdown"] == (
         selected_attempt["quality_breakdown"]
     )
+    agent_output_schema = json.loads(
+        (Path.cwd() / "schemas/agent_output.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    invalid_agent_output_attempt_sha = json.loads(json.dumps(agent_output))
+    invalid_agent_output_attempt_sha["attempts"][0]["patch_sha256"] = (
+        "bad-attempt-patch-sha"
+    )
+    invalid_agent_output_attempt_sha_errors = validate_json_payload(
+        payload=invalid_agent_output_attempt_sha,
+        schema=agent_output_schema,
+    )
+    assert any(
+        "$.attempts[0].patch_sha256: expected string to match pattern" in error
+        for error in invalid_agent_output_attempt_sha_errors
+    )
     assert agent_output["artifacts"]["agent_input"].endswith("agent_input.json")
     assert agent_output["artifacts"]["agent_bundle_manifest"].endswith(
         "agent_bundle_manifest.json"

@@ -5199,6 +5199,70 @@ def validate_operator_view_refresh_payload(
             repo_root=repo_root,
         )
     )
+    errors.extend(
+        validate_operator_view_refresh_config_source_binding(
+            payload,
+            repo_root=repo_root,
+        )
+    )
+    return tuple(errors)
+
+
+def validate_operator_view_refresh_config_source_binding(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate refresh config records against the effective config file."""
+    run_dir_text = str(payload.get("run_dir", ""))
+    if not run_dir_text:
+        return ()
+
+    repo_root = repo_root.resolve()
+    run_dir = Path(run_dir_text)
+    if not run_dir.is_absolute():
+        run_dir = repo_root / run_dir
+    if not run_dir.exists():
+        return ()
+
+    source = str(payload.get("config_source", ""))
+    config_path_text = str(payload.get("config_path", ""))
+    config_path = Path(config_path_text) if config_path_text else None
+    if config_path is not None and not config_path.is_absolute():
+        config_path = repo_root / config_path
+    if source == "explicit_override":
+        active_config_path = config_path
+        expected_source = source
+    else:
+        active_config_path, expected_source = refresh_config_path(
+            config_path=None,
+            run_dir=run_dir,
+            repo_root=repo_root,
+        )
+    if active_config_path is None:
+        return ("operator_view_refresh config source unavailable: missing config_path",)
+
+    expected_record = refresh_config_record(
+        active_config_path,
+        repo_root=repo_root,
+        source=expected_source,
+        metadata_path=run_dir / "run_metadata.json",
+    )
+    errors: list[str] = []
+    if source != expected_source:
+        errors.append("operator_view_refresh config_source mismatch")
+    if str(payload.get("config_path", "")) != str(active_config_path):
+        errors.append("operator_view_refresh config_path mismatch")
+    if bool(payload.get("config_path_exists", False)) != bool(
+        expected_record.get("exists", False)
+    ):
+        errors.append("operator_view_refresh config_path_exists mismatch")
+    if str(payload.get("config_sha256", "")) != str(
+        expected_record.get("sha256", "")
+    ):
+        errors.append("operator_view_refresh config_sha256 mismatch")
+    if dict_payload(payload.get("config_record", {})) != expected_record:
+        errors.append("operator_view_refresh config_record mismatch")
     return tuple(errors)
 
 

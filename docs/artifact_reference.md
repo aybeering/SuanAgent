@@ -1383,8 +1383,10 @@ Replay artifacts:
   holdout EV deltas, and artifact validation checks that each saved
   `quality_breakdown.total_score` matches the candidate score and that each
   leaderboard row matches the round-local `proposal_attempts.json` row for the
-  same `attempt_id`. These fields explain candidate routing only; final
-  acceptance remains controlled by deterministic policy and holdout gates.
+  same `attempt_id`. Leaderboard patch hashes are schema-constrained to
+  empty-or-64-lowercase-hex strings. These fields explain candidate routing
+  only; final acceptance remains controlled by deterministic policy and holdout
+  gates.
   `python -m orchestrator.experiments candidates <run_id> --limit N` reads the
   saved leaderboard as a terminal-only inspection view and validates the
   returned `candidate_leaderboard` payload against

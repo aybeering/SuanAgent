@@ -11202,6 +11202,21 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert leaderboard[0]["holdout_ev_delta"] == selected_attempt["holdout_ev_delta"]
     assert leaderboard[0]["quality_breakdown"]["components"]
     assert leaderboard[0]["round_id"] == "round_001"
+    leaderboard_schema = json.loads(
+        (Path.cwd() / "schemas/candidate_leaderboard.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    invalid_leaderboard_digest = json.loads(json.dumps(leaderboard))
+    invalid_leaderboard_digest[0]["patch_sha256"] = "bad-leaderboard-patch-sha"
+    invalid_leaderboard_digest_errors = validate_json_payload(
+        payload=invalid_leaderboard_digest,
+        schema=leaderboard_schema,
+    )
+    assert any(
+        "$[0].patch_sha256: expected string to match pattern" in error
+        for error in invalid_leaderboard_digest_errors
+    )
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )

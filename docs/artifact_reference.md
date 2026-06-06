@@ -1007,6 +1007,9 @@ Replay artifacts:
   optional execution audit.
 - `round_replay.json` validates all saved planned attempts for a round.
 - `agent_slot_health.json` summarizes slot readiness, audits, and replay state.
+  Saved slot-health reports are strict snapshots: validators recompute them
+  from current run-local plan, attempt manifest, replay, workspace, and
+  execution-audit evidence and fail when the saved report no longer matches.
 - `run_artifact_health.json` batch-validates saved experiment run artifacts
   and reports per-run artifact health without rerunning simulations.
   `--created-at-from` scopes indexed runs to a current contract era without

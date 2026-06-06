@@ -9585,11 +9585,14 @@ def validate_optional_agent_slot_health(
     if not path.exists():
         return
     checked_files(report).append(str(path))
-    validate_contract_file(
+    from orchestrator.agent_slot_health import validate_agent_slot_health_file
+
+    for error in validate_agent_slot_health_file(
         payload_path=path,
+        repo_root=repo_root,
         schema_path=repo_root / "schemas/agent_slot_health.schema.json",
-        report=report,
-    )
+    ):
+        add_error(report, f"agent_slot_health.json file: {error}")
     payload = validate_json_object(path=path, report=report)
     if payload is None:
         return

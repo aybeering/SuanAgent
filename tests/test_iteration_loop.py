@@ -142,6 +142,7 @@ from orchestrator.agent_slot_readiness_gate import (
 from orchestrator.agent_slot_health import (
     AGENT_SLOT_HEALTH_SCHEMA_VERSION,
     build_agent_slot_health,
+    validate_agent_slot_health_file,
     write_agent_slot_health,
 )
 from orchestrator.attempt_replay import replay_attempt
@@ -13048,6 +13049,54 @@ def test_agent_slot_health_reports_default_and_replayed_slots(
     assert_matches_schema(run_dir / "agent_slot_health.json", "agent_slot_health")
     assert (run_dir / "agent_slot_health.md").exists()
     assert validation_report["ok"] is True
+
+
+def test_agent_slot_health_reports_current_evidence_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="slot-health-current-evidence-drift",
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments/slot-health-current-evidence-drift"
+    round_dir = run_dir / "round_001"
+    replay_round(round_dir=round_dir, repo_root=repo, run_probe=False)
+    health_path = run_dir / "agent_slot_health.json"
+    write_agent_slot_health(run_dir=run_dir, repo_root=repo)
+
+    assert (
+        validate_agent_slot_health_file(
+            payload_path=health_path,
+            repo_root=repo,
+        )
+        == ()
+    )
+
+    replay_path = round_dir / "round_replay.json"
+    replay_payload = json.loads(replay_path.read_text(encoding="utf-8"))
+    replay_payload["attempts"][0]["ok"] = False
+    replay_path.write_text(
+        json.dumps(replay_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    assert validate_agent_slot_health_file(
+        payload_path=health_path,
+        repo_root=repo,
+    ) == ("agent_slot_health current evidence mismatch",)
+
+    validation_report = validate_run_artifacts(
+        run_id="slot-health-current-evidence-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert (
+        "agent_slot_health.json file: agent_slot_health current evidence mismatch"
+        in validation_report["errors"]
+    )
 
 
 def test_agent_slot_health_reports_workspace_and_execution_audits(

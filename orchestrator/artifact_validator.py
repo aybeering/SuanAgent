@@ -12344,10 +12344,24 @@ def validate_optional_codex_cli_unlock_runbook(
                         f"{step.get('artifact_id', '')}"
                     ),
                 )
+            write_command = str(artifact.get("write_command", ""))
+            if str(artifact.get("write_command_sha256", "")) != sha256_text(
+                write_command
+            ):
+                add_error(
+                    report,
+                    "codex_cli_unlock_runbook.json artifact command sha256 mismatch",
+                )
         command = step.get("command", {})
         if not isinstance(command, dict):
             add_error(report, "codex_cli_unlock_runbook.json command invalid")
         else:
+            command_text = str(command.get("command", ""))
+            if str(command.get("command_sha256", "")) != sha256_text(command_text):
+                add_error(
+                    report,
+                    "codex_cli_unlock_runbook.json command sha256 mismatch",
+                )
             if bool(command.get("executes_codex_cli", True)):
                 add_error(report, "codex_cli_unlock_runbook.json command executes Codex")
             if not bool(command.get("requires_explicit_operator_invocation", False)):

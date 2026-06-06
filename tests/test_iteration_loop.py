@@ -23314,13 +23314,20 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
     assert all(
         command["executes_codex_cli"] is False
         and command["requires_explicit_operator_invocation"] is True
+        and command["command_sha256"] == sha256_text(command["command"])
         for command in runbook["operator_commands"]
+    )
+    assert all(
+        step["artifact"]["write_command_sha256"]
+        == sha256_text(step["artifact"]["write_command"])
+        for step in runbook["steps"]
     )
     assert runbook["policy"]["does_not_execute_codex_cli"] is True
     assert runbook["policy"]["does_not_create_workspace"] is True
     assert "# Codex CLI Unlock Runbook" in markdown
     assert "## Codex Intake Readiness" in markdown
     assert "Run startup execution preflight" in markdown
+    assert "Command SHA-256" in markdown
     assert report["from_artifact"] is True
     assert report["schema_version"] == CODEX_CLI_UNLOCK_RUNBOOK_SCHEMA_VERSION
     assert render_codex_cli_unlock_runbook_markdown(report).startswith(
@@ -23358,7 +23365,11 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
     tampered_summary["steps"][0]["status"] = "ready"
     tampered_summary["steps"][0]["ready"] = False
     tampered_summary["steps"][0]["artifact"]["artifact_id"] = "wrong_artifact"
+    tampered_summary["steps"][0]["artifact"]["write_command_sha256"] = (
+        "wrong-artifact-sha"
+    )
     tampered_summary["steps"][0]["command"]["label"] = "wrong_command"
+    tampered_summary["steps"][0]["command"]["command_sha256"] = "wrong-step-sha"
     tampered_summary["steps"][0]["authority"]["step_can_execute_codex_cli"] = True
     tampered_summary["steps"][1]["step_id"] = "wrong_step"
     tampered_summary["steps"][1]["artifact_id"] = "wrong_artifact"
@@ -23366,6 +23377,7 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
     tampered_summary["operator_commands"][0]["command"] += (
         " && python -m orchestrator.run_loop"
     )
+    tampered_summary["operator_commands"][0]["command_sha256"] = "wrong-command-sha"
     tampered_summary["operator_commands"][0]["writes_artifacts"] = False
     tampered_summary["operator_commands"][0]["executes_codex_cli"] = True
     tampered_summary["operator_commands"][0][
@@ -23444,6 +23456,12 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
     assert "codex_cli_unlock_runbook step command label mismatch" in (
         runbook_consistency_errors
     )
+    assert "codex_cli_unlock_runbook step artifact command sha256 mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook step command sha256 mismatch" in (
+        runbook_consistency_errors
+    )
     assert "codex_cli_unlock_runbook authority true: step_can_execute_codex_cli" in (
         runbook_consistency_errors
     )
@@ -23460,6 +23478,9 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
         runbook_consistency_errors
     )
     assert "codex_cli_unlock_runbook command write flag mismatch" in (
+        runbook_consistency_errors
+    )
+    assert "codex_cli_unlock_runbook command sha256 mismatch" in (
         runbook_consistency_errors
     )
     assert "codex_cli_unlock_runbook command unsafe token" in (
@@ -23515,6 +23536,9 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
     )
     assert (
         f"codex_cli_unlock_runbook operator command unsafe token: {tampered_label}"
+    ) in tampered_validation["errors"]
+    assert (
+        f"codex_cli_unlock_runbook operator command sha256 mismatch: {tampered_label}"
     ) in tampered_validation["errors"]
 
 

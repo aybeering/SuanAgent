@@ -227,7 +227,8 @@ python -m orchestrator.experiments unlock-runbook guarded-demo --markdown
 The iteration loop writes the runbook during closeout and no-round real-Codex
 startup failures. The explicit command refreshes that read-only guide after
 later evidence changes. The runbook orders the required readiness, candidate,
-dry-run, and operator request artifacts into a manual review guide. It only
+dry-run, and operator request artifacts into a manual review guide with
+SHA-256 bindings for each command hint and artifact write command. It only
 reads saved artifacts and prints command hints; it does not execute Codex,
 record approval, create workspaces, apply patches, or change acceptance.
 

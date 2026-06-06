@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -188,6 +189,9 @@ def runbook_step(
         artifact_id=artifact_id,
         run_arg=display_path(run_dir, repo_root),
     )
+    artifact["write_command_sha256"] = sha256_text(
+        str(artifact.get("write_command", ""))
+    )
     return {
         "step_id": spec["step_id"],
         "artifact_id": artifact_id,
@@ -202,6 +206,7 @@ def runbook_step(
         "command": {
             "label": str(artifact.get("write_command_label", "")),
             "command": command,
+            "command_sha256": sha256_text(command),
             "writes_artifacts": True,
             "executes_codex_cli": False,
             "requires_explicit_operator_invocation": True,
@@ -364,8 +369,8 @@ def render_codex_cli_unlock_runbook_markdown(payload: dict[str, object]) -> str:
         f"- Blocking reasons: `{intake.get('blocking_reason_count', 0)}`",
         f"- Next step: {intake.get('next_step', '')}",
         "",
-        "| Step | Status | Artifact | Command |",
-        "| --- | --- | --- | --- |",
+        "| Step | Status | Artifact | Command | Command SHA-256 |",
+        "| --- | --- | --- | --- | --- |",
     ]
     for step in steps:
         artifact = step.get("artifact", {})
@@ -379,12 +384,14 @@ def render_codex_cli_unlock_runbook_markdown(payload: dict[str, object]) -> str:
             f"{step.get('label', '')} | "
             f"`{step.get('status', '')}` | "
             f"`{artifact.get('artifact_id', '')}` exists=`{json_file.get('exists', False)}` | "
-            f"`{command.get('label', '')}` |"
+            f"`{command.get('label', '')}` | "
+            f"`{command.get('command_sha256', '')}` |"
         )
     lines.extend(["", "## Command Hints", ""])
     for command in commands:
         lines.append(
-            f"- `{command.get('label', '')}`: `{command.get('command', '')}`"
+            f"- `{command.get('label', '')}`: `{command.get('command', '')}` "
+            f"(sha256 `{command.get('command_sha256', '')}`)"
         )
     if not commands:
         lines.append("- none")
@@ -568,6 +575,14 @@ def validate_runbook_steps(*, steps: list[dict[str, Any]]) -> tuple[str, ...]:
             dict_field(step, "command").get("label", "")
         ):
             errors.append("codex_cli_unlock_runbook step command label mismatch")
+        if str(artifact.get("write_command_sha256", "")) != sha256_text(
+            str(artifact.get("write_command", ""))
+        ):
+            errors.append("codex_cli_unlock_runbook step artifact command sha256 mismatch")
+        if str(artifact.get("write_command_sha256", "")) != str(
+            dict_field(step, "command").get("command_sha256", "")
+        ):
+            errors.append("codex_cli_unlock_runbook step command sha256 mismatch")
         authority = dict_field(step, "authority")
         for key in (
             "step_can_execute_command",
@@ -612,6 +627,8 @@ def validate_runbook_commands(
         if not bool(command.get("writes_artifacts", False)):
             errors.append("codex_cli_unlock_runbook command write flag mismatch")
         command_text = str(command.get("command", ""))
+        if str(command.get("command_sha256", "")) != sha256_text(command_text):
+            errors.append("codex_cli_unlock_runbook command sha256 mismatch")
         if any(token in command_text for token in unsafe_tokens):
             errors.append("codex_cli_unlock_runbook command unsafe token")
     return tuple(errors)
@@ -649,6 +666,11 @@ def command_artifacts() -> dict[str, str]:
         "write_real_execution_dry_run": "codex_cli_real_execution_dry_run",
         "write_operator_unlock_request": "codex_cli_operator_unlock_request",
     }
+
+
+def sha256_text(value: str) -> str:
+    """Return the SHA-256 digest for one operator command string."""
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def dict_field(payload: dict[str, Any], key: str) -> dict[str, Any]:

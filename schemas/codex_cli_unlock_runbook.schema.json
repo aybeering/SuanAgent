@@ -402,7 +402,8 @@
         "markdown_path",
         "markdown_file",
         "write_command_label",
-        "write_command"
+        "write_command",
+        "write_command_sha256"
       ],
       "properties": {
         "artifact_id": {
@@ -434,6 +435,9 @@
         },
         "write_command": {
           "type": "string"
+        },
+        "write_command_sha256": {
+          "type": "string"
         }
       }
     },
@@ -442,6 +446,7 @@
       "required": [
         "label",
         "command",
+        "command_sha256",
         "writes_artifacts",
         "executes_codex_cli",
         "requires_explicit_operator_invocation"
@@ -451,6 +456,9 @@
           "type": "string"
         },
         "command": {
+          "type": "string"
+        },
+        "command_sha256": {
           "type": "string"
         },
         "writes_artifacts": {

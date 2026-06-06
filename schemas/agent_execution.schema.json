@@ -401,6 +401,9 @@
         "bound",
         "preflight_path",
         "preflight_file",
+        "run_id",
+        "preflight_run_id",
+        "preflight_ok",
         "profile_name",
         "operator_unlock_ready",
         "canary_exempt",
@@ -433,6 +436,15 @@
         "preflight_file": {
           "$ref": "#/$defs/file_record"
         },
+        "run_id": {
+          "type": "string"
+        },
+        "preflight_run_id": {
+          "type": "string"
+        },
+        "preflight_ok": {
+          "type": "boolean"
+        },
         "profile_name": {
           "type": "string"
         },
@@ -452,6 +464,8 @@
           "type": "object",
           "required": [
             "preflight_present",
+            "preflight_run_id_matches",
+            "preflight_ok",
             "profile_present",
             "adapter_is_codex_cli",
             "command_matches_preflight",
@@ -463,6 +477,12 @@
           ],
           "properties": {
             "preflight_present": {
+              "type": "boolean"
+            },
+            "preflight_run_id_matches": {
+              "type": "boolean"
+            },
+            "preflight_ok": {
               "type": "boolean"
             },
             "profile_present": {

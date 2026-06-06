@@ -978,11 +978,12 @@ Proposal and intake artifacts:
   Codex-specific contract fixtures, local canary gates, and final execution
   unlock gates also require this selected execution binding to be present and
   blocker-free before they can report readiness. Guarded Codex CLI audits also
-  carry `preflight_binding`, which binds the saved command digest, workspace
-  prefix, strategy-only mutation allowlist, and mutation guard back to the
-  startup `codex_cli_execution_preflight.json` profile. Startup preflight
-  operator-request file hashes and expected command digests are schema-constrained
-  to empty-or-64-lowercase-hex and 64-lowercase-hex strings. Local canary and final
+  carry `preflight_binding`, which binds the saved command digest, run identity,
+  startup preflight run identity and ok state, workspace prefix, strategy-only
+  mutation allowlist, and mutation guard back to the startup
+  `codex_cli_execution_preflight.json` profile. Startup preflight operator-request
+  file hashes and expected command digests are schema-constrained to
+  empty-or-64-lowercase-hex and 64-lowercase-hex strings. Local canary and final
   unlock readiness also require that preflight binding to be blocker-free, and
   artifact validation re-derives canary gate rows from the current source
   artifacts to detect stale saved readiness. Canary gate file validation now

@@ -93,13 +93,16 @@ the same profile, attempt id, round id, workspace path, and run id.
 Each guarded Codex audit also records `agent_execution.preflight_binding`,
 which recomputes the active startup preflight match for the saved audit. The
 binding must show the reviewed command digest, current run workspace prefix,
-strategy-only mutation allowlist, strategy-only mutation guard, and startup
-execution permission all matched before artifact validation treats the audit as
-preflight-bound.
+current run identity, startup preflight run identity, startup preflight ok
+state, strategy-only mutation allowlist, strategy-only mutation guard, and
+startup execution permission all matched before artifact validation treats the
+audit as preflight-bound.
 
 If any of these change, execution remains blocked:
 
 - command
+- startup preflight run id
+- startup preflight ok state
 - workspace prefix
 - strategy-only mutation allowlist
 - strategy-only mutation guard

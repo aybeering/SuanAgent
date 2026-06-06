@@ -265,6 +265,7 @@ def bind_agent_execution_to_preflight(
         preflight_path=preflight_path,
         preflight=preflight,
         repo_root=repo_root,
+        run_id=run_dir.name,
     )
     payload["preflight_binding"] = binding
     audit_path.write_text(
@@ -280,6 +281,7 @@ def build_preflight_binding(
     preflight_path: Path,
     preflight: dict[str, object],
     repo_root: Path,
+    run_id: str,
 ) -> dict[str, object]:
     """Return deterministic checks tying a Codex audit to startup preflight."""
     profiles = preflight.get("profiles", [])
@@ -305,8 +307,12 @@ def build_preflight_binding(
     execution_enabled = bool(audit.get("execution_enabled", False))
     operator_unlock_ready = bool(profile.get("operator_unlock_ready", False))
     canary_exempt = bool(profile.get("canary_exempt", False))
+    preflight_run_id = str(preflight.get("run_id", ""))
+    preflight_ok = bool(preflight.get("ok", False))
     checks = {
         "preflight_present": preflight_path.exists(),
+        "preflight_run_id_matches": preflight_run_id == run_id,
+        "preflight_ok": preflight_ok,
         "profile_present": bool(profile),
         "adapter_is_codex_cli": str(audit.get("adapter_name", "")) == "codex_cli",
         "command_matches_preflight": command == expected_command,
@@ -337,6 +343,9 @@ def build_preflight_binding(
         "bound": bound,
         "preflight_path": str(preflight_path),
         "preflight_file": file_summary(preflight_path),
+        "run_id": run_id,
+        "preflight_run_id": preflight_run_id,
+        "preflight_ok": preflight_ok,
         "profile_name": profile_name,
         "operator_unlock_ready": operator_unlock_ready,
         "canary_exempt": canary_exempt,
@@ -509,12 +518,17 @@ def unbound_preflight_binding() -> dict[str, object]:
             "sha256": "",
         },
         "profile_name": "",
+        "run_id": "",
+        "preflight_run_id": "",
+        "preflight_ok": False,
         "operator_unlock_ready": False,
         "canary_exempt": False,
         "expected_command_sha256": "",
         "expected_workspace_prefix": "",
         "checks": {
             "preflight_present": False,
+            "preflight_run_id_matches": False,
+            "preflight_ok": False,
             "profile_present": False,
             "adapter_is_codex_cli": False,
             "command_matches_preflight": False,

@@ -20113,6 +20113,11 @@ print(json.dumps({
     assert audit["preflight_binding"]["expected_workspace_prefix"] == (
         preflight["profiles"][0]["expected_execution"]["workspace_prefix"]
     )
+    assert audit["preflight_binding"]["run_id"] == "codex-structured-fixture"
+    assert audit["preflight_binding"]["preflight_run_id"] == preflight["run_id"]
+    assert audit["preflight_binding"]["preflight_ok"] is True
+    assert audit["preflight_binding"]["checks"]["preflight_run_id_matches"] is True
+    assert audit["preflight_binding"]["checks"]["preflight_ok"] is True
     assert all(audit["preflight_binding"]["checks"].values())
     assert audit["mutation_guard"]["passed"] is True
     assert_matches_schema(
@@ -20216,6 +20221,11 @@ def test_codex_cli_canary_config_runs_controlled_execution_gate(
     assert audit["preflight_binding"]["expected_workspace_prefix"] == (
         preflight["profiles"][0]["expected_execution"]["workspace_prefix"]
     )
+    assert audit["preflight_binding"]["run_id"] == "codex-canary"
+    assert audit["preflight_binding"]["preflight_run_id"] == preflight["run_id"]
+    assert audit["preflight_binding"]["preflight_ok"] is True
+    assert audit["preflight_binding"]["checks"]["preflight_run_id_matches"] is True
+    assert audit["preflight_binding"]["checks"]["preflight_ok"] is True
     assert all(audit["preflight_binding"]["checks"].values())
     assert audit["returncode"] == 0
     assert audit["mutation_guard"]["passed"] is True
@@ -20421,6 +20431,47 @@ def test_artifact_validator_blocks_codex_execution_preflight_mismatch(
     assert any(
         "agent_execution preflight_binding check drift: command_matches_preflight"
         in str(error)
+        for error in validation_report["errors"]
+    )
+
+
+def test_artifact_validator_blocks_codex_execution_preflight_run_id_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_canary.json")
+    run_iteration_loop(
+        run_id="codex-execution-preflight-run-id-mismatch",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    preflight_path = (
+        repo
+        / "experiments/codex-execution-preflight-run-id-mismatch"
+        / "codex_cli_execution_preflight.json"
+    )
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    preflight["run_id"] = "other-run"
+    preflight_path.write_text(
+        json.dumps(preflight, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="codex-execution-preflight-run-id-mismatch",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "agent_execution preflight_binding check drift: preflight_run_id_matches"
+        in str(error)
+        for error in validation_report["errors"]
+    )
+    assert any(
+        "agent_execution preflight_binding preflight run id drift" in str(error)
         for error in validation_report["errors"]
     )
 

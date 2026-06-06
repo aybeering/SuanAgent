@@ -3553,6 +3553,18 @@ def validate_agent_execution_preflight_binding(
             report,
             f"agent_execution preflight_binding workspace prefix drift: {path}",
         )
+    if str(binding.get("run_id", "")) != str(expected["run_id"]):
+        add_error(report, f"agent_execution preflight_binding run id drift: {path}")
+    if str(binding.get("preflight_run_id", "")) != str(expected["preflight_run_id"]):
+        add_error(
+            report,
+            f"agent_execution preflight_binding preflight run id drift: {path}",
+        )
+    if bool(binding.get("preflight_ok", False)) != bool(expected["preflight_ok"]):
+        add_error(
+            report,
+            f"agent_execution preflight_binding preflight ok drift: {path}",
+        )
     blockers = binding.get("blocking_reasons", [])
     expected_blockers = [
         f"preflight_binding:{name}"
@@ -3603,8 +3615,16 @@ def expected_agent_execution_preflight_binding(
     execution_enabled = bool(payload.get("execution_enabled", False))
     operator_unlock_ready = bool(profile.get("operator_unlock_ready", False))
     canary_exempt = bool(profile.get("canary_exempt", False))
+    preflight_run_id = (
+        str(preflight.get("run_id", "")) if isinstance(preflight, dict) else ""
+    )
+    preflight_ok = (
+        bool(preflight.get("ok", False)) if isinstance(preflight, dict) else False
+    )
     checks = {
         "preflight_present": preflight_path.exists(),
+        "preflight_run_id_matches": preflight_run_id == run_dir.name,
+        "preflight_ok": preflight_ok,
         "profile_present": bool(profile),
         "adapter_is_codex_cli": str(payload.get("adapter_name", "")) == "codex_cli",
         "command_matches_preflight": command == expected_command,
@@ -3630,6 +3650,9 @@ def expected_agent_execution_preflight_binding(
     }
     return {
         "checks": checks,
+        "run_id": run_dir.name,
+        "preflight_run_id": preflight_run_id,
+        "preflight_ok": preflight_ok,
         "expected_command_sha256": str(expected_execution.get("command_sha256", "")),
         "expected_workspace_prefix": expected_prefix,
     }

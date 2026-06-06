@@ -10,9 +10,11 @@ from pathlib import Path
 from typing import Any
 
 from orchestrator.agent_contract_runner import CODEX_CLI_GUARDED_RUNNER_NAME
+from orchestrator.schema_validation import validate_json_file
 
 
 CODEX_CLI_REPLAY_GATE_SCHEMA_VERSION = "codex_cli_replay_gate_v1"
+SCHEMA_PATH = Path("schemas/codex_cli_replay_gate.schema.json")
 
 
 def build_codex_cli_replay_gate(
@@ -91,6 +93,36 @@ def write_codex_cli_replay_gate(
         encoding="utf-8",
     )
     return payload
+
+
+def validate_codex_cli_replay_gate_file(
+    *,
+    payload_path: Path,
+    repo_root: Path = Path("."),
+    schema_path: Path | None = None,
+    require_current_evidence: bool = True,
+) -> tuple[str, ...]:
+    """Validate a saved Codex CLI replay gate against schema and evidence."""
+    repo_root = repo_root.resolve()
+    schema_errors = tuple(
+        validate_json_file(
+            payload_path=payload_path,
+            schema_path=schema_path or repo_root / SCHEMA_PATH,
+        )
+    )
+    if schema_errors or not require_current_evidence:
+        return schema_errors
+    payload = load_json_object(payload_path)
+    run_dir_value = str(payload.get("run_dir", ""))
+    if not run_dir_value:
+        return schema_errors + ("codex_cli_replay_gate run_dir required",)
+    expected = build_codex_cli_replay_gate(
+        run_dir=resolve_path(Path(run_dir_value), repo_root),
+        repo_root=repo_root,
+    )
+    if payload != expected:
+        return schema_errors + ("codex_cli_replay_gate current evidence mismatch",)
+    return schema_errors
 
 
 def codex_round_slots(*, round_dir: Path, repo_root: Path) -> list[dict[str, Any]]:

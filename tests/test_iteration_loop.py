@@ -58,6 +58,7 @@ from orchestrator.codex_cli_contract_fixture import (
 )
 from orchestrator.codex_cli_replay_gate import (
     CODEX_CLI_REPLAY_GATE_SCHEMA_VERSION,
+    validate_codex_cli_replay_gate_file,
     write_codex_cli_replay_gate,
 )
 from orchestrator.codex_cli_enablement_gate import (
@@ -17900,6 +17901,14 @@ def test_codex_cli_replay_gate_detects_artifact_sha_drift(
     replay_round(round_dir=round_dir, repo_root=repo)
     write_codex_cli_contract_fixture(round_dir=round_dir, repo_root=repo)
     gate = write_codex_cli_replay_gate(run_dir=run_dir, repo_root=repo)
+    gate_path = run_dir / "codex_cli_replay_gate.json"
+    assert (
+        validate_codex_cli_replay_gate_file(
+            payload_path=gate_path,
+            repo_root=repo,
+        )
+        == ()
+    )
     fixture_path = round_dir / "codex_cli_contract_fixture.json"
     fixture_payload = json.loads(fixture_path.read_text(encoding="utf-8"))
     fixture_payload["contract"]["fixture_direction_tag"] = "tampered_direction"
@@ -17907,6 +17916,11 @@ def test_codex_cli_replay_gate_detects_artifact_sha_drift(
         json.dumps(fixture_payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+    assert validate_codex_cli_replay_gate_file(
+        payload_path=gate_path,
+        repo_root=repo,
+    ) == ("codex_cli_replay_gate current evidence mismatch",)
 
     validation_report = validate_run_artifacts(
         run_id="codex-replay-gate-sha-drift",
@@ -17920,6 +17934,10 @@ def test_codex_cli_replay_gate_detects_artifact_sha_drift(
     current_sha = hashlib.sha256(fixture_path.read_bytes()).hexdigest()
     assert recorded_sha != current_sha
     assert validation_report["ok"] is False
+    assert (
+        "codex_cli_replay_gate.json file: "
+        "codex_cli_replay_gate current evidence mismatch"
+    ) in validation_report["errors"]
     assert (
         "codex_cli_replay_gate artifact sha mismatch: codex_cli_contract_fixture"
         in validation_report["errors"]

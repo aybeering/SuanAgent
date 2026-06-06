@@ -1018,6 +1018,10 @@ Replay artifacts:
   input, subprocess, and mutation-guard evidence without executing agents.
   Saved sandbox-drill reports are strict snapshots and fail validation when
   current run-local boundary evidence no longer matches the saved drill.
+- `codex_cli_replay_gate.json` gates future Codex CLI enablement using saved
+  guarded-execution audit, contract fixture, quarantine, and round-replay
+  evidence. Saved replay-gate reports are strict snapshots and fail validation
+  when current run-local Codex readiness evidence no longer matches the gate.
 - `run_artifact_health.json` batch-validates saved experiment run artifacts
   and reports per-run artifact health without rerunning simulations.
   `--created-at-from` scopes indexed runs to a current contract era without

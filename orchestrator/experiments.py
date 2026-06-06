@@ -5193,6 +5193,52 @@ def validate_operator_view_refresh_payload(
             repo_root=repo_root,
         )
     )
+    errors.extend(
+        validate_operator_view_refresh_file_source_binding(
+            payload,
+            repo_root=repo_root,
+        )
+    )
+    return tuple(errors)
+
+
+def validate_operator_view_refresh_file_source_binding(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate refreshed file records against current artifact files."""
+    run_dir_text = str(payload.get("run_dir", ""))
+    if not run_dir_text:
+        return ()
+
+    repo_root = repo_root.resolve()
+    run_dir = Path(run_dir_text)
+    if not run_dir.is_absolute():
+        run_dir = repo_root / run_dir
+    if not run_dir.exists():
+        return ()
+
+    errors: list[str] = []
+    for row in list_payload(payload.get("refreshed_artifacts", [])):
+        artifact_name = str(row.get("artifact_name", ""))
+        for path_key, record_key, label in (
+            ("json_path", "json_file", "json"),
+            ("markdown_path", "markdown_file", "markdown"),
+        ):
+            path_text = str(row.get(path_key, ""))
+            if not path_text:
+                continue
+            artifact_path = Path(path_text)
+            if not artifact_path.is_absolute():
+                artifact_path = repo_root / artifact_path
+            expected = refresh_file_record(artifact_path, repo_root=repo_root)
+            record = dict_payload(row.get(record_key, {}))
+            if record != expected:
+                errors.append(
+                    "operator_view_refresh refreshed "
+                    f"{label} file record mismatch: {artifact_name}"
+                )
     return tuple(errors)
 
 

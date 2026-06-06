@@ -6459,6 +6459,39 @@ def test_operator_view_refresh_validation_binds_operator_summary_to_cockpit(
     )
 
 
+def test_operator_view_refresh_validation_binds_file_records_to_disk(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "operator-view-refresh-file-source"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    payload = refresh_operator_views_command(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+    )
+
+    assert validate_operator_view_refresh_payload(payload, repo_root=repo) == ()
+
+    refreshed_artifacts = payload["refreshed_artifacts"]
+    assert isinstance(refreshed_artifacts, list)
+    first_artifact = refreshed_artifacts[0]
+    assert isinstance(first_artifact, dict)
+    json_file = first_artifact["json_file"]
+    assert isinstance(json_file, dict)
+    json_file["sha256"] = "stale-file-record"
+
+    errors = validate_operator_view_refresh_payload(payload, repo_root=repo)
+
+    assert (
+        "operator_view_refresh refreshed json file record mismatch: "
+        "operator_action_dashboard"
+    ) in errors
+
+
 def test_config_application_receipt_applies_only_from_approved_dry_run(
     tmp_path: Path,
 ) -> None:

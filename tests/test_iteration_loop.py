@@ -44,6 +44,7 @@ from orchestrator.agent_contract_runner import (
 )
 from orchestrator.agent_output_intake import (
     AGENT_VALIDATION_SCHEMA_VERSION,
+    proposal_from_raw_agent_output,
     verify_agent_output,
 )
 from orchestrator.agent_golden_replay import (
@@ -12820,6 +12821,266 @@ def test_agent_output_intake_rejects_disallowed_patch(tmp_path: Path) -> None:
     assert report["checks"]["strategy_only_patch"] is False  # type: ignore[index]
     assert any("disallowed files" in error for error in report["errors"])  # type: ignore[union-attr]
     assert_matches_schema(round_dir / "bad_agent_validation.json", "agent_validation")
+
+
+def test_proposal_from_raw_agent_output_normalizes_supported_shapes() -> None:
+    patch = (
+        "--- a/strategies/current_strategy.py\n"
+        "+++ b/strategies/current_strategy.py\n"
+        "@@ -9,7 +9,7 @@\n"
+        "-MIN_EDGE = 0.05\n"
+        "+MIN_EDGE = 0.04\n"
+    )
+    agent_input = {
+        "target_file": "strategies/current_strategy.py",
+        "round_index": 3,
+    }
+    cases = [
+        (
+            "plain_diff",
+            patch,
+            {
+                "applicable": True,
+                "summary": "Default summary.",
+                "direction_tag": "default_direction",
+                "patch_contains": "MIN_EDGE = 0.04",
+            },
+            (),
+        ),
+        (
+            "fenced_diff",
+            f"```diff\n{patch}```\n",
+            {
+                "applicable": True,
+                "summary": "Default summary.",
+                "direction_tag": "default_direction",
+                "risk_notes": "Default risk.",
+                "hypotheses": ("Default hypothesis.",),
+                "patch_contains": "MIN_EDGE = 0.04",
+            },
+            (),
+        ),
+        (
+            "top_level_json",
+            json.dumps(
+                {
+                    "agent_name": "json_agent",
+                    "round_index": 3,
+                    "target_file": "strategies/current_strategy.py",
+                    "summary": "Top-level JSON patch.",
+                    "risk_notes": "Uses structured metadata.",
+                    "direction_tag": "json_patch",
+                    "expected_metric_change": {"ev": "unknown"},
+                    "hypotheses": ["JSON wrapper should normalize."],
+                    "patch_diff": patch,
+                },
+                indent=2,
+                sort_keys=True,
+            ),
+            {
+                "applicable": True,
+                "agent_name": "json_agent",
+                "summary": "Top-level JSON patch.",
+                "direction_tag": "json_patch",
+                "expected_metric_change": {"ev": "unknown"},
+                "hypotheses": ("JSON wrapper should normalize.",),
+            },
+            (),
+        ),
+        (
+            "proposal_wrapper",
+            json.dumps(
+                {
+                    "proposal": {
+                        "summary": "Proposal wrapper patch.",
+                        "risk_notes": "Uses proposal wrapper.",
+                        "direction_tag": "proposal_wrapper",
+                        "expected_metric_change": {"trade_count": "increase"},
+                        "hypotheses": ["Nested proposal should be selected."],
+                        "patch_diff": patch,
+                    }
+                },
+                indent=2,
+                sort_keys=True,
+            ),
+            {
+                "applicable": True,
+                "summary": "Proposal wrapper patch.",
+                "direction_tag": "proposal_wrapper",
+                "expected_metric_change": {"trade_count": "increase"},
+                "hypotheses": ("Nested proposal should be selected.",),
+            },
+            (),
+        ),
+        (
+            "selected_proposal_wrapper",
+            json.dumps(
+                {
+                    "proposal": {
+                        "summary": "Ignored fallback proposal.",
+                        "patch_diff": "",
+                    },
+                    "selected_proposal": {
+                        "summary": "Selected proposal patch.",
+                        "risk_notes": "selected_proposal has priority.",
+                        "direction_tag": "selected_wrapper",
+                        "expected_metric_change": {"fill_rate": "unknown"},
+                        "hypotheses": ["Selected proposal should be used."],
+                        "patch_diff": patch,
+                    },
+                },
+                indent=2,
+                sort_keys=True,
+            ),
+            {
+                "applicable": True,
+                "summary": "Selected proposal patch.",
+                "direction_tag": "selected_wrapper",
+                "expected_metric_change": {"fill_rate": "unknown"},
+                "hypotheses": ("Selected proposal should be used.",),
+            },
+            (),
+        ),
+    ]
+
+    for label, raw_output, expected, expected_errors in cases:
+        proposal = proposal_from_raw_agent_output(
+            raw_output=raw_output,
+            agent_input=agent_input,
+            agent_name="default_agent",
+            default_summary="Default summary.",
+            default_risk_notes="Default risk.",
+            default_direction_tag="default_direction",
+            default_hypotheses=("Default hypothesis.",),
+        )
+        errors = validate_proposal_contract(
+            proposal=proposal,
+            expected_target_file=Path("strategies/current_strategy.py"),
+            expected_round_index=3,
+        )
+
+        assert proposal.applicable is expected["applicable"], label
+        assert proposal.agent_name == expected.get("agent_name", "default_agent"), label
+        assert proposal.summary == expected["summary"], label
+        assert proposal.direction_tag == expected["direction_tag"], label
+        assert proposal.risk_notes == expected.get("risk_notes", proposal.risk_notes), label
+        assert proposal.expected_metric_change == expected.get(
+            "expected_metric_change",
+            {},
+        ), label
+        assert proposal.hypotheses == expected.get(
+            "hypotheses",
+            proposal.hypotheses,
+        ), label
+        if "patch_contains" in expected:
+            assert expected["patch_contains"] in proposal.patch_diff, label
+        assert proposal.contract_errors == expected_errors, label
+        assert errors == expected_errors, label
+
+
+def test_proposal_from_raw_agent_output_blocks_malformed_shapes() -> None:
+    patch = (
+        "--- a/strategies/current_strategy.py\n"
+        "+++ b/strategies/current_strategy.py\n"
+        "@@ -9,7 +9,7 @@\n"
+        "-MIN_EDGE = 0.05\n"
+        "+MIN_EDGE = 0.04\n"
+    )
+    agent_input = {
+        "target_file": "strategies/current_strategy.py",
+        "round_index": 1,
+    }
+    cases = [
+        (
+            "malformed_json",
+            "```json\n{\"summary\": \n```\n",
+            {},
+            ("agent output JSON parse failed",),
+        ),
+        (
+            "bad_target",
+            json.dumps(
+                {
+                    "summary": "Wrong target.",
+                    "risk_notes": "Must not touch docs.",
+                    "direction_tag": "bad_target",
+                    "patch_diff": (
+                        "--- a/README.md\n"
+                        "+++ b/README.md\n"
+                        "@@ -1,1 +1,1 @@\n"
+                        "-# Self Iterating Strategy Agent V0.5\n"
+                        "+# Changed\n"
+                    ),
+                },
+                indent=2,
+                sort_keys=True,
+            ),
+            {"applicable": True, "direction_tag": "bad_target"},
+            ("patch_diff target validation failed",),
+        ),
+        (
+            "bad_metadata",
+            json.dumps(
+                {
+                    "summary": "Bad metadata types.",
+                    "risk_notes": "Metadata must remain typed.",
+                    "direction_tag": "bad_metadata",
+                    "expected_metric_change": {"ev": 1},
+                    "hypotheses": [123],
+                    "patch_diff": patch,
+                },
+                indent=2,
+                sort_keys=True,
+            ),
+            {"applicable": True, "direction_tag": "bad_metadata"},
+            (
+                "expected_metric_change[ev] must be a string",
+                "hypotheses[1] must be a string",
+            ),
+        ),
+        (
+            "selected_proposal_bad_type",
+            json.dumps({"selected_proposal": ["not", "object"]}),
+            {"applicable": False, "patch_diff": ""},
+            ("selected_proposal must be a JSON object",),
+        ),
+        (
+            "oversized_raw_output",
+            "x" * 64,
+            {"applicable": False, "patch_diff": ""},
+            ("raw agent output too large",),
+        ),
+    ]
+
+    for label, raw_output, expected, expected_error_fragments in cases:
+        proposal = proposal_from_raw_agent_output(
+            raw_output=raw_output,
+            agent_input=agent_input,
+            agent_name="normalizer",
+            default_summary="Fallback summary.",
+            default_risk_notes="Fallback risk.",
+            default_direction_tag="fallback_direction",
+            default_hypotheses=("Fallback hypothesis.",),
+            max_raw_output_bytes=16 if label == "oversized_raw_output" else 262_144,
+        )
+        errors = validate_proposal_contract(
+            proposal=proposal,
+            expected_target_file=Path("strategies/current_strategy.py"),
+            expected_round_index=1,
+        )
+
+        assert proposal.applicable is expected.get("applicable", False), label
+        assert proposal.patch_diff == expected.get("patch_diff", proposal.patch_diff), label
+        assert proposal.direction_tag == expected.get(
+            "direction_tag",
+            "fallback_direction",
+        ), label
+        for fragment in expected_error_fragments:
+            assert any(fragment in error for error in errors), label
+            if fragment != "patch_diff target validation failed":
+                assert any(
+                    fragment in error for error in proposal.contract_errors
+                ), label
 
 
 def test_agent_output_intake_rejects_bad_round_index_without_crashing(

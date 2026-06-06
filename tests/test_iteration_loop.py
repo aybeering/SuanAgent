@@ -21311,6 +21311,18 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         schema=readiness_schema,
     )
     assert "$: missing required property consistency_checks" in readiness_errors
+    invalid_readiness_digest = json.loads(json.dumps(readiness))
+    invalid_readiness_digest["stages"][0]["artifact"]["sha256"] = (
+        "bad-readiness-stage-sha"
+    )
+    invalid_readiness_digest_errors = validate_json_payload(
+        payload=invalid_readiness_digest,
+        schema=readiness_schema,
+    )
+    assert any(
+        "$.stages[0].artifact.sha256: expected string to match pattern" in error
+        for error in invalid_readiness_digest_errors
+    )
     invalid_pipeline = json.loads(json.dumps(pipeline))
     del invalid_pipeline["consistency_checks"]
     pipeline_schema = json.loads(

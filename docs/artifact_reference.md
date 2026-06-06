@@ -731,6 +731,8 @@ generated artifact file records, the final summary artifact hash, and
 pipeline-level readiness fields. These checks are schema-validated audit
 evidence only; they cannot execute Codex, create workspaces, route agents,
 apply patches, or change acceptance.
+`codex_cli_readiness_summary.json` stage artifact SHA-256 fields are
+schema-constrained to empty-or-64-lowercase-hex strings.
 `codex_cli_operator_unlock_request.json` records explicit operator intent plus
 canonical file records for the readiness pipeline, execution unlock snapshot,
 execution candidate, and real-execution dry-run artifacts. Artifact validation

@@ -9,7 +9,11 @@ from typing import Any
 
 from orchestrator.artifact_validator import validate_run_artifacts
 from orchestrator.run_outcome import build_run_outcome_summary
-from orchestrator.schema_validation import load_schema, validate_json_payload
+from orchestrator.schema_validation import (
+    load_schema,
+    validate_json_file,
+    validate_json_payload,
+)
 
 
 RUN_DIAGNOSIS_SCHEMA_VERSION = "run_diagnosis_v1"
@@ -86,6 +90,12 @@ def write_run_diagnosis(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    errors = validate_run_diagnosis_file(
+        payload_path=output_path,
+        repo_root=repo_root,
+    )
+    if errors:
+        raise ValueError("run diagnosis file validation failed: " + "; ".join(errors))
     return output_path
 
 
@@ -102,6 +112,54 @@ def validate_run_diagnosis_payload(
         schema=schema,
         schema_dir=schema_path.parent,
     )
+
+
+def validate_run_diagnosis_file(
+    *,
+    payload_path: Path,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate a saved run diagnosis and its current run-local evidence."""
+    repo_root = repo_root.resolve()
+    schema_errors = tuple(
+        validate_json_file(
+            payload_path=payload_path,
+            schema_path=repo_root / RUN_DIAGNOSIS_SCHEMA_PATH,
+        )
+    )
+    if schema_errors:
+        return schema_errors
+    payload = load_json_object(payload_path)
+    if payload is None:
+        return ("run_diagnosis payload must be an object",)
+    run_id = str(payload.get("run_id", ""))
+    if not run_id:
+        return ("run_diagnosis run_id required",)
+    expected = diagnose_run(
+        run_id=run_id,
+        experiments_dir=run_diagnosis_experiments_dir(
+            payload=payload,
+            payload_path=payload_path,
+            repo_root=repo_root,
+        ),
+        repo_root=repo_root,
+    )
+    if payload != expected:
+        return ("run_diagnosis current evidence mismatch",)
+    return ()
+
+
+def run_diagnosis_experiments_dir(
+    *,
+    payload: dict[str, Any],
+    payload_path: Path,
+    repo_root: Path,
+) -> Path:
+    """Return the experiments directory for a saved diagnosis payload."""
+    raw_run_dir = str(payload.get("run_dir", ""))
+    if raw_run_dir:
+        return resolve_path(Path(raw_run_dir), repo_root).parent
+    return payload_path.parent.parent
 
 
 def diagnose_single_run(

@@ -393,6 +393,7 @@ from orchestrator.operator_unlock_checklist import (
 from orchestrator.run_diagnosis import (
     RUN_DIAGNOSIS_SCHEMA_VERSION,
     diagnose_run,
+    validate_run_diagnosis_file,
     validate_run_diagnosis_payload,
     write_run_diagnosis,
 )
@@ -17121,6 +17122,10 @@ def test_run_diagnosis_summarizes_single_run(tmp_path: Path) -> None:
     assert saved["summary"] == diagnosis["summary"]
     assert saved["schema_version"] == RUN_DIAGNOSIS_SCHEMA_VERSION
     assert_matches_schema(repo / "experiments/diagnose-single/diagnosis.json", "run_diagnosis")
+    assert validate_run_diagnosis_file(
+        payload_path=repo / "experiments/diagnose-single/diagnosis.json",
+        repo_root=repo,
+    ) == ()
 
 
 def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
@@ -17234,6 +17239,23 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     ).read_text(encoding="utf-8")
     assert "## Agent Intake Summary" in summary_markdown
     assert "## Run Outcome Summary" in summary_markdown
+    diagnosis_path = repo / "experiments/diagnose-iteration/diagnosis.json"
+    assert validate_run_diagnosis_file(
+        payload_path=diagnosis_path,
+        repo_root=repo,
+    ) == ()
+    original_diagnosis_text = diagnosis_path.read_text(encoding="utf-8")
+    tampered_diagnosis = json.loads(original_diagnosis_text)
+    tampered_diagnosis["completed_rounds"] = 999
+    diagnosis_path.write_text(
+        json.dumps(tampered_diagnosis, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    assert validate_run_diagnosis_file(
+        payload_path=diagnosis_path,
+        repo_root=repo,
+    ) == ("run_diagnosis current evidence mismatch",)
+    diagnosis_path.write_text(original_diagnosis_text, encoding="utf-8")
     assert "- Primary code: `none`" in summary_markdown
 
 

@@ -465,6 +465,7 @@ from orchestrator.experiments import (
 from orchestrator.external_agent_sandbox_drill import (
     EXTERNAL_AGENT_SANDBOX_DRILL_SCHEMA_VERSION,
     build_external_agent_sandbox_drill,
+    validate_external_agent_sandbox_drill_file,
     write_external_agent_sandbox_drill,
 )
 from orchestrator.patch_parser import (
@@ -13379,6 +13380,55 @@ def test_external_agent_sandbox_drill_reports_file_protocol_execution(
     assert quarantine["quarantine_status"] == "released"
     assert quarantine["selected_attempt"]["adapter_name"] == "file_protocol"
     assert quarantine["selected_attempt"]["external_adapter"] is True
+
+
+def test_external_agent_sandbox_drill_reports_current_evidence_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+    run_iteration_loop(
+        run_id="sandbox-current-evidence-drift",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/sandbox-current-evidence-drift"
+    drill_path = run_dir / "external_agent_sandbox_drill.json"
+    drill = write_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
+
+    assert (
+        validate_external_agent_sandbox_drill_file(
+            payload_path=drill_path,
+            repo_root=repo,
+        )
+        == ()
+    )
+
+    execution_path = Path(drill["slots"][0]["execution_audit"]["path"])
+    execution_payload = json.loads(execution_path.read_text(encoding="utf-8"))
+    execution_payload["mutation_guard"]["passed"] = False
+    execution_path.write_text(
+        json.dumps(execution_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    assert validate_external_agent_sandbox_drill_file(
+        payload_path=drill_path,
+        repo_root=repo,
+    ) == ("external_agent_sandbox_drill current evidence mismatch",)
+
+    validation_report = validate_run_artifacts(
+        run_id="sandbox-current-evidence-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert (
+        "external_agent_sandbox_drill.json file: "
+        "external_agent_sandbox_drill current evidence mismatch"
+    ) in validation_report["errors"]
 
 
 def test_agent_golden_replay_freezes_file_protocol_fixture(

@@ -8,8 +8,11 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from orchestrator.schema_validation import validate_json_file
+
 
 EXTERNAL_AGENT_SANDBOX_DRILL_SCHEMA_VERSION = "external_agent_sandbox_drill_v1"
+SCHEMA_PATH = Path("schemas/external_agent_sandbox_drill.schema.json")
 WORKSPACE_ADAPTERS = {"codex_cli", "codex_dry_run", "codex_cli_dry_run", "file_protocol"}
 
 
@@ -84,6 +87,38 @@ def write_external_agent_sandbox_drill(
         encoding="utf-8",
     )
     return payload
+
+
+def validate_external_agent_sandbox_drill_file(
+    *,
+    payload_path: Path,
+    repo_root: Path = Path("."),
+    schema_path: Path | None = None,
+    require_current_evidence: bool = True,
+) -> tuple[str, ...]:
+    """Validate a saved sandbox-drill report against schema and evidence."""
+    repo_root = repo_root.resolve()
+    schema_errors = tuple(
+        validate_json_file(
+            payload_path=payload_path,
+            schema_path=schema_path or repo_root / SCHEMA_PATH,
+        )
+    )
+    if schema_errors or not require_current_evidence:
+        return schema_errors
+    payload = load_json_object(payload_path)
+    run_dir_value = str(payload.get("run_dir", ""))
+    if not run_dir_value:
+        return schema_errors + ("external_agent_sandbox_drill run_dir required",)
+    expected = build_external_agent_sandbox_drill(
+        run_dir=resolve_path(Path(run_dir_value), repo_root),
+        repo_root=repo_root,
+    )
+    if payload != expected:
+        return schema_errors + (
+            "external_agent_sandbox_drill current evidence mismatch",
+        )
+    return schema_errors
 
 
 def round_sandbox_rows(*, round_dir: Path, repo_root: Path) -> list[dict[str, Any]]:

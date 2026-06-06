@@ -9697,11 +9697,16 @@ def validate_optional_external_agent_sandbox_drill(
     if not path.exists():
         return
     checked_files(report).append(str(path))
-    validate_contract_file(
-        payload_path=path,
-        schema_path=repo_root / "schemas/external_agent_sandbox_drill.schema.json",
-        report=report,
+    from orchestrator.external_agent_sandbox_drill import (
+        validate_external_agent_sandbox_drill_file,
     )
+
+    for error in validate_external_agent_sandbox_drill_file(
+        payload_path=path,
+        repo_root=repo_root,
+        schema_path=repo_root / "schemas/external_agent_sandbox_drill.schema.json",
+    ):
+        add_error(report, f"external_agent_sandbox_drill.json file: {error}")
     payload = validate_json_object(path=path, report=report)
     if payload is None:
         return

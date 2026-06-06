@@ -1014,6 +1014,10 @@ Replay artifacts:
   input, output, workspace, execution-audit, and replay evidence is present.
   Saved readiness-gate reports are also strict snapshots and fail validation
   when the current run-local evidence no longer matches the saved gate.
+- `external_agent_sandbox_drill.json` audits external-slot command, workspace,
+  input, subprocess, and mutation-guard evidence without executing agents.
+  Saved sandbox-drill reports are strict snapshots and fail validation when
+  current run-local boundary evidence no longer matches the saved drill.
 - `run_artifact_health.json` batch-validates saved experiment run artifacts
   and reports per-run artifact health without rerunning simulations.
   `--created-at-from` scopes indexed runs to a current contract era without

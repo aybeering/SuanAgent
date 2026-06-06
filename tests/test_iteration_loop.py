@@ -6411,7 +6411,12 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
         require_current_evidence=True,
     ) == ()
     drift_preview = json.loads(json.dumps(preview))
+    drift_preview["current_config_sha256"] = "bad-digest"
+    drift_preview["rollback_gate"]["eligible_for_manual_restore"] = False
     drift_preview["rollback_gate"]["restorable_change_count"] = 99
+    drift_preview["rollback_plan"][0]["can_restore"] = False
+    drift_preview["next_run_impact"]["summary"] = "bad impact"
+    drift_preview["policy"]["read_only"] = False
     drift_preview_errors = validate_config_application_rollback_preview_payload(
         drift_preview,
         run_id="config-apply-approved",
@@ -6420,6 +6425,30 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
         receipt_path=run_dir / "config_application_receipt.json",
         config_path=repo / "config/default.json",
         require_current_evidence=True,
+    )
+    assert (
+        "config_application_rollback_preview source current_config_sha256 mismatch"
+        in drift_preview_errors
+    )
+    assert (
+        "config_application_rollback_preview rollback_gate "
+        "eligible_for_manual_restore mismatch"
+    ) in drift_preview_errors
+    assert (
+        "config_application_rollback_preview rollback_gate "
+        "restorable_change_count mismatch"
+    ) in drift_preview_errors
+    assert (
+        "config_application_rollback_preview rollback_plan 0 can_restore mismatch"
+        in drift_preview_errors
+    )
+    assert (
+        "config_application_rollback_preview next_run_impact summary mismatch"
+        in drift_preview_errors
+    )
+    assert (
+        "config_application_rollback_preview policy read_only mismatch"
+        in drift_preview_errors
     )
     assert (
         "config_application_rollback_preview restorable count mismatch"

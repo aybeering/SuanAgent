@@ -344,12 +344,23 @@ def validate_config_application_rollback_preview_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved config application rollback preview."""
-    return tuple(
+    effective_repo_root = infer_repo_root_from_payload_path(payload_path, repo_root)
+    errors = list(
         validate_json_file(
             payload_path=payload_path,
             schema_path=repo_root / SCHEMA_PATH,
         )
     )
+    if payload_path.exists():
+        errors.extend(
+            validate_config_application_rollback_preview_consistency(
+                load_json_object(payload_path),
+                run_id=payload_path.parent.name,
+                run_dir=payload_path.parent,
+                repo_root=effective_repo_root,
+            )
+        )
+    return tuple(errors)
 
 
 def validate_config_application_rollback_preview_payload(
@@ -411,33 +422,100 @@ def validate_config_application_rollback_preview_consistency(
         errors.append("config_application_rollback_preview run_id mismatch")
     if str(payload.get("run_dir", "")) != relative_path(run_dir, repo_root):
         errors.append("config_application_rollback_preview run_dir mismatch")
+    receipt_path = resolve_path(
+        Path(str(payload.get("source_receipt_path", ""))),
+        repo_root,
+    )
+    config_path = resolve_path(Path(str(payload.get("config_path", ""))), repo_root)
+    receipt = load_json_object(receipt_path)
+    applied_changes = list_of_objects(receipt.get("applied_changes", []))
     gate = object_field(payload, "rollback_gate")
     plan = list_of_objects(payload.get("rollback_plan", []))
-    blockers = string_list(gate.get("blockers", []))
     receipt_applied = bool(payload.get("source_receipt_applied", False))
-    eligible = not blockers
+    expected_receipt_applied = receipt.get("applied") is True
+    expected_source = {
+        "source_receipt_sha256": file_sha256(receipt_path),
+        "source_receipt_status": str(receipt.get("status", "")),
+        "source_receipt_applied": expected_receipt_applied,
+        "current_config_sha256": file_sha256(config_path),
+        "receipt_config_after_sha256": str(receipt.get("config_after_sha256", "")),
+    }
+    append_top_level_mismatches(
+        errors,
+        prefix="config_application_rollback_preview source",
+        payload=payload,
+        expected=expected_source,
+        field_names=tuple(expected_source),
+    )
+    expected_blockers = rollback_preview_blockers(
+        run_id=run_id,
+        receipt=receipt,
+        receipt_schema_errors=tuple(
+            string_list(payload.get("source_receipt_schema_errors", []))
+        ),
+        receipt_path=receipt_path,
+        config_path=config_path,
+        rollback_plan=plan,
+    )
+    eligible = not expected_blockers
     if bool(gate.get("eligible_for_manual_restore", False)) != eligible:
         errors.append("config_application_rollback_preview eligible mismatch")
-    if bool(gate.get("matching_applied_config_digest", False)) != (
-        str(payload.get("current_config_sha256", ""))
-        == str(payload.get("receipt_config_after_sha256", ""))
+    expected_gate = {
+        "eligible_for_manual_restore": eligible,
+        "blockers": expected_blockers,
+        "matching_applied_config_digest": (
+            file_sha256(config_path) == str(receipt.get("config_after_sha256", ""))
+        ),
+        "applied_change_count": len(applied_changes),
+        "restorable_change_count": sum(
+            1 for row in plan if row.get("can_restore") is True
+        ),
+    }
+    append_field_mismatches(
+        errors,
+        prefix="config_application_rollback_preview rollback_gate",
+        payload=gate,
+        expected=expected_gate,
+        field_names=tuple(expected_gate),
+    )
+    if string_list(gate.get("blockers", [])) != expected_blockers:
+        errors.append("config_application_rollback_preview blockers mismatch")
+    if bool(gate.get("matching_applied_config_digest", False)) != bool(
+        expected_gate["matching_applied_config_digest"]
     ):
         errors.append("config_application_rollback_preview digest match mismatch")
-    if int(gate.get("applied_change_count", -1) or 0) != len(plan):
+    if int(gate.get("applied_change_count", -1) or 0) != len(applied_changes):
         errors.append("config_application_rollback_preview applied count mismatch")
     restorable_count = sum(1 for row in plan if row.get("can_restore") is True)
     if int(gate.get("restorable_change_count", -1) or 0) != restorable_count:
         errors.append("config_application_rollback_preview restorable count mismatch")
     expected_status = rollback_preview_status(
-        receipt_applied=receipt_applied,
+        receipt_applied=expected_receipt_applied,
         eligible=eligible,
     )
     if str(payload.get("status", "")) != expected_status:
         errors.append("config_application_rollback_preview status mismatch")
-    for row in plan:
+    for row_index, row in enumerate(plan):
+        applied_change = (
+            applied_changes[row_index] if row_index < len(applied_changes) else {}
+        )
         current_matches = values_equal(
             row.get("current_value"),
             row.get("expected_applied_value"),
+        )
+        expected_row = {
+            "current_matches_expected_applied": current_matches,
+            "can_restore": bool(expected_receipt_applied and current_matches),
+            "source_artifact": str(
+                applied_change.get("source_artifact", "config_application_receipt.json")
+            ),
+        }
+        append_field_mismatches(
+            errors,
+            prefix=f"config_application_rollback_preview rollback_plan {row_index}",
+            payload=row,
+            expected=expected_row,
+            field_names=tuple(expected_row),
         )
         if bool(row.get("current_matches_expected_applied", False)) != current_matches:
             errors.append("config_application_rollback_preview row match mismatch")
@@ -447,7 +525,7 @@ def validate_config_application_rollback_preview_consistency(
         ):
             errors.append("config_application_rollback_preview restore path invalid")
         if bool(row.get("can_restore", False)) != bool(
-            receipt_applied and current_matches
+            expected_receipt_applied and current_matches
         ):
             errors.append("config_application_rollback_preview row restore mismatch")
     expected_impact = {
@@ -457,6 +535,35 @@ def validate_config_application_rollback_preview_consistency(
     }
     if object_field(payload, "next_run_impact") != expected_impact:
         errors.append("config_application_rollback_preview impact mismatch")
+    impact = object_field(payload, "next_run_impact")
+    append_field_mismatches(
+        errors,
+        prefix="config_application_rollback_preview next_run_impact",
+        payload=impact,
+        expected=expected_impact,
+        field_names=("affected_config_paths", "impact_rows", "summary"),
+    )
+    policy = object_field(payload, "policy")
+    expected_policy = {
+        "requires_config_application_receipt": True,
+        "read_only": True,
+        "does_not_write_config": True,
+        "does_not_delete_memory": True,
+        "does_not_execute_agents": True,
+        "does_not_run_backtests": True,
+        "does_not_route_candidates": True,
+        "does_not_apply_patches": True,
+        "does_not_change_acceptance": True,
+    }
+    append_field_mismatches(
+        errors,
+        prefix="config_application_rollback_preview policy",
+        payload=policy,
+        expected=expected_policy,
+        field_names=tuple(expected_policy),
+    )
+    if policy != expected_policy:
+        errors.append("config_application_rollback_preview policy mismatch")
     return tuple(errors)
 
 
@@ -473,6 +580,50 @@ def value_at_path(payload: dict[str, Any], dotted_path: str) -> object:
 def values_equal(left: object, right: object) -> bool:
     """Compare JSON-like values deterministically."""
     return json.dumps(left, sort_keys=True) == json.dumps(right, sort_keys=True)
+
+
+def append_top_level_mismatches(
+    errors: list[str],
+    *,
+    prefix: str,
+    payload: dict[str, object],
+    expected: dict[str, object],
+    field_names: tuple[str, ...],
+) -> None:
+    """Append field-specific mismatch messages for top-level payload fields."""
+    for field_name in field_names:
+        if payload.get(field_name) != expected.get(field_name):
+            errors.append(f"{prefix} {field_name} mismatch")
+
+
+def append_field_mismatches(
+    errors: list[str],
+    *,
+    prefix: str,
+    payload: dict[str, Any],
+    expected: dict[str, object],
+    field_names: tuple[str, ...],
+) -> None:
+    """Append field-specific mismatch messages for comparable objects."""
+    for field_name in field_names:
+        if payload.get(field_name) != expected.get(field_name):
+            errors.append(f"{prefix} {field_name} mismatch")
+
+
+def infer_repo_root_from_payload_path(payload_path: Path, repo_root: Path) -> Path:
+    """Infer repo root for experiment artifacts when caller passes another cwd."""
+    resolved_payload = payload_path.resolve()
+    resolved_repo = repo_root.resolve()
+    try:
+        resolved_payload.relative_to(resolved_repo)
+        return resolved_repo
+    except ValueError:
+        pass
+    run_dir = resolved_payload.parent
+    experiments_dir = run_dir.parent
+    if experiments_dir.name == "experiments":
+        return experiments_dir.parent
+    return resolved_repo
 
 
 def main() -> None:

@@ -4059,6 +4059,13 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending_next_command["operator_hint"] == (
         pending_home["action_home"]["next_command_operator_hint"]
     )
+    assert pending_next_command["navigation"]["can_invoke_selected_command"] is False
+    assert pending_next_command["navigation"]["first_blocker"] == (
+        pending_home["blockers"][0]
+    )
+    assert pending_next_command["navigation"]["next_step"] == (
+        f"Review blocker: {pending_home['blockers'][0]}"
+    )
     assert pending_next_command["boundary_type"] == (
         pending_home["action_home"]["next_command_boundary"]
     )
@@ -4129,6 +4136,10 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
             **pending_next_command["safety"],
             "command_is_hint_only": False,
         },
+        "navigation": {
+            **pending_next_command["navigation"],
+            "can_invoke_selected_command": True,
+        },
         "authority": {
             **pending_next_command["authority"],
             "selector_can_execute_commands": True,
@@ -4149,6 +4160,10 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     )
     assert "operator_next_command safety command_is_hint_only mismatch" in (
         tampered_policy_errors
+    )
+    assert (
+        "operator_next_command navigation can_invoke_selected_command mismatch"
+        in tampered_policy_errors
     )
     assert "operator_next_command authority selector_can_execute_commands mismatch" in (
         tampered_policy_errors
@@ -29409,6 +29424,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert operator_next_command["operator_hint"] == (
         operator_home["action_home"]["next_command_operator_hint"]
     )
+    assert operator_next_command["navigation"]["can_invoke_selected_command"] == (
+        not operator_home["action_home"]["next_command_blocked"]
+    )
+    assert operator_next_command["navigation"]["summary"]
+    assert operator_next_command["navigation"]["codex_next_step"] == (
+        operator_home["codex_home"]["next_step"]
+    )
     assert operator_next_command["boundary_type"] == (
         operator_home["action_home"]["next_command_boundary"]
     )
@@ -29434,6 +29456,8 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     ) == ()
     assert "# Operator Next Command" in operator_next_command_markdown
     assert "## Safety" in operator_next_command_markdown
+    assert "Navigation summary:" in operator_next_command_markdown
+    assert "Can invoke selected command:" in operator_next_command_markdown
     assert "Command SHA-256:" in operator_next_command_markdown
     assert "Home command SHA-256:" in operator_next_command_markdown
     assert "Selection source: `operator_home.next_command`" in (
@@ -29495,6 +29519,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert operator_next_command_payload["blocked"] == (
         operator_home_payload["action_home"]["next_command_blocked"]
     )
+    assert operator_next_command_payload["navigation"]["can_invoke_selected_command"] == (
+        not operator_home_payload["action_home"]["next_command_blocked"]
+    )
+    assert operator_next_command_payload["navigation"]["codex_next_step"] == (
+        operator_home_payload["codex_home"]["next_step"]
+    )
     assert operator_next_command_payload["boundary_type"] == (
         operator_home_payload["action_home"]["next_command_boundary"]
     )
@@ -29516,6 +29546,8 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert "# Operator Next Command" in operator_next_command_markdown_result.stdout
     assert "## Command" in operator_next_command_markdown_result.stdout
+    assert "Navigation summary:" in operator_next_command_markdown_result.stdout
+    assert "Can invoke selected command:" in operator_next_command_markdown_result.stdout
     assert "Command SHA-256:" in operator_next_command_markdown_result.stdout
     assert "Home command SHA-256:" in operator_next_command_markdown_result.stdout
     assert "Selection source: `operator_home.next_command`" in (

@@ -640,11 +640,12 @@ orchestrator.operator_home experiments/<run_id> --next-command` expose a
 terminal-only `operator_next_command_v1` narrow view validated by
 `schemas/operator_next_command.schema.json`. It is derived from the same
 operator home payload and returns only the selected command, status, blocker
-count, boundary, write target, safety flags, source-home command, Codex
-readiness summary fields, authority flags, command SHA-256 bindings, and
+count, boundary, write target, a structured navigation summary with the first
+blocker and explicit-invocation readiness, safety flags, source-home command,
+Codex readiness summary fields, authority flags, command SHA-256 bindings, and
 read-only policy. Its markdown view also displays the selector source marker,
-selected-command digest, source-home command digest, and source-home
-terminal-only, artifact-free, hint-only boundary. It creates no artifact and
+navigation summary, selected-command digest, source-home command digest, and
+source-home terminal-only, artifact-free, hint-only boundary. It creates no artifact and
 remains a hint; it does not record approval, execute commands, write config,
 promote champions, run agents, run backtests, apply patches, route agents, or
 change acceptance.

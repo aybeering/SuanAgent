@@ -20,6 +20,7 @@
     "blocked",
     "blocker_count",
     "operator_hint",
+    "navigation",
     "action_step",
     "action_guide_status",
     "codex_unlock_runbook_status",
@@ -66,6 +67,7 @@
     "blocked": {"type": "boolean"},
     "blocker_count": {"type": "integer"},
     "operator_hint": {"type": "string"},
+    "navigation": {"$ref": "#/$defs/navigation"},
     "action_step": {"type": "string"},
     "action_guide_status": {"type": "string"},
     "codex_unlock_runbook_status": {"type": "string"},
@@ -76,6 +78,23 @@
     "policy": {"$ref": "#/$defs/policy"}
   },
   "$defs": {
+    "navigation": {
+      "type": "object",
+      "required": [
+        "can_invoke_selected_command",
+        "summary",
+        "first_blocker",
+        "next_step",
+        "codex_next_step"
+      ],
+      "properties": {
+        "can_invoke_selected_command": {"type": "boolean"},
+        "summary": {"type": "string"},
+        "first_blocker": {"type": "string"},
+        "next_step": {"type": "string"},
+        "codex_next_step": {"type": "string"}
+      }
+    },
     "safety": {
       "type": "object",
       "required": [

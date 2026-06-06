@@ -208,6 +208,8 @@ def build_operator_next_command(
     status = str(action_home.get("next_command_status", "unavailable"))
     blocked = bool(action_home.get("next_command_blocked", True))
     command = str(next_command.get("command", ""))
+    blockers = string_list(home.get("blockers", []))
+    operator_hint = str(action_home.get("next_command_operator_hint", ""))
     home_command = (
         "python -m orchestrator.experiments "
         f"home {home.get('run_id', run_dir.name)} --markdown"
@@ -229,7 +231,16 @@ def build_operator_next_command(
         "writes_artifact": str(next_command.get("writes_artifact", "")),
         "blocked": blocked,
         "blocker_count": int(action_home.get("next_command_blocker_count", 0) or 0),
-        "operator_hint": str(action_home.get("next_command_operator_hint", "")),
+        "operator_hint": operator_hint,
+        "navigation": next_command_navigation(
+            status=status,
+            blocked=blocked,
+            command=command,
+            reason=str(next_command.get("reason", "")),
+            operator_hint=operator_hint,
+            blockers=blockers,
+            codex_next_step=str(codex_home.get("next_step", "")),
+        ),
         "action_step": str(action_home.get("active_step_id", "")),
         "action_guide_status": str(action_home.get("guide_status", "")),
         "codex_unlock_runbook_status": str(
@@ -288,6 +299,40 @@ def build_operator_next_command(
             "does_not_route_agents": True,
             "does_not_change_acceptance": True,
         },
+    }
+
+
+def next_command_navigation(
+    *,
+    status: str,
+    blocked: bool,
+    command: str,
+    reason: str,
+    operator_hint: str,
+    blockers: list[str],
+    codex_next_step: str,
+) -> dict[str, object]:
+    """Return a compact operator navigation summary for one command hint."""
+    first_blocker = blockers[0] if blockers else ""
+    can_invoke = bool(command) and not blocked
+    if not command:
+        summary = "No selected command is available."
+        next_step = "Open the operator home and inspect the guided path."
+    elif blocked and first_blocker:
+        summary = f"Blocked by {len(blockers)} home blocker(s)."
+        next_step = f"Review blocker: {first_blocker}"
+    elif blocked:
+        summary = f"Command is blocked with status {status}."
+        next_step = operator_hint or "Review the selected command status."
+    else:
+        summary = "Selected command is ready for explicit operator invocation."
+        next_step = operator_hint or reason
+    return {
+        "can_invoke_selected_command": can_invoke,
+        "summary": summary,
+        "first_blocker": first_blocker,
+        "next_step": next_step,
+        "codex_next_step": codex_next_step,
     }
 
 
@@ -919,6 +964,7 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
 
 def render_operator_next_command_markdown(payload: dict[str, object]) -> str:
     """Render the operator next-command selector as markdown."""
+    navigation = object_field(payload, "navigation")
     safety = object_field(payload, "safety")
     source_home = object_field(payload, "source_home")
     lines = [
@@ -934,6 +980,12 @@ def render_operator_next_command_markdown(payload: dict[str, object]) -> str:
         f"- Blocked: `{payload.get('blocked', False)}`",
         f"- Blockers: `{payload.get('blocker_count', 0)}`",
         f"- Operator hint: {payload.get('operator_hint', '')}",
+        "- Can invoke selected command: "
+        f"`{navigation.get('can_invoke_selected_command', False)}`",
+        f"- Navigation summary: {navigation.get('summary', '')}",
+        f"- First blocker: `{navigation.get('first_blocker', '')}`",
+        f"- Next step: {navigation.get('next_step', '')}",
+        f"- Codex next step: {navigation.get('codex_next_step', '')}",
         f"- Writes artifact: `{payload.get('writes_artifact', '')}`",
         f"- Codex unlock runbook: `{payload.get('codex_unlock_runbook_status', '')}`",
         f"- Codex intake: `{payload.get('codex_intake_readiness_status', '')}`",
@@ -1096,6 +1148,7 @@ def validate_operator_next_command_consistency(
     expected_authority = object_field(expected, "authority")
     expected_policy = object_field(expected, "policy")
     safety = object_field(payload, "safety")
+    navigation = object_field(payload, "navigation")
     authority = object_field(payload, "authority")
     policy = object_field(payload, "policy")
     for field_name in (
@@ -1120,6 +1173,16 @@ def validate_operator_next_command_consistency(
     ):
         if payload.get(field_name) != expected.get(field_name):
             errors.append(f"operator_next_command {field_name} mismatch")
+    expected_navigation = object_field(expected, "navigation")
+    for field_name in (
+        "can_invoke_selected_command",
+        "summary",
+        "first_blocker",
+        "next_step",
+        "codex_next_step",
+    ):
+        if navigation.get(field_name) != expected_navigation.get(field_name):
+            errors.append(f"operator_next_command navigation {field_name} mismatch")
     for field_name in (
         "schema_version",
         "terminal_only",

@@ -651,6 +651,40 @@ def test_schema_validator_enforces_used_contract_keywords() -> None:
     assert "$.enabled: expected constant True, got False" in errors
 
 
+def test_schema_validator_enforces_additional_properties_schema() -> None:
+    schema = {
+        "type": "object",
+        "properties": {
+            "schema_version": {
+                "type": "string",
+            },
+        },
+        "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+        },
+    }
+
+    assert (
+        validate_json_payload(
+            payload={"schema_version": "demo_v1", "dynamic_key": "ok"},
+            schema=schema,
+        )
+        == ()
+    )
+    errors = validate_json_payload(
+        payload={
+            "schema_version": "demo_v1",
+            "empty_dynamic_key": "",
+            "numeric_dynamic_key": 3,
+        },
+        schema=schema,
+    )
+
+    assert "$.empty_dynamic_key: expected string length >= 1" in errors
+    assert "$.numeric_dynamic_key: expected string, got integer" in errors
+
+
 def test_artifact_validator_coverage_reports_repo_contracts(tmp_path: Path) -> None:
     payload = build_artifact_validator_coverage(repo_root=Path.cwd())
 

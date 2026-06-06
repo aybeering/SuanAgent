@@ -211,10 +211,22 @@ def validate_object(
                     schema_dir=schema_dir,
                 )
 
-    if schema.get("additionalProperties") is False and isinstance(properties, dict):
+    additional_properties = schema.get("additionalProperties")
+    if additional_properties is False and isinstance(properties, dict):
         allowed = set(properties)
         for key in sorted(set(value) - allowed):
             errors.append(f"{path}: unexpected property {key}")
+    elif isinstance(additional_properties, dict) and isinstance(properties, dict):
+        allowed = set(properties)
+        for key in sorted(set(value) - allowed):
+            validate_node(
+                value=value[key],
+                schema=additional_properties,
+                path=f"{path}.{key}",
+                errors=errors,
+                root_schema=root_schema,
+                schema_dir=schema_dir,
+            )
 
 
 def validate_array(

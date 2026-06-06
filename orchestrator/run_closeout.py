@@ -603,10 +603,55 @@ def validate_run_closeout_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved run closeout report."""
-    return validate_json_file(
-        payload_path=payload_path,
-        schema_path=repo_root / SCHEMA_PATH,
+    schema_errors = tuple(
+        validate_json_file(
+            payload_path=payload_path,
+            schema_path=repo_root / SCHEMA_PATH,
+        )
     )
+    if schema_errors:
+        return schema_errors
+    payload = load_json_object(payload_path)
+    expected = build_run_closeout(
+        run_dir=run_closeout_run_dir(
+            payload=payload,
+            payload_path=payload_path,
+            repo_root=repo_root,
+        ),
+        experiments_dir=run_closeout_experiments_dir(
+            payload=payload,
+            payload_path=payload_path,
+            repo_root=repo_root,
+        ),
+        repo_root=repo_root,
+    )
+    if payload != expected:
+        return ("run_closeout current evidence mismatch",)
+    return ()
+
+
+def run_closeout_run_dir(
+    *,
+    payload: dict[str, Any],
+    payload_path: Path,
+    repo_root: Path,
+) -> Path:
+    """Return the run directory recorded by a closeout payload."""
+    raw_path = str(payload.get("run_dir", ""))
+    return resolve_path(Path(raw_path), repo_root) if raw_path else payload_path.parent
+
+
+def run_closeout_experiments_dir(
+    *,
+    payload: dict[str, Any],
+    payload_path: Path,
+    repo_root: Path,
+) -> Path:
+    """Return the experiments directory recorded by a closeout payload."""
+    raw_path = str(payload.get("experiments_dir", ""))
+    if raw_path:
+        return resolve_path(Path(raw_path), repo_root)
+    return payload_path.parent.parent
 
 
 def load_json_object(path: Path) -> dict[str, Any]:

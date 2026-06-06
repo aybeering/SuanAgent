@@ -8940,6 +8940,19 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         payload_path=run_dir / "run_closeout.json",
         repo_root=Path.cwd(),
     ) == ()
+    closeout_path = run_dir / "run_closeout.json"
+    original_closeout_text = closeout_path.read_text(encoding="utf-8")
+    tampered_closeout = json.loads(original_closeout_text)
+    tampered_closeout["summary"]["candidate_count"] = 999
+    closeout_path.write_text(
+        json.dumps(tampered_closeout, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    assert validate_run_closeout_file(
+        payload_path=closeout_path,
+        repo_root=Path.cwd(),
+    ) == ("run_closeout current evidence mismatch",)
+    closeout_path.write_text(original_closeout_text, encoding="utf-8")
     assert manifest["operator_action_plan"]["path"] == "operator_action_plan.json"
     assert manifest["operator_action_plan"]["markdown_path"] == (
         "operator_action_plan.md"

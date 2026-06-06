@@ -758,6 +758,69 @@ def test_schema_validator_rejects_malformed_required_keyword() -> None:
     assert "$: unsupported required property name 3" in malformed_name_errors
 
 
+def test_schema_validator_rejects_malformed_object_schema_keywords() -> None:
+    malformed_properties_errors = validate_json_payload(
+        payload={},
+        schema={
+            "type": "object",
+            "properties": [
+                "name",
+            ],
+        },
+    )
+    malformed_property_schema_errors = validate_json_payload(
+        payload={
+            "name": "demo",
+        },
+        schema={
+            "type": "object",
+            "properties": {
+                "name": "string",
+            },
+        },
+    )
+    malformed_additional_errors = validate_json_payload(
+        payload={},
+        schema={
+            "type": "object",
+            "additionalProperties": "string",
+        },
+    )
+
+    assert '$: unsupported properties keyword ["name"]' in malformed_properties_errors
+    assert "$.name: unsupported property schema string" in malformed_property_schema_errors
+    assert (
+        "$: unsupported additionalProperties keyword string"
+        in malformed_additional_errors
+    )
+    assert (
+        validate_json_payload(
+            payload={
+                "name": "demo",
+            },
+            schema={
+                "type": "object",
+                "properties": {
+                    "name": True,
+                },
+            },
+        )
+        == ()
+    )
+    assert (
+        validate_json_payload(
+            payload={
+                "dynamic": 1,
+            },
+            schema={
+                "type": "object",
+                "additionalProperties": True,
+            },
+        )
+        == ()
+    )
+
+
 def test_artifact_validator_coverage_reports_repo_contracts(tmp_path: Path) -> None:
     payload = build_artifact_validator_coverage(repo_root=Path.cwd())
 

@@ -97,7 +97,7 @@ def validate_json_file(*, payload_path: Path, schema_path: Path) -> tuple[str, .
 def validate_json_payload(
     *,
     payload: Any,
-    schema: dict[str, Any],
+    schema: dict[str, Any] | bool,
     schema_dir: Path = Path("schemas"),
 ) -> tuple[str, ...]:
     """Return validation errors for the supported JSON Schema subset."""
@@ -116,13 +116,18 @@ def validate_json_payload(
 def validate_node(
     *,
     value: Any,
-    schema: dict[str, Any],
+    schema: dict[str, Any] | bool,
     path: str,
     errors: list[str],
     root_schema: dict[str, Any],
     schema_dir: Path,
 ) -> None:
     """Validate a JSON value against a schema node."""
+    if isinstance(schema, bool):
+        if not schema:
+            errors.append(f"{path}: rejected by false schema")
+        return
+
     ref = schema.get("$ref")
     if isinstance(ref, str):
         resolved, resolved_root_schema = resolve_ref(
@@ -210,18 +215,32 @@ def validate_object(
     """Validate object-specific schema keywords."""
     required = schema.get("required", [])
     if "required" in schema and not isinstance(required, list):
-        errors.append(f"{path}: unsupported required keyword {type_label(required)}")
+        errors.append(
+            f"{path}: unsupported required keyword {schema_value_label(required)}"
+        )
     elif isinstance(required, list):
         for key in required:
             if not isinstance(key, str):
-                errors.append(f"{path}: unsupported required property name {type_label(key)}")
+                errors.append(
+                    f"{path}: unsupported required property name "
+                    f"{schema_value_label(key)}"
+                )
             elif key not in value:
                 errors.append(f"{path}: missing required property {key}")
 
     properties = schema.get("properties", {})
-    if isinstance(properties, dict):
+    if "properties" in schema and not isinstance(properties, dict):
+        errors.append(
+            f"{path}: unsupported properties keyword {schema_value_label(properties)}"
+        )
+    elif isinstance(properties, dict):
         for key, property_schema in properties.items():
-            if key in value and isinstance(property_schema, dict):
+            if not isinstance(property_schema, (dict, bool)):
+                errors.append(
+                    f"{property_path(path, key)}: unsupported property schema "
+                    f"{schema_value_label(property_schema)}"
+                )
+            elif key in value:
                 validate_node(
                     value=value[key],
                     schema=property_schema,
@@ -232,7 +251,15 @@ def validate_object(
                 )
 
     additional_properties = schema.get("additionalProperties")
-    if additional_properties is False and isinstance(properties, dict):
+    if (
+        "additionalProperties" in schema
+        and not isinstance(additional_properties, (bool, dict))
+    ):
+        errors.append(
+            f"{path}: unsupported additionalProperties keyword "
+            f"{schema_value_label(additional_properties)}"
+        )
+    elif additional_properties is False and isinstance(properties, dict):
         allowed = set(properties)
         for key in sorted(set(value) - allowed):
             errors.append(f"{path}: unexpected property {key}")
@@ -371,6 +398,13 @@ def type_label(expected_type: object) -> str:
     if isinstance(expected_type, (dict, bool, int, float)):
         return json.dumps(expected_type, sort_keys=True)
     return str(expected_type)
+
+
+def schema_value_label(value: object) -> str:
+    """Return a stable label for malformed schema keyword values."""
+    if isinstance(value, (dict, list, bool, int, float)):
+        return json.dumps(value, sort_keys=True)
+    return str(value)
 
 
 def json_type(value: Any) -> str:

@@ -15,12 +15,17 @@ from orchestrator.codex_cli_dry_invocation_guard import (
     string_list,
     write_json,
 )
-from orchestrator.codex_cli_execution_candidate import TARGET_FILE
+from orchestrator.codex_cli_execution_candidate import (
+    TARGET_FILE,
+    validate_codex_cli_execution_candidate_file,
+)
+from orchestrator.schema_validation import validate_json_file
 
 
 CODEX_CLI_REAL_EXECUTION_DRY_RUN_SCHEMA_VERSION = (
     "codex_cli_real_execution_dry_run_v1"
 )
+SCHEMA_PATH = Path("schemas/codex_cli_real_execution_dry_run.schema.json")
 
 
 def build_codex_cli_real_execution_dry_run(
@@ -154,6 +159,49 @@ def write_codex_cli_real_execution_dry_run(
         encoding="utf-8",
     )
     return payload
+
+
+def validate_codex_cli_real_execution_dry_run_file(
+    *,
+    payload_path: Path,
+    repo_root: Path = Path("."),
+    schema_path: Path | None = None,
+    require_current_evidence: bool = True,
+) -> tuple[str, ...]:
+    """Validate a saved real-execution dry run against current evidence."""
+    repo_root = repo_root.resolve()
+    schema_errors = tuple(
+        validate_json_file(
+            payload_path=payload_path,
+            schema_path=schema_path or repo_root / SCHEMA_PATH,
+        )
+    )
+    if schema_errors or not require_current_evidence:
+        return schema_errors
+    payload = load_json_object(payload_path)
+    run_dir_value = str(payload.get("run_dir", ""))
+    if not run_dir_value:
+        return schema_errors + (
+            "codex_cli_real_execution_dry_run run_dir required",
+        )
+    run_dir = resolve_path(Path(run_dir_value), repo_root)
+    source_candidate_errors = validate_codex_cli_execution_candidate_file(
+        payload_path=run_dir / "codex_cli_execution_candidate.json",
+        repo_root=repo_root,
+    )
+    if source_candidate_errors:
+        return schema_errors + (
+            "codex_cli_real_execution_dry_run current evidence mismatch",
+        )
+    expected = build_codex_cli_real_execution_dry_run(
+        run_dir=run_dir,
+        repo_root=repo_root,
+    )
+    if payload != expected:
+        return schema_errors + (
+            "codex_cli_real_execution_dry_run current evidence mismatch",
+        )
+    return schema_errors
 
 
 def command_targets_only_strategy(command: list[str]) -> bool:

@@ -107,6 +107,7 @@ from orchestrator.codex_cli_execution_candidate import (
 )
 from orchestrator.codex_cli_real_execution_dry_run import (
     CODEX_CLI_REAL_EXECUTION_DRY_RUN_SCHEMA_VERSION,
+    validate_codex_cli_real_execution_dry_run_file,
     write_codex_cli_real_execution_dry_run,
 )
 from orchestrator.codex_cli_readiness_summary import (
@@ -18721,7 +18722,12 @@ print(json.dumps({
         round_dir / "agent_executions/attempt_001_primary.json",
         "agent_execution",
     )
-    assert validation_report["ok"] is True
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_real_execution_dry_run.json file: "
+        "codex_cli_real_execution_dry_run current evidence mismatch" in str(error)
+        for error in validation_report["errors"]
+    )
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
@@ -19810,6 +19816,13 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
     assert real_dry_run["dry_run_result"]["execution_performed"] is False
     assert real_dry_run["dry_run_result"]["subprocess_invoked"] is False
     assert real_dry_run["dry_run_result"]["workspace_created"] is False
+    assert (
+        validate_codex_cli_real_execution_dry_run_file(
+            payload_path=run_dir / "codex_cli_real_execution_dry_run.json",
+            repo_root=repo,
+        )
+        == ()
+    )
     assert readiness["schema_version"] == CODEX_CLI_READINESS_SUMMARY_SCHEMA_VERSION
     assert readiness["ok"] is True
     assert readiness["readiness_status"] == "blocked"
@@ -20175,6 +20188,13 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert real_dry_run["dry_run_result"][
         "would_execute_if_unlocked_and_operator_confirms"
     ] is True
+    assert (
+        validate_codex_cli_real_execution_dry_run_file(
+            payload_path=run_dir / "codex_cli_real_execution_dry_run.json",
+            repo_root=repo,
+        )
+        == ()
+    )
     assert readiness["schema_version"] == CODEX_CLI_READINESS_SUMMARY_SCHEMA_VERSION
     assert readiness["ok"] is True
     assert readiness["readiness_status"] == "ready_for_operator_review"
@@ -20365,6 +20385,10 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         payload_path=run_dir / "codex_cli_execution_candidate.json",
         repo_root=repo,
     ) == ("codex_cli_execution_candidate current evidence mismatch",)
+    assert validate_codex_cli_real_execution_dry_run_file(
+        payload_path=run_dir / "codex_cli_real_execution_dry_run.json",
+        repo_root=repo,
+    ) == ("codex_cli_real_execution_dry_run current evidence mismatch",)
     stale_unlock_validation_report = validate_run_artifacts(
         run_id="codex-unlock-ready",
         experiments_dir=repo / "experiments",
@@ -20395,6 +20419,11 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         "codex_cli_execution_candidate current evidence mismatch" in str(error)
         for error in stale_unlock_validation_report["errors"]
     )
+    assert any(
+        "codex_cli_real_execution_dry_run.json file: "
+        "codex_cli_real_execution_dry_run current evidence mismatch" in str(error)
+        for error in stale_unlock_validation_report["errors"]
+    )
     tampered_diff_view = build_codex_cli_execution_readiness_diff(
         run_dir=run_dir,
         repo_root=repo,
@@ -20418,6 +20447,10 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         payload_path=run_dir / "codex_cli_execution_candidate.json",
         repo_root=repo,
     ) == ("codex_cli_execution_candidate current evidence mismatch",)
+    assert validate_codex_cli_real_execution_dry_run_file(
+        payload_path=run_dir / "codex_cli_real_execution_dry_run.json",
+        repo_root=repo,
+    ) == ("codex_cli_real_execution_dry_run current evidence mismatch",)
     tampered_validation_report = validate_run_artifacts(
         run_id="codex-unlock-ready",
         experiments_dir=repo / "experiments",
@@ -20613,6 +20646,11 @@ def test_artifact_validator_reports_real_dry_run_source_candidate_alias(
         json.dumps(dry_run, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+    assert validate_codex_cli_real_execution_dry_run_file(
+        payload_path=dry_run_path,
+        repo_root=repo,
+    ) == ("codex_cli_real_execution_dry_run current evidence mismatch",)
 
     validation_report = validate_run_artifacts(
         run_id="dry-run-source-candidate-alias",

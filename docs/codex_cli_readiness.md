@@ -188,6 +188,10 @@ Direct execution candidate file validation re-derives the future command,
 workspace path, mutation boundary, and candidate config binding from the
 canonical unlock snapshot, so stale candidate plans are reported as
 current-evidence mismatches before any real execution can be considered.
+Direct real-execution dry-run file validation rechecks the canonical execution
+candidate, planned command, planned workspace path, and workspace-not-created
+state, so stale dry-run boundaries are reported before any real execution can
+be considered.
 Direct real-preflight file validation also re-runs only the local `--version`
 probe against the current candidate config and reports stale executable or
 config evidence as a current-evidence mismatch.

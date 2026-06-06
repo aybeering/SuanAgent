@@ -129,6 +129,9 @@ def validate_node(
         return
 
     ref = schema.get("$ref")
+    if "$ref" in schema and not isinstance(ref, str):
+        errors.append(f"{path}: unsupported schema ref {schema_value_label(ref)}")
+        return
     if isinstance(ref, str):
         resolved, resolved_root_schema = resolve_ref(
             root_schema=root_schema,
@@ -158,28 +161,52 @@ def validate_node(
         return
 
     enum_values = schema.get("enum")
-    if isinstance(enum_values, list) and value not in enum_values:
+    if "enum" in schema and not isinstance(enum_values, list):
+        errors.append(
+            f"{path}: unsupported enum keyword {schema_value_label(enum_values)}"
+        )
+    elif isinstance(enum_values, list) and value not in enum_values:
         errors.append(f"{path}: expected one of {enum_values}, got {value!r}")
 
     if "const" in schema and value != schema["const"]:
         errors.append(f"{path}: expected constant {schema['const']!r}, got {value!r}")
 
-    if isinstance(value, str):
-        min_length = schema.get("minLength")
-        if isinstance(min_length, int) and len(value) < min_length:
+    min_length = schema.get("minLength")
+    if "minLength" in schema and (
+        not isinstance(min_length, int)
+        or isinstance(min_length, bool)
+        or min_length < 0
+    ):
+        errors.append(
+            f"{path}: unsupported minLength keyword "
+            f"{schema_value_label(min_length)}"
+        )
+    elif isinstance(value, str) and isinstance(min_length, int):
+        if len(value) < min_length:
             errors.append(f"{path}: expected string length >= {min_length}")
-        pattern = schema.get("pattern")
-        if isinstance(pattern, str):
-            try:
-                matched = re.search(pattern, value) is not None
-            except re.error as exc:
-                errors.append(f"{path}: invalid schema pattern {pattern!r}: {exc}")
-            else:
-                if not matched:
-                    errors.append(f"{path}: expected string to match pattern {pattern!r}")
 
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        minimum = schema.get("minimum")
+    pattern = schema.get("pattern")
+    if "pattern" in schema and not isinstance(pattern, str):
+        errors.append(
+            f"{path}: unsupported pattern keyword {schema_value_label(pattern)}"
+        )
+    elif isinstance(pattern, str):
+        try:
+            matched = not isinstance(value, str) or re.search(pattern, value) is not None
+        except re.error as exc:
+            errors.append(f"{path}: invalid schema pattern {pattern!r}: {exc}")
+        else:
+            if not matched:
+                errors.append(f"{path}: expected string to match pattern {pattern!r}")
+
+    minimum = schema.get("minimum")
+    if "minimum" in schema and (
+        not isinstance(minimum, (int, float)) or isinstance(minimum, bool)
+    ):
+        errors.append(
+            f"{path}: unsupported minimum keyword {schema_value_label(minimum)}"
+        )
+    elif isinstance(value, (int, float)) and not isinstance(value, bool):
         if isinstance(minimum, (int, float)) and value < minimum:
             errors.append(f"{path}: expected number >= {minimum}")
 

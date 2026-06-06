@@ -732,6 +732,89 @@ def test_schema_validator_rejects_unsupported_schema_types() -> None:
     assert '$: unsupported schema type {"name": "string"}' in malformed_type_errors
 
 
+def test_schema_validator_rejects_malformed_scalar_schema_keywords() -> None:
+    malformed_ref_errors = validate_json_payload(
+        payload="ok",
+        schema={
+            "$ref": [
+                "#/$defs/name",
+            ],
+        },
+    )
+    malformed_enum_errors = validate_json_payload(
+        payload="ok",
+        schema={
+            "enum": "ok",
+        },
+    )
+    malformed_min_length_errors = validate_json_payload(
+        payload="",
+        schema={
+            "type": "string",
+            "minLength": True,
+        },
+    )
+    negative_min_length_errors = validate_json_payload(
+        payload="",
+        schema={
+            "type": "string",
+            "minLength": -1,
+        },
+    )
+    malformed_minimum_errors = validate_json_payload(
+        payload=3,
+        schema={
+            "type": "number",
+            "minimum": "1",
+        },
+    )
+    boolean_minimum_errors = validate_json_payload(
+        payload=3,
+        schema={
+            "type": "number",
+            "minimum": False,
+        },
+    )
+    malformed_pattern_errors = validate_json_payload(
+        payload="abc",
+        schema={
+            "type": "string",
+            "pattern": [
+                "^a",
+            ],
+        },
+    )
+
+    assert '$: unsupported schema ref ["#/$defs/name"]' in malformed_ref_errors
+    assert "$: unsupported enum keyword ok" in malformed_enum_errors
+    assert "$: unsupported minLength keyword true" in malformed_min_length_errors
+    assert "$: unsupported minLength keyword -1" in negative_min_length_errors
+    assert "$: unsupported minimum keyword 1" in malformed_minimum_errors
+    assert "$: unsupported minimum keyword false" in boolean_minimum_errors
+    assert '$: unsupported pattern keyword ["^a"]' in malformed_pattern_errors
+    assert (
+        validate_json_payload(
+            payload="abc",
+            schema={
+                "type": "string",
+                "pattern": "^a",
+                "minLength": 1,
+            },
+        )
+        == ()
+    )
+    assert (
+        validate_json_payload(
+            payload=3,
+            schema={
+                "type": "number",
+                "minimum": 1,
+            },
+        )
+        == ()
+    )
+
+
 def test_schema_validator_rejects_malformed_required_keyword() -> None:
     malformed_required_errors = validate_json_payload(
         payload={},

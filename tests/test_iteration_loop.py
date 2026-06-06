@@ -5730,6 +5730,30 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
         repo_root=repo,
         require_current_evidence=True,
     ) == ()
+    malformed_cockpit_digest = {
+        **cockpit,
+        "source_artifacts": {
+            **cockpit["source_artifacts"],
+            "run_closeout": {
+                **cockpit["source_artifacts"]["run_closeout"],
+                "file": {
+                    **cockpit["source_artifacts"]["run_closeout"]["file"],
+                    "sha256": "bad-source-file-sha",
+                },
+            },
+        },
+    }
+    malformed_cockpit_digest_errors = validate_operator_cockpit_payload(
+        malformed_cockpit_digest,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert any(
+        "source_artifacts.run_closeout.file.sha256: "
+        "expected string to match pattern" in str(error)
+        for error in malformed_cockpit_digest_errors
+    )
     assert validate_operator_cockpit_file(
         payload_path=json_path,
         repo_root=repo,

@@ -802,9 +802,11 @@ diff so source hashes bind to the final closeout artifacts;
 orchestrator.experiments cockpit --latest`, and `cockpit --markdown` expose
 panel rows, blockers, primary focus, a deterministic `review_priority`
 navigation object, a first-screen `operator_digest`, and command hints with
-SHA-256 bindings without recording approval, executing commands, writing
-config, promoting champions, running agents, running backtests, applying
-patches, routing agents, or changing acceptance. The `review_priority` object
+SHA-256 bindings. Source-file digests are schema-constrained to empty or
+64-lowercase-hex strings. The cockpit records this without recording approval,
+executing commands, writing config, promoting champions, running agents,
+running backtests, applying patches, routing agents, or changing acceptance.
+The `review_priority` object
 chooses the first panel and existing saved command hint to inspect from blocker,
 config lineage, action, Codex readiness, challenger, promotion, scope-health,
 and run-outcome state; the digest mirrors that priority plus the recommended

@@ -815,6 +815,69 @@ def test_schema_validator_rejects_malformed_scalar_schema_keywords() -> None:
     )
 
 
+def test_schema_validator_rejects_unsupported_schema_keywords() -> None:
+    root_errors = validate_json_payload(
+        payload="https://example.test",
+        schema={
+            "type": "string",
+            "format": "uri",
+        },
+    )
+    optional_property_errors = validate_json_payload(
+        payload={},
+        schema={
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "format": "uri",
+                },
+            },
+        },
+    )
+    additional_property_errors = validate_json_payload(
+        payload={},
+        schema={
+            "type": "object",
+            "additionalProperties": {
+                "type": "string",
+                "format": "uri",
+            },
+        },
+    )
+    item_errors = validate_json_payload(
+        payload=[],
+        schema={
+            "type": "array",
+            "items": {
+                "type": "string",
+                "format": "uri",
+            },
+        },
+    )
+    defs_errors = validate_json_payload(
+        payload={},
+        schema={
+            "type": "object",
+            "$defs": {
+                "url": {
+                    "type": "string",
+                    "format": "uri",
+                },
+            },
+        },
+    )
+
+    assert "$: unsupported schema keyword format" in root_errors
+    assert "$.url: unsupported schema keyword format" in optional_property_errors
+    assert (
+        "$.additionalProperties: unsupported schema keyword format"
+        in additional_property_errors
+    )
+    assert "$.items: unsupported schema keyword format" in item_errors
+    assert '$["$defs"].url: unsupported schema keyword format' in defs_errors
+
+
 def test_schema_validator_rejects_malformed_required_keyword() -> None:
     malformed_required_errors = validate_json_payload(
         payload={},

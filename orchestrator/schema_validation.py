@@ -102,15 +102,72 @@ def validate_json_payload(
 ) -> tuple[str, ...]:
     """Return validation errors for the supported JSON Schema subset."""
     errors: list[str] = []
+    validate_schema_keywords(schema=schema, path="$", errors=errors)
+    if errors:
+        return tuple(errors)
     validate_node(
         value=payload,
         schema=schema,
         path="$",
         errors=errors,
-        root_schema=schema,
+        root_schema=schema if isinstance(schema, dict) else {},
         schema_dir=schema_dir,
     )
     return tuple(errors)
+
+
+def validate_schema_keywords(
+    *,
+    schema: dict[str, Any] | bool,
+    path: str,
+    errors: list[str],
+) -> None:
+    """Reject schema keywords outside the supported local subset."""
+    if isinstance(schema, bool):
+        return
+    if not isinstance(schema, dict):
+        errors.append(f"{path}: unsupported schema node {schema_value_label(schema)}")
+        return
+
+    for key in sorted(set(schema) - SUPPORTED_SCHEMA_KEYWORDS):
+        errors.append(f"{path}: unsupported schema keyword {key}")
+
+    defs = schema.get("$defs")
+    if isinstance(defs, dict):
+        defs_path = property_path(path, "$defs")
+        for key, child_schema in defs.items():
+            if isinstance(child_schema, (dict, bool)):
+                validate_schema_keywords(
+                    schema=child_schema,
+                    path=property_path(defs_path, key),
+                    errors=errors,
+                )
+
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        for key, child_schema in properties.items():
+            if isinstance(child_schema, (dict, bool)):
+                validate_schema_keywords(
+                    schema=child_schema,
+                    path=property_path(path, key),
+                    errors=errors,
+                )
+
+    additional_properties = schema.get("additionalProperties")
+    if isinstance(additional_properties, (dict, bool)):
+        validate_schema_keywords(
+            schema=additional_properties,
+            path=property_path(path, "additionalProperties"),
+            errors=errors,
+        )
+
+    items = schema.get("items")
+    if isinstance(items, (dict, bool)):
+        validate_schema_keywords(
+            schema=items,
+            path=property_path(path, "items"),
+            errors=errors,
+        )
 
 
 def validate_node(
@@ -138,7 +195,7 @@ def validate_node(
             ref=ref,
             schema_dir=schema_dir,
         )
-        if not isinstance(resolved, dict):
+        if not isinstance(resolved, (dict, bool)):
             errors.append(f"{path}: unsupported or unresolved schema ref {ref!r}")
             return
         validate_node(

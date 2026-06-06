@@ -1003,8 +1003,9 @@ Proposal and intake artifacts:
 - `agent_validation.json` records contract, patch-target, `git apply` checks,
   and the proposal intent summary used by the validated agent input. It also
   records schema-validated consistency checks that bind the raw output,
-  normalized proposal fields, patch hash, semantic checks, and validation
-  result. Its embedded proposal uses the same shared strategy proposal schema;
+  normalized proposal fields, empty-or-64-lowercase-hex patch hash, semantic
+  checks, and validation result. Its embedded proposal uses the same shared
+  strategy proposal schema;
   the `semantic_checks` object records deterministic protocol, target, metadata,
   and patch-target rule results that control contract pass/fail before `git
   apply` can run. The `intake_diagnosis` object summarizes the primary stable

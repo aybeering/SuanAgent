@@ -10866,6 +10866,26 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "$.proposal.patch_sha256: expected string to match pattern" in error
         for error in invalid_proposal_patch_sha_errors
     )
+    invalid_validation_patch_sha = json.loads(json.dumps(agent_validation))
+    invalid_validation_patch_sha["proposal_patch_sha256"] = (
+        "bad-validation-patch-sha"
+    )
+    invalid_validation_patch_sha["consistency_checks"]["proposal_patch_sha256"] = (
+        "bad-consistency-patch-sha"
+    )
+    invalid_validation_patch_sha_errors = validate_json_payload(
+        payload=invalid_validation_patch_sha,
+        schema=validation_schema,
+    )
+    assert any(
+        "$.proposal_patch_sha256: expected string to match pattern" in error
+        for error in invalid_validation_patch_sha_errors
+    )
+    assert any(
+        "$.consistency_checks.proposal_patch_sha256: "
+        "expected string to match pattern" in error
+        for error in invalid_validation_patch_sha_errors
+    )
     assert agent_output_quarantine["schema_version"] == (
         AGENT_OUTPUT_QUARANTINE_SCHEMA_VERSION
     )

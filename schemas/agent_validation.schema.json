@@ -120,7 +120,8 @@
       "type": "string"
     },
     "proposal_patch_sha256": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^$|^[a-f0-9]{64}$"
     },
     "semantic_checks": {
       "$ref": "#/$defs/semantic_checks"
@@ -178,7 +179,8 @@
           "type": "string"
         },
         "proposal_patch_sha256": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^$|^[a-f0-9]{64}$"
         },
         "checks": {
           "type": "object",

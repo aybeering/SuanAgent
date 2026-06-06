@@ -385,8 +385,9 @@ Codex CLI readiness contracts:
     quarantine release rules, apply patches, or change acceptance.
 24. Proposal intent summaries and consistency checks in `agent_validation.json`
     bind raw-output validation reports to the same context recorded in
-    round-level agent input, the normalized proposal, patch hash, and validation
-    result. `agent_output.json` and `agent_validation.json` both reuse
+    round-level agent input, the normalized proposal,
+    empty-or-64-lowercase-hex patch hash, and validation result.
+    `agent_output.json` and `agent_validation.json` both reuse
     `schemas/strategy_proposal.schema.json` for the shared strategy proposal
     field shape, including empty-or-64-lowercase-hex `patch_sha256` bindings.
     `agent_validation.json` also records `semantic_checks`, a structured

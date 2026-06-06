@@ -23159,6 +23159,10 @@ def test_iteration_loop_blocks_real_codex_execute_without_operator_request(
         "operator_unlock_checklist artifact write command sha256 mismatch"
         in digest_errors
     )
+    assert any(
+        "write_command_sha256: expected string to match pattern" in str(error)
+        for error in digest_errors
+    )
     tampered_summary = json.loads(checklist_path.read_text(encoding="utf-8"))
     tampered_summary["ready"] = True
     tampered_summary["item_count"] = 0
@@ -23439,10 +23443,10 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
     tampered_summary["steps"][0]["ready"] = False
     tampered_summary["steps"][0]["artifact"]["artifact_id"] = "wrong_artifact"
     tampered_summary["steps"][0]["artifact"]["write_command_sha256"] = (
-        "wrong-artifact-sha"
+        "0" * 64
     )
     tampered_summary["steps"][0]["command"]["label"] = "wrong_command"
-    tampered_summary["steps"][0]["command"]["command_sha256"] = "wrong-step-sha"
+    tampered_summary["steps"][0]["command"]["command_sha256"] = "1" * 64
     tampered_summary["steps"][0]["authority"]["step_can_execute_codex_cli"] = True
     tampered_summary["steps"][1]["step_id"] = "wrong_step"
     tampered_summary["steps"][1]["artifact_id"] = "wrong_artifact"
@@ -23450,7 +23454,7 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
     tampered_summary["operator_commands"][0]["command"] += (
         " && python -m orchestrator.run_loop"
     )
-    tampered_summary["operator_commands"][0]["command_sha256"] = "wrong-command-sha"
+    tampered_summary["operator_commands"][0]["command_sha256"] = "2" * 64
     tampered_summary["operator_commands"][0]["writes_artifacts"] = False
     tampered_summary["operator_commands"][0]["executes_codex_cli"] = True
     tampered_summary["operator_commands"][0][
@@ -23573,6 +23577,25 @@ def test_codex_cli_unlock_runbook_guides_blocked_real_codex_startup(
     json_path.write_text(
         json.dumps(runbook, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+    )
+    malformed_digest_runbook = json.loads(json.dumps(runbook))
+    malformed_digest_runbook["steps"][0]["artifact"][
+        "write_command_sha256"
+    ] = "bad"
+    malformed_digest_runbook["steps"][0]["command"]["command_sha256"] = "bad"
+    malformed_digest_errors = validate_codex_cli_unlock_runbook_payload(
+        malformed_digest_runbook,
+        run_dir=run_dir,
+        repo_root=repo,
+        require_current_evidence=False,
+    )
+    assert any(
+        "write_command_sha256: expected string to match pattern" in str(error)
+        for error in malformed_digest_errors
+    )
+    assert any(
+        "command_sha256: expected string to match pattern" in str(error)
+        for error in malformed_digest_errors
     )
     runbook_validation: dict[str, object] = {
         "run_id": "codex-unlock-runbook-startup-block",

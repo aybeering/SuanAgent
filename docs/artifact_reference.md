@@ -694,7 +694,8 @@ returning them, stripping terminal-only metadata before schema checks.
 Those checks include top-level item counts, item-level failed-check and
 blocker-code mappings, navigation blocking counts, primary blocker, expected
 artifact ordering, command-hint coverage, artifact write-command digest binding,
-and command digest bindings. The
+and command digest bindings. The schema requires command and artifact write
+command digests to use 64 lowercase hexadecimal characters. The
 saved-file validator also rebuilds the checklist from current run evidence and
 surfaces a
 current-evidence mismatch when the saved checklist drifts. If real Codex
@@ -1316,10 +1317,10 @@ Replay artifacts:
   `navigation.commands` so an operator can see the next artifact to inspect or
   generate. Artifact validation rejects unknown navigation command labels,
   artifact mismatches, write-flag mismatches, artifact write-command SHA-256
-  drift, unsafe shell control tokens, and invalid command prefixes. The writer
-  and terminal view validate saved or derived payloads against the schema and
-  deterministic consistency checks before returning them, stripping
-  terminal-only metadata before schema checks.
+  drift, malformed command digest strings, unsafe shell control tokens, and
+  invalid command prefixes. The writer and terminal view validate saved or
+  derived payloads against the schema and deterministic consistency checks
+  before returning them, stripping terminal-only metadata before schema checks.
   Command rows are hints only; the checklist cannot record approval, execute
   Codex, create workspaces, apply patches, route
   agents, or change acceptance. Startup preflight failures for real Codex

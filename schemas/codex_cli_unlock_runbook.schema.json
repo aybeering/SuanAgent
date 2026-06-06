@@ -437,7 +437,8 @@
           "type": "string"
         },
         "write_command_sha256": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
         }
       }
     },
@@ -459,7 +460,8 @@
           "type": "string"
         },
         "command_sha256": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
         },
         "writes_artifacts": {
           "type": "boolean"

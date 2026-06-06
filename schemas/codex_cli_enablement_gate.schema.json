@@ -163,9 +163,13 @@
           "type": "integer"
         },
         "sha256": {
-          "type": "string"
+          "$ref": "#/$defs/sha256_or_empty"
         }
       }
+    },
+    "sha256_or_empty": {
+      "type": "string",
+      "pattern": "^$|^[a-f0-9]{64}$"
     }
   }
 }

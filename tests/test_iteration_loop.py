@@ -19381,6 +19381,32 @@ def test_codex_cli_enablement_gate_permits_candidate_config_after_replay_gate(
         assert record["exists"] is True
         assert record["bytes"] > 0
         assert len(record["sha256"]) == 64
+    enablement_gate_schema = json.loads(
+        (Path.cwd() / "schemas/codex_cli_enablement_gate.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    invalid_enablement_digest = json.loads(json.dumps(gate))
+    invalid_enablement_digest["artifacts"]["codex_cli_replay_gate"]["sha256"] = (
+        "bad-replay-gate-sha"
+    )
+    invalid_enablement_digest["artifacts"]["candidate_config"]["sha256"] = (
+        "bad-candidate-config-sha"
+    )
+    invalid_enablement_digest_errors = validate_json_payload(
+        payload=invalid_enablement_digest,
+        schema=enablement_gate_schema,
+    )
+    assert any(
+        "$.artifacts.codex_cli_replay_gate.sha256: expected string to match pattern"
+        in error
+        for error in invalid_enablement_digest_errors
+    )
+    assert any(
+        "$.artifacts.candidate_config.sha256: expected string to match pattern"
+        in error
+        for error in invalid_enablement_digest_errors
+    )
     assert_matches_schema(
         run_dir / "codex_cli_enablement_gate.json",
         "codex_cli_enablement_gate",

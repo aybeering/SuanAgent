@@ -1121,6 +1121,8 @@ Replay artifacts:
   config against the saved replay gate before any guarded Codex CLI enablement.
   Saved enablement-gate reports are strict snapshots and fail validation when
   current candidate-config or replay-gate evidence no longer matches the gate.
+  Its replay-gate and candidate-config artifact SHA-256 fields are
+  schema-constrained to empty-or-64-lowercase-hex strings.
 - `run_artifact_health.json` batch-validates saved experiment run artifacts
   and reports per-run artifact health without rerunning simulations.
   `--created-at-from` scopes indexed runs to a current contract era without

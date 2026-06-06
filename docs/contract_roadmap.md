@@ -73,7 +73,9 @@ Implemented or allowed V0.5 components:
 48. A deterministic `codex_cli_enablement_gate.json` report that checks an
     explicit execute=true candidate config without executing Codex or modifying
     config files, and binds the replay-gate and candidate-config artifact hashes
-    so validator checks can detect post-gate source drift.
+    so validator checks can detect post-gate source drift, with those source
+    artifact hash fields schema-constrained to empty-or-64-lowercase-hex
+    strings.
 49. A deterministic `codex_cli_manual_approval.json` report that records
     explicit approval for a passing enablement gate without executing Codex, and
     binds the approved enablement-gate and candidate-config artifact hashes so

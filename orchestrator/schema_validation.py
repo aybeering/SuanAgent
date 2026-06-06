@@ -209,9 +209,13 @@ def validate_object(
 ) -> None:
     """Validate object-specific schema keywords."""
     required = schema.get("required", [])
-    if isinstance(required, list):
+    if "required" in schema and not isinstance(required, list):
+        errors.append(f"{path}: unsupported required keyword {type_label(required)}")
+    elif isinstance(required, list):
         for key in required:
-            if isinstance(key, str) and key not in value:
+            if not isinstance(key, str):
+                errors.append(f"{path}: unsupported required property name {type_label(key)}")
+            elif key not in value:
                 errors.append(f"{path}: missing required property {key}")
 
     properties = schema.get("properties", {})

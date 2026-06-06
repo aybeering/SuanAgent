@@ -732,6 +732,32 @@ def test_schema_validator_rejects_unsupported_schema_types() -> None:
     assert '$: unsupported schema type {"name": "string"}' in malformed_type_errors
 
 
+def test_schema_validator_rejects_malformed_required_keyword() -> None:
+    malformed_required_errors = validate_json_payload(
+        payload={},
+        schema={
+            "type": "object",
+            "required": {
+                "name": True,
+            },
+        },
+    )
+    malformed_name_errors = validate_json_payload(
+        payload={},
+        schema={
+            "type": "object",
+            "required": [
+                "name",
+                3,
+            ],
+        },
+    )
+
+    assert '$: unsupported required keyword {"name": true}' in malformed_required_errors
+    assert "$: missing required property name" in malformed_name_errors
+    assert "$: unsupported required property name 3" in malformed_name_errors
+
+
 def test_artifact_validator_coverage_reports_repo_contracts(tmp_path: Path) -> None:
     payload = build_artifact_validator_coverage(repo_root=Path.cwd())
 

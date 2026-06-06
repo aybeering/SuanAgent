@@ -1091,6 +1091,83 @@ def validate_operator_next_command_consistency(
         experiments_dir=experiments_dir,
         repo_root=repo_root,
     )
+    expected_source = object_field(expected, "source_home")
+    expected_safety = object_field(expected, "safety")
+    expected_authority = object_field(expected, "authority")
+    expected_policy = object_field(expected, "policy")
+    safety = object_field(payload, "safety")
+    authority = object_field(payload, "authority")
+    policy = object_field(payload, "policy")
+    for field_name in (
+        "run_id",
+        "status",
+        "ok",
+        "home_status",
+        "selection_source",
+        "label",
+        "command",
+        "command_sha256",
+        "reason",
+        "boundary_type",
+        "writes_artifact",
+        "blocked",
+        "blocker_count",
+        "operator_hint",
+        "action_step",
+        "action_guide_status",
+        "codex_unlock_runbook_status",
+        "codex_intake_readiness_status",
+    ):
+        if payload.get(field_name) != expected.get(field_name):
+            errors.append(f"operator_next_command {field_name} mismatch")
+    for field_name in (
+        "schema_version",
+        "terminal_only",
+        "artifact_created",
+        "command_is_hint_only",
+        "command_label",
+        "command",
+        "command_sha256",
+        "boundary_type",
+    ):
+        if source_home.get(field_name) != expected_source.get(field_name):
+            errors.append(f"operator_next_command source_home {field_name} mismatch")
+    for field_name in (
+        "command_is_hint_only",
+        "requires_explicit_operator_invocation",
+        "requires_operator_approval",
+        "records_operator_approval",
+        "uses_guarded_executor",
+    ):
+        if safety.get(field_name) != expected_safety.get(field_name):
+            errors.append(f"operator_next_command safety {field_name} mismatch")
+    for field_name in (
+        "selector_can_record_approval",
+        "selector_can_execute_commands",
+        "selector_can_write_config",
+        "selector_can_promote_champion",
+        "selector_can_change_acceptance",
+        "approval_must_use_operator_action_approval",
+        "execution_must_use_guarded_executor",
+    ):
+        if authority.get(field_name) != expected_authority.get(field_name):
+            errors.append(f"operator_next_command authority {field_name} mismatch")
+    for field_name in (
+        "inspection_only",
+        "terminal_only",
+        "does_not_create_artifacts",
+        "does_not_record_approval",
+        "does_not_execute_commands",
+        "does_not_execute_agents",
+        "does_not_run_backtests",
+        "does_not_write_config",
+        "does_not_promote_champion",
+        "does_not_apply_patches",
+        "does_not_route_agents",
+        "does_not_change_acceptance",
+    ):
+        if policy.get(field_name) != expected_policy.get(field_name):
+            errors.append(f"operator_next_command policy {field_name} mismatch")
     payload_for_compare = dict(payload)
     payload_for_compare.pop("from_artifact", None)
     if payload_for_compare != expected:

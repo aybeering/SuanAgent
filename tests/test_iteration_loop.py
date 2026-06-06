@@ -3727,6 +3727,43 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
             repo_root=repo,
         )
     )
+    tampered_policy_next_command = {
+        **pending_next_command,
+        "source_home": {
+            **pending_next_command["source_home"],
+            "terminal_only": False,
+        },
+        "safety": {
+            **pending_next_command["safety"],
+            "command_is_hint_only": False,
+        },
+        "authority": {
+            **pending_next_command["authority"],
+            "selector_can_execute_commands": True,
+        },
+        "policy": {
+            **pending_next_command["policy"],
+            "does_not_execute_commands": False,
+        },
+    }
+    tampered_policy_errors = validate_operator_next_command_payload(
+        tampered_policy_next_command,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert "operator_next_command source_home terminal_only mismatch" in (
+        tampered_policy_errors
+    )
+    assert "operator_next_command safety command_is_hint_only mismatch" in (
+        tampered_policy_errors
+    )
+    assert "operator_next_command authority selector_can_execute_commands mismatch" in (
+        tampered_policy_errors
+    )
+    assert "operator_next_command policy does_not_execute_commands mismatch" in (
+        tampered_policy_errors
+    )
     assert_matches_schema_payload(pending, "operator_action_dashboard")
     assert validate_operator_action_dashboard_file(
         payload_path=json_path,

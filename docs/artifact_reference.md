@@ -622,6 +622,9 @@ terminal-only, artifact-free, hint-only boundary. It creates no artifact and
 remains a hint; it does not record approval, execute commands, write config,
 promote champions, run agents, run backtests, apply patches, route agents, or
 change acceptance.
+The selector consistency validator reports field-specific drift for the
+selected command, source-home binding, safety flags, authority flags, and
+read-only policy before falling back to the full derived-payload comparison.
 The same selector command is also surfaced as a derived hint in
 `experiments list`, `experiments show`, and the `experiment_summary_dashboard`
 payload, so an operator can discover the narrow next-step view from recent run

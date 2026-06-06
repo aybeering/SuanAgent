@@ -137,6 +137,7 @@ from orchestrator.agent_role_readiness import AGENT_ROLE_READINESS_SCHEMA_VERSIO
 from orchestrator.agent_slot_readiness_gate import (
     AGENT_SLOT_READINESS_GATE_SCHEMA_VERSION,
     build_agent_slot_readiness_gate,
+    validate_agent_slot_readiness_gate_file,
     write_agent_slot_readiness_gate,
 )
 from orchestrator.agent_slot_health import (
@@ -13191,6 +13192,57 @@ def test_agent_slot_readiness_gate_passes_replayed_file_protocol_slot(
     )
     assert (run_dir / "agent_slot_readiness_gate.md").exists()
     assert validation_report["ok"] is True
+
+
+def test_agent_slot_readiness_gate_reports_current_evidence_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+    run_iteration_loop(
+        run_id="slot-readiness-current-evidence-drift",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/slot-readiness-current-evidence-drift"
+    round_dir = run_dir / "round_001"
+    replay_round(round_dir=round_dir, repo_root=repo)
+    readiness_path = run_dir / "agent_slot_readiness_gate.json"
+    write_agent_slot_readiness_gate(run_dir=run_dir, repo_root=repo)
+
+    assert (
+        validate_agent_slot_readiness_gate_file(
+            payload_path=readiness_path,
+            repo_root=repo,
+        )
+        == ()
+    )
+
+    replay_path = round_dir / "round_replay.json"
+    replay_payload = json.loads(replay_path.read_text(encoding="utf-8"))
+    replay_payload["attempts"][0]["ok"] = False
+    replay_path.write_text(
+        json.dumps(replay_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    assert validate_agent_slot_readiness_gate_file(
+        payload_path=readiness_path,
+        repo_root=repo,
+    ) == ("agent_slot_readiness_gate current evidence mismatch",)
+
+    validation_report = validate_run_artifacts(
+        run_id="slot-readiness-current-evidence-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert (
+        "agent_slot_readiness_gate.json file: "
+        "agent_slot_readiness_gate current evidence mismatch"
+    ) in validation_report["errors"]
 
 
 def test_agent_slot_readiness_gate_blocks_missing_round_replay(

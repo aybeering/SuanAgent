@@ -9633,11 +9633,16 @@ def validate_optional_agent_slot_readiness_gate(
     if not path.exists():
         return
     checked_files(report).append(str(path))
-    validate_contract_file(
-        payload_path=path,
-        schema_path=repo_root / "schemas/agent_slot_readiness_gate.schema.json",
-        report=report,
+    from orchestrator.agent_slot_readiness_gate import (
+        validate_agent_slot_readiness_gate_file,
     )
+
+    for error in validate_agent_slot_readiness_gate_file(
+        payload_path=path,
+        repo_root=repo_root,
+        schema_path=repo_root / "schemas/agent_slot_readiness_gate.schema.json",
+    ):
+        add_error(report, f"agent_slot_readiness_gate.json file: {error}")
     payload = validate_json_object(path=path, report=report)
     if payload is None:
         return

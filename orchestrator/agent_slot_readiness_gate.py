@@ -8,8 +8,11 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from orchestrator.schema_validation import validate_json_file
+
 
 AGENT_SLOT_READINESS_GATE_SCHEMA_VERSION = "agent_slot_readiness_gate_v1"
+SCHEMA_PATH = Path("schemas/agent_slot_readiness_gate.schema.json")
 
 
 def build_agent_slot_readiness_gate(
@@ -98,6 +101,40 @@ def write_agent_slot_readiness_gate(
         encoding="utf-8",
     )
     return payload
+
+
+def validate_agent_slot_readiness_gate_file(
+    *,
+    payload_path: Path,
+    repo_root: Path = Path("."),
+    schema_path: Path | None = None,
+    require_current_evidence: bool = True,
+) -> tuple[str, ...]:
+    """Validate a saved readiness gate against schema and current evidence."""
+    repo_root = repo_root.resolve()
+    schema_errors = tuple(
+        validate_json_file(
+            payload_path=payload_path,
+            schema_path=schema_path or repo_root / SCHEMA_PATH,
+        )
+    )
+    if schema_errors or not require_current_evidence:
+        return schema_errors
+    payload = load_json_object(payload_path)
+    run_dir_value = str(payload.get("run_dir", ""))
+    if not run_dir_value:
+        return schema_errors + ("agent_slot_readiness_gate run_dir required",)
+    policy = object_value(payload.get("policy", {}))
+    expected = build_agent_slot_readiness_gate(
+        run_dir=resolve_path(Path(run_dir_value), repo_root),
+        repo_root=repo_root,
+        require_replay=bool(policy.get("requires_replay", True)),
+    )
+    if payload != expected:
+        return schema_errors + (
+            "agent_slot_readiness_gate current evidence mismatch",
+        )
+    return schema_errors
 
 
 def round_readiness_rows(

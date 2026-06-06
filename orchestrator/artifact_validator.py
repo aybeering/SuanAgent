@@ -10,6 +10,9 @@ from pathlib import Path
 from typing import Any
 
 from orchestrator.codex_cli_canary_gate import build_codex_cli_canary_gate
+from orchestrator.codex_cli_execution_unlock_gate import (
+    build_codex_cli_execution_unlock_gate,
+)
 from orchestrator.codex_cli_intake_readiness import (
     validate_codex_cli_intake_readiness,
 )
@@ -10881,6 +10884,12 @@ def validate_optional_codex_cli_execution_unlock_gate(
             report,
             f"codex_cli_execution_unlock_gate.json run_id does not match report: {path}",
         )
+    validate_codex_cli_execution_unlock_gate_derivation(
+        payload=payload,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     if bool(payload.get("ok", False)) is not True:
         add_error(report, "codex_cli_execution_unlock_gate.json ok false")
     blockers = payload.get("blocking_reasons", [])
@@ -11045,6 +11054,47 @@ def validate_optional_codex_cli_execution_unlock_gate(
     markdown_path = run_dir / "codex_cli_execution_unlock_gate.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
+
+
+def validate_codex_cli_execution_unlock_gate_derivation(
+    *,
+    payload: dict[str, Any],
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate unlock gate rows match the current source artifacts."""
+    config_path_text = str(payload.get("config_path", ""))
+    if not config_path_text:
+        add_error(report, "codex_cli_execution_unlock_gate.json config_path missing")
+        return
+    canary_run_dir_text = str(payload.get("canary_run_dir", ""))
+    expected = build_codex_cli_execution_unlock_gate(
+        run_dir=run_dir,
+        config_path=resolve_path(Path(config_path_text), repo_root),
+        repo_root=repo_root,
+        canary_run_dir=(
+            resolve_path(Path(canary_run_dir_text), repo_root)
+            if canary_run_dir_text
+            else None
+        ),
+    )
+    for key in (
+        "ok",
+        "real_codex_execution_unlocked",
+        "blocking_reasons",
+        "checks",
+        "config",
+        "gate_status",
+        "config_binding",
+        "artifacts",
+        "policy",
+    ):
+        if payload.get(key) != expected.get(key):
+            add_error(
+                report,
+                f"codex_cli_execution_unlock_gate.json derived {key} mismatch",
+            )
 
 
 def validate_optional_codex_cli_execution_unlock_snapshot(

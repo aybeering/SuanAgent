@@ -893,7 +893,9 @@ Proposal and intake artifacts:
   `codex_cli_execution_preflight.json` profile. Local canary and final unlock
   readiness also require that preflight binding to be blocker-free, and
   artifact validation re-derives canary gate rows from the current source
-  artifacts to detect stale saved readiness.
+  artifacts to detect stale saved readiness. Final unlock gate validation is
+  also re-derived from current replay, enablement, manual approval, canary,
+  real-preflight, and dry-invocation evidence.
 - `agent_output.json` stores normalized selected proposal data and the
   proposal intent summary used by the round-level agent input. Its selected
   proposal uses `schemas/strategy_proposal.schema.json`.

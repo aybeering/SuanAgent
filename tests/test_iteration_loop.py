@@ -19238,6 +19238,21 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert tampered_gate["real_codex_execution_unlocked"] is False
     assert tampered_gate["checks"]["canary_intake_binding_ready"] is False
     assert "canary_intake_binding_not_ready" in tampered_gate["blocking_reasons"]
+    stale_unlock_validation_report = validate_run_artifacts(
+        run_id="codex-unlock-ready",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert stale_unlock_validation_report["ok"] is False
+    assert any(
+        "codex_cli_execution_unlock_gate.json derived "
+        "real_codex_execution_unlocked mismatch" in str(error)
+        for error in stale_unlock_validation_report["errors"]
+    )
+    assert any(
+        "codex_cli_execution_unlock_gate.json derived checks mismatch" in str(error)
+        for error in stale_unlock_validation_report["errors"]
+    )
     tampered_diff_view = build_codex_cli_execution_readiness_diff(
         run_dir=run_dir,
         repo_root=repo,

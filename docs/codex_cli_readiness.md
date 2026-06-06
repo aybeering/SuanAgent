@@ -174,6 +174,9 @@ inside the startup preflight command, workspace, and mutation boundary.
 Artifact validation re-derives the canary gate from the current run artifacts,
 so a stale or manually edited `codex_cli_canary_gate.json` cannot keep reporting
 ready after the underlying execution audit drifts.
+The final execution unlock gate is also re-derived from the current replay,
+enablement, manual approval, canary, real-preflight, and dry-invocation
+artifacts, so stale unlock evidence cannot survive upstream readiness drift.
 Operator-facing views now surface the same condition as a shared
 `codex_intake_readiness` block in the unlock checklist, unlock runbook,
 execution readiness diff, cockpit, and terminal-only operator home. It is

@@ -42,6 +42,7 @@ SUPPORTED_SCHEMA_KEYWORDS = VALIDATED_SCHEMA_KEYWORDS | ANNOTATION_SCHEMA_KEYWOR
 PROPERTY_CONTAINER_KEYWORDS = frozenset({"$defs", "properties"})
 SCHEMA_OBJECT_KEYWORDS = frozenset({"additionalProperties", "items"})
 SCHEMA_ARRAY_KEYWORDS = frozenset({"allOf", "anyOf", "oneOf", "prefixItems"})
+SAFE_PROPERTY_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def load_schema(path: Path) -> dict[str, Any]:
@@ -205,7 +206,7 @@ def validate_object(
                 validate_node(
                     value=value[key],
                     schema=property_schema,
-                    path=f"{path}.{key}",
+                    path=property_path(path, key),
                     errors=errors,
                     root_schema=root_schema,
                     schema_dir=schema_dir,
@@ -222,7 +223,7 @@ def validate_object(
             validate_node(
                 value=value[key],
                 schema=additional_properties,
-                path=f"{path}.{key}",
+                path=property_path(path, key),
                 errors=errors,
                 root_schema=root_schema,
                 schema_dir=schema_dir,
@@ -297,6 +298,13 @@ def resolve_local_ref(*, root_schema: dict[str, Any], ref: str) -> Any:
             return None
         current = current[part]
     return current
+
+
+def property_path(parent_path: str, key: str) -> str:
+    """Return a readable JSONPath-like child path for one object property."""
+    if SAFE_PROPERTY_NAME_PATTERN.fullmatch(key):
+        return f"{parent_path}.{key}"
+    return f"{parent_path}[{json.dumps(key)}]"
 
 
 def matches_type(value: Any, expected_type: object) -> bool:

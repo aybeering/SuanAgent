@@ -685,6 +685,34 @@ def test_schema_validator_enforces_additional_properties_schema() -> None:
     assert "$.numeric_dynamic_key: expected string, got integer" in errors
 
 
+def test_schema_validator_uses_unambiguous_paths_for_complex_property_names() -> None:
+    schema = {
+        "type": "object",
+        "properties": {
+            "fixed.key": {
+                "type": "integer",
+            },
+        },
+        "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+        },
+    }
+
+    errors = validate_json_payload(
+        payload={
+            "fixed.key": "not-an-int",
+            "dynamic.key": "",
+            "spaced key": 3,
+        },
+        schema=schema,
+    )
+
+    assert '$["dynamic.key"]: expected string length >= 1' in errors
+    assert '$["fixed.key"]: expected integer, got string' in errors
+    assert '$["spaced key"]: expected string, got integer' in errors
+
+
 def test_artifact_validator_coverage_reports_repo_contracts(tmp_path: Path) -> None:
     payload = build_artifact_validator_coverage(repo_root=Path.cwd())
 

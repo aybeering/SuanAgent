@@ -156,8 +156,10 @@
         "next_step",
         "review_command_label",
         "review_command",
+        "review_command_sha256",
         "runbook_command_label",
-        "runbook_command"
+        "runbook_command",
+        "runbook_command_sha256"
       ],
       "properties": {
         "preflight_status": {"type": "string"},
@@ -175,8 +177,10 @@
         "next_step": {"type": "string"},
         "review_command_label": {"type": "string"},
         "review_command": {"type": "string"},
+        "review_command_sha256": {"type": "string"},
         "runbook_command_label": {"type": "string"},
-        "runbook_command": {"type": "string"}
+        "runbook_command": {"type": "string"},
+        "runbook_command_sha256": {"type": "string"}
       }
     },
     "review_priority": {

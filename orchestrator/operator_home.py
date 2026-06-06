@@ -764,6 +764,8 @@ def codex_home_summary(cockpit: dict[str, Any]) -> dict[str, object]:
         list_of_dicts(cockpit.get("recommended_commands", [])),
         "review_codex_cli_unlock_runbook",
     )
+    review_command = str(command.get("command", ""))
+    runbook_command_text = str(runbook_command.get("command", ""))
     return {
         "preflight_status": str(summary.get("codex_preflight_status", "")),
         "unlock_runbook_status": str(
@@ -795,9 +797,11 @@ def codex_home_summary(cockpit: dict[str, Any]) -> dict[str, object]:
             intake.get("next_step", "review Codex CLI readiness evidence")
         ),
         "review_command_label": str(command.get("label", "")),
-        "review_command": str(command.get("command", "")),
+        "review_command": review_command,
+        "review_command_sha256": sha256_text(review_command),
         "runbook_command_label": str(runbook_command.get("label", "")),
-        "runbook_command": str(runbook_command.get("command", "")),
+        "runbook_command": runbook_command_text,
+        "runbook_command_sha256": sha256_text(runbook_command_text),
     }
 
 
@@ -922,7 +926,9 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
         f"- Bound slots: `{codex_home.get('bound_slot_count', 0)}`",
         f"- Next step: {codex_home.get('next_step', '')}",
         f"- Runbook command: `{codex_home.get('runbook_command_label', '')}`",
+        f"- Runbook command SHA-256: `{codex_home.get('runbook_command_sha256', '')}`",
         f"- Review command: `{codex_home.get('review_command_label', '')}`",
+        f"- Review command SHA-256: `{codex_home.get('review_command_sha256', '')}`",
         "",
         "## Guided Path",
         "",
@@ -1367,9 +1373,19 @@ def validate_operator_home_consistency(
         "startup_preflight_ok",
         "review_command_label",
         "review_command",
+        "review_command_sha256",
+        "runbook_command_label",
+        "runbook_command",
+        "runbook_command_sha256",
     ):
         if codex_home.get(field_name) != expected_codex_home.get(field_name):
             errors.append(f"operator_home codex_home {field_name} mismatch")
+    for field_name in ("review_command", "runbook_command"):
+        digest_field = f"{field_name}_sha256"
+        if str(codex_home.get(digest_field, "")) != sha256_text(
+            str(codex_home.get(field_name, ""))
+        ):
+            errors.append(f"operator_home codex_home {digest_field} mismatch")
     for source_name, expected_record in expected_source_views.items():
         if source_views_payload.get(source_name) != expected_record:
             errors.append(f"operator_home source_views {source_name} mismatch")

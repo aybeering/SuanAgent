@@ -4054,6 +4054,12 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending_home["codex_home"]["intake_blocker_count"] == (
         pending_cockpit["summary"]["codex_intake_blocker_count"]
     )
+    assert pending_home["codex_home"]["review_command_sha256"] == sha256_text(
+        pending_home["codex_home"]["review_command"]
+    )
+    assert pending_home["codex_home"]["runbook_command_sha256"] == sha256_text(
+        pending_home["codex_home"]["runbook_command"]
+    )
     assert pending_home["next_command"]["command_is_hint_only"] is True
     assert pending_home["command_center"][0]["command_sha256"] == sha256_text(
         pending_home["command_center"][0]["command"]
@@ -4066,6 +4072,8 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert "Next command needs explicit invocation:" in pending_home_markdown
     assert "Next command records approval:" in pending_home_markdown
     assert "## Codex CLI" in pending_home_markdown
+    assert "Review command SHA-256:" in pending_home_markdown
+    assert "Runbook command SHA-256:" in pending_home_markdown
     assert "## Guided Path" in pending_home_markdown
     assert_matches_schema_payload(pending_home, "operator_home")
     assert validate_operator_home_payload(
@@ -4085,6 +4093,8 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         "codex_home": {
             **pending_home["codex_home"],
             "intake_ready": not pending_home["codex_home"]["intake_ready"],
+            "review_command_sha256": "0" * 64,
+            "runbook_command_sha256": "1" * 64,
         },
         "source_views": {
             **pending_home["source_views"],
@@ -4128,6 +4138,12 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         tampered_home_errors
     )
     assert "operator_home codex_home intake_ready mismatch" in tampered_home_errors
+    assert "operator_home codex_home review_command_sha256 mismatch" in (
+        tampered_home_errors
+    )
+    assert "operator_home codex_home runbook_command_sha256 mismatch" in (
+        tampered_home_errors
+    )
     assert "operator_home source_views operator_cockpit mismatch" in (
         tampered_home_errors
     )
@@ -4523,6 +4539,12 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert completed_home["guided_path"]["completed_step_count"] == 4
     assert completed_home["codex_home"]["review_command_label"] == (
         "review_codex_cli_readiness_diff"
+    )
+    assert completed_home["codex_home"]["review_command_sha256"] == sha256_text(
+        completed_home["codex_home"]["review_command"]
+    )
+    assert completed_home["codex_home"]["runbook_command_sha256"] == sha256_text(
+        completed_home["codex_home"]["runbook_command"]
     )
     assert completed_home["codex_home"]["intake_readiness_status"] == (
         completed_cockpit["summary"]["codex_intake_readiness_status"]

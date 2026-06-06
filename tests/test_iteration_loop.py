@@ -11118,6 +11118,24 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         agent_executor["attempts"][0]["candidate_score"]
     )
     assert agent_executor["attempts"][0]["proposal"]["applicable"] is True
+    agent_executor_schema = json.loads(
+        (Path.cwd() / "schemas/agent_executor.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    invalid_agent_executor_digest = json.loads(json.dumps(agent_executor))
+    invalid_agent_executor_digest["attempts"][0]["proposal"]["patch_sha256"] = (
+        "bad-executor-patch-sha"
+    )
+    invalid_agent_executor_digest_errors = validate_json_payload(
+        payload=invalid_agent_executor_digest,
+        schema=agent_executor_schema,
+    )
+    assert any(
+        "$.attempts[0].proposal.patch_sha256: "
+        "expected string to match pattern" in error
+        for error in invalid_agent_executor_digest_errors
+    )
     assert agent_executor["attempts"][0]["artifacts"]["attempt_dir"].endswith(
         "agent_attempts/attempt_001_primary"
     )

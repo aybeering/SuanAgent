@@ -1059,8 +1059,9 @@ Context and planning artifacts:
   `agent_output.json`, and `candidate_leaderboard.json` all carry the candidate
   score and `quality_breakdown` so the saved trace can prove why a candidate was
   selected without giving those artifacts final acceptance authority. The
-  attempts manifest schema constrains attempt patch hashes and saved file hashes
-  to empty-or-64-lowercase-hex strings.
+  executor, routing, selection, and attempts manifests schema-constrain proposal
+  or attempt patch hashes, while the attempts manifest also constrains saved
+  file hashes to empty-or-64-lowercase-hex strings.
   Artifact validation binds those rows by `attempt_id` back to
   `proposal_attempts.json`, including `candidate_score`, `score_reasons`,
   `quality_breakdown`, and saved direction metadata where that artifact carries

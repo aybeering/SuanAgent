@@ -29289,6 +29289,30 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         experiments_dir=repo / "experiments",
         repo_root=repo,
     ) == ()
+    tampered_cockpit_source = {
+        **cockpit,
+        "source_artifacts": {
+            **cockpit["source_artifacts"],
+            "codex_cli_unlock_runbook": {
+                **cockpit["source_artifacts"]["codex_cli_unlock_runbook"],
+                "file": {
+                    **cockpit["source_artifacts"]["codex_cli_unlock_runbook"]["file"],
+                    "sha256": "stale-unlock-runbook-source",
+                },
+            },
+        },
+    }
+    tampered_cockpit_errors = validate_operator_cockpit_payload(
+        tampered_cockpit_source,
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    )
+    assert (
+        "operator_cockpit source_artifacts codex_cli_unlock_runbook mismatch"
+        in tampered_cockpit_errors
+    )
     assert "# Operator Cockpit" in cockpit_markdown
     assert stats["agents"][0]["top_failure_code"] == "policy_ev_improvement_low"
     assert "avg_holdout_ev_delta" in stats["agents"][0]

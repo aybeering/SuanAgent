@@ -1569,10 +1569,18 @@ def validate_operator_cockpit_payload(
         if run_dir is None:
             errors.append("operator_cockpit run_dir required")
         else:
+            resolved_run_dir = resolve_path(run_dir, repo_root)
+            resolved_experiments_dir = resolve_path(experiments_dir, repo_root)
             expected = build_operator_cockpit(
-                run_dir=resolve_path(run_dir, repo_root),
-                experiments_dir=resolve_path(experiments_dir, repo_root),
+                run_dir=resolved_run_dir,
+                experiments_dir=resolved_experiments_dir,
                 repo_root=repo_root,
+            )
+            errors.extend(
+                validate_operator_cockpit_source_artifacts(
+                    comparable_payload,
+                    expected=expected,
+                )
             )
             if comparable_payload != expected:
                 errors.append("operator_cockpit current evidence mismatch")
@@ -1702,6 +1710,23 @@ def validate_operator_cockpit_consistency(
             commands=commands,
         )
     )
+    return tuple(errors)
+
+
+def validate_operator_cockpit_source_artifacts(
+    payload: dict[str, object],
+    *,
+    expected: dict[str, object],
+) -> tuple[str, ...]:
+    """Validate cockpit source artifact records match current evidence."""
+    errors: list[str] = []
+    source_payload = object_field(payload, "source_artifacts")
+    expected_sources = object_field(expected, "source_artifacts")
+    for source_name, expected_record in expected_sources.items():
+        if source_payload.get(source_name) != expected_record:
+            errors.append(
+                f"operator_cockpit source_artifacts {source_name} mismatch"
+            )
     return tuple(errors)
 
 

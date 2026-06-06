@@ -1156,9 +1156,11 @@ def validate_operator_next_command_consistency(
     policy = object_field(payload, "policy")
     for field_name in (
         "run_id",
+        "run_dir",
         "status",
         "ok",
         "home_status",
+        "primary_focus",
         "selection_source",
         "label",
         "command",

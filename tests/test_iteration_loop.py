@@ -4143,6 +4143,21 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
             repo_root=repo,
         )
     )
+    tampered_identity_next_command = {
+        **pending_next_command,
+        "run_dir": str(repo / "experiments" / "wrong-run"),
+        "primary_focus": "wrong_focus",
+    }
+    tampered_identity_errors = validate_operator_next_command_payload(
+        tampered_identity_next_command,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert "operator_next_command run_dir mismatch" in tampered_identity_errors
+    assert "operator_next_command primary_focus mismatch" in (
+        tampered_identity_errors
+    )
     tampered_policy_next_command = {
         **pending_next_command,
         "source_home": {

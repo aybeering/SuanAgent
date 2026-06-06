@@ -17986,6 +17986,53 @@ def test_codex_cli_canary_gate_blocks_preflight_binding_drift(
     )
 
 
+def test_artifact_validator_blocks_stale_codex_canary_gate_after_audit_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_canary.json")
+    run_iteration_loop(
+        run_id="codex-canary-gate-derived-drift",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/codex-canary-gate-derived-drift"
+    write_codex_cli_canary_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_canary.json",
+    )
+    audit_path = run_dir / "round_001/agent_executions/attempt_001_primary.json"
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    audit["preflight_binding"]["bound"] = False
+    audit["preflight_binding"]["status"] = "mismatch"
+    audit["preflight_binding"]["blocking_reasons"] = [
+        "preflight_binding:workspace_path_under_preflight_prefix"
+    ]
+    audit_path.write_text(
+        json.dumps(audit, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="codex-canary-gate-derived-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_canary_gate.json derived ok mismatch" in str(error)
+        for error in validation_report["errors"]
+    )
+    assert any(
+        "codex_cli_canary_gate.json derived slot requirements mismatch: "
+        "round_001:attempt_001_primary" in str(error)
+        for error in validation_report["errors"]
+    )
+
+
 def test_artifact_validator_blocks_codex_execution_preflight_mismatch(
     tmp_path: Path,
 ) -> None:

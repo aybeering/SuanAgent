@@ -9,6 +9,7 @@ import shlex
 from pathlib import Path
 from typing import Any
 
+from orchestrator.codex_cli_canary_gate import build_codex_cli_canary_gate
 from orchestrator.codex_cli_intake_readiness import (
     validate_codex_cli_intake_readiness,
 )
@@ -10369,6 +10370,12 @@ def validate_optional_codex_cli_canary_gate(
             report,
             f"codex_cli_canary_gate.json run_id does not match report: {path}",
         )
+    validate_codex_cli_canary_gate_derivation(
+        payload=payload,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     blockers = payload.get("blocking_reasons", [])
     if not isinstance(blockers, list):
         add_error(report, "codex_cli_canary_gate.json blocking_reasons invalid")
@@ -10484,6 +10491,73 @@ def validate_optional_codex_cli_canary_gate(
     markdown_path = run_dir / "codex_cli_canary_gate.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))
+
+
+def validate_codex_cli_canary_gate_derivation(
+    *,
+    payload: dict[str, Any],
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate canary gate rows match the current source artifacts."""
+    config_path_text = str(payload.get("config_path", ""))
+    if not config_path_text:
+        add_error(report, "codex_cli_canary_gate.json config_path missing")
+        return
+    expected = build_codex_cli_canary_gate(
+        run_dir=run_dir,
+        config_path=resolve_path(Path(config_path_text), repo_root),
+        repo_root=repo_root,
+    )
+    for key in (
+        "ok",
+        "controlled_execution_ready",
+        "blocking_reasons",
+        "checks",
+        "config",
+        "totals",
+        "artifacts",
+        "policy",
+    ):
+        if payload.get(key) != expected.get(key):
+            add_error(report, f"codex_cli_canary_gate.json derived {key} mismatch")
+    slots = payload.get("slots", [])
+    expected_slots = expected.get("slots", [])
+    if not isinstance(slots, list) or not isinstance(expected_slots, list):
+        return
+    if len(slots) != len(expected_slots):
+        add_error(report, "codex_cli_canary_gate.json derived slot count mismatch")
+        return
+    expected_by_slot = {
+        str(slot.get("slot_id", "")): slot
+        for slot in expected_slots
+        if isinstance(slot, dict)
+    }
+    for slot in slots:
+        if not isinstance(slot, dict):
+            continue
+        slot_id = str(slot.get("slot_id", ""))
+        expected_slot = expected_by_slot.get(slot_id)
+        if expected_slot is None:
+            add_error(
+                report,
+                f"codex_cli_canary_gate.json derived slot missing: {slot_id}",
+            )
+            continue
+        for key in (
+            "ready",
+            "gate_status",
+            "blocking_issues",
+            "requirements",
+            "evidence",
+            "artifacts",
+        ):
+            if slot.get(key) != expected_slot.get(key):
+                add_error(
+                    report,
+                    f"codex_cli_canary_gate.json derived slot {key} mismatch: {slot_id}",
+                )
 
 
 def validate_optional_codex_cli_real_preflight(

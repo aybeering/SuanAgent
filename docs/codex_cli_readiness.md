@@ -171,6 +171,9 @@ both `canary_intake_binding_ready` and `canary_preflight_binding_ready`, so a
 future real Codex enablement cannot rely on canary subprocess evidence unless
 that output was normalized through the shared proposal-intake path and stayed
 inside the startup preflight command, workspace, and mutation boundary.
+Artifact validation re-derives the canary gate from the current run artifacts,
+so a stale or manually edited `codex_cli_canary_gate.json` cannot keep reporting
+ready after the underlying execution audit drifts.
 Operator-facing views now surface the same condition as a shared
 `codex_intake_readiness` block in the unlock checklist, unlock runbook,
 execution readiness diff, cockpit, and terminal-only operator home. It is

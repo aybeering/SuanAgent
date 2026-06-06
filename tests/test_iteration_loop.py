@@ -23461,6 +23461,30 @@ def test_codex_cli_execution_preflight_schema_requires_evidence_contract(
         in file_record_errors
     )
 
+    malformed_digests = json.loads(json.dumps(preflight))
+    malformed_digests["profiles"][0]["operator_unlock_request"]["sha256"] = (
+        "bad-operator-request-sha"
+    )
+    malformed_digests["profiles"][0]["expected_execution"]["command_sha256"] = (
+        "bad-expected-command-sha"
+    )
+    digest_errors = validate_json_payload(
+        payload=malformed_digests,
+        schema=schema,
+    )
+    assert any(
+        "$.profiles[0].operator_unlock_request.sha256: "
+        "expected string to match pattern"
+        in error
+        for error in digest_errors
+    )
+    assert any(
+        "$.profiles[0].expected_execution.command_sha256: "
+        "expected string to match pattern"
+        in error
+        for error in digest_errors
+    )
+
 
 def test_codex_cli_operator_unlock_request_schema_requires_evidence_contract(
     tmp_path: Path,

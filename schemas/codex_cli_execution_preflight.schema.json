@@ -328,7 +328,7 @@
                 }
               },
               "command_sha256": {
-                "type": "string"
+                "$ref": "#/$defs/sha256"
               }
             },
             "additionalProperties": false
@@ -446,10 +446,18 @@
           "type": "integer"
         },
         "sha256": {
-          "type": "string"
+          "$ref": "#/$defs/sha256_or_empty"
         }
       },
       "additionalProperties": false
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sha256_or_empty": {
+      "type": "string",
+      "pattern": "^$|^[a-f0-9]{64}$"
     }
   }
 }

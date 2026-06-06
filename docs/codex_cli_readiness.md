@@ -143,7 +143,9 @@ is blocked; this is valid audit output, not execution permission.
 `codex_cli_execution_preflight.json` blocks real Codex CLI execution unless a
 ready canonical operator request already exists in the current run directory and
 still matches the active profile command, workspace prefix, run identity, source
-hashes, and planned execution identity.
+hashes, and planned execution identity. The saved operator-request file hash and
+expected command digest are schema-constrained before the startup gate can trust
+them.
 
 The iteration loop allows an existing run directory only for this narrow
 canonical operator-request startup case. Ordinary pre-existing run directories

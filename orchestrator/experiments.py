@@ -2997,6 +2997,8 @@ def render_run_diagnosis_markdown(payload: dict[str, object]) -> str:
         f"- Home hint-only: `{home.get('command_is_hint_only', True)}`",
         f"- Selector command: `{markdown_cell(next_command.get('selector_command', '') or 'unavailable')}`",
         f"- Selector command SHA-256: `{markdown_cell(next_command.get('selector_command_sha256', '') or 'unavailable')}`",
+        f"- Selector source home command: `{markdown_cell(next_command.get('source_home_command', '') or 'unavailable')}`",
+        f"- Selector source home command SHA-256: `{markdown_cell(next_command.get('source_home_command_sha256', '') or 'unavailable')}`",
         f"- Selected command: `{markdown_cell(next_command.get('selected_command', '') or 'unavailable')}`",
         f"- Selected command SHA-256: `{markdown_cell(next_command.get('selected_command_sha256', '') or 'unavailable')}`",
         f"- Selected status: `{markdown_cell(next_command.get('status', '') or 'unavailable')}`",

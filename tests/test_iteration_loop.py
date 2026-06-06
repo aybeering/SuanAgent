@@ -15044,6 +15044,12 @@ def test_artifact_validator_reports_diagnosis_operator_navigation_drift(
     diagnosis["operator_navigation"]["next_command"]["selector_command_sha256"] = (
         "bad-selector-sha"
     )
+    diagnosis["operator_navigation"]["next_command"]["source_home_command"] = (
+        "python -m orchestrator.preflight --config config/default.json"
+    )
+    diagnosis["operator_navigation"]["next_command"]["source_home_command_sha256"] = (
+        "bad-source-home-sha"
+    )
     diagnosis["operator_navigation"]["next_command"]["selected_command"] = ""
     diagnosis["operator_navigation"]["next_command"]["selected_command_sha256"] = (
         "bad-selected-sha"
@@ -15078,6 +15084,18 @@ def test_artifact_validator_reports_diagnosis_operator_navigation_drift(
     )
     assert (
         "diagnosis.json operator_navigation selector command_sha256 mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation source home command mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation source home sha256 mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation source home command_sha256 mismatch"
         in report["errors"]
     )
     assert (
@@ -15199,6 +15217,8 @@ def test_artifact_validator_reports_unavailable_diagnosis_navigation_safety_drif
     home["command_is_hint_only"] = False
     next_command["selector_command"] = "python -m orchestrator.run_loop"
     next_command["selector_boundary"] = "mutation"
+    next_command["source_home_command"] = "python -m orchestrator.run_loop"
+    next_command["source_home_command_sha256"] = "bad-source-home"
     next_command["writes_artifact"] = "decision.json"
     next_command["requires_operator_approval"] = True
     next_command["command_is_hint_only"] = False
@@ -15231,6 +15251,14 @@ def test_artifact_validator_reports_unavailable_diagnosis_navigation_safety_drif
     )
     assert (
         "diagnosis.json operator_navigation selector boundary mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation source home command mismatch"
+        in report["errors"]
+    )
+    assert (
+        "diagnosis.json operator_navigation source home command_sha256 mismatch"
         in report["errors"]
     )
     assert (
@@ -17817,6 +17845,12 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     assert diagnosis["operator_navigation"]["next_command"]["selector_command_sha256"] == sha256_text(  # type: ignore[index]
         diagnosis["operator_navigation"]["next_command"]["selector_command"]  # type: ignore[index]
     )
+    assert diagnosis["operator_navigation"]["next_command"]["source_home_command"] == (  # type: ignore[index]
+        diagnosis["operator_navigation"]["home"]["command"]  # type: ignore[index]
+    )
+    assert diagnosis["operator_navigation"]["next_command"]["source_home_command_sha256"] == (  # type: ignore[index]
+        diagnosis["operator_navigation"]["home"]["command_sha256"]  # type: ignore[index]
+    )
     assert diagnosis["operator_navigation"]["next_command"]["selected_command"].startswith(  # type: ignore[index]
         "python -m orchestrator.operator_action_approval "
     )
@@ -17859,6 +17893,9 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     assert saved["operator_navigation"]["available"] is True
     assert saved["operator_navigation"]["next_command"]["selector_command"] == (
         "python -m orchestrator.experiments next-command diagnose-iteration --markdown"
+    )
+    assert saved["operator_navigation"]["next_command"]["source_home_command"] == (
+        saved["operator_navigation"]["home"]["command"]
     )
     saved_manifest = json.loads(
         (repo / "experiments/diagnose-iteration/manifest.json").read_text(
@@ -17959,6 +17996,9 @@ def test_experiments_diagnose_subcommand_outputs_json(tmp_path: Path) -> None:
     assert payload["operator_navigation"]["next_command"]["selector_command"] == (
         "python -m orchestrator.experiments next-command diagnose-cli --markdown"
     )
+    assert payload["operator_navigation"]["next_command"]["source_home_command"] == (
+        payload["operator_navigation"]["home"]["command"]
+    )
     assert payload["operator_navigation"]["next_command"]["blocked"] is True
     markdown_result = subprocess.run(
         [
@@ -17987,6 +18027,8 @@ def test_experiments_diagnose_subcommand_outputs_json(tmp_path: Path) -> None:
     )
     assert "- Home command SHA-256:" in markdown_result.stdout
     assert "- Selector command SHA-256:" in markdown_result.stdout
+    assert "- Selector source home command:" in markdown_result.stdout
+    assert "- Selector source home command SHA-256:" in markdown_result.stdout
     assert "- Selected command SHA-256:" in markdown_result.stdout
     assert "- Changes acceptance: `False`" in markdown_result.stdout
 

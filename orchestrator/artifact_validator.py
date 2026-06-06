@@ -6797,6 +6797,25 @@ def validate_iteration_diagnosis_operator_navigation(
         )
     if str(next_command.get("selector_boundary", "")) != "read_only_inspection":
         add_error(report, "diagnosis.json operator_navigation selector boundary mismatch")
+    if str(next_command.get("source_home_command", "")) != str(home.get("command", "")):
+        add_error(
+            report,
+            "diagnosis.json operator_navigation source home command mismatch",
+        )
+    if str(next_command.get("source_home_command_sha256", "")) != str(
+        home.get("command_sha256", "")
+    ):
+        add_error(
+            report,
+            "diagnosis.json operator_navigation source home sha256 mismatch",
+        )
+    if str(next_command.get("source_home_command_sha256", "")) != sha256_text(
+        str(next_command.get("source_home_command", ""))
+    ):
+        add_error(
+            report,
+            "diagnosis.json operator_navigation source home command_sha256 mismatch",
+        )
     if next_command.get("command_is_hint_only") is not True:
         add_error(report, "diagnosis.json operator_navigation next hint unsafe")
 
@@ -6907,6 +6926,16 @@ def validate_unavailable_diagnosis_operator_navigation(
         )
     if str(next_command.get("selector_boundary", "")):
         add_error(report, "diagnosis.json operator_navigation selector boundary mismatch")
+    if str(next_command.get("source_home_command", "")):
+        add_error(
+            report,
+            "diagnosis.json operator_navigation source home command mismatch",
+        )
+    if str(next_command.get("source_home_command_sha256", "")):
+        add_error(
+            report,
+            "diagnosis.json operator_navigation source home command_sha256 mismatch",
+        )
     if str(next_command.get("status", "")) != "unavailable":
         add_error(report, "diagnosis.json operator_navigation next status mismatch")
     if str(next_command.get("selected_command_label", "")):

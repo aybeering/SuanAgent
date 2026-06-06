@@ -292,6 +292,10 @@ def operator_navigation_from_manifest(
             "selector_command": selector_command,
             "selector_command_sha256": sha256_text(selector_command),
             "selector_boundary": "read_only_inspection",
+            "source_home_command": home_command,
+            "source_home_command_sha256": str(
+                operator_home.get("command_sha256", sha256_text(home_command))
+            ),
             "selected_command_label": str(
                 operator_home.get("next_command_label", "")
             ),
@@ -373,6 +377,8 @@ def operator_navigation_unavailable(
             "selector_command": "",
             "selector_command_sha256": "",
             "selector_boundary": "",
+            "source_home_command": "",
+            "source_home_command_sha256": "",
             "selected_command_label": "",
             "selected_command": "",
             "selected_command_sha256": "",

@@ -1210,15 +1210,16 @@ Replay artifacts:
   config candidate, operator review, application dry-run, guarded apply,
   rollback preview, guarded restore, and lineage chain into one ordered
   operator guide. The iteration loop writes it during closeout after the final
-  config lineage artifact. The runbook lists command hints, marks which
-  commands would write config if explicitly invoked, and remains read-only: it
-  never records approval, executes commands, writes config, restores config,
-  runs agents, or changes acceptance. `python -m orchestrator.experiments
-  config-runbook <run_id>` validates schema, step ordering, command safety,
-  summary counters, authority flags, current artifact evidence, and read-only
-  policy before printing JSON or markdown. The saved-file validator reports
-  field-specific drift for source fields, summary counters, step rows, command
-  hints, and read-only policy fields.
+  config lineage artifact. The runbook lists digest-backed command hints, marks
+  which commands would write config if explicitly invoked, and remains
+  read-only: it never records approval, executes commands, writes config,
+  restores config, runs agents, or changes acceptance. `python -m
+  orchestrator.experiments config-runbook <run_id>` validates schema, step
+  ordering, command SHA-256 bindings, command safety, summary counters,
+  authority flags, current artifact evidence, and read-only policy before
+  printing JSON or markdown. The saved-file validator reports field-specific
+  drift for source fields, summary counters, step rows, command hints, and
+  read-only policy fields.
 - `config_lineage.json` and `config_lineage.md` connect config candidates,
   operator review, dry-run, apply receipt, rollback preview, and restore
   receipt artifacts into one read-only digest chain for the run.

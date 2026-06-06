@@ -7590,6 +7590,7 @@ def test_config_operator_runbook_guides_review_and_apply_workflow(
     assert all(
         command["requires_explicit_operator_invocation"] is True
         and command["runbook_executes_command"] is False
+        and command["command_sha256"] == sha256_text(command["command"])
         for command in runbook["operator_commands"]
     )
     assert any(
@@ -7600,6 +7601,7 @@ def test_config_operator_runbook_guides_review_and_apply_workflow(
     assert runbook["policy"]["does_not_write_config"] is True
     assert "# Config Operator Runbook" in markdown
     assert "record_operator_approval" in markdown
+    assert "Command SHA-256" in markdown
     assert report["from_artifact"] is True
     assert render_config_operator_runbook_markdown(report).startswith(
         "# Config Operator Runbook"
@@ -7676,6 +7678,7 @@ def test_config_operator_runbook_guides_review_and_apply_workflow(
     tampered_runbook["operator_commands"][0]["command"] += (
         " && python -m orchestrator.run_loop"
     )
+    tampered_runbook["operator_commands"][0]["command_sha256"] = "wrong-command-sha"
     tampered_runbook["operator_commands"][0]["runbook_executes_command"] = True
     tampered_runbook["operator_commands"][0][
         "requires_explicit_operator_invocation"
@@ -7694,8 +7697,12 @@ def test_config_operator_runbook_guides_review_and_apply_workflow(
     assert "config_operator_runbook next command mismatch" in errors
     assert "config_operator_runbook summary workflow_phase mismatch" in errors
     assert "config_operator_runbook operator_commands 0 command mismatch" in errors
+    assert "config_operator_runbook operator_commands 0 command_sha256 mismatch" in (
+        errors
+    )
     assert "config_operator_runbook step 0 authority mismatch" in errors
     assert "config_operator_runbook command unsafe token" in errors
+    assert "config_operator_runbook command sha256 mismatch" in errors
     assert "config_operator_runbook command executes by itself" in errors
     assert "config_operator_runbook command lacks explicit gate" in errors
     assert "config_operator_runbook authority true: step_can_write_config" in errors
@@ -7714,6 +7721,10 @@ def test_config_operator_runbook_guides_review_and_apply_workflow(
     )
     assert any(
         "config_operator_runbook command unsafe token" in error
+        for error in tampered_validation["errors"]  # type: ignore[union-attr]
+    )
+    assert any(
+        "config_operator_runbook command sha256 mismatch" in error
         for error in tampered_validation["errors"]  # type: ignore[union-attr]
     )
     assert tampered_label == "inspect_config_candidates"

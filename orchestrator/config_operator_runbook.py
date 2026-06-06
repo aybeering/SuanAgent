@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -329,6 +330,7 @@ def command_for_step(
         "label": command_label,
         "artifact_id": artifact_ids.get(command_label, ""),
         "command": commands.get(command_label, ""),
+        "command_sha256": sha256_text(commands.get(command_label, "")),
         "writes_artifacts": True,
         "writes_config_if_invoked": writes_config,
         "requires_explicit_operator_invocation": True,
@@ -447,8 +449,8 @@ def render_config_operator_runbook_markdown(payload: dict[str, object]) -> str:
         f"- Workflow phase: `{summary.get('workflow_phase', '')}`",
         f"- Next command: `{summary.get('next_command_label', '')}`",
         "",
-        "| Step | Status | Artifact | Command |",
-        "| --- | --- | --- | --- |",
+        "| Step | Status | Artifact | Command | Command SHA-256 |",
+        "| --- | --- | --- | --- | --- |",
     ]
     for step in steps:
         artifact = dict_field(step, "artifact")
@@ -459,13 +461,15 @@ def render_config_operator_runbook_markdown(payload: dict[str, object]) -> str:
             f"{step.get('label', '')} | "
             f"`{step.get('status', '')}` | "
             f"`{artifact.get('artifact_id', '')}` exists=`{json_file.get('exists', False)}` | "
-            f"`{command.get('label', '')}` |"
+            f"`{command.get('label', '')}` | "
+            f"`{command.get('command_sha256', '')}` |"
         )
     lines.extend(["", "## Command Hints", ""])
     for command in commands:
         marker = " writes config if invoked" if command.get("writes_config_if_invoked") else ""
         lines.append(
-            f"- `{command.get('label', '')}`{marker}: `{command.get('command', '')}`"
+            f"- `{command.get('label', '')}`{marker}: `{command.get('command', '')}` "
+            f"(sha256 `{command.get('command_sha256', '')}`)"
         )
     if not commands:
         lines.append("- none")
@@ -605,6 +609,7 @@ def validate_config_operator_runbook_current_evidence(
                 "label",
                 "artifact_id",
                 "command",
+                "command_sha256",
                 "writes_artifacts",
                 "writes_config_if_invoked",
                 "requires_explicit_operator_invocation",
@@ -756,6 +761,8 @@ def validate_commands(
         if not bool(command.get("requires_explicit_operator_invocation", False)):
             errors.append("config_operator_runbook command lacks explicit gate")
         command_text = str(command.get("command", ""))
+        if str(command.get("command_sha256", "")) != sha256_text(command_text):
+            errors.append("config_operator_runbook command sha256 mismatch")
         if any(token in command_text for token in unsafe_tokens):
             errors.append("config_operator_runbook command unsafe token")
     return tuple(errors)
@@ -796,6 +803,11 @@ def command_artifacts() -> dict[str, str]:
         "restore_config_approved": "config_application_restore_receipt",
         "inspect_config_lineage": "config_lineage",
     }
+
+
+def sha256_text(value: str) -> str:
+    """Return the SHA-256 digest for one operator command string."""
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def load_json_object(path: Path) -> dict[str, Any]:

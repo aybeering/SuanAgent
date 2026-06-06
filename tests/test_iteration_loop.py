@@ -3826,6 +3826,43 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         row["command_sha256"] == sha256_text(row["command"])
         for row in pending["recommended_commands"]
     )
+    malformed_dashboard_digests = {
+        **pending,
+        "available_actions": [
+            {
+                **pending["available_actions"][0],
+                "commands": [
+                    {
+                        **pending["available_actions"][0]["commands"][0],
+                        "command_sha256": "bad-action-command-sha",
+                    },
+                    *pending["available_actions"][0]["commands"][1:],
+                ],
+            },
+            *pending["available_actions"][1:],
+        ],
+        "recommended_commands": [
+            {
+                **pending["recommended_commands"][0],
+                "command_sha256": "bad-recommended-command-sha",
+            },
+            *pending["recommended_commands"][1:],
+        ],
+    }
+    malformed_dashboard_digest_errors = validate_operator_action_dashboard_payload(
+        payload=malformed_dashboard_digests,
+        repo_root=repo,
+    )
+    assert any(
+        "available_actions[0].commands[0].command_sha256: "
+        "expected string to match pattern" in str(error)
+        for error in malformed_dashboard_digest_errors
+    )
+    assert any(
+        "recommended_commands[0].command_sha256: expected string to match pattern"
+        in str(error)
+        for error in malformed_dashboard_digest_errors
+    )
     assert any(
         row["label"] == "record_operator_approval"
         for row in pending["recommended_commands"]

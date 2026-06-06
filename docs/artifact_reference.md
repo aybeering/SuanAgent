@@ -530,9 +530,11 @@ command counts, audit failure reasons, blockers derived from those reason
 codes, and suggested read-only/guarded commands with explicit boundary
 classification (`read_only_inspection`, `read_only_artifact_refresh`,
 `operator_approval_receipt`, or `guarded_read_only_execution`) plus SHA-256
-bindings for each recommended command, without recording approval, executing
-commands, writing config, promoting champions, running agents, running
-backtests, applying patches, routing agents, or changing acceptance.
+bindings for each recommended command. The dashboard schema requires action-row
+and recommended-command digests to use 64 lowercase hexadecimal characters,
+without recording approval, executing commands, writing config, promoting
+champions, running agents, running backtests, applying patches, routing agents,
+or changing acceptance.
 It also includes an `execution_readiness` summary that binds the current
 action-chain status, first recommended command boundary, required dependency
 artifacts, missing artifacts, blockers, selected-command digest status, and

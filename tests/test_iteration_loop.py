@@ -2647,12 +2647,37 @@ def test_operator_config_review_records_intent_without_applying_config(
     ) == ()
     drift_review = json.loads(json.dumps(payload))
     drift_review["candidate_summary"]["candidate_count"] = 44
+    drift_review["operator_intent"]["review_recorded"] = True
+    drift_review["review_gate"]["config_changes_must_be_manual"] = False
+    drift_review["reviewed_changes"][0]["requires_manual_config_edit"] = False
+    drift_review["policy"]["does_not_write_config"] = False
     drift_review_errors = validate_operator_config_review_payload(
         drift_review,
         run_dir=run_dir,
         repo_root=repo,
         experiments_dir=repo / "experiments",
         require_current_evidence=True,
+    )
+    assert (
+        "operator_config_review candidate_summary candidate_count mismatch"
+        in drift_review_errors
+    )
+    assert (
+        "operator_config_review operator_intent review_recorded mismatch"
+        in drift_review_errors
+    )
+    assert (
+        "operator_config_review review_gate config_changes_must_be_manual mismatch"
+        in drift_review_errors
+    )
+    drift_candidate_id = payload["reviewed_changes"][0]["candidate_id"]
+    assert (
+        f"operator_config_review reviewed_changes {drift_candidate_id} "
+        "requires_manual_config_edit mismatch"
+    ) in drift_review_errors
+    assert (
+        "operator_config_review policy does_not_write_config mismatch"
+        in drift_review_errors
     )
     assert "operator_config_review candidate_summary mismatch" in drift_review_errors
     assert "operator_config_review current evidence mismatch" in drift_review_errors
@@ -2698,7 +2723,11 @@ def test_operator_config_review_records_intent_without_applying_config(
         require_current_evidence=True,
     ) == ()
     drift_dry_run = json.loads(json.dumps(dry_payload))
+    drift_dry_run["operator_intent"]["review_recorded"] = True
     drift_dry_run["application_gate"]["approved_change_count"] = 88
+    drift_dry_run["application_gate"]["config_changes_must_be_manual"] = False
+    drift_dry_run["planned_changes"][0]["requires_manual_config_edit"] = False
+    drift_dry_run["policy"]["does_not_write_config"] = False
     drift_dry_run_errors = validate_config_application_dry_run_payload(
         drift_dry_run,
         run_dir=run_dir,
@@ -2706,6 +2735,26 @@ def test_operator_config_review_records_intent_without_applying_config(
         experiments_dir=repo / "experiments",
         config_path=repo / "config/default.json",
         require_current_evidence=True,
+    )
+    assert (
+        "config_application_dry_run operator_intent review_recorded mismatch"
+        in drift_dry_run_errors
+    )
+    assert (
+        "config_application_dry_run application_gate approved_change_count mismatch"
+        in drift_dry_run_errors
+    )
+    assert (
+        "config_application_dry_run application_gate "
+        "config_changes_must_be_manual mismatch"
+    ) in drift_dry_run_errors
+    assert (
+        "config_application_dry_run planned_changes 0 "
+        "requires_manual_config_edit mismatch"
+    ) in drift_dry_run_errors
+    assert (
+        "config_application_dry_run policy does_not_write_config mismatch"
+        in drift_dry_run_errors
     )
     assert (
         "config_application_dry_run approved count mismatch" in drift_dry_run_errors

@@ -390,12 +390,22 @@ def validate_operator_config_review_file(
     repo_root: Path,
 ) -> tuple[str, ...]:
     """Validate a saved operator config review report."""
-    return tuple(
+    effective_repo_root = infer_repo_root_from_payload_path(payload_path, repo_root)
+    errors = list(
         validate_json_file(
             payload_path=payload_path,
             schema_path=repo_root / SCHEMA_PATH,
         )
     )
+    if payload_path.exists():
+        errors.extend(
+            validate_operator_config_review_consistency(
+                load_json_object(payload_path),
+                run_dir=payload_path.parent,
+                repo_root=effective_repo_root,
+            )
+        )
+    return tuple(errors)
 
 
 def validate_operator_config_review_payload(
@@ -481,6 +491,13 @@ def validate_operator_config_review_consistency(
             if str(row.get("config_path", ""))
         ),
     }
+    append_field_mismatches(
+        errors,
+        prefix="operator_config_review candidate_summary",
+        payload=summary,
+        expected=expected_summary,
+        field_names=("schema_version", "status", "candidate_count", "config_paths"),
+    )
     if summary != expected_summary:
         errors.append("operator_config_review candidate_summary mismatch")
     phrase_matches = bool(intent.get("confirmation_phrase_matches", False))
@@ -489,13 +506,61 @@ def validate_operator_config_review_consistency(
         and rows
         and target_ids
     )
+    required_phrase_hash = sha256_text(REQUIRED_APPROVAL_PHRASE)
+    provided_phrase_hash = str(intent.get("provided_confirmation_phrase_hash", ""))
+    expected_review_recorded = bool(
+        (decision == "reject" and eligible)
+        or (decision == "approve" and eligible and phrase_matches)
+    )
+    expected_intent = {
+        "review_recorded": expected_review_recorded,
+        "decision_requested": decision,
+        "target_candidate_ids": list(target_ids),
+        "required_approval_phrase_hash": required_phrase_hash,
+        "provided_confirmation_phrase_hash": provided_phrase_hash,
+        "confirmation_phrase_matches": bool(
+            provided_phrase_hash == required_phrase_hash and bool(provided_phrase_hash)
+        ),
+    }
+    append_field_mismatches(
+        errors,
+        prefix="operator_config_review operator_intent",
+        payload=intent,
+        expected=expected_intent,
+        field_names=tuple(expected_intent),
+    )
+    expected_blockers = review_blockers(
+        candidate_payload={"schema_version": summary.get("schema_version", "")}
+        if bool(payload.get("ok", False))
+        else {},
+        changes=rows,
+        target_ids=target_ids,
+        requested_ids=target_ids,
+        decision=decision,
+        phrase_matches=phrase_matches,
+        eligible_for_review=eligible,
+    )
+    expected_gate = {
+        "eligible_for_review": eligible,
+        "review_blockers": expected_blockers,
+        "requires_operator_review": bool(rows),
+        "requires_matching_confirmation_phrase_for_approval": True,
+        "config_changes_must_be_manual": True,
+    }
+    append_field_mismatches(
+        errors,
+        prefix="operator_config_review review_gate",
+        payload=gate,
+        expected=expected_gate,
+        field_names=tuple(expected_gate),
+    )
     if bool(gate.get("eligible_for_review", False)) != eligible:
         errors.append("operator_config_review eligible_for_review mismatch")
+    if string_list(gate.get("review_blockers", [])) != expected_blockers:
+        errors.append("operator_config_review review_blockers mismatch")
     if bool(gate.get("requires_operator_review", False)) != bool(rows):
         errors.append("operator_config_review requires_operator_review mismatch")
-    if str(intent.get("required_approval_phrase_hash", "")) != sha256_text(
-        REQUIRED_APPROVAL_PHRASE
-    ):
+    if str(intent.get("required_approval_phrase_hash", "")) != required_phrase_hash:
         errors.append("operator_config_review approval phrase hash mismatch")
     if decision == "approve" and phrase_matches and not review_recorded and eligible:
         errors.append("operator_config_review approval should be recorded")
@@ -520,6 +585,20 @@ def validate_operator_config_review_consistency(
             expected_decision = "approved"
         elif selected and review_recorded and decision == "reject":
             expected_decision = "rejected"
+        expected_row = {
+            "selected_for_review": selected,
+            "review_decision": expected_decision,
+            "applied": False,
+            "requires_manual_config_edit": True,
+            "source_artifact": "config_change_candidate.json",
+        }
+        append_field_mismatches(
+            errors,
+            prefix=f"operator_config_review reviewed_changes {candidate_id}",
+            payload=row,
+            expected=expected_row,
+            field_names=tuple(expected_row),
+        )
         if bool(row.get("selected_for_review", False)) != selected:
             errors.append("operator_config_review row selection mismatch")
         if str(row.get("review_decision", "")) != expected_decision:
@@ -536,6 +615,29 @@ def validate_operator_config_review_consistency(
     )
     if payload.get("recommended_next_actions") != expected_actions:
         errors.append("operator_config_review next actions mismatch")
+    policy = object_value(payload.get("policy", {}))
+    expected_policy = {
+        "inspection_only": True,
+        "reads_saved_artifacts_only": True,
+        "does_not_write_config": True,
+        "does_not_delete_memory": True,
+        "does_not_execute_agents": True,
+        "does_not_run_backtests": True,
+        "does_not_route_candidates": True,
+        "does_not_apply_patches": True,
+        "does_not_change_acceptance": True,
+        "review_does_not_apply_config": True,
+        "config_changes_still_require_manual_edit": True,
+    }
+    append_field_mismatches(
+        errors,
+        prefix="operator_config_review policy",
+        payload=policy,
+        expected=expected_policy,
+        field_names=tuple(expected_policy),
+    )
+    if policy != expected_policy:
+        errors.append("operator_config_review policy mismatch")
     return tuple(errors)
 
 
@@ -569,6 +671,20 @@ def string_list(value: object) -> list[str]:
     if isinstance(value, list | tuple):
         return [str(item) for item in value if str(item)]
     return []
+
+
+def append_field_mismatches(
+    errors: list[str],
+    *,
+    prefix: str,
+    payload: dict[str, object],
+    expected: dict[str, object],
+    field_names: tuple[str, ...],
+) -> None:
+    """Append field-specific mismatch messages for comparable objects."""
+    for field_name in field_names:
+        if payload.get(field_name) != expected.get(field_name):
+            errors.append(f"{prefix} {field_name} mismatch")
 
 
 def unique_strings(values: list[str]) -> list[str]:
@@ -611,6 +727,22 @@ def relative_path(path: Path, root: Path) -> str:
         return path.resolve().relative_to(root.resolve()).as_posix()
     except ValueError:
         return path.as_posix()
+
+
+def infer_repo_root_from_payload_path(payload_path: Path, repo_root: Path) -> Path:
+    """Infer repo root for experiment artifacts when caller passes another cwd."""
+    resolved_payload = payload_path.resolve()
+    resolved_repo = repo_root.resolve()
+    try:
+        resolved_payload.relative_to(resolved_repo)
+        return resolved_repo
+    except ValueError:
+        pass
+    run_dir = resolved_payload.parent
+    experiments_dir = run_dir.parent
+    if experiments_dir.name == "experiments":
+        return experiments_dir.parent
+    return resolved_repo
 
 
 def main() -> None:

@@ -351,12 +351,22 @@ def validate_config_application_dry_run_file(
     repo_root: Path,
 ) -> tuple[str, ...]:
     """Validate a saved config application dry-run report."""
-    return tuple(
+    effective_repo_root = infer_repo_root_from_payload_path(payload_path, repo_root)
+    errors = list(
         validate_json_file(
             payload_path=payload_path,
             schema_path=repo_root / SCHEMA_PATH,
         )
     )
+    if payload_path.exists():
+        errors.extend(
+            validate_config_application_dry_run_consistency(
+                load_json_object(payload_path),
+                run_dir=payload_path.parent,
+                repo_root=effective_repo_root,
+            )
+        )
+    return tuple(errors)
 
 
 def validate_config_application_dry_run_payload(
@@ -412,24 +422,89 @@ def validate_config_application_dry_run_consistency(
         errors.append("config_application_dry_run run_id mismatch")
     if str(payload.get("run_dir", "")) != relative_path(run_dir, repo_root):
         errors.append("config_application_dry_run run_dir mismatch")
+    source_review = object_value(payload.get("source_operator_review", {}))
+    source_review_file = object_value(source_review.get("file", {}))
+    review_path = resolve_repo_path(
+        Path(str(source_review_file.get("path", ""))),
+        repo_root,
+    )
+    source_config = object_value(payload.get("source_config", {}))
+    source_config_file = object_value(source_config.get("file", {}))
+    config_path = resolve_repo_path(
+        Path(str(source_config_file.get("path", ""))),
+        repo_root,
+    )
+    review_payload = load_json_object(review_path)
+    if source_review.get("artifact_name") != "operator_config_review":
+        errors.append("config_application_dry_run source review artifact mismatch")
+    if str(source_review_file.get("sha256", "")) != file_sha256(review_path):
+        errors.append("config_application_dry_run source review digest mismatch")
+    if source_config.get("artifact_name") != "config":
+        errors.append("config_application_dry_run source config artifact mismatch")
+    if str(source_config_file.get("sha256", "")) != file_sha256(config_path):
+        errors.append("config_application_dry_run source config digest mismatch")
     intent = object_value(payload.get("operator_intent", {}))
     gate = object_value(payload.get("application_gate", {}))
     rows = list_of_objects(payload.get("planned_changes", []))
-    blockers = string_list(gate.get("application_blockers", []))
     review_recorded = bool(intent.get("review_recorded", False))
     decision_requested = str(intent.get("decision_requested", ""))
-    expected_eligible = bool(not blockers and rows)
+    review_intent = object_value(review_payload.get("operator_intent", {}))
+    expected_intent = {
+        "review_recorded": bool(review_intent.get("review_recorded", False)),
+        "decision_requested": str(review_intent.get("decision_requested", "")),
+        "operator_id": str(review_intent.get("operator_id", "")),
+        "target_candidate_ids": string_list(
+            review_intent.get("target_candidate_ids", [])
+        ),
+        "confirmation_phrase_matches": bool(
+            review_intent.get("confirmation_phrase_matches", False)
+        ),
+    }
+    append_field_mismatches(
+        errors,
+        prefix="config_application_dry_run operator_intent",
+        payload=intent,
+        expected=expected_intent,
+        field_names=tuple(expected_intent),
+    )
+    expected_blockers = expected_application_blockers(
+        review_payload=review_payload,
+        rows=rows,
+        payload_ok=bool(payload.get("ok", False)),
+        review_recorded=review_recorded,
+        decision_requested=decision_requested,
+    )
+    expected_eligible = bool(not expected_blockers and rows)
     if bool(gate.get("eligible_for_manual_application", False)) != expected_eligible:
         errors.append("config_application_dry_run eligible mismatch")
     expected_approved = sum(
         1 for row in rows if row.get("review_decision") == "approved"
     )
     expected_ready = sum(1 for row in rows if row.get("ready_for_manual_edit"))
+    expected_gate = {
+        "eligible_for_manual_application": expected_eligible,
+        "application_blockers": expected_blockers,
+        "approved_change_count": expected_approved,
+        "ready_change_count": expected_ready,
+        "requires_operator_review_artifact": True,
+        "requires_approved_operator_review": True,
+        "requires_config_value_match": True,
+        "config_changes_must_be_manual": True,
+    }
+    append_field_mismatches(
+        errors,
+        prefix="config_application_dry_run application_gate",
+        payload=gate,
+        expected=expected_gate,
+        field_names=tuple(expected_gate),
+    )
+    if string_list(gate.get("application_blockers", [])) != expected_blockers:
+        errors.append("config_application_dry_run blockers mismatch")
     if int(gate.get("approved_change_count", -1) or 0) != expected_approved:
         errors.append("config_application_dry_run approved count mismatch")
     if int(gate.get("ready_change_count", -1) or 0) != expected_ready:
         errors.append("config_application_dry_run ready count mismatch")
-    for row in rows:
+    for row_index, row in enumerate(rows):
         selected = str(row.get("review_decision", "")) == "approved" and bool(
             row.get("selected_for_application", False)
         )
@@ -438,6 +513,21 @@ def validate_config_application_dry_run_consistency(
         )
         would_change = row.get("current_config_value") != row.get("proposed_value")
         ready = bool(selected and value_matches)
+        expected_row = {
+            "value_matches_review": value_matches,
+            "would_change_config": would_change,
+            "ready_for_manual_edit": ready,
+            "applied": False,
+            "requires_manual_config_edit": True,
+            "source_artifact": "operator_config_review.json",
+        }
+        append_field_mismatches(
+            errors,
+            prefix=f"config_application_dry_run planned_changes {row_index}",
+            payload=row,
+            expected=expected_row,
+            field_names=tuple(expected_row),
+        )
         if bool(row.get("value_matches_review", False)) != value_matches:
             errors.append("config_application_dry_run value match mismatch")
         if "current_config_path_exists" in row and not isinstance(
@@ -459,20 +549,86 @@ def validate_config_application_dry_run_consistency(
         else {},
         reviewed_changes=rows,
         planned_changes=rows,
-        blockers=blockers,
+        blockers=expected_blockers,
     )
     if str(payload.get("status", "")) != expected_status:
         errors.append("config_application_dry_run status mismatch")
     expected_actions = recommended_next_actions(
         eligible=expected_eligible,
-        blockers=blockers,
+        blockers=expected_blockers,
         planned_changes=rows,
     )
     if payload.get("recommended_next_actions") != expected_actions:
         errors.append("config_application_dry_run next actions mismatch")
     if review_recorded and decision_requested == "approve" and expected_approved == 0:
         errors.append("config_application_dry_run approval count missing")
+    policy = object_value(payload.get("policy", {}))
+    expected_policy = {
+        "inspection_only": True,
+        "reads_saved_artifacts_only": True,
+        "does_not_write_config": True,
+        "does_not_delete_memory": True,
+        "does_not_execute_agents": True,
+        "does_not_run_backtests": True,
+        "does_not_route_candidates": True,
+        "does_not_apply_patches": True,
+        "does_not_change_acceptance": True,
+        "dry_run_only": True,
+        "config_changes_still_require_manual_edit": True,
+    }
+    append_field_mismatches(
+        errors,
+        prefix="config_application_dry_run policy",
+        payload=policy,
+        expected=expected_policy,
+        field_names=tuple(expected_policy),
+    )
+    if policy != expected_policy:
+        errors.append("config_application_dry_run policy mismatch")
     return tuple(errors)
+
+
+def expected_application_blockers(
+    *,
+    review_payload: dict[str, object],
+    rows: list[dict[str, object]],
+    payload_ok: bool,
+    review_recorded: bool,
+    decision_requested: str,
+) -> list[str]:
+    """Return expected dry-run blockers from the saved review and planned rows."""
+    blockers: list[str] = []
+    if not review_payload:
+        blockers.append("missing_operator_config_review")
+    if (
+        review_payload
+        and review_payload.get("schema_version") != OPERATOR_CONFIG_REVIEW_SCHEMA_VERSION
+    ):
+        blockers.append("operator_config_review_schema_invalid")
+    if not payload_ok:
+        blockers.append("missing_or_invalid_config")
+    if not rows:
+        blockers.append("no_reviewed_changes")
+    if not review_recorded:
+        blockers.append("operator_review_not_recorded")
+    if decision_requested != "approve":
+        blockers.append("operator_review_not_approved")
+    approved_changes = [
+        row for row in rows if row.get("review_decision") == "approved"
+    ]
+    if not approved_changes:
+        blockers.append("no_approved_changes")
+    if any(
+        not bool(row.get("value_matches_review", False))
+        for row in approved_changes
+    ):
+        blockers.append("current_config_value_mismatch")
+    if any(
+        not bool(row.get("would_change_config", False))
+        for row in approved_changes
+    ):
+        blockers.append("approved_change_already_present")
+    return unique_strings(blockers)
 
 
 def resolve_config_path(*, repo_root: Path, config_path: Path | None) -> Path:
@@ -537,6 +693,20 @@ def string_list(value: object) -> list[str]:
     return []
 
 
+def append_field_mismatches(
+    errors: list[str],
+    *,
+    prefix: str,
+    payload: dict[str, object],
+    expected: dict[str, object],
+    field_names: tuple[str, ...],
+) -> None:
+    """Append field-specific mismatch messages for comparable objects."""
+    for field_name in field_names:
+        if payload.get(field_name) != expected.get(field_name):
+            errors.append(f"{prefix} {field_name} mismatch")
+
+
 def unique_strings(values: list[str]) -> list[str]:
     """Return unique strings in first-seen order."""
     result: list[str] = []
@@ -546,6 +716,11 @@ def unique_strings(values: list[str]) -> list[str]:
             result.append(value)
             seen.add(value)
     return result
+
+
+def resolve_repo_path(path: Path, repo_root: Path) -> Path:
+    """Return an absolute path resolved relative to repo root."""
+    return path if path.is_absolute() else repo_root / path
 
 
 def file_record(path: Path, repo_root: Path) -> dict[str, object]:
@@ -566,12 +741,35 @@ def file_record(path: Path, repo_root: Path) -> dict[str, object]:
     }
 
 
+def file_sha256(path: Path) -> str:
+    """Return SHA-256 for one file, or empty string when unavailable."""
+    if not path.exists() or not path.is_file():
+        return ""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def relative_path(path: Path, root: Path) -> str:
     """Return a stable POSIX path relative to root when possible."""
     try:
         return path.resolve().relative_to(root.resolve()).as_posix()
     except ValueError:
         return path.as_posix()
+
+
+def infer_repo_root_from_payload_path(payload_path: Path, repo_root: Path) -> Path:
+    """Infer repo root for experiment artifacts when caller passes another cwd."""
+    resolved_payload = payload_path.resolve()
+    resolved_repo = repo_root.resolve()
+    try:
+        resolved_payload.relative_to(resolved_repo)
+        return resolved_repo
+    except ValueError:
+        pass
+    run_dir = resolved_payload.parent
+    experiments_dir = run_dir.parent
+    if experiments_dir.name == "experiments":
+        return experiments_dir.parent
+    return resolved_repo
 
 
 def main() -> None:

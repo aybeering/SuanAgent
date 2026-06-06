@@ -1070,6 +1070,8 @@ Replay artifacts:
   `python -m orchestrator.experiments operator-config-review <run_id> --markdown`
   validate schema, candidate summary, review gate, reviewed-row decisions, and
   next actions before printing JSON or markdown.
+  The consistency validator reports field-specific drift for candidate summary,
+  operator intent, review gate, reviewed changes, and read-only policy fields.
 - `config_application_dry_run.json` and `config_application_dry_run.md` preview
   whether approved config candidates still match the current config value and
   are ready for a later manual edit. They remain dry-run only and never edit
@@ -1078,6 +1080,9 @@ Replay artifacts:
   `python -m orchestrator.experiments config-application-dry-run <run_id> --markdown`
   validate schema, application gate counts, planned-row readiness, status, and
   next actions before printing JSON or markdown.
+  The consistency validator reports field-specific drift for source files,
+  operator intent, application gate, planned changes, and read-only policy
+  fields.
 - `config_application_receipt.json` and `config_application_receipt.md` record
   the result of the guarded apply-config-approved command. The command writes
   config only when the saved dry-run is ready, the operator-review digest still

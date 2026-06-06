@@ -17,11 +17,13 @@ from orchestrator.codex_cli_dry_invocation_guard import (
     string_list,
     write_json,
 )
+from orchestrator.schema_validation import validate_json_file
 
 
 CODEX_CLI_EXECUTION_UNLOCK_SNAPSHOT_SCHEMA_VERSION = (
     "codex_cli_execution_unlock_snapshot_v1"
 )
+SCHEMA_PATH = Path("schemas/codex_cli_execution_unlock_snapshot.schema.json")
 
 
 def build_codex_cli_execution_unlock_snapshot(
@@ -100,6 +102,80 @@ def write_codex_cli_execution_unlock_snapshot(
         encoding="utf-8",
     )
     return payload
+
+
+def validate_codex_cli_execution_unlock_snapshot_file(
+    *,
+    payload_path: Path,
+    repo_root: Path = Path("."),
+    schema_path: Path | None = None,
+    require_current_evidence: bool = True,
+) -> tuple[str, ...]:
+    """Validate a saved execution unlock snapshot against current evidence."""
+    repo_root = repo_root.resolve()
+    schema_errors = tuple(
+        validate_json_file(
+            payload_path=payload_path,
+            schema_path=schema_path or repo_root / SCHEMA_PATH,
+        )
+    )
+    if schema_errors or not require_current_evidence:
+        return schema_errors
+    payload = load_json_object(payload_path)
+    run_dir_value = str(payload.get("run_dir", ""))
+    if not run_dir_value:
+        return schema_errors + ("codex_cli_execution_unlock_snapshot run_dir required",)
+    expected = build_codex_cli_execution_unlock_snapshot(
+        run_dir=resolve_path(Path(run_dir_value), repo_root),
+        repo_root=repo_root,
+    )
+    if payload != expected or not snapshot_file_records_match_current(
+        payload=payload,
+        repo_root=repo_root,
+    ):
+        return schema_errors + (
+            "codex_cli_execution_unlock_snapshot current evidence mismatch",
+        )
+    return schema_errors
+
+
+def snapshot_file_records_match_current(
+    *,
+    payload: dict[str, Any],
+    repo_root: Path,
+) -> bool:
+    """Return whether the snapshot's recorded hashes match current files."""
+    source_gate = payload.get("source_gate", {})
+    if not isinstance(source_gate, dict) or not file_record_matches_current(
+        record=source_gate,
+        repo_root=repo_root,
+    ):
+        return False
+    evidence = payload.get("evidence_artifacts", {})
+    if not isinstance(evidence, dict):
+        return False
+    for record in evidence.values():
+        if not isinstance(record, dict) or not file_record_matches_current(
+            record=record,
+            repo_root=repo_root,
+        ):
+            return False
+    return True
+
+
+def file_record_matches_current(
+    *,
+    record: dict[str, Any],
+    repo_root: Path,
+) -> bool:
+    """Return whether one saved file record matches the current filesystem."""
+    path_value = str(record.get("path", ""))
+    if not path_value:
+        return False
+    current = normalize_file_record(
+        file_record(resolve_path(Path(path_value), repo_root), repo_root)
+    )
+    return normalize_file_record(record) == current
 
 
 def normalize_file_record(record: dict[str, Any]) -> dict[str, Any]:

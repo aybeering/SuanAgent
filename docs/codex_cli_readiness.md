@@ -181,6 +181,9 @@ artifacts, so stale unlock evidence cannot survive upstream readiness drift.
 Direct unlock gate file validation reports the same stale aggregate evidence
 as a current-evidence mismatch while preserving detailed upstream mismatch
 errors in the full artifact validator.
+Direct unlock snapshot file validation rechecks the canonical source unlock
+gate and frozen evidence file records, so stale snapshot evidence is also
+reported as a current-evidence mismatch.
 Direct real-preflight file validation also re-runs only the local `--version`
 probe against the current candidate config and reports stale executable or
 config evidence as a current-evidence mismatch.

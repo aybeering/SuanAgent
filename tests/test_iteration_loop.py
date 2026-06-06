@@ -97,6 +97,7 @@ from orchestrator.codex_cli_execution_unlock_gate import (
 )
 from orchestrator.codex_cli_execution_unlock_snapshot import (
     CODEX_CLI_EXECUTION_UNLOCK_SNAPSHOT_SCHEMA_VERSION,
+    validate_codex_cli_execution_unlock_snapshot_file,
     write_codex_cli_execution_unlock_snapshot,
 )
 from orchestrator.codex_cli_execution_candidate import (
@@ -19776,6 +19777,13 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         "experiments/codex-unlock-locked/codex_cli_execution_unlock_gate.json"
     )
     assert len(snapshot["source_gate"]["sha256"]) == 64
+    assert (
+        validate_codex_cli_execution_unlock_snapshot_file(
+            payload_path=run_dir / "codex_cli_execution_unlock_snapshot.json",
+            repo_root=repo,
+        )
+        == ()
+    )
     assert candidate["schema_version"] == CODEX_CLI_EXECUTION_CANDIDATE_SCHEMA_VERSION
     assert candidate["ok"] is True
     assert candidate["execution_candidate_ready"] is False
@@ -20115,6 +20123,13 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     assert snapshot["evidence_artifacts"]["candidate_config"]["sha256"] == (
         gate["artifacts"]["candidate_config"]["sha256"]
     )
+    assert (
+        validate_codex_cli_execution_unlock_snapshot_file(
+            payload_path=run_dir / "codex_cli_execution_unlock_snapshot.json",
+            repo_root=repo,
+        )
+        == ()
+    )
     assert candidate["schema_version"] == CODEX_CLI_EXECUTION_CANDIDATE_SCHEMA_VERSION
     assert candidate["ok"] is True
     assert candidate["execution_candidate_ready"] is True
@@ -20327,6 +20342,10 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         payload_path=run_dir / "codex_cli_execution_unlock_gate.json",
         repo_root=repo,
     ) == ("codex_cli_execution_unlock_gate current evidence mismatch",)
+    assert validate_codex_cli_execution_unlock_snapshot_file(
+        payload_path=run_dir / "codex_cli_execution_unlock_snapshot.json",
+        repo_root=repo,
+    ) == ("codex_cli_execution_unlock_snapshot current evidence mismatch",)
     stale_unlock_validation_report = validate_run_artifacts(
         run_id="codex-unlock-ready",
         experiments_dir=repo / "experiments",
@@ -20347,6 +20366,11 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         "codex_cli_execution_unlock_gate.json derived checks mismatch" in str(error)
         for error in stale_unlock_validation_report["errors"]
     )
+    assert any(
+        "codex_cli_execution_unlock_snapshot.json file: "
+        "codex_cli_execution_unlock_snapshot current evidence mismatch" in str(error)
+        for error in stale_unlock_validation_report["errors"]
+    )
     tampered_diff_view = build_codex_cli_execution_readiness_diff(
         run_dir=run_dir,
         repo_root=repo,
@@ -20362,6 +20386,10 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         "{}\n",
         encoding="utf-8",
     )
+    assert validate_codex_cli_execution_unlock_snapshot_file(
+        payload_path=run_dir / "codex_cli_execution_unlock_snapshot.json",
+        repo_root=repo,
+    ) == ("codex_cli_execution_unlock_snapshot current evidence mismatch",)
     tampered_validation_report = validate_run_artifacts(
         run_id="codex-unlock-ready",
         experiments_dir=repo / "experiments",

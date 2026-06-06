@@ -18,9 +18,11 @@ from orchestrator.codex_cli_dry_invocation_guard import (
     string_list,
     write_json,
 )
+from orchestrator.schema_validation import validate_json_file
 
 
 CODEX_CLI_EXECUTION_CANDIDATE_SCHEMA_VERSION = "codex_cli_execution_candidate_v1"
+SCHEMA_PATH = Path("schemas/codex_cli_execution_candidate.schema.json")
 TARGET_FILE = "strategies/current_strategy.py"
 ROUND_ID = "codex_cli_real_execution"
 ATTEMPT_ID = "attempt_001_real_execution"
@@ -172,6 +174,51 @@ def write_codex_cli_execution_candidate(
         encoding="utf-8",
     )
     return payload
+
+
+def validate_codex_cli_execution_candidate_file(
+    *,
+    payload_path: Path,
+    repo_root: Path = Path("."),
+    schema_path: Path | None = None,
+    require_current_evidence: bool = True,
+) -> tuple[str, ...]:
+    """Validate a saved execution candidate against current canonical evidence."""
+    repo_root = repo_root.resolve()
+    schema_errors = tuple(
+        validate_json_file(
+            payload_path=payload_path,
+            schema_path=schema_path or repo_root / SCHEMA_PATH,
+        )
+    )
+    if schema_errors or not require_current_evidence:
+        return schema_errors
+    payload = load_json_object(payload_path)
+    run_dir_value = str(payload.get("run_dir", ""))
+    if not run_dir_value:
+        return schema_errors + ("codex_cli_execution_candidate run_dir required",)
+    run_dir = resolve_path(Path(run_dir_value), repo_root)
+    from orchestrator.codex_cli_execution_unlock_snapshot import (
+        validate_codex_cli_execution_unlock_snapshot_file,
+    )
+
+    source_snapshot_errors = validate_codex_cli_execution_unlock_snapshot_file(
+        payload_path=run_dir / "codex_cli_execution_unlock_snapshot.json",
+        repo_root=repo_root,
+    )
+    if source_snapshot_errors:
+        return schema_errors + (
+            "codex_cli_execution_candidate current evidence mismatch",
+        )
+    expected = build_codex_cli_execution_candidate(
+        run_dir=run_dir,
+        repo_root=repo_root,
+    )
+    if payload != expected:
+        return schema_errors + (
+            "codex_cli_execution_candidate current evidence mismatch",
+        )
+    return schema_errors
 
 
 def planned_workspace_path(

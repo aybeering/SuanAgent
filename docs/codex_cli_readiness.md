@@ -184,6 +184,10 @@ errors in the full artifact validator.
 Direct unlock snapshot file validation rechecks the canonical source unlock
 gate and frozen evidence file records, so stale snapshot evidence is also
 reported as a current-evidence mismatch.
+Direct execution candidate file validation re-derives the future command,
+workspace path, mutation boundary, and candidate config binding from the
+canonical unlock snapshot, so stale candidate plans are reported as
+current-evidence mismatches before any real execution can be considered.
 Direct real-preflight file validation also re-runs only the local `--version`
 probe against the current candidate config and reports stale executable or
 config evidence as a current-evidence mismatch.

@@ -11303,11 +11303,16 @@ def validate_optional_codex_cli_execution_candidate(
     if not path.exists():
         return
     checked_files(report).append(str(path))
-    validate_contract_file(
-        payload_path=path,
-        schema_path=repo_root / "schemas/codex_cli_execution_candidate.schema.json",
-        report=report,
+    from orchestrator.codex_cli_execution_candidate import (
+        validate_codex_cli_execution_candidate_file,
     )
+
+    for error in validate_codex_cli_execution_candidate_file(
+        payload_path=path,
+        repo_root=repo_root,
+        schema_path=repo_root / "schemas/codex_cli_execution_candidate.schema.json",
+    ):
+        add_error(report, f"codex_cli_execution_candidate.json file: {error}")
     payload = validate_json_object(path=path, report=report)
     if payload is None:
         return

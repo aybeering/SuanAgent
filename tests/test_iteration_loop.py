@@ -102,6 +102,7 @@ from orchestrator.codex_cli_execution_unlock_snapshot import (
 )
 from orchestrator.codex_cli_execution_candidate import (
     CODEX_CLI_EXECUTION_CANDIDATE_SCHEMA_VERSION,
+    validate_codex_cli_execution_candidate_file,
     write_codex_cli_execution_candidate,
 )
 from orchestrator.codex_cli_real_execution_dry_run import (
@@ -19793,6 +19794,13 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         "strategies/current_strategy.py"
     ]
     assert candidate["execution_plan"]["execution_enabled_by_this_artifact"] is False
+    assert (
+        validate_codex_cli_execution_candidate_file(
+            payload_path=run_dir / "codex_cli_execution_candidate.json",
+            repo_root=repo,
+        )
+        == ()
+    )
     assert real_dry_run["schema_version"] == (
         CODEX_CLI_REAL_EXECUTION_DRY_RUN_SCHEMA_VERSION
     )
@@ -20145,6 +20153,13 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
     ]
     assert candidate["execution_plan"]["execution_enabled_by_this_artifact"] is False
     assert candidate["policy"]["does_not_execute_codex_cli"] is True
+    assert (
+        validate_codex_cli_execution_candidate_file(
+            payload_path=run_dir / "codex_cli_execution_candidate.json",
+            repo_root=repo,
+        )
+        == ()
+    )
     assert real_dry_run["schema_version"] == (
         CODEX_CLI_REAL_EXECUTION_DRY_RUN_SCHEMA_VERSION
     )
@@ -20346,6 +20361,10 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         payload_path=run_dir / "codex_cli_execution_unlock_snapshot.json",
         repo_root=repo,
     ) == ("codex_cli_execution_unlock_snapshot current evidence mismatch",)
+    assert validate_codex_cli_execution_candidate_file(
+        payload_path=run_dir / "codex_cli_execution_candidate.json",
+        repo_root=repo,
+    ) == ("codex_cli_execution_candidate current evidence mismatch",)
     stale_unlock_validation_report = validate_run_artifacts(
         run_id="codex-unlock-ready",
         experiments_dir=repo / "experiments",
@@ -20371,6 +20390,11 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         "codex_cli_execution_unlock_snapshot current evidence mismatch" in str(error)
         for error in stale_unlock_validation_report["errors"]
     )
+    assert any(
+        "codex_cli_execution_candidate.json file: "
+        "codex_cli_execution_candidate current evidence mismatch" in str(error)
+        for error in stale_unlock_validation_report["errors"]
+    )
     tampered_diff_view = build_codex_cli_execution_readiness_diff(
         run_dir=run_dir,
         repo_root=repo,
@@ -20390,6 +20414,10 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         payload_path=run_dir / "codex_cli_execution_unlock_snapshot.json",
         repo_root=repo,
     ) == ("codex_cli_execution_unlock_snapshot current evidence mismatch",)
+    assert validate_codex_cli_execution_candidate_file(
+        payload_path=run_dir / "codex_cli_execution_candidate.json",
+        repo_root=repo,
+    ) == ("codex_cli_execution_candidate current evidence mismatch",)
     tampered_validation_report = validate_run_artifacts(
         run_id="codex-unlock-ready",
         experiments_dir=repo / "experiments",
@@ -20528,6 +20556,11 @@ def test_artifact_validator_reports_execution_candidate_source_snapshot_alias(
         json.dumps(candidate, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+    assert validate_codex_cli_execution_candidate_file(
+        payload_path=candidate_path,
+        repo_root=repo,
+    ) == ("codex_cli_execution_candidate current evidence mismatch",)
 
     validation_report = validate_run_artifacts(
         run_id="candidate-source-snapshot-alias",
@@ -30648,10 +30681,26 @@ def write_operator_unlock_request_fixture(
     support_dir = run_dir / "operator_unlock_fixture_support"
     support_dir.mkdir(parents=True, exist_ok=True)
     if canonical_source_paths:
+        candidate_config_path = support_dir / "codex_cli_enable_candidate.json"
+        candidate_config = json.loads(
+            (repo / "config/codex_cli_enable_candidate.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        candidate_config["codex_cli"]["executable"] = executable
+        candidate_config["codex_cli"]["model"] = model
+        candidate_config["codex_cli"]["sandbox"] = sandbox
+        candidate_config["codex_cli"]["workspace_root"] = workspace_root
+        candidate_config["codex_cli"]["execute"] = True
+        candidate_config["codex_cli"]["timeout_seconds"] = 30
+        candidate_config_path.write_text(
+            json.dumps(candidate_config, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
         write_codex_cli_execution_unlock_gate(
             run_dir=run_dir,
             repo_root=repo,
-            config_path=repo / "config/codex_cli_enable_candidate.json",
+            config_path=candidate_config_path,
             canary_run_dir=run_dir,
         )
         write_codex_cli_execution_unlock_snapshot(
@@ -30659,21 +30708,11 @@ def write_operator_unlock_request_fixture(
             repo_root=repo,
         )
         source_snapshot_path = run_dir / "codex_cli_execution_unlock_snapshot.json"
-        source_candidate_path = run_dir / "codex_cli_execution_candidate.json"
-        source_candidate_path.write_text(
-            json.dumps(
-                canonical_execution_candidate_fixture(
-                    repo=repo,
-                    run_dir=run_dir,
-                    planned_workspace_path=planned_workspace_path,
-                    command=command,
-                ),
-                indent=2,
-                sort_keys=True,
-            )
-            + "\n",
-            encoding="utf-8",
+        write_codex_cli_execution_candidate(
+            run_dir=run_dir,
+            repo_root=repo,
         )
+        source_candidate_path = run_dir / "codex_cli_execution_candidate.json"
     else:
         source_snapshot_path = support_dir / "codex_cli_execution_unlock_snapshot.json"
         source_snapshot_path.write_text(

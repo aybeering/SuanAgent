@@ -3704,6 +3704,56 @@ def test_operator_action_audit_tracks_plan_approval_execution_chain(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
+    malformed_digest_audit = json.loads(json.dumps(completed))
+    malformed_digest_audit["source_artifacts"]["action_plan"]["file"][
+        "sha256"
+    ] = "not-a-sha"
+    malformed_digest_audit["selected_command"]["command_sha256"] = "not-a-sha"
+    malformed_digest_audit["execution_record"]["stdout_sha256"] = "not-a-sha"
+    malformed_digest_audit["execution_record"]["stderr_sha256"] = "not-a-sha"
+    malformed_digest_audit["chain_checks"]["plan_sha256"] = "not-a-sha"
+    malformed_digest_audit["chain_checks"]["approval_sha256"] = "not-a-sha"
+    malformed_digest_audit["chain_checks"]["execution_sha256"] = "not-a-sha"
+    malformed_digest_audit["chain_checks"][
+        "approval_source_plan_sha256"
+    ] = "not-a-sha"
+    malformed_digest_audit["chain_checks"][
+        "execution_source_approval_sha256"
+    ] = "not-a-sha"
+    malformed_digest_errors = validate_operator_action_audit_payload(
+        malformed_digest_audit,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    )
+    assert (
+        "source_artifacts.action_plan.file.sha256: expected string to match pattern"
+    ) in str(malformed_digest_errors)
+    assert (
+        "selected_command.command_sha256: expected string to match pattern"
+    ) in str(malformed_digest_errors)
+    assert (
+        "execution_record.stdout_sha256: expected string to match pattern"
+    ) in str(malformed_digest_errors)
+    assert (
+        "execution_record.stderr_sha256: expected string to match pattern"
+    ) in str(malformed_digest_errors)
+    assert "chain_checks.plan_sha256: expected string to match pattern" in str(
+        malformed_digest_errors
+    )
+    assert "chain_checks.approval_sha256: expected string to match pattern" in str(
+        malformed_digest_errors
+    )
+    assert "chain_checks.execution_sha256: expected string to match pattern" in str(
+        malformed_digest_errors
+    )
+    assert (
+        "chain_checks.approval_source_plan_sha256: expected string to match pattern"
+    ) in str(malformed_digest_errors)
+    assert (
+        "chain_checks.execution_source_approval_sha256: expected string to match pattern"
+    ) in str(malformed_digest_errors)
     tampered_audit = json.loads(json_path.read_text(encoding="utf-8"))
     tampered_audit["summary"]["execution_completed"] = False
     tampered_audit["selected_action"]["exists_in_plan"] = False

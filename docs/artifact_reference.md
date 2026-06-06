@@ -510,8 +510,10 @@ deterministic modifier profile.
 `operator_action_audit.json` and `operator_action_audit.md` connect the saved
 action plan, approval, and execution receipt into one digest-checked read-only
 chain. The audit records stable failure reasons with stage, code, severity, and
-detail fields so operator views can report exactly which link broke. The writer
-and terminal view validate the payload against
+detail fields so operator views can report exactly which link broke. Command,
+output, source-file, and chain digests are schema-constrained to empty or
+64-lowercase-hex strings before consistency checks run. The writer and terminal
+view validate the payload against
 `schemas/operator_action_audit.schema.json` and check source artifact file
 records, status, summary, selected action, selected command, execution record,
 chain checks, next actions, and policy against the current digest chain before

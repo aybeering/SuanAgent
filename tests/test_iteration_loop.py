@@ -10689,6 +10689,23 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         agent_selection["attempts"][0]["candidate_score"]
     )
     assert agent_selection["attempts"][0]["skip_reason"] == ""
+    agent_selection_schema = json.loads(
+        (Path.cwd() / "schemas/agent_selection.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    invalid_agent_selection_digest = json.loads(json.dumps(agent_selection))
+    invalid_agent_selection_digest["attempts"][0]["patch_sha256"] = (
+        "bad-selection-patch-sha"
+    )
+    invalid_agent_selection_digest_errors = validate_json_payload(
+        payload=invalid_agent_selection_digest,
+        schema=agent_selection_schema,
+    )
+    assert any(
+        "$.attempts[0].patch_sha256: expected string to match pattern" in error
+        for error in invalid_agent_selection_digest_errors
+    )
     assert (
         round_dir / "agent_attempts/attempt_001_primary/selection.json"
     ).exists()

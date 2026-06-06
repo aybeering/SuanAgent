@@ -393,6 +393,8 @@ Codex CLI readiness contracts:
     `agent_output.json` and `agent_validation.json` both reuse
     `schemas/strategy_proposal.schema.json` for the shared strategy proposal
     field shape, including empty-or-64-lowercase-hex `patch_sha256` bindings.
+    `agent_selection_report.json` attempt rows also schema-constrain
+    `patch_sha256` to empty-or-64-lowercase-hex strings.
     `agent_validation.json` also records `semantic_checks`, a structured
     deterministic breakdown of protocol, expected round, target, metadata, and
     patch-target contract rules. It also records

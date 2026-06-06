@@ -5527,6 +5527,7 @@ def validate_agent_golden_replay(
             "attempt_present",
             "replayed_output_validation_ok",
             "patch_sha_matches_saved_proposal",
+            "raw_output_sha_matches_saved_output",
             "direction_tag_matches_saved_proposal",
         ):
             if not bool(checks.get(key, False)):
@@ -5543,6 +5544,7 @@ def validate_agent_golden_replay(
         "replays_saved_agent_input_contract",
         "requires_replayed_output_validation",
         "requires_patch_hash_match",
+        "requires_raw_output_hash_match",
     ):
         if not bool(policy.get(key, False)):
             add_error(report, f"agent_golden_replay policy false: {key}")

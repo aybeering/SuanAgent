@@ -95,6 +95,8 @@ def build_agent_golden_replay(
     replay_validation: dict[str, Any] = {}
     replayed_patch_sha = ""
     saved_patch_sha = ""
+    saved_raw_output_sha = ""
+    replayed_raw_output_sha = ""
     saved_direction_tag = ""
     replayed_direction_tag = ""
     if not reason_codes:
@@ -118,6 +120,8 @@ def build_agent_golden_replay(
         )
         saved_patch_sha = str(saved_proposal.get("patch_sha256", ""))
         replayed_patch_sha = str(replay_validation.get("proposal_patch_sha256", ""))
+        saved_raw_output_sha = file_sha256(saved_raw_output_path)
+        replayed_raw_output_sha = file_sha256(golden_output_path)
         saved_direction_tag = str(saved_proposal.get("direction_tag", ""))
         replayed_direction_tag = str(replayed_proposal_map.get("direction_tag", ""))
         if not bool(replay_validation.get("ok", False)):
@@ -134,6 +138,17 @@ def build_agent_golden_replay(
                     stage="golden_replay",
                     code="patch_sha_mismatch",
                     message=f"saved={saved_patch_sha} replayed={replayed_patch_sha}",
+                )
+            )
+        if saved_raw_output_sha != replayed_raw_output_sha:
+            reason_codes.append(
+                reason_code(
+                    stage="golden_replay",
+                    code="raw_output_sha_mismatch",
+                    message=(
+                        "saved="
+                        f"{saved_raw_output_sha} replayed={replayed_raw_output_sha}"
+                    ),
                 )
             )
         if saved_direction_tag != replayed_direction_tag:
@@ -163,6 +178,10 @@ def build_agent_golden_replay(
             "patch_sha_matches_saved_proposal": (
                 bool(saved_patch_sha) and saved_patch_sha == replayed_patch_sha
             ),
+            "raw_output_sha_matches_saved_output": (
+                bool(saved_raw_output_sha)
+                and saved_raw_output_sha == replayed_raw_output_sha
+            ),
             "direction_tag_matches_saved_proposal": (
                 bool(saved_direction_tag)
                 and saved_direction_tag == replayed_direction_tag
@@ -179,6 +198,8 @@ def build_agent_golden_replay(
         "comparison": {
             "saved_patch_sha256": saved_patch_sha,
             "replayed_patch_sha256": replayed_patch_sha,
+            "saved_raw_output_sha256": saved_raw_output_sha,
+            "replayed_raw_output_sha256": replayed_raw_output_sha,
             "saved_direction_tag": saved_direction_tag,
             "replayed_direction_tag": replayed_direction_tag,
         },
@@ -190,6 +211,7 @@ def build_agent_golden_replay(
             "replays_saved_agent_input_contract": True,
             "requires_replayed_output_validation": True,
             "requires_patch_hash_match": True,
+            "requires_raw_output_hash_match": True,
         },
     }
     return attach_failure_metadata(report, reason_codes)
@@ -251,6 +273,13 @@ def file_record(path: Path, repo_root: Path) -> dict[str, object]:
         "bytes": len(data),
         "sha256": hashlib.sha256(data).hexdigest(),
     }
+
+
+def file_sha256(path: Path) -> str:
+    """Return a file sha256 digest, or empty string when missing."""
+    if not path.exists() or not path.is_file():
+        return ""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def load_json_object(path: Path) -> dict[str, Any]:

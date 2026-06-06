@@ -89,6 +89,7 @@
         "attempt_present",
         "replayed_output_validation_ok",
         "patch_sha_matches_saved_proposal",
+        "raw_output_sha_matches_saved_output",
         "direction_tag_matches_saved_proposal"
       ],
       "properties": {
@@ -99,6 +100,9 @@
           "type": "boolean"
         },
         "patch_sha_matches_saved_proposal": {
+          "type": "boolean"
+        },
+        "raw_output_sha_matches_saved_output": {
           "type": "boolean"
         },
         "direction_tag_matches_saved_proposal": {
@@ -114,6 +118,8 @@
       "required": [
         "saved_patch_sha256",
         "replayed_patch_sha256",
+        "saved_raw_output_sha256",
+        "replayed_raw_output_sha256",
         "saved_direction_tag",
         "replayed_direction_tag"
       ],
@@ -122,6 +128,12 @@
           "type": "string"
         },
         "replayed_patch_sha256": {
+          "type": "string"
+        },
+        "saved_raw_output_sha256": {
+          "type": "string"
+        },
+        "replayed_raw_output_sha256": {
           "type": "string"
         },
         "saved_direction_tag": {
@@ -141,7 +153,8 @@
         "does_not_change_acceptance",
         "replays_saved_agent_input_contract",
         "requires_replayed_output_validation",
-        "requires_patch_hash_match"
+        "requires_patch_hash_match",
+        "requires_raw_output_hash_match"
       ],
       "properties": {
         "does_not_execute_external_agents": {
@@ -163,6 +176,9 @@
           "type": "boolean"
         },
         "requires_patch_hash_match": {
+          "type": "boolean"
+        },
+        "requires_raw_output_hash_match": {
           "type": "boolean"
         }
       }

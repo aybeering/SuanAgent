@@ -494,6 +494,7 @@
         "artifact_path",
         "command_label",
         "command",
+        "command_sha256",
         "boundary_type",
         "command_is_hint_only"
       ],
@@ -537,6 +538,10 @@
         },
         "command": {
           "type": "string"
+        },
+        "command_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         },
         "boundary_type": {
           "type": "string"

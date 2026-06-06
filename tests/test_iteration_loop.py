@@ -3869,6 +3869,9 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending_steps["operator_approval"]["command_label"] == (
         "record_operator_approval"
     )
+    assert pending_steps["operator_approval"]["command_sha256"] == sha256_text(
+        pending_steps["operator_approval"]["command"]
+    )
     assert pending_steps["guarded_execution"]["status"] == "waiting"
     assert pending_guide["guided_path"]["policy"]["commands_are_hints_only"] is True
     assert pending_guide["command_sequence"][0]["command_sha256"] == sha256_text(
@@ -3906,6 +3909,7 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
                 {
                     **pending_guide["guided_path"]["steps"][0],
                     "status": "blocked",
+                    "command_sha256": "0" * 64,
                 },
                 {
                     **pending_guide["guided_path"]["steps"][0],
@@ -4365,6 +4369,9 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert ready_steps["guarded_execution"]["status"] == "active"
     assert ready_steps["guarded_execution"]["command_label"] == (
         "execute_approved_command"
+    )
+    assert ready_steps["guarded_execution"]["command_sha256"] == sha256_text(
+        ready_steps["guarded_execution"]["command"]
     )
     assert validate_operator_action_guide_payload(
         ready_guide,

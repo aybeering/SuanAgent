@@ -378,6 +378,7 @@ def guided_path_step(
 ) -> dict[str, object]:
     """Return one guided-path checklist row."""
     boundary = object_field(command, "boundary")
+    command_text = str(command.get("command", ""))
     is_active = step_id == active_step_id and not complete and not blocked
     has_command = bool(command)
     if complete:
@@ -399,7 +400,8 @@ def guided_path_step(
         "artifact_name": artifact_name,
         "artifact_path": artifact_path,
         "command_label": str(command.get("label", "")),
-        "command": str(command.get("command", "")),
+        "command": command_text,
+        "command_sha256": sha256_text(command_text),
         "boundary_type": str(boundary.get("boundary_type", "")),
         "command_is_hint_only": True,
     }
@@ -490,7 +492,8 @@ def render_operator_action_guide_markdown(payload: dict[str, object]) -> str:
     for step in list_of_dicts(guided_path.get("steps", [])):
         lines.append(
             f"- `{step.get('step_id', '')}` `{step.get('status', '')}` -> "
-            f"`{step.get('command_label', '')}` (`{step.get('boundary_type', '')}`)"
+            f"`{step.get('command_label', '')}` (`{step.get('boundary_type', '')}`) "
+            f"`{str(step.get('command_sha256', ''))[:12]}`"
         )
     lines.extend(
         [

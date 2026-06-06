@@ -965,15 +965,17 @@ Proposal and intake artifacts:
   execution. Its `intake_binding` section starts as `unbound` at execution time
   and is updated for the selected attempt after `agent_validation.json` is
   written, binding command, prompt/stdin, raw response, saved proposal, and
-  validation evidence. This proves selected external output went through the
-  shared intake path before quarantine or patch application. Codex-specific
-  contract fixtures, local canary gates, and final execution unlock gates also
-  require this selected execution binding to be present and blocker-free before
-  they can report readiness. Guarded Codex CLI audits also carry
-  `preflight_binding`, which binds the saved command digest, workspace prefix,
-  strategy-only mutation allowlist, and mutation guard back to the startup
-  `codex_cli_execution_preflight.json` profile. Local canary and final unlock
-  readiness also require that preflight binding to be blocker-free, and
+  validation evidence. Execution audit command, stream, file, proposal-patch,
+  and preflight command digests are schema-constrained to
+  empty-or-64-lowercase-hex strings. This proves selected external output went
+  through the shared intake path before quarantine or patch application.
+  Codex-specific contract fixtures, local canary gates, and final execution
+  unlock gates also require this selected execution binding to be present and
+  blocker-free before they can report readiness. Guarded Codex CLI audits also
+  carry `preflight_binding`, which binds the saved command digest, workspace
+  prefix, strategy-only mutation allowlist, and mutation guard back to the
+  startup `codex_cli_execution_preflight.json` profile. Local canary and final
+  unlock readiness also require that preflight binding to be blocker-free, and
   artifact validation re-derives canary gate rows from the current source
   artifacts to detect stale saved readiness. Canary gate file validation now
   also exposes stale rows as a current-evidence mismatch. Final unlock gate

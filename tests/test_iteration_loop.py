@@ -13196,6 +13196,47 @@ output_path.write_text(json.dumps({
     assert agent_execution["mutation_errors"] == []
     assert agent_execution["output_file"]["exists"] is True
     assert len(agent_execution["output_file"]["sha256"]) == 64
+    agent_execution_schema = json.loads(
+        (Path.cwd() / "schemas/agent_execution.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    invalid_execution_digest = json.loads(json.dumps(agent_execution))
+    invalid_execution_digest["command_sha256"] = "bad-command-sha"
+    invalid_execution_digest["stdout"]["sha256"] = "bad-stdout-sha"
+    invalid_execution_digest["output_file"]["sha256"] = "bad-output-sha"
+    invalid_execution_digest["intake_binding"]["proposal_patch_sha256"] = (
+        "bad-proposal-patch-sha"
+    )
+    invalid_execution_digest["preflight_binding"]["expected_command_sha256"] = (
+        "bad-preflight-command-sha"
+    )
+    invalid_execution_digest_errors = validate_json_payload(
+        payload=invalid_execution_digest,
+        schema=agent_execution_schema,
+    )
+    assert any(
+        "$.command_sha256: expected string to match pattern" in error
+        for error in invalid_execution_digest_errors
+    )
+    assert any(
+        "$.stdout.sha256: expected string to match pattern" in error
+        for error in invalid_execution_digest_errors
+    )
+    assert any(
+        "$.output_file.sha256: expected string to match pattern" in error
+        for error in invalid_execution_digest_errors
+    )
+    assert any(
+        "$.intake_binding.proposal_patch_sha256: expected string to match pattern"
+        in error
+        for error in invalid_execution_digest_errors
+    )
+    assert any(
+        "$.preflight_binding.expected_command_sha256: expected string to match pattern"
+        in error
+        for error in invalid_execution_digest_errors
+    )
     assert (
         "file-protocol-fixture-file-protocol/round_001/primary/attempt_001_primary"
         in agent_execution["workspace_path"]

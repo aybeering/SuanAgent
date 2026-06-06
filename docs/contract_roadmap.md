@@ -309,7 +309,9 @@ Codex CLI readiness contracts:
 4. Data under `data/` is immutable experiment input.
 5. Codex CLI canary and unlock readiness require a bound, blocker-free selected
    `agent_execution.intake_binding`; subprocess evidence alone is not enough to
-   unlock future real execution.
+   unlock future real execution. Execution-audit command, stream, file,
+   proposal-patch, and preflight command digests are schema-constrained to
+   empty-or-64-lowercase-hex strings.
 6. V0.5 must not call real exchange, wallet, Polymarket, Binance, or network APIs.
 7. Real Codex CLI strategy execution remains out of scope until the full
    readiness chain, operator request, startup preflight, and artifact validator

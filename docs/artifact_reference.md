@@ -887,7 +887,10 @@ Proposal and intake artifacts:
   shared intake path before quarantine or patch application. Codex-specific
   contract fixtures, local canary gates, and final execution unlock gates also
   require this selected execution binding to be present and blocker-free before
-  they can report readiness.
+  they can report readiness. Guarded Codex CLI audits also carry
+  `preflight_binding`, which binds the saved command digest, workspace prefix,
+  strategy-only mutation allowlist, and mutation guard back to the startup
+  `codex_cli_execution_preflight.json` profile.
 - `agent_output.json` stores normalized selected proposal data and the
   proposal intent summary used by the round-level agent input. Its selected
   proposal uses `schemas/strategy_proposal.schema.json`.

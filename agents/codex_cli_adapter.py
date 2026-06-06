@@ -21,6 +21,7 @@ from orchestrator.agent_contract_runner import (
     AgentCommandResult,
     AgentContractRunResult,
     CODEX_CLI_GUARDED_RUNNER_NAME,
+    bind_agent_execution_to_preflight,
     write_agent_execution,
 )
 from orchestrator.proposal import StrategyProposal
@@ -366,6 +367,20 @@ def write_codex_execution_audit(
             result=result,
         ),
     )
+    run_dir = infer_run_dir_from_audit_path(output_path)
+    if (run_dir / "codex_cli_execution_preflight.json").exists():
+        bind_agent_execution_to_preflight(
+            audit_path=output_path,
+            run_dir=run_dir,
+            repo_root=run_dir.parent.parent,
+        )
+
+
+def infer_run_dir_from_audit_path(output_path: Path) -> Path:
+    """Infer the experiment run directory for a saved execution audit."""
+    if output_path.parent.name == "agent_executions":
+        return output_path.parent.parent.parent
+    return output_path.parent.parent
 
 
 def run_codex_command(

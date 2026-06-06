@@ -17776,6 +17776,16 @@ print(json.dumps({
     assert audit["command_sha256"] == preflight["profiles"][0]["expected_execution"][
         "command_sha256"
     ]
+    assert audit["preflight_binding"]["bound"] is True
+    assert audit["preflight_binding"]["status"] == "bound"
+    assert audit["preflight_binding"]["blocking_reasons"] == []
+    assert audit["preflight_binding"]["expected_command_sha256"] == (
+        preflight["profiles"][0]["expected_execution"]["command_sha256"]
+    )
+    assert audit["preflight_binding"]["expected_workspace_prefix"] == (
+        preflight["profiles"][0]["expected_execution"]["workspace_prefix"]
+    )
+    assert all(audit["preflight_binding"]["checks"].values())
     assert audit["mutation_guard"]["passed"] is True
     assert_matches_schema(
         round_dir / "agent_executions/attempt_001_primary.json",
@@ -17864,6 +17874,16 @@ def test_codex_cli_canary_config_runs_controlled_execution_gate(
     assert audit["command_sha256"] == preflight["profiles"][0]["expected_execution"][
         "command_sha256"
     ]
+    assert audit["preflight_binding"]["bound"] is True
+    assert audit["preflight_binding"]["status"] == "bound"
+    assert audit["preflight_binding"]["blocking_reasons"] == []
+    assert audit["preflight_binding"]["expected_command_sha256"] == (
+        preflight["profiles"][0]["expected_execution"]["command_sha256"]
+    )
+    assert audit["preflight_binding"]["expected_workspace_prefix"] == (
+        preflight["profiles"][0]["expected_execution"]["workspace_prefix"]
+    )
+    assert all(audit["preflight_binding"]["checks"].values())
     assert audit["returncode"] == 0
     assert audit["mutation_guard"]["passed"] is True
     assert audit["intake_binding"]["bound"] is True
@@ -17940,6 +17960,102 @@ def test_artifact_validator_blocks_codex_execution_preflight_mismatch(
     assert validation_report["ok"] is False
     assert any(
         "codex_cli agent_execution command not preflight-bound" in str(error)
+        for error in validation_report["errors"]
+    )
+    assert any(
+        "agent_execution preflight_binding check drift: command_matches_preflight"
+        in str(error)
+        for error in validation_report["errors"]
+    )
+
+
+def test_artifact_validator_blocks_codex_execution_workspace_preflight_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_canary.json")
+    run_iteration_loop(
+        run_id="codex-execution-workspace-binding-mismatch",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    audit_path = (
+        repo
+        / "experiments/codex-execution-workspace-binding-mismatch/round_001"
+        / "agent_executions/attempt_001_primary.json"
+    )
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    audit["workspace_path"] = (
+        "workspaces/other-run/round_001/primary/"
+        "attempt_001_primary/strategy_workspace"
+    )
+    audit_path.write_text(
+        json.dumps(audit, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="codex-execution-workspace-binding-mismatch",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli agent_execution workspace not preflight-bound" in str(error)
+        for error in validation_report["errors"]
+    )
+    assert any(
+        "agent_execution preflight_binding check drift: "
+        "workspace_path_under_preflight_prefix" in str(error)
+        for error in validation_report["errors"]
+    )
+
+
+def test_artifact_validator_blocks_codex_execution_mutation_allowlist_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_canary.json")
+    run_iteration_loop(
+        run_id="codex-execution-mutation-binding-mismatch",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    audit_path = (
+        repo
+        / "experiments/codex-execution-mutation-binding-mismatch/round_001"
+        / "agent_executions/attempt_001_primary.json"
+    )
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    audit["allowed_mutation_paths"] = ["README.md"]
+    audit["mutation_guard"]["allowed_paths"] = ["README.md"]
+    audit_path.write_text(
+        json.dumps(audit, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="codex-execution-mutation-binding-mismatch",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert any(
+        "codex_cli agent_execution mutation paths not strategy-only" in str(error)
+        for error in validation_report["errors"]
+    )
+    assert any(
+        "codex_cli agent_execution mutation guard paths not strategy-only"
+        in str(error)
+        for error in validation_report["errors"]
+    )
+    assert any(
+        "agent_execution preflight_binding check drift: "
+        "allowed_mutation_paths_strategy_only" in str(error)
         for error in validation_report["errors"]
     )
 

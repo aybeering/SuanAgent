@@ -238,11 +238,117 @@ def write_agent_execution(
             "passed": not contract_result.mutation_errors,
         },
         "intake_binding": unbound_intake_binding(),
+        "preflight_binding": unbound_preflight_binding(),
     }
     output_path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def bind_agent_execution_to_preflight(
+    *,
+    audit_path: Path,
+    run_dir: Path,
+    repo_root: Path,
+) -> dict[str, object]:
+    """Bind one Codex execution audit to startup preflight evidence."""
+    payload = json.loads(audit_path.read_text(encoding="utf-8"))
+    preflight_path = run_dir / "codex_cli_execution_preflight.json"
+    preflight = (
+        json.loads(preflight_path.read_text(encoding="utf-8"))
+        if preflight_path.exists()
+        else {}
+    )
+    binding = build_preflight_binding(
+        audit=payload,
+        preflight_path=preflight_path,
+        preflight=preflight,
+        repo_root=repo_root,
+    )
+    payload["preflight_binding"] = binding
+    audit_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return binding
+
+
+def build_preflight_binding(
+    *,
+    audit: dict[str, object],
+    preflight_path: Path,
+    preflight: dict[str, object],
+    repo_root: Path,
+) -> dict[str, object]:
+    """Return deterministic checks tying a Codex audit to startup preflight."""
+    profiles = preflight.get("profiles", [])
+    profile_name = str(audit.get("profile_name", ""))
+    profile = {}
+    if isinstance(profiles, list):
+        for row in profiles:
+            if (
+                isinstance(row, dict)
+                and str(row.get("profile_name", "")) == profile_name
+                and str(row.get("adapter_name", "")) == "codex_cli"
+            ):
+                profile = row
+                break
+    expected_execution = object_or_empty(profile.get("expected_execution", {}))
+    expected_command = list_or_empty(expected_execution.get("command", []))
+    command = list_or_empty(audit.get("command", []))
+    expected_workspace_prefix = str(expected_execution.get("workspace_prefix", ""))
+    workspace_path = str(audit.get("workspace_path", ""))
+    allowed_paths = list_or_empty(audit.get("allowed_mutation_paths", []))
+    guard = object_or_empty(audit.get("mutation_guard", {}))
+    guard_allowed_paths = list_or_empty(guard.get("allowed_paths", []))
+    execution_enabled = bool(audit.get("execution_enabled", False))
+    operator_unlock_ready = bool(profile.get("operator_unlock_ready", False))
+    canary_exempt = bool(profile.get("canary_exempt", False))
+    checks = {
+        "preflight_present": preflight_path.exists(),
+        "profile_present": bool(profile),
+        "adapter_is_codex_cli": str(audit.get("adapter_name", "")) == "codex_cli",
+        "command_matches_preflight": command == expected_command,
+        "command_sha256_matches_preflight": (
+            str(audit.get("command_sha256", ""))
+            == str(expected_execution.get("command_sha256", ""))
+        ),
+        "workspace_path_under_preflight_prefix": (
+            bool(expected_workspace_prefix)
+            and path_under_workspace_prefix(
+                path_text=workspace_path,
+                prefix_text=expected_workspace_prefix,
+                repo_root=repo_root,
+            )
+        ),
+        "allowed_mutation_paths_strategy_only": allowed_paths
+        == ["strategies/current_strategy.py"],
+        "mutation_guard_paths_strategy_only": guard_allowed_paths
+        == ["strategies/current_strategy.py"],
+        "execution_allowed_by_startup_preflight": (
+            not execution_enabled or operator_unlock_ready or canary_exempt
+        ),
+    }
+    bound = all(checks.values())
+    return {
+        "schema_version": "agent_execution_preflight_binding_v1",
+        "status": "bound" if bound else "mismatch",
+        "bound": bound,
+        "preflight_path": str(preflight_path),
+        "preflight_file": file_summary(preflight_path),
+        "profile_name": profile_name,
+        "operator_unlock_ready": operator_unlock_ready,
+        "canary_exempt": canary_exempt,
+        "expected_command_sha256": str(expected_execution.get("command_sha256", "")),
+        "expected_workspace_prefix": expected_workspace_prefix,
+        "checks": checks,
+        "blocking_reasons": [
+            f"preflight_binding:{name}"
+            for name, passed in checks.items()
+            if not passed
+        ],
+    }
 
 
 def bind_agent_execution_to_intake(
@@ -387,6 +493,61 @@ def unbound_intake_binding() -> dict[str, object]:
         },
         "blocking_reasons": ["intake_binding:not_bound"],
     }
+
+
+def unbound_preflight_binding() -> dict[str, object]:
+    """Return the initial unbound startup-preflight binding block."""
+    return {
+        "schema_version": "agent_execution_preflight_binding_v1",
+        "status": "unbound",
+        "bound": False,
+        "preflight_path": "",
+        "preflight_file": {
+            "exists": False,
+            "path": "",
+            "bytes": 0,
+            "sha256": "",
+        },
+        "profile_name": "",
+        "operator_unlock_ready": False,
+        "canary_exempt": False,
+        "expected_command_sha256": "",
+        "expected_workspace_prefix": "",
+        "checks": {
+            "preflight_present": False,
+            "profile_present": False,
+            "adapter_is_codex_cli": False,
+            "command_matches_preflight": False,
+            "command_sha256_matches_preflight": False,
+            "workspace_path_under_preflight_prefix": False,
+            "allowed_mutation_paths_strategy_only": False,
+            "mutation_guard_paths_strategy_only": False,
+            "execution_allowed_by_startup_preflight": False,
+        },
+        "blocking_reasons": ["preflight_binding:not_bound"],
+    }
+
+
+def path_under_workspace_prefix(
+    *,
+    path_text: str,
+    prefix_text: str,
+    repo_root: Path,
+) -> bool:
+    """Return whether a path is inside a repo-relative or absolute prefix."""
+    if not path_text or not prefix_text:
+        return False
+    path = Path(path_text)
+    prefix = Path(prefix_text)
+    if not path.is_absolute():
+        path = repo_root / path
+    if not prefix.is_absolute():
+        prefix = repo_root / prefix
+    try:
+        path.resolve(strict=False).relative_to(prefix.resolve(strict=False))
+    except ValueError:
+        return False
+    return True
 
 
 def response_text(

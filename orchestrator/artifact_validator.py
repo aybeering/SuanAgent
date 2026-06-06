@@ -3413,6 +3413,13 @@ def validate_agent_execution(
         repo_root=repo_root,
         report=report,
     )
+    validate_agent_execution_preflight_binding(
+        path=path,
+        payload=payload,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
     if str(payload.get("runner_name", "")) != "codex_cli_guarded_adapter":
         return
     if str(payload.get("adapter_name", "")) != "codex_cli":
@@ -3449,6 +3456,180 @@ def validate_agent_execution(
             report,
             f"codex_cli agent_execution command sha256 not preflight-bound: {path}",
         )
+    expected_prefix = str(expected_execution.get("workspace_prefix", ""))
+    if not path_under_workspace_prefix(
+        path_text=str(payload.get("workspace_path", "")),
+        prefix_text=expected_prefix,
+        repo_root=repo_root,
+    ):
+        add_error(
+            report,
+            f"codex_cli agent_execution workspace not preflight-bound: {path}",
+        )
+    if payload.get("allowed_mutation_paths", []) != ["strategies/current_strategy.py"]:
+        add_error(
+            report,
+            f"codex_cli agent_execution mutation paths not strategy-only: {path}",
+        )
+    guard = dict_value(payload.get("mutation_guard", {}))
+    if guard.get("allowed_paths", []) != ["strategies/current_strategy.py"]:
+        add_error(
+            report,
+            f"codex_cli agent_execution mutation guard paths not strategy-only: {path}",
+        )
+
+
+def validate_agent_execution_preflight_binding(
+    *,
+    path: Path,
+    payload: dict[str, Any],
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> None:
+    """Validate saved Codex execution audit binding to startup preflight."""
+    binding = payload.get("preflight_binding", {})
+    if not isinstance(binding, dict):
+        add_error(report, f"agent_execution preflight_binding invalid: {path}")
+        return
+    if str(payload.get("runner_name", "")) != "codex_cli_guarded_adapter":
+        return
+    expected = expected_agent_execution_preflight_binding(
+        payload=payload,
+        run_dir=run_dir,
+        repo_root=repo_root,
+        report=report,
+    )
+    saved_checks = binding.get("checks", {})
+    if not isinstance(saved_checks, dict):
+        add_error(report, f"agent_execution preflight_binding checks invalid: {path}")
+        return
+    expected_checks = expected["checks"]
+    for key, expected_value in expected_checks.items():
+        if bool(saved_checks.get(key, False)) != bool(expected_value):
+            add_error(
+                report,
+                f"agent_execution preflight_binding check drift: {key}: {path}",
+            )
+    expected_bound = all(expected_checks.values())
+    if bool(binding.get("bound", False)) != expected_bound:
+        add_error(report, f"agent_execution preflight_binding bound drift: {path}")
+    expected_status = "bound" if expected_bound else "mismatch"
+    if str(binding.get("status", "")) != expected_status:
+        add_error(report, f"agent_execution preflight_binding status drift: {path}")
+    if str(binding.get("expected_command_sha256", "")) != str(
+        expected["expected_command_sha256"]
+    ):
+        add_error(report, f"agent_execution preflight_binding command sha drift: {path}")
+    if str(binding.get("expected_workspace_prefix", "")) != str(
+        expected["expected_workspace_prefix"]
+    ):
+        add_error(
+            report,
+            f"agent_execution preflight_binding workspace prefix drift: {path}",
+        )
+    blockers = binding.get("blocking_reasons", [])
+    expected_blockers = [
+        f"preflight_binding:{name}"
+        for name, passed in expected_checks.items()
+        if not passed
+    ]
+    if not isinstance(blockers, list) or [str(item) for item in blockers] != expected_blockers:
+        add_error(report, f"agent_execution preflight_binding blockers drift: {path}")
+    preflight_file = binding.get("preflight_file", {})
+    if isinstance(preflight_file, dict) and bool(preflight_file.get("exists", False)):
+        validate_recorded_file_hash(
+            record=preflight_file,
+            repo_root=repo_root,
+            report=report,
+            label=f"agent_execution preflight_binding preflight_file {path}",
+        )
+
+
+def expected_agent_execution_preflight_binding(
+    *,
+    payload: dict[str, Any],
+    run_dir: Path,
+    repo_root: Path,
+    report: dict[str, object],
+) -> dict[str, object]:
+    """Recompute startup-preflight binding checks for one execution audit."""
+    preflight_path = run_dir / "codex_cli_execution_preflight.json"
+    preflight = load_json_object(preflight_path, report)
+    profiles = preflight.get("profiles", []) if isinstance(preflight, dict) else []
+    profile_name = str(payload.get("profile_name", ""))
+    profile: dict[str, Any] = {}
+    if isinstance(profiles, list):
+        for row in profiles:
+            if (
+                isinstance(row, dict)
+                and str(row.get("profile_name", "")) == profile_name
+                and str(row.get("adapter_name", "")) == "codex_cli"
+            ):
+                profile = row
+                break
+    expected_execution = dict_value(profile.get("expected_execution", {}))
+    expected_command = list_value(expected_execution.get("command", []))
+    command = list_value(payload.get("command", []))
+    expected_prefix = str(expected_execution.get("workspace_prefix", ""))
+    allowed_paths = list_value(payload.get("allowed_mutation_paths", []))
+    guard = dict_value(payload.get("mutation_guard", {}))
+    guard_allowed_paths = list_value(guard.get("allowed_paths", []))
+    execution_enabled = bool(payload.get("execution_enabled", False))
+    operator_unlock_ready = bool(profile.get("operator_unlock_ready", False))
+    canary_exempt = bool(profile.get("canary_exempt", False))
+    checks = {
+        "preflight_present": preflight_path.exists(),
+        "profile_present": bool(profile),
+        "adapter_is_codex_cli": str(payload.get("adapter_name", "")) == "codex_cli",
+        "command_matches_preflight": command == expected_command,
+        "command_sha256_matches_preflight": (
+            str(payload.get("command_sha256", ""))
+            == str(expected_execution.get("command_sha256", ""))
+        ),
+        "workspace_path_under_preflight_prefix": (
+            bool(expected_prefix)
+            and path_under_workspace_prefix(
+                path_text=str(payload.get("workspace_path", "")),
+                prefix_text=expected_prefix,
+                repo_root=repo_root,
+            )
+        ),
+        "allowed_mutation_paths_strategy_only": allowed_paths
+        == ["strategies/current_strategy.py"],
+        "mutation_guard_paths_strategy_only": guard_allowed_paths
+        == ["strategies/current_strategy.py"],
+        "execution_allowed_by_startup_preflight": (
+            not execution_enabled or operator_unlock_ready or canary_exempt
+        ),
+    }
+    return {
+        "checks": checks,
+        "expected_command_sha256": str(expected_execution.get("command_sha256", "")),
+        "expected_workspace_prefix": expected_prefix,
+    }
+
+
+def path_under_workspace_prefix(
+    *,
+    path_text: str,
+    prefix_text: str,
+    repo_root: Path,
+) -> bool:
+    """Return whether a path is inside a repo-relative or absolute prefix."""
+    if not path_text or not prefix_text:
+        return False
+    path = Path(path_text)
+    prefix = Path(prefix_text)
+    if not path.is_absolute():
+        path = repo_root / path
+    if not prefix.is_absolute():
+        prefix = repo_root / prefix
+    try:
+        path.resolve(strict=False).relative_to(prefix.resolve(strict=False))
+    except ValueError:
+        return False
+    return True
 
 
 def validate_agent_execution_intake_binding(

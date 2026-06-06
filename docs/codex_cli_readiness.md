@@ -83,10 +83,19 @@ but a different reviewed artifact path.
 Guarded Codex CLI attempts record a stable `command_sha256`. Startup preflight
 and artifact validation bind that digest to the operator-reviewed command for
 the same profile, attempt id, round id, workspace path, and run id.
+Each guarded Codex audit also records `agent_execution.preflight_binding`,
+which recomputes the active startup preflight match for the saved audit. The
+binding must show the reviewed command digest, current run workspace prefix,
+strategy-only mutation allowlist, strategy-only mutation guard, and startup
+execution permission all matched before artifact validation treats the audit as
+preflight-bound.
 
 If any of these change, execution remains blocked:
 
 - command
+- workspace prefix
+- strategy-only mutation allowlist
+- strategy-only mutation guard
 - candidate config hash
 - run id
 - run directory
@@ -143,7 +152,10 @@ With `execute=false`, this command does not invoke Codex. It writes a guarded
 `agent_execution.json` audit and binds the selected audit to `proposal.json`,
 `raw_agent_output.txt`, and `agent_validation.json` through
 `agent_execution.intake_binding`, proving the disabled Codex boundary still uses
-the shared proposal-intake path.
+the shared proposal-intake path. When startup preflight evidence is present,
+the audit also includes `agent_execution.preflight_binding`, proving the
+attempt stayed under the preflight command, workspace-prefix, and strategy-only
+mutation boundary.
 
 Run a local canary iteration:
 

@@ -28,7 +28,8 @@
     "allowed_mutation_paths",
     "mutation_errors",
     "mutation_guard",
-    "intake_binding"
+    "intake_binding",
+    "preflight_binding"
   ],
   "properties": {
     "schema_version": {
@@ -388,6 +389,140 @@
           "items": {
             "type": "string"
           }
+        }
+      },
+      "additionalProperties": false
+    },
+    "preflight_binding": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "bound",
+        "preflight_path",
+        "preflight_file",
+        "profile_name",
+        "operator_unlock_ready",
+        "canary_exempt",
+        "expected_command_sha256",
+        "expected_workspace_prefix",
+        "checks",
+        "blocking_reasons"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "enum": [
+            "agent_execution_preflight_binding_v1"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "unbound",
+            "bound",
+            "mismatch"
+          ]
+        },
+        "bound": {
+          "type": "boolean"
+        },
+        "preflight_path": {
+          "type": "string"
+        },
+        "preflight_file": {
+          "$ref": "#/$defs/file_record"
+        },
+        "profile_name": {
+          "type": "string"
+        },
+        "operator_unlock_ready": {
+          "type": "boolean"
+        },
+        "canary_exempt": {
+          "type": "boolean"
+        },
+        "expected_command_sha256": {
+          "type": "string"
+        },
+        "expected_workspace_prefix": {
+          "type": "string"
+        },
+        "checks": {
+          "type": "object",
+          "required": [
+            "preflight_present",
+            "profile_present",
+            "adapter_is_codex_cli",
+            "command_matches_preflight",
+            "command_sha256_matches_preflight",
+            "workspace_path_under_preflight_prefix",
+            "allowed_mutation_paths_strategy_only",
+            "mutation_guard_paths_strategy_only",
+            "execution_allowed_by_startup_preflight"
+          ],
+          "properties": {
+            "preflight_present": {
+              "type": "boolean"
+            },
+            "profile_present": {
+              "type": "boolean"
+            },
+            "adapter_is_codex_cli": {
+              "type": "boolean"
+            },
+            "command_matches_preflight": {
+              "type": "boolean"
+            },
+            "command_sha256_matches_preflight": {
+              "type": "boolean"
+            },
+            "workspace_path_under_preflight_prefix": {
+              "type": "boolean"
+            },
+            "allowed_mutation_paths_strategy_only": {
+              "type": "boolean"
+            },
+            "mutation_guard_paths_strategy_only": {
+              "type": "boolean"
+            },
+            "execution_allowed_by_startup_preflight": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "file_record": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
         }
       },
       "additionalProperties": false

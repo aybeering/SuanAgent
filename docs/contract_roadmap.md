@@ -79,7 +79,9 @@ Implemented or allowed V0.5 components:
 49. A deterministic `codex_cli_manual_approval.json` report that records
     explicit approval for a passing enablement gate without executing Codex, and
     binds the approved enablement-gate and candidate-config artifact hashes so
-    validator checks can detect post-approval source drift.
+    validator checks can detect post-approval source drift, with approval
+    phrase digests schema-constrained to 64-lowercase-hex strings and source
+    artifact hashes constrained to empty-or-64-lowercase-hex strings.
 50. A deterministic `codex_cli_canary_gate.json` report that validates a checked-in local Codex CLI canary executable through the guarded execution path without running real Codex, requiring both selected-attempt intake binding and startup-preflight binding to be bound and blocker-free.
 51. A deterministic `codex_cli_real_preflight.json` report that probes real Codex CLI availability with `--version` only, without sending strategy prompts or modifying files.
 52. A deterministic `codex_cli_dry_invocation_guard.json` report that can optionally run a harmless Codex CLI prompt in an isolated workspace with an empty mutation allowlist.

@@ -1123,6 +1123,11 @@ Replay artifacts:
   current candidate-config or replay-gate evidence no longer matches the gate.
   Its replay-gate and candidate-config artifact SHA-256 fields are
   schema-constrained to empty-or-64-lowercase-hex strings.
+- `codex_cli_manual_approval.json` records explicit operator approval for a
+  passing enablement gate without executing Codex. Its approval phrase digests
+  must be 64-lowercase-hex strings, and its enablement-gate and
+  candidate-config artifact SHA-256 fields are schema-constrained to
+  empty-or-64-lowercase-hex strings.
 - `run_artifact_health.json` batch-validates saved experiment run artifacts
   and reports per-run artifact health without rerunning simulations.
   `--created-at-from` scopes indexed runs to a current contract era without

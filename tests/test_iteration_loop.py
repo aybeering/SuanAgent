@@ -19661,6 +19661,51 @@ def test_codex_cli_manual_approval_grants_after_enablement_gate(
         assert record["exists"] is True
         assert record["bytes"] > 0
         assert len(record["sha256"]) == 64
+    approval_schema = json.loads(
+        (Path.cwd() / "schemas/codex_cli_manual_approval.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    invalid_approval_digest = json.loads(json.dumps(approval))
+    invalid_approval_digest["approval"]["required_confirmation_phrase_sha256"] = (
+        "bad-required-phrase-sha"
+    )
+    invalid_approval_digest["approval"]["provided_confirmation_phrase_sha256"] = (
+        "bad-provided-phrase-sha"
+    )
+    invalid_approval_digest["artifacts"]["codex_cli_enablement_gate"]["sha256"] = (
+        "bad-enable-gate-sha"
+    )
+    invalid_approval_digest["artifacts"]["candidate_config"]["sha256"] = (
+        "bad-candidate-config-sha"
+    )
+    invalid_approval_digest_errors = validate_json_payload(
+        payload=invalid_approval_digest,
+        schema=approval_schema,
+    )
+    assert any(
+        "$.approval.required_confirmation_phrase_sha256: "
+        "expected string to match pattern"
+        in error
+        for error in invalid_approval_digest_errors
+    )
+    assert any(
+        "$.approval.provided_confirmation_phrase_sha256: "
+        "expected string to match pattern"
+        in error
+        for error in invalid_approval_digest_errors
+    )
+    assert any(
+        "$.artifacts.codex_cli_enablement_gate.sha256: "
+        "expected string to match pattern"
+        in error
+        for error in invalid_approval_digest_errors
+    )
+    assert any(
+        "$.artifacts.candidate_config.sha256: expected string to match pattern"
+        in error
+        for error in invalid_approval_digest_errors
+    )
     assert approval["policy"]["does_not_execute_codex_cli"] is True
     assert (
         validate_codex_cli_manual_approval_file(

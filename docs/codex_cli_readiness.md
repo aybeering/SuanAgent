@@ -55,6 +55,11 @@ stage ready flag, and human-facing readiness status to the same saved evidence.
 The summary remains read-only and cannot unlock Codex, apply patches, or change
 acceptance.
 
+Manual approval evidence is also digest-bound: confirmation phrase digests must
+be 64 lowercase hexadecimal SHA-256 strings, while recorded enablement-gate and
+candidate-config artifact hashes must be empty or 64 lowercase hexadecimal
+SHA-256 strings.
+
 ## Canonical Source Binding
 
 Codex readiness artifacts are validated as a source chain, not as isolated JSON

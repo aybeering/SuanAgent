@@ -1324,6 +1324,7 @@ def validate_operator_home_consistency(
         "next_command_status",
         "next_command_blocked",
         "next_command_blocker_count",
+        "next_command_first_blocker",
         "next_command_operator_hint",
         "next_command_boundary",
         "next_command_writes_artifact",

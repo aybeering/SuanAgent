@@ -576,7 +576,8 @@ requires explicit operator invocation, needs prior approval, records an
 approval receipt, uses the guarded executor, and which artifact it would write
 when invoked through the dedicated command. The home action summary also
 reports whether the next command is currently blocked by home-level blockers,
-how many blockers apply, and the operator hint to review before invoking it.
+how many blockers apply, the first blocker identity, and the operator hint to
+review before invoking it.
 The command center always includes the selected next command when it differs
 from the action-guide command, so dynamic promotion follow-ups remain visible
 next to the regular cockpit and guide command rows.

@@ -4002,6 +4002,7 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         **pending_home,
         "action_home": {
             **pending_home["action_home"],
+            "next_command_first_blocker": "wrong_blocker",
             "next_command_is_hint_only": False,
         },
         "codex_home": {
@@ -4024,6 +4025,9 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         repo_root=repo,
     )
     assert "operator_home action_home next_command_is_hint_only mismatch" in (
+        tampered_home_errors
+    )
+    assert "operator_home action_home next_command_first_blocker mismatch" in (
         tampered_home_errors
     )
     assert "operator_home codex_home intake_ready mismatch" in tampered_home_errors

@@ -369,7 +369,9 @@ Codex CLI readiness contracts:
 20. Proposal intent summaries in `agent_execution_plan.json` bind planned
     attempts to the context they will receive. They can prove plan/input
     consistency, but they cannot change queue order, score candidates, apply
-    patches, or change acceptance.
+    patches, or change acceptance. `agent_bundle_manifest.json` file rows
+    schema-constrain bundled input and output file hashes to 64-lowercase-hex
+    SHA-256 digests.
 21. Proposal intent summaries in `attempt_output.json` bind saved attempt
     audits to the same context recorded in attempt-scoped agent input. They can
     prove audit/input consistency, but they cannot change replay, score

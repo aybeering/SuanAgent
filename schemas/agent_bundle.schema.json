@@ -63,7 +63,8 @@
             "type": "integer"
           },
           "sha256": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
           }
         }
       }
@@ -89,7 +90,8 @@
             "type": "integer"
           },
           "sha256": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
           }
         }
       }

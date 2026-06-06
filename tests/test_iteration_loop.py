@@ -10616,6 +10616,30 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         row["name"] == "agent_output_quarantine.json"
         for row in agent_bundle["output_files"]
     )
+    agent_bundle_schema = json.loads(
+        (Path.cwd() / "schemas/agent_bundle.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    invalid_agent_bundle_digest = json.loads(json.dumps(agent_bundle))
+    invalid_agent_bundle_digest["input_files"][0]["sha256"] = (
+        "bad-input-bundle-sha"
+    )
+    invalid_agent_bundle_digest["output_files"][0]["sha256"] = (
+        "bad-output-bundle-sha"
+    )
+    invalid_agent_bundle_digest_errors = validate_json_payload(
+        payload=invalid_agent_bundle_digest,
+        schema=agent_bundle_schema,
+    )
+    assert any(
+        "$.input_files[0].sha256: expected string to match pattern" in error
+        for error in invalid_agent_bundle_digest_errors
+    )
+    assert any(
+        "$.output_files[0].sha256: expected string to match pattern" in error
+        for error in invalid_agent_bundle_digest_errors
+    )
     assert (round_dir / "agent_input_bundle/agent_input.json").exists()
     assert (round_dir / "agent_input_bundle/visual_artifacts_manifest.json").exists()
     assert (round_dir / "agent_input_bundle/agent_execution_plan.json").exists()

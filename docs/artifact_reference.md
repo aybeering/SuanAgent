@@ -940,6 +940,9 @@ round_001/
   agent_role_readiness.md
 ```
 
+`agent_bundle_manifest.json` records the bundled input and output files with
+schema-constrained 64-lowercase-hex SHA-256 file digests.
+
 Optional or adapter-specific artifacts include:
 
 ```text

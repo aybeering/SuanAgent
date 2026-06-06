@@ -15996,6 +15996,19 @@ def test_manifest_operator_next_command_validates_pending_static_safety(
     }
     manifest["operator_home"]["terminal_only"] = False
     manifest["operator_home"]["command_is_hint_only"] = False
+    manifest["operator_home"]["path"] = "operator_home.json"
+    manifest["operator_home"]["markdown_path"] = "operator_home.md"
+    manifest["operator_home"]["command"] = (
+        "python -m orchestrator.experiments cockpit "
+        "pending-operator-home-static --markdown"
+    )
+    manifest["operator_home"]["markdown_command"] = (
+        "python -m orchestrator.experiments home "
+        "pending-operator-home-static --markdown"
+    )
+    manifest["operator_home"]["command_sha256"] = sha256_text(
+        manifest["operator_home"]["markdown_command"]
+    )
     manifest["operator_home"]["next_command"] = "python -m orchestrator.run_loop"
     report: dict[str, object] = {"errors": []}
 
@@ -16006,9 +16019,42 @@ def test_manifest_operator_next_command_validates_pending_static_safety(
         report=report,
     )
 
+    assert "manifest.operator_home path mismatch" in report["errors"]
+    assert "manifest.operator_home markdown_path mismatch" in report["errors"]
     assert "manifest.operator_home terminal_only mismatch" in report["errors"]
     assert "manifest.operator_home command_is_hint_only mismatch" in report["errors"]
+    assert "manifest.operator_home command markdown mismatch" in report["errors"]
     assert "manifest.operator_home next_command mismatch" not in report["errors"]
+
+    wrong_command_manifest = {
+        "operator_home": operator_home_manifest_row(
+            run_id="pending-operator-home-static",
+            payload={},
+            pending=True,
+        )
+    }
+    wrong_command_manifest["operator_home"]["command"] = (
+        "python -m orchestrator.run_loop"
+    )
+    wrong_command_manifest["operator_home"]["markdown_command"] = (
+        "python -m orchestrator.run_loop"
+    )
+    wrong_command_manifest["operator_home"]["command_sha256"] = sha256_text(
+        wrong_command_manifest["operator_home"]["markdown_command"]
+    )
+    wrong_command_report: dict[str, object] = {"errors": []}
+
+    validate_manifest_operator_next_command(
+        run_dir=run_dir,
+        repo_root=repo,
+        manifest=wrong_command_manifest,
+        report=wrong_command_report,
+    )
+
+    assert "manifest.operator_home command mismatch" in wrong_command_report["errors"]
+    assert "manifest.operator_home command_sha256 mismatch" not in (
+        wrong_command_report["errors"]
+    )
 
 
 def test_manifest_operator_next_command_keeps_closeout_snapshot_after_codex_readiness(

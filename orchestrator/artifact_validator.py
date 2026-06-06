@@ -1918,6 +1918,8 @@ def validate_manifest_operator_home_static_fields(
 ) -> None:
     """Validate manifest operator-home fields that are closeout-invariant."""
     expected_fields: tuple[tuple[str, object], ...] = (
+        ("path", ""),
+        ("markdown_path", ""),
         ("terminal_only", True),
         ("artifact_created", False),
         ("command_label", "review_operator_home"),
@@ -1939,6 +1941,13 @@ def validate_manifest_operator_home_static_fields(
     command = str(
         operator_home.get("markdown_command", operator_home.get("command", ""))
     )
+    if str(operator_home.get("command", "")) != command:
+        add_error(report, "manifest.operator_home command markdown mismatch")
+    if not (
+        command.startswith("python -m orchestrator.experiments home ")
+        and command.endswith(" --markdown")
+    ):
+        add_error(report, "manifest.operator_home command mismatch")
     command_sha = str(operator_home.get("command_sha256", ""))
     if command_sha != sha256_text(command):
         add_error(report, "manifest.operator_home command_sha256 mismatch")

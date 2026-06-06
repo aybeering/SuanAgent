@@ -927,16 +927,18 @@ Proposal and intake artifacts:
   artifacts to detect stale saved readiness. Canary gate file validation now
   also exposes stale rows as a current-evidence mismatch. Final unlock gate
   validation is also re-derived from current replay, enablement, manual
-  approval, canary, real-preflight, and dry-invocation evidence. Real preflight
-  file validation re-runs the harmless version probe against the current
-  candidate config, so stale executable or config evidence is surfaced before
-  execution can be unlocked. Dry-invocation guard file validation stays
-  read-only while replaying current config, prompt, execution-audit, and
-  workspace evidence, so stale dry-run evidence surfaces without invoking Codex
-  again. Manual approval validation also replays its saved approval intent
-  against the current enablement gate and candidate config, so stale approval
-  snapshots surface as current-evidence mismatches while keeping the approval
-  artifact non-executing.
+  approval, canary, real-preflight, and dry-invocation evidence. Direct unlock
+  gate file validation reports stale aggregate evidence as a current-evidence
+  mismatch while the full artifact validator keeps detailed upstream mismatch
+  errors. Real preflight file validation re-runs the harmless version probe
+  against the current candidate config, so stale executable or config evidence
+  is surfaced before execution can be unlocked. Dry-invocation guard file
+  validation stays read-only while replaying current config, prompt,
+  execution-audit, and workspace evidence, so stale dry-run evidence surfaces
+  without invoking Codex again. Manual approval validation also replays its
+  saved approval intent against the current enablement gate and candidate
+  config, so stale approval snapshots surface as current-evidence mismatches
+  while keeping the approval artifact non-executing.
 - `agent_output.json` stores normalized selected proposal data and the
   proposal intent summary used by the round-level agent input. Its selected
   proposal uses `schemas/strategy_proposal.schema.json`.

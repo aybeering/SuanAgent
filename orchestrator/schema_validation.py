@@ -43,6 +43,17 @@ PROPERTY_CONTAINER_KEYWORDS = frozenset({"$defs", "properties"})
 SCHEMA_OBJECT_KEYWORDS = frozenset({"additionalProperties", "items"})
 SCHEMA_ARRAY_KEYWORDS = frozenset({"allOf", "anyOf", "oneOf", "prefixItems"})
 SAFE_PROPERTY_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+SUPPORTED_JSON_TYPES = frozenset(
+    {
+        "array",
+        "boolean",
+        "integer",
+        "null",
+        "number",
+        "object",
+        "string",
+    }
+)
 
 
 def load_schema(path: Path) -> dict[str, Any]:
@@ -133,6 +144,10 @@ def validate_node(
         return
 
     expected_type = schema.get("type")
+    unsupported_types = unsupported_schema_types(expected_type)
+    if unsupported_types:
+        errors.append(f"{path}: unsupported schema type {type_label(unsupported_types)}")
+        return
     if expected_type is not None and not matches_type(value, expected_type):
         errors.append(f"{path}: expected {type_label(expected_type)}, got {json_type(value)}")
         return
@@ -325,13 +340,32 @@ def matches_type(value: Any, expected_type: object) -> bool:
         return isinstance(value, bool)
     if expected_type == "null":
         return value is None
-    return True
+    return False
+
+
+def unsupported_schema_types(expected_type: object) -> tuple[object, ...]:
+    """Return unsupported JSON Schema type labels from a schema type value."""
+    if expected_type is None:
+        return ()
+    if isinstance(expected_type, str):
+        if expected_type in SUPPORTED_JSON_TYPES:
+            return ()
+        return (expected_type,)
+    if isinstance(expected_type, list):
+        unsupported: list[object] = []
+        for item in expected_type:
+            if not isinstance(item, str) or item not in SUPPORTED_JSON_TYPES:
+                unsupported.append(item)
+        return tuple(unsupported)
+    return (expected_type,)
 
 
 def type_label(expected_type: object) -> str:
     """Return a readable expected type label."""
-    if isinstance(expected_type, list):
-        return " or ".join(str(item) for item in expected_type)
+    if isinstance(expected_type, (list, tuple)):
+        return " or ".join(type_label(item) for item in expected_type)
+    if isinstance(expected_type, (dict, bool, int, float)):
+        return json.dumps(expected_type, sort_keys=True)
     return str(expected_type)
 
 

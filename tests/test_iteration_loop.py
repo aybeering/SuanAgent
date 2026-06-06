@@ -713,6 +713,25 @@ def test_schema_validator_uses_unambiguous_paths_for_complex_property_names() ->
     assert '$["spaced key"]: expected string, got integer' in errors
 
 
+def test_schema_validator_rejects_unsupported_schema_types() -> None:
+    unknown_type_errors = validate_json_payload(
+        payload="ok",
+        schema={"type": "text"},
+    )
+    mixed_type_errors = validate_json_payload(
+        payload="ok",
+        schema={"type": ["string", "text"]},
+    )
+    malformed_type_errors = validate_json_payload(
+        payload="ok",
+        schema={"type": {"name": "string"}},
+    )
+
+    assert "$: unsupported schema type text" in unknown_type_errors
+    assert "$: unsupported schema type text" in mixed_type_errors
+    assert '$: unsupported schema type {"name": "string"}' in malformed_type_errors
+
+
 def test_artifact_validator_coverage_reports_repo_contracts(tmp_path: Path) -> None:
     payload = build_artifact_validator_coverage(repo_root=Path.cwd())
 

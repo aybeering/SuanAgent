@@ -64,7 +64,10 @@ Implemented or allowed V0.5 components:
     enablement using saved execution, fixture, quarantine, and replay artifacts,
     with per-slot artifact SHA records that validator checks can use to detect
     source-artifact drift after the gate is written.
-48. A deterministic `codex_cli_enablement_gate.json` report that checks an explicit execute=true candidate config without executing Codex or modifying config files.
+48. A deterministic `codex_cli_enablement_gate.json` report that checks an
+    explicit execute=true candidate config without executing Codex or modifying
+    config files, and binds the replay-gate and candidate-config artifact hashes
+    so validator checks can detect post-gate source drift.
 49. A deterministic `codex_cli_manual_approval.json` report that records explicit approval for a passing enablement gate without executing Codex.
 50. A deterministic `codex_cli_canary_gate.json` report that validates a checked-in local Codex CLI canary executable through the guarded execution path without running real Codex.
 51. A deterministic `codex_cli_real_preflight.json` report that probes real Codex CLI availability with `--version` only, without sending strategy prompts or modifying files.

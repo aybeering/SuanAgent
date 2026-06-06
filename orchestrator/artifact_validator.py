@@ -9974,6 +9974,7 @@ def validate_optional_codex_cli_enablement_gate(
             "does_not_change_acceptance",
             "requires_replay_gate_ready",
             "requires_manual_confirmation",
+            "requires_source_artifact_hash_match",
             "deterministic_code_keeps_acceptance_authority",
         ):
             if not bool(policy.get(key, False)):
@@ -9999,8 +10000,29 @@ def validate_optional_codex_cli_enablement_gate(
                     report,
                     f"codex_cli_enablement_gate artifact missing: {key}={artifact_path}",
                 )
+                continue
             elif artifact_path.exists():
                 checked_files(report).append(str(artifact_path))
+            if permitted:
+                if not bool(record.get("exists", False)):
+                    add_error(
+                        report,
+                        f"codex_cli_enablement_gate artifact record missing: {key}",
+                    )
+                    continue
+                recorded_sha = str(record.get("sha256", ""))
+                if not recorded_sha:
+                    add_error(
+                        report,
+                        f"codex_cli_enablement_gate artifact sha missing: {key}",
+                    )
+                    continue
+                current_sha = file_sha256(artifact_path)
+                if current_sha != recorded_sha:
+                    add_error(
+                        report,
+                        f"codex_cli_enablement_gate artifact sha mismatch: {key}",
+                    )
     markdown_path = run_dir / "codex_cli_enablement_gate.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))

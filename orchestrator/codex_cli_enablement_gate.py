@@ -44,6 +44,10 @@ def build_codex_cli_enablement_gate(
         "replay_gate_present": bool(replay_gate),
         "replay_gate_ready": bool(replay_gate.get("ready_to_enable_codex_cli", False)),
         "replay_gate_ok": bool(replay_gate.get("ok", False)),
+        "source_artifact_hashes_recorded": (
+            bool(file_record(replay_gate_path, repo_root).get("sha256", ""))
+            and bool(file_record(config_path, repo_root).get("sha256", ""))
+        ),
     }
     blocking_reasons = enablement_blockers(checks)
     permitted = not blocking_reasons
@@ -103,6 +107,7 @@ def build_codex_cli_enablement_gate(
             "does_not_change_acceptance": True,
             "requires_replay_gate_ready": True,
             "requires_manual_confirmation": True,
+            "requires_source_artifact_hash_match": True,
             "deterministic_code_keeps_acceptance_authority": True,
         },
     }
@@ -150,6 +155,7 @@ def enablement_blockers(checks: dict[str, bool]) -> list[str]:
         ("replay_gate_present", "replay_gate_missing"),
         ("replay_gate_ready", "replay_gate_not_ready"),
         ("replay_gate_ok", "replay_gate_not_ok"),
+        ("source_artifact_hashes_recorded", "source_artifact_hash_missing"),
     ):
         if not checks.get(key, False):
             blockers.append(code)

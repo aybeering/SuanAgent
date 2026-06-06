@@ -17181,9 +17181,15 @@ def test_codex_cli_enablement_gate_permits_candidate_config_after_replay_gate(
     assert gate["checks"]["replay_gate_ready"] is True
     assert gate["checks"]["execute_true"] is True
     assert gate["checks"]["manual_confirmation_required"] is True
+    assert gate["checks"]["source_artifact_hashes_recorded"] is True
     assert gate["config"]["codex_cli"]["execute"] is True
     assert gate["config"]["enablement"]["candidate_only"] is True
     assert gate["replay_gate"]["ready_to_enable_codex_cli"] is True
+    for artifact_key in ("codex_cli_replay_gate", "candidate_config"):
+        record = gate["artifacts"][artifact_key]
+        assert record["exists"] is True
+        assert record["bytes"] > 0
+        assert len(record["sha256"]) == 64
     assert_matches_schema(
         run_dir / "codex_cli_enablement_gate.json",
         "codex_cli_enablement_gate",
@@ -17193,6 +17199,94 @@ def test_codex_cli_enablement_gate_permits_candidate_config_after_replay_gate(
     assert cli_result.returncode == 0, cli_result.stderr
     assert cli_payload["schema_version"] == CODEX_CLI_ENABLEMENT_GATE_SCHEMA_VERSION
     assert cli_payload["permitted_to_enable"] is True
+
+
+def test_codex_cli_enablement_gate_detects_replay_gate_sha_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-enablement-replay-gate-sha-drift",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/codex-enablement-replay-gate-sha-drift"
+    round_dir = run_dir / "round_001"
+    replay_round(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_contract_fixture(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_replay_gate(run_dir=run_dir, repo_root=repo)
+    gate = write_codex_cli_enablement_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+    )
+    replay_gate_path = run_dir / "codex_cli_replay_gate.json"
+    replay_gate_path.write_text(
+        replay_gate_path.read_text(encoding="utf-8") + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="codex-enablement-replay-gate-sha-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    recorded_sha = gate["artifacts"]["codex_cli_replay_gate"]["sha256"]
+    current_sha = hashlib.sha256(replay_gate_path.read_bytes()).hexdigest()
+    assert recorded_sha != current_sha
+    assert validation_report["ok"] is False
+    assert (
+        "codex_cli_enablement_gate artifact sha mismatch: codex_cli_replay_gate"
+        in validation_report["errors"]
+    )
+
+
+def test_codex_cli_enablement_gate_detects_candidate_config_sha_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-enablement-config-sha-drift",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/codex-enablement-config-sha-drift"
+    round_dir = run_dir / "round_001"
+    replay_round(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_contract_fixture(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_replay_gate(run_dir=run_dir, repo_root=repo)
+    config_path = repo / "config/codex_cli_enable_candidate.json"
+    gate = write_codex_cli_enablement_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+    )
+    candidate_config = json.loads(config_path.read_text(encoding="utf-8"))
+    candidate_config["codex_cli"]["timeout_seconds"] = 123
+    config_path.write_text(
+        json.dumps(candidate_config, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="codex-enablement-config-sha-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    recorded_sha = gate["artifacts"]["candidate_config"]["sha256"]
+    current_sha = hashlib.sha256(config_path.read_bytes()).hexdigest()
+    assert recorded_sha != current_sha
+    assert validation_report["ok"] is False
+    assert (
+        "codex_cli_enablement_gate artifact sha mismatch: candidate_config"
+        in validation_report["errors"]
+    )
 
 
 def test_codex_cli_enablement_gate_blocks_without_replay_gate(

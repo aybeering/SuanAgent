@@ -58,7 +58,8 @@
         "requires_replay_gate_declared",
         "replay_gate_present",
         "replay_gate_ready",
-        "replay_gate_ok"
+        "replay_gate_ok",
+        "source_artifact_hashes_recorded"
       ]
     },
     "config": {
@@ -74,7 +75,15 @@
       "required": [
         "codex_cli_replay_gate",
         "candidate_config"
-      ]
+      ],
+      "properties": {
+        "codex_cli_replay_gate": {
+          "$ref": "#/$defs/artifact_record"
+        },
+        "candidate_config": {
+          "$ref": "#/$defs/artifact_record"
+        }
+      }
     },
     "replay_gate": {
       "type": "object",
@@ -97,6 +106,7 @@
         "does_not_change_acceptance",
         "requires_replay_gate_ready",
         "requires_manual_confirmation",
+        "requires_source_artifact_hash_match",
         "deterministic_code_keeps_acceptance_authority"
       ],
       "properties": {
@@ -124,8 +134,36 @@
         "requires_manual_confirmation": {
           "type": "boolean"
         },
+        "requires_source_artifact_hash_match": {
+          "type": "boolean"
+        },
         "deterministic_code_keeps_acceptance_authority": {
           "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "artifact_record": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
         }
       }
     }

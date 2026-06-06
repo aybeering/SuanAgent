@@ -12823,6 +12823,114 @@ def test_agent_output_intake_rejects_disallowed_patch(tmp_path: Path) -> None:
     assert_matches_schema(round_dir / "bad_agent_validation.json", "agent_validation")
 
 
+def test_agent_output_intake_reports_external_raw_failure_fixtures(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="intake-external-raw-fixtures",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    round_dir = repo / "experiments/intake-external-raw-fixtures/round_001"
+    strategy_patch = (
+        "--- a/strategies/current_strategy.py\n"
+        "+++ b/strategies/current_strategy.py\n"
+        "@@ -9,7 +9,7 @@\n"
+        "-MIN_EDGE = 0.05\n"
+        "+MIN_EDGE = 0.04\n"
+    )
+    readme_patch = (
+        "--- a/README.md\n"
+        "+++ b/README.md\n"
+        "@@ -1,1 +1,1 @@\n"
+        "-# Self Iterating Strategy Agent V0.5\n"
+        "+# Changed by external agent\n"
+    )
+    cases = [
+        (
+            "text_wrapped_readme_diff",
+            "External agent says this is safe.\n\n```diff\n" + readme_patch + "```\n",
+            {
+                "failure_code": "patch_target_invalid",
+                "proposal_applicable": True,
+                "strategy_only_patch": False,
+                "error_fragment": "patch_diff target validation failed",
+            },
+        ),
+        (
+            "malformed_json_then_strategy_diff",
+            (
+                "```json\n"
+                '{"summary": "incomplete"\n'
+                "```\n\n"
+                "```diff\n"
+                + strategy_patch
+                + "```\n"
+            ),
+            {
+                "failure_code": "agent_output_parse_failed",
+                "proposal_applicable": True,
+                "strategy_only_patch": True,
+                "error_fragment": "agent output JSON parse failed",
+            },
+        ),
+        (
+            "multi_diff_first_block_bad_target",
+            (
+                "Two patch candidates follow.\n\n"
+                "```diff\n"
+                + readme_patch
+                + "```\n\n"
+                "```diff\n"
+                + strategy_patch
+                + "```\n"
+            ),
+            {
+                "failure_code": "patch_target_invalid",
+                "proposal_applicable": True,
+                "strategy_only_patch": False,
+                "error_fragment": "patch_diff target validation failed",
+            },
+        ),
+    ]
+
+    for label, raw_output, expected in cases:
+        output_path = round_dir / f"{label}_agent_output.txt"
+        validation_path = round_dir / f"{label}_agent_validation.json"
+        output_path.write_text(raw_output, encoding="utf-8")
+
+        report = verify_agent_output(
+            agent_input_path=round_dir / "agent_input.json",
+            agent_output_path=output_path,
+            repo_root=repo,
+            output_path=validation_path,
+        )
+        reason_codes = [row["code"] for row in report["reason_codes"]]
+
+        assert report["ok"] is False, label
+        assert report["failure_code"] == expected["failure_code"], label
+        assert expected["failure_code"] in reason_codes, label
+        assert report["proposal_applicable"] is expected["proposal_applicable"], label
+        assert report["checks"]["contract_valid"] is False, label  # type: ignore[index]
+        assert report["checks"]["git_apply_check"] == (  # type: ignore[index]
+            "skipped_contract_invalid"
+        ), label
+        assert report["checks"]["strategy_only_patch"] is expected[  # type: ignore[index]
+            "strategy_only_patch"
+        ], label
+        assert any(
+            expected["error_fragment"] in error
+            for error in report["errors"]  # type: ignore[operator]
+        ), label
+        assert report["proposal"]["raw_response"] == raw_output  # type: ignore[index]
+        assert_matches_schema(validation_path, "agent_validation")
+
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
 def test_proposal_from_raw_agent_output_normalizes_supported_shapes() -> None:
     patch = (
         "--- a/strategies/current_strategy.py\n"

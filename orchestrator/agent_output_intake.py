@@ -30,6 +30,12 @@ from orchestrator.proposal import (
 AGENT_VALIDATION_SCHEMA_VERSION = "agent_validation_v1"
 DEFAULT_INTAKE_AGENT_NAME = "agent_output_intake"
 DEFAULT_MAX_RAW_AGENT_OUTPUT_BYTES = 262_144
+DEFAULT_RAW_OUTPUT_SUMMARY = "Raw agent output produced a strategy patch."
+DEFAULT_RAW_OUTPUT_RISK_NOTES = "Patch targets are checked before git apply."
+DEFAULT_RAW_OUTPUT_DIRECTION_TAG = "raw_agent_output"
+DEFAULT_RAW_OUTPUT_HYPOTHESES = (
+    "The parsed patch is intended to improve validation metrics.",
+)
 
 
 def verify_agent_output(
@@ -58,6 +64,10 @@ def verify_agent_output(
         prompt=str(agent_input_path),
         raw_output_bytes=raw_output_bytes,
         max_raw_output_bytes=max_raw_output_bytes,
+        default_summary=DEFAULT_RAW_OUTPUT_SUMMARY,
+        default_risk_notes=DEFAULT_RAW_OUTPUT_RISK_NOTES,
+        default_direction_tag=DEFAULT_RAW_OUTPUT_DIRECTION_TAG,
+        default_hypotheses=DEFAULT_RAW_OUTPUT_HYPOTHESES,
     )
     report = validate_agent_proposal(
         agent_input_path=agent_input_path,

@@ -19168,6 +19168,48 @@ def test_codex_cli_replay_gate_passes_guarded_fixture_replay(
         assert record["exists"] is True
         assert record["bytes"] > 0
         assert len(record["sha256"]) == 64
+    replay_gate_schema = json.loads(
+        (Path.cwd() / "schemas/codex_cli_replay_gate.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    invalid_gate_digest = json.loads(json.dumps(gate))
+    invalid_gate_digest["slots"][0]["artifact_records"]["agent_execution"][
+        "sha256"
+    ] = "bad-agent-execution-sha"
+    invalid_gate_digest["slots"][0]["artifact_records"][
+        "codex_cli_contract_fixture"
+    ]["sha256"] = "bad-fixture-sha"
+    invalid_gate_digest["slots"][0]["artifact_records"]["agent_output_quarantine"][
+        "sha256"
+    ] = "bad-quarantine-sha"
+    invalid_gate_digest["slots"][0]["artifact_records"]["round_replay"][
+        "sha256"
+    ] = "bad-round-replay-sha"
+    invalid_gate_digest_errors = validate_json_payload(
+        payload=invalid_gate_digest,
+        schema=replay_gate_schema,
+    )
+    assert any(
+        "$.slots[0].artifact_records.agent_execution.sha256: expected string to match pattern"
+        in error
+        for error in invalid_gate_digest_errors
+    )
+    assert any(
+        "$.slots[0].artifact_records.codex_cli_contract_fixture.sha256: expected string to match pattern"
+        in error
+        for error in invalid_gate_digest_errors
+    )
+    assert any(
+        "$.slots[0].artifact_records.agent_output_quarantine.sha256: expected string to match pattern"
+        in error
+        for error in invalid_gate_digest_errors
+    )
+    assert any(
+        "$.slots[0].artifact_records.round_replay.sha256: expected string to match pattern"
+        in error
+        for error in invalid_gate_digest_errors
+    )
     assert slot["evidence"]["execution_status"] == "disabled"
     assert slot["evidence"]["quarantine_status"] == "not_applicable"
     assert_matches_schema(run_dir / "codex_cli_replay_gate.json", "codex_cli_replay_gate")

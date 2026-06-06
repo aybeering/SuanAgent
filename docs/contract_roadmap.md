@@ -68,7 +68,8 @@ Implemented or allowed V0.5 components:
 47. A deterministic `codex_cli_replay_gate.json` report that gates Codex CLI
     enablement using saved execution, fixture, quarantine, and replay artifacts,
     with per-slot artifact SHA records that validator checks can use to detect
-    source-artifact drift after the gate is written.
+    source-artifact drift after the gate is written, and with those SHA fields
+    schema-constrained to empty-or-64-lowercase-hex strings.
 48. A deterministic `codex_cli_enablement_gate.json` report that checks an
     explicit execute=true candidate config without executing Codex or modifying
     config files, and binds the replay-gate and candidate-config artifact hashes

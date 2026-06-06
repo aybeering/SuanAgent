@@ -1115,6 +1115,8 @@ Replay artifacts:
   guarded-execution audit, contract fixture, quarantine, and round-replay
   evidence. Saved replay-gate reports are strict snapshots and fail validation
   when current run-local Codex readiness evidence no longer matches the gate.
+  Per-slot artifact record SHA-256 fields are schema-constrained to
+  empty-or-64-lowercase-hex strings.
 - `codex_cli_enablement_gate.json` gates an explicit execute-true candidate
   config against the saved replay gate before any guarded Codex CLI enablement.
   Saved enablement-gate reports are strict snapshots and fail validation when

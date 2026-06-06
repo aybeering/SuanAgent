@@ -570,6 +570,9 @@ def validate_experiment_operator_home_entry(
     next_command_blocker_count = int_value(
         operator_home.get("next_command_blocker_count", -1)
     )
+    next_command_first_blocker = str(
+        operator_home.get("next_command_first_blocker", "")
+    )
     next_command_text = str(operator_home.get("next_command", ""))
     next_command_sha256 = str(operator_home.get("next_command_sha256", ""))
     next_command_boundary = str(operator_home.get("next_command_boundary", ""))
@@ -663,6 +666,10 @@ def validate_experiment_operator_home_entry(
             errors.append(
                 "experiment_summary_dashboard operator_home blocker count mismatch"
             )
+        if not next_command_blocked and next_command_first_blocker:
+            errors.append(
+                "experiment_summary_dashboard operator_home first blocker mismatch"
+            )
     return tuple(errors)
 
 
@@ -693,6 +700,7 @@ def validate_experiment_operator_next_command_entry(
         selected_status=selected_status,
         selected_command=selected_command,
         blocked=blocked,
+        first_blocker=str(operator_home.get("next_command_first_blocker", "")),
         operator_hint=str(operator_next_command.get("operator_hint", "")),
         codex_next_step=str(operator_home.get("codex_next_step", "")),
     )
@@ -902,6 +910,7 @@ def validate_experiment_operator_navigation_pair(
         selected_status=selected_status,
         selected_command=selected_command,
         blocked=bool(operator_next_command.get("blocked", False)),
+        first_blocker=str(operator_home.get("next_command_first_blocker", "")),
         operator_hint=str(operator_next_command.get("operator_hint", "")),
         codex_next_step=str(operator_home.get("codex_next_step", "")),
     )
@@ -1220,6 +1229,7 @@ def experiment_list_operator_home_hint(
         "next_command_status": "unavailable",
         "next_command_blocked": False,
         "next_command_blocker_count": 0,
+        "next_command_first_blocker": "",
         "next_command_operator_hint": "",
         "next_command_boundary": "",
         "next_command_writes_artifact": "",
@@ -1272,6 +1282,9 @@ def experiment_list_operator_home_hint(
         ),
         "next_command_blocker_count": int(
             manifest_home.get("next_command_blocker_count", 0) or 0
+        ),
+        "next_command_first_blocker": str(
+            manifest_home.get("next_command_first_blocker", "")
         ),
         "next_command_operator_hint": str(
             manifest_home.get("next_command_operator_hint", "")
@@ -1362,6 +1375,7 @@ def experiment_operator_next_command_hint(
         selected_status=selected_status,
         selected_command=selected_command,
         blocked=blocked,
+        first_blocker=str(operator_home.get("next_command_first_blocker", "")),
         operator_hint=str(operator_home.get("next_command_operator_hint", "")),
         codex_next_step=str(operator_home.get("codex_next_step", "")),
     )
@@ -1418,6 +1432,7 @@ def experiment_operator_next_command_navigation(
     selected_status: str,
     selected_command: str,
     blocked: bool,
+    first_blocker: str,
     operator_hint: str,
     codex_next_step: str,
 ) -> dict[str, object]:
@@ -1426,6 +1441,9 @@ def experiment_operator_next_command_navigation(
     if not selected_command:
         summary = "No selected command is available."
         next_step = "Open the operator home and inspect the guided path."
+    elif blocked and first_blocker:
+        summary = f"Blocked by first blocker {first_blocker}."
+        next_step = f"Review blocker: {first_blocker}"
     elif blocked:
         summary = f"Command is blocked with status {selected_status}."
         next_step = operator_hint or "Review operator home blockers."
@@ -1438,7 +1456,7 @@ def experiment_operator_next_command_navigation(
     return {
         "can_invoke_selected_command": can_invoke,
         "navigation_summary": summary,
-        "first_blocker": "",
+        "first_blocker": first_blocker,
         "next_step": next_step,
         "codex_next_step": codex_next_step,
     }
@@ -1467,6 +1485,7 @@ def experiment_operator_home_entry(
         "next_command_status": "unavailable",
         "next_command_blocked": False,
         "next_command_blocker_count": 0,
+        "next_command_first_blocker": "",
         "next_command_operator_hint": "",
         "next_command_boundary": "",
         "next_command_writes_artifact": "",
@@ -1543,6 +1562,9 @@ def experiment_operator_home_entry(
             ),
             "next_command_blocker_count": int(
                 manifest_home.get("next_command_blocker_count", 0) or 0
+            ),
+            "next_command_first_blocker": str(
+                manifest_home.get("next_command_first_blocker", "")
             ),
             "next_command_operator_hint": str(
                 manifest_home.get("next_command_operator_hint", "")
@@ -1951,6 +1973,8 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         "- Operator home next command blocked: "
         f"`{operator_home.get('next_command_blocked', False)}` "
         f"({operator_home.get('next_command_blocker_count', 0)} blocker(s))",
+        "- Operator home next command first blocker: "
+        f"`{operator_home.get('next_command_first_blocker', '') or 'none'}`",
         "- Operator home next command hint: "
         f"{operator_home.get('next_command_operator_hint', '') or 'none'}",
         "- Operator home next command writes: "
@@ -2180,6 +2204,8 @@ def render_experiment_list_markdown(payload: list[dict[str, object]]) -> str:
                 f"`{markdown_cell(operator_home.get('command', '') or 'unavailable')}`",
                 "- Home command SHA-256: "
                 f"`{markdown_cell(operator_home.get('command_sha256', '') or 'unavailable')}`",
+                "- Home first blocker: "
+                f"`{markdown_cell(operator_home.get('next_command_first_blocker', '') or 'none')}`",
                 "- Selector available: "
                 f"`{operator_next_command.get('available', False)}` "
                 f"({markdown_cell(operator_next_command.get('reason', 'unknown'))})",
@@ -2817,6 +2843,8 @@ def render_experiment_show_markdown(payload: dict[str, object]) -> str:
             f"`{operator_home.get('artifact_created', True)}`",
             "- Home hint-only: "
             f"`{operator_home.get('command_is_hint_only', False)}`",
+            "- Home first blocker: "
+            f"`{markdown_cell(operator_home.get('next_command_first_blocker', '') or 'none')}`",
             "- Selector available: "
             f"`{operator_next_command.get('available', False)}` "
             f"({markdown_cell(operator_next_command.get('reason', 'unknown'))})",
@@ -4936,6 +4964,9 @@ def operator_view_refresh_home_summary(
         "next_command_blocker_count": int(
             action_home.get("next_command_blocker_count", 0) or 0
         ),
+        "next_command_first_blocker": str(
+            action_home.get("next_command_first_blocker", "")
+        ),
         "next_command_operator_hint": str(
             action_home.get("next_command_operator_hint", "")
         ),
@@ -5249,6 +5280,11 @@ def validate_operator_view_refresh_consistency(
         errors.append("operator_view_refresh home_summary hint-only mismatch")
     if int_value(home_summary.get("next_command_blocker_count", -1)) < 0:
         errors.append("operator_view_refresh home_summary blocker count mismatch")
+    if (
+        not bool(home_summary.get("next_command_blocked", False))
+        and str(home_summary.get("next_command_first_blocker", ""))
+    ):
+        errors.append("operator_view_refresh home_summary first blocker mismatch")
     if str(home_summary.get("next_command_label", "")):
         if not str(home_summary.get("next_command", "")):
             errors.append("operator_view_refresh home_summary next command missing")
@@ -5499,6 +5535,10 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     lines.append(
         "- Next command blockers: "
         f"`{home_summary.get('next_command_blocker_count', 0)}`"
+    )
+    lines.append(
+        "- Next command first blocker: "
+        f"`{home_summary.get('next_command_first_blocker', '') or 'none'}`"
     )
     lines.append(
         "- Next command operator hint: "

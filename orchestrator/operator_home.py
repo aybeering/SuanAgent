@@ -73,6 +73,7 @@ def build_operator_home(
     )
     codex_home = codex_home_summary(cockpit)
     status = home_status(cockpit=cockpit, guide=guide, blockers=blockers)
+    next_command_first_blocker = blockers[0] if blockers else ""
     return {
         "schema_version": OPERATOR_HOME_SCHEMA_VERSION,
         "run_id": str(cockpit.get("run_id", run_dir.name)),
@@ -113,6 +114,7 @@ def build_operator_home(
             "next_command_blocker_count": int(
                 command_state.get("blocker_count", 0) or 0
             ),
+            "next_command_first_blocker": next_command_first_blocker,
             "next_command_operator_hint": str(
                 command_state.get("operator_hint", "")
             ),
@@ -889,6 +891,7 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
         f"- Next command status: `{action_home.get('next_command_status', '')}`",
         f"- Next command blocked: `{action_home.get('next_command_blocked', False)}`",
         f"- Next command blockers: `{action_home.get('next_command_blocker_count', 0)}`",
+        f"- Next command first blocker: `{action_home.get('next_command_first_blocker', '')}`",
         f"- Next command operator hint: {action_home.get('next_command_operator_hint', '')}",
         f"- Next command writes: `{action_home.get('next_command_writes_artifact', '')}`",
         f"- Next command hint-only: `{action_home.get('next_command_is_hint_only', False)}`",

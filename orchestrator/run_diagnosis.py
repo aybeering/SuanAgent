@@ -307,6 +307,9 @@ def operator_navigation_from_manifest(
             "blocker_count": int(
                 operator_home.get("next_command_blocker_count", 0) or 0
             ),
+            "first_blocker": str(
+                operator_home.get("next_command_first_blocker", "")
+            ),
             "operator_hint": str(
                 operator_home.get("next_command_operator_hint", "")
             ),
@@ -376,6 +379,7 @@ def operator_navigation_unavailable(
             "status": "unavailable",
             "blocked": False,
             "blocker_count": 0,
+            "first_blocker": "",
             "operator_hint": "",
             "boundary": "",
             "writes_artifact": "",

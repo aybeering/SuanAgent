@@ -3950,6 +3950,9 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending_home["action_home"]["next_command_blocker_count"] == len(
         pending_home["blockers"]
     )
+    assert pending_home["action_home"]["next_command_first_blocker"] == (
+        pending_home["blockers"][0]
+    )
     assert pending_home["action_home"]["next_command_operator_hint"] == (
         "Review home blockers before invoking the next command hint."
     )
@@ -5642,6 +5645,7 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     )
     assert refresh["home_summary"]["next_command_blocked"] is True
     assert refresh["home_summary"]["next_command_blocker_count"] >= 1
+    assert refresh["home_summary"]["next_command_first_blocker"]
     assert refresh["home_summary"]["next_command_operator_hint"] == (
         "Review home blockers before invoking the next command hint."
     )
@@ -6238,6 +6242,7 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             "next_command_status": "ready_for_operator",
             "next_command_blocked": False,
             "next_command_blocker_count": 0,
+            "next_command_first_blocker": "",
             "next_command_operator_hint": (
                 "The next command is a hint and still requires explicit operator invocation."
             ),
@@ -23551,6 +23556,7 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     )
     assert records[1]["operator_home"]["next_command_blocked"] is True
     assert records[1]["operator_home"]["next_command_blocker_count"] >= 1
+    assert records[1]["operator_home"]["next_command_first_blocker"]
     assert records[1]["operator_home"]["next_command_operator_hint"] == (
         "Review home blockers before invoking the next command hint."
     )
@@ -23599,11 +23605,15 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
         records[1]["operator_next_command"]["can_invoke_selected_command"] is False
     )
     assert records[1]["operator_next_command"]["navigation_summary"] == (
-        "Command is blocked with status blocked_by_home_blockers."
+        "Blocked by first blocker "
+        f"{records[1]['operator_home']['next_command_first_blocker']}."
     )
-    assert records[1]["operator_next_command"]["first_blocker"] == ""
+    assert records[1]["operator_next_command"]["first_blocker"] == (
+        records[1]["operator_home"]["next_command_first_blocker"]
+    )
     assert records[1]["operator_next_command"]["next_step"] == (
-        "Review home blockers before invoking the next command hint."
+        "Review blocker: "
+        f"{records[1]['operator_home']['next_command_first_blocker']}"
     )
     assert records[1]["operator_next_command"]["terminal_only"] is True
     assert records[1]["operator_next_command"]["artifact_created"] is False
@@ -23669,6 +23679,7 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     )
     assert iteration["operator_home"]["next_command_blocked"] is True  # type: ignore[index]
     assert iteration["operator_home"]["next_command_blocker_count"] >= 1  # type: ignore[index]
+    assert iteration["operator_home"]["next_command_first_blocker"]  # type: ignore[index]
     assert iteration["operator_home"]["next_command_operator_hint"] == (  # type: ignore[index]
         "Review home blockers before invoking the next command hint."
     )
@@ -23712,10 +23723,15 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert iteration["operator_next_command"]["blocked"] is True  # type: ignore[index]
     assert iteration["operator_next_command"]["can_invoke_selected_command"] is False  # type: ignore[index]
     assert iteration["operator_next_command"]["navigation_summary"] == (  # type: ignore[index]
-        "Command is blocked with status blocked_by_home_blockers."
+        "Blocked by first blocker "
+        f"{iteration['operator_home']['next_command_first_blocker']}."
+    )
+    assert iteration["operator_next_command"]["first_blocker"] == (  # type: ignore[index]
+        iteration["operator_home"]["next_command_first_blocker"]  # type: ignore[index]
     )
     assert iteration["operator_next_command"]["next_step"] == (  # type: ignore[index]
-        "Review home blockers before invoking the next command hint."
+        "Review blocker: "
+        f"{iteration['operator_home']['next_command_first_blocker']}"
     )
     assert iteration["operator_next_command"]["command_is_hint_only"] is True  # type: ignore[index]
     assert iteration["manifest"]["completed_rounds"] == 1  # type: ignore[index]
@@ -23737,8 +23753,16 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert "Home command SHA-256:" in iteration_markdown
     assert "Can invoke selected command: `False`" in iteration_markdown
     assert (
-        "Navigation summary: Command is blocked with status "
-        "blocked_by_home_blockers."
+        "Home first blocker: "
+        f"`{iteration['operator_home']['next_command_first_blocker']}`"
+    ) in iteration_markdown
+    assert (
+        "Navigation summary: Blocked by first blocker "
+        f"{iteration['operator_home']['next_command_first_blocker']}."
+    ) in iteration_markdown
+    assert (
+        "First blocker: "
+        f"`{iteration['operator_home']['next_command_first_blocker']}`"
     ) in iteration_markdown
     assert (
         "Selector command: `python -m orchestrator.experiments next-command "
@@ -23941,6 +23965,7 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     )
     assert summary["dashboard"]["operator_home_entry"]["next_command_blocked"] is True  # type: ignore[index]
     assert summary["dashboard"]["operator_home_entry"]["next_command_blocker_count"] >= 1  # type: ignore[index]
+    assert summary["dashboard"]["operator_home_entry"]["next_command_first_blocker"]  # type: ignore[index]
     assert summary["dashboard"]["operator_home_entry"]["next_command_operator_hint"] == (  # type: ignore[index]
         "Review home blockers before invoking the next command hint."
     )
@@ -23993,11 +24018,15 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     assert summary["dashboard"]["operator_next_command_entry"]["blocker_count"] >= 1  # type: ignore[index]
     assert summary["dashboard"]["operator_next_command_entry"]["can_invoke_selected_command"] is False  # type: ignore[index]
     assert summary["dashboard"]["operator_next_command_entry"]["navigation_summary"] == (  # type: ignore[index]
-        "Command is blocked with status blocked_by_home_blockers."
+        "Blocked by first blocker "
+        f"{summary['dashboard']['operator_home_entry']['next_command_first_blocker']}."
     )
-    assert summary["dashboard"]["operator_next_command_entry"]["first_blocker"] == ""  # type: ignore[index]
+    assert summary["dashboard"]["operator_next_command_entry"]["first_blocker"] == (  # type: ignore[index]
+        summary["dashboard"]["operator_home_entry"]["next_command_first_blocker"]  # type: ignore[index]
+    )
     assert summary["dashboard"]["operator_next_command_entry"]["next_step"] == (  # type: ignore[index]
-        "Review home blockers before invoking the next command hint."
+        "Review blocker: "
+        f"{summary['dashboard']['operator_home_entry']['next_command_first_blocker']}"
     )
     assert summary["dashboard"]["operator_next_command_entry"]["terminal_only"] is True  # type: ignore[index]
     assert summary["dashboard"]["operator_next_command_entry"]["artifact_created"] is False  # type: ignore[index]
@@ -24258,6 +24287,7 @@ def _minimal_experiment_summary_dashboard_payload() -> dict[str, object]:
             "next_command_status": "blocked_by_home_blockers",
             "next_command_blocked": True,
             "next_command_blocker_count": 1,
+            "next_command_first_blocker": "operator_action:approval_missing",
             "next_command_operator_hint": (
                 "Review home blockers before invoking the next command hint."
             ),
@@ -24293,12 +24323,10 @@ def _minimal_experiment_summary_dashboard_payload() -> dict[str, object]:
             ),
             "can_invoke_selected_command": False,
             "navigation_summary": (
-                "Command is blocked with status blocked_by_home_blockers."
+                "Blocked by first blocker operator_action:approval_missing."
             ),
-            "first_blocker": "",
-            "next_step": (
-                "Review home blockers before invoking the next command hint."
-            ),
+            "first_blocker": "operator_action:approval_missing",
+            "next_step": "Review blocker: operator_action:approval_missing",
             "codex_next_step": "",
             "command_label": "review_operator_next_command",
             "command": (
@@ -24419,6 +24447,7 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     operator_home["artifact_created"] = True
     operator_home["next_command_status"] = "unavailable"
     operator_home["next_command_blocker_count"] = 0
+    operator_home["next_command_first_blocker"] = ""
     operator_home["next_command"] = ""
     operator_home["next_command_boundary"] = ""
     operator_next_command["run_id"] = "third-run"

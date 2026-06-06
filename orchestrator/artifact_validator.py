@@ -1638,6 +1638,11 @@ def validate_iteration_summary_operator_home(
             f"`{markdown_display_value(operator_home.get('next_command_blocker_count'))}`",
         ),
         (
+            "next_command_first_blocker",
+            "- Next command first blocker: "
+            f"`{markdown_display_value(operator_home.get('next_command_first_blocker'))}`",
+        ),
+        (
             "next_command_operator_hint",
             "- Next command operator hint: "
             f"{markdown_display_value(operator_home.get('next_command_operator_hint'))}",
@@ -1741,6 +1746,11 @@ def validate_iteration_summary_operator_next_command(
             f"`{markdown_display_value(operator_home.get('next_command_blocker_count'))}`",
         ),
         (
+            "first_blocker",
+            "- First blocker: "
+            f"`{markdown_display_value(operator_home.get('next_command_first_blocker'))}`",
+        ),
+        (
             "label",
             "- Label: "
             f"`{markdown_display_value(operator_home.get('next_command_label'))}`",
@@ -1833,6 +1843,7 @@ def validate_manifest_operator_next_command(
 
     safety = dict_value(selector.get("safety"))
     source_home = dict_value(selector.get("source_home"))
+    navigation = dict_value(selector.get("navigation"))
     expected_text_fields: tuple[tuple[str, object], ...] = (
         ("status", selector.get("home_status", "")),
         ("primary_focus", selector.get("primary_focus", "")),
@@ -1841,6 +1852,7 @@ def validate_manifest_operator_next_command(
         ("next_command", selector.get("command", "")),
         ("next_command_sha256", selector.get("command_sha256", "")),
         ("next_command_status", selector.get("status", "")),
+        ("next_command_first_blocker", navigation.get("first_blocker", "")),
         ("next_command_operator_hint", selector.get("operator_hint", "")),
         ("next_command_boundary", selector.get("boundary_type", "")),
         ("next_command_writes_artifact", selector.get("writes_artifact", "")),

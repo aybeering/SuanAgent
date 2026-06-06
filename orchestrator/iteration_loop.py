@@ -1221,6 +1221,11 @@ def operator_home_manifest_row(
         "next_command_blocker_count": (
             0 if pending else int(action_home.get("next_command_blocker_count", 0) or 0)
         ),
+        "next_command_first_blocker": (
+            ""
+            if pending
+            else str(action_home.get("next_command_first_blocker", ""))
+        ),
         "next_command_operator_hint": (
             ""
             if pending

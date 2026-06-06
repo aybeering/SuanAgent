@@ -419,6 +419,10 @@ def write_iteration_summary(
             f"`{display_value(operator_home.get('next_command_blocker_count'))}`"
         )
         lines.append(
+            "- Next command first blocker: "
+            f"`{display_value(operator_home.get('next_command_first_blocker'))}`"
+        )
+        lines.append(
             "- Next command operator hint: "
             f"{display_value(operator_home.get('next_command_operator_hint'))}"
         )
@@ -484,6 +488,10 @@ def write_iteration_summary(
         lines.append(
             "- Blocker count: "
             f"`{display_value(operator_home.get('next_command_blocker_count'))}`"
+        )
+        lines.append(
+            "- First blocker: "
+            f"`{display_value(operator_home.get('next_command_first_blocker'))}`"
         )
         lines.append(
             "- Label: "

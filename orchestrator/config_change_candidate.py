@@ -434,8 +434,20 @@ def validate_config_change_candidate_file(
     repo_root: Path,
 ) -> tuple[str, ...]:
     """Validate a saved config change candidate report."""
+    repo_root = infer_repo_root_from_payload_path(payload_path, repo_root)
     schema_path = repo_root / SCHEMA_PATH
-    return tuple(validate_json_file(payload_path=payload_path, schema_path=schema_path))
+    errors = list(validate_json_file(payload_path=payload_path, schema_path=schema_path))
+    if payload_path.exists():
+        errors.extend(
+            validate_config_change_candidate_payload(
+                load_json_object(payload_path),
+                run_dir=payload_path.parent,
+                repo_root=repo_root,
+                experiments_dir=payload_path.parent.parent,
+                require_current_evidence=True,
+            )
+        )
+    return tuple(errors)
 
 
 def validate_config_change_candidate_payload(
@@ -467,6 +479,14 @@ def validate_config_change_candidate_payload(
         )
     )
     if require_current_evidence:
+        errors.extend(
+            validate_config_change_candidate_current_evidence(
+                normalized,
+                run_dir=run_dir,
+                repo_root=repo_root,
+                experiments_dir=experiments_dir,
+            )
+        )
         expected = build_config_change_candidate(
             run_dir=run_dir,
             repo_root=repo_root,
@@ -475,6 +495,104 @@ def validate_config_change_candidate_payload(
         if normalized != expected:
             errors.append("config_change_candidate current evidence mismatch")
     return tuple(errors)
+
+
+def validate_config_change_candidate_current_evidence(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    experiments_dir: Path | None = None,
+) -> tuple[str, ...]:
+    """Validate candidate fields against current source artifact evidence."""
+    errors: list[str] = []
+    expected = build_config_change_candidate(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        experiments_dir=experiments_dir,
+    )
+    append_field_mismatches(
+        errors,
+        prefix="config_change_candidate source",
+        payload=payload,
+        expected=expected,
+        field_names=("run_id", "run_dir"),
+    )
+    append_field_mismatches(
+        errors,
+        prefix="config_change_candidate summary",
+        payload=object_value(payload.get("summary", {})),
+        expected=object_value(expected.get("summary", {})),
+        field_names=tuple(object_value(expected.get("summary", {}))),
+    )
+
+    sources = list_of_objects(payload.get("sources", []))
+    expected_sources = list_of_objects(expected.get("sources", []))
+    for index, row in enumerate(sources):
+        expected_row = expected_sources[index] if index < len(expected_sources) else {}
+        append_field_mismatches(
+            errors,
+            prefix=f"config_change_candidate sources {index}",
+            payload=row,
+            expected=expected_row,
+            field_names=("artifact_name", "from_artifact", "file"),
+        )
+
+    changes = list_of_objects(payload.get("changes", []))
+    expected_changes = list_of_objects(expected.get("changes", []))
+    for index, row in enumerate(changes):
+        expected_row = expected_changes[index] if index < len(expected_changes) else {}
+        append_field_mismatches(
+            errors,
+            prefix=f"config_change_candidate changes {index}",
+            payload=row,
+            expected=expected_row,
+            field_names=(
+                "candidate_id",
+                "config_path",
+                "operation",
+                "current_value",
+                "proposed_value",
+                "source_artifact",
+                "source_action",
+                "priority",
+                "reason_codes",
+                "rationale",
+                "risk_notes",
+                "applied",
+                "requires_operator_review",
+            ),
+        )
+
+    append_field_mismatches(
+        errors,
+        prefix="config_change_candidate operator_review",
+        payload=object_value(payload.get("operator_review", {})),
+        expected=object_value(expected.get("operator_review", {})),
+        field_names=tuple(object_value(expected.get("operator_review", {}))),
+    )
+    append_field_mismatches(
+        errors,
+        prefix="config_change_candidate policy",
+        payload=object_value(payload.get("policy", {})),
+        expected=object_value(expected.get("policy", {})),
+        field_names=tuple(object_value(expected.get("policy", {}))),
+    )
+    return tuple(errors)
+
+
+def append_field_mismatches(
+    errors: list[str],
+    *,
+    prefix: str,
+    payload: dict[str, object],
+    expected: dict[str, object],
+    field_names: tuple[str, ...],
+) -> None:
+    """Append field-specific mismatch messages for comparable objects."""
+    for field_name in field_names:
+        if payload.get(field_name) != expected.get(field_name):
+            errors.append(f"{prefix} {field_name} mismatch")
 
 
 def validate_config_change_candidate_consistency(
@@ -587,6 +705,22 @@ def relative_path(path: Path, root: Path) -> str:
         return path.resolve().relative_to(root.resolve()).as_posix()
     except ValueError:
         return path.as_posix()
+
+
+def infer_repo_root_from_payload_path(payload_path: Path, repo_root: Path) -> Path:
+    """Infer repo root for experiment artifacts when caller passes another cwd."""
+    resolved_payload = payload_path.resolve()
+    resolved_repo = repo_root.resolve()
+    try:
+        resolved_payload.relative_to(resolved_repo)
+        return resolved_repo
+    except ValueError:
+        pass
+    run_dir = resolved_payload.parent
+    experiments_dir = run_dir.parent
+    if experiments_dir.name == "experiments":
+        return experiments_dir.parent
+    return resolved_repo
 
 
 def main() -> None:

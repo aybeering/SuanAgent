@@ -2465,6 +2465,39 @@ def test_config_change_candidate_records_manual_config_edits(
         payload_path=json_path,
         repo_root=repo,
     ) == ()
+    tampered_candidate = json.loads(json_path.read_text(encoding="utf-8"))
+    tampered_candidate["sources"][0]["file"]["sha256"] = "bad-digest"
+    tampered_candidate["summary"]["candidate_count"] = 99
+    tampered_candidate["changes"][0]["proposed_value"] = 999
+    tampered_candidate["policy"]["does_not_write_config"] = False
+    json_path.write_text(
+        json.dumps(tampered_candidate, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    candidate_file_errors = validate_config_change_candidate_file(
+        payload_path=json_path,
+        repo_root=repo,
+    )
+    assert (
+        "config_change_candidate sources 0 file mismatch"
+        in candidate_file_errors
+    )
+    assert (
+        "config_change_candidate summary candidate_count mismatch"
+        in candidate_file_errors
+    )
+    assert (
+        "config_change_candidate changes 0 proposed_value mismatch"
+        in candidate_file_errors
+    )
+    assert (
+        "config_change_candidate policy does_not_write_config mismatch"
+        in candidate_file_errors
+    )
+    json_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def test_config_change_candidate_adds_guarded_profile_from_recommendation(

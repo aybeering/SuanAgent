@@ -1060,7 +1060,9 @@ Replay artifacts:
   `python -m orchestrator.experiments config-change-candidate <run_id>` and
   `python -m orchestrator.experiments config-change-candidate <run_id> --markdown`
   validate schema, run binding, candidate summary, and operator-review status
-  before printing JSON or markdown.
+  before printing JSON or markdown. The saved-file validator reports
+  field-specific drift for source file records, summary fields, candidate
+  change rows, operator-review status, and read-only policy fields.
 - `operator_config_review.json` and `operator_config_review.md` record
   operator approve or reject intent for saved config candidates. Approval
   requires the configured confirmation phrase, rejection can be recorded without

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from agents.file_protocol_demo_agent import build_proposal, load_proposal_intent
+from orchestrator.agent_output_intake import proposal_metadata_type_errors
 from orchestrator.proposal import StrategyProposal, validate_proposal_contract
 
 
@@ -76,7 +77,11 @@ def replay_payload_to_strategy_proposal(
 ) -> StrategyProposal:
     """Convert replay JSON into the StrategyProposal contract shape."""
     raw_response = json.dumps(proposal_payload, indent=2, sort_keys=True)
-    patch_diff = str(proposal_payload.get("patch_diff", ""))
+    raw_patch_diff = proposal_payload.get("patch_diff", "")
+    patch_diff = raw_patch_diff if isinstance(raw_patch_diff, str) else ""
+    contract_errors = list(proposal_metadata_type_errors(proposal_payload))
+    if "patch_diff" in proposal_payload and not isinstance(raw_patch_diff, str):
+        contract_errors.append("patch_diff must be a string")
     return StrategyProposal(
         agent_name=REPLAY_AGENT_NAME,
         round_index=int(agent_input["round_index"]),
@@ -94,6 +99,7 @@ def replay_payload_to_strategy_proposal(
         rejection_reason=(
             "" if patch_diff.strip() else "replayed proposal did not include patch_diff"
         ),
+        contract_errors=tuple(contract_errors),
     )
 
 
@@ -134,7 +140,11 @@ def string_mapping(value: object) -> dict[str, str]:
     """Return a string-to-string mapping from arbitrary JSON metadata."""
     if not isinstance(value, dict):
         return {}
-    return {str(key): str(item) for key, item in value.items()}
+    return {
+        key: item
+        for key, item in value.items()
+        if isinstance(key, str) and isinstance(item, str)
+    }
 
 
 def string_tuple(value: object) -> tuple[str, ...]:
@@ -143,7 +153,7 @@ def string_tuple(value: object) -> tuple[str, ...]:
         return (value,) if value.strip() else ()
     if not isinstance(value, list | tuple):
         return ()
-    return tuple(str(item) for item in value if str(item).strip())
+    return tuple(item for item in value if isinstance(item, str) and item.strip())
 
 
 def main() -> None:

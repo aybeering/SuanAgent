@@ -8,6 +8,7 @@ from pathlib import Path
 
 from agents.codex_dry_run_adapter import (
     extract_proposal_metadata,
+    metadata_contract_errors,
     metadata_expected_metric_change,
     metadata_hypotheses,
     metadata_patch_diff,
@@ -262,6 +263,7 @@ def proposal_from_file_protocol_output(
     """Convert file-protocol output text into a StrategyProposal."""
     target_relative = target_file.relative_to(repo_root)
     metadata = extract_proposal_metadata(raw_output)
+    contract_errors = metadata_contract_errors(metadata)
     try:
         patch_diff = metadata_patch_diff(metadata) or extract_unified_diff(raw_output)
         validate_patch_targets(patch_diff, target_relative)
@@ -295,6 +297,7 @@ def proposal_from_file_protocol_output(
             prompt=str(agent_input_path),
             command=tuple(command),
             workspace_path=str(workspace_path),
+            contract_errors=contract_errors,
         )
 
     return StrategyProposal(
@@ -320,6 +323,7 @@ def proposal_from_file_protocol_output(
         prompt=str(agent_input_path),
         command=tuple(command),
         workspace_path=str(workspace_path),
+        contract_errors=contract_errors,
     )
 
 

@@ -19,7 +19,10 @@ from agents.codex_dry_run_adapter import (
     proposal_from_codex_output,
     workspace_ids_from_report,
 )
-from agents.file_protocol_adapter import AGENT_EXECUTION_SCHEMA_VERSION
+from agents.file_protocol_adapter import (
+    AGENT_EXECUTION_SCHEMA_VERSION,
+    proposal_from_file_protocol_output,
+)
 from agents.strategy_modifier_stub import NEW_THRESHOLD, OLD_THRESHOLD, propose_strategy_change
 from backtester.schema import MarketSnapshot, StrategyOrder
 from backtester.simulate import validate_strategy_orders
@@ -12139,6 +12142,39 @@ def test_agent_replay_replays_demo_agent_from_agent_input(tmp_path: Path) -> Non
     assert json.loads(
         (round_dir / "replayed_agent_output_cli.json").read_text(encoding="utf-8")
     ) == actual
+    assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_agent_replay_rejects_coercion_prone_metadata(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/file_protocol_demo.json")
+    run_iteration_loop(
+        run_id="replay-bad-metadata",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    round_dir = repo / "experiments/replay-bad-metadata/round_001"
+    proposal_payload = json.loads(
+        (round_dir / "demo_agent_output.json").read_text(encoding="utf-8")
+    )
+    proposal_payload["expected_metric_change"] = {"ev": 1}
+    proposal_payload["hypotheses"] = [123]
+    proposal_payload["patch_diff"] = ["not a patch string"]
+
+    validation = validate_replayed_proposal(
+        agent_input_path=round_dir / "agent_input.json",
+        proposal_payload=proposal_payload,
+    )
+
+    assert validation["ok"] is False
+    assert "expected_metric_change[ev] must be a string" in validation["errors"]
+    assert "hypotheses[1] must be a string" in validation["errors"]
+    assert "patch_diff must be a string" in validation["errors"]
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
@@ -28077,6 +28113,91 @@ def test_codex_structured_json_output_is_converted_to_proposal(
         "More candidate trades may improve opportunity capture.",
     )
     assert "MIN_EDGE = 0.04" in proposal.patch_diff
+
+
+def test_file_protocol_output_records_coercion_prone_metadata_errors(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    agent_input_path = (
+        repo / "workspaces/run-file-protocol/round_001/agent_input.json"
+    )
+    workspace = repo / "workspaces/run-file-protocol/round_001/strategy_workspace"
+    raw_output = json.dumps(
+        {
+            "summary": "Structured file-protocol output with bad metadata.",
+            "risk_notes": "Metadata values must not be coerced.",
+            "direction_tag": "bad_metadata",
+            "expected_metric_change": {"ev": 1},
+            "hypotheses": [123],
+            "patch_diff": (
+                "--- a/strategies/current_strategy.py\n"
+                "+++ b/strategies/current_strategy.py\n"
+                "@@ -9,7 +9,7 @@\n"
+                "-MIN_EDGE = 0.05\n"
+                "+MIN_EDGE = 0.04\n"
+            ),
+        },
+        indent=2,
+        sort_keys=True,
+    )
+
+    proposal = proposal_from_file_protocol_output(
+        raw_output=raw_output,
+        target_file=repo / "strategies/current_strategy.py",
+        round_index=1,
+        repo_root=repo,
+        command=["demo-agent"],
+        agent_input_path=agent_input_path,
+        workspace_path=workspace,
+    )
+    errors = validate_proposal_contract(
+        proposal=proposal,
+        expected_target_file=Path("strategies/current_strategy.py"),
+        expected_round_index=1,
+    )
+
+    assert proposal.applicable is True
+    assert "MIN_EDGE = 0.04" in proposal.patch_diff
+    assert proposal.expected_metric_change == {}
+    assert proposal.hypotheses == (
+        "The parsed patch is intended to improve validation metrics.",
+    )
+    assert "expected_metric_change[ev] must be a string" in proposal.contract_errors
+    assert "hypotheses[1] must be a string" in proposal.contract_errors
+    assert "expected_metric_change[ev] must be a string" in errors
+    assert "hypotheses[1] must be a string" in errors
+
+    bad_patch_proposal = proposal_from_file_protocol_output(
+        raw_output=json.dumps(
+            {
+                "summary": "Patch field uses the wrong type.",
+                "risk_notes": "Patch text must be a string.",
+                "direction_tag": "bad_patch_type",
+                "expected_metric_change": {"ev": "unknown"},
+                "hypotheses": ["Patch type should be explicit."],
+                "patch_diff": ["not a patch string"],
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        target_file=repo / "strategies/current_strategy.py",
+        round_index=1,
+        repo_root=repo,
+        command=["demo-agent"],
+        agent_input_path=agent_input_path,
+        workspace_path=workspace,
+    )
+    bad_patch_errors = validate_proposal_contract(
+        proposal=bad_patch_proposal,
+        expected_target_file=Path("strategies/current_strategy.py"),
+        expected_round_index=1,
+    )
+
+    assert bad_patch_proposal.applicable is False
+    assert bad_patch_proposal.patch_diff == ""
+    assert "patch_diff must be a string" in bad_patch_proposal.contract_errors
+    assert "patch_diff must be a string" in bad_patch_errors
 
 
 def write_fake_command(tmp_path: Path, filename: str, content: str) -> Path:

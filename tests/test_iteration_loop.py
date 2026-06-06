@@ -11079,6 +11079,23 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_routing["candidates"][0]["quality_breakdown"]["total_score"] == (
         selected_attempt["candidate_score"]
     )
+    agent_routing_schema = json.loads(
+        (Path.cwd() / "schemas/agent_routing_policy.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    invalid_agent_routing_digest = json.loads(json.dumps(agent_routing))
+    invalid_agent_routing_digest["candidates"][0]["patch_sha256"] = (
+        "bad-routing-patch-sha"
+    )
+    invalid_agent_routing_digest_errors = validate_json_payload(
+        payload=invalid_agent_routing_digest,
+        schema=agent_routing_schema,
+    )
+    assert any(
+        "$.candidates[0].patch_sha256: expected string to match pattern" in error
+        for error in invalid_agent_routing_digest_errors
+    )
     assert agent_routing["candidates"][0]["selection_reason"] == selected_attempt[
         "selection_reason"
     ]

@@ -1052,7 +1052,8 @@ Context and planning artifacts:
   capability and whether it matched or auditably deviated from
   `proposal_intent.json`. Artifact validation recomputes the capability and
   alignment booleans from each saved candidate row so schema-valid drift in
-  those audit fields is reported.
+  those audit fields is reported. Candidate patch hashes are schema-constrained
+  to empty-or-64-lowercase-hex strings.
 - `agent_executor_report.json`, `agent_attempts_manifest.json`,
   `attempt_output.json`, `agent_selection_report.json`, `agent_routing_policy.json`,
   `agent_output.json`, and `candidate_leaderboard.json` all carry the candidate

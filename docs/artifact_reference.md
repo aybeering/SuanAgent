@@ -331,6 +331,9 @@ unavailable. Iteration diagnoses copy the terminal-only operator-home command
 and the narrower next-command selector from `manifest.json`, including the
 source home command, selected command, blocked state, blocker count, first
 blocker, boundary, write target, command SHA-256 bindings, and safety flags.
+The schema allows unavailable command digest fields to stay empty, but any
+present diagnosis navigation command digest must use 64 lowercase hexadecimal
+characters.
 The `--markdown` flag renders the same diagnosis navigation as a terminal-only
 human review view with the same command digest bindings. These fields are
 diagnosis hints only; they do not

@@ -17968,6 +17968,46 @@ def test_run_diagnosis_summarizes_iteration_run(tmp_path: Path) -> None:
     assert diagnosis["schema_version"] == RUN_DIAGNOSIS_SCHEMA_VERSION
     assert_matches_schema_payload(diagnosis, "run_diagnosis")
     assert validate_run_diagnosis_payload(payload=diagnosis, repo_root=repo) == ()
+    malformed_digest_diagnosis = {
+        **diagnosis,
+        "operator_navigation": {
+            **diagnosis["operator_navigation"],  # type: ignore[index]
+            "home": {
+                **diagnosis["operator_navigation"]["home"],  # type: ignore[index]
+                "command_sha256": "bad-home-sha",
+            },
+            "next_command": {
+                **diagnosis["operator_navigation"]["next_command"],  # type: ignore[index]
+                "selector_command_sha256": "bad-selector-sha",
+                "source_home_command_sha256": "bad-source-sha",
+                "selected_command_sha256": "bad-selected-sha",
+            },
+        },
+    }
+    malformed_digest_errors = validate_run_diagnosis_payload(
+        payload=malformed_digest_diagnosis,
+        repo_root=repo,
+    )
+    assert any(
+        "operator_navigation.home.command_sha256: expected string to match pattern"
+        in str(error)
+        for error in malformed_digest_errors
+    )
+    assert any(
+        "operator_navigation.next_command.selector_command_sha256: "
+        "expected string to match pattern" in str(error)
+        for error in malformed_digest_errors
+    )
+    assert any(
+        "operator_navigation.next_command.source_home_command_sha256: "
+        "expected string to match pattern" in str(error)
+        for error in malformed_digest_errors
+    )
+    assert any(
+        "operator_navigation.next_command.selected_command_sha256: "
+        "expected string to match pattern" in str(error)
+        for error in malformed_digest_errors
+    )
     assert diagnosis["kind"] == "iteration_loop"
     assert diagnosis["artifact_ok"] is True
     assert diagnosis["status"] == manifest["status"]

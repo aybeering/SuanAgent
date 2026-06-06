@@ -118,7 +118,10 @@
         "available": {"type": "boolean"},
         "command_label": {"type": "string"},
         "command": {"type": "string"},
-        "command_sha256": {"type": "string"},
+        "command_sha256": {
+          "type": "string",
+          "pattern": "^$|^[a-f0-9]{64}$"
+        },
         "status": {"type": "string"},
         "primary_focus": {"type": "string"},
         "action_step": {"type": "string"},
@@ -161,13 +164,22 @@
         "selection_source": {"type": "string"},
         "selector_command_label": {"type": "string"},
         "selector_command": {"type": "string"},
-        "selector_command_sha256": {"type": "string"},
+        "selector_command_sha256": {
+          "type": "string",
+          "pattern": "^$|^[a-f0-9]{64}$"
+        },
         "selector_boundary": {"type": "string"},
         "source_home_command": {"type": "string"},
-        "source_home_command_sha256": {"type": "string"},
+        "source_home_command_sha256": {
+          "type": "string",
+          "pattern": "^$|^[a-f0-9]{64}$"
+        },
         "selected_command_label": {"type": "string"},
         "selected_command": {"type": "string"},
-        "selected_command_sha256": {"type": "string"},
+        "selected_command_sha256": {
+          "type": "string",
+          "pattern": "^$|^[a-f0-9]{64}$"
+        },
         "status": {"type": "string"},
         "blocked": {"type": "boolean"},
         "blocker_count": {"type": "integer"},

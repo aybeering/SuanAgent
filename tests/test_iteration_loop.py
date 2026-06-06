@@ -17403,7 +17403,13 @@ def test_codex_cli_manual_approval_grants_after_enablement_gate(
     assert approval["checks"]["enablement_gate_ok"] is True
     assert approval["checks"]["enablement_gate_permitted"] is True
     assert approval["checks"]["confirmation_phrase_matches"] is True
+    assert approval["checks"]["source_artifact_hashes_recorded"] is True
     assert approval["approval"]["approved_by"] == "test-operator"
+    for artifact_key in ("codex_cli_enablement_gate", "candidate_config"):
+        record = approval["artifacts"][artifact_key]
+        assert record["exists"] is True
+        assert record["bytes"] > 0
+        assert len(record["sha256"]) == 64
     assert approval["policy"]["does_not_execute_codex_cli"] is True
     assert_matches_schema(
         run_dir / "codex_cli_manual_approval.json",
@@ -17414,6 +17420,110 @@ def test_codex_cli_manual_approval_grants_after_enablement_gate(
     assert cli_result.returncode == 0, cli_result.stderr
     assert cli_payload["schema_version"] == CODEX_CLI_MANUAL_APPROVAL_SCHEMA_VERSION
     assert cli_payload["manual_approval_granted"] is True
+
+
+def test_codex_cli_manual_approval_detects_enablement_gate_sha_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-manual-approval-enable-drift",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/codex-manual-approval-enable-drift"
+    round_dir = run_dir / "round_001"
+    replay_round(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_contract_fixture(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_replay_gate(run_dir=run_dir, repo_root=repo)
+    write_codex_cli_enablement_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+    )
+    approval = write_codex_cli_manual_approval(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=repo / "config/codex_cli_enable_candidate.json",
+        approved=True,
+        approved_by="test-operator",
+        confirmation_phrase=REQUIRED_CONFIRMATION_PHRASE,
+    )
+    enablement_gate_path = run_dir / "codex_cli_enablement_gate.json"
+    enablement_gate_path.write_text(
+        enablement_gate_path.read_text(encoding="utf-8") + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="codex-manual-approval-enable-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    recorded_sha = approval["artifacts"]["codex_cli_enablement_gate"]["sha256"]
+    current_sha = hashlib.sha256(enablement_gate_path.read_bytes()).hexdigest()
+    assert recorded_sha != current_sha
+    assert validation_report["ok"] is False
+    assert (
+        "codex_cli_manual_approval artifact sha mismatch: "
+        "codex_cli_enablement_gate"
+    ) in validation_report["errors"]
+
+
+def test_codex_cli_manual_approval_detects_candidate_config_sha_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    config = load_project_config(repo, repo / "config/codex_cli_guarded.json")
+    run_iteration_loop(
+        run_id="codex-manual-approval-config-drift",
+        max_rounds=1,
+        repo_root=repo,
+        config=config,
+    )
+    run_dir = repo / "experiments/codex-manual-approval-config-drift"
+    round_dir = run_dir / "round_001"
+    replay_round(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_contract_fixture(round_dir=round_dir, repo_root=repo)
+    write_codex_cli_replay_gate(run_dir=run_dir, repo_root=repo)
+    config_path = repo / "config/codex_cli_enable_candidate.json"
+    write_codex_cli_enablement_gate(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+    )
+    approval = write_codex_cli_manual_approval(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        approved=True,
+        approved_by="test-operator",
+        confirmation_phrase=REQUIRED_CONFIRMATION_PHRASE,
+    )
+    candidate_config = json.loads(config_path.read_text(encoding="utf-8"))
+    candidate_config["codex_cli"]["timeout_seconds"] = 321
+    config_path.write_text(
+        json.dumps(candidate_config, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    validation_report = validate_run_artifacts(
+        run_id="codex-manual-approval-config-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    recorded_sha = approval["artifacts"]["candidate_config"]["sha256"]
+    current_sha = hashlib.sha256(config_path.read_bytes()).hexdigest()
+    assert recorded_sha != current_sha
+    assert validation_report["ok"] is False
+    assert (
+        "codex_cli_manual_approval artifact sha mismatch: candidate_config"
+        in validation_report["errors"]
+    )
 
 
 def test_codex_cli_manual_approval_blocks_bad_confirmation(

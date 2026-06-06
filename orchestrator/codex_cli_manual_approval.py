@@ -53,6 +53,10 @@ def build_codex_cli_manual_approval(
         "approved_by_present": bool(approved_by.strip()),
         "confirmation_phrase_matches": confirmation_phrase
         == REQUIRED_CONFIRMATION_PHRASE,
+        "source_artifact_hashes_recorded": (
+            bool(file_record(enablement_gate_path, repo_root).get("sha256", ""))
+            and bool(file_record(config_path, repo_root).get("sha256", ""))
+        ),
     }
     blocking_reasons = manual_approval_blockers(checks)
     granted = not blocking_reasons
@@ -98,6 +102,7 @@ def build_codex_cli_manual_approval(
             "requires_enablement_gate": True,
             "requires_explicit_approval_flag": True,
             "requires_exact_confirmation_phrase": True,
+            "requires_source_artifact_hash_match": True,
             "deterministic_code_keeps_acceptance_authority": True,
         },
     }
@@ -152,6 +157,7 @@ def manual_approval_blockers(checks: dict[str, bool]) -> list[str]:
         ("explicit_approval", "explicit_approval_missing"),
         ("approved_by_present", "approved_by_missing"),
         ("confirmation_phrase_matches", "confirmation_phrase_mismatch"),
+        ("source_artifact_hashes_recorded", "source_artifact_hash_missing"),
     ):
         if not checks.get(key, False):
             blockers.append(code)

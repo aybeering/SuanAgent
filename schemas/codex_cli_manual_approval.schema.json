@@ -61,7 +61,8 @@
         "manual_confirmation_required",
         "explicit_approval",
         "approved_by_present",
-        "confirmation_phrase_matches"
+        "confirmation_phrase_matches",
+        "source_artifact_hashes_recorded"
       ]
     },
     "approval": {
@@ -80,7 +81,15 @@
       "required": [
         "codex_cli_enablement_gate",
         "candidate_config"
-      ]
+      ],
+      "properties": {
+        "codex_cli_enablement_gate": {
+          "$ref": "#/$defs/artifact_record"
+        },
+        "candidate_config": {
+          "$ref": "#/$defs/artifact_record"
+        }
+      }
     },
     "enablement_gate": {
       "type": "object",
@@ -103,6 +112,7 @@
         "requires_enablement_gate",
         "requires_explicit_approval_flag",
         "requires_exact_confirmation_phrase",
+        "requires_source_artifact_hash_match",
         "deterministic_code_keeps_acceptance_authority"
       ],
       "properties": {
@@ -133,8 +143,36 @@
         "requires_exact_confirmation_phrase": {
           "type": "boolean"
         },
+        "requires_source_artifact_hash_match": {
+          "type": "boolean"
+        },
         "deterministic_code_keeps_acceptance_authority": {
           "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "artifact_record": {
+      "type": "object",
+      "required": [
+        "exists",
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "exists": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
         }
       }
     }

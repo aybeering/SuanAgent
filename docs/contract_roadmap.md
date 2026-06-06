@@ -68,7 +68,10 @@ Implemented or allowed V0.5 components:
     explicit execute=true candidate config without executing Codex or modifying
     config files, and binds the replay-gate and candidate-config artifact hashes
     so validator checks can detect post-gate source drift.
-49. A deterministic `codex_cli_manual_approval.json` report that records explicit approval for a passing enablement gate without executing Codex.
+49. A deterministic `codex_cli_manual_approval.json` report that records
+    explicit approval for a passing enablement gate without executing Codex, and
+    binds the approved enablement-gate and candidate-config artifact hashes so
+    validator checks can detect post-approval source drift.
 50. A deterministic `codex_cli_canary_gate.json` report that validates a checked-in local Codex CLI canary executable through the guarded execution path without running real Codex.
 51. A deterministic `codex_cli_real_preflight.json` report that probes real Codex CLI availability with `--version` only, without sending strategy prompts or modifying files.
 52. A deterministic `codex_cli_dry_invocation_guard.json` report that can optionally run a harmless Codex CLI prompt in an isolated workspace with an empty mutation allowlist.

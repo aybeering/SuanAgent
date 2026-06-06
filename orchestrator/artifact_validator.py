@@ -10110,6 +10110,7 @@ def validate_optional_codex_cli_manual_approval(
             "requires_enablement_gate",
             "requires_explicit_approval_flag",
             "requires_exact_confirmation_phrase",
+            "requires_source_artifact_hash_match",
             "deterministic_code_keeps_acceptance_authority",
         ):
             if not bool(policy.get(key, False)):
@@ -10135,8 +10136,29 @@ def validate_optional_codex_cli_manual_approval(
                     report,
                     f"codex_cli_manual_approval artifact missing: {key}={artifact_path}",
                 )
+                continue
             elif artifact_path.exists():
                 checked_files(report).append(str(artifact_path))
+            if granted:
+                if not bool(record.get("exists", False)):
+                    add_error(
+                        report,
+                        f"codex_cli_manual_approval artifact record missing: {key}",
+                    )
+                    continue
+                recorded_sha = str(record.get("sha256", ""))
+                if not recorded_sha:
+                    add_error(
+                        report,
+                        f"codex_cli_manual_approval artifact sha missing: {key}",
+                    )
+                    continue
+                current_sha = file_sha256(artifact_path)
+                if current_sha != recorded_sha:
+                    add_error(
+                        report,
+                        f"codex_cli_manual_approval artifact sha mismatch: {key}",
+                    )
     markdown_path = run_dir / "codex_cli_manual_approval.md"
     if markdown_path.exists():
         checked_files(report).append(str(markdown_path))

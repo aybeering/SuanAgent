@@ -155,7 +155,8 @@
         "ok",
         "stale_count",
         "stale_sources",
-        "recommended_command"
+        "recommended_command",
+        "recommended_command_sha256"
       ],
       "properties": {
         "schema_version": {
@@ -183,6 +184,10 @@
         },
         "recommended_command": {
           "type": "string"
+        },
+        "recommended_command_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         }
       }
     },

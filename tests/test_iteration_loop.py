@@ -5677,6 +5677,9 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     )
     assert fresh["snapshot_freshness"]["ok"] is True
     assert fresh["snapshot_freshness"]["stale_count"] == 0
+    assert fresh["snapshot_freshness"]["recommended_command_sha256"] == sha256_text(
+        fresh["snapshot_freshness"]["recommended_command"]
+    )
     tampered_freshness = json.loads(json.dumps(fresh))
     tampered_freshness["snapshot_freshness"]["stale_count"] = 1
     tampered_freshness_errors = validate_operator_cockpit_payload(
@@ -5718,9 +5721,13 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
         "codex_cli_execution_readiness_diff"
     ]
     assert "## Snapshot Freshness" in stale_markdown
+    assert "Refresh command SHA-256:" in stale_markdown
     assert "refresh-operator-views" in stale["snapshot_freshness"][
         "recommended_command"
     ]
+    assert stale["snapshot_freshness"]["recommended_command_sha256"] == sha256_text(
+        stale["snapshot_freshness"]["recommended_command"]
+    )
     stale_validation = validate_run_artifacts(
         run_id=run_id,
         experiments_dir=repo / "experiments",
@@ -5749,8 +5756,13 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
     assert refresh["pre_refresh_snapshot_freshness"]["stale_sources"] == [
         "codex_cli_execution_readiness_diff"
     ]
+    assert refresh["pre_refresh_snapshot_freshness"][
+        "recommended_command_sha256"
+    ] == sha256_text(refresh["pre_refresh_snapshot_freshness"]["recommended_command"])
     assert "Pre-refresh freshness: `stale_sources`" in refresh_markdown
     assert "Pre-refresh stale sources: `1`" in refresh_markdown
+    assert "Pre-refresh command SHA-256:" in refresh_markdown
+    assert "Freshness command SHA-256:" in refresh_markdown
     assert "`codex_cli_execution_readiness_diff`" in refresh_markdown
     assert [
         row["artifact_name"] for row in refresh["refreshed_artifacts"]
@@ -5763,6 +5775,9 @@ def test_operator_cockpit_report_flags_stale_source_snapshot(
         "operator_cockpit",
     ]
     assert refresh["cockpit_snapshot_freshness"]["ok"] is True
+    assert refresh["cockpit_snapshot_freshness"]["recommended_command_sha256"] == (
+        sha256_text(refresh["cockpit_snapshot_freshness"]["recommended_command"])
+    )
     assert refresh["policy"]["does_not_execute_agents"] is True
     assert refresh["policy"]["does_not_change_acceptance"] is True
     assert refresh["policy_summary"] == {
@@ -6059,6 +6074,9 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     assert "Cockpit freshness: `fresh`" in refresh_markdown
     assert refresh["pre_refresh_snapshot_freshness"]["ok"] is True
     assert refresh["pre_refresh_snapshot_freshness"]["stale_count"] == 0
+    assert refresh["pre_refresh_snapshot_freshness"][
+        "recommended_command_sha256"
+    ] == sha256_text(refresh["pre_refresh_snapshot_freshness"]["recommended_command"])
     assert refresh["policy_summary"]["ok"] is True
     assert refresh["policy_summary"]["false_keys"] == []
     assert refresh["policy_summary"]["true_count"] == len(refresh["policy"])
@@ -6200,6 +6218,9 @@ def test_refresh_operator_views_uses_run_metadata_config_path(
     )
     assert diff["policy"]["does_not_execute_codex_cli"] is True
     assert refresh["cockpit_snapshot_freshness"]["ok"] is True
+    assert refresh["cockpit_snapshot_freshness"]["recommended_command_sha256"] == (
+        sha256_text(refresh["cockpit_snapshot_freshness"]["recommended_command"])
+    )
     assert validate_run_artifacts(
         run_id=run_id,
         experiments_dir=repo / "experiments",
@@ -6326,6 +6347,7 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
     home_next_command = (
         "python -m orchestrator.operator_action_audit experiments/run --markdown"
     )
+    refresh_command = "python -m orchestrator.experiments refresh-operator-views run"
     for artifact_name in (
         "operator_action_dashboard",
         "codex_cli_execution_preflight",
@@ -6376,9 +6398,8 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             "ok": True,
             "stale_count": 0,
             "stale_sources": [],
-            "recommended_command": (
-                "python -m orchestrator.experiments refresh-operator-views run"
-            ),
+            "recommended_command": refresh_command,
+            "recommended_command_sha256": sha256_text(refresh_command),
         },
         "refreshed_count": len(refreshed_artifacts),
         "refreshed_artifacts": refreshed_artifacts,
@@ -6503,9 +6524,8 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             "ok": True,
             "stale_count": 0,
             "stale_sources": [],
-            "recommended_command": (
-                "python -m orchestrator.experiments refresh-operator-views run"
-            ),
+            "recommended_command": refresh_command,
+            "recommended_command_sha256": sha256_text(refresh_command),
         },
         "policy": {"does_not_execute_agents": True},
         "policy_summary": {
@@ -6579,12 +6599,26 @@ def test_operator_view_refresh_payload_validation_reports_summary_drift(
     home_summary["next_command_sha256"] = "1" * 64
     operator_summary["next_command_sha256"] = "2" * 64
     review_summary["next_command_sha256"] = "3" * 64
+    pre_refresh_freshness = payload["pre_refresh_snapshot_freshness"]
+    assert isinstance(pre_refresh_freshness, dict)
+    pre_refresh_freshness["recommended_command_sha256"] = "4" * 64
+    cockpit_freshness = payload["cockpit_snapshot_freshness"]
+    assert isinstance(cockpit_freshness, dict)
+    cockpit_freshness["recommended_command_sha256"] = "5" * 64
 
     errors = validate_operator_view_refresh_payload(payload, repo_root=tmp_path)
 
     assert "operator_view_refresh config_path mismatch" in errors
     assert "operator_view_refresh config_path_exists mismatch" in errors
     assert "operator_view_refresh config_sha256 mismatch" in errors
+    assert (
+        "operator_view_refresh pre_refresh_snapshot_freshness command sha256 mismatch"
+        in errors
+    )
+    assert (
+        "operator_view_refresh cockpit_snapshot_freshness command sha256 mismatch"
+        in errors
+    )
     assert "operator_view_refresh refreshed_count mismatch" in errors
     assert "operator_view_refresh refreshed artifact order mismatch" in errors
     assert (

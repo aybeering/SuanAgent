@@ -5511,6 +5511,8 @@ def validate_operator_view_refresh_consistency(
             return default
 
     errors: list[str] = []
+    pre_refresh_freshness = dict_payload(payload.get("pre_refresh_snapshot_freshness", {}))
+    post_refresh_freshness = dict_payload(payload.get("cockpit_snapshot_freshness", {}))
     config_record = dict_payload(payload.get("config_record", {}))
     if str(payload.get("config_path", "")) != str(config_record.get("path", "")):
         errors.append("operator_view_refresh config_path mismatch")
@@ -5522,6 +5524,16 @@ def validate_operator_view_refresh_consistency(
         config_record.get("sha256", "")
     ):
         errors.append("operator_view_refresh config_sha256 mismatch")
+    append_operator_view_refresh_freshness_command_errors(
+        errors,
+        label="pre_refresh_snapshot_freshness",
+        freshness=pre_refresh_freshness,
+    )
+    append_operator_view_refresh_freshness_command_errors(
+        errors,
+        label="cockpit_snapshot_freshness",
+        freshness=post_refresh_freshness,
+    )
 
     refreshed_artifacts = list_payload(payload.get("refreshed_artifacts", []))
     if int_value(payload.get("refreshed_count", -1)) != len(refreshed_artifacts):
@@ -5682,12 +5694,8 @@ def validate_operator_view_refresh_consistency(
 
     refresh_effect = dict_payload(payload.get("refresh_effect", {}))
     expected_refresh_effect = operator_view_refresh_effect(
-        pre_refresh_freshness=dict_payload(
-            payload.get("pre_refresh_snapshot_freshness", {})
-        ),
-        post_refresh_freshness=dict_payload(
-            payload.get("cockpit_snapshot_freshness", {})
-        ),
+        pre_refresh_freshness=pre_refresh_freshness,
+        post_refresh_freshness=post_refresh_freshness,
         blocker_delta=blocker_delta,
         policy_summary=policy_summary,
         operator_summary=operator_summary,
@@ -5699,9 +5707,7 @@ def validate_operator_view_refresh_consistency(
     expected_review_summary = operator_view_refresh_review_summary(
         refresh_effect=refresh_effect,
         operator_summary=operator_summary,
-        post_refresh_freshness=dict_payload(
-            payload.get("cockpit_snapshot_freshness", {})
-        ),
+        post_refresh_freshness=post_refresh_freshness,
         policy_summary=policy_summary,
     )
     if review_summary != expected_review_summary:
@@ -5749,6 +5755,18 @@ def validate_operator_view_refresh_consistency(
     return tuple(errors)
 
 
+def append_operator_view_refresh_freshness_command_errors(
+    errors: list[str],
+    *,
+    label: str,
+    freshness: dict[str, object],
+) -> None:
+    """Append snapshot freshness command digest mismatch messages."""
+    command = str(freshness.get("recommended_command", ""))
+    if str(freshness.get("recommended_command_sha256", "")) != sha256_text(command):
+        errors.append(f"operator_view_refresh {label} command sha256 mismatch")
+
+
 def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     """Render the operator-view refresh receipt as a compact markdown summary."""
     config_record = dict_payload(payload.get("config_record", {}))
@@ -5772,8 +5790,12 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Config sha256: `{str(payload.get('config_sha256', ''))[:12]}`",
         f"- Pre-refresh freshness: `{pre_freshness.get('status', '')}`",
         f"- Pre-refresh stale sources: `{pre_freshness.get('stale_count', 0)}`",
+        "- Pre-refresh command SHA-256: "
+        f"`{pre_freshness.get('recommended_command_sha256', '')}`",
         f"- Cockpit freshness: `{freshness.get('status', '')}`",
         f"- Freshness ok: `{freshness.get('ok', False)}`",
+        "- Freshness command SHA-256: "
+        f"`{freshness.get('recommended_command_sha256', '')}`",
         f"- Refresh effect: `{refresh_effect.get('status', '')}`",
         f"- Refresh effect summary: {refresh_effect.get('summary', '')}",
         f"- Review required: `{review_summary.get('required', False)}`",
@@ -5844,6 +5866,10 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     lines.extend(["", "## Before Refresh", ""])
     lines.append(f"- Status: `{pre_freshness.get('status', '')}`")
     lines.append(f"- Stale sources: `{pre_freshness.get('stale_count', 0)}`")
+    lines.append(
+        "- Refresh command SHA-256: "
+        f"`{pre_freshness.get('recommended_command_sha256', '')}`"
+    )
     for source in pre_stale_sources if isinstance(pre_stale_sources, list) else []:
         lines.append(f"- `{source}`")
     if not pre_stale_sources:

@@ -151,6 +151,10 @@ def cockpit_snapshot_freshness(
             }
         )
     stale_rows = [row for row in rows if row.get("status") != "fresh"]
+    recommended_command = (
+        "python -m orchestrator.experiments refresh-operator-views "
+        f"{str(payload.get('run_id', ''))}"
+    )
     return {
         "schema_version": "operator_cockpit_snapshot_freshness_v1",
         "ok": not stale_rows,
@@ -160,10 +164,8 @@ def cockpit_snapshot_freshness(
         "stale_count": len(stale_rows),
         "stale_sources": [str(row.get("artifact_name", "")) for row in stale_rows],
         "rows": rows,
-        "recommended_command": (
-            "python -m orchestrator.experiments refresh-operator-views "
-            f"{str(payload.get('run_id', ''))}"
-        ),
+        "recommended_command": recommended_command,
+        "recommended_command_sha256": sha256_text(recommended_command),
         "policy": {
             "inspection_only": True,
             "does_not_write_artifacts": True,
@@ -1472,6 +1474,8 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
                 f"- OK: `{freshness.get('ok', False)}`",
                 f"- Stale sources: `{freshness.get('stale_count', 0)}`",
                 f"- Refresh command: `{freshness.get('recommended_command', '')}`",
+                "- Refresh command SHA-256: "
+                f"`{freshness.get('recommended_command_sha256', '')}`",
                 "",
             ]
         )
@@ -1772,6 +1776,7 @@ def validate_operator_cockpit_snapshot_freshness(
         "stale_sources",
         "rows",
         "recommended_command",
+        "recommended_command_sha256",
         "policy",
     ):
         if freshness.get(field_name) != expected.get(field_name):

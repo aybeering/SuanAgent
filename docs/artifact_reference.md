@@ -803,8 +803,8 @@ same schema and consistency checks before adding terminal-only metadata.
 When the inspection command reads a saved
 cockpit artifact, it adds a transient `snapshot_freshness` section that compares
 recorded source hashes with the current source files and names stale sources
-that require an explicit cockpit refresh. This freshness section is read-only
-inspection metadata and is
+that require an explicit cockpit refresh. The refresh command hint includes a
+SHA-256 binding. This freshness section is read-only inspection metadata and is
 not stored in `operator_cockpit.json`.
 `python -m orchestrator.experiments refresh-operator-views <run_id>` and
 `python -m orchestrator.experiments refresh-operator-views --latest` are
@@ -815,7 +815,8 @@ cockpit in dependency order.
 It uses the run's recorded config path unless `--config` is provided, returns a
 terminal-only `operator_view_refresh_v1` receipt with config source, path,
 existence, SHA-256 fields, pre-refresh cockpit stale-source evidence,
-post-refresh cockpit freshness, refresh-effect status, operator-review-required
+post-refresh cockpit freshness, refresh-command SHA-256 bindings,
+refresh-effect status, operator-review-required
 flag, deterministic review reason codes, refreshed-cockpit operator digest
 headline/priority/target-panel state, digest-backed next-command boundary,
 action execution-readiness status, operator-home navigation status,
@@ -831,10 +832,10 @@ additional deterministic consistency check for refreshed artifact count and
 order, per-artifact file-path bindings, blocker-delta counters, policy-summary
 derivation, refresh-effect derivation, operator-digest command reason binding,
 operator-digest command boundary binding, home-command hint-only binding,
-home-command SHA-256 binding, next-command SHA-256 binding, and copied home and
-review-summary next command, safety, reason, boundary, first-blocker, and
-post-refresh blocker fields, even though it is not written as a new artifact
-family.
+home-command SHA-256 binding, snapshot-refresh command SHA-256 binding,
+next-command SHA-256 binding, and copied home and review-summary next command,
+safety, reason, boundary, first-blocker, and post-refresh blocker fields, even
+though it is not written as a new artifact family.
 Add `--markdown` to render the same terminal-only receipt as a compact operator
 summary with refreshed artifact paths, hash prefixes, config provenance,
 pre-refresh stale sources, and post-refresh snapshot freshness. The receipt

@@ -490,8 +490,9 @@ artifact, validates the selected command digest, verifies that the receipt's
 selected action, selected command, execution command, argv, and evidence hashes
 still match the saved approval, blocks commands that write repository state,
 promote champions, run backtests, execute agents, route agents, apply patches,
-or change acceptance, records stdout/stderr hashes, and checks tracked
-workspace mutation before writing the receipt. The writer and terminal view
+or change acceptance, records schema-constrained command/source evidence hashes
+and stdout/stderr output hashes, and checks tracked workspace mutation before
+writing the receipt. The writer and terminal view
 validate the payload against
 `schemas/operator_action_execution_receipt.schema.json` and check source
 approval binding, selected action and command equality, execution command and

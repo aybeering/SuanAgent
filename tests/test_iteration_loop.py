@@ -3291,6 +3291,43 @@ def test_operator_action_execution_receipt_runs_only_approved_read_only_commands
         run_dir=run_dir,
         repo_root=repo,
     ) == ()
+    malformed_digest_receipt = json.loads(json.dumps(receipt))
+    malformed_digest_receipt["evidence_checks"][
+        "selected_command_sha256"
+    ] = "not-a-sha"
+    malformed_digest_receipt["evidence_checks"][
+        "computed_command_sha256"
+    ] = "not-a-sha"
+    malformed_digest_receipt["evidence_checks"][
+        "source_action_plan_sha256"
+    ] = "not-a-sha"
+    malformed_digest_receipt["command_execution"]["stdout"][
+        "sha256"
+    ] = "not-a-sha"
+    malformed_digest_receipt["command_execution"]["stderr"][
+        "sha256"
+    ] = "not-a-sha"
+    malformed_digest_errors = validate_operator_action_execution_receipt_payload(
+        malformed_digest_receipt,
+        run_id=run_id,
+        run_dir=run_dir,
+        repo_root=repo,
+    )
+    assert (
+        "evidence_checks.selected_command_sha256: expected string to match pattern"
+    ) in str(malformed_digest_errors)
+    assert (
+        "evidence_checks.computed_command_sha256: expected string to match pattern"
+    ) in str(malformed_digest_errors)
+    assert (
+        "evidence_checks.source_action_plan_sha256: expected string to match pattern"
+    ) in str(malformed_digest_errors)
+    assert (
+        "command_execution.stdout.sha256: expected string to match pattern"
+    ) in str(malformed_digest_errors)
+    assert (
+        "command_execution.stderr.sha256: expected string to match pattern"
+    ) in str(malformed_digest_errors)
     refresh_operator_views(repo, run_id)
     assert validate_run_artifacts(
         run_id=run_id,

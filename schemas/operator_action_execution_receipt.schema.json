@@ -106,16 +106,19 @@
           }
         },
         "selected_command_sha256": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^$|^[a-f0-9]{64}$"
         },
         "computed_command_sha256": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^$|^[a-f0-9]{64}$"
         },
         "source_action_plan_path": {
           "type": "string"
         },
         "source_action_plan_sha256": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^$|^[a-f0-9]{64}$"
         },
         "allowed_experiments_subcommands": {
           "type": "array",
@@ -304,7 +307,8 @@
           "type": "boolean"
         },
         "sha256": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^$|^[a-f0-9]{64}$"
         },
         "byte_count": {
           "type": "integer"
@@ -321,7 +325,8 @@
       ],
       "properties": {
         "sha256": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         },
         "byte_count": {
           "type": "integer"

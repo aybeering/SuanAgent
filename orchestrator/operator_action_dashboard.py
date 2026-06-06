@@ -1149,6 +1149,32 @@ def validate_operator_action_dashboard_consistency(
         recommended_commands=commands,
         selected_command=selected_command,
     )
+    for field_name in (
+        "schema_version",
+        "status",
+        "ready",
+        "reason",
+        "current_step",
+        "next_command_label",
+        "next_command_boundary",
+        "requires_operator_approval",
+        "uses_guarded_executor",
+        "selected_command_label",
+        "selected_command_digest_matches_plan",
+        "blocker_count",
+        "missing_artifact_count",
+    ):
+        if readiness.get(field_name) != expected_readiness.get(field_name):
+            errors.append(
+                f"operator_action_dashboard execution_readiness "
+                f"{field_name} mismatch"
+            )
+    for field_name in ("blockers", "missing_artifacts", "dependencies", "policy"):
+        if readiness.get(field_name) != expected_readiness.get(field_name):
+            errors.append(
+                f"operator_action_dashboard execution_readiness "
+                f"{field_name} mismatch"
+            )
     if readiness != expected_readiness:
         errors.append("operator_action_dashboard execution_readiness mismatch")
     expected_closure = path_closure_summary(
@@ -1160,6 +1186,31 @@ def validate_operator_action_dashboard_consistency(
         blockers=blockers,
         selected_command=selected_command,
     )
+    for field_name in (
+        "schema_version",
+        "status",
+        "closed",
+        "reason",
+        "current_step",
+        "completed_step_count",
+        "required_step_count",
+        "approval_recorded",
+        "execution_completed",
+        "audit_chain_ok",
+        "dashboard_consistency_checked",
+        "selected_command_label",
+        "selected_command_digest_matches_plan",
+        "blocker_count",
+    ):
+        if closure.get(field_name) != expected_closure.get(field_name):
+            errors.append(
+                f"operator_action_dashboard path_closure {field_name} mismatch"
+            )
+    for field_name in ("blockers", "steps", "policy"):
+        if closure.get(field_name) != expected_closure.get(field_name):
+            errors.append(
+                f"operator_action_dashboard path_closure {field_name} mismatch"
+            )
     if closure != expected_closure:
         errors.append("operator_action_dashboard path_closure mismatch")
     return tuple(errors)

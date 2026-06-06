@@ -4173,6 +4173,22 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     tampered_summary_dashboard["summary"]["failure_reason_count"] = 0
     tampered_summary_dashboard["summary"]["first_failure_stage"] = "none"
     tampered_summary_dashboard["summary"]["blocker_count"] = 0
+    tampered_summary_dashboard["execution_readiness"]["ready"] = True
+    tampered_summary_dashboard["execution_readiness"][
+        "next_command_boundary"
+    ] = "unsafe_boundary"
+    tampered_summary_dashboard["execution_readiness"]["policy"][
+        "does_not_execute_commands"
+    ] = False
+    tampered_summary_dashboard["path_closure"]["closed"] = True
+    tampered_summary_dashboard["path_closure"][
+        "selected_command_digest_matches_plan"
+    ] = not tampered_summary_dashboard["path_closure"][
+        "selected_command_digest_matches_plan"
+    ]
+    tampered_summary_dashboard["path_closure"]["policy"][
+        "does_not_execute_commands"
+    ] = False
     json_path.write_text(
         json.dumps(tampered_summary_dashboard, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -4207,6 +4223,28 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert (
         "operator_action_dashboard summary blocker_count mismatch"
         in dashboard_errors
+    )
+    assert (
+        "operator_action_dashboard execution_readiness ready mismatch"
+        in dashboard_errors
+    )
+    assert (
+        "operator_action_dashboard execution_readiness "
+        "next_command_boundary mismatch"
+    ) in dashboard_errors
+    assert (
+        "operator_action_dashboard execution_readiness policy mismatch"
+        in dashboard_errors
+    )
+    assert "operator_action_dashboard path_closure closed mismatch" in (
+        dashboard_errors
+    )
+    assert (
+        "operator_action_dashboard path_closure "
+        "selected_command_digest_matches_plan mismatch"
+    ) in dashboard_errors
+    assert "operator_action_dashboard path_closure policy mismatch" in (
+        dashboard_errors
     )
     json_path.write_text(
         json.dumps(inconsistent, indent=2, sort_keys=True) + "\n",

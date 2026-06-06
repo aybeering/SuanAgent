@@ -524,6 +524,9 @@ against
 `schemas/operator_action_dashboard.schema.json` and checks that status-derived
 fields plus action, command, failure-reason, and blocker counts still match the
 embedded rows, including the execution-readiness and path-closure summaries.
+Execution-readiness and path-closure validation also reports field-specific
+drift for command boundary, readiness, closure, dependency, step, blocker, and
+read-only policy fields before falling back to the full summary comparison.
 Artifact validation checks dashboard command hints through the shared operator
 command-hint validator for known labels, expected write targets, boundary
 classification, current-step coverage, execution-readiness command binding,

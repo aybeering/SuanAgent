@@ -355,17 +355,36 @@ def validate_config_application_dry_run_file(
     errors = list(
         validate_json_file(
             payload_path=payload_path,
-            schema_path=repo_root / SCHEMA_PATH,
+            schema_path=effective_repo_root / SCHEMA_PATH,
         )
     )
     if payload_path.exists():
+        payload = load_json_object(payload_path)
         errors.extend(
-            validate_config_application_dry_run_consistency(
-                load_json_object(payload_path),
+            validate_config_application_dry_run_payload(
+                payload,
                 run_dir=payload_path.parent,
                 repo_root=effective_repo_root,
+                experiments_dir=payload_path.parent.parent,
+                config_path=config_path_from_payload(
+                    payload,
+                    repo_root=effective_repo_root,
+                ),
             )
         )
+        current_errors = validate_config_application_dry_run_current_evidence(
+            payload,
+            run_dir=payload_path.parent,
+            repo_root=effective_repo_root,
+            experiments_dir=payload_path.parent.parent,
+            config_path=config_path_from_payload(
+                payload,
+                repo_root=effective_repo_root,
+            ),
+        )
+        errors.extend(current_errors)
+        if current_errors:
+            errors.append("config_application_dry_run current evidence mismatch")
     return tuple(errors)
 
 
@@ -399,6 +418,15 @@ def validate_config_application_dry_run_payload(
         )
     )
     if require_current_evidence:
+        errors.extend(
+            validate_config_application_dry_run_current_evidence(
+                normalized,
+                run_dir=run_dir,
+                repo_root=repo_root,
+                experiments_dir=experiments_dir,
+                config_path=config_path,
+            )
+        )
         expected = build_config_application_dry_run(
             run_dir=run_dir,
             repo_root=repo_root,
@@ -407,6 +435,84 @@ def validate_config_application_dry_run_payload(
         )
         if normalized != expected:
             errors.append("config_application_dry_run current evidence mismatch")
+    return tuple(errors)
+
+
+def validate_config_application_dry_run_current_evidence(
+    payload: dict[str, object],
+    *,
+    run_dir: Path,
+    repo_root: Path,
+    experiments_dir: Path | None = None,
+    config_path: Path | None = None,
+) -> tuple[str, ...]:
+    """Validate dry-run fields against current review and config evidence."""
+    errors: list[str] = []
+    expected = build_config_application_dry_run(
+        run_dir=run_dir,
+        repo_root=repo_root,
+        experiments_dir=experiments_dir,
+        config_path=config_path,
+    )
+    append_field_mismatches(
+        errors,
+        prefix="config_application_dry_run",
+        payload=payload,
+        expected=expected,
+        field_names=("run_id", "run_dir", "status", "ok"),
+    )
+    append_field_mismatches(
+        errors,
+        prefix="config_application_dry_run source_operator_review",
+        payload=object_value(payload.get("source_operator_review", {})),
+        expected=object_value(expected.get("source_operator_review", {})),
+        field_names=("artifact_name", "from_artifact", "file"),
+    )
+    append_field_mismatches(
+        errors,
+        prefix="config_application_dry_run source_config",
+        payload=object_value(payload.get("source_config", {})),
+        expected=object_value(expected.get("source_config", {})),
+        field_names=("artifact_name", "file"),
+    )
+    append_field_mismatches(
+        errors,
+        prefix="config_application_dry_run operator_intent",
+        payload=object_value(payload.get("operator_intent", {})),
+        expected=object_value(expected.get("operator_intent", {})),
+        field_names=tuple(object_value(expected.get("operator_intent", {}))),
+    )
+    append_field_mismatches(
+        errors,
+        prefix="config_application_dry_run application_gate",
+        payload=object_value(payload.get("application_gate", {})),
+        expected=object_value(expected.get("application_gate", {})),
+        field_names=tuple(object_value(expected.get("application_gate", {}))),
+    )
+    rows = list_of_objects(payload.get("planned_changes", []))
+    expected_rows = list_of_objects(expected.get("planned_changes", []))
+    if len(rows) != len(expected_rows):
+        errors.append("config_application_dry_run planned_changes count mismatch")
+    for index, row in enumerate(rows):
+        expected_row = expected_rows[index] if index < len(expected_rows) else {}
+        append_field_mismatches(
+            errors,
+            prefix=f"config_application_dry_run planned_changes {index}",
+            payload=row,
+            expected=expected_row,
+            field_names=tuple(expected_row),
+        )
+    if payload.get("recommended_next_actions") != expected.get(
+        "recommended_next_actions"
+    ):
+        errors.append("config_application_dry_run next actions mismatch")
+    append_field_mismatches(
+        errors,
+        prefix="config_application_dry_run policy",
+        payload=object_value(payload.get("policy", {})),
+        expected=object_value(expected.get("policy", {})),
+        field_names=tuple(object_value(expected.get("policy", {}))),
+    )
     return tuple(errors)
 
 
@@ -770,6 +876,16 @@ def infer_repo_root_from_payload_path(payload_path: Path, repo_root: Path) -> Pa
     if experiments_dir.name == "experiments":
         return experiments_dir.parent
     return resolved_repo
+
+
+def config_path_from_payload(payload: dict[str, object], *, repo_root: Path) -> Path:
+    """Return the config path recorded by a dry-run payload."""
+    source_config = object_value(payload.get("source_config", {}))
+    source_file = object_value(source_config.get("file", {}))
+    recorded_path = str(source_file.get("path", ""))
+    if not recorded_path:
+        return repo_root / DEFAULT_CONFIG_PATH
+    return resolve_repo_path(Path(recorded_path), repo_root)
 
 
 def main() -> None:

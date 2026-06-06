@@ -2845,6 +2845,53 @@ def test_operator_config_review_records_intent_without_applying_config(
         payload_path=dry_json_path,
         repo_root=repo,
     ) == ()
+    file_drift_dry_run = json.loads(json.dumps(dry_payload))
+    file_drift_dry_run["source_operator_review"]["file"]["sha256"] = "bad-digest"
+    file_drift_dry_run["source_config"]["file"]["sha256"] = "bad-digest"
+    file_drift_dry_run["operator_intent"]["review_recorded"] = True
+    file_drift_dry_run["application_gate"]["config_changes_must_be_manual"] = False
+    file_drift_dry_run["planned_changes"][0]["requires_manual_config_edit"] = False
+    file_drift_dry_run["policy"]["does_not_write_config"] = False
+    dry_json_path.write_text(
+        json.dumps(file_drift_dry_run, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    file_drift_dry_run_errors = validate_config_application_dry_run_file(
+        payload_path=dry_json_path,
+        repo_root=repo,
+    )
+    assert (
+        "config_application_dry_run source_operator_review file mismatch"
+        in file_drift_dry_run_errors
+    )
+    assert (
+        "config_application_dry_run source_config file mismatch"
+        in file_drift_dry_run_errors
+    )
+    assert (
+        "config_application_dry_run operator_intent review_recorded mismatch"
+        in file_drift_dry_run_errors
+    )
+    assert (
+        "config_application_dry_run application_gate "
+        "config_changes_must_be_manual mismatch"
+    ) in file_drift_dry_run_errors
+    assert (
+        "config_application_dry_run planned_changes 0 "
+        "requires_manual_config_edit mismatch"
+    ) in file_drift_dry_run_errors
+    assert (
+        "config_application_dry_run policy does_not_write_config mismatch"
+        in file_drift_dry_run_errors
+    )
+    assert (
+        "config_application_dry_run current evidence mismatch"
+        in file_drift_dry_run_errors
+    )
+    dry_json_path.write_text(
+        json.dumps(dry_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     _, _, blocked_approval = write_operator_config_review(
         run_dir=run_dir,

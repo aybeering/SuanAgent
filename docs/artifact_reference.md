@@ -1088,6 +1088,9 @@ Replay artifacts:
   The consistency validator reports field-specific drift for source files,
   operator intent, application gate, planned changes, and read-only policy
   fields.
+  The saved-file validator also rebuilds the dry run from current operator
+  review and config evidence, then reports source, intent, gate, row, and policy
+  drift before surfacing a current-evidence mismatch.
 - `config_application_receipt.json` and `config_application_receipt.md` record
   the result of the guarded apply-config-approved command. The command writes
   config only when the saved dry-run is ready, the operator-review digest still

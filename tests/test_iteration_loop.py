@@ -6367,6 +6367,40 @@ def test_config_application_receipt_applies_only_from_approved_dry_run(
         payload_path=run_dir / "config_application_receipt.json",
         repo_root=repo,
     ) == ()
+    receipt_path = run_dir / "config_application_receipt.json"
+    tampered_receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    tampered_receipt["config_after_sha256"] = "bad-digest"
+    tampered_receipt["evidence_checks"]["ready_change_count"] = 99
+    tampered_receipt["applied_changes"][0]["new_value"] = 999
+    tampered_receipt["policy"]["writes_only_config"] = False
+    receipt_path.write_text(
+        json.dumps(tampered_receipt, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    receipt_errors = validate_config_application_receipt_file(
+        payload_path=receipt_path,
+        repo_root=repo,
+    )
+    assert (
+        "config_application_receipt source config_after_sha256 mismatch"
+        in receipt_errors
+    )
+    assert (
+        "config_application_receipt evidence_checks ready_change_count mismatch"
+        in receipt_errors
+    )
+    assert (
+        "config_application_receipt applied_changes 0 new_value mismatch"
+        in receipt_errors
+    )
+    assert (
+        "config_application_receipt policy writes_only_config mismatch"
+        in receipt_errors
+    )
+    receipt_path.write_text(
+        json.dumps(receipt, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     _, _, preview = write_config_application_rollback_preview(
         run_id="config-apply-approved",
         receipt_path=run_dir / "config_application_receipt.json",

@@ -1093,7 +1093,10 @@ Replay artifacts:
   `python -m orchestrator.experiments apply-config-approved <run_id>` and
   `python -m orchestrator.experiments apply-config-approved <run_id> --markdown`
   write the guarded receipt and print JSON or markdown, preserving blocked
-  attempts as non-zero exits.
+  attempts as non-zero exits. The receipt validator reports field-specific
+  drift for source dry-run and operator-review hashes, evidence-check fields,
+  applied-change rows, and guarded write policy fields while treating a later
+  restore receipt as historical closeout evidence.
 - `config_application_rollback_preview.json` and
   `config_application_rollback_preview.md` read a saved application receipt and
   current config to preview manual restore rows and next-run impact. They are

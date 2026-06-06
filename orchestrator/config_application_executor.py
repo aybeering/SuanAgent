@@ -359,12 +359,194 @@ def validate_config_application_receipt_file(
     repo_root: Path = Path("."),
 ) -> tuple[str, ...]:
     """Validate a saved config application receipt."""
-    return tuple(
+    repo_root = infer_repo_root_from_payload_path(payload_path, repo_root)
+    errors = list(
         validate_json_file(
             payload_path=payload_path,
             schema_path=repo_root / SCHEMA_PATH,
         )
     )
+    if payload_path.exists():
+        errors.extend(
+            validate_config_application_receipt_consistency(
+                load_json_object(payload_path),
+                run_id=payload_path.parent.name,
+                run_dir=payload_path.parent,
+                repo_root=repo_root,
+            )
+        )
+    return tuple(errors)
+
+
+def validate_config_application_receipt_consistency(
+    payload: dict[str, object],
+    *,
+    run_id: str,
+    run_dir: Path,
+    repo_root: Path,
+) -> tuple[str, ...]:
+    """Validate receipt fields against saved dry-run/review evidence."""
+    errors: list[str] = []
+    repo_root = repo_root.resolve()
+    run_dir = run_dir.resolve()
+    if str(payload.get("run_id", "")) != run_id:
+        errors.append("config_application_receipt run_id mismatch")
+    if str(payload.get("run_dir", "")) != relative_path(run_dir, repo_root):
+        errors.append("config_application_receipt run_dir mismatch")
+
+    config_path = resolve_path(Path(str(payload.get("config_path", ""))), repo_root)
+    dry_run_path = resolve_path(
+        Path(str(payload.get("source_dry_run_path", ""))),
+        repo_root,
+    )
+    dry_run = load_json_object(dry_run_path)
+    review_file = object_field(object_field(dry_run, "source_operator_review"), "file")
+    review_path = resolve_path(Path(str(review_file.get("path", ""))), repo_root)
+    applied = bool(payload.get("applied", False))
+    restore_path = run_dir / "config_application_restore_receipt.json"
+    restore = load_json_object(restore_path)
+    later_restore_succeeded = restore.get("restored") is True
+
+    expected_source = {
+        "config_before_sha256": str(
+            object_field(object_field(dry_run, "source_config"), "file").get(
+                "sha256",
+                "",
+            )
+        ),
+        "source_dry_run_sha256": file_sha256(dry_run_path),
+        "source_operator_review_path": relative_path(review_path, repo_root),
+        "source_operator_review_sha256": file_sha256(review_path),
+        "dry_run_status": str(dry_run.get("status", "")),
+    }
+    if applied and not later_restore_succeeded:
+        expected_source["config_after_sha256"] = file_sha256(config_path)
+    append_field_mismatches(
+        errors,
+        prefix="config_application_receipt source",
+        payload=payload,
+        expected=expected_source,
+        field_names=tuple(expected_source),
+    )
+
+    planned_changes = list_of_objects(dry_run.get("planned_changes", []))
+    ready_changes = [
+        change
+        for change in planned_changes
+        if change.get("ready_for_manual_edit") is True
+    ]
+    expected_checks = {
+        "ok": applied,
+        "blockers": [] if applied else string_list(
+            object_field(payload, "evidence_checks").get("blockers", [])
+        ),
+        "dry_run_schema_errors": [] if applied else string_list(
+            object_field(payload, "evidence_checks").get("dry_run_schema_errors", [])
+        ),
+        "operator_review_schema_errors": [] if applied else string_list(
+            object_field(payload, "evidence_checks").get(
+                "operator_review_schema_errors",
+                [],
+            )
+        ),
+        "source_config_sha256": str(
+            object_field(object_field(dry_run, "source_config"), "file").get(
+                "sha256",
+                "",
+            )
+        ),
+        "ready_change_count": len(ready_changes),
+    }
+    append_field_mismatches(
+        errors,
+        prefix="config_application_receipt evidence_checks",
+        payload=object_field(payload, "evidence_checks"),
+        expected=expected_checks,
+        field_names=tuple(expected_checks),
+    )
+
+    expected_changes = (
+        applied_change_rows(planned_changes=planned_changes) if applied else []
+    )
+    applied_changes = list_of_objects(payload.get("applied_changes", []))
+    if applied_changes != expected_changes:
+        errors.append("config_application_receipt applied changes mismatch")
+    for row_index, row in enumerate(applied_changes):
+        expected_row = (
+            expected_changes[row_index] if row_index < len(expected_changes) else {}
+        )
+        append_field_mismatches(
+            errors,
+            prefix=f"config_application_receipt applied_changes {row_index}",
+            payload=row,
+            expected=expected_row,
+            field_names=(
+                "candidate_id",
+                "config_path",
+                "previous_value",
+                "previous_path_exists",
+                "new_value",
+                "source_artifact",
+            ),
+        )
+    expected_status = "applied" if applied else "blocked"
+    if str(payload.get("status", "")) != expected_status:
+        errors.append("config_application_receipt status mismatch")
+    if bool(payload.get("ok", False)) is not True:
+        errors.append("config_application_receipt ok mismatch")
+
+    expected_policy = {
+        "requires_config_application_dry_run": True,
+        "requires_dry_run_ready": True,
+        "requires_source_dry_run_digest_match": True,
+        "requires_operator_review_digest_match": True,
+        "requires_current_config_digest_match": True,
+        "writes_only_config": True,
+        "does_not_delete_memory": True,
+        "does_not_execute_agents": True,
+        "does_not_run_backtests": True,
+        "does_not_route_candidates": True,
+        "does_not_apply_patches": True,
+        "does_not_change_acceptance": True,
+    }
+    append_field_mismatches(
+        errors,
+        prefix="config_application_receipt policy",
+        payload=object_field(payload, "policy"),
+        expected=expected_policy,
+        field_names=tuple(expected_policy),
+    )
+    return tuple(errors)
+
+
+def append_field_mismatches(
+    errors: list[str],
+    *,
+    prefix: str,
+    payload: dict[str, object],
+    expected: dict[str, object],
+    field_names: tuple[str, ...],
+) -> None:
+    """Append field-specific mismatch messages for comparable objects."""
+    for field_name in field_names:
+        if payload.get(field_name) != expected.get(field_name):
+            errors.append(f"{prefix} {field_name} mismatch")
+
+
+def infer_repo_root_from_payload_path(payload_path: Path, repo_root: Path) -> Path:
+    """Infer repo root for experiment artifacts when caller passes another cwd."""
+    resolved_payload = payload_path.resolve()
+    resolved_repo = repo_root.resolve()
+    try:
+        resolved_payload.relative_to(resolved_repo)
+        return resolved_repo
+    except ValueError:
+        pass
+    run_dir = resolved_payload.parent
+    experiments_dir = run_dir.parent
+    if experiments_dir.name == "experiments":
+        return experiments_dir.parent
+    return resolved_repo
 
 
 def set_value_at_path(payload: dict[str, Any], dotted_path: str, value: object) -> None:

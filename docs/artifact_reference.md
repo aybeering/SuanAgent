@@ -561,11 +561,12 @@ with a SHA-256 digest, execution-readiness state, path-closure state, blockers,
 a compact operator instruction, and a `guided_path` checklist covering
 action-audit refresh, operator approval, guarded read-only execution, and
 dashboard review. Each guided-path step and command sequence row includes
-command text plus a SHA-256 digest for terminal review. It never
-records approval, executes commands, writes config, promotes champions, runs
-agents, runs backtests, applies patches, routes agents, or changes acceptance;
-all commands remain hints that require the dedicated approval, guarded
-executor, audit, or dashboard commands.
+command text plus a SHA-256 digest for terminal review, and the schema requires
+the next-command, command-sequence, and guided-path command digests to use 64
+lowercase hexadecimal characters. It never records approval, executes commands,
+writes config, promotes champions, runs agents, runs backtests, applies
+patches, routes agents, or changes acceptance; all commands remain hints that
+require the dedicated approval, guarded executor, audit, or dashboard commands.
 The guide consistency validator reports field-specific drift for action state,
 next-command safety, guidance, guided-path status, authority, and read-only
 policy before falling back to the broader derived-block comparisons.

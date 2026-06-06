@@ -3888,6 +3888,36 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         repo_root=repo,
         require_current_evidence=True,
     ) == ()
+    malformed_digest_guide = {
+        **pending_guide,
+        "next_command": {
+            **pending_guide["next_command"],
+            "command_sha256": "bad",
+        },
+        "command_sequence": [
+            {
+                **pending_guide["command_sequence"][0],
+                "command_sha256": "bad",
+            },
+            *pending_guide["command_sequence"][1:],
+        ],
+    }
+    malformed_guide_errors = validate_operator_action_guide_payload(
+        malformed_digest_guide,
+        run_dir=run_dir,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+    assert any(
+        "next_command.command_sha256: expected string to match pattern"
+        in str(error)
+        for error in malformed_guide_errors
+    )
+    assert any(
+        "command_sequence[0].command_sha256: expected string to match pattern"
+        in str(error)
+        for error in malformed_guide_errors
+    )
     tampered_guide = {
         **pending_guide,
         "action_state": {

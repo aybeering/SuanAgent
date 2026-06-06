@@ -266,7 +266,8 @@
           "type": "string"
         },
         "command_sha256": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         },
         "reason": {
           "type": "string"
@@ -403,7 +404,8 @@
           "type": "string"
         },
         "command_sha256": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         },
         "boundary_type": {
           "type": "string"

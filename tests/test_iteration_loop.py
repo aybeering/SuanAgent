@@ -21335,6 +21335,34 @@ def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(
         schema=pipeline_schema,
     )
     assert "$: missing required property consistency_checks" in pipeline_errors
+    invalid_pipeline_digest = json.loads(json.dumps(pipeline))
+    invalid_pipeline_digest["steps"][0]["artifacts"]["json"]["sha256"] = (
+        "bad-pipeline-step-sha"
+    )
+    invalid_pipeline_digest["generated_artifacts"][
+        "codex_cli_readiness_summary.json"
+    ]["sha256"] = "bad-generated-summary-sha"
+    invalid_pipeline_digest["final_summary"]["file"]["sha256"] = (
+        "bad-final-summary-sha"
+    )
+    invalid_pipeline_digest_errors = validate_json_payload(
+        payload=invalid_pipeline_digest,
+        schema=pipeline_schema,
+    )
+    assert any(
+        "$.steps[0].artifacts.json.sha256: expected string to match pattern"
+        in error
+        for error in invalid_pipeline_digest_errors
+    )
+    assert any(
+        "generated_artifacts" in error
+        and "sha256: expected string to match pattern" in error
+        for error in invalid_pipeline_digest_errors
+    )
+    assert any(
+        "$.final_summary.file.sha256: expected string to match pattern" in error
+        for error in invalid_pipeline_digest_errors
+    )
     assert_matches_schema(
         run_dir / "codex_cli_operator_unlock_request.json",
         "codex_cli_operator_unlock_request",

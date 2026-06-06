@@ -116,10 +116,14 @@
           "minimum": 0
         },
         "sha256": {
-          "type": "string"
+          "$ref": "#/$defs/sha256_or_empty"
         }
       },
       "additionalProperties": false
+    },
+    "sha256_or_empty": {
+      "type": "string",
+      "pattern": "^$|^[a-f0-9]{64}$"
     },
     "pipeline_step": {
       "type": "object",

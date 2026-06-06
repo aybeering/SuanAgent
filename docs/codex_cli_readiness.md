@@ -46,7 +46,8 @@ The read-only chain is:
 
 The pipeline can summarize these artifacts, but it must not execute Codex,
 create a real execution workspace, send a strategy prompt, apply patches, or
-change acceptance.
+change acceptance. Pipeline step, generated-artifact, and final-summary file
+hashes must be empty or 64 lowercase hexadecimal SHA-256 strings.
 
 `codex_cli_readiness_summary.json` records a schema-validated
 `consistency_checks` section. These checks bind the expected readiness stage

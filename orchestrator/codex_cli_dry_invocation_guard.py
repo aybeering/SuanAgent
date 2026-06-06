@@ -16,6 +16,7 @@ from orchestrator.agent_contract_runner import (
     write_agent_execution,
 )
 from orchestrator.codex_cli_real_preflight import resolve_executable
+from orchestrator.schema_validation import validate_json_file
 from orchestrator.workspace_manager import (
     create_isolated_workspace,
     workspace_mutation_errors,
@@ -31,6 +32,7 @@ DRY_INVOCATION_PROMPT = (
 DRY_INVOCATION_EXPECTED_TEXT = "SUANAGENT_DRY_INVOCATION_OK"
 DRY_INVOCATION_ROUND_ID = "codex_cli_dry_invocation"
 DRY_INVOCATION_ATTEMPT_ID = "attempt_001_dry_invocation"
+SCHEMA_PATH = Path("schemas/codex_cli_dry_invocation_guard.schema.json")
 
 
 def build_codex_cli_dry_invocation_guard(
@@ -183,6 +185,210 @@ def write_codex_cli_dry_invocation_guard(
         encoding="utf-8",
     )
     return payload
+
+
+def validate_codex_cli_dry_invocation_guard_file(
+    *,
+    payload_path: Path,
+    repo_root: Path = Path("."),
+    schema_path: Path | None = None,
+    require_current_evidence: bool = True,
+) -> tuple[str, ...]:
+    """Validate a saved dry-invocation guard without executing Codex."""
+    repo_root = repo_root.resolve()
+    schema_errors = tuple(
+        validate_json_file(
+            payload_path=payload_path,
+            schema_path=schema_path or repo_root / SCHEMA_PATH,
+        )
+    )
+    if schema_errors or not require_current_evidence:
+        return schema_errors
+    payload = load_json_object(payload_path)
+    expected = rebuild_codex_cli_dry_invocation_guard_from_payload(
+        payload=payload,
+        repo_root=repo_root,
+    )
+    if "error" in expected:
+        return schema_errors + (str(expected["error"]),)
+    if payload != expected:
+        return schema_errors + (
+            "codex_cli_dry_invocation_guard current evidence mismatch",
+        )
+    return schema_errors
+
+
+def rebuild_codex_cli_dry_invocation_guard_from_payload(
+    *,
+    payload: dict[str, Any],
+    repo_root: Path,
+) -> dict[str, Any]:
+    """Rebuild a dry-invocation guard from current files without subprocesses."""
+    run_dir_value = str(payload.get("run_dir", ""))
+    config_path_value = str(payload.get("config_path", ""))
+    if not run_dir_value:
+        return {"error": "codex_cli_dry_invocation_guard run_dir required"}
+    if not config_path_value:
+        return {"error": "codex_cli_dry_invocation_guard config_path required"}
+    run_dir = resolve_path(Path(run_dir_value), repo_root)
+    config_path = resolve_path(Path(config_path_value), repo_root)
+    config = load_json_object(config_path)
+    codex_cli = object_value(config.get("codex_cli", {}))
+    executable = str(codex_cli.get("executable", ""))
+    resolved_executable = resolve_executable(executable, repo_root)
+    command = dry_invocation_command(
+        executable=str(resolved_executable or executable),
+        model=str(codex_cli.get("model", "default")),
+        sandbox=str(codex_cli.get("sandbox", "workspace-write")),
+    )
+    artifacts = object_value(payload.get("artifacts", {}))
+    prompt_path = artifact_path_or_default(
+        artifacts=artifacts,
+        key="prompt",
+        default=run_dir / "codex_cli_dry_invocation_prompt.txt",
+        repo_root=repo_root,
+    )
+    audit_path = artifact_path_or_default(
+        artifacts=artifacts,
+        key="execution_audit",
+        default=run_dir / "codex_cli_dry_invocation_execution.json",
+        repo_root=repo_root,
+    )
+    workspace_path = workspace_path_or_default(
+        payload=payload,
+        codex_cli=codex_cli,
+        run_id=run_dir.name,
+        repo_root=repo_root,
+    )
+    execution = load_json_object(audit_path)
+    stdout_preview = str(object_value(execution.get("stdout", {})).get("preview", ""))
+    raw_preview = str(
+        object_value(execution.get("raw_response", {})).get("preview", "")
+    )
+    output_text = stdout_preview + "\n" + raw_preview
+    execute = bool(payload.get("execution_requested", False))
+    checks = {
+        "config_exists": config_path.exists() and config_path.is_file(),
+        "strategy_modifier_is_codex_cli": str(config.get("strategy_modifier", ""))
+        == "codex_cli",
+        "executable_declared": bool(executable),
+        "executable_found": bool(resolved_executable),
+        "execute_requested": execute,
+        "prompt_is_harmless": prompt_is_harmless(DRY_INVOCATION_PROMPT),
+        "command_is_harmless": command_is_harmless(command),
+        "sandbox_workspace_write": str(codex_cli.get("sandbox", ""))
+        == "workspace-write",
+        "workspace_created": workspace_path.exists(),
+        "execution_audit_present": audit_path.exists(),
+        "execution_completed": str(execution.get("status", "")) == "completed",
+        "returncode_zero": execution.get("returncode") == 0,
+        "stdout_contains_expected_text": DRY_INVOCATION_EXPECTED_TEXT in output_text,
+        "mutation_guard_passed": bool(
+            object_value(execution.get("mutation_guard", {})).get("passed", False)
+        ),
+        "no_allowed_mutation_paths": execution.get("allowed_mutation_paths", []) == [],
+        "does_not_apply_patches": True,
+        "does_not_change_acceptance": True,
+    }
+    blocking_reasons = dry_invocation_blockers(checks)
+    if not execute and "execution_disabled" not in blocking_reasons:
+        blocking_reasons.append("execution_disabled")
+    ready = execute and not blocking_reasons
+    dry_invocation = object_value(payload.get("dry_invocation", {}))
+    timeout_seconds = int_value(dry_invocation.get("timeout_seconds", 30))
+    execution_status_value = str(execution.get("status", ""))
+    return {
+        "schema_version": CODEX_CLI_DRY_INVOCATION_GUARD_SCHEMA_VERSION,
+        "run_id": run_dir.name,
+        "run_dir": str(run_dir),
+        "config_path": relative_path(config_path, repo_root),
+        "ok": True,
+        "dry_invocation_ready": ready,
+        "execution_requested": execute,
+        "blocking_reasons": blocking_reasons,
+        "checks": checks,
+        "config": {
+            "strategy_modifier": str(config.get("strategy_modifier", "")),
+            "codex_cli": {
+                "executable": executable,
+                "resolved_executable": str(resolved_executable or ""),
+                "model": str(codex_cli.get("model", "")),
+                "sandbox": str(codex_cli.get("sandbox", "")),
+                "workspace_root": str(codex_cli.get("workspace_root", "")),
+                "execute": bool(codex_cli.get("execute", False)),
+                "timeout_seconds": int_value(codex_cli.get("timeout_seconds", 0)),
+            },
+        },
+        "dry_invocation": {
+            "prompt_sha256": sha256_text(DRY_INVOCATION_PROMPT),
+            "expected_text": DRY_INVOCATION_EXPECTED_TEXT,
+            "command": command,
+            "timeout_seconds": timeout_seconds,
+            "result": {
+                "status": execution_status_value,
+                "returncode": execution.get("returncode"),
+                "timed_out": execution_status_value == "timeout",
+            },
+        },
+        "artifacts": {
+            "candidate_config": file_record(config_path, repo_root),
+            "prompt": file_record(prompt_path, repo_root),
+            "execution_audit": file_record(audit_path, repo_root),
+            "workspace": {
+                "exists": workspace_path.exists(),
+                "path": relative_path(workspace_path, repo_root),
+            },
+        },
+        "policy": {
+            "guard_only": True,
+            "harmless_prompt_only": True,
+            "does_not_reference_strategy_file": True,
+            "does_not_apply_patches": True,
+            "does_not_select_candidate": True,
+            "does_not_change_acceptance": True,
+            "requires_empty_mutation_allowlist": True,
+            "requires_workspace_mutation_guard": True,
+            "deterministic_code_keeps_acceptance_authority": True,
+        },
+    }
+
+
+def artifact_path_or_default(
+    *,
+    artifacts: dict[str, Any],
+    key: str,
+    default: Path,
+    repo_root: Path,
+) -> Path:
+    """Return an artifact path from a saved record or a deterministic default."""
+    record = object_value(artifacts.get(key, {}))
+    path_value = str(record.get("path", ""))
+    return resolve_path(Path(path_value), repo_root) if path_value else default
+
+
+def workspace_path_or_default(
+    *,
+    payload: dict[str, Any],
+    codex_cli: dict[str, Any],
+    run_id: str,
+    repo_root: Path,
+) -> Path:
+    """Return the saved dry workspace path or its deterministic default."""
+    workspace = object_value(
+        object_value(payload.get("artifacts", {})).get("workspace", {})
+    )
+    path_value = str(workspace.get("path", ""))
+    if path_value:
+        return resolve_path(Path(path_value), repo_root)
+    workspace_root = repo_root / str(codex_cli.get("workspace_root", "workspaces"))
+    return (
+        workspace_root
+        / run_id
+        / DRY_INVOCATION_ROUND_ID
+        / "real_codex_dry_invocation"
+        / DRY_INVOCATION_ATTEMPT_ID
+        / "strategy_workspace"
+    )
 
 
 def create_dry_invocation_workspace(

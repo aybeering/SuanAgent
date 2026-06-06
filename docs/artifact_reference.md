@@ -930,10 +930,13 @@ Proposal and intake artifacts:
   approval, canary, real-preflight, and dry-invocation evidence. Real preflight
   file validation re-runs the harmless version probe against the current
   candidate config, so stale executable or config evidence is surfaced before
-  execution can be unlocked. Manual approval validation also replays its saved
-  approval intent against the current enablement gate and candidate config, so
-  stale approval snapshots surface as current-evidence mismatches while keeping
-  the approval artifact non-executing.
+  execution can be unlocked. Dry-invocation guard file validation stays
+  read-only while replaying current config, prompt, execution-audit, and
+  workspace evidence, so stale dry-run evidence surfaces without invoking Codex
+  again. Manual approval validation also replays its saved approval intent
+  against the current enablement gate and candidate config, so stale approval
+  snapshots surface as current-evidence mismatches while keeping the approval
+  artifact non-executing.
 - `agent_output.json` stores normalized selected proposal data and the
   proposal intent summary used by the round-level agent input. Its selected
   proposal uses `schemas/strategy_proposal.schema.json`.

@@ -181,6 +181,9 @@ artifacts, so stale unlock evidence cannot survive upstream readiness drift.
 Direct real-preflight file validation also re-runs only the local `--version`
 probe against the current candidate config and reports stale executable or
 config evidence as a current-evidence mismatch.
+Direct dry-invocation guard file validation stays read-only: it replays current
+config, prompt, execution-audit, and workspace evidence without invoking Codex
+again, and reports stale dry-run evidence as a current-evidence mismatch.
 Operator-facing views now surface the same condition as a shared
 `codex_intake_readiness` block in the unlock checklist, unlock runbook,
 execution readiness diff, cockpit, and terminal-only operator home. It is

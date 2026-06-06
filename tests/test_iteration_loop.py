@@ -87,6 +87,7 @@ from orchestrator.codex_cli_dry_invocation_guard import (
     DRY_INVOCATION_EXPECTED_TEXT,
     file_record,
     sha256_text,
+    validate_codex_cli_dry_invocation_guard_file,
     write_codex_cli_dry_invocation_guard,
 )
 from orchestrator.codex_cli_execution_unlock_gate import (
@@ -19466,6 +19467,13 @@ print("{DRY_INVOCATION_EXPECTED_TEXT}")
         run_dir / "codex_cli_dry_invocation_execution.json",
         "agent_execution",
     )
+    assert (
+        validate_codex_cli_dry_invocation_guard_file(
+            payload_path=run_dir / "codex_cli_dry_invocation_guard.json",
+            repo_root=repo,
+        )
+        == ()
+    )
     assert (run_dir / "codex_cli_dry_invocation_guard.md").exists()
     assert validation_report["ok"] is True
     assert cli_result.returncode == 0, cli_result.stderr
@@ -19544,6 +19552,61 @@ def test_codex_cli_dry_invocation_guard_defaults_to_disabled(
         run_dir / "codex_cli_dry_invocation_guard.json",
         "codex_cli_dry_invocation_guard",
     )
+
+
+def test_codex_cli_dry_invocation_guard_detects_candidate_config_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    fake_codex = write_fake_command(
+        tmp_path,
+        "fake_codex_dry_invocation_drift.py",
+        f"""#!/usr/bin/env python3
+import sys
+prompt = sys.stdin.read()
+assert "current_strategy.py" not in prompt
+print("{DRY_INVOCATION_EXPECTED_TEXT}")
+""",
+    )
+    config_payload = json.loads(
+        (repo / "config/codex_cli_enable_candidate.json").read_text(encoding="utf-8")
+    )
+    config_payload["codex_cli"]["executable"] = str(fake_codex)
+    config_path = repo / "config/codex_cli_dry_invocation_drift.json"
+    config_path.write_text(
+        json.dumps(config_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    run_dir = repo / "experiments/codex-dry-invocation-drift"
+    write_codex_cli_dry_invocation_guard(
+        run_dir=run_dir,
+        repo_root=repo,
+        config_path=config_path,
+        execute=True,
+        timeout_seconds=5,
+    )
+    config_payload["codex_cli"]["model"] = "changed-model"
+    config_path.write_text(
+        json.dumps(config_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    assert validate_codex_cli_dry_invocation_guard_file(
+        payload_path=run_dir / "codex_cli_dry_invocation_guard.json",
+        repo_root=repo,
+    ) == ("codex_cli_dry_invocation_guard current evidence mismatch",)
+
+    validation_report = validate_run_artifacts(
+        run_id="codex-dry-invocation-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert validation_report["ok"] is False
+    assert (
+        "codex_cli_dry_invocation_guard.json file: "
+        "codex_cli_dry_invocation_guard current evidence mismatch"
+    ) in validation_report["errors"]
 
 
 def test_codex_cli_execution_unlock_gate_stays_locked_without_dry_execution(

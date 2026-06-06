@@ -10452,6 +10452,21 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert agent_input["schema_version"] == AGENT_INPUT_SCHEMA_VERSION
     assert_matches_schema(round_dir / "agent_input.json", "agent_input")
     assert agent_input["target_file"] == "strategies/current_strategy.py"
+    agent_input_schema = json.loads(
+        (Path.cwd() / "schemas/agent_input.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    invalid_agent_input_digest = json.loads(json.dumps(agent_input))
+    invalid_agent_input_digest["target_file_sha256"] = "bad-target-file-sha"
+    invalid_agent_input_digest_errors = validate_json_payload(
+        payload=invalid_agent_input_digest,
+        schema=agent_input_schema,
+    )
+    assert any(
+        "$.target_file_sha256: expected string to match pattern" in error
+        for error in invalid_agent_input_digest_errors
+    )
     assert agent_input["artifacts"]["agent_context_json"].endswith("agent_context.json")
     assert agent_input["artifacts"]["agent_role_contracts"].endswith(
         "agent_role_contracts.json"

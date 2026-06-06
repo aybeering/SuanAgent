@@ -364,7 +364,8 @@ Codex CLI readiness contracts:
 19. Proposal intent summaries in `agent_input.json` are compact context only.
     They can make planner trace metadata easier for external agents to consume,
     but they cannot score candidates, route agents, apply patches, or change
-    acceptance.
+    acceptance. The same input contract schema-constrains the target strategy
+    snapshot binding to a 64-lowercase-hex `target_file_sha256` digest.
 20. Proposal intent summaries in `agent_execution_plan.json` bind planned
     attempts to the context they will receive. They can prove plan/input
     consistency, but they cannot change queue order, score candidates, apply

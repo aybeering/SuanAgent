@@ -1038,7 +1038,8 @@ Context and planning artifacts:
 - `agent_input.json` carries a compact `proposal_intent_summary` copied from
   that planner trace so external agents can consume the selected direction,
   candidate order, avoid-source summary, and advisory-only policy from one
-  input contract.
+  input contract. Its `target_file_sha256` field schema-constrains the target
+  strategy snapshot binding to a 64-lowercase-hex SHA-256 digest.
 - `agent_execution_plan.json` records the planned candidate queue and each
   profile's declared direction capability before any modifier runs. It also
   binds the same `proposal_intent_summary` into each attempt input contract so

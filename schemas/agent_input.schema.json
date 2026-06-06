@@ -52,7 +52,7 @@
     },
     "target_file_sha256": {
       "type": "string",
-      "minLength": 64
+      "pattern": "^[a-f0-9]{64}$"
     },
     "round_dir": {
       "type": "string",

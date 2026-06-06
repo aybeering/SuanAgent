@@ -1107,6 +1107,10 @@ Replay artifacts:
   input, subprocess, and mutation-guard evidence without executing agents.
   Saved sandbox-drill reports are strict snapshots and fail validation when
   current run-local boundary evidence no longer matches the saved drill.
+- `codex_cli_contract_fixture.json` freezes guarded Codex CLI stdin/stdout
+  expectations without executing Codex. Its prompt, audit-stdin, fixture-stdout,
+  and fixture-patch SHA-256 fields are schema-constrained to
+  empty-or-64-lowercase-hex strings.
 - `codex_cli_replay_gate.json` gates future Codex CLI enablement using saved
   guarded-execution audit, contract fixture, quarantine, and round-replay
   evidence. Saved replay-gate reports are strict snapshots and fail validation

@@ -153,10 +153,10 @@
           "type": "boolean"
         },
         "prompt_sha256": {
-          "type": "string"
+          "$ref": "#/$defs/sha256_or_empty"
         },
         "audit_stdin_sha256": {
-          "type": "string"
+          "$ref": "#/$defs/sha256_or_empty"
         },
         "intake_binding_status": {
           "type": "string"
@@ -168,10 +168,10 @@
           }
         },
         "fixture_stdout_sha256": {
-          "type": "string"
+          "$ref": "#/$defs/sha256_or_empty"
         },
         "fixture_patch_sha256": {
-          "type": "string"
+          "$ref": "#/$defs/sha256_or_empty"
         },
         "fixture_direction_tag": {
           "type": "string"
@@ -220,6 +220,12 @@
           "type": "boolean"
         }
       }
+    }
+  },
+  "$defs": {
+    "sha256_or_empty": {
+      "type": "string",
+      "pattern": "^$|^[a-f0-9]{64}$"
     }
   }
 }

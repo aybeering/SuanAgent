@@ -61,7 +61,10 @@ Implemented or allowed V0.5 components:
     saved raw-output hash still matches the replayed raw-output hash, with
     saved and replayed patch/raw-output hash fields schema-constrained to
     empty-or-64-lowercase-hex strings.
-46. A deterministic `codex_cli_contract_fixture.json` report that freezes guarded Codex CLI stdin/stdout expectations without executing Codex.
+46. A deterministic `codex_cli_contract_fixture.json` report that freezes
+    guarded Codex CLI stdin/stdout expectations without executing Codex, with
+    prompt, audit-stdin, fixture-stdout, and fixture-patch hash fields
+    schema-constrained to empty-or-64-lowercase-hex strings.
 47. A deterministic `codex_cli_replay_gate.json` report that gates Codex CLI
     enablement using saved execution, fixture, quarantine, and replay artifacts,
     with per-slot artifact SHA records that validator checks can use to detect

@@ -18962,6 +18962,40 @@ def test_codex_cli_contract_fixture_freezes_guarded_stdin_stdout(
         "codex_cli_fixture_lower_min_edge"
     )
     assert len(fixture["contract"]["fixture_patch_sha256"]) == 64
+    fixture_schema = json.loads(
+        (Path.cwd() / "schemas/codex_cli_contract_fixture.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    invalid_fixture_digest = json.loads(json.dumps(fixture))
+    invalid_fixture_digest["contract"]["prompt_sha256"] = "bad-prompt-sha"
+    invalid_fixture_digest["contract"]["audit_stdin_sha256"] = "bad-stdin-sha"
+    invalid_fixture_digest["contract"]["fixture_stdout_sha256"] = (
+        "bad-fixture-stdout-sha"
+    )
+    invalid_fixture_digest["contract"]["fixture_patch_sha256"] = (
+        "bad-fixture-patch-sha"
+    )
+    invalid_fixture_digest_errors = validate_json_payload(
+        payload=invalid_fixture_digest,
+        schema=fixture_schema,
+    )
+    assert any(
+        "$.contract.prompt_sha256: expected string to match pattern" in error
+        for error in invalid_fixture_digest_errors
+    )
+    assert any(
+        "$.contract.audit_stdin_sha256: expected string to match pattern" in error
+        for error in invalid_fixture_digest_errors
+    )
+    assert any(
+        "$.contract.fixture_stdout_sha256: expected string to match pattern" in error
+        for error in invalid_fixture_digest_errors
+    )
+    assert any(
+        "$.contract.fixture_patch_sha256: expected string to match pattern" in error
+        for error in invalid_fixture_digest_errors
+    )
     assert fixture["artifacts"]["fixture_stdout"]["exists"] is True
     assert fixture["artifacts"]["fixture_validation"]["exists"] is True
     assert fixture["artifacts"]["fixture_proposal"]["exists"] is True

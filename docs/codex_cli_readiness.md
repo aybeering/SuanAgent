@@ -173,7 +173,8 @@ that output was normalized through the shared proposal-intake path and stayed
 inside the startup preflight command, workspace, and mutation boundary.
 Artifact validation re-derives the canary gate from the current run artifacts,
 so a stale or manually edited `codex_cli_canary_gate.json` cannot keep reporting
-ready after the underlying execution audit drifts.
+ready after the underlying execution audit drifts. Direct canary gate file
+validation reports the same condition as a current-evidence mismatch.
 The final execution unlock gate is also re-derived from the current replay,
 enablement, manual approval, canary, real-preflight, and dry-invocation
 artifacts, so stale unlock evidence cannot survive upstream readiness drift.

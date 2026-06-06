@@ -924,12 +924,14 @@ Proposal and intake artifacts:
   `codex_cli_execution_preflight.json` profile. Local canary and final unlock
   readiness also require that preflight binding to be blocker-free, and
   artifact validation re-derives canary gate rows from the current source
-  artifacts to detect stale saved readiness. Final unlock gate validation is
-  also re-derived from current replay, enablement, manual approval, canary,
-  real-preflight, and dry-invocation evidence. Manual approval validation also
-  replays its saved approval intent against the current enablement gate and
-  candidate config, so stale approval snapshots surface as current-evidence
-  mismatches while keeping the approval artifact non-executing.
+  artifacts to detect stale saved readiness. Canary gate file validation now
+  also exposes stale rows as a current-evidence mismatch. Final unlock gate
+  validation is also re-derived from current replay, enablement, manual
+  approval, canary, real-preflight, and dry-invocation evidence. Manual
+  approval validation also replays its saved approval intent against the
+  current enablement gate and candidate config, so stale approval snapshots
+  surface as current-evidence mismatches while keeping the approval artifact
+  non-executing.
 - `agent_output.json` stores normalized selected proposal data and the
   proposal intent summary used by the round-level agent input. Its selected
   proposal uses `schemas/strategy_proposal.schema.json`.

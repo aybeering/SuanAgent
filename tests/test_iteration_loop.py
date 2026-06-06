@@ -74,6 +74,7 @@ from orchestrator.codex_cli_manual_approval import (
 )
 from orchestrator.codex_cli_canary_gate import (
     CODEX_CLI_CANARY_GATE_SCHEMA_VERSION,
+    validate_codex_cli_canary_gate_file,
     write_codex_cli_canary_gate,
 )
 from orchestrator.codex_cli_real_preflight import (
@@ -18838,6 +18839,13 @@ def test_codex_cli_canary_config_runs_controlled_execution_gate(
     assert slot["evidence"]["preflight_binding_blocking_reasons"] == []
     assert gate["policy"]["requires_intake_binding"] is True
     assert gate["policy"]["requires_preflight_binding"] is True
+    assert (
+        validate_codex_cli_canary_gate_file(
+            payload_path=run_dir / "codex_cli_canary_gate.json",
+            repo_root=repo,
+        )
+        == ()
+    )
     assert operator_unlock_view["codex_intake_readiness"]["status"] == "ready"
     assert operator_unlock_view["codex_intake_readiness"]["ready"] is True
     assert operator_unlock_view["codex_intake_readiness"]["source"] == (
@@ -18939,6 +18947,11 @@ def test_artifact_validator_blocks_stale_codex_canary_gate_after_audit_drift(
         encoding="utf-8",
     )
 
+    assert validate_codex_cli_canary_gate_file(
+        payload_path=run_dir / "codex_cli_canary_gate.json",
+        repo_root=repo,
+    ) == ("codex_cli_canary_gate current evidence mismatch",)
+
     validation_report = validate_run_artifacts(
         run_id="codex-canary-gate-derived-drift",
         experiments_dir=repo / "experiments",
@@ -18946,6 +18959,11 @@ def test_artifact_validator_blocks_stale_codex_canary_gate_after_audit_drift(
     )
 
     assert validation_report["ok"] is False
+    assert any(
+        "codex_cli_canary_gate.json file: "
+        "codex_cli_canary_gate current evidence mismatch" in str(error)
+        for error in validation_report["errors"]
+    )
     assert any(
         "codex_cli_canary_gate.json derived ok mismatch" in str(error)
         for error in validation_report["errors"]

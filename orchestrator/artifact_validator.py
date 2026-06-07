@@ -28,6 +28,7 @@ from orchestrator.run_summary import (
     proposal_quality_row,
     round_table_row,
 )
+from orchestrator.round_replay_summary import manifest_round_replay_summary
 from orchestrator.schema_validation import validate_json_file
 
 
@@ -675,32 +676,12 @@ def validate_manifest_round_replay_summaries(
         if replay_payload is None:
             add_error(report, f"manifest.rounds {round_id} round_replay artifact missing")
             continue
-        expected = expected_manifest_round_replay(
+        expected = manifest_round_replay_summary(
             round_id=round_id,
-            replay_payload=replay_payload,
+            replay_report=replay_payload,
         )
         if actual != expected:
             add_error(report, f"manifest.rounds {round_id} round_replay summary mismatch")
-
-
-def expected_manifest_round_replay(
-    *,
-    round_id: str,
-    replay_payload: dict[str, object],
-) -> dict[str, object]:
-    """Return the manifest replay row expected from a saved round replay."""
-    return {
-        "path": f"{round_id}/round_replay.json",
-        "markdown_path": f"{round_id}/round_replay.md",
-        "ok": bool(replay_payload.get("ok", False)),
-        "run_probe": bool(replay_payload.get("run_probe", False)),
-        "replayed_attempt_count": int(
-            replay_payload.get("replayed_attempt_count", 0) or 0
-        ),
-        "failure_stage": str(replay_payload.get("failure_stage", "none")),
-        "failure_code": str(replay_payload.get("failure_code", "none")),
-        "failure_message": str(replay_payload.get("failure_message", "")),
-    }
 
 
 def validate_manifest_run_outcome_summary(

@@ -12,6 +12,7 @@ from orchestrator.attempt_replay import (
     replay_attempt,
 )
 from orchestrator.failure_taxonomy import attach_failure_metadata, reason_code
+from orchestrator.round_replay_summary import manifest_round_replay_summary
 
 
 ROUND_REPLAY_SCHEMA_VERSION = "round_replay_v1"
@@ -345,26 +346,6 @@ def refresh_parent_manifest_round_replay_summary(
     from orchestrator.run_summary import write_iteration_summary
 
     write_iteration_summary(run_dir=run_dir, manifest=manifest)
-
-
-def manifest_round_replay_summary(
-    *,
-    round_id: str,
-    replay_report: dict[str, Any],
-) -> dict[str, object]:
-    """Return the compact replay row stored in manifest.rounds."""
-    return {
-        "path": f"{round_id}/round_replay.json",
-        "markdown_path": f"{round_id}/round_replay.md",
-        "ok": bool(replay_report.get("ok", False)),
-        "run_probe": bool(replay_report.get("run_probe", False)),
-        "replayed_attempt_count": int(
-            replay_report.get("replayed_attempt_count", 0) or 0
-        ),
-        "failure_stage": str(replay_report.get("failure_stage", "none")),
-        "failure_code": str(replay_report.get("failure_code", "none")),
-        "failure_message": str(replay_report.get("failure_message", "")),
-    }
 
 
 def load_json_object(path: Path) -> dict[str, Any]:

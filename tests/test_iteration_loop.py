@@ -159,6 +159,7 @@ from orchestrator.agent_slot_health import (
 )
 from orchestrator.attempt_replay import replay_attempt
 from orchestrator.round_replay import ROUND_REPLAY_SCHEMA_VERSION, replay_round
+from orchestrator.round_replay_summary import manifest_round_replay_summary
 from orchestrator.artifact_validator import (
     snapshot_digest_from_payload,
     validate_manifest_operator_next_command,
@@ -14153,6 +14154,28 @@ def test_round_replay_replays_all_planned_attempts(tmp_path: Path) -> None:
     assert OLD_THRESHOLD in (repo / "strategies/current_strategy.py").read_text(
         encoding="utf-8"
     )
+
+
+def test_manifest_round_replay_summary_normalizes_replay_report() -> None:
+    summary = manifest_round_replay_summary(
+        round_id="round_007",
+        replay_report={
+            "ok": True,
+            "run_probe": False,
+            "replayed_attempt_count": "3",
+        },
+    )
+
+    assert summary == {
+        "path": "round_007/round_replay.json",
+        "markdown_path": "round_007/round_replay.md",
+        "ok": True,
+        "run_probe": False,
+        "replayed_attempt_count": 3,
+        "failure_stage": "none",
+        "failure_code": "none",
+        "failure_message": "",
+    }
 
 
 def test_artifact_validator_reports_round_replay_plan_mismatch(

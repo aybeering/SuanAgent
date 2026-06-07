@@ -120,6 +120,7 @@ from orchestrator.proposal import (
 )
 from orchestrator.research_brief import write_research_brief
 from orchestrator.round_replay import replay_round
+from orchestrator.round_replay_summary import manifest_round_replay_summary
 from orchestrator.run_diagnosis import write_run_diagnosis
 from orchestrator.run_artifact_health import (
     DEFAULT_HISTORY_FILENAME,
@@ -1971,18 +1972,10 @@ def attach_round_replay_summary(
 ) -> None:
     """Attach compact saved replay evidence to a round manifest row."""
     round_id = str(round_summary.get("round_id", ""))
-    round_summary["round_replay"] = {
-        "path": f"{round_id}/round_replay.json",
-        "markdown_path": f"{round_id}/round_replay.md",
-        "ok": bool(replay_report.get("ok", False)),
-        "run_probe": bool(replay_report.get("run_probe", False)),
-        "replayed_attempt_count": int(
-            replay_report.get("replayed_attempt_count", 0) or 0
-        ),
-        "failure_stage": str(replay_report.get("failure_stage", "none")),
-        "failure_code": str(replay_report.get("failure_code", "none")),
-        "failure_message": str(replay_report.get("failure_message", "")),
-    }
+    round_summary["round_replay"] = manifest_round_replay_summary(
+        round_id=round_id,
+        replay_report=replay_report,
+    )
 
 
 def attach_validation_result_to_attempts(

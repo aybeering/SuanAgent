@@ -201,10 +201,12 @@
           ]
         },
         "completed_rounds": {
-          "type": "integer"
+          "type": "integer",
+          "minimum": 0
         },
         "selected_candidate_count": {
-          "type": "integer"
+          "type": "integer",
+          "minimum": 0
         },
         "stop_reason": {
           "type": [
@@ -232,7 +234,8 @@
           "type": "boolean"
         },
         "existing_stage_count": {
-          "type": "integer"
+          "type": "integer",
+          "minimum": 0
         },
         "current_config_matches_latest_stage": {
           "type": "boolean"
@@ -289,13 +292,16 @@
           "type": "boolean"
         },
         "candidate_count": {
-          "type": "integer"
+          "type": "integer",
+          "minimum": 0
         },
         "selectable_count": {
-          "type": "integer"
+          "type": "integer",
+          "minimum": 0
         },
         "selected_count": {
-          "type": "integer"
+          "type": "integer",
+          "minimum": 0
         },
         "selected_directions": {
           "$ref": "#/$defs/string_array"

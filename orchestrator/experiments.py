@@ -4893,18 +4893,33 @@ def validate_operator_run_review_dashboard(
     ):
         errors.append("operator_run_review dashboard promotion gate status mismatch")
 
-    if int_value(status_summary.get("selected_candidate_count", -1)) < 0:
+    selected_count = int_value(status_summary.get("selected_candidate_count", -1))
+    quality_candidate_count = int_value(quality_review.get("candidate_count", -1))
+    quality_selected_count = int_value(quality_review.get("selected_count", -1))
+    quality_selectable_count = int_value(quality_review.get("selectable_count", -1))
+    if selected_count < 0:
         errors.append("operator_run_review dashboard selected count negative")
-    if int_value(status_summary.get("selected_candidate_count", -1)) != int_value(
-        quality_review.get("selected_count", -2)
-    ):
+    if selected_count != quality_selected_count:
         errors.append("operator_run_review dashboard selected count mismatch")
-    if int_value(quality_review.get("candidate_count", -1)) < 0:
+    if quality_candidate_count < 0:
         errors.append("operator_run_review dashboard quality candidate count negative")
-    if int_value(quality_review.get("selected_count", -1)) < 0:
+    if quality_selected_count < 0:
         errors.append("operator_run_review dashboard quality selected count negative")
-    if int_value(quality_review.get("selectable_count", -1)) < 0:
+    if quality_selectable_count < 0:
         errors.append("operator_run_review dashboard quality selectable count negative")
+    if quality_candidate_count >= 0 and selected_count > quality_candidate_count:
+        errors.append("operator_run_review dashboard selected exceeds candidates")
+    if quality_candidate_count >= 0 and quality_selected_count > quality_candidate_count:
+        errors.append(
+            "operator_run_review dashboard quality selected exceeds candidates"
+        )
+    if (
+        quality_candidate_count >= 0
+        and quality_selectable_count > quality_candidate_count
+    ):
+        errors.append(
+            "operator_run_review dashboard quality selectable exceeds candidates"
+        )
     if int_value(watchlist.get("alert_count", -1)) < 0:
         errors.append("operator_run_review dashboard watchlist alert count negative")
     if status_summary.get("accepted") is True and str(

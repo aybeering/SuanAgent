@@ -28260,6 +28260,34 @@ def test_operator_run_review_payload_validation_reports_summary_drift() -> None:
     assert "operator_run_review dashboard authority mismatch" in errors
 
 
+def test_operator_run_review_rejects_candidate_count_bounds_drift() -> None:
+    payload = _minimal_operator_run_review_payload()
+    dashboard = payload["dashboard"]
+    assert isinstance(dashboard, dict)
+    status_summary = dashboard["status_summary"]
+    quality_review = dashboard["candidate_quality_review"]
+    assert isinstance(status_summary, dict)
+    assert isinstance(quality_review, dict)
+    quality_review["candidate_count"] = 1
+    quality_review["selectable_count"] = 2
+    quality_review["selected_count"] = 2
+    status_summary["selected_candidate_count"] = 2
+
+    errors = validate_operator_run_review_payload(
+        payload,
+        repo_root=Path(__file__).resolve().parents[1],
+    )
+
+    assert "operator_run_review dashboard selected count mismatch" not in errors
+    assert "operator_run_review dashboard selected exceeds candidates" in errors
+    assert (
+        "operator_run_review dashboard quality selected exceeds candidates" in errors
+    )
+    assert (
+        "operator_run_review dashboard quality selectable exceeds candidates" in errors
+    )
+
+
 def test_compare_experiments_recommends_accepted_metric_winner(
     tmp_path: Path,
 ) -> None:

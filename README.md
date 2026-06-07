@@ -68,6 +68,11 @@ python -m orchestrator.experiments config-runbook <run_id> --markdown
 python -m orchestrator.experiments unlock-checklist <run_id> --markdown
 python -m orchestrator.experiments unlock-runbook <run_id> --markdown
 python -m orchestrator.experiments execution-readiness-diff <run_id> --markdown
+python -m orchestrator.experiments memory-hygiene --latest --markdown
+python -m orchestrator.experiments memory-scope-recommendation --latest --markdown
+python -m orchestrator.experiments config-change-candidate --latest --markdown
+python -m orchestrator.experiments operator-config-review --latest --markdown
+python -m orchestrator.experiments config-application-dry-run --latest --markdown
 python -m orchestrator.experiments candidates --latest --limit 5 --markdown
 python -m orchestrator.experiments agents --latest --markdown
 python -m orchestrator.experiments quality-trace --latest --markdown

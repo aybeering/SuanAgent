@@ -3690,10 +3690,11 @@ def modifier_profile_recommendation(
 
 def memory_hygiene_report(
     *,
-    run_id: str,
+    run_id: str | None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return memory hygiene for one iteration run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     path = run_dir / "memory_hygiene.json"
     if path.exists():
@@ -3751,10 +3752,11 @@ def memory_hygiene_report(
 
 def memory_scope_recommendation_report(
     *,
-    run_id: str,
+    run_id: str | None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return memory scope recommendation for one iteration run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     path = run_dir / "memory_scope_recommendation.json"
     if path.exists():
@@ -3797,10 +3799,11 @@ def memory_scope_recommendation_report(
 
 def config_change_candidate_report(
     *,
-    run_id: str,
+    run_id: str | None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return config change candidates for one iteration run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     path = run_dir / "config_change_candidate.json"
     if path.exists():
@@ -3842,10 +3845,11 @@ def config_change_candidate_report(
 
 def operator_config_review_report(
     *,
-    run_id: str,
+    run_id: str | None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return operator config review for one iteration run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     path = run_dir / "operator_config_review.json"
     if path.exists():
@@ -3887,11 +3891,12 @@ def operator_config_review_report(
 
 def config_application_dry_run_report(
     *,
-    run_id: str,
+    run_id: str | None,
     experiments_dir: Path = Path("experiments"),
     config_path: Path = Path("config/default.json"),
 ) -> dict[str, object]:
     """Return config application dry run for one iteration run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     path = run_dir / "config_application_dry_run.json"
     if path.exists():
@@ -7717,7 +7722,12 @@ def main() -> None:
         "memory-hygiene",
         help="Show outcome memory hygiene for one iteration run.",
     )
-    memory_hygiene_parser.add_argument("run_id")
+    memory_hygiene_parser.add_argument("run_id", nargs="?")
+    memory_hygiene_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     memory_hygiene_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -7728,7 +7738,12 @@ def main() -> None:
         "memory-scope-recommendation",
         help="Show outcome memory scope recommendation for one iteration run.",
     )
-    memory_scope_parser.add_argument("run_id")
+    memory_scope_parser.add_argument("run_id", nargs="?")
+    memory_scope_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     memory_scope_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -7739,7 +7754,12 @@ def main() -> None:
         "config-change-candidate",
         help="Show advisory config change candidates for one iteration run.",
     )
-    config_change_parser.add_argument("run_id")
+    config_change_parser.add_argument("run_id", nargs="?")
+    config_change_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     config_change_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -7750,7 +7770,12 @@ def main() -> None:
         "operator-config-review",
         help="Show operator config review for one iteration run.",
     )
-    operator_config_parser.add_argument("run_id")
+    operator_config_parser.add_argument("run_id", nargs="?")
+    operator_config_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     operator_config_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -7761,7 +7786,12 @@ def main() -> None:
         "config-application-dry-run",
         help="Show config application dry run for one iteration run.",
     )
-    config_application_parser.add_argument("run_id")
+    config_application_parser.add_argument("run_id", nargs="?")
+    config_application_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     config_application_parser.add_argument(
         "--config",
         type=Path,
@@ -8247,7 +8277,7 @@ def main() -> None:
     elif args.command == "memory-hygiene":
         payload = memory_hygiene_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(render_memory_hygiene_markdown(payload), end="")
@@ -8255,7 +8285,7 @@ def main() -> None:
     elif args.command == "memory-scope-recommendation":
         payload = memory_scope_recommendation_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(render_memory_scope_recommendation_markdown(payload), end="")
@@ -8263,7 +8293,7 @@ def main() -> None:
     elif args.command == "config-change-candidate":
         payload = config_change_candidate_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(render_config_change_candidate_markdown(payload), end="")
@@ -8271,7 +8301,7 @@ def main() -> None:
     elif args.command == "operator-config-review":
         payload = operator_config_review_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(render_operator_config_review_markdown(payload), end="")
@@ -8279,7 +8309,7 @@ def main() -> None:
     elif args.command == "config-application-dry-run":
         payload = config_application_dry_run_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
             config_path=args.config,
         )
         if args.markdown:

@@ -30948,6 +30948,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    hygiene_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "memory-hygiene",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    hygiene_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "memory-hygiene",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     scope_result = subprocess.run(
         [
             sys.executable,
@@ -30972,6 +31003,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "experiments",
             "memory-scope-recommendation",
             "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    scope_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "memory-scope-recommendation",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    scope_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "memory-scope-recommendation",
+            "--latest",
             "--markdown",
         ],
         cwd=repo,
@@ -31010,6 +31072,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    config_candidate_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "config-change-candidate",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    config_candidate_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "config-change-candidate",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     config_review_result = subprocess.run(
         [
             sys.executable,
@@ -31041,6 +31134,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    config_review_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "operator-config-review",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    config_review_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "operator-config-review",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     config_application_result = subprocess.run(
         [
             sys.executable,
@@ -31050,6 +31174,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "experiments",
             "config-application-dry-run",
             "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    config_application_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "config-application-dry-run",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    config_application_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "config-application-dry-run",
+            "--latest",
+            "--markdown",
         ],
         cwd=repo,
         capture_output=True,
@@ -32681,11 +32836,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     hygiene_payload = json.loads(hygiene_result.stdout)
     assert hygiene_payload["schema_version"] == MEMORY_HYGIENE_SCHEMA_VERSION
     assert hygiene_payload["from_artifact"] is True
+    assert hygiene_latest_result.returncode == 0, hygiene_latest_result.stderr
+    hygiene_latest_payload = json.loads(hygiene_latest_result.stdout)
+    assert hygiene_latest_payload["schema_version"] == MEMORY_HYGIENE_SCHEMA_VERSION
+    assert hygiene_latest_payload["from_artifact"] is True
+    assert hygiene_latest_payload["scope"]["exclude_run_id"] == "cli-candidates"
+    assert_matches_schema_payload(hygiene_latest_payload, "memory_hygiene")
+    assert hygiene_latest_markdown_result.returncode == 0, (
+        hygiene_latest_markdown_result.stderr
+    )
+    assert "# Memory Hygiene" in hygiene_latest_markdown_result.stdout
     assert scope_result.returncode == 0, scope_result.stderr
     scope_payload = json.loads(scope_result.stdout)
     assert scope_payload["schema_version"] == MEMORY_SCOPE_RECOMMENDATION_SCHEMA_VERSION
     assert scope_payload["from_artifact"] is True
     assert scope_payload["source"]["path"].endswith("memory_hygiene.json")
+    assert scope_latest_result.returncode == 0, scope_latest_result.stderr
+    scope_latest_payload = json.loads(scope_latest_result.stdout)
+    assert scope_latest_payload["run_id"] == "cli-candidates"
+    assert scope_latest_payload["schema_version"] == (
+        MEMORY_SCOPE_RECOMMENDATION_SCHEMA_VERSION
+    )
+    assert scope_latest_payload["from_artifact"] is True
+    assert_matches_schema_payload(
+        scope_latest_payload,
+        "memory_scope_recommendation",
+    )
+    assert scope_latest_markdown_result.returncode == 0, (
+        scope_latest_markdown_result.stderr
+    )
+    assert "# Memory Scope Recommendation" in scope_latest_markdown_result.stdout
+    assert "cli-candidates" in scope_latest_markdown_result.stdout
     assert config_candidate_result.returncode == 0, config_candidate_result.stderr
     config_candidate_payload = json.loads(config_candidate_result.stdout)
     assert config_candidate_payload["schema_version"] == (
@@ -32708,6 +32889,28 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "# Config Change Candidate" in config_candidate_markdown_result.stdout
     assert "- Run: `cli-candidates`" in config_candidate_markdown_result.stdout
     assert "does not write config" in config_candidate_markdown_result.stdout
+    assert config_candidate_latest_result.returncode == 0, (
+        config_candidate_latest_result.stderr
+    )
+    config_candidate_latest_payload = json.loads(
+        config_candidate_latest_result.stdout
+    )
+    assert config_candidate_latest_payload["run_id"] == "cli-candidates"
+    assert config_candidate_latest_payload["schema_version"] == (
+        CONFIG_CHANGE_CANDIDATE_SCHEMA_VERSION
+    )
+    assert config_candidate_latest_payload["from_artifact"] is True
+    assert_matches_schema_payload(
+        config_candidate_latest_payload,
+        "config_change_candidate",
+    )
+    assert config_candidate_latest_markdown_result.returncode == 0, (
+        config_candidate_latest_markdown_result.stderr
+    )
+    assert "# Config Change Candidate" in (
+        config_candidate_latest_markdown_result.stdout
+    )
+    assert "cli-candidates" in config_candidate_latest_markdown_result.stdout
     assert config_review_result.returncode == 0, config_review_result.stderr
     config_review_payload = json.loads(config_review_result.stdout)
     assert config_review_payload["schema_version"] == (
@@ -32731,6 +32934,24 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "- Run: `cli-candidates`" in config_review_markdown_result.stdout
     assert "## Reviewed Changes" in config_review_markdown_result.stdout
     assert "does not write config" in config_review_markdown_result.stdout
+    assert config_review_latest_result.returncode == 0, (
+        config_review_latest_result.stderr
+    )
+    config_review_latest_payload = json.loads(config_review_latest_result.stdout)
+    assert config_review_latest_payload["run_id"] == "cli-candidates"
+    assert config_review_latest_payload["schema_version"] == (
+        OPERATOR_CONFIG_REVIEW_SCHEMA_VERSION
+    )
+    assert config_review_latest_payload["from_artifact"] is True
+    assert_matches_schema_payload(
+        config_review_latest_payload,
+        "operator_config_review",
+    )
+    assert config_review_latest_markdown_result.returncode == 0, (
+        config_review_latest_markdown_result.stderr
+    )
+    assert "# Operator Config Review" in config_review_latest_markdown_result.stdout
+    assert "cli-candidates" in config_review_latest_markdown_result.stdout
     assert config_application_result.returncode == 0, config_application_result.stderr
     config_application_payload = json.loads(config_application_result.stdout)
     assert config_application_payload["schema_version"] == (
@@ -32760,6 +32981,28 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "- Run: `cli-candidates`" in config_application_markdown_result.stdout
     assert "## Planned Changes" in config_application_markdown_result.stdout
     assert "does not write config" in config_application_markdown_result.stdout
+    assert config_application_latest_result.returncode == 0, (
+        config_application_latest_result.stderr
+    )
+    config_application_latest_payload = json.loads(
+        config_application_latest_result.stdout
+    )
+    assert config_application_latest_payload["run_id"] == "cli-candidates"
+    assert config_application_latest_payload["schema_version"] == (
+        CONFIG_APPLICATION_DRY_RUN_SCHEMA_VERSION
+    )
+    assert config_application_latest_payload["from_artifact"] is True
+    assert_matches_schema_payload(
+        config_application_latest_payload,
+        "config_application_dry_run",
+    )
+    assert config_application_latest_markdown_result.returncode == 0, (
+        config_application_latest_markdown_result.stderr
+    )
+    assert "# Config Application Dry Run" in (
+        config_application_latest_markdown_result.stdout
+    )
+    assert "cli-candidates" in config_application_latest_markdown_result.stdout
     assert apply_config_result.returncode == 1
     apply_config_payload = json.loads(apply_config_result.stdout)
     assert apply_config_payload["schema_version"] == (

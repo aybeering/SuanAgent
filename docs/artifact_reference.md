@@ -49,8 +49,10 @@ python -m orchestrator.experiments memory --limit 5 --markdown
 python -m orchestrator.experiments memory-diagnostics
 python -m orchestrator.experiments memory-hygiene <run_id>
 python -m orchestrator.experiments memory-hygiene <run_id> --markdown
+python -m orchestrator.experiments memory-hygiene --latest --markdown
 python -m orchestrator.experiments memory-scope-recommendation <run_id>
 python -m orchestrator.experiments memory-scope-recommendation <run_id> --markdown
+python -m orchestrator.experiments memory-scope-recommendation --latest --markdown
 python -m orchestrator.experiments diagnose <run_id>
 python -m orchestrator.experiments diagnose <run_id> --markdown
 python -m orchestrator.experiments candidates <run_id> --limit 5
@@ -1220,7 +1222,8 @@ Replay artifacts:
   against current outcome memory before printing JSON, while
   `python -m orchestrator.experiments memory-hygiene <run_id>` validates saved
   artifacts for schema and internal consistency before printing JSON or
-  markdown with terminal metadata.
+  markdown with terminal metadata. `--latest` resolves the newest indexed
+  iteration-loop run for terminal review.
 - `memory_scope_recommendation.json` and `memory_scope_recommendation.md`
   summarize whether the current outcome-memory scope should remain full-history
   or be narrowed for future runs with a recent-record limit. They read saved
@@ -1229,7 +1232,8 @@ Replay artifacts:
   `python -m orchestrator.memory_scope_recommendation` and
   `python -m orchestrator.experiments memory-scope-recommendation <run_id>`
   validate the terminal payload against the schema and deterministic
-  recommendation derivation before printing JSON or markdown.
+  recommendation derivation before printing JSON or markdown. `--latest`
+  resolves the newest indexed iteration-loop run for terminal review.
   The saved-file validator reports field-specific drift for source evidence,
   scope, observed totals, recommendation fields, candidate scopes, and read-only
   policy fields.
@@ -1240,10 +1244,11 @@ Replay artifacts:
   They include current value, proposed value, rationale, reason codes, and risk
   notes, but they never write config, route candidates, apply patches, run
   backtests, or change acceptance.
-  `python -m orchestrator.experiments config-change-candidate <run_id>` and
-  `python -m orchestrator.experiments config-change-candidate <run_id> --markdown`
-  validate schema, run binding, candidate summary, and operator-review status
-  before printing JSON or markdown. The saved-file validator reports
+  `python -m orchestrator.experiments config-change-candidate <run_id>`,
+  `python -m orchestrator.experiments config-change-candidate <run_id> --markdown`,
+  and the matching `--latest` form validate schema, run binding, candidate
+  summary, and operator-review status before printing JSON or markdown. The
+  saved-file validator reports
   field-specific drift for source file records, summary fields, candidate
   change rows, operator-review status, and read-only policy fields.
 - `operator_config_review.json` and `operator_config_review.md` record
@@ -1251,10 +1256,11 @@ Replay artifacts:
   requires the configured confirmation phrase, rejection can be recorded without
   applying anything, and both paths remain audit-only: they never edit config,
   route candidates, apply patches, run backtests, or change acceptance.
-  `python -m orchestrator.experiments operator-config-review <run_id>` and
-  `python -m orchestrator.experiments operator-config-review <run_id> --markdown`
-  validate schema, candidate summary, review gate, reviewed-row decisions, and
-  next actions before printing JSON or markdown.
+  `python -m orchestrator.experiments operator-config-review <run_id>`,
+  `python -m orchestrator.experiments operator-config-review <run_id> --markdown`,
+  and the matching `--latest` form validate schema, candidate summary, review
+  gate, reviewed-row decisions, and next actions before printing JSON or
+  markdown.
   The consistency validator reports field-specific drift for candidate summary,
   operator intent, review gate, reviewed changes, and read-only policy fields.
   The saved-file validator also checks current source candidate evidence and
@@ -1264,10 +1270,11 @@ Replay artifacts:
   whether approved config candidates still match the current config value and
   are ready for a later manual edit. They remain dry-run only and never edit
   config, route candidates, apply patches, run backtests, or change acceptance.
-  `python -m orchestrator.experiments config-application-dry-run <run_id>` and
-  `python -m orchestrator.experiments config-application-dry-run <run_id> --markdown`
-  validate schema, application gate counts, planned-row readiness, status, and
-  next actions before printing JSON or markdown.
+  `python -m orchestrator.experiments config-application-dry-run <run_id>`,
+  `python -m orchestrator.experiments config-application-dry-run <run_id> --markdown`,
+  and the matching `--latest` form validate schema, application gate counts,
+  planned-row readiness, status, and next actions before printing JSON or
+  markdown.
   The consistency validator reports field-specific drift for source files,
   operator intent, application gate, planned changes, and read-only policy
   fields.

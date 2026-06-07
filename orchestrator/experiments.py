@@ -4650,6 +4650,11 @@ def operator_run_review(
             ),
         },
         "dashboard": dashboard,
+        "candidate_quality_source": operator_run_review_candidate_quality_source(
+            dashboard=dashboard,
+            repo_root=experiments_dir.parent,
+            run_dir=run_dir,
+        ),
         "gate_artifacts": operator_run_review_gate_artifacts(
             dashboard=dashboard,
             repo_root=experiments_dir.parent,
@@ -4676,6 +4681,24 @@ def operator_run_review(
             "operator run review failed schema validation: " + "; ".join(errors)
         )
     return payload
+
+
+def operator_run_review_candidate_quality_source(
+    *,
+    dashboard: dict[str, object],
+    repo_root: Path,
+    run_dir: Path,
+) -> dict[str, object]:
+    """Return the current file record for the candidate-quality source."""
+    quality_review = dict_payload(dashboard.get("candidate_quality_review", {}))
+    source_path = str(quality_review.get("source_path", ""))
+    expected_source_path = str(run_dir / "candidate_leaderboard.json")
+    resolved_path = Path(resolve_report_path(expected_source_path, repo_root))
+    return {
+        "source_path": source_path,
+        "expected_source_path": expected_source_path,
+        "file": refresh_file_record(resolved_path, repo_root=repo_root),
+    }
 
 
 def operator_run_review_gate_artifacts(
@@ -4715,6 +4738,9 @@ def render_operator_run_review_markdown(payload: dict[str, object]) -> str:
     config_review = dict_payload(dashboard.get("config_review", {}))
     champion_review = dict_payload(dashboard.get("champion_review", {}))
     quality_review = dict_payload(dashboard.get("candidate_quality_review", {}))
+    quality_source = dict_payload(payload.get("candidate_quality_source", {}))
+    quality_source_file = dict_payload(quality_source.get("file", {}))
+    quality_source_sha = str(quality_source_file.get("sha256", ""))
     watchlist = dict_payload(dashboard.get("watchlist", {}))
     lines = [
         "# Operator Run Review",
@@ -4746,6 +4772,7 @@ def render_operator_run_review_markdown(payload: dict[str, object]) -> str:
         f"- Selectable: `{quality_review.get('selectable_count', 0)}`",
         f"- Top failure: `{markdown_cell(quality_review.get('top_failure_code', ''))}`",
         f"- Source: `{markdown_cell(quality_review.get('source_path', ''))}`",
+        f"- Source SHA-256: `{markdown_cell(quality_source_sha[:12])}`",
         "",
         "## Watchlist",
         "",
@@ -4888,12 +4915,46 @@ def validate_operator_run_review_consistency(
         validate_operator_run_review_dashboard(payload=payload, repo_root=repo_root)
     )
     errors.extend(
+        validate_operator_run_review_candidate_quality_source(
+            payload=payload,
+            repo_root=repo_root,
+            run_dir=run_dir,
+        )
+    )
+    errors.extend(
         validate_operator_run_review_gate_artifacts(
             payload=payload,
             repo_root=repo_root,
             run_dir=run_dir,
         )
     )
+    return tuple(errors)
+
+
+def validate_operator_run_review_candidate_quality_source(
+    *,
+    payload: dict[str, object],
+    repo_root: Path,
+    run_dir: Path,
+) -> tuple[str, ...]:
+    """Validate the candidate-quality source file record is current."""
+    errors: list[str] = []
+    dashboard = dict_payload(payload.get("dashboard", {}))
+    quality_review = dict_payload(dashboard.get("candidate_quality_review", {}))
+    source = dict_payload(payload.get("candidate_quality_source", {}))
+    expected = operator_run_review_candidate_quality_source(
+        dashboard=dashboard,
+        repo_root=repo_root,
+        run_dir=run_dir,
+    )
+    if str(source.get("source_path", "")) != str(quality_review.get("source_path", "")):
+        errors.append("operator_run_review candidate quality source path mismatch")
+    if resolve_report_path(source.get("expected_source_path"), repo_root) != (
+        resolve_report_path(expected.get("expected_source_path"), repo_root)
+    ):
+        errors.append("operator_run_review candidate quality expected source mismatch")
+    if dict_payload(source.get("file", {})) != dict_payload(expected.get("file", {})):
+        errors.append("operator_run_review candidate quality file record mismatch")
     return tuple(errors)
 
 

@@ -28288,6 +28288,22 @@ def test_operator_run_review_rejects_candidate_count_bounds_drift() -> None:
     )
 
 
+def test_operator_run_review_rejects_quality_source_path_drift() -> None:
+    payload = _minimal_operator_run_review_payload()
+    dashboard = payload["dashboard"]
+    assert isinstance(dashboard, dict)
+    quality_review = dashboard["candidate_quality_review"]
+    assert isinstance(quality_review, dict)
+    quality_review["source_path"] = "experiments/other-run/candidate_leaderboard.json"
+
+    errors = validate_operator_run_review_payload(
+        payload,
+        repo_root=Path(__file__).resolve().parents[1],
+    )
+
+    assert "operator_run_review dashboard quality source path mismatch" in errors
+
+
 def test_compare_experiments_recommends_accepted_metric_winner(
     tmp_path: Path,
 ) -> None:

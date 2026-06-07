@@ -494,9 +494,10 @@ run status, closeout status, completed rounds, accepted round, stop reason, and
 config-lineage summary still match the embedded dashboard, and that the run
 directory plus closeout JSON/markdown paths all bind to the same run id. It
 also checks the dashboard's fixed gate order, gate-to-summary bindings,
-read-only authority, policy flags, selected-candidate count, and
-candidate-quality selected-count binding, candidate/selectable/selected count
-bounds, plus research-watchlist status and alert count bindings. The command
+read-only authority, policy flags, selected-candidate count,
+candidate-quality source-path binding, candidate-quality selected-count
+binding, candidate/selectable/selected count bounds, plus research-watchlist
+status and alert count bindings. The command
 is read-only: it does not write config, promote champions, execute agents, run
 backtests, route candidates, apply patches, or change acceptance.
 `python -m orchestrator.experiments challenger <run_id>` writes or refreshes

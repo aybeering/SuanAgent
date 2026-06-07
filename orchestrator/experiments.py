@@ -4740,12 +4740,16 @@ def validate_operator_run_review_payload(
     """Validate an in-memory operator run review payload."""
     schema = load_schema(repo_root / OPERATOR_RUN_REVIEW_SCHEMA_PATH)
     errors = list(validate_json_payload(payload=payload, schema=schema))
-    errors.extend(validate_operator_run_review_consistency(payload))
+    errors.extend(
+        validate_operator_run_review_consistency(payload, repo_root=repo_root)
+    )
     return tuple(errors)
 
 
 def validate_operator_run_review_consistency(
     payload: dict[str, object],
+    *,
+    repo_root: Path,
 ) -> tuple[str, ...]:
     """Validate copied run-review summaries match the embedded dashboard."""
     errors: list[str] = []
@@ -4818,13 +4822,16 @@ def validate_operator_run_review_consistency(
     for key, left, right in summary_pairs:
         if not scalar_equal(left, right):
             errors.append(f"operator_run_review summary {key} mismatch")
-    errors.extend(validate_operator_run_review_dashboard(payload=payload))
+    errors.extend(
+        validate_operator_run_review_dashboard(payload=payload, repo_root=repo_root)
+    )
     return tuple(errors)
 
 
 def validate_operator_run_review_dashboard(
     *,
     payload: dict[str, object],
+    repo_root: Path,
 ) -> tuple[str, ...]:
     """Validate embedded operator dashboard fields remain read-only and bound."""
     errors: list[str] = []
@@ -4836,6 +4843,8 @@ def validate_operator_run_review_dashboard(
     watchlist = dict_payload(dashboard.get("watchlist", {}))
     gates = list_payload(dashboard.get("gates", []))
     gates_by_name = {str(row.get("gate_name", "")): row for row in gates}
+    run_dir = Path(str(payload.get("run_dir", "")))
+    expected_quality_source_path = str(run_dir / "candidate_leaderboard.json")
 
     expected_gate_order = [
         "artifact_health",
@@ -4886,6 +4895,11 @@ def validate_operator_run_review_dashboard(
         "present" if quality_review.get("trace_present") is True else "missing"
     ):
         errors.append("operator_run_review dashboard quality gate status mismatch")
+    if resolve_report_path(
+        quality_review.get("source_path"),
+        repo_root,
+    ) != resolve_report_path(expected_quality_source_path, repo_root):
+        errors.append("operator_run_review dashboard quality source path mismatch")
 
     promotion_gate = gates_by_name.get("promotion_review", {})
     if str(promotion_gate.get("status", "")) != str(

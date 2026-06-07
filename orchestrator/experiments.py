@@ -1370,6 +1370,195 @@ def compact_record_row(record: dict[str, object]) -> dict[str, object]:
     }
 
 
+def current_operator_home_hint(
+    *,
+    base: dict[str, object],
+    experiments_dir: Path,
+    run_id: str,
+    run_kind: str,
+    reason: str,
+) -> dict[str, object]:
+    """Return a compact operator-home hint from current evidence when possible."""
+    try:
+        home = build_operator_home(
+            run_dir=experiments_dir / run_id,
+            experiments_dir=experiments_dir,
+            repo_root=experiments_dir.parent,
+        )
+    except (OSError, ValueError, TypeError, KeyError):
+        return {}
+    return compact_operator_home_from_payload(
+        base=base,
+        home=home,
+        run_id=run_id,
+        run_kind=run_kind,
+        reason=reason,
+    )
+
+
+def compact_operator_home_from_payload(
+    *,
+    base: dict[str, object],
+    home: dict[str, object],
+    run_id: str,
+    run_kind: str,
+    reason: str,
+) -> dict[str, object]:
+    """Return the existing compact operator-home shape from a live home payload."""
+    action_home = dict_payload(home.get("action_home", {}))
+    codex_home = dict_payload(home.get("codex_home", {}))
+    next_command = dict_payload(home.get("next_command", {}))
+    next_boundary = dict_payload(next_command.get("boundary", {}))
+    command = f"python -m orchestrator.experiments home {run_id} --markdown"
+    selected_command = str(next_command.get("command", ""))
+    compact = {
+        **base,
+        "available": True,
+        "reason": reason,
+        "status": str(home.get("status", "unknown")),
+        "primary_focus": str(home.get("primary_focus", "")),
+        "action_step": str(action_home.get("active_step_id", "")),
+        "codex_unlock_runbook_status": str(
+            codex_home.get("unlock_runbook_status", "")
+        ),
+        "codex_preflight_next_step": str(codex_home.get("preflight_next_step", "")),
+        "codex_intake_readiness_status": str(
+            codex_home.get("intake_readiness_status", "")
+        ),
+        "command_label": "review_operator_home",
+        "command": command,
+        "command_sha256": sha256_text(command),
+        "command_boundary": "read_only_inspection",
+        "terminal_only": True,
+        "artifact_created": False,
+        "command_is_hint_only": True,
+        "next_command_label": str(next_command.get("label", "")),
+        "next_command": selected_command,
+        "next_command_sha256": sha256_text(selected_command),
+        "next_command_status": str(action_home.get("next_command_status", "")),
+        "next_command_blocked": bool(action_home.get("next_command_blocked", False)),
+        "next_command_blocker_count": int(
+            action_home.get("next_command_blocker_count", 0) or 0
+        ),
+        "next_command_first_blocker": str(
+            action_home.get("next_command_first_blocker", "")
+        ),
+        "next_command_operator_hint": str(
+            action_home.get("next_command_operator_hint", "")
+        ),
+        "next_command_boundary": str(next_boundary.get("boundary_type", "")),
+        "next_command_writes_artifact": str(
+            next_command.get("writes_artifact", "")
+        ),
+        "next_command_requires_explicit_operator_invocation": bool(
+            next_command.get("requires_explicit_operator_invocation", False)
+        ),
+        "next_command_requires_operator_approval": bool(
+            next_command.get("requires_operator_approval", False)
+        ),
+        "next_command_records_operator_approval": bool(
+            next_command.get("records_operator_approval", False)
+        ),
+        "next_command_uses_guarded_executor": bool(
+            next_command.get("uses_guarded_executor", False)
+        ),
+        "next_command_is_hint_only": bool(
+            next_command.get("command_is_hint_only", False)
+        ),
+    }
+    if "run_kind" in base:
+        compact["run_kind"] = run_kind
+    if "source" in base:
+        compact["source"] = str(base.get("source", "latest_run"))
+    return compact
+
+
+def compact_operator_home_from_manifest(
+    *,
+    base: dict[str, object],
+    manifest_home: dict[str, object],
+    run_id: str,
+    run_kind: str,
+    reason: str,
+) -> dict[str, object]:
+    """Return the existing compact operator-home shape from manifest evidence."""
+    command = f"python -m orchestrator.experiments home {run_id} --markdown"
+    next_command = str(manifest_home.get("next_command", ""))
+    compact = {
+        **base,
+        "available": True,
+        "reason": reason,
+        "status": str(manifest_home.get("status", "unknown")),
+        "primary_focus": str(manifest_home.get("primary_focus", "")),
+        "action_step": str(manifest_home.get("action_step", "")),
+        "codex_unlock_runbook_status": str(
+            manifest_home.get("codex_unlock_runbook_status", "")
+        ),
+        "codex_preflight_next_step": str(
+            manifest_home.get("codex_preflight_next_step", "")
+        ),
+        "codex_intake_readiness_status": str(
+            manifest_home.get("codex_intake_readiness_status", "")
+        ),
+        "command_label": "review_operator_home",
+        "command": command,
+        "command_sha256": sha256_text(command),
+        "command_boundary": "read_only_inspection",
+        "terminal_only": bool(manifest_home.get("terminal_only", False)),
+        "artifact_created": bool(manifest_home.get("artifact_created", True)),
+        "command_is_hint_only": bool(
+            manifest_home.get("command_is_hint_only", False)
+        ),
+        "next_command_label": str(manifest_home.get("next_command_label", "")),
+        "next_command": next_command,
+        "next_command_sha256": str(
+            manifest_home.get(
+                "next_command_sha256",
+                sha256_text(next_command) if next_command else "",
+            )
+        ),
+        "next_command_status": str(
+            manifest_home.get("next_command_status", "unknown")
+        ),
+        "next_command_blocked": bool(
+            manifest_home.get("next_command_blocked", False)
+        ),
+        "next_command_blocker_count": int(
+            manifest_home.get("next_command_blocker_count", 0) or 0
+        ),
+        "next_command_first_blocker": str(
+            manifest_home.get("next_command_first_blocker", "")
+        ),
+        "next_command_operator_hint": str(
+            manifest_home.get("next_command_operator_hint", "")
+        ),
+        "next_command_boundary": str(manifest_home.get("next_command_boundary", "")),
+        "next_command_writes_artifact": str(
+            manifest_home.get("next_command_writes_artifact", "")
+        ),
+        "next_command_requires_explicit_operator_invocation": bool(
+            manifest_home.get("next_command_requires_explicit_operator_invocation", False)
+        ),
+        "next_command_requires_operator_approval": bool(
+            manifest_home.get("next_command_requires_operator_approval", False)
+        ),
+        "next_command_records_operator_approval": bool(
+            manifest_home.get("next_command_records_operator_approval", False)
+        ),
+        "next_command_uses_guarded_executor": bool(
+            manifest_home.get("next_command_uses_guarded_executor", False)
+        ),
+        "next_command_is_hint_only": bool(
+            manifest_home.get("next_command_is_hint_only", False)
+        ),
+    }
+    if "run_kind" in base:
+        compact["run_kind"] = run_kind
+    if "source" in base:
+        compact["source"] = str(base.get("source", "latest_run"))
+    return compact
+
+
 def experiment_list_operator_home_hint(
     *,
     record: dict[str, object],
@@ -1423,66 +1612,33 @@ def experiment_list_operator_home_hint(
             "reason": "operator_home_missing",
             "status": "operator_home_missing",
         }
-    command = f"python -m orchestrator.experiments home {run_id} --markdown"
-    next_command = str(manifest_home.get("next_command", ""))
-    return {
-        **base,
-        "available": True,
-        "reason": "iteration_run",
-        "status": str(manifest_home.get("status", "unknown")),
-        "command_label": "review_operator_home",
-        "command": command,
-        "command_sha256": sha256_text(command),
-        "command_boundary": "read_only_inspection",
-        "terminal_only": bool(manifest_home.get("terminal_only", False)),
-        "artifact_created": bool(manifest_home.get("artifact_created", True)),
-        "command_is_hint_only": bool(manifest_home.get("command_is_hint_only", False)),
-        "next_command_label": str(manifest_home.get("next_command_label", "")),
-        "next_command": next_command,
-        "next_command_sha256": str(
-            manifest_home.get(
-                "next_command_sha256",
-                sha256_text(next_command) if next_command else "",
-            )
-        ),
-        "next_command_status": str(
-            manifest_home.get("next_command_status", "unknown")
-        ),
-        "next_command_blocked": bool(
-            manifest_home.get("next_command_blocked", False)
-        ),
-        "next_command_blocker_count": int(
-            manifest_home.get("next_command_blocker_count", 0) or 0
-        ),
-        "next_command_first_blocker": str(
-            manifest_home.get("next_command_first_blocker", "")
-        ),
-        "next_command_operator_hint": str(
-            manifest_home.get("next_command_operator_hint", "")
-        ),
-        "codex_preflight_next_step": str(
-            manifest_home.get("codex_preflight_next_step", "")
-        ),
-        "next_command_boundary": str(manifest_home.get("next_command_boundary", "")),
-        "next_command_writes_artifact": str(
-            manifest_home.get("next_command_writes_artifact", "")
-        ),
-        "next_command_requires_explicit_operator_invocation": bool(
-            manifest_home.get("next_command_requires_explicit_operator_invocation", False)
-        ),
-        "next_command_requires_operator_approval": bool(
-            manifest_home.get("next_command_requires_operator_approval", False)
-        ),
-        "next_command_records_operator_approval": bool(
-            manifest_home.get("next_command_records_operator_approval", False)
-        ),
-        "next_command_uses_guarded_executor": bool(
-            manifest_home.get("next_command_uses_guarded_executor", False)
-        ),
-        "next_command_is_hint_only": bool(
-            manifest_home.get("next_command_is_hint_only", False)
-        ),
-    }
+    manifest_compact = compact_operator_home_from_manifest(
+        base=base,
+        manifest_home=manifest_home,
+        run_id=run_id,
+        run_kind=kind,
+        reason="iteration_run",
+    )
+    manifest_next = experiment_operator_next_command_hint(
+        operator_home=manifest_compact,
+        run_id=run_id,
+        run_kind=kind,
+    )
+    if validate_experiment_operator_navigation_pair(
+        operator_home=manifest_compact,
+        operator_next_command=manifest_next,
+        run_id=run_id,
+        run_kind=kind,
+    ):
+        return manifest_compact
+    current_home = current_operator_home_hint(
+        base=base,
+        experiments_dir=experiments_dir,
+        run_id=run_id,
+        run_kind=kind,
+        reason="iteration_run",
+    )
+    return current_home or manifest_compact
 
 
 def experiment_operator_next_command_hint(
@@ -1721,87 +1877,37 @@ def experiment_operator_home_entry(
             }
         )
         return base
-    command = f"python -m orchestrator.experiments home {run_id} --markdown"
-    next_command = str(manifest_home.get("next_command", ""))
-    base.update(
-        {
-            "available": True,
-            "reason": "latest_iteration_run",
-            "status": str(manifest_home.get("status", "unknown")),
-            "primary_focus": str(manifest_home.get("primary_focus", "")),
-            "action_step": str(manifest_home.get("action_step", "")),
-            "codex_unlock_runbook_status": str(
-                manifest_home.get("codex_unlock_runbook_status", "")
-            ),
-            "codex_preflight_next_step": str(
-                manifest_home.get("codex_preflight_next_step", "")
-            ),
-            "codex_intake_readiness_status": str(
-                manifest_home.get("codex_intake_readiness_status", "")
-            ),
-            "next_command_label": str(manifest_home.get("next_command_label", "")),
-            "next_command": next_command,
-            "next_command_sha256": str(
-                manifest_home.get(
-                    "next_command_sha256",
-                    sha256_text(next_command) if next_command else "",
-                )
-            ),
-            "next_command_status": str(
-                manifest_home.get("next_command_status", "unknown")
-            ),
-            "next_command_blocked": bool(
-                manifest_home.get("next_command_blocked", False)
-            ),
-            "next_command_blocker_count": int(
-                manifest_home.get("next_command_blocker_count", 0) or 0
-            ),
-            "next_command_first_blocker": str(
-                manifest_home.get("next_command_first_blocker", "")
-            ),
-            "next_command_operator_hint": str(
-                manifest_home.get("next_command_operator_hint", "")
-            ),
-            "next_command_boundary": str(
-                manifest_home.get("next_command_boundary", "")
-            ),
-            "next_command_writes_artifact": str(
-                manifest_home.get("next_command_writes_artifact", "")
-            ),
-            "next_command_requires_explicit_operator_invocation": bool(
-                manifest_home.get(
-                    "next_command_requires_explicit_operator_invocation", False
-                )
-            ),
-            "next_command_requires_operator_approval": bool(
-                manifest_home.get("next_command_requires_operator_approval", False)
-            ),
-            "next_command_records_operator_approval": bool(
-                manifest_home.get("next_command_records_operator_approval", False)
-            ),
-            "next_command_uses_guarded_executor": bool(
-                manifest_home.get("next_command_uses_guarded_executor", False)
-            ),
-            "next_command_is_hint_only": bool(
-                manifest_home.get("next_command_is_hint_only", False)
-            ),
-            "command_label": "review_operator_home",
-            "command": command,
-            "command_sha256": sha256_text(command),
-            "command_boundary": "read_only_inspection",
-            "terminal_only": bool(manifest_home.get("terminal_only", False)),
-            "artifact_created": bool(manifest_home.get("artifact_created", True)),
-            "command_is_hint_only": bool(
-                manifest_home.get("command_is_hint_only", False)
-            ),
-            "source": (
-                "latest_run_manifest_operator_home"
-                if manifest_home
-                else "derived_latest_iteration_run"
-            ),
-        }
+    manifest_compact = compact_operator_home_from_manifest(
+        base={
+            **base,
+            "source": "latest_run_manifest_operator_home",
+        },
+        manifest_home=manifest_home,
+        run_id=run_id,
+        run_kind=run_kind,
+        reason="latest_iteration_run",
     )
-    return base
+    manifest_next = experiment_operator_next_command_hint(
+        operator_home=manifest_compact,
+        run_id=run_id,
+        run_kind=run_kind,
+        schema_version="experiment_operator_next_command_entry_v1",
+    )
+    if validate_experiment_operator_navigation_pair(
+        operator_home=manifest_compact,
+        operator_next_command=manifest_next,
+        run_id=run_id,
+        run_kind=run_kind,
+    ):
+        return manifest_compact
+    current_home = current_operator_home_hint(
+        base=base,
+        experiments_dir=experiments_dir,
+        run_id=run_id,
+        run_kind=run_kind,
+        reason="latest_iteration_run",
+    )
+    return current_home or manifest_compact
 
 
 def compact_artifact_health_history_hint(

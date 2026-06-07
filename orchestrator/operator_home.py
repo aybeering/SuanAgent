@@ -82,7 +82,11 @@ def build_operator_home(
     )
     codex_home = codex_home_summary(cockpit)
     status = home_status(cockpit=cockpit, guide=guide, blockers=blockers)
-    next_command_first_blocker = blockers[0] if blockers else ""
+    next_command_first_blocker = (
+        blockers[0]
+        if bool(command_state.get("blocked", False)) and blockers
+        else ""
+    )
     review_priority_command = str(priority.get("recommended_command", ""))
     return {
         "schema_version": OPERATOR_HOME_SCHEMA_VERSION,

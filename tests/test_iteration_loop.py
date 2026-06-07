@@ -1661,6 +1661,7 @@ def test_operator_home_summarizes_artifact_health_history_replay_drift(
     )
     assert home["action_home"]["next_command_status"] == "ready_for_operator"
     assert home["action_home"]["next_command_blocked"] is False
+    assert home["action_home"]["next_command_first_blocker"] == ""
     assert home["action_home"]["next_command_boundary"] == "read_only_inspection"
     assert home["action_home"]["next_command_writes_artifact"] == ""
     assert home["action_home"]["next_command_is_hint_only"] is True
@@ -1696,6 +1697,23 @@ def test_operator_home_summarizes_artifact_health_history_replay_drift(
     assert "Latest replay drift: `1`" in markdown
     list_home = list_payload[0]["operator_home"]
     show_home = show_payload["operator_home"]
+    assert list_home["primary_focus"] == (
+        "artifact_health_history_replay_manifest_drift"
+    )
+    assert list_home["next_command_label"] == "review_artifact_health_history"
+    assert list_home["next_command"] == home["artifact_health_history"][
+        "review_command"
+    ]
+    assert list_home["next_command_status"] == "ready_for_operator"
+    assert list_home["next_command_blocked"] is False
+    assert list_home["next_command_first_blocker"] == ""
+    assert list_home["next_command_boundary"] == "read_only_inspection"
+    assert list_home["next_command_writes_artifact"] == ""
+    assert list_home["next_command_requires_explicit_operator_invocation"] is True
+    assert list_home["next_command_requires_operator_approval"] is False
+    assert list_home["next_command_records_operator_approval"] is False
+    assert list_home["next_command_uses_guarded_executor"] is False
+    assert list_home["next_command_is_hint_only"] is True
     assert list_home["artifact_health_history_status"] == (
         "replay_manifest_drift_observed"
     )
@@ -1715,7 +1733,42 @@ def test_operator_home_summarizes_artifact_health_history_replay_drift(
     assert "Artifact-health history: `replay_manifest_drift_observed`" in (
         show_markdown
     )
+    list_next = list_payload[0]["operator_next_command"]
+    show_next = show_payload["operator_next_command"]
+    assert list_next["selected_command_label"] == "review_artifact_health_history"
+    assert list_next["selected_command"] == home["artifact_health_history"][
+        "review_command"
+    ]
+    assert list_next["selected_command_status"] == "ready_for_operator"
+    assert list_next["selected_command_boundary"] == "read_only_inspection"
+    assert list_next["selected_command_writes_artifact"] == ""
+    assert list_next["blocked"] is False
+    assert list_next["can_invoke_selected_command"] is True
+    assert list_next["selected_command_requires_explicit_operator_invocation"] is True
+    assert list_next["selected_command_requires_operator_approval"] is False
+    assert list_next["selected_command_records_operator_approval"] is False
+    assert list_next["selected_command_uses_guarded_executor"] is False
+    assert list_next["selected_command_is_hint_only"] is True
+    assert show_next == list_next
     watchlist = summary["dashboard"]["watchlist"]
+    dashboard_home = summary["dashboard"]["operator_home_entry"]
+    dashboard_next = summary["dashboard"]["operator_next_command_entry"]
+    assert dashboard_home["primary_focus"] == (
+        "artifact_health_history_replay_manifest_drift"
+    )
+    assert dashboard_home["next_command_label"] == "review_artifact_health_history"
+    assert dashboard_home["next_command"] == home["artifact_health_history"][
+        "review_command"
+    ]
+    assert dashboard_home["next_command_status"] == "ready_for_operator"
+    assert dashboard_next["selected_command_label"] == (
+        "review_artifact_health_history"
+    )
+    assert dashboard_next["selected_command"] == home["artifact_health_history"][
+        "review_command"
+    ]
+    assert dashboard_next["selected_command_status"] == "ready_for_operator"
+    assert dashboard_next["can_invoke_selected_command"] is True
     assert watchlist["status"] in {"attention", "critical"}
     drift_alerts = [
         alert

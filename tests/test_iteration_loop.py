@@ -33308,6 +33308,21 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert operator_home["codex_home"]["unlock_runbook_status"] == (
         cockpit["summary"]["codex_unlock_runbook_status"]
     )
+    assert operator_home["codex_home"]["readiness_diff_status"] == (
+        cockpit["summary"]["codex_readiness_diff_status"]
+    )
+    assert operator_home["codex_home"]["readiness_diff_ready"] == (
+        cockpit["summary"]["codex_readiness_diff_ready"]
+    )
+    assert operator_home["codex_home"]["readiness_diff_matched_count"] == (
+        cockpit["summary"]["codex_readiness_diff_matched_count"]
+    )
+    assert operator_home["codex_home"]["readiness_diff_drift_count"] == (
+        cockpit["summary"]["codex_readiness_diff_drift_count"]
+    )
+    assert operator_home["codex_home"]["readiness_diff_missing_count"] == (
+        cockpit["summary"]["codex_readiness_diff_missing_count"]
+    )
     assert operator_home["codex_home"]["runbook_command_label"] == (
         "review_codex_cli_unlock_runbook"
     )
@@ -33330,6 +33345,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "# Operator Home" in operator_home_markdown
     assert "## Codex CLI" in operator_home_markdown
     assert "Unlock runbook:" in operator_home_markdown
+    assert "Readiness diff counts:" in operator_home_markdown
     assert "## Guided Path" in operator_home_markdown
     assert "Source views SHA-256:" in operator_home_markdown
     assert unlock_checklist["from_artifact"] is True
@@ -33820,6 +33836,18 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert operator_home_payload["codex_home"]["unlock_runbook_status"] == (
         cockpit["summary"]["codex_unlock_runbook_status"]
     )
+    assert operator_home_payload["codex_home"]["readiness_diff_status"] == (
+        cockpit["summary"]["codex_readiness_diff_status"]
+    )
+    assert operator_home_payload["codex_home"]["readiness_diff_matched_count"] == (
+        cockpit["summary"]["codex_readiness_diff_matched_count"]
+    )
+    assert operator_home_payload["codex_home"]["readiness_diff_drift_count"] == (
+        cockpit["summary"]["codex_readiness_diff_drift_count"]
+    )
+    assert operator_home_payload["codex_home"]["readiness_diff_missing_count"] == (
+        cockpit["summary"]["codex_readiness_diff_missing_count"]
+    )
     assert operator_home_payload["codex_home"]["runbook_command_label"] == (
         "review_codex_cli_unlock_runbook"
     )
@@ -33933,12 +33961,16 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "# Operator Home" in operator_home_markdown_result.stdout
     assert "## Codex CLI" in operator_home_markdown_result.stdout
     assert "Unlock runbook:" in operator_home_markdown_result.stdout
+    assert "Readiness diff counts:" in operator_home_markdown_result.stdout
     assert "## Guided Path" in operator_home_markdown_result.stdout
     assert operator_home_module_markdown_result.returncode == 0, (
         operator_home_module_markdown_result.stderr
     )
     assert "# Operator Home" in operator_home_module_markdown_result.stdout
     assert "## Codex CLI" in operator_home_module_markdown_result.stdout
+    assert "Readiness diff counts:" in (
+        operator_home_module_markdown_result.stdout
+    )
     assert "## Guided Path" in operator_home_module_markdown_result.stdout
     assert operator_home_latest_result.returncode == 0, (
         operator_home_latest_result.stderr
@@ -33953,6 +33985,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert "# Operator Home" in operator_home_latest_markdown_result.stdout
     assert "cli-candidates" in operator_home_latest_markdown_result.stdout
+    assert "Readiness diff counts:" in operator_home_latest_markdown_result.stdout
     operator_next_command_result = subprocess.run(
         [
             sys.executable,

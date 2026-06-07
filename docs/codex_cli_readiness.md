@@ -273,8 +273,8 @@ closeout, and failed execute=true startup preflight runs write it before
 returning the deterministic startup error. The operator cockpit includes
 read-only unlock-runbook and readiness-diff panels so missing ordered evidence,
 blocked runbook steps, or drift are visible from the main operator page. The
-terminal-only operator home mirrors the runbook status and command hint in its
-Codex CLI section.
+terminal-only operator home mirrors the runbook status, command hint, and
+readiness-diff ready/matched/drift/missing counts in its Codex CLI section.
 
 Refresh operator-facing views after writing later readiness evidence:
 

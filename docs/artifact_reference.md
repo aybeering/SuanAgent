@@ -672,7 +672,8 @@ orchestrator.operator_home experiments/<run_id>` expose a terminal-only
 The home view derives from the current cockpit and action guide, then combines
 run outcome, primary focus, guided action path, next command, next-command
 safety flags, cockpit review priority, compact Codex CLI
-preflight status and next step, unlock-runbook/readiness/intake-binding status, compact
+preflight status and next step, unlock-runbook status, readiness-diff
+ready/matched/drift/missing counts, intake-binding status, compact
 command-center rows, blockers, and source view records into one operator
 landing page. The home view also records a source-view set SHA-256 so the
 full source evidence table has a compact digest. The safety flags surface
@@ -702,7 +703,8 @@ priority command digests, command-center digests, and the source-view set
 digest to use 64 lowercase hexadecimal characters, while source-view file
 digests may be empty or 64-lowercase-hex strings.
 The home consistency validator reports field-specific drift for the selected
-action step, next-command safety flags, Codex readiness summary, source-view
+action step, next-command safety flags, Codex readiness summary counts,
+source-view
 file records, the source-view set SHA-256, authority flags, and read-only
 policy before falling back to the full derived-payload comparison.
 When the guided operator action path is closed and the cockpit has a

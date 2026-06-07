@@ -890,6 +890,15 @@ def codex_home_summary(cockpit: dict[str, Any]) -> dict[str, object]:
         "readiness_diff_ready": bool(
             summary.get("codex_readiness_diff_ready", False)
         ),
+        "readiness_diff_matched_count": int(
+            summary.get("codex_readiness_diff_matched_count", 0) or 0
+        ),
+        "readiness_diff_drift_count": int(
+            summary.get("codex_readiness_diff_drift_count", 0) or 0
+        ),
+        "readiness_diff_missing_count": int(
+            summary.get("codex_readiness_diff_missing_count", 0) or 0
+        ),
         "intake_readiness_status": str(
             summary.get("codex_intake_readiness_status", "")
         ),
@@ -1106,6 +1115,10 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
         f"- Unlock runbook blocked steps: `{codex_home.get('unlock_runbook_blocked_step_count', 0)}`",
         f"- Readiness diff: `{codex_home.get('readiness_diff_status', '')}`",
         f"- Readiness diff ready: `{codex_home.get('readiness_diff_ready', False)}`",
+        "- Readiness diff counts: "
+        f"matched `{codex_home.get('readiness_diff_matched_count', 0)}`, "
+        f"drift `{codex_home.get('readiness_diff_drift_count', 0)}`, "
+        f"missing `{codex_home.get('readiness_diff_missing_count', 0)}`",
         f"- Intake binding: `{codex_home.get('intake_readiness_status', '')}`",
         f"- Intake ready: `{codex_home.get('intake_ready', False)}`",
         f"- Intake blockers: `{codex_home.get('intake_blocker_count', 0)}`",
@@ -1602,6 +1615,9 @@ def validate_operator_home_consistency(
         "unlock_runbook_ready",
         "readiness_diff_status",
         "readiness_diff_ready",
+        "readiness_diff_matched_count",
+        "readiness_diff_drift_count",
+        "readiness_diff_missing_count",
         "intake_readiness_status",
         "intake_ready",
         "intake_blocker_count",

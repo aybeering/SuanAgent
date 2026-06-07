@@ -26572,6 +26572,7 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert records[0]["operator_home"]["reason"] == "not_iteration_run"
     assert records[0]["operator_home"]["command"] == ""
     assert records[0]["operator_home"]["command_sha256"] == ""
+    assert records[0]["operator_home"]["source_views_sha256"] == ""
     assert records[0]["operator_home"]["next_command_status"] == "unavailable"
     assert records[0]["operator_home"]["next_command_blocked"] is False
     assert records[0]["operator_home"]["next_command"] == ""
@@ -26583,6 +26584,7 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert records[0]["operator_next_command"]["command_sha256"] == ""
     assert records[0]["operator_next_command"]["source_home_command"] == ""
     assert records[0]["operator_next_command"]["source_home_command_sha256"] == ""
+    assert records[0]["operator_next_command"]["source_home_source_views_sha256"] == ""
     assert records[0]["operator_next_command"]["selected_command_sha256"] == ""
     assert records[0]["operator_next_command"]["selected_command_status"] == (
         "unavailable"
@@ -26597,6 +26599,7 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert records[1]["operator_home"]["command_sha256"] == sha256_text(
         records[1]["operator_home"]["command"]
     )
+    assert len(records[1]["operator_home"]["source_views_sha256"]) == 64
     assert records[1]["operator_home"]["command_boundary"] == "read_only_inspection"
     assert records[1]["operator_home"]["terminal_only"] is True
     assert records[1]["operator_home"]["artifact_created"] is False
@@ -26649,6 +26652,9 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     )
     assert records[1]["operator_next_command"]["source_home_command_sha256"] == (
         records[1]["operator_home"]["command_sha256"]
+    )
+    assert records[1]["operator_next_command"]["source_home_source_views_sha256"] == (
+        records[1]["operator_home"]["source_views_sha256"]
     )
     assert records[1]["operator_next_command"]["selected_command_label"] == (
         records[1]["operator_home"]["next_command_label"]
@@ -26718,6 +26724,7 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert single["operator_home"]["reason"] == "not_iteration_run"  # type: ignore[index]
     assert single["operator_home"]["command"] == ""  # type: ignore[index]
     assert single["operator_home"]["command_sha256"] == ""  # type: ignore[index]
+    assert single["operator_home"]["source_views_sha256"] == ""  # type: ignore[index]
     assert single["operator_home"]["next_command_status"] == "unavailable"  # type: ignore[index]
     assert single["operator_home"]["next_command_blocked"] is False  # type: ignore[index]
     assert single["operator_home"]["next_command"] == ""  # type: ignore[index]
@@ -26728,6 +26735,7 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert single["operator_next_command"]["command_sha256"] == ""  # type: ignore[index]
     assert single["operator_next_command"]["source_home_command"] == ""  # type: ignore[index]
     assert single["operator_next_command"]["source_home_command_sha256"] == ""  # type: ignore[index]
+    assert single["operator_next_command"]["source_home_source_views_sha256"] == ""  # type: ignore[index]
     assert single["operator_next_command"]["can_invoke_selected_command"] is False  # type: ignore[index]
     assert single["operator_next_command"]["navigation_summary"] == (  # type: ignore[index]
         "No selected command is available."
@@ -26750,6 +26758,7 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert iteration["operator_home"]["command_sha256"] == sha256_text(  # type: ignore[index]
         iteration["operator_home"]["command"]  # type: ignore[index]
     )
+    assert len(iteration["operator_home"]["source_views_sha256"]) == 64  # type: ignore[index]
     assert iteration["operator_home"]["command_boundary"] == (  # type: ignore[index]
         "read_only_inspection"
     )
@@ -26804,6 +26813,9 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     )
     assert iteration["operator_next_command"]["source_home_command_sha256"] == (  # type: ignore[index]
         iteration["operator_home"]["command_sha256"]  # type: ignore[index]
+    )
+    assert iteration["operator_next_command"]["source_home_source_views_sha256"] == (  # type: ignore[index]
+        iteration["operator_home"]["source_views_sha256"]  # type: ignore[index]
     )
     assert iteration["operator_next_command"]["selected_command"] == (  # type: ignore[index]
         iteration["operator_home"]["next_command"]
@@ -27042,6 +27054,7 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     assert summary["dashboard"]["operator_home_entry"]["command_sha256"] == sha256_text(  # type: ignore[index]
         summary["dashboard"]["operator_home_entry"]["command"]  # type: ignore[index]
     )
+    assert len(summary["dashboard"]["operator_home_entry"]["source_views_sha256"]) == 64  # type: ignore[index]
     assert summary["dashboard"]["operator_home_entry"]["command_boundary"] == (  # type: ignore[index]
         "read_only_inspection"
     )
@@ -27102,6 +27115,9 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
     assert summary["dashboard"]["operator_next_command_entry"]["source_home_command_sha256"] == (  # type: ignore[index]
         summary["dashboard"]["operator_home_entry"]["command_sha256"]  # type: ignore[index]
     )
+    assert summary["dashboard"]["operator_next_command_entry"][
+        "source_home_source_views_sha256"
+    ] == summary["dashboard"]["operator_home_entry"]["source_views_sha256"]  # type: ignore[index]
     assert summary["dashboard"]["operator_next_command_entry"]["selected_command"] == (  # type: ignore[index]
         summary["dashboard"]["operator_home_entry"]["next_command"]
     )
@@ -27445,6 +27461,7 @@ def _minimal_experiment_summary_dashboard_payload() -> dict[str, object]:
                 "keep real Codex execution disabled unless explicitly reviewed"
             ),
             "codex_intake_readiness_status": "not_available",
+            "source_views_sha256": "1" * 64,
             "next_command_label": "record_operator_approval",
             "next_command": (
                 "python -m orchestrator.operator_action_approval "
@@ -27543,6 +27560,7 @@ def _minimal_experiment_summary_dashboard_payload() -> dict[str, object]:
             "source_home_command_sha256": sha256_text(
                 "python -m orchestrator.experiments home run-001 --markdown"
             ),
+            "source_home_source_views_sha256": "1" * 64,
             "selection_source": "operator_home.next_command",
             "selected_command_label": "record_operator_approval",
             "selected_command": (
@@ -27661,6 +27679,7 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     operator_home["next_command_first_blocker"] = ""
     operator_home["next_command"] = ""
     operator_home["next_command_boundary"] = ""
+    operator_home["source_views_sha256"] = "bad-source-views"
     operator_next_command["run_id"] = "third-run"
     operator_next_command["run_kind"] = "single_run"
     operator_next_command["command"] = "python -m orchestrator.run_loop"
@@ -27670,6 +27689,7 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
         "python -m orchestrator.preflight --config config/default.json"
     )
     operator_next_command["source_home_command_sha256"] = "bad-source-home"
+    operator_next_command["source_home_source_views_sha256"] = "bad-source-views"
     operator_next_command["terminal_only"] = False
     operator_next_command["artifact_created"] = True
     operator_next_command["command_is_hint_only"] = False
@@ -27730,6 +27750,10 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     assert "experiment_summary_dashboard operator_home next command missing" in errors
     assert "experiment_summary_dashboard operator_home next boundary missing" in errors
     assert (
+        "experiment_summary_dashboard operator_home source views sha256 mismatch"
+        in errors
+    )
+    assert (
         "experiment_summary_dashboard operator_home blocker count mismatch" in errors
     )
     assert "experiment_summary_dashboard operator_next_command run mismatch" in errors
@@ -27745,6 +27769,10 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     )
     assert (
         "experiment_summary_dashboard operator_next_command source home command_sha256 mismatch"
+        in errors
+    )
+    assert (
+        "experiment_summary_dashboard operator_next_command source home source views sha256 mismatch"
         in errors
     )
     assert "experiment_summary_dashboard operator_next_command status mismatch" in errors

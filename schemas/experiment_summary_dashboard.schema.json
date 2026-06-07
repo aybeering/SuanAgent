@@ -247,6 +247,7 @@
         "codex_unlock_runbook_status",
         "codex_preflight_next_step",
         "codex_intake_readiness_status",
+        "source_views_sha256",
         "next_command_label",
         "next_command",
         "next_command_sha256",
@@ -327,6 +328,9 @@
           "type": "string"
         },
         "codex_intake_readiness_status": {
+          "type": "string"
+        },
+        "source_views_sha256": {
           "type": "string"
         },
         "next_command_label": {
@@ -491,6 +495,7 @@
         "command_is_hint_only",
         "source_home_command",
         "source_home_command_sha256",
+        "source_home_source_views_sha256",
         "selection_source",
         "selected_command_label",
         "selected_command",
@@ -588,6 +593,9 @@
           "type": "string"
         },
         "source_home_command_sha256": {
+          "type": "string"
+        },
+        "source_home_source_views_sha256": {
           "type": "string"
         },
         "selection_source": {

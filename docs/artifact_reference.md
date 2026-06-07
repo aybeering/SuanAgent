@@ -168,8 +168,9 @@ index rows with derived `operator_home` and `operator_next_command` hints on
 each row. Iteration-loop rows include the terminal-only `home <run_id>
 --markdown` command, the narrower `next-command <run_id> --markdown`
 selector, status, boundary, hint-only policy flags, next-command text, blocker
-summary, command SHA-256 bindings, and next-command safety flags; single-run
-rows mark both hints and next-command state unavailable. `list --markdown`
+summary, command SHA-256 bindings, source-view set SHA-256 bindings, and
+next-command safety flags; single-run rows mark both hints and next-command
+state unavailable. `list --markdown`
 renders the recent-run table plus per-run `show <run_id> --markdown`, home, and
 next-command navigation with the same command SHA-256 bindings and Codex
 preflight next-step hint. The compact home hint also includes the current
@@ -194,7 +195,8 @@ next-command selector command, and the selected command label, status, blocked
 flag, blocker count, operator hint, command text, boundary, write target,
 command SHA-256 bindings, approval flags, guarded-executor flag, and
 hint-only flag, plus the Codex preflight next-step hint and the same compact
-artifact-health history status/replay-drift summary surfaced by `list`;
+artifact-health history status/replay-drift summary surfaced by `list`, with
+source-view set SHA-256 bindings copied into the home and selector hints;
 single-run payloads explicitly mark the home hint, selector hint, and
 next-command state unavailable. `show <run_id> --markdown` renders the compact
 run record, round table, and operator navigation as a terminal-only human view
@@ -440,15 +442,17 @@ saved `run_outcome_summary` category, primary stage, and primary code when the
 run has an iteration diagnosis. The operator-home entry is available only when
 the latest indexed run is an iteration loop; it surfaces the read-only `home
 <run_id> --markdown` command, terminal-only flag, source, status, action step,
-and Codex readiness snippets without creating an artifact. Like `list` and
-`show`, the entry prefers current terminal-only operator-home evidence before
-falling back to the saved manifest summary, so post-run artifact-health
-history observations such as read errors or replay manifest drift can update
-the visible next-command hint without editing the run directory. The
+source-view set digest, and Codex readiness snippets without creating an
+artifact. Like `list` and `show`, the entry prefers current terminal-only
+operator-home evidence before falling back to the saved manifest summary, so
+post-run artifact-health history observations such as read errors or replay
+manifest drift can update the visible next-command hint without editing the run
+directory. The
 operator-next-command entry mirrors the home-selected next command and exposes
 the read-only `next-command <run_id> --markdown` selector, selected command,
-status, blocker summary, boundary, write target, source home command, and
-command SHA-256 bindings without creating an artifact. The dashboard is
+status, blocker summary, boundary, write target, source home command,
+source-home source-view digest, and command SHA-256 bindings without creating
+an artifact. The dashboard is
 inspection-only and does not execute agents, run
 backtests, apply patches, promote champions, or change acceptance.
 The embedded dashboard is validated in memory against

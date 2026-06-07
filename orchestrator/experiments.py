@@ -663,6 +663,7 @@ def validate_experiment_operator_home_entry(
     next_command_text = str(operator_home.get("next_command", ""))
     next_command_sha256 = str(operator_home.get("next_command_sha256", ""))
     next_command_boundary = str(operator_home.get("next_command_boundary", ""))
+    source_views_sha256 = str(operator_home.get("source_views_sha256", ""))
     expected_command = (
         f"python -m orchestrator.experiments home {run_id} --markdown"
         if run_id
@@ -709,12 +710,16 @@ def validate_experiment_operator_home_entry(
                 errors.append(
                     "experiment_summary_dashboard operator_home next boundary missing"
                 )
+            if available and not is_sha256_hex(source_views_sha256):
+                errors.append(
+                    "experiment_summary_dashboard operator_home source views sha256 mismatch"
+                )
         else:
             if available or command:
                 errors.append(
                     "experiment_summary_dashboard operator_home non-iteration mismatch"
                 )
-            if command_sha256 or next_command_sha256:
+            if command_sha256 or next_command_sha256 or source_views_sha256:
                 errors.append(
                     "experiment_summary_dashboard operator_home non-iteration digest"
                 )
@@ -764,6 +769,11 @@ def validate_experiment_operator_home_entry(
                 "experiment_summary_dashboard operator_home first blocker mismatch"
             )
     return tuple(errors)
+
+
+def is_sha256_hex(value: str) -> bool:
+    """Return whether value is a lowercase SHA-256 hex digest."""
+    return len(value) == 64 and all(char in "0123456789abcdef" for char in value)
 
 
 def validate_compact_artifact_health_history_hint(
@@ -859,6 +869,9 @@ def validate_experiment_operator_next_command_entry(
     source_home_command_sha256 = str(
         operator_next_command.get("source_home_command_sha256", "")
     )
+    source_home_source_views_sha256 = str(
+        operator_next_command.get("source_home_source_views_sha256", "")
+    )
     selected_command = str(operator_next_command.get("selected_command", ""))
     selected_command_sha256 = str(
         operator_next_command.get("selected_command_sha256", "")
@@ -922,6 +935,16 @@ def validate_experiment_operator_next_command_entry(
             if source_home_command_sha256 != sha256_text(source_home_command):
                 errors.append(
                     "experiment_summary_dashboard operator_next_command source home command_sha256 mismatch"
+                )
+            if source_home_source_views_sha256 != str(
+                operator_home.get("source_views_sha256", "")
+            ):
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command source home source views mismatch"
+                )
+            if not is_sha256_hex(source_home_source_views_sha256):
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command source home source views sha256 mismatch"
                 )
             if selected_status != str(
                 operator_home.get("next_command_status", "unavailable")
@@ -1002,6 +1025,7 @@ def validate_experiment_operator_next_command_entry(
                 or selected_command_sha256
                 or source_home_command
                 or source_home_command_sha256
+                or source_home_source_views_sha256
             ):
                 errors.append(
                     "experiment_summary_dashboard operator_next_command non-iteration digest"
@@ -1101,6 +1125,9 @@ def validate_experiment_operator_navigation_pair(
     source_home_command_sha256 = str(
         operator_next_command.get("source_home_command_sha256", "")
     )
+    source_home_source_views_sha256 = str(
+        operator_next_command.get("source_home_source_views_sha256", "")
+    )
     selected_command = str(operator_next_command.get("selected_command", ""))
     selected_command_sha256 = str(
         operator_next_command.get("selected_command_sha256", "")
@@ -1136,6 +1163,7 @@ def validate_experiment_operator_navigation_pair(
             or selector_command_sha256
             or selected_command_sha256
             or source_home_command_sha256
+            or source_home_source_views_sha256
         ):
             errors.append("experiment operator navigation non-iteration digest")
         if selected_status != "unavailable":
@@ -1150,6 +1178,7 @@ def validate_experiment_operator_navigation_pair(
             or selector_command_sha256
             or selected_command_sha256
             or source_home_command_sha256
+            or source_home_source_views_sha256
         ):
             errors.append("experiment operator navigation unavailable digest")
         if next_available:
@@ -1199,6 +1228,16 @@ def validate_experiment_operator_navigation_pair(
     if source_home_command_sha256 != sha256_text(source_home_command):
         errors.append(
             "experiment operator navigation source home command_sha256 mismatch"
+        )
+    if source_home_source_views_sha256 != str(
+        operator_home.get("source_views_sha256", "")
+    ):
+        errors.append(
+            "experiment operator navigation source home source views mismatch"
+        )
+    if not is_sha256_hex(source_home_source_views_sha256):
+        errors.append(
+            "experiment operator navigation source home source views sha256 mismatch"
         )
     if str(operator_next_command.get("command_boundary", "")) != (
         "read_only_inspection"
@@ -1491,6 +1530,7 @@ def compact_operator_home_from_payload(
         "codex_intake_readiness_status": str(
             codex_home.get("intake_readiness_status", "")
         ),
+        "source_views_sha256": str(home.get("source_views_sha256", "")),
         "command_label": "review_operator_home",
         "command": command,
         "command_sha256": sha256_text(command),
@@ -1566,6 +1606,7 @@ def compact_operator_home_from_manifest(
         "codex_intake_readiness_status": str(
             manifest_home.get("codex_intake_readiness_status", "")
         ),
+        "source_views_sha256": str(manifest_home.get("source_views_sha256", "")),
         "command_label": "review_operator_home",
         "command": command,
         "command_sha256": sha256_text(command),
@@ -1656,6 +1697,7 @@ def experiment_list_operator_home_hint(
         "next_command_first_blocker": "",
         "next_command_operator_hint": "",
         "codex_preflight_next_step": "",
+        "source_views_sha256": "",
         "next_command_boundary": "",
         "next_command_writes_artifact": "",
         "next_command_requires_explicit_operator_invocation": False,
@@ -1742,6 +1784,7 @@ def experiment_operator_next_command_hint(
         "command_is_hint_only": True,
         "source_home_command": "",
         "source_home_command_sha256": "",
+        "source_home_source_views_sha256": "",
         "selection_source": "operator_home.next_command",
         "selected_command_label": "",
         "selected_command": "",
@@ -1800,6 +1843,9 @@ def experiment_operator_next_command_hint(
         "source_home_command": str(operator_home.get("command", "")),
         "source_home_command_sha256": str(
             operator_home.get("command_sha256", "")
+        ),
+        "source_home_source_views_sha256": str(
+            operator_home.get("source_views_sha256", "")
         ),
         "selected_command_label": str(operator_home.get("next_command_label", "")),
         "selected_command": selected_command,
@@ -1890,6 +1936,7 @@ def experiment_operator_home_entry(
         "codex_unlock_runbook_status": "",
         "codex_preflight_next_step": "",
         "codex_intake_readiness_status": "",
+        "source_views_sha256": "",
         "next_command_label": "",
         "next_command": "",
         "next_command_sha256": "",
@@ -2483,6 +2530,8 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         f"`{operator_home.get('command', '') or 'unavailable'}`",
         "- Operator home command SHA-256: "
         f"`{operator_home.get('command_sha256', '') or 'unavailable'}`",
+        "- Operator home source views SHA-256: "
+        f"`{operator_home.get('source_views_sha256', '') or 'unavailable'}`",
         "- Operator home terminal-only: "
         f"`{operator_home.get('terminal_only', False)}`",
         "- Operator home creates artifact: "
@@ -2543,6 +2592,8 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         f"`{operator_next_command.get('command_sha256', '') or 'unavailable'}`",
         "- Operator next-command selector source: "
         f"`{operator_next_command.get('selection_source', '') or 'unavailable'}`",
+        "- Operator next-command source-home source views SHA-256: "
+        f"`{operator_next_command.get('source_home_source_views_sha256', '') or 'unavailable'}`",
         "- Operator next-command selector terminal-only: "
         f"`{operator_next_command.get('terminal_only', False)}`",
         "- Operator next-command selector creates artifact: "
@@ -2749,6 +2800,8 @@ def render_experiment_list_markdown(payload: list[dict[str, object]]) -> str:
                 f"`{markdown_cell(operator_home.get('command', '') or 'unavailable')}`",
                 "- Home command SHA-256: "
                 f"`{markdown_cell(operator_home.get('command_sha256', '') or 'unavailable')}`",
+                "- Home source views SHA-256: "
+                f"`{markdown_cell(operator_home.get('source_views_sha256', '') or 'unavailable')}`",
                 "- Home first blocker: "
                 f"`{markdown_cell(operator_home.get('next_command_first_blocker', '') or 'none')}`",
                 "- Home artifact-health history: "
@@ -2772,6 +2825,8 @@ def render_experiment_list_markdown(payload: list[dict[str, object]]) -> str:
                 f"`{markdown_cell(operator_next_command.get('source_home_command', '') or 'unavailable')}`",
                 "- Selector source home command SHA-256: "
                 f"`{markdown_cell(operator_next_command.get('source_home_command_sha256', '') or 'unavailable')}`",
+                "- Selector source home source views SHA-256: "
+                f"`{markdown_cell(operator_next_command.get('source_home_source_views_sha256', '') or 'unavailable')}`",
                 "- Selected command: "
                 f"`{markdown_cell(selected_command)}`",
                 "- Selected command SHA-256: "
@@ -3398,6 +3453,8 @@ def render_experiment_show_markdown(payload: dict[str, object]) -> str:
             f"`{markdown_cell(operator_home.get('command', '') or 'unavailable')}`",
             "- Home command SHA-256: "
             f"`{markdown_cell(operator_home.get('command_sha256', '') or 'unavailable')}`",
+            "- Home source views SHA-256: "
+            f"`{markdown_cell(operator_home.get('source_views_sha256', '') or 'unavailable')}`",
             "- Home terminal-only: "
             f"`{operator_home.get('terminal_only', False)}`",
             "- Home creates artifact: "
@@ -3423,6 +3480,8 @@ def render_experiment_show_markdown(payload: dict[str, object]) -> str:
             f"`{markdown_cell(operator_next_command.get('command', '') or 'unavailable')}`",
             "- Selector command SHA-256: "
             f"`{markdown_cell(operator_next_command.get('command_sha256', '') or 'unavailable')}`",
+            "- Selector source home source views SHA-256: "
+            f"`{markdown_cell(operator_next_command.get('source_home_source_views_sha256', '') or 'unavailable')}`",
             "- Selected command: "
             f"`{markdown_cell(operator_next_command.get('selected_command', '') or 'unavailable')}`",
             "- Selected command SHA-256: "

@@ -337,6 +337,8 @@ def refresh_parent_manifest_round_replay_summary(
         row["round_replay"] = manifest_round_replay_summary(
             round_id=round_id,
             replay_report=replay_report,
+            json_path=json_path,
+            markdown_path=markdown_path,
         )
         refreshed = True
         break

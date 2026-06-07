@@ -679,6 +679,8 @@ def validate_manifest_round_replay_summaries(
         expected = manifest_round_replay_summary(
             round_id=round_id,
             replay_report=replay_payload,
+            json_path=run_dir / round_id / "round_replay.json",
+            markdown_path=run_dir / round_id / "round_replay.md",
         )
         if actual != expected:
             add_error(report, f"manifest.rounds {round_id} round_replay summary mismatch")

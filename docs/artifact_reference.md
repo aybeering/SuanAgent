@@ -1159,7 +1159,10 @@ Replay artifacts:
 - `attempt_output.json` links one saved attempt's input, proposal, raw output,
   patch, selection explanation, validation status, proposal intent summary, and
   optional execution audit.
-- `round_replay.json` validates all saved planned attempts for a round.
+- `round_replay.json` validates all saved planned attempts for a round. The
+  parent `manifest.json` stores a compact round-replay summary with JSON and
+  Markdown byte counts plus SHA-256 bindings, so validation catches saved replay
+  artifact drift even when the visible replay status fields are unchanged.
 - `agent_slot_health.json` summarizes slot readiness, audits, and replay state.
   Saved slot-health reports are strict snapshots: validators recompute them
   from current run-local plan, attempt manifest, replay, workspace, and

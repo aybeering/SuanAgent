@@ -9257,8 +9257,20 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert "## Run Outcome Summary" in summary_markdown
     assert "- Category: `policy_reject`" in summary_markdown
     round_replay_summary = manifest["rounds"][0]["round_replay"]  # type: ignore[index]
+    round_replay_path = run_dir / "round_001/round_replay.json"
+    round_replay_markdown_path = run_dir / "round_001/round_replay.md"
     assert round_replay_summary["path"] == "round_001/round_replay.json"  # type: ignore[index]
     assert round_replay_summary["markdown_path"] == "round_001/round_replay.md"  # type: ignore[index]
+    assert round_replay_summary["json_bytes"] == round_replay_path.stat().st_size  # type: ignore[index]
+    assert round_replay_summary["json_sha256"] == hashlib.sha256(  # type: ignore[index]
+        round_replay_path.read_bytes()
+    ).hexdigest()
+    assert round_replay_summary["markdown_bytes"] == (  # type: ignore[index]
+        round_replay_markdown_path.stat().st_size
+    )
+    assert round_replay_summary["markdown_sha256"] == hashlib.sha256(  # type: ignore[index]
+        round_replay_markdown_path.read_bytes()
+    ).hexdigest()
     assert round_replay_summary["ok"] is True  # type: ignore[index]
     assert round_replay_summary["replayed_attempt_count"] == 3  # type: ignore[index]
     assert round_replay_summary["failure_code"] == "none"  # type: ignore[index]
@@ -14146,6 +14158,18 @@ def test_round_replay_replays_all_planned_attempts(tmp_path: Path) -> None:
     assert cli_payload["ok"] is True
     assert round_replay_summary["run_probe"] is False
     assert round_replay_summary["replayed_attempt_count"] == 3
+    assert round_replay_summary["json_bytes"] == (
+        round_dir / "round_replay.json"
+    ).stat().st_size
+    assert round_replay_summary["json_sha256"] == hashlib.sha256(
+        (round_dir / "round_replay.json").read_bytes()
+    ).hexdigest()
+    assert round_replay_summary["markdown_bytes"] == (
+        round_dir / "round_replay.md"
+    ).stat().st_size
+    assert round_replay_summary["markdown_sha256"] == hashlib.sha256(
+        (round_dir / "round_replay.md").read_bytes()
+    ).hexdigest()
     assert "| round_001 | `false` |" in summary_text
     assert "ok (3)" in summary_text
     assert_matches_schema(round_dir / "round_replay.json", "round_replay")
@@ -14169,6 +14193,10 @@ def test_manifest_round_replay_summary_normalizes_replay_report() -> None:
     assert summary == {
         "path": "round_007/round_replay.json",
         "markdown_path": "round_007/round_replay.md",
+        "json_bytes": 0,
+        "json_sha256": "",
+        "markdown_bytes": 0,
+        "markdown_sha256": "",
         "ok": True,
         "run_probe": False,
         "replayed_attempt_count": 3,
@@ -14224,6 +14252,37 @@ def test_artifact_validator_reports_manifest_round_replay_drift(
     manifest["rounds"][0]["round_replay"]["markdown_path"] = "round_001/wrong.md"
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert (
+        "manifest.rounds round_001 round_replay summary mismatch"
+        in report["errors"]  # type: ignore[operator]
+    )
+
+
+def test_artifact_validator_reports_round_replay_digest_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "manifest-round-replay-digest-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    round_replay_path = repo / f"experiments/{run_id}/round_001/round_replay.json"
+    payload = json.loads(round_replay_path.read_text(encoding="utf-8"))
+    payload["tamper_marker"] = "same-summary-fields-different-file-digest"
+    round_replay_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
 

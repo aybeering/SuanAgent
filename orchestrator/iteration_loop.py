@@ -1972,9 +1972,12 @@ def attach_round_replay_summary(
 ) -> None:
     """Attach compact saved replay evidence to a round manifest row."""
     round_id = str(round_summary.get("round_id", ""))
+    round_dir = Path(str(replay_report.get("round_dir", "")))
     round_summary["round_replay"] = manifest_round_replay_summary(
         round_id=round_id,
         replay_report=replay_report,
+        json_path=round_dir / "round_replay.json",
+        markdown_path=round_dir / "round_replay.md",
     )
 
 

@@ -419,6 +419,7 @@ def experiment_summary_dashboard(
             latest_accepted=latest_accepted,
             champion_gap=champion_gap,
             failure_codes=failure_codes,
+            operator_home=operator_home_entry,
         ),
         "policy": {
             "inspection_only": True,
@@ -2052,6 +2053,7 @@ def dashboard_watchlist(
     latest_accepted: dict[str, object] | None,
     champion_gap: dict[str, object],
     failure_codes: Counter[str],
+    operator_home: dict[str, object],
 ) -> dict[str, object]:
     """Return deterministic operator-facing dashboard alerts."""
     alerts: list[dict[str, object]] = []
@@ -2104,6 +2106,55 @@ def dashboard_watchlist(
                 title="Recent run has invalid artifacts",
                 detail=str(row.get("summary", "")),
                 run_id=str(row.get("run_id", "")),
+            )
+        )
+    history_read_errors = int_value(
+        operator_home.get("artifact_health_history_read_error_count", 0),
+        0,
+    )
+    if history_read_errors > 0:
+        alerts.append(
+            watch_alert(
+                severity="critical",
+                code="artifact_health_history_read_errors",
+                title="Artifact-health history has read errors",
+                detail=(
+                    f"{history_read_errors} artifact-health history read error(s) "
+                    "were observed; review the health-history terminal view."
+                ),
+                run_id=str(operator_home.get("run_id", "")),
+            )
+        )
+    drift_count = int_value(
+        operator_home.get(
+            "artifact_health_history_round_replay_manifest_drift_observation_count",
+            0,
+        ),
+        0,
+    )
+    if drift_count > 0:
+        latest_drift = int_value(
+            operator_home.get(
+                "artifact_health_history_latest_round_replay_manifest_drift_count",
+                0,
+            ),
+            0,
+        )
+        failed_ids = string_payload(
+            operator_home.get("artifact_health_history_latest_failed_run_ids", [])
+        )
+        failed_text = ", ".join(failed_ids[:3]) if failed_ids else "none"
+        alerts.append(
+            watch_alert(
+                severity="warning",
+                code="artifact_health_history_replay_manifest_drift",
+                title="Replay manifest drift observed in artifact-health history",
+                detail=(
+                    f"{drift_count} replay manifest drift observation(s); "
+                    f"latest drift count {latest_drift}; latest failed runs: "
+                    f"{failed_text}."
+                ),
+                run_id=str(operator_home.get("run_id", "")),
             )
         )
     gap = optional_float_value(champion_gap.get("gap_to_champion"))

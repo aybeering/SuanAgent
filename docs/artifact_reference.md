@@ -429,7 +429,8 @@ dashboard with the latest indexed run, latest accepted and rejected runs, recent
 diagnosis rows, recent failure-code counts, recent outcome-category counts, a
 best-run-to-champion gap, a latest-run operator-home entry, a latest-run
 operator-next-command entry, and an operator watchlist for repeated proposals,
-artifact-health failures, and champion-gap alerts. Recent rows include the
+artifact-health failures, artifact-health history read errors, replay
+manifest-drift observations, and champion-gap alerts. Recent rows include the
 saved `run_outcome_summary` category, primary stage, and primary code when the
 run has an iteration diagnosis. The operator-home entry is available only when
 the latest indexed run is an iteration loop; it surfaces the read-only `home
@@ -446,10 +447,13 @@ The embedded dashboard is validated in memory against
 printed, with deterministic consistency checks for recent failure/outcome
 counts, top recent code/category fields, latest accepted/rejected status
 summaries, latest-run to recent-tail binding, accepted-row flags,
-operator-home run/command/boundary binding, operator-next-command selector,
+operator-home run/command/boundary binding, compact artifact-health history
+status and review-command digest binding, operator-next-command selector,
 source-home, and selected-command binding, champion-gap status and delta
 invariants, watchlist alert counts, severity counts, status, alert codes, and
-read-only policy flags.
+read-only policy flags. Artifact-health history read errors surface as
+critical watchlist alerts, while replay manifest-drift observations surface as
+warning alerts that point back to the read-only health-history review command.
 `python -m orchestrator.experiments summary --markdown` renders the same
 summary payload, including the latest-run operator-home entry,
 operator-next-command entry, and watchlist, as a compact terminal-friendly

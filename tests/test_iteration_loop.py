@@ -1631,8 +1631,10 @@ def test_operator_home_summarizes_artifact_health_history_replay_drift(
         run_id=run_id,
         experiments_dir=repo / "experiments",
     )
+    summary = summarize_experiments(experiments_dir=repo / "experiments")
     list_markdown = render_experiment_list_markdown(list_payload)
     show_markdown = render_experiment_show_markdown(show_payload)
+    summary_markdown = render_experiment_summary_markdown(summary)
 
     assert home["schema_version"] == OPERATOR_HOME_SCHEMA_VERSION
     assert_matches_schema_payload(home, "operator_home")
@@ -1678,6 +1680,17 @@ def test_operator_home_summarizes_artifact_health_history_replay_drift(
     assert "Artifact-health history: `replay_manifest_drift_observed`" in (
         show_markdown
     )
+    watchlist = summary["dashboard"]["watchlist"]
+    assert watchlist["status"] in {"attention", "critical"}
+    drift_alerts = [
+        alert
+        for alert in watchlist["alerts"]
+        if alert["code"] == "artifact_health_history_replay_manifest_drift"
+    ]
+    assert len(drift_alerts) == 1
+    assert drift_alerts[0]["severity"] == "warning"
+    assert run_id in drift_alerts[0]["detail"]
+    assert "artifact_health_history_replay_manifest_drift" in summary_markdown
 
 
 def test_run_artifact_health_history_summarizes_failures(tmp_path: Path) -> None:

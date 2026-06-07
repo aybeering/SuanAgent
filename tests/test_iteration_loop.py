@@ -4755,6 +4755,9 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending_home["command_center"][0]["command_sha256"] == sha256_text(
         pending_home["command_center"][0]["command"]
     )
+    assert pending_home["source_views_sha256"] == sha256_payload(
+        pending_home["source_views"]
+    )
     assert pending_home["authority"]["home_can_execute_commands"] is False
     assert pending_home["policy"]["does_not_execute_commands"] is True
     assert "# Operator Home" in pending_home_markdown
@@ -4767,6 +4770,7 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert "Review command SHA-256:" in pending_home_markdown
     assert "Runbook command SHA-256:" in pending_home_markdown
     assert "## Guided Path" in pending_home_markdown
+    assert "Source views SHA-256:" in pending_home_markdown
     assert_matches_schema_payload(pending_home, "operator_home")
     assert validate_operator_home_payload(
         pending_home,
@@ -4799,6 +4803,7 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
                 "sha256": "bad-source-view-sha",
             },
         },
+        "source_views_sha256": "bad",
     }
     malformed_home_errors = validate_operator_home_payload(
         malformed_digest_home,
@@ -4825,6 +4830,10 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
         in str(error)
         for error in malformed_home_errors
     )
+    assert any(
+        "source_views_sha256: expected string to match pattern" in str(error)
+        for error in malformed_home_errors
+    )
     tampered_home = {
         **pending_home,
         "action_home": {
@@ -4849,6 +4858,7 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
                 "sha256": "stale-cockpit-source",
             },
         },
+        "source_views_sha256": "0" * 64,
         "command_center": [
             {
                 **pending_home["command_center"][0],
@@ -4895,6 +4905,11 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     )
     assert "operator_home source_views operator_cockpit mismatch" in (
         tampered_home_errors
+    )
+    assert "operator_home source_views_sha256 mismatch" in tampered_home_errors
+    assert (
+        "operator_home source_views expected sha256 mismatch"
+        in tampered_home_errors
     )
     command_marker = "action_next:record_operator_approval"
     manual_marker = "manual_override:record_operator_approval"
@@ -33138,6 +33153,9 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert operator_home["next_command"]["command_is_hint_only"] is True
     assert operator_home["command_center"][0]["source"] == "action_next"
+    assert operator_home["source_views_sha256"] == sha256_payload(
+        operator_home["source_views"]
+    )
     assert operator_home["policy"]["does_not_execute_commands"] is True
     assert operator_home["authority"]["home_can_execute_commands"] is False
     assert_matches_schema_payload(operator_home, "operator_home")
@@ -33146,6 +33164,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "## Codex CLI" in operator_home_markdown
     assert "Unlock runbook:" in operator_home_markdown
     assert "## Guided Path" in operator_home_markdown
+    assert "Source views SHA-256:" in operator_home_markdown
     assert unlock_checklist["from_artifact"] is True
     assert unlock_checklist["schema_version"] == OPERATOR_UNLOCK_CHECKLIST_SCHEMA_VERSION
     assert unlock_checklist["status"] == "not_requested"
@@ -33649,6 +33668,9 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert operator_home_payload["next_command"]["command_is_hint_only"] is True
     assert operator_home_payload["command_center"][0]["source"] == "action_next"
+    assert operator_home_payload["source_views_sha256"] == sha256_payload(
+        operator_home_payload["source_views"]
+    )
     assert operator_home_payload["policy"]["does_not_execute_commands"] is True
     assert operator_home_payload["authority"]["home_can_execute_commands"] is False
     assert_matches_schema_payload(operator_home_payload, "operator_home")

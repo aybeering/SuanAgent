@@ -88,6 +88,11 @@ def build_operator_home(
         else ""
     )
     review_priority_command = str(priority.get("recommended_command", ""))
+    source_view_records = source_views(
+        run_dir=run_dir,
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
     return {
         "schema_version": OPERATOR_HOME_SCHEMA_VERSION,
         "run_id": str(cockpit.get("run_id", run_dir.name)),
@@ -181,11 +186,8 @@ def build_operator_home(
             selected_next=next_command,
         ),
         "blockers": blockers[:8],
-        "source_views": source_views(
-            run_dir=run_dir,
-            experiments_dir=experiments_dir,
-            repo_root=repo_root,
-        ),
+        "source_views": source_view_records,
+        "source_views_sha256": sha256_payload(source_view_records),
         "authority": {
             "home_can_record_approval": False,
             "home_can_execute_commands": False,
@@ -1166,6 +1168,14 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
     lines.extend(
         [
             "",
+            "## Sources",
+            "",
+            f"- Source views SHA-256: `{payload.get('source_views_sha256', '')}`",
+        ]
+    )
+    lines.extend(
+        [
+            "",
             "## Policy",
             "",
             "- This home view is terminal-only and hint-only.",
@@ -1538,6 +1548,7 @@ def validate_operator_home_consistency(
         list_of_dicts(payload.get("command_center", []))
     )
     source_views_payload = object_field(payload, "source_views")
+    source_views_sha256 = str(payload.get("source_views_sha256", ""))
     artifact_history = object_field(payload, "artifact_health_history")
     authority = object_field(payload, "authority")
     policy = object_field(payload, "policy")
@@ -1645,6 +1656,10 @@ def validate_operator_home_consistency(
     for source_name, expected_record in expected_source_views.items():
         if source_views_payload.get(source_name) != expected_record:
             errors.append(f"operator_home source_views {source_name} mismatch")
+    if source_views_sha256 != sha256_payload(source_views_payload):
+        errors.append("operator_home source_views_sha256 mismatch")
+    if source_views_sha256 != str(expected.get("source_views_sha256", "")):
+        errors.append("operator_home source_views expected sha256 mismatch")
     for marker, expected_record in expected_command_center.items():
         if command_center_payload.get(marker) != expected_record:
             errors.append(f"operator_home command_center {marker} mismatch")

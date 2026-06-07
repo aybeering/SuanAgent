@@ -20,6 +20,7 @@
     "command_center",
     "blockers",
     "source_views",
+    "source_views_sha256",
     "authority",
     "policy"
   ],
@@ -60,6 +61,10 @@
       "items": {"type": "string"}
     },
     "source_views": {"$ref": "#/$defs/source_views"},
+    "source_views_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
     "authority": {"$ref": "#/$defs/authority"},
     "policy": {"$ref": "#/$defs/policy"}
   },

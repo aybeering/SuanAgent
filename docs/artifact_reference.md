@@ -666,7 +666,9 @@ run outcome, primary focus, guided action path, next command, next-command
 safety flags, cockpit review priority, compact Codex CLI
 preflight status and next step, unlock-runbook/readiness/intake-binding status, compact
 command-center rows, blockers, and source view records into one operator
-landing page. The safety flags surface whether the next command is hint-only,
+landing page. The home view also records a source-view set SHA-256 so the
+full source evidence table has a compact digest. The safety flags surface
+whether the next command is hint-only,
 requires explicit operator invocation, needs prior approval, records an
 approval receipt, uses the guarded executor, and which artifact it would write
 when invoked through the dedicated command. The home action summary also
@@ -688,13 +690,13 @@ from the action-guide command, so dynamic promotion follow-ups remain visible
 next to the regular cockpit and guide command rows. Each command-center row
 also carries a SHA-256 digest of its command text for terminal review. The
 operator-home schema requires Codex review/runbook command digests, review
-priority command digests, and command-center digests to use 64 lowercase
-hexadecimal characters, and source-view file digests to be empty or
-64-lowercase-hex strings.
+priority command digests, command-center digests, and the source-view set
+digest to use 64 lowercase hexadecimal characters, while source-view file
+digests may be empty or 64-lowercase-hex strings.
 The home consistency validator reports field-specific drift for the selected
-action step, next-command safety flags, Codex readiness summary, authority
-flags, and read-only policy before falling back to the full derived-payload
-comparison.
+action step, next-command safety flags, Codex readiness summary, source-view
+file records, the source-view set SHA-256, authority flags, and read-only
+policy before falling back to the full derived-payload comparison.
 When the guided operator action path is closed and the cockpit has a
 deterministic champion-promotion approval pending, the home next-command hint
 surfaces the cockpit promotion-approval command instead of leaving the operator

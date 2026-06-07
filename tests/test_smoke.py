@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import tomllib
 from pathlib import Path
 
 from backtester.metrics import METRIC_KEYS
@@ -8,6 +9,16 @@ from backtester.simulate import DEFAULT_DATA_PATH, run_backtest
 from orchestrator.policy_gate import apply_holdout_gate, evaluate_policy
 from orchestrator.run_loop import run_pipeline
 from reports.generate_report import generate_report
+
+
+def test_project_metadata_matches_current_scope() -> None:
+    metadata = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    project = metadata["project"]
+
+    assert project["name"] == "suan-agent-v0-5"
+    assert project["description"] == (
+        "Deterministic V0.5 strategy self-iteration prototype"
+    )
 
 
 def test_backtester_can_run_on_sample_data() -> None:

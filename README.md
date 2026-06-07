@@ -19,8 +19,8 @@ holdout data for a conservative risk gate. By default, the iteration loop stops
 early when an agent repeats a previously rejected patch.
 
 GitHub Actions runs the deterministic smoke suite on every push and pull
-request. The workflow uses `python -m pytest`, preflight validation, the
-single-run loop, one dry-run iteration loop pass, and one adaptive-stub pass.
+request. The workflow covers the required pytest, preflight, single-run, and
+iteration-loop checks, plus guarded adapter and artifact validation paths.
 
 ## Documentation
 

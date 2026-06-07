@@ -60,6 +60,9 @@ python -m orchestrator.experiments agents <run_id> --markdown
 python -m orchestrator.experiments quality-trace <run_id>
 python -m orchestrator.experiments quality-trace <run_id> --markdown
 python -m orchestrator.experiments slots <run_id>
+python -m orchestrator.experiments readiness <run_id>
+python -m orchestrator.experiments sandbox <run_id>
+python -m orchestrator.experiments sandbox <run_id> --markdown
 python -m orchestrator.experiments compare <base_run_id> <candidate_run_id>
 python -m orchestrator.experiments champion
 python -m orchestrator.experiments champion --markdown

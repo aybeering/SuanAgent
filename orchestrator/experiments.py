@@ -33,6 +33,7 @@ from orchestrator.config_change_candidate import (
 from orchestrator.experiment_index import read_experiment_index, recent_experiments
 from orchestrator.external_agent_sandbox_drill import (
     build_external_agent_sandbox_drill,
+    external_agent_sandbox_drill_markdown,
 )
 from orchestrator.experiment_scope_health import (
     build_experiment_scope_health,
@@ -7497,6 +7498,11 @@ def main() -> None:
         help="Show external-agent sandbox drill details for one iteration run.",
     )
     sandbox_parser.add_argument("run_id")
+    sandbox_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render the sandbox drill as markdown.",
+    )
 
     coverage_parser = subparsers.add_parser(
         "coverage",
@@ -8015,6 +8021,9 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )
+        if args.markdown:
+            print(external_agent_sandbox_drill_markdown(payload), end="")
+            return
     elif args.command == "coverage":
         payload = build_artifact_validator_coverage(repo_root=args.experiments_dir.parent)
         if args.markdown:

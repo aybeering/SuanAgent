@@ -14427,6 +14427,22 @@ def test_external_agent_sandbox_drill_reports_codex_dry_run_boundary(
         text=True,
         check=False,
     )
+    markdown_cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "sandbox",
+            "sandbox-codex-dry-run",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     validation_report = validate_run_artifacts(
         run_id="sandbox-codex-dry-run",
         experiments_dir=repo / "experiments",
@@ -14490,6 +14506,9 @@ def test_external_agent_sandbox_drill_reports_codex_dry_run_boundary(
     cli_payload = json.loads(cli_result.stdout)
     assert cli_payload["from_artifact"] is True
     assert cli_payload["ok"] is True
+    assert markdown_cli_result.returncode == 0, markdown_cli_result.stderr
+    assert "# External Agent Sandbox Drill" in markdown_cli_result.stdout
+    assert "Source plans SHA-256" in markdown_cli_result.stdout
     assert_matches_schema(
         run_dir / "external_agent_sandbox_drill.json",
         "external_agent_sandbox_drill",

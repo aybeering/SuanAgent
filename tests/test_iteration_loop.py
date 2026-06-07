@@ -1781,6 +1781,135 @@ def test_operator_home_summarizes_artifact_health_history_replay_drift(
     assert "artifact_health_history_replay_manifest_drift" in summary_markdown
 
 
+def test_operator_home_summarizes_artifact_health_history_read_errors(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    history_path = repo / "experiments/run_artifact_health_history.jsonl"
+    run_id = "home-history-read-errors"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    with history_path.open("a", encoding="utf-8") as handle:
+        handle.write("{not-valid-jsonl\n")
+
+    home = operator_home_report(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+    )
+    markdown = render_operator_home_markdown(home)
+    list_payload = list_experiments(
+        experiments_dir=repo / "experiments",
+        limit=1,
+    )
+    show_payload = show_experiment(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+    )
+    summary = summarize_experiments(experiments_dir=repo / "experiments")
+    summary_markdown = render_experiment_summary_markdown(summary)
+
+    assert home["schema_version"] == OPERATOR_HOME_SCHEMA_VERSION
+    assert_matches_schema_payload(home, "operator_home")
+    assert validate_operator_home_payload(
+        home,
+        run_dir=repo / f"experiments/{run_id}",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    assert home["artifact_health_history"]["status"] == "read_errors"
+    assert home["artifact_health_history"]["read_error_count"] == 1
+    assert home["primary_focus"] == "artifact_health_history_read_errors"
+    assert home["headline"] == (
+        "Review artifact-health history read errors before continuing."
+    )
+    assert home["next_command"]["label"] == "review_artifact_health_history"
+    assert home["next_command"]["source"] == "artifact_health_history"
+    assert home["next_command"]["command"] == home["artifact_health_history"][
+        "review_command"
+    ]
+    assert home["action_home"]["next_command_status"] == "ready_for_operator"
+    assert home["action_home"]["next_command_blocked"] is False
+    assert home["action_home"]["next_command_first_blocker"] == ""
+    assert home["action_home"]["next_command_boundary"] == "read_only_inspection"
+    assert home["action_home"]["next_command_writes_artifact"] == ""
+    assert home["action_home"][
+        "next_command_requires_explicit_operator_invocation"
+    ] is True
+    assert home["action_home"]["next_command_requires_operator_approval"] is False
+    assert home["action_home"]["next_command_records_operator_approval"] is False
+    assert home["action_home"]["next_command_uses_guarded_executor"] is False
+    assert home["action_home"]["next_command_is_hint_only"] is True
+    assert home["action_home"]["next_command_operator_hint"] == (
+        "Review artifact-health history read errors before continuing."
+    )
+    assert "Primary focus: `artifact_health_history_read_errors`" in markdown
+    assert "Next command: `review_artifact_health_history`" in markdown
+    assert "Artifact-health history: `read_errors`" in markdown
+
+    list_home = list_payload[0]["operator_home"]
+    show_home = show_payload["operator_home"]
+    assert list_home["primary_focus"] == "artifact_health_history_read_errors"
+    assert list_home["artifact_health_history_status"] == "read_errors"
+    assert list_home["artifact_health_history_read_error_count"] == 1
+    assert list_home["next_command_label"] == "review_artifact_health_history"
+    assert list_home["next_command"] == home["artifact_health_history"][
+        "review_command"
+    ]
+    assert list_home["next_command_status"] == "ready_for_operator"
+    assert list_home["next_command_blocked"] is False
+    assert list_home["next_command_first_blocker"] == ""
+    assert list_home["next_command_boundary"] == "read_only_inspection"
+    assert list_home["next_command_writes_artifact"] == ""
+    assert list_home["next_command_is_hint_only"] is True
+    assert show_home == list_home
+
+    list_next = list_payload[0]["operator_next_command"]
+    show_next = show_payload["operator_next_command"]
+    assert list_next["selected_command_label"] == "review_artifact_health_history"
+    assert list_next["selected_command"] == home["artifact_health_history"][
+        "review_command"
+    ]
+    assert list_next["selected_command_status"] == "ready_for_operator"
+    assert list_next["selected_command_boundary"] == "read_only_inspection"
+    assert list_next["blocked"] is False
+    assert list_next["can_invoke_selected_command"] is True
+    assert list_next["selected_command_is_hint_only"] is True
+    assert show_next == list_next
+
+    watchlist = summary["dashboard"]["watchlist"]
+    dashboard_home = summary["dashboard"]["operator_home_entry"]
+    dashboard_next = summary["dashboard"]["operator_next_command_entry"]
+    assert dashboard_home["primary_focus"] == "artifact_health_history_read_errors"
+    assert dashboard_home["artifact_health_history_status"] == "read_errors"
+    assert dashboard_home["artifact_health_history_read_error_count"] == 1
+    assert dashboard_home["next_command_label"] == "review_artifact_health_history"
+    assert dashboard_home["next_command"] == home["artifact_health_history"][
+        "review_command"
+    ]
+    assert dashboard_next["selected_command_label"] == (
+        "review_artifact_health_history"
+    )
+    assert dashboard_next["selected_command"] == home["artifact_health_history"][
+        "review_command"
+    ]
+    assert dashboard_next["selected_command_status"] == "ready_for_operator"
+    assert dashboard_next["can_invoke_selected_command"] is True
+    assert watchlist["status"] == "critical"
+    read_alerts = [
+        alert
+        for alert in watchlist["alerts"]
+        if alert["code"] == "artifact_health_history_read_errors"
+    ]
+    assert len(read_alerts) == 1
+    assert read_alerts[0]["severity"] == "critical"
+    assert read_alerts[0]["run_id"] == run_id
+    assert "artifact_health_history_read_errors" in summary_markdown
+
+
 def test_run_artifact_health_history_summarizes_failures(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     history_path = repo / "experiments/run_artifact_health_history.jsonl"

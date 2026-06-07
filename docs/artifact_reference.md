@@ -182,8 +182,8 @@ champions, or change acceptance.
 For iteration-loop rows, the compact home and next-command hints prefer the
 current terminal-only operator-home evidence and fall back to the saved
 manifest summary only when the current view cannot be built. This keeps later
-artifact-health history observations, including replay manifest drift, visible
-from the index without mutating run artifacts.
+artifact-health history observations, including read errors and replay
+manifest drift, visible from the index without mutating run artifacts.
 
 `python -m orchestrator.experiments show <run_id>` includes the same derived
 `operator_home` and `operator_next_command` hints in the compact run payload.
@@ -443,8 +443,8 @@ the latest indexed run is an iteration loop; it surfaces the read-only `home
 and Codex readiness snippets without creating an artifact. Like `list` and
 `show`, the entry prefers current terminal-only operator-home evidence before
 falling back to the saved manifest summary, so post-run artifact-health
-history observations can update the visible next-command hint without editing
-the run directory. The
+history observations such as read errors or replay manifest drift can update
+the visible next-command hint without editing the run directory. The
 operator-next-command entry mirrors the home-selected next command and exposes
 the read-only `next-command <run_id> --markdown` selector, selected command,
 status, blocker summary, boundary, write target, source home command, and

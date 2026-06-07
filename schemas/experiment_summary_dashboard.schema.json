@@ -245,6 +245,7 @@
         "primary_focus",
         "action_step",
         "codex_unlock_runbook_status",
+        "codex_preflight_next_step",
         "codex_intake_readiness_status",
         "next_command_label",
         "next_command",
@@ -305,6 +306,9 @@
           "type": "string"
         },
         "codex_unlock_runbook_status": {
+          "type": "string"
+        },
+        "codex_preflight_next_step": {
           "type": "string"
         },
         "codex_intake_readiness_status": {

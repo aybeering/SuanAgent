@@ -250,6 +250,7 @@ def build_operator_next_command(
         "codex_unlock_runbook_status": str(
             codex_home.get("unlock_runbook_status", "")
         ),
+        "codex_preflight_next_step": str(codex_home.get("preflight_next_step", "")),
         "codex_intake_readiness_status": str(
             codex_home.get("intake_readiness_status", "")
         ),
@@ -1022,6 +1023,7 @@ def render_operator_next_command_markdown(payload: dict[str, object]) -> str:
         f"- Codex next step: {navigation.get('codex_next_step', '')}",
         f"- Writes artifact: `{payload.get('writes_artifact', '')}`",
         f"- Codex unlock runbook: `{payload.get('codex_unlock_runbook_status', '')}`",
+        f"- Codex preflight next step: {payload.get('codex_preflight_next_step', '')}",
         f"- Codex intake: `{payload.get('codex_intake_readiness_status', '')}`",
         f"- Selection source: `{payload.get('selection_source', '')}`",
         "",
@@ -1205,6 +1207,7 @@ def validate_operator_next_command_consistency(
         "action_step",
         "action_guide_status",
         "codex_unlock_runbook_status",
+        "codex_preflight_next_step",
         "codex_intake_readiness_status",
     ):
         if payload.get(field_name) != expected.get(field_name):

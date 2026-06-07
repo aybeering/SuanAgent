@@ -1529,6 +1529,7 @@ def experiment_operator_home_entry(
         "primary_focus": "",
         "action_step": "",
         "codex_unlock_runbook_status": "",
+        "codex_preflight_next_step": "",
         "codex_intake_readiness_status": "",
         "next_command_label": "",
         "next_command": "",
@@ -1593,6 +1594,9 @@ def experiment_operator_home_entry(
             "action_step": str(manifest_home.get("action_step", "")),
             "codex_unlock_runbook_status": str(
                 manifest_home.get("codex_unlock_runbook_status", "")
+            ),
+            "codex_preflight_next_step": str(
+                manifest_home.get("codex_preflight_next_step", "")
             ),
             "codex_intake_readiness_status": str(
                 manifest_home.get("codex_intake_readiness_status", "")
@@ -2040,6 +2044,8 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         f"`{operator_home.get('next_command_uses_guarded_executor', False)}`",
         "- Operator home next command hint-only: "
         f"`{operator_home.get('next_command_is_hint_only', False)}`",
+        "- Operator home Codex preflight next step: "
+        f"{operator_home.get('codex_preflight_next_step', '') or 'none'}",
         "- Operator next-command selector: "
         f"`{operator_next_command.get('status', 'unavailable')}` "
         f"({operator_next_command.get('reason', 'unknown')})",
@@ -5843,6 +5849,8 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
         f"- Home command text: `{home_summary.get('home_command', '')}`",
         f"- Home command SHA-256: `{home_summary.get('home_command_sha256', '')}`",
         f"- Home Codex unlock runbook: `{home_summary.get('codex_unlock_runbook_status', '')}`",
+        "- Home Codex preflight next step: "
+        f"{home_summary.get('codex_preflight_next_step', '')}",
         f"- Home Codex intake: `{home_summary.get('codex_intake_readiness_status', '')}`",
         f"- Safety policy OK: `{policy_summary.get('ok', False)}`",
         f"- Safety policy false keys: `{policy_summary.get('false_count', 0)}`",
@@ -5969,6 +5977,10 @@ def render_operator_view_refresh_markdown(payload: dict[str, object]) -> str:
     )
     lines.append(
         f"- Codex unlock runbook: `{home_summary.get('codex_unlock_runbook_status', '')}`"
+    )
+    lines.append(
+        "- Codex preflight next step: "
+        f"{home_summary.get('codex_preflight_next_step', '')}"
     )
     lines.append(
         f"- Codex unlock runbook ready: `{home_summary.get('codex_unlock_runbook_ready', False)}`"

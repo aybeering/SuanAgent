@@ -1266,6 +1266,9 @@ def operator_home_manifest_row(
             if pending
             else str(codex_home.get("unlock_runbook_status", "unknown"))
         ),
+        "codex_preflight_next_step": (
+            "" if pending else str(codex_home.get("preflight_next_step", ""))
+        ),
         "codex_intake_readiness_status": (
             "pending"
             if pending

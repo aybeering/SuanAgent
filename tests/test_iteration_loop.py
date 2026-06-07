@@ -10070,6 +10070,12 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert manifest["operator_home"]["codex_unlock_runbook_status"] == (
         "needs_artifacts"
     )
+    codex_unlock_panel = next(
+        row for row in cockpit["panels"] if row["panel_id"] == "codex_cli_unlock"
+    )
+    assert manifest["operator_home"]["codex_preflight_next_step"] == (
+        codex_unlock_panel["next_step"]
+    )
     assert manifest["operator_home"]["codex_intake_readiness_status"] == (
         "not_available"
     )
@@ -16127,6 +16133,11 @@ def test_artifact_validator_reports_summary_operator_home_drift(
         "`python -m orchestrator.experiments home artifact-summary-home-drift --markdown`",
         "- Command text: `python -m orchestrator.run_loop`",
     )
+    summary_text = summary_text.replace(
+        "- Codex preflight next step: "
+        "`keep real Codex execution disabled unless explicitly reviewed`",
+        "- Codex preflight next step: `wrong step`",
+    )
     summary_path.write_text(summary_text, encoding="utf-8")
 
     report = validate_run_artifacts(
@@ -16138,6 +16149,10 @@ def test_artifact_validator_reports_summary_operator_home_drift(
     assert report["ok"] is False
     assert "summary.md operator_home next_command_status mismatch" in report["errors"]
     assert "summary.md operator_home markdown_command mismatch" in report["errors"]
+    assert (
+        "summary.md operator_home codex_preflight_next_step mismatch"
+        in report["errors"]
+    )
 
 
 def test_artifact_validator_reports_summary_operator_cockpit_drift(
@@ -16805,6 +16820,7 @@ def test_artifact_validator_reports_manifest_operator_next_command_drift(
     manifest["operator_home"]["command_sha256"] = "0" * 64
     manifest["operator_home"]["next_command_blocked"] = False
     manifest["operator_home"]["next_command_is_hint_only"] = False
+    manifest["operator_home"]["codex_preflight_next_step"] = "wrong step"
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -16825,6 +16841,9 @@ def test_artifact_validator_reports_manifest_operator_next_command_drift(
         "manifest.operator_home next_command_is_hint_only mismatch"
         in report["errors"]
     )
+    assert "manifest.operator_home codex_preflight_next_step mismatch" in report[
+        "errors"
+    ]
 
 
 def test_manifest_operator_next_command_validates_pending_static_safety(
@@ -26191,6 +26210,9 @@ def _minimal_experiment_summary_dashboard_payload() -> dict[str, object]:
             "primary_focus": "inspect_blockers",
             "action_step": "operator_approval",
             "codex_unlock_runbook_status": "needs_artifacts",
+            "codex_preflight_next_step": (
+                "keep real Codex execution disabled unless explicitly reviewed"
+            ),
             "codex_intake_readiness_status": "not_available",
             "next_command_label": "record_operator_approval",
             "next_command": (

@@ -1788,6 +1788,11 @@ def validate_iteration_summary_operator_home(
             f"`{markdown_display_value(operator_home.get('codex_unlock_runbook_status'))}`",
         ),
         (
+            "codex_preflight_next_step",
+            "- Codex preflight next step: "
+            f"`{markdown_display_value(operator_home.get('codex_preflight_next_step'))}`",
+        ),
+        (
             "codex_intake_readiness_status",
             "- Codex intake: "
             f"`{markdown_display_value(operator_home.get('codex_intake_readiness_status'))}`",
@@ -1964,6 +1969,10 @@ def validate_manifest_operator_next_command(
         (
             "codex_unlock_runbook_status",
             selector.get("codex_unlock_runbook_status", ""),
+        ),
+        (
+            "codex_preflight_next_step",
+            selector.get("codex_preflight_next_step", ""),
         ),
         (
             "codex_intake_readiness_status",

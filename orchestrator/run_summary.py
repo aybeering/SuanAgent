@@ -485,6 +485,10 @@ def write_iteration_summary(
             f"`{display_value(operator_home.get('codex_unlock_runbook_status'))}`"
         )
         lines.append(
+            "- Codex preflight next step: "
+            f"`{display_value(operator_home.get('codex_preflight_next_step'))}`"
+        )
+        lines.append(
             "- Codex intake: "
             f"`{display_value(operator_home.get('codex_intake_readiness_status'))}`"
         )

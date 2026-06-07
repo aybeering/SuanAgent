@@ -636,7 +636,7 @@ current home status, action step, next-command label/status/blocked state,
 next-command command text, boundary, blocker count, operator hint, write
 target, explicit-invocation flag, approval flags, guarded-executor flag,
 hint-only flag, selected-command SHA-256, home-command SHA-256, Codex
-unlock-runbook status, and intake readiness status. These fields are
+preflight next step, unlock-runbook status, and intake readiness status. These fields are
 navigation hints only; they do not create an `operator_home.json` artifact or
 grant execution authority.
 The artifact validator checks that the saved `summary.md` operator-home section
@@ -655,9 +655,9 @@ artifacts advance the source evidence, the validator also rebuilds the
 terminal-only next-command selector from current run evidence and checks the
 compact `manifest.operator_home` next-command row against it, including command
 text and digest, status, blocker state, boundary, write target,
-digest-backed review priority, Codex readiness statuses, Codex review and
-unlock-runbook command digests, source-home command and digest, and hint-only
-safety flags. After
+digest-backed review priority, Codex preflight next step, readiness statuses,
+Codex review and unlock-runbook command digests, source-home command and digest,
+and hint-only safety flags. After
 those later artifacts exist, the manifest row remains a closeout-time snapshot;
 the validator still checks its static read-only and hint-only safety fields and
 saved command digest bindings while terminal-only views derive the current next
@@ -672,7 +672,8 @@ terminal-only `operator_next_command_v1` narrow view validated by
 operator home payload and returns only the selected command, status, blocker
 count, boundary, write target, a structured navigation summary with the first
 blocker and explicit-invocation readiness, safety flags, source-home command,
-Codex readiness summary fields, authority flags, command SHA-256 bindings, and
+Codex readiness summary fields including the preflight next step, authority
+flags, command SHA-256 bindings, and
 read-only policy. Its markdown view also displays the selector source marker,
 navigation summary, selected-command digest, source-home command digest, and
 source-home terminal-only, artifact-free, hint-only boundary. It creates no artifact and

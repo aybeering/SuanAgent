@@ -523,6 +523,7 @@ def write_json(path: Path, payload: object) -> None:
 
 def external_agent_sandbox_drill_markdown(payload: dict[str, Any]) -> str:
     """Return a compact markdown sandbox drill report."""
+    source = object_value(payload.get("source_artifacts", {}))
     lines = [
         "# External Agent Sandbox Drill",
         "",
@@ -531,6 +532,11 @@ def external_agent_sandbox_drill_markdown(payload: dict[str, Any]) -> str:
         f"- OK: `{payload.get('ok', False)}`",
         f"- External slots: `{payload.get('totals', {}).get('external_slot_count', 0)}`",
         f"- Blocked: `{payload.get('totals', {}).get('blocked_count', 0)}`",
+        f"- Source plans SHA-256: {file_record_summary(source.get('round_records', []))}",
+        (
+            f"- Executor reports SHA-256: "
+            f"{file_record_summary(source.get('executor_report_records', []))}"
+        ),
         "",
         "| Round | Attempt | Profile | Adapter | Runner | Status | Command | Command SHA-256 | Workspace SHA-256 | Execution SHA-256 | Input Bundle SHA-256 | Output Files | Output SHA-256 | Issues |",
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
@@ -567,6 +573,20 @@ def external_agent_sandbox_drill_markdown(payload: dict[str, Any]) -> str:
         )
     lines.append("")
     return "\n".join(lines)
+
+
+def file_record_summary(records: object) -> str:
+    """Return compact file record hashes for markdown."""
+    rows = object_rows(records)
+    if not rows:
+        return "`none`"
+    values = []
+    for record in rows:
+        path = Path(str(record.get("path", "")))
+        label = path.name if path.name else "file"
+        digest = str(record.get("sha256", "")) or "missing"
+        values.append(f"`{label}:{digest}`")
+    return ", ".join(values)
 
 
 def output_record_status(records: object) -> str:

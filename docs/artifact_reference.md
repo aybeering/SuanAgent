@@ -1138,8 +1138,8 @@ Replay artifacts:
   the exact source evidence, external command, isolation policy, saved
   execution evidence, delivered input context, and produced output artifacts
   without invoking it.
-  The paired markdown report includes compact output-file presence and hash
-  columns for terminal review.
+  The paired markdown report includes compact source-artifact hash summaries
+  plus output-file presence and hash columns for terminal review.
   Saved sandbox-drill reports are strict snapshots and fail validation when
   current run-local boundary evidence no longer matches the saved drill. The
   paired markdown report must also exist and match the JSON report's

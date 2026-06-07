@@ -14502,6 +14502,8 @@ def test_external_agent_sandbox_drill_reports_codex_dry_run_boundary(
     assert "Execution SHA-256" in drill_markdown
     assert "Input Bundle SHA-256" in drill_markdown
     assert "Output SHA-256" in drill_markdown
+    assert "Source plans SHA-256" in drill_markdown
+    assert first_round_record["sha256"] in drill_markdown
     assert slot["command"]["argv_sha256"] in drill_markdown
     assert slot["workspace"]["manifest_sha256"] in drill_markdown
     assert slot["io_paths"]["input_bundle_sha256"] in drill_markdown
@@ -14586,6 +14588,8 @@ def test_external_agent_sandbox_drill_reports_file_protocol_execution(
         encoding="utf-8"
     )
     assert "Output SHA-256" in drill_markdown
+    assert "Executor reports SHA-256" in drill_markdown
+    assert executor_report_record["sha256"] in drill_markdown
     assert first_output_record["sha256"] in drill_markdown
 
 

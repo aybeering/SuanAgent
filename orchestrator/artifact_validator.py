@@ -9990,6 +9990,28 @@ def validate_optional_external_agent_sandbox_drill(
                 report,
                 "external_agent_sandbox_drill.json command argv_sha256 mismatch",
             )
+        workspace = slot.get("workspace", {})
+        if not isinstance(workspace, dict):
+            add_error(report, "external_agent_sandbox_drill.json workspace invalid")
+            continue
+        manifest_path = str(workspace.get("manifest_path", ""))
+        resolved_manifest_path = (
+            Path(manifest_path)
+            if Path(manifest_path).is_absolute()
+            else repo_root / manifest_path
+        )
+        expected_manifest_sha256 = (
+            hashlib.sha256(resolved_manifest_path.read_bytes()).hexdigest()
+            if manifest_path
+            and resolved_manifest_path.exists()
+            and resolved_manifest_path.is_file()
+            else ""
+        )
+        if workspace.get("manifest_sha256") != expected_manifest_sha256:
+            add_error(
+                report,
+                "external_agent_sandbox_drill.json workspace manifest_sha256 mismatch",
+            )
     if isinstance(totals, dict) and totals.get("blocked_count") != blocked_count:
         add_error(report, "external_agent_sandbox_drill.json blocked_count mismatch")
     policy = payload.get("policy", {})

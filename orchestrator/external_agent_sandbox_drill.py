@@ -253,6 +253,7 @@ def sandbox_slot_row(
         "workspace": {
             "expected_workspace_path": str(workspace.get("expected_workspace_path", "")),
             "manifest_path": str(workspace_manifest_path) if workspace_manifest_path else "",
+            "manifest_sha256": sha256_file(workspace_manifest_path),
             "manifest_workspace_path": str(workspace_manifest.get("workspace_path", "")),
             "allowed_mutation_paths": string_list(
                 object_value(workspace_manifest.get("mutation_policy", {})).get(
@@ -407,6 +408,13 @@ def sha256_json_list(values: list[str]) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
+def sha256_file(path: Path | None) -> str:
+    """Return a stable SHA-256 digest for a file, or empty text when absent."""
+    if path is None or not path.exists() or not path.is_file():
+        return ""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def first_existing_path(repo_root: Path, values: list[str]) -> Path | None:
     """Return the first existing path from path text values."""
     for value in values:
@@ -469,11 +477,12 @@ def external_agent_sandbox_drill_markdown(payload: dict[str, Any]) -> str:
         f"- External slots: `{payload.get('totals', {}).get('external_slot_count', 0)}`",
         f"- Blocked: `{payload.get('totals', {}).get('blocked_count', 0)}`",
         "",
-        "| Round | Attempt | Profile | Adapter | Runner | Status | Command | Command SHA-256 | Issues |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Round | Attempt | Profile | Adapter | Runner | Status | Command | Command SHA-256 | Workspace SHA-256 | Issues |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for slot in object_rows(payload.get("slots", [])):
         command = object_value(slot.get("command", {}))
+        workspace = object_value(slot.get("workspace", {}))
         issues = slot.get("blocking_issues", [])
         lines.append(
             "| "
@@ -487,6 +496,7 @@ def external_agent_sandbox_drill_markdown(payload: dict[str, Any]) -> str:
                     str(slot.get("sandbox_status", "")),
                     str(command.get("source", "")),
                     str(command.get("argv_sha256", "")) or "none",
+                    str(workspace.get("manifest_sha256", "")) or "none",
                     ", ".join(str(item) for item in issues)
                     if isinstance(issues, list)
                     else "",

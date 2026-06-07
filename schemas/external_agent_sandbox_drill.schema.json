@@ -187,7 +187,35 @@
             }
           },
           "workspace": {
-            "type": "object"
+            "type": "object",
+            "required": [
+              "expected_workspace_path",
+              "manifest_path",
+              "manifest_sha256",
+              "manifest_workspace_path",
+              "allowed_mutation_paths"
+            ],
+            "properties": {
+              "expected_workspace_path": {
+                "type": "string"
+              },
+              "manifest_path": {
+                "type": "string"
+              },
+              "manifest_sha256": {
+                "type": "string",
+                "pattern": "^$|^[0-9a-f]{64}$"
+              },
+              "manifest_workspace_path": {
+                "type": "string"
+              },
+              "allowed_mutation_paths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "execution_audit": {
             "type": "object"

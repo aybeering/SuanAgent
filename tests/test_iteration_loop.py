@@ -14490,6 +14490,7 @@ def test_external_agent_sandbox_drill_reports_codex_dry_run_boundary(
     assert "Workspace SHA-256" in drill_markdown
     assert "Execution SHA-256" in drill_markdown
     assert "Input Bundle SHA-256" in drill_markdown
+    assert "Output SHA-256" in drill_markdown
     assert slot["command"]["argv_sha256"] in drill_markdown
     assert slot["workspace"]["manifest_sha256"] in drill_markdown
     assert slot["io_paths"]["input_bundle_sha256"] in drill_markdown
@@ -14509,7 +14510,7 @@ def test_external_agent_sandbox_drill_reports_file_protocol_execution(
     )
     run_dir = repo / "experiments/sandbox-file-protocol"
 
-    drill = build_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
+    drill = write_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
     quarantine = json.loads(
         (
             run_dir / "round_001/agent_output_quarantine.json"
@@ -14563,6 +14564,11 @@ def test_external_agent_sandbox_drill_reports_file_protocol_execution(
     assert quarantine["quarantine_status"] == "released"
     assert quarantine["selected_attempt"]["adapter_name"] == "file_protocol"
     assert quarantine["selected_attempt"]["external_adapter"] is True
+    drill_markdown = (run_dir / "external_agent_sandbox_drill.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Output SHA-256" in drill_markdown
+    assert first_output_record["sha256"] in drill_markdown
 
 
 def test_external_agent_sandbox_drill_reports_current_evidence_drift(

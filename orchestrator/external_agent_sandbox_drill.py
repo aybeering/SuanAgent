@@ -517,8 +517,8 @@ def external_agent_sandbox_drill_markdown(payload: dict[str, Any]) -> str:
         f"- External slots: `{payload.get('totals', {}).get('external_slot_count', 0)}`",
         f"- Blocked: `{payload.get('totals', {}).get('blocked_count', 0)}`",
         "",
-        "| Round | Attempt | Profile | Adapter | Runner | Status | Command | Command SHA-256 | Workspace SHA-256 | Execution SHA-256 | Input Bundle SHA-256 | Issues |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Round | Attempt | Profile | Adapter | Runner | Status | Command | Command SHA-256 | Workspace SHA-256 | Execution SHA-256 | Input Bundle SHA-256 | Output Files | Output SHA-256 | Issues |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for slot in object_rows(payload.get("slots", [])):
         command = object_value(slot.get("command", {}))
@@ -541,6 +541,8 @@ def external_agent_sandbox_drill_markdown(payload: dict[str, Any]) -> str:
                     str(workspace.get("manifest_sha256", "")) or "none",
                     str(execution_audit.get("artifact_sha256", "")) or "none",
                     str(io_paths.get("input_bundle_sha256", "")) or "none",
+                    output_record_status(io_paths.get("round_output_file_records", [])),
+                    output_record_hashes(io_paths.get("round_output_file_records", [])),
                     ", ".join(str(item) for item in issues)
                     if isinstance(issues, list)
                     else "",
@@ -550,6 +552,29 @@ def external_agent_sandbox_drill_markdown(payload: dict[str, Any]) -> str:
         )
     lines.append("")
     return "\n".join(lines)
+
+
+def output_record_status(records: object) -> str:
+    """Return compact output file presence text for markdown."""
+    rows = object_rows(records)
+    if not rows:
+        return "none"
+    values = []
+    for record in rows:
+        path = Path(str(record.get("path", "")))
+        label = path.name if path.name else "output"
+        status = "present" if record.get("exists", False) else "missing"
+        values.append(f"{label}:{status}")
+    return ", ".join(values)
+
+
+def output_record_hashes(records: object) -> str:
+    """Return compact output file hashes for markdown."""
+    rows = object_rows(records)
+    if not rows:
+        return "none"
+    values = [str(record.get("sha256", "")) or "missing" for record in rows]
+    return ", ".join(values)
 
 
 def main() -> None:

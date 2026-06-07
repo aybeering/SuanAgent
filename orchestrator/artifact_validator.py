@@ -498,6 +498,11 @@ def validate_iteration_run(
         return
     validate_manifest_agent_intake_summary(manifest=manifest, report=report)
     validate_manifest_run_outcome_summary(manifest=manifest, report=report)
+    validate_manifest_codex_cli_execution_preflight(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
     validate_iteration_summary_header(
         run_dir=run_dir,
         manifest=manifest,
@@ -514,6 +519,11 @@ def validate_iteration_run(
         report=report,
     )
     validate_iteration_summary_agent_intake(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
+    validate_iteration_summary_codex_cli_execution_preflight(
         run_dir=run_dir,
         manifest=manifest,
         report=report,
@@ -685,6 +695,46 @@ def validate_manifest_agent_intake_summary(
         add_error(report, "manifest.agent_intake_summary status_counts mismatch")
 
 
+def validate_manifest_codex_cli_execution_preflight(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate manifest-level Codex startup-preflight row consistency."""
+    manifest_row = manifest.get("codex_cli_execution_preflight")
+    if not isinstance(manifest_row, dict):
+        return
+    preflight_path = run_dir / "codex_cli_execution_preflight.json"
+    if not preflight_path.exists():
+        return
+    preflight = load_json_object(preflight_path, report)
+    if not isinstance(preflight, dict):
+        return
+    summary = dict_value(preflight.get("summary", {}))
+    blockers = list_value(preflight.get("blocking_errors", []))
+    expected = {
+        "path": "codex_cli_execution_preflight.json",
+        "markdown_path": "codex_cli_execution_preflight.md",
+        "ok": bool(preflight.get("ok", False)),
+        "blocking_error_count": len(blockers),
+        "profile_count": int(summary.get("profile_count", 0) or 0),
+        "real_codex_execute_profile_count": int(
+            summary.get("real_codex_execute_profile_count", 0) or 0
+        ),
+        "operator_unlock_ready_count": int(
+            summary.get("operator_unlock_ready_count", 0) or 0
+        ),
+        "canary_exempt_count": int(summary.get("canary_exempt_count", 0) or 0),
+    }
+    for key, expected_value in expected.items():
+        if manifest_row.get(key) != expected_value:
+            add_error(
+                report,
+                f"manifest.codex_cli_execution_preflight {key} mismatch",
+            )
+
+
 def validate_iteration_summary_header(
     *,
     run_dir: Path,
@@ -847,6 +897,65 @@ def validate_iteration_summary_agent_intake(
     for field_name, expected_line in expected_lines:
         if expected_line not in section:
             add_error(report, f"summary.md agent_intake_summary {field_name} mismatch")
+
+
+def validate_iteration_summary_codex_cli_execution_preflight(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate summary.md Codex startup-preflight section mirrors manifest."""
+    preflight = manifest.get("codex_cli_execution_preflight")
+    if not isinstance(preflight, dict):
+        return
+    section = markdown_section(
+        read_optional_text(run_dir / "summary.md"),
+        "## Codex CLI Execution Preflight",
+    )
+    if not section:
+        add_error(report, "summary.md codex_cli_execution_preflight section missing")
+        return
+    expected_lines: tuple[tuple[str, str], ...] = (
+        ("ok", f"- OK: `{markdown_display_value(preflight.get('ok'))}`"),
+        (
+            "blocking_error_count",
+            "- Blocking errors: "
+            f"`{markdown_display_value(preflight.get('blocking_error_count'))}`",
+        ),
+        (
+            "profile_count",
+            "- Profile count: "
+            f"`{markdown_display_value(preflight.get('profile_count'))}`",
+        ),
+        (
+            "real_codex_execute_profile_count",
+            "- Real execute profiles: "
+            f"`{markdown_display_value(preflight.get('real_codex_execute_profile_count'))}`",
+        ),
+        (
+            "operator_unlock_ready_count",
+            "- Operator unlock ready: "
+            f"`{markdown_display_value(preflight.get('operator_unlock_ready_count'))}`",
+        ),
+        (
+            "canary_exempt_count",
+            "- Canary exempt: "
+            f"`{markdown_display_value(preflight.get('canary_exempt_count'))}`",
+        ),
+        ("path", f"- Artifact: `{markdown_display_value(preflight.get('path'))}`"),
+        (
+            "markdown_path",
+            "- Markdown: "
+            f"`{markdown_display_value(preflight.get('markdown_path'))}`",
+        ),
+    )
+    for field_name, expected_line in expected_lines:
+        if expected_line not in section:
+            add_error(
+                report,
+                f"summary.md codex_cli_execution_preflight {field_name} mismatch",
+            )
 
 
 def validate_iteration_summary_scope_health(

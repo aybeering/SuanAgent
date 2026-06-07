@@ -130,6 +130,35 @@ def write_iteration_summary(
             f"`{display_value(intake_summary.get('retryable_round_count'))}`"
         )
 
+    codex_preflight = manifest.get("codex_cli_execution_preflight")
+    if isinstance(codex_preflight, dict):
+        lines.extend(["", "## Codex CLI Execution Preflight", ""])
+        lines.append(f"- OK: `{display_value(codex_preflight.get('ok'))}`")
+        lines.append(
+            "- Blocking errors: "
+            f"`{display_value(codex_preflight.get('blocking_error_count'))}`"
+        )
+        lines.append(
+            "- Profile count: "
+            f"`{display_value(codex_preflight.get('profile_count'))}`"
+        )
+        lines.append(
+            "- Real execute profiles: "
+            f"`{display_value(codex_preflight.get('real_codex_execute_profile_count'))}`"
+        )
+        lines.append(
+            "- Operator unlock ready: "
+            f"`{display_value(codex_preflight.get('operator_unlock_ready_count'))}`"
+        )
+        lines.append(
+            "- Canary exempt: "
+            f"`{display_value(codex_preflight.get('canary_exempt_count'))}`"
+        )
+        lines.append(f"- Artifact: `{display_value(codex_preflight.get('path'))}`")
+        lines.append(
+            f"- Markdown: `{display_value(codex_preflight.get('markdown_path'))}`"
+        )
+
     scope_health = manifest.get("experiment_scope_health")
     if isinstance(scope_health, dict):
         lines.extend(["", "## Experiment Scope Health", ""])

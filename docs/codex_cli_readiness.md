@@ -150,6 +150,12 @@ hashes, and planned execution identity. The saved operator-request file hash and
 expected command digest are schema-constrained before the startup gate can trust
 them.
 
+The iteration manifest and `summary.md` surface the startup preflight ok state,
+blocker count, total profile count, real-execution profile count,
+operator-unlock-ready count, and canary-exempt count. Artifact validation binds
+those compact operator-facing fields back to the saved startup preflight
+summary.
+
 The iteration loop allows an existing run directory only for this narrow
 canonical operator-request startup case. Ordinary pre-existing run directories
 remain blocked to avoid accidental artifact overwrite.

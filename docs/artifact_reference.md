@@ -304,8 +304,8 @@ The artifact validator checks that the top-level run fields printed in
 `summary.md` continue to mirror the same `manifest.json` values, including run
 id, status, completed rounds, accepted round, stop reason, and final strategy
 commit. It also checks the `summary.md` dataset, run-outcome, agent-intake,
-health, codex-cli-unlock-runbook, config-lineage, config-operator-runbook,
-config-application-dry-run, candidate-challenger,
+Codex CLI execution preflight, health, codex-cli-unlock-runbook, config-lineage,
+config-operator-runbook, config-application-dry-run, candidate-challenger,
 champion-promotion-dry-run, champion-promotion-approval, run-closeout,
 operator-action-plan, operator-action-dashboard, operator-cockpit,
 operator-home, operator-next-command, operator-unlock-checklist, round-table,
@@ -793,6 +793,11 @@ execution-readiness-diff <run_id>` and `python -m orchestrator.experiments
 execution-readiness-diff --latest` expose the same read-only diff without
 recording approval, executing Codex, creating workspaces, applying patches, or
 changing acceptance.
+`manifest.json` and `summary.md` also expose compact Codex CLI execution
+preflight counts for total profiles, real-execution profiles, operator-unlock
+ready profiles, canary-exempt profiles, and startup blockers; artifact
+validation binds those fields back to the saved
+`codex_cli_execution_preflight.json` summary.
 `operator_cockpit.json` and `operator_cockpit.md` collect the run closeout,
 config lineage, operator action dashboard, Codex CLI execution preflight,
 standalone operator unlock checklist, Codex CLI unlock runbook, Codex CLI execution readiness diff,

@@ -8999,6 +8999,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     agent_activation = json.loads(
         (run_dir / "agent_activation_preflight.json").read_text(encoding="utf-8")
     )
+    codex_preflight = json.loads(
+        (run_dir / "codex_cli_execution_preflight.json").read_text(encoding="utf-8")
+    )
     overfit_validation = json.loads(
         (round_dir / "overfit_validation.json").read_text(encoding="utf-8")
     )
@@ -10189,6 +10192,29 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     )
     assert manifest["agent_activation_preflight"]["ok"] is True
     assert manifest["agent_activation_preflight"]["blocking_error_count"] == 0
+    assert manifest["codex_cli_execution_preflight"]["path"] == (
+        "codex_cli_execution_preflight.json"
+    )
+    assert manifest["codex_cli_execution_preflight"]["markdown_path"] == (
+        "codex_cli_execution_preflight.md"
+    )
+    assert manifest["codex_cli_execution_preflight"]["ok"] is True
+    assert manifest["codex_cli_execution_preflight"]["blocking_error_count"] == 0
+    assert manifest["codex_cli_execution_preflight"]["profile_count"] == (
+        codex_preflight["summary"]["profile_count"]
+    )
+    assert manifest["codex_cli_execution_preflight"][
+        "real_codex_execute_profile_count"
+    ] == codex_preflight["summary"]["real_codex_execute_profile_count"]
+    assert manifest["codex_cli_execution_preflight"][
+        "operator_unlock_ready_count"
+    ] == codex_preflight["summary"]["operator_unlock_ready_count"]
+    assert manifest["codex_cli_execution_preflight"]["canary_exempt_count"] == (
+        codex_preflight["summary"]["canary_exempt_count"]
+    )
+    assert "## Codex CLI Execution Preflight" in summary_markdown
+    assert "- Real execute profiles: `0`" in summary_markdown
+    assert "- Operator unlock ready: `0`" in summary_markdown
     assert agent_activation["schema_version"] == (
         AGENT_ACTIVATION_PREFLIGHT_SCHEMA_VERSION
     )
@@ -17212,6 +17238,71 @@ def test_artifact_validator_reports_summary_outcome_and_intake_drift(
     assert "summary.md run_outcome_summary category mismatch" in report["errors"]
     assert (
         "summary.md agent_intake_summary blocked_round_count mismatch"
+        in report["errors"]
+    )
+
+
+def test_artifact_validator_reports_manifest_codex_preflight_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-manifest-codex-preflight-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    manifest_path = repo / "experiments" / run_id / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["codex_cli_execution_preflight"]["profile_count"] = 99
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert (
+        "manifest.codex_cli_execution_preflight profile_count mismatch"
+        in report["errors"]
+    )
+
+
+def test_artifact_validator_reports_summary_codex_preflight_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-summary-codex-preflight-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments" / run_id
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    preflight_row = manifest["codex_cli_execution_preflight"]
+    summary_path = run_dir / "summary.md"
+    summary_text = summary_path.read_text(encoding="utf-8")
+    summary_text = summary_text.replace(
+        f"- Profile count: `{preflight_row['profile_count']}`",
+        "- Profile count: `99`",
+    )
+    summary_path.write_text(summary_text, encoding="utf-8")
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert (
+        "summary.md codex_cli_execution_preflight profile_count mismatch"
         in report["errors"]
     )
 

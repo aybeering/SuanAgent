@@ -178,15 +178,17 @@ Implemented or allowed V0.5 components:
     The artifact validator also binds the saved `summary.md` top-level run
     header back to `manifest.json` for run id, status, completed-round,
     accepted-round, stop-reason, and final-strategy-commit consistency, and
-    binds the `summary.md` dataset, run-outcome, agent-intake, health,
-    codex-cli-unlock-runbook, config-lineage, config-operator-runbook,
-    config-application-dry-run, candidate-challenger,
+    binds the `summary.md` dataset, run-outcome, agent-intake, Codex CLI
+    execution preflight, health, codex-cli-unlock-runbook, config-lineage,
+    config-operator-runbook, config-application-dry-run, candidate-challenger,
     champion-promotion-dry-run, champion-promotion-approval, run-closeout,
     operator-action-plan, operator-action-dashboard, operator-cockpit,
     operator-home, operator-next-command, operator-unlock-checklist,
     best-validation-delta, round-table, proposal-quality, and
     candidate-leaderboard sections back to their corresponding manifest records
     and round artifacts.
+    Manifest and summary Codex CLI execution preflight counts are also bound
+    back to the saved startup preflight summary.
     Experiment summary dashboards and operator cockpit summaries surface the
     same outcome category, primary stage, and primary code as read-only
     navigation so recent run history and per-run review show why the loop

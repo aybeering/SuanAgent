@@ -251,6 +251,10 @@ def run_iteration_loop(
             "path": "codex_cli_execution_preflight.json",
             "ok": False,
             "blocking_error_count": 0,
+            "profile_count": 0,
+            "real_codex_execute_profile_count": 0,
+            "operator_unlock_ready_count": 0,
+            "canary_exempt_count": 0,
         },
         "codex_cli_execution_readiness_diff": {
             "path": "codex_cli_execution_readiness_diff.json",
@@ -438,18 +442,9 @@ def run_iteration_loop(
             config=active_config,
             repo_root=repo_root,
         )
-        manifest["codex_cli_execution_preflight"] = {
-            "path": "codex_cli_execution_preflight.json",
-            "ok": bool(codex_execution_preflight.get("ok", False)),
-            "blocking_error_count": len(
-                codex_execution_preflight.get("blocking_errors", [])
-                if isinstance(
-                    codex_execution_preflight.get("blocking_errors", []),
-                    list,
-                )
-                else []
-            ),
-        }
+        manifest["codex_cli_execution_preflight"] = (
+            codex_execution_preflight_manifest_row(codex_execution_preflight)
+        )
         if not bool(codex_execution_preflight.get("ok", False)):
             raise ValueError(
                 "Codex CLI execution preflight failed: "
@@ -1327,6 +1322,36 @@ def codex_execution_readiness_diff_manifest_row(
         "missing_comparison_count": int(
             summary.get("missing_comparison_count", 0) or 0
         ),
+    }
+
+
+def codex_execution_preflight_manifest_row(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    """Return compact manifest metadata for the Codex CLI startup preflight."""
+    summary = (
+        payload.get("summary", {})
+        if isinstance(payload.get("summary", {}), dict)
+        else {}
+    )
+    blockers = (
+        payload.get("blocking_errors", [])
+        if isinstance(payload.get("blocking_errors", []), list)
+        else []
+    )
+    return {
+        "path": "codex_cli_execution_preflight.json",
+        "markdown_path": "codex_cli_execution_preflight.md",
+        "ok": bool(payload.get("ok", False)),
+        "blocking_error_count": len(blockers),
+        "profile_count": int(summary.get("profile_count", 0) or 0),
+        "real_codex_execute_profile_count": int(
+            summary.get("real_codex_execute_profile_count", 0) or 0
+        ),
+        "operator_unlock_ready_count": int(
+            summary.get("operator_unlock_ready_count", 0) or 0
+        ),
+        "canary_exempt_count": int(summary.get("canary_exempt_count", 0) or 0),
     }
 
 

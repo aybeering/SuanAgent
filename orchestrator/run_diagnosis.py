@@ -317,6 +317,9 @@ def operator_navigation_from_manifest(
             "operator_hint": str(
                 operator_home.get("next_command_operator_hint", "")
             ),
+            "codex_preflight_next_step": str(
+                operator_home.get("codex_preflight_next_step", "")
+            ),
             "boundary": str(operator_home.get("next_command_boundary", "")),
             "writes_artifact": str(
                 operator_home.get("next_command_writes_artifact", "")
@@ -387,6 +390,7 @@ def operator_navigation_unavailable(
             "blocker_count": 0,
             "first_blocker": "",
             "operator_hint": "",
+            "codex_preflight_next_step": "",
             "boundary": "",
             "writes_artifact": "",
             "requires_explicit_operator_invocation": False,

@@ -3014,6 +3014,8 @@ def render_run_diagnosis_markdown(payload: dict[str, object]) -> str:
         f"({next_command.get('blocker_count', 0)} blocker(s))",
         f"- First blocker: `{markdown_cell(next_command.get('first_blocker', '') or 'none')}`",
         f"- Operator hint: {markdown_cell(next_command.get('operator_hint', '') or 'none')}",
+        "- Codex preflight next step: "
+        f"{markdown_cell(next_command.get('codex_preflight_next_step', '') or 'none')}",
         f"- Navigation changes acceptance: `{not bool(dict_payload(navigation.get('policy', {})).get('does_not_change_acceptance', True))}`",
         "",
         "## Selected Candidates",

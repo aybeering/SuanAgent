@@ -6962,6 +6962,7 @@ def validate_iteration_diagnosis_operator_navigation(
         ("selected_command_sha256", "next_command_sha256"),
         ("status", "next_command_status"),
         ("operator_hint", "next_command_operator_hint"),
+        ("codex_preflight_next_step", "codex_preflight_next_step"),
         ("boundary", "next_command_boundary"),
         ("writes_artifact", "next_command_writes_artifact"),
     ):
@@ -7086,6 +7087,11 @@ def validate_unavailable_diagnosis_operator_navigation(
         )
     if str(next_command.get("operator_hint", "")):
         add_error(report, "diagnosis.json operator_navigation next hint text mismatch")
+    if str(next_command.get("codex_preflight_next_step", "")):
+        add_error(
+            report,
+            "diagnosis.json operator_navigation next codex_preflight_next_step mismatch",
+        )
     if str(next_command.get("boundary", "")):
         add_error(report, "diagnosis.json operator_navigation next boundary mismatch")
     if str(next_command.get("writes_artifact", "")):

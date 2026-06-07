@@ -31227,6 +31227,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    config_runbook_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "config-runbook",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    config_runbook_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "config-runbook",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     apply_config_result = subprocess.run(
         [
             sys.executable,
@@ -31315,6 +31346,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    rollback_preview_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "config-application-rollback-preview",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    rollback_preview_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "config-application-rollback-preview",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     restore_config_result = subprocess.run(
         [
             sys.executable,
@@ -31390,6 +31452,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "experiments",
             "config-lineage",
             "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    config_lineage_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "config-lineage",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    config_lineage_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "config-lineage",
+            "--latest",
             "--markdown",
         ],
         cwd=repo,
@@ -33003,6 +33096,31 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         config_application_latest_markdown_result.stdout
     )
     assert "cli-candidates" in config_application_latest_markdown_result.stdout
+    assert config_runbook_latest_result.returncode == 0, (
+        config_runbook_latest_result.stderr
+    )
+    config_runbook_latest_payload = json.loads(config_runbook_latest_result.stdout)
+    assert config_runbook_latest_payload["run_id"] == "cli-candidates"
+    assert config_runbook_latest_payload["schema_version"] == (
+        CONFIG_OPERATOR_RUNBOOK_SCHEMA_VERSION
+    )
+    assert config_runbook_latest_payload["from_artifact"] is True
+    assert_matches_schema_payload(
+        config_runbook_latest_payload,
+        "config_operator_runbook",
+    )
+    assert validate_config_operator_runbook_payload(
+        config_runbook_latest_payload,
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+    ) == ()
+    assert config_runbook_latest_markdown_result.returncode == 0, (
+        config_runbook_latest_markdown_result.stderr
+    )
+    assert "# Config Operator Runbook" in (
+        config_runbook_latest_markdown_result.stdout
+    )
+    assert "cli-candidates" in config_runbook_latest_markdown_result.stdout
     assert apply_config_result.returncode == 1
     apply_config_payload = json.loads(apply_config_result.stdout)
     assert apply_config_payload["schema_version"] == (
@@ -33056,6 +33174,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert write_rollback_preview_result.returncode == 0, (
         write_rollback_preview_result.stderr
     )
+    assert rollback_preview_latest_result.returncode == 0, (
+        rollback_preview_latest_result.stderr
+    )
+    rollback_preview_latest_payload = json.loads(
+        rollback_preview_latest_result.stdout
+    )
+    assert rollback_preview_latest_payload["run_id"] == "cli-candidates"
+    assert rollback_preview_latest_payload["schema_version"] == (
+        CONFIG_APPLICATION_ROLLBACK_PREVIEW_SCHEMA_VERSION
+    )
+    assert rollback_preview_latest_payload["from_artifact"] is True
+    assert_matches_schema_payload(
+        rollback_preview_latest_payload,
+        "config_application_rollback_preview",
+    )
+    assert validate_config_application_rollback_preview_payload(
+        rollback_preview_latest_payload,
+        run_id="cli-candidates",
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        receipt_path=repo
+        / "experiments/cli-candidates/config_application_receipt.json",
+        config_path=repo / "config/default.json",
+    ) == ()
+    assert rollback_preview_latest_markdown_result.returncode == 0, (
+        rollback_preview_latest_markdown_result.stderr
+    )
+    assert "# Config Application Rollback Preview" in (
+        rollback_preview_latest_markdown_result.stdout
+    )
+    assert "cli-candidates" in rollback_preview_latest_markdown_result.stdout
     assert restore_config_result.returncode == 1
     restore_config_payload = json.loads(restore_config_result.stdout)
     assert restore_config_payload["schema_version"] == (
@@ -33104,6 +33253,28 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "Run: `cli-candidates`" in config_lineage_markdown_result.stdout
     assert "Status: `blocked`" in config_lineage_markdown_result.stdout
     assert "does not write config" in config_lineage_markdown_result.stdout
+    assert config_lineage_latest_result.returncode == 0, (
+        config_lineage_latest_result.stderr
+    )
+    config_lineage_latest_payload = json.loads(config_lineage_latest_result.stdout)
+    assert config_lineage_latest_payload["run_id"] == "cli-candidates"
+    assert config_lineage_latest_payload["schema_version"] == (
+        CONFIG_LINEAGE_SCHEMA_VERSION
+    )
+    assert config_lineage_latest_payload["from_artifact"] is True
+    assert_matches_schema_payload(config_lineage_latest_payload, "config_lineage")
+    assert validate_config_lineage_payload(
+        config_lineage_latest_payload,
+        run_id="cli-candidates",
+        run_dir=repo / "experiments/cli-candidates",
+        repo_root=repo,
+        config_path=repo / "config/default.json",
+    ) == ()
+    assert config_lineage_latest_markdown_result.returncode == 0, (
+        config_lineage_latest_markdown_result.stderr
+    )
+    assert "# Config Lineage" in config_lineage_latest_markdown_result.stdout
+    assert "cli-candidates" in config_lineage_latest_markdown_result.stdout
     assert challenger_result.returncode == 0, challenger_result.stderr
     challenger_payload = json.loads(challenger_result.stdout)
     assert challenger_markdown_result.returncode == 0, (

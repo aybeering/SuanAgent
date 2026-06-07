@@ -94,12 +94,15 @@ python -m orchestrator.champion_promotion_executor <candidate_run_id> --approval
 python -m orchestrator.champion_promotion_executor <candidate_run_id> --approval-path experiments/<run_id>/champion_promotion_approval.json --markdown
 python -m orchestrator.experiments apply-config-approved <run_id> --dry-run-path experiments/<run_id>/config_application_dry_run.json
 python -m orchestrator.experiments config-application-rollback-preview <run_id> --receipt-path experiments/<run_id>/config_application_receipt.json
+python -m orchestrator.experiments config-application-rollback-preview --latest --markdown
 python -m orchestrator.experiments restore-config-approved <run_id> --preview-path experiments/<run_id>/config_application_rollback_preview.json
 python -m orchestrator.config_operator_runbook experiments/<run_id>
 python -m orchestrator.experiments config-runbook <run_id>
 python -m orchestrator.experiments config-runbook <run_id> --markdown
+python -m orchestrator.experiments config-runbook --latest --markdown
 python -m orchestrator.experiments config-lineage <run_id>
 python -m orchestrator.experiments config-lineage <run_id> --markdown
+python -m orchestrator.experiments config-lineage --latest --markdown
 python -m orchestrator.experiments promote-approved <candidate_run_id> --approval-path experiments/<run_id>/champion_promotion_approval.json
 python -m orchestrator.operator_action_approval experiments/<run_id> --action-id <action_id> --command-label <label> --approve --operator-id <operator> --confirmation-phrase "APPROVE OPERATOR ACTION"
 python -m orchestrator.operator_action_executor <run_id> --approval-path experiments/<run_id>/operator_action_approval.json
@@ -1300,10 +1303,10 @@ Replay artifacts:
   current config to preview manual restore rows and next-run impact. They are
   read-only and never restore config automatically.
   `python -m orchestrator.experiments config-application-rollback-preview <run_id>`
-  and `python -m orchestrator.experiments config-application-rollback-preview <run_id> --markdown`
-  validate schema, rollback gate counts, row restore readiness, next-run
-  impact, and optional current receipt/config evidence before printing JSON or
-  markdown.
+  `python -m orchestrator.experiments config-application-rollback-preview <run_id> --markdown`,
+  and the matching `--latest` form validate schema, rollback gate counts, row
+  restore readiness, next-run impact, and optional current receipt/config
+  evidence before printing JSON or markdown.
   The consistency validator reports field-specific drift for source receipt
   and config hashes, rollback gate fields, rollback-plan rows, next-run impact,
   and read-only policy fields.
@@ -1332,20 +1335,21 @@ Replay artifacts:
   which commands would write config if explicitly invoked, and remains
   read-only: it never records approval, executes commands, writes config,
   restores config, runs agents, or changes acceptance. `python -m
-  orchestrator.experiments config-runbook <run_id>` validates schema, step
-  ordering, command SHA-256 bindings, command safety, summary counters,
-  authority flags, current artifact evidence, and read-only policy before
-  printing JSON or markdown. The saved-file validator reports field-specific
-  drift for source fields, summary counters, step rows, command hints, and
-  read-only policy fields.
+  orchestrator.experiments config-runbook <run_id>` and the matching
+  `--latest` form validate schema, step ordering, command SHA-256 bindings,
+  command safety, summary counters, authority flags, current artifact evidence,
+  and read-only policy before printing JSON or markdown. The saved-file
+  validator reports field-specific drift for source fields, summary counters,
+  step rows, command hints, and read-only policy fields.
 - `config_lineage.json` and `config_lineage.md` connect config candidates,
   operator review, dry-run, apply receipt, rollback preview, and restore
   receipt artifacts into one read-only digest chain for the run.
-  `python -m orchestrator.experiments config-lineage <run_id>` validates schema,
-  stage order, stage counts, action flags, current-config summary, status, and
-  current artifact evidence before printing JSON or markdown. The saved-file
-  validator reports field-specific drift for current-config fields, stage rows,
-  lineage checks, and read-only policy fields.
+  `python -m orchestrator.experiments config-lineage <run_id>` and the matching
+  `--latest` form validate schema, stage order, stage counts, action flags,
+  current-config summary, status, and current artifact evidence before printing
+  JSON or markdown. The saved-file validator reports field-specific drift for
+  current-config fields, stage rows, lineage checks, and read-only policy
+  fields.
 - `experiment_scope_health.json` combines current artifact health,
   artifact-health history, and memory diagnostics for one `--created-at-from`
   scope. It is a read-only status page and marks the scope unhealthy if any

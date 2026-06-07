@@ -73,6 +73,9 @@ python -m orchestrator.experiments memory-scope-recommendation --latest --markdo
 python -m orchestrator.experiments config-change-candidate --latest --markdown
 python -m orchestrator.experiments operator-config-review --latest --markdown
 python -m orchestrator.experiments config-application-dry-run --latest --markdown
+python -m orchestrator.experiments config-runbook --latest --markdown
+python -m orchestrator.experiments config-application-rollback-preview --latest --markdown
+python -m orchestrator.experiments config-lineage --latest --markdown
 python -m orchestrator.experiments candidates --latest --limit 5 --markdown
 python -m orchestrator.experiments agents --latest --markdown
 python -m orchestrator.experiments quality-trace --latest --markdown

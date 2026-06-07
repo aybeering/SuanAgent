@@ -3942,10 +3942,11 @@ def config_application_dry_run_report(
 
 def config_operator_runbook_report(
     *,
-    run_id: str,
+    run_id: str | None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return config operator runbook for one iteration run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     path = run_dir / "config_operator_runbook.json"
     if path.exists():
@@ -3984,12 +3985,13 @@ def config_operator_runbook_report(
 
 def config_application_rollback_preview_report(
     *,
-    run_id: str,
+    run_id: str | None,
     experiments_dir: Path = Path("experiments"),
     receipt_path: Path | None = None,
     config_path: Path = Path("config/default.json"),
 ) -> dict[str, object]:
     """Return config application rollback preview for one iteration run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     path = run_dir / "config_application_rollback_preview.json"
     if path.exists() and receipt_path is None:
@@ -4048,11 +4050,12 @@ def config_application_rollback_preview_report(
 
 def config_lineage_report(
     *,
-    run_id: str,
+    run_id: str | None,
     experiments_dir: Path = Path("experiments"),
     config_path: Path = Path("config/default.json"),
 ) -> dict[str, object]:
     """Return config lineage for one iteration run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     path = run_dir / "config_lineage.json"
     if path.exists():
@@ -7807,7 +7810,12 @@ def main() -> None:
         "config-runbook",
         help="Show read-only config operator runbook for one iteration run.",
     )
-    config_runbook_parser.add_argument("run_id")
+    config_runbook_parser.add_argument("run_id", nargs="?")
+    config_runbook_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     config_runbook_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -7818,7 +7826,12 @@ def main() -> None:
         "config-application-rollback-preview",
         help="Show read-only config rollback preview for one iteration run.",
     )
-    config_rollback_parser.add_argument("run_id")
+    config_rollback_parser.add_argument("run_id", nargs="?")
+    config_rollback_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     config_rollback_parser.add_argument("--receipt-path", type=Path)
     config_rollback_parser.add_argument(
         "--config",
@@ -7835,7 +7848,12 @@ def main() -> None:
         "config-lineage",
         help="Show read-only config lineage for one iteration run.",
     )
-    config_lineage_parser.add_argument("run_id")
+    config_lineage_parser.add_argument("run_id", nargs="?")
+    config_lineage_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     config_lineage_parser.add_argument(
         "--config",
         type=Path,
@@ -8318,7 +8336,7 @@ def main() -> None:
     elif args.command == "config-runbook":
         payload = config_operator_runbook_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(render_config_operator_runbook_markdown(payload), end="")
@@ -8326,7 +8344,7 @@ def main() -> None:
     elif args.command == "config-application-rollback-preview":
         payload = config_application_rollback_preview_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
             receipt_path=args.receipt_path,
             config_path=args.config,
         )
@@ -8340,7 +8358,7 @@ def main() -> None:
     elif args.command == "config-lineage":
         payload = config_lineage_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
             config_path=args.config,
         )
         if args.markdown:

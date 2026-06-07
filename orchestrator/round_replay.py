@@ -103,6 +103,12 @@ def replay_round(
     write_json(destination, report)
     markdown_destination = markdown_path or round_dir / "round_replay.md"
     markdown_destination.write_text(round_replay_markdown(report), encoding="utf-8")
+    refresh_parent_manifest_round_replay_summary(
+        round_dir=round_dir,
+        json_path=destination,
+        markdown_path=markdown_destination,
+        replay_report=report,
+    )
     return report
 
 
@@ -296,6 +302,69 @@ def round_replay_markdown(report: dict[str, Any]) -> str:
             )
     lines.append("")
     return "\n".join(lines)
+
+
+def refresh_parent_manifest_round_replay_summary(
+    *,
+    round_dir: Path,
+    json_path: Path,
+    markdown_path: Path,
+    replay_report: dict[str, Any],
+) -> None:
+    """Refresh the parent run manifest when replay writes the standard artifacts."""
+    standard_json_path = round_dir / "round_replay.json"
+    standard_markdown_path = round_dir / "round_replay.md"
+    if json_path.resolve() != standard_json_path.resolve():
+        return
+    if markdown_path.resolve() != standard_markdown_path.resolve():
+        return
+    run_dir = round_dir.parent
+    manifest_path = run_dir / "manifest.json"
+    if not manifest_path.exists():
+        return
+    manifest = load_json_object(manifest_path)
+    rounds = manifest.get("rounds", [])
+    if not isinstance(rounds, list):
+        return
+    round_id = str(replay_report.get("round_id", round_dir.name))
+    refreshed = False
+    for row in rounds:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("round_id", "")) != round_id:
+            continue
+        row["round_replay"] = manifest_round_replay_summary(
+            round_id=round_id,
+            replay_report=replay_report,
+        )
+        refreshed = True
+        break
+    if not refreshed:
+        return
+    write_json(manifest_path, manifest)
+    from orchestrator.run_summary import write_iteration_summary
+
+    write_iteration_summary(run_dir=run_dir, manifest=manifest)
+
+
+def manifest_round_replay_summary(
+    *,
+    round_id: str,
+    replay_report: dict[str, Any],
+) -> dict[str, object]:
+    """Return the compact replay row stored in manifest.rounds."""
+    return {
+        "path": f"{round_id}/round_replay.json",
+        "markdown_path": f"{round_id}/round_replay.md",
+        "ok": bool(replay_report.get("ok", False)),
+        "run_probe": bool(replay_report.get("run_probe", False)),
+        "replayed_attempt_count": int(
+            replay_report.get("replayed_attempt_count", 0) or 0
+        ),
+        "failure_stage": str(replay_report.get("failure_stage", "none")),
+        "failure_code": str(replay_report.get("failure_code", "none")),
+        "failure_message": str(replay_report.get("failure_message", "")),
+    }
 
 
 def load_json_object(path: Path) -> dict[str, Any]:

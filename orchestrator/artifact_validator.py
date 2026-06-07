@@ -499,6 +499,11 @@ def validate_iteration_run(
     if not round_ids:
         add_error(report, "manifest.rounds is empty or invalid")
         return
+    validate_manifest_round_replay_summaries(
+        run_dir=run_dir,
+        manifest=manifest,
+        report=report,
+    )
     validate_manifest_agent_intake_summary(manifest=manifest, report=report)
     validate_manifest_run_outcome_summary(manifest=manifest, report=report)
     validate_manifest_codex_cli_execution_preflight(
@@ -641,6 +646,61 @@ def validate_iteration_run(
         round_dir = run_dir / round_id
         validate_round_dir(round_dir=round_dir, repo_root=repo_root, report=report)
     report["rounds_checked"] = len(round_ids)
+
+
+def validate_manifest_round_replay_summaries(
+    *,
+    run_dir: Path,
+    manifest: dict[str, object],
+    report: dict[str, object],
+) -> None:
+    """Validate manifest round replay summaries mirror saved replay artifacts."""
+    rounds = [
+        round_payload
+        for round_payload in manifest.get("rounds", [])
+        if isinstance(round_payload, dict)
+    ]
+    for round_payload in rounds:
+        round_id = str(round_payload.get("round_id", ""))
+        if not round_id:
+            continue
+        actual = round_payload.get("round_replay")
+        if not isinstance(actual, dict):
+            add_error(report, f"manifest.rounds {round_id} round_replay missing")
+            continue
+        replay_payload = load_json_object(
+            run_dir / round_id / "round_replay.json",
+            report,
+        )
+        if replay_payload is None:
+            add_error(report, f"manifest.rounds {round_id} round_replay artifact missing")
+            continue
+        expected = expected_manifest_round_replay(
+            round_id=round_id,
+            replay_payload=replay_payload,
+        )
+        if actual != expected:
+            add_error(report, f"manifest.rounds {round_id} round_replay summary mismatch")
+
+
+def expected_manifest_round_replay(
+    *,
+    round_id: str,
+    replay_payload: dict[str, object],
+) -> dict[str, object]:
+    """Return the manifest replay row expected from a saved round replay."""
+    return {
+        "path": f"{round_id}/round_replay.json",
+        "markdown_path": f"{round_id}/round_replay.md",
+        "ok": bool(replay_payload.get("ok", False)),
+        "run_probe": bool(replay_payload.get("run_probe", False)),
+        "replayed_attempt_count": int(
+            replay_payload.get("replayed_attempt_count", 0) or 0
+        ),
+        "failure_stage": str(replay_payload.get("failure_stage", "none")),
+        "failure_code": str(replay_payload.get("failure_code", "none")),
+        "failure_message": str(replay_payload.get("failure_message", "")),
+    }
 
 
 def validate_manifest_run_outcome_summary(

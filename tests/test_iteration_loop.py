@@ -14117,6 +14117,15 @@ def test_round_replay_replays_all_planned_attempts(tmp_path: Path) -> None:
         experiments_dir=repo / "experiments",
         repo_root=repo,
     )
+    manifest = json.loads(
+        (repo / "experiments/round-replay-source/manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    summary_text = (
+        repo / "experiments/round-replay-source/summary.md"
+    ).read_text(encoding="utf-8")
+    round_replay_summary = manifest["rounds"][0]["round_replay"]
 
     assert command_result.returncode == 0
     assert report["schema_version"] == ROUND_REPLAY_SCHEMA_VERSION
@@ -14134,6 +14143,10 @@ def test_round_replay_replays_all_planned_attempts(tmp_path: Path) -> None:
     assert report["policy"]["does_not_execute_agents"] is True
     assert report["policy"]["does_not_select_candidate"] is True
     assert cli_payload["ok"] is True
+    assert round_replay_summary["run_probe"] is False
+    assert round_replay_summary["replayed_attempt_count"] == 3
+    assert "| round_001 | `false` |" in summary_text
+    assert "ok (3)" in summary_text
     assert_matches_schema(round_dir / "round_replay.json", "round_replay")
     assert (round_dir / "round_replay.md").exists()
     assert validation_report["ok"] is True
@@ -14170,6 +14183,37 @@ def test_artifact_validator_reports_round_replay_plan_mismatch(
     assert any(
         "round_replay.json plan mismatch" in error
         for error in report["errors"]  # type: ignore[union-attr]
+    )
+
+
+def test_artifact_validator_reports_manifest_round_replay_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "manifest-round-replay-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    manifest_path = repo / f"experiments/{run_id}/manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["rounds"][0]["round_replay"]["markdown_path"] = "round_001/wrong.md"
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert (
+        "manifest.rounds round_001 round_replay summary mismatch"
+        in report["errors"]  # type: ignore[operator]
     )
 
 

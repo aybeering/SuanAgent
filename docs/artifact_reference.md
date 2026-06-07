@@ -798,7 +798,9 @@ preflight status and counts for total profiles, real-execution profiles,
 operator-unlock ready profiles, canary-exempt profiles, and startup blockers;
 artifact validation binds those fields back to the saved
 `codex_cli_execution_preflight.json` summary, and requires the manifest status
-to fall back to `missing` if that required startup artifact is absent.
+to fall back to `missing` if that required startup artifact is absent. The
+iteration writer and artifact validator use the same compact-row helper so the
+operator-facing manifest view cannot drift from the validator expectation.
 `operator_cockpit.json` and `operator_cockpit.md` collect the run closeout,
 config lineage, operator action dashboard, Codex CLI execution preflight,
 standalone operator unlock checklist, Codex CLI unlock runbook, Codex CLI execution readiness diff,

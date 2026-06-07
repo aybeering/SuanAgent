@@ -60,6 +60,7 @@ from orchestrator.config import (
     load_project_config,
 )
 from orchestrator.codex_cli_execution_preflight import (
+    codex_cli_execution_preflight_manifest_row,
     write_codex_cli_execution_preflight,
 )
 from orchestrator.codex_cli_execution_readiness_diff import (
@@ -444,7 +445,7 @@ def run_iteration_loop(
             repo_root=repo_root,
         )
         manifest["codex_cli_execution_preflight"] = (
-            codex_execution_preflight_manifest_row(codex_execution_preflight)
+            codex_cli_execution_preflight_manifest_row(codex_execution_preflight)
         )
         if not bool(codex_execution_preflight.get("ok", False)):
             raise ValueError(
@@ -1324,60 +1325,6 @@ def codex_execution_readiness_diff_manifest_row(
             summary.get("missing_comparison_count", 0) or 0
         ),
     }
-
-
-def codex_execution_preflight_manifest_row(
-    payload: dict[str, object],
-) -> dict[str, object]:
-    """Return compact manifest metadata for the Codex CLI startup preflight."""
-    summary = (
-        payload.get("summary", {})
-        if isinstance(payload.get("summary", {}), dict)
-        else {}
-    )
-    blockers = (
-        payload.get("blocking_errors", [])
-        if isinstance(payload.get("blocking_errors", []), list)
-        else []
-    )
-    return {
-        "path": "codex_cli_execution_preflight.json",
-        "markdown_path": "codex_cli_execution_preflight.md",
-        "status": codex_execution_preflight_status(
-            payload=payload,
-            blocking_errors=[str(error) for error in blockers],
-        ),
-        "ok": bool(payload.get("ok", False)),
-        "blocking_error_count": len(blockers),
-        "profile_count": int(summary.get("profile_count", 0) or 0),
-        "real_codex_execute_profile_count": int(
-            summary.get("real_codex_execute_profile_count", 0) or 0
-        ),
-        "operator_unlock_ready_count": int(
-            summary.get("operator_unlock_ready_count", 0) or 0
-        ),
-        "canary_exempt_count": int(summary.get("canary_exempt_count", 0) or 0),
-    }
-
-
-def codex_execution_preflight_status(
-    *,
-    payload: dict[str, object],
-    blocking_errors: list[str],
-) -> str:
-    """Return compact status for the Codex CLI startup preflight."""
-    if not payload:
-        return "missing"
-    if blocking_errors:
-        return "blocked"
-    summary = (
-        payload.get("summary", {})
-        if isinstance(payload.get("summary", {}), dict)
-        else {}
-    )
-    if int(summary.get("real_codex_execute_profile_count", 0) or 0) == 0:
-        return "no_real_execution_profiles"
-    return "operator_unlock_ready"
 
 
 def codex_unlock_runbook_manifest_row(

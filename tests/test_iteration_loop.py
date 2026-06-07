@@ -125,6 +125,7 @@ from orchestrator.codex_cli_operator_unlock_request import (
 )
 from orchestrator.codex_cli_execution_preflight import (
     CODEX_CLI_EXECUTION_PREFLIGHT_SCHEMA_VERSION,
+    codex_cli_execution_preflight_manifest_row,
     write_codex_cli_execution_preflight,
 )
 from orchestrator.codex_cli_unlock_runbook import (
@@ -22364,6 +22365,55 @@ def test_codex_cli_execution_preflight_blocks_stale_operator_request(
     assert "profile primary: operator_request_workspace_prefix_mismatch" in preflight[
         "blocking_errors"
     ]
+
+
+def test_codex_cli_execution_preflight_manifest_row_statuses() -> None:
+    missing = codex_cli_execution_preflight_manifest_row({})
+    blocked = codex_cli_execution_preflight_manifest_row(
+        {
+            "ok": False,
+            "blocking_errors": ["profile primary: operator_request_missing"],
+            "summary": {
+                "profile_count": 1,
+                "real_codex_execute_profile_count": 1,
+                "operator_unlock_ready_count": 0,
+                "canary_exempt_count": 0,
+            },
+        }
+    )
+    no_real_profiles = codex_cli_execution_preflight_manifest_row(
+        {
+            "ok": True,
+            "blocking_errors": [],
+            "summary": {
+                "profile_count": 3,
+                "real_codex_execute_profile_count": 0,
+                "operator_unlock_ready_count": 0,
+                "canary_exempt_count": 1,
+            },
+        }
+    )
+    operator_ready = codex_cli_execution_preflight_manifest_row(
+        {
+            "ok": True,
+            "blocking_errors": [],
+            "summary": {
+                "profile_count": 1,
+                "real_codex_execute_profile_count": 1,
+                "operator_unlock_ready_count": 1,
+                "canary_exempt_count": 0,
+            },
+        }
+    )
+
+    assert missing["status"] == "missing"
+    assert missing["profile_count"] == 0
+    assert blocked["status"] == "blocked"
+    assert blocked["blocking_error_count"] == 1
+    assert no_real_profiles["status"] == "no_real_execution_profiles"
+    assert no_real_profiles["canary_exempt_count"] == 1
+    assert operator_ready["status"] == "operator_unlock_ready"
+    assert operator_ready["operator_unlock_ready_count"] == 1
 
 
 def test_codex_cli_execution_preflight_blocks_operator_run_identity_drift(

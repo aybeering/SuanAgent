@@ -126,6 +126,48 @@ def write_codex_cli_execution_preflight(
     return payload
 
 
+def codex_cli_execution_preflight_manifest_row(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    """Return compact manifest metadata for Codex startup preflight evidence."""
+    summary = object_value(payload.get("summary", {})) if payload else {}
+    blockers = string_list(payload.get("blocking_errors", [])) if payload else []
+    return {
+        "path": "codex_cli_execution_preflight.json",
+        "markdown_path": "codex_cli_execution_preflight.md",
+        "status": codex_cli_execution_preflight_status(
+            payload=payload,
+            blocking_errors=blockers,
+        ),
+        "ok": bool(payload.get("ok", False)),
+        "blocking_error_count": len(blockers),
+        "profile_count": int(summary.get("profile_count", 0) or 0),
+        "real_codex_execute_profile_count": int(
+            summary.get("real_codex_execute_profile_count", 0) or 0
+        ),
+        "operator_unlock_ready_count": int(
+            summary.get("operator_unlock_ready_count", 0) or 0
+        ),
+        "canary_exempt_count": int(summary.get("canary_exempt_count", 0) or 0),
+    }
+
+
+def codex_cli_execution_preflight_status(
+    *,
+    payload: dict[str, object],
+    blocking_errors: list[str],
+) -> str:
+    """Return compact operator-facing status for Codex startup preflight."""
+    if not payload:
+        return "missing"
+    if blocking_errors:
+        return "blocked"
+    summary = object_value(payload.get("summary", {}))
+    if int(summary.get("real_codex_execute_profile_count", 0) or 0) == 0:
+        return "no_real_execution_profiles"
+    return "operator_unlock_ready"
+
+
 def profile_execution_row(
     *,
     profile: dict[str, object],

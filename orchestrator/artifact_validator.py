@@ -10,6 +10,9 @@ from pathlib import Path
 from typing import Any
 
 from orchestrator.codex_cli_canary_gate import build_codex_cli_canary_gate
+from orchestrator.codex_cli_execution_preflight import (
+    codex_cli_execution_preflight_manifest_row,
+)
 from orchestrator.codex_cli_execution_unlock_gate import (
     build_codex_cli_execution_unlock_gate,
 )
@@ -707,10 +710,7 @@ def validate_manifest_codex_cli_execution_preflight(
         return
     preflight_path = run_dir / "codex_cli_execution_preflight.json"
     if not preflight_path.exists():
-        expected = expected_codex_cli_execution_preflight_manifest_row(
-            preflight={},
-            blockers=[],
-        )
+        expected = codex_cli_execution_preflight_manifest_row({})
         for key, expected_value in expected.items():
             if manifest_row.get(key) != expected_value:
                 add_error(
@@ -721,61 +721,13 @@ def validate_manifest_codex_cli_execution_preflight(
     preflight = load_json_object(preflight_path, report)
     if not isinstance(preflight, dict):
         return
-    summary = dict_value(preflight.get("summary", {}))
-    blockers = list_value(preflight.get("blocking_errors", []))
-    expected = expected_codex_cli_execution_preflight_manifest_row(
-        preflight=preflight,
-        blockers=[str(error) for error in blockers],
-    )
+    expected = codex_cli_execution_preflight_manifest_row(preflight)
     for key, expected_value in expected.items():
         if manifest_row.get(key) != expected_value:
             add_error(
                 report,
                 f"manifest.codex_cli_execution_preflight {key} mismatch",
             )
-
-
-def expected_codex_cli_execution_preflight_manifest_row(
-    *,
-    preflight: dict[str, object],
-    blockers: list[str],
-) -> dict[str, object]:
-    """Return expected manifest metadata for Codex startup preflight evidence."""
-    summary = dict_value(preflight.get("summary", {})) if preflight else {}
-    return {
-        "path": "codex_cli_execution_preflight.json",
-        "markdown_path": "codex_cli_execution_preflight.md",
-        "status": expected_codex_cli_execution_preflight_status(
-            preflight=preflight,
-            blockers=blockers,
-        ),
-        "ok": bool(preflight.get("ok", False)),
-        "blocking_error_count": len(blockers),
-        "profile_count": int(summary.get("profile_count", 0) or 0),
-        "real_codex_execute_profile_count": int(
-            summary.get("real_codex_execute_profile_count", 0) or 0
-        ),
-        "operator_unlock_ready_count": int(
-            summary.get("operator_unlock_ready_count", 0) or 0
-        ),
-        "canary_exempt_count": int(summary.get("canary_exempt_count", 0) or 0),
-    }
-
-
-def expected_codex_cli_execution_preflight_status(
-    *,
-    preflight: dict[str, object],
-    blockers: list[str],
-) -> str:
-    """Return expected compact status for Codex startup preflight evidence."""
-    if not preflight:
-        return "missing"
-    if blockers:
-        return "blocked"
-    summary = dict_value(preflight.get("summary", {}))
-    if int(summary.get("real_codex_execute_profile_count", 0) or 0) == 0:
-        return "no_real_execution_profiles"
-    return "operator_unlock_ready"
 
 
 def validate_iteration_summary_header(

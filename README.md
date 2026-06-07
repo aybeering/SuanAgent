@@ -57,7 +57,10 @@ python -m orchestrator.iteration_loop --config config/file_protocol_demo.json --
 Useful inspection:
 
 ```bash
+python -m orchestrator.experiments show --latest --markdown
 python -m orchestrator.experiments review <run_id> --markdown
+python -m orchestrator.experiments review --latest --markdown
+python -m orchestrator.experiments diagnose --latest --markdown
 python -m orchestrator.experiments action-plan <run_id> --markdown
 python -m orchestrator.experiments action-approval <run_id> --markdown
 python -m orchestrator.experiments action-execution <run_id> --markdown

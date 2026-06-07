@@ -32,8 +32,10 @@ python -m orchestrator.experiments list --limit 5
 python -m orchestrator.experiments list --limit 5 --markdown
 python -m orchestrator.experiments show <run_id>
 python -m orchestrator.experiments show <run_id> --markdown
+python -m orchestrator.experiments show --latest --markdown
 python -m orchestrator.experiments review <run_id>
 python -m orchestrator.experiments review <run_id> --markdown
+python -m orchestrator.experiments review --latest --markdown
 python -m orchestrator.experiments action-plan <run_id>
 python -m orchestrator.experiments action-plan <run_id> --markdown
 python -m orchestrator.experiments action-plan --latest --markdown
@@ -55,6 +57,7 @@ python -m orchestrator.experiments memory-scope-recommendation <run_id> --markdo
 python -m orchestrator.experiments memory-scope-recommendation --latest --markdown
 python -m orchestrator.experiments diagnose <run_id>
 python -m orchestrator.experiments diagnose <run_id> --markdown
+python -m orchestrator.experiments diagnose --latest --markdown
 python -m orchestrator.experiments candidates <run_id> --limit 5
 python -m orchestrator.experiments candidates <run_id> --limit 5 --markdown
 python -m orchestrator.experiments candidates --latest --limit 5 --markdown
@@ -164,6 +167,8 @@ champions, or change acceptance.
 
 `python -m orchestrator.experiments show <run_id>` includes the same derived
 `operator_home` and `operator_next_command` hints in the compact run payload.
+`show --latest` resolves the newest indexed iteration-loop run for terminal
+review.
 Iteration-loop runs expose the terminal-only home markdown command, the
 next-command selector command, and the selected command label, status, blocked
 flag, blocker count, operator hint, command text, boundary, write target,
@@ -356,9 +361,10 @@ The schema allows unavailable command digest fields to stay empty, but any
 present diagnosis navigation command digest must use 64 lowercase hexadecimal
 characters. Per-round patch SHA-256 fields must likewise be empty or
 64-lowercase-hex strings.
-The `--markdown` flag renders the same diagnosis navigation as a terminal-only
-human review view with the same command digest bindings. These fields are
-diagnosis hints only; they do not
+The `--latest` flag resolves the newest indexed iteration-loop run, and
+`--markdown` renders the same diagnosis navigation as a terminal-only human
+review view with the same command digest bindings. These fields are diagnosis
+hints only; they do not
 create artifacts, record approval, execute commands, write config, promote
 champions, run agents, run backtests, apply patches, route agents, or change
 acceptance.
@@ -444,9 +450,10 @@ ranked rows as a terminal-only table with per-run
 creating artifacts, rerunning backtests, promoting champions, or changing
 acceptance.
 `python -m orchestrator.experiments review <run_id>` returns the saved
-`run_closeout.json` operator dashboard directly. `review --markdown` renders
-the same dashboard for terminal inspection. The terminal review payload is
-validated in memory against `schemas/operator_run_review.schema.json` before it
+`run_closeout.json` operator dashboard directly. `review --latest` resolves the
+newest indexed iteration-loop run. `review --markdown` renders the same
+dashboard for terminal inspection. The terminal review payload is validated in
+memory against `schemas/operator_run_review.schema.json` before it
 is printed, with deterministic consistency checks that the copied top-level
 run status, closeout status, completed rounds, accepted round, stop reason, and
 config-lineage summary still match the embedded dashboard. It also checks the

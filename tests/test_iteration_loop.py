@@ -29857,6 +29857,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    show_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "show",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    show_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "show",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     review_result = subprocess.run(
         [
             sys.executable,
@@ -29881,6 +29912,68 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "experiments",
             "review",
             "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    review_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "review",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    review_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "review",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    diagnose_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "diagnose",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    diagnose_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "diagnose",
+            "--latest",
             "--markdown",
         ],
         cwd=repo,
@@ -32035,6 +32128,17 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert "# Candidate Leaderboard" in latest_candidates_markdown_result.stdout
     assert "cli-candidates" in latest_candidates_markdown_result.stdout
+    assert show_latest_result.returncode == 0, show_latest_result.stderr
+    show_latest_payload = json.loads(show_latest_result.stdout)
+    assert show_latest_payload["run_id"] == "cli-candidates"
+    assert show_latest_payload["kind"] == "iteration_loop"
+    assert show_latest_payload["manifest"]["run_id"] == "cli-candidates"
+    assert show_latest_payload["operator_next_command"]["run_id"] == "cli-candidates"
+    assert show_latest_markdown_result.returncode == 0, (
+        show_latest_markdown_result.stderr
+    )
+    assert "# Experiment" in show_latest_markdown_result.stdout
+    assert "cli-candidates" in show_latest_markdown_result.stdout
     assert review_result.returncode == 0, review_result.stderr
     review_payload = json.loads(review_result.stdout)
     assert review_payload["schema_version"] == "operator_run_review_v1"
@@ -32047,6 +32151,34 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "# Operator Run Review" in review_markdown_result.stdout
     assert "Lineage status" in review_markdown_result.stdout
     assert "Executes agents: `False`" in review_markdown_result.stdout
+    assert review_latest_result.returncode == 0, review_latest_result.stderr
+    review_latest_payload = json.loads(review_latest_result.stdout)
+    assert review_latest_payload["run_id"] == "cli-candidates"
+    assert review_latest_payload["schema_version"] == "operator_run_review_v1"
+    assert validate_operator_run_review_payload(
+        review_latest_payload,
+        repo_root=repo,
+    ) == ()
+    assert review_latest_payload["from_artifact"] is True
+    assert review_latest_markdown_result.returncode == 0, (
+        review_latest_markdown_result.stderr
+    )
+    assert "# Operator Run Review" in review_latest_markdown_result.stdout
+    assert "cli-candidates" in review_latest_markdown_result.stdout
+    assert diagnose_latest_result.returncode == 0, diagnose_latest_result.stderr
+    diagnose_latest_payload = json.loads(diagnose_latest_result.stdout)
+    assert diagnose_latest_payload["run_id"] == "cli-candidates"
+    assert diagnose_latest_payload["schema_version"] == "run_diagnosis_v1"
+    assert_matches_schema_payload(diagnose_latest_payload, "run_diagnosis")
+    assert validate_run_diagnosis_payload(
+        payload=diagnose_latest_payload,
+        repo_root=repo,
+    ) == ()
+    assert diagnose_latest_markdown_result.returncode == 0, (
+        diagnose_latest_markdown_result.stderr
+    )
+    assert "# Run Diagnosis" in diagnose_latest_markdown_result.stdout
+    assert "cli-candidates" in diagnose_latest_markdown_result.stdout
     assert action_plan_result.returncode == 0, action_plan_result.stderr
     action_plan_payload = json.loads(action_plan_result.stdout)
     assert action_plan_payload["schema_version"] == OPERATOR_ACTION_PLAN_SCHEMA_VERSION

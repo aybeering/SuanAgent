@@ -234,10 +234,11 @@ def latest_iteration_run_id(
 
 def show_experiment(
     *,
-    run_id: str,
+    run_id: str | None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return a compact summary for a run directory."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
@@ -4106,10 +4107,11 @@ def config_lineage_report(
 
 def operator_run_review(
     *,
-    run_id: str,
+    run_id: str | None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return the operator dashboard for one iteration run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment run not found: {run_id}")
@@ -7124,7 +7126,12 @@ def main() -> None:
     )
 
     show_parser = subparsers.add_parser("show", help="Show one experiment.")
-    show_parser.add_argument("run_id")
+    show_parser.add_argument("run_id", nargs="?")
+    show_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     show_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -7135,7 +7142,12 @@ def main() -> None:
         "review",
         help="Show the operator dashboard for one iteration run.",
     )
-    review_parser.add_argument("run_id")
+    review_parser.add_argument("run_id", nargs="?")
+    review_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     review_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -7673,7 +7685,12 @@ def main() -> None:
         "diagnose",
         help="Diagnose one run with artifact health and round outcomes.",
     )
-    diagnose_parser.add_argument("run_id")
+    diagnose_parser.add_argument("run_id", nargs="?")
+    diagnose_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     diagnose_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -7901,7 +7918,7 @@ def main() -> None:
     elif args.command == "show":
         payload = show_experiment(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(render_experiment_show_markdown(payload), end="")
@@ -7909,7 +7926,7 @@ def main() -> None:
     elif args.command == "review":
         payload = operator_run_review(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(render_operator_run_review_markdown(payload), end="")
@@ -8228,9 +8245,12 @@ def main() -> None:
                 raise SystemExit(1)
             return
     elif args.command == "diagnose":
+        run_id = (None if args.latest else args.run_id) or latest_iteration_run_id(
+            experiments_dir=args.experiments_dir
+        )
         payload = diagnose_run(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=run_id,
         )
         errors = validate_run_diagnosis_payload(
             payload=payload,

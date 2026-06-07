@@ -14713,6 +14713,19 @@ def test_external_agent_sandbox_drill_reports_current_evidence_drift(
     )
     drill = write_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
 
+    markdown_path.unlink()
+    missing_markdown_validation_report = validate_run_artifacts(
+        run_id="sandbox-current-evidence-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert (
+        "external_agent_sandbox_drill.md missing"
+        in missing_markdown_validation_report["errors"]
+    )
+    drill = write_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
+
     output_digest_drift = dict(drill)
     output_slots = list(output_digest_drift["slots"])
     output_slots[0] = dict(output_slots[0])

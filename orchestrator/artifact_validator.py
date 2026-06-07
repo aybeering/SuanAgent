@@ -10172,12 +10172,14 @@ def validate_optional_external_agent_sandbox_drill(
                     f"external_agent_sandbox_drill.json policy false: {key}",
                 )
     markdown_path = run_dir / "external_agent_sandbox_drill.md"
-    if markdown_path.exists():
-        checked_files(report).append(str(markdown_path))
-        if markdown_path.read_text(encoding="utf-8") != (
-            external_agent_sandbox_drill_markdown(payload)
-        ):
-            add_error(report, "external_agent_sandbox_drill.md mismatch")
+    if not markdown_path.exists():
+        add_error(report, "external_agent_sandbox_drill.md missing")
+        return
+    checked_files(report).append(str(markdown_path))
+    if markdown_path.read_text(encoding="utf-8") != (
+        external_agent_sandbox_drill_markdown(payload)
+    ):
+        add_error(report, "external_agent_sandbox_drill.md mismatch")
 
 
 def validate_optional_codex_cli_replay_gate(

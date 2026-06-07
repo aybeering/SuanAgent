@@ -1141,8 +1141,8 @@ Replay artifacts:
   columns for terminal review.
   Saved sandbox-drill reports are strict snapshots and fail validation when
   current run-local boundary evidence no longer matches the saved drill. If the
-  paired markdown report exists, validators also require it to match the JSON
-  report's deterministic render.
+  paired markdown report must also exist and match the JSON report's
+  deterministic render.
 - `codex_cli_contract_fixture.json` freezes guarded Codex CLI stdin/stdout
   expectations without executing Codex. Its prompt, audit-stdin, fixture-stdout,
   and fixture-patch SHA-256 fields are schema-constrained to

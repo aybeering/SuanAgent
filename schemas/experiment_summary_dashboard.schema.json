@@ -729,7 +729,8 @@
           "type": "string"
         },
         "review_command": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^(python -m orchestrator\\.experiments (list|leaderboard|memory|health-history|champion) --markdown|python -m orchestrator\\.experiments (diagnose|validate) [A-Za-z0-9_.:-]+ --markdown)$"
         },
         "review_command_sha256": {
           "type": "string",

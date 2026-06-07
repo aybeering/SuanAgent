@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shlex
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
@@ -178,6 +179,36 @@ EXPERIMENT_SUMMARY_DASHBOARD_SCHEMA_PATH = Path(
     "schemas/experiment_summary_dashboard.schema.json"
 )
 OPERATOR_RUN_REVIEW_SCHEMA_PATH = Path("schemas/operator_run_review.schema.json")
+WATCHLIST_REVIEW_COMMANDS_WITHOUT_RUN_ID = frozenset(
+    {"list", "leaderboard", "memory", "health-history", "champion"}
+)
+WATCHLIST_REVIEW_COMMANDS_WITH_RUN_ID = frozenset({"diagnose", "validate"})
+
+
+def watchlist_review_command_allowed(command: str) -> bool:
+    """Return whether a watchlist review command is a read-only experiment view."""
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        return False
+    if parts[:3] != ["python", "-m", "orchestrator.experiments"]:
+        return False
+    if len(parts) == 5:
+        return (
+            parts[3] in WATCHLIST_REVIEW_COMMANDS_WITHOUT_RUN_ID
+            and parts[4] == "--markdown"
+        )
+    if len(parts) != 6:
+        return False
+    run_id = parts[4]
+    safe_run_id = bool(run_id) and all(
+        char.isalnum() or char in {"-", "_", ".", ":"} for char in run_id
+    )
+    return (
+        parts[3] in WATCHLIST_REVIEW_COMMANDS_WITH_RUN_ID
+        and safe_run_id
+        and parts[5] == "--markdown"
+    )
 
 
 def list_experiments(
@@ -567,6 +598,10 @@ def validate_experiment_summary_dashboard_consistency(
         ):
             errors.append(
                 "experiment_summary_dashboard watchlist review command sha256 mismatch"
+            )
+        if review_command and not watchlist_review_command_allowed(review_command):
+            errors.append(
+                "experiment_summary_dashboard watchlist review command allowlist mismatch"
             )
         if str(alert.get("review_command_boundary", "")) != "read_only_inspection":
             errors.append(

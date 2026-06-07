@@ -477,6 +477,7 @@ from orchestrator.experiments import (
     validate_operator_run_review_payload,
     validate_operator_view_refresh_payload,
     validate_proposal_memory_payload,
+    watchlist_review_command_allowed,
     external_agent_sandbox_report,
 )
 from orchestrator.external_agent_sandbox_drill import (
@@ -27304,6 +27305,7 @@ def test_experiment_watchlist_alerts_bind_review_commands() -> None:
     )
     for alert in alerts.values():
         command = str(alert["review_command"])
+        assert watchlist_review_command_allowed(command) is True
         assert alert["review_command_sha256"] == sha256_text(command)
         assert alert["review_command_boundary"] == "read_only_inspection"
         assert alert["review_command_is_hint_only"] is True
@@ -27745,6 +27747,40 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     assert (
         "experiment_summary_dashboard policy binding false: does_not_apply_patches"
         in errors
+    )
+
+
+def test_experiment_summary_dashboard_rejects_unsafe_watchlist_review_command() -> None:
+    payload = _minimal_experiment_summary_dashboard_payload()
+    watchlist = payload["watchlist"]
+    assert isinstance(watchlist, dict)
+    alerts = watchlist["alerts"]
+    assert isinstance(alerts, list)
+    assert isinstance(alerts[0], dict)
+    unsafe_command = "python -m orchestrator.run_loop"
+    alerts[0]["review_command"] = unsafe_command
+    alerts[0]["review_command_sha256"] = sha256_text(unsafe_command)
+
+    errors = validate_experiment_summary_dashboard_payload(
+        payload,
+        repo_root=Path(__file__).resolve().parents[1],
+    )
+
+    assert watchlist_review_command_allowed(unsafe_command) is False
+    assert (
+        "experiment_summary_dashboard watchlist review command allowlist mismatch"
+        in errors
+    )
+    assert any(
+        error.startswith(
+            "$.watchlist.alerts[0].review_command: "
+            "expected string to match pattern"
+        )
+        for error in errors
+    )
+    assert (
+        "experiment_summary_dashboard watchlist review command sha256 mismatch"
+        not in errors
     )
 
 

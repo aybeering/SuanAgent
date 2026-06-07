@@ -460,8 +460,9 @@ operator-home run/command/boundary binding, compact artifact-health history
 status and review-command digest binding, operator-next-command selector,
 source-home, and selected-command binding, champion-gap status and delta
 invariants, watchlist alert counts, severity counts, status, alert codes, and
-per-alert read-only review-command SHA-256 bindings, and read-only policy
-flags. Artifact-health history read errors surface as critical watchlist
+per-alert read-only review-command SHA-256 bindings, allowlisted
+`orchestrator.experiments ... --markdown` review-command shapes, and read-only
+policy flags. Artifact-health history read errors surface as critical watchlist
 alerts, while replay manifest-drift observations surface as warning alerts
 that point back to the read-only health-history review command. Repeated
 proposal, proposal-memory rejection, artifact-health failure, and champion-gap

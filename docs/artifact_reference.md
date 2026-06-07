@@ -7,9 +7,9 @@ commands. Machine-readable contracts live under `schemas/`.
 
 ```bash
 pytest
-python -m orchestrator.preflight
 python -m orchestrator.run_loop
 python -m orchestrator.iteration_loop
+python -m orchestrator.preflight --config config/default.json
 ```
 
 Useful mode switches:

@@ -21,6 +21,32 @@ def test_project_metadata_matches_current_scope() -> None:
     )
 
 
+def test_required_smoke_commands_are_documented_and_ci_covered() -> None:
+    required_docs_commands = (
+        "pytest",
+        "python -m orchestrator.run_loop",
+        "python -m orchestrator.iteration_loop",
+        "python -m orchestrator.preflight --config config/default.json",
+    )
+    required_ci_commands = (
+        "python -m pytest",
+        "python -m orchestrator.run_loop",
+        "python -m orchestrator.iteration_loop --run-id ci-default",
+        "python -m orchestrator.preflight --config config/default.json",
+    )
+    readme = Path("README.md").read_text(encoding="utf-8")
+    artifact_reference = Path("docs/artifact_reference.md").read_text(
+        encoding="utf-8"
+    )
+    ci_workflow = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    for command in required_docs_commands:
+        assert command in readme
+        assert command in artifact_reference
+    for command in required_ci_commands:
+        assert command in ci_workflow
+
+
 def test_backtester_can_run_on_sample_data() -> None:
     trades, metrics = run_backtest("strategies.baseline_strategy", DEFAULT_DATA_PATH)
 

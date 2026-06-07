@@ -36,6 +36,9 @@ jobs:
       - name: Run single evaluation loop
         run: python -m orchestrator.run_loop --run-id ci-single
 
+      - name: Run default iteration loop
+        run: python -m orchestrator.iteration_loop --run-id ci-default
+
       - name: Run iteration dry run
         run: python -m orchestrator.iteration_loop --config config/codex_dry_run.json --run-id ci-dry --max-rounds 1
 

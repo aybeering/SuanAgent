@@ -269,6 +269,21 @@
         "terminal_only",
         "artifact_created",
         "command_is_hint_only",
+        "artifact_health_history_status",
+        "artifact_health_history_ok",
+        "artifact_health_history_record_count",
+        "artifact_health_history_records_with_failures",
+        "artifact_health_history_failed_run_observation_count",
+        "artifact_health_history_artifact_failure_count",
+        "artifact_health_history_round_replay_manifest_drift_observation_count",
+        "artifact_health_history_read_error_count",
+        "artifact_health_history_latest_recorded_at",
+        "artifact_health_history_latest_failed_count",
+        "artifact_health_history_latest_round_replay_manifest_drift_count",
+        "artifact_health_history_latest_failed_run_ids",
+        "artifact_health_history_review_command_label",
+        "artifact_health_history_review_command",
+        "artifact_health_history_review_command_sha256",
         "source"
       ],
       "properties": {
@@ -380,6 +395,69 @@
         },
         "command_is_hint_only": {
           "type": "boolean"
+        },
+        "artifact_health_history_status": {
+          "type": "string",
+          "enum": [
+            "available",
+            "empty",
+            "read_errors",
+            "replay_manifest_drift_observed"
+          ]
+        },
+        "artifact_health_history_ok": {
+          "type": "boolean"
+        },
+        "artifact_health_history_record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "artifact_health_history_records_with_failures": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "artifact_health_history_failed_run_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "artifact_health_history_artifact_failure_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "artifact_health_history_round_replay_manifest_drift_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "artifact_health_history_read_error_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "artifact_health_history_latest_recorded_at": {
+          "type": "string"
+        },
+        "artifact_health_history_latest_failed_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "artifact_health_history_latest_round_replay_manifest_drift_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "artifact_health_history_latest_failed_run_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "artifact_health_history_review_command_label": {
+          "type": "string"
+        },
+        "artifact_health_history_review_command": {
+          "type": "string"
+        },
+        "artifact_health_history_review_command_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
         },
         "source": {
           "type": "string"

@@ -1623,6 +1623,16 @@ def test_operator_home_summarizes_artifact_health_history_replay_drift(
         experiments_dir=repo / "experiments",
     )
     markdown = render_operator_home_markdown(home)
+    list_payload = list_experiments(
+        experiments_dir=repo / "experiments",
+        limit=1,
+    )
+    show_payload = show_experiment(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+    )
+    list_markdown = render_experiment_list_markdown(list_payload)
+    show_markdown = render_experiment_show_markdown(show_payload)
 
     assert home["schema_version"] == OPERATOR_HOME_SCHEMA_VERSION
     assert_matches_schema_payload(home, "operator_home")
@@ -1647,6 +1657,27 @@ def test_operator_home_summarizes_artifact_health_history_replay_drift(
     assert "## Artifact Health History" in markdown
     assert "Round replay manifest drift observations: `1`" in markdown
     assert "Latest replay drift: `1`" in markdown
+    list_home = list_payload[0]["operator_home"]
+    show_home = show_payload["operator_home"]
+    assert list_home["artifact_health_history_status"] == (
+        "replay_manifest_drift_observed"
+    )
+    assert list_home[
+        "artifact_health_history_round_replay_manifest_drift_observation_count"
+    ] == 1
+    assert list_home[
+        "artifact_health_history_latest_round_replay_manifest_drift_count"
+    ] == 1
+    assert list_home["artifact_health_history_latest_failed_run_ids"] == [run_id]
+    assert show_home == list_home
+    assert "Home artifact-health history: `replay_manifest_drift_observed`" in (
+        list_markdown
+    )
+    assert "Home artifact-health replay drift observations: `1`" in list_markdown
+    assert "Home artifact-health latest replay drift: `1`" in list_markdown
+    assert "Artifact-health history: `replay_manifest_drift_observed`" in (
+        show_markdown
+    )
 
 
 def test_run_artifact_health_history_summarizes_failures(tmp_path: Path) -> None:
@@ -27079,6 +27110,27 @@ def _minimal_experiment_summary_dashboard_payload() -> dict[str, object]:
             "terminal_only": True,
             "artifact_created": False,
             "command_is_hint_only": True,
+            "artifact_health_history_status": "available",
+            "artifact_health_history_ok": True,
+            "artifact_health_history_record_count": 1,
+            "artifact_health_history_records_with_failures": 0,
+            "artifact_health_history_failed_run_observation_count": 0,
+            "artifact_health_history_artifact_failure_count": 0,
+            "artifact_health_history_round_replay_manifest_drift_observation_count": 0,
+            "artifact_health_history_read_error_count": 0,
+            "artifact_health_history_latest_recorded_at": "2026-01-01T00:00:00Z",
+            "artifact_health_history_latest_failed_count": 0,
+            "artifact_health_history_latest_round_replay_manifest_drift_count": 0,
+            "artifact_health_history_latest_failed_run_ids": [],
+            "artifact_health_history_review_command_label": (
+                "review_artifact_health_history"
+            ),
+            "artifact_health_history_review_command": (
+                "python -m orchestrator.experiments health-history --markdown"
+            ),
+            "artifact_health_history_review_command_sha256": sha256_text(
+                "python -m orchestrator.experiments health-history --markdown"
+            ),
             "source": "latest_run_manifest_operator_home",
         },
         "operator_next_command_entry": {
@@ -29105,6 +29157,13 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
     )
     assert list_payload[1]["operator_next_command"]["blocked"] is True
     assert list_payload[1]["operator_home"]["codex_preflight_next_step"]
+    assert list_payload[1]["operator_home"]["artifact_health_history_status"] == (
+        "available"
+    )
+    assert list_payload[1]["operator_home"]["artifact_health_history_record_count"] >= 1
+    assert list_payload[1]["operator_home"][
+        "artifact_health_history_round_replay_manifest_drift_observation_count"
+    ] == 0
     assert list_payload[1]["operator_next_command"]["codex_preflight_next_step"] == (
         list_payload[1]["operator_home"]["codex_preflight_next_step"]
     )
@@ -29126,6 +29185,9 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
     assert "Selector command SHA-256:" in list_markdown_result.stdout
     assert "Selected command SHA-256:" in list_markdown_result.stdout
     assert "Codex preflight next step:" in list_markdown_result.stdout
+    assert "Home artifact-health history: `available`" in (
+        list_markdown_result.stdout
+    )
     assert "Changes acceptance: `False`" in list_markdown_result.stdout
     list_markdown = render_experiment_list_markdown(list_payload)
     assert "# Experiments" in list_markdown
@@ -29145,6 +29207,7 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
     assert "Selected command SHA-256:" in list_markdown
     assert "Selected boundary: `operator_approval_receipt`" in list_markdown
     assert "Codex preflight next step:" in list_markdown
+    assert "Home artifact-health history: `available`" in list_markdown
     assert "Creates artifacts: `False`" in list_markdown
     assert "Changes acceptance: `False`" in list_markdown
     show_payload = json.loads(show_result.stdout)
@@ -29222,11 +29285,20 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
     )
     assert show_iteration_payload["operator_next_command"]["blocked"] is True
     assert show_iteration_payload["operator_home"]["codex_preflight_next_step"]
+    assert show_iteration_payload["operator_home"][
+        "artifact_health_history_status"
+    ] == "available"
+    assert show_iteration_payload["operator_home"][
+        "artifact_health_history_round_replay_manifest_drift_observation_count"
+    ] == 0
     assert show_iteration_payload["operator_next_command"][
         "codex_preflight_next_step"
     ] == show_iteration_payload["operator_home"]["codex_preflight_next_step"]
     assert show_iteration_payload["operator_next_command"]["codex_next_step"] == (
         show_iteration_payload["operator_home"]["codex_preflight_next_step"]
+    )
+    assert "Artifact-health history: `available`" in (
+        show_iteration_markdown_result.stdout
     )
     assert "# Experiment" in show_iteration_markdown_result.stdout
     assert "- Run id: `cli-list-iteration`" in show_iteration_markdown_result.stdout

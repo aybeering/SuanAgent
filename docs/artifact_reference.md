@@ -172,7 +172,11 @@ summary, command SHA-256 bindings, and next-command safety flags; single-run
 rows mark both hints and next-command state unavailable. `list --markdown`
 renders the recent-run table plus per-run `show <run_id> --markdown`, home, and
 next-command navigation with the same command SHA-256 bindings and Codex
-preflight next-step hint. The command does not rewrite `index.jsonl`, create
+preflight next-step hint. The compact home hint also includes the current
+artifact-health history status, record counts, replay manifest-drift
+observation counts, latest replay-drift count, failed run ids, and the
+read-only `health-history --markdown` review command. The command does not
+rewrite `index.jsonl`, create
 artifacts, execute commands, run agents, run backtests, apply patches, promote
 champions, or change acceptance.
 
@@ -184,13 +188,14 @@ Iteration-loop runs expose the terminal-only home markdown command, the
 next-command selector command, and the selected command label, status, blocked
 flag, blocker count, operator hint, command text, boundary, write target,
 command SHA-256 bindings, approval flags, guarded-executor flag, and
-hint-only flag, plus the Codex preflight next-step hint; single-run payloads
-explicitly mark the home hint, selector hint, and next-command state
-unavailable. `show <run_id> --markdown` renders the compact run record, round
-table, and operator navigation as a terminal-only human view with the same
-command digest bindings, Codex preflight next-step hint, and safety flags. These are
-read-only convenience fields and do not rewrite index rows or create
-`operator_home.json` or `operator_next_command.json` artifacts.
+hint-only flag, plus the Codex preflight next-step hint and the same compact
+artifact-health history status/replay-drift summary surfaced by `list`;
+single-run payloads explicitly mark the home hint, selector hint, and
+next-command state unavailable. `show <run_id> --markdown` renders the compact
+run record, round table, and operator navigation as a terminal-only human view
+with the same command digest bindings, Codex preflight next-step hint, and
+safety flags. These are read-only convenience fields and do not rewrite index
+rows or create `operator_home.json` or `operator_next_command.json` artifacts.
 
 Replay and validation:
 

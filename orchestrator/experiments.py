@@ -664,6 +664,12 @@ def validate_experiment_operator_home_entry(
                     "experiment_summary_dashboard operator_home non-iteration next command"
                 )
     if available:
+        errors.extend(
+            validate_compact_artifact_health_history_hint(
+                operator_home,
+                context="experiment_summary_dashboard operator_home",
+            )
+        )
         if str(operator_home.get("command_label", "")) != "review_operator_home":
             errors.append("experiment_summary_dashboard operator_home label mismatch")
         if str(operator_home.get("command_boundary", "")) != "read_only_inspection":
@@ -691,6 +697,81 @@ def validate_experiment_operator_home_entry(
                 "experiment_summary_dashboard operator_home first blocker mismatch"
             )
     return tuple(errors)
+
+
+def validate_compact_artifact_health_history_hint(
+    payload: dict[str, object],
+    *,
+    context: str,
+) -> list[str]:
+    """Validate compact artifact-health-history fields."""
+    errors: list[str] = []
+    status = str(payload.get("artifact_health_history_status", ""))
+    record_count = int_value(payload.get("artifact_health_history_record_count", -1))
+    read_error_count = int_value(
+        payload.get("artifact_health_history_read_error_count", -1)
+    )
+    drift_count = int_value(
+        payload.get(
+            "artifact_health_history_round_replay_manifest_drift_observation_count",
+            -1,
+        )
+    )
+    command = str(payload.get("artifact_health_history_review_command", ""))
+    command_sha256 = str(
+        payload.get("artifact_health_history_review_command_sha256", "")
+    )
+    if status not in {
+        "available",
+        "empty",
+        "read_errors",
+        "replay_manifest_drift_observed",
+    }:
+        errors.append(f"{context} artifact health history status invalid")
+    if record_count < 0 or read_error_count < 0 or drift_count < 0:
+        errors.append(f"{context} artifact health history count invalid")
+    if read_error_count > 0 and status != "read_errors":
+        errors.append(f"{context} artifact health history read-error status mismatch")
+    if read_error_count == 0 and drift_count > 0 and status != (
+        "replay_manifest_drift_observed"
+    ):
+        errors.append(f"{context} artifact health history drift status mismatch")
+    if read_error_count == 0 and drift_count == 0 and record_count > 0 and status != (
+        "available"
+    ):
+        errors.append(f"{context} artifact health history available status mismatch")
+    if record_count == 0 and read_error_count == 0 and drift_count == 0 and status != (
+        "empty"
+    ):
+        errors.append(f"{context} artifact health history empty status mismatch")
+    if str(payload.get("artifact_health_history_review_command_label", "")) != (
+        "review_artifact_health_history"
+    ):
+        errors.append(f"{context} artifact health history command label mismatch")
+    if command != "python -m orchestrator.experiments health-history --markdown":
+        errors.append(f"{context} artifact health history command mismatch")
+    if command_sha256 != sha256_text(command):
+        errors.append(f"{context} artifact health history command_sha256 mismatch")
+    if int_value(payload.get("artifact_health_history_records_with_failures", -1)) < 0:
+        errors.append(f"{context} artifact health history failure count invalid")
+    if int_value(
+        payload.get("artifact_health_history_failed_run_observation_count", -1)
+    ) < 0:
+        errors.append(f"{context} artifact health history observation count invalid")
+    if int_value(payload.get("artifact_health_history_artifact_failure_count", -1)) < 0:
+        errors.append(f"{context} artifact health history artifact count invalid")
+    if int_value(payload.get("artifact_health_history_latest_failed_count", -1)) < 0:
+        errors.append(f"{context} artifact health history latest count invalid")
+    if int_value(
+        payload.get("artifact_health_history_latest_round_replay_manifest_drift_count", -1)
+    ) < 0:
+        errors.append(f"{context} artifact health history latest drift invalid")
+    if not isinstance(
+        payload.get("artifact_health_history_latest_failed_run_ids", []),
+        list,
+    ):
+        errors.append(f"{context} artifact health history latest ids invalid")
+    return errors
 
 
 def validate_experiment_operator_next_command_entry(
@@ -1016,6 +1097,12 @@ def validate_experiment_operator_navigation_pair(
 
     if str(operator_home.get("command_label", "")) != "review_operator_home":
         errors.append("experiment operator navigation home label mismatch")
+    errors.extend(
+        validate_compact_artifact_health_history_hint(
+            operator_home,
+            context="experiment operator navigation home",
+        )
+    )
     if home_command != expected_home_command:
         errors.append("experiment operator navigation home command mismatch")
     if home_command_sha256 != sha256_text(home_command):
@@ -1290,6 +1377,9 @@ def experiment_list_operator_home_hint(
     """Return a compact operator-home hint for one experiment-list row."""
     run_id = str(record.get("run_id", ""))
     kind = str(record.get("kind", ""))
+    artifact_history = compact_artifact_health_history_hint(
+        experiments_dir=experiments_dir,
+    )
     base = {
         "available": False,
         "reason": "not_iteration_run",
@@ -1317,6 +1407,7 @@ def experiment_list_operator_home_hint(
         "next_command_records_operator_approval": False,
         "next_command_uses_guarded_executor": False,
         "next_command_is_hint_only": True,
+        **artifact_history,
     }
     if kind != "iteration_loop" or not run_id:
         return base
@@ -1561,6 +1652,9 @@ def experiment_operator_home_entry(
     experiments_dir: Path,
 ) -> dict[str, object]:
     """Return the latest-run operator home command for the summary dashboard."""
+    artifact_history = compact_artifact_health_history_hint(
+        experiments_dir=experiments_dir,
+    )
     base = {
         "schema_version": "experiment_operator_home_entry_v1",
         "available": False,
@@ -1595,6 +1689,7 @@ def experiment_operator_home_entry(
         "terminal_only": True,
         "artifact_created": False,
         "command_is_hint_only": True,
+        **artifact_history,
         "source": "none",
     }
     if latest_run is None:
@@ -1706,6 +1801,85 @@ def experiment_operator_home_entry(
         }
     )
     return base
+
+
+def compact_artifact_health_history_hint(
+    *,
+    experiments_dir: Path,
+) -> dict[str, object]:
+    """Return artifact-health history fields for compact experiment views."""
+    history_path = experiments_dir / DEFAULT_HISTORY_FILENAME
+    summary = build_run_artifact_health_history(
+        experiments_dir=experiments_dir,
+        repo_root=experiments_dir.parent,
+        history_path=history_path,
+        limit=1,
+    )
+    totals = dict_payload(summary.get("totals", {}))
+    recent_records = list_payload(summary.get("recent_records", []))
+    latest = dict_payload(recent_records[-1]) if recent_records else {}
+    command = "python -m orchestrator.experiments health-history --markdown"
+    record_count = int_value(totals.get("record_count", 0))
+    read_error_count = int_value(totals.get("read_error_count", 0))
+    drift_count = int_value(
+        totals.get("round_replay_manifest_drift_observation_count", 0)
+    )
+    return {
+        "artifact_health_history_status": compact_artifact_health_history_status(
+            record_count=record_count,
+            read_error_count=read_error_count,
+            drift_count=drift_count,
+        ),
+        "artifact_health_history_ok": bool(summary.get("ok", False))
+        and read_error_count == 0,
+        "artifact_health_history_record_count": record_count,
+        "artifact_health_history_records_with_failures": int_value(
+            totals.get("records_with_failures", 0)
+        ),
+        "artifact_health_history_failed_run_observation_count": int_value(
+            totals.get("failed_run_observation_count", 0)
+        ),
+        "artifact_health_history_artifact_failure_count": int_value(
+            totals.get("artifact_failure_count", 0)
+        ),
+        "artifact_health_history_round_replay_manifest_drift_observation_count": (
+            drift_count
+        ),
+        "artifact_health_history_read_error_count": read_error_count,
+        "artifact_health_history_latest_recorded_at": str(
+            latest.get("recorded_at", "")
+        ),
+        "artifact_health_history_latest_failed_count": int_value(
+            latest.get("failed_count", 0)
+        ),
+        "artifact_health_history_latest_round_replay_manifest_drift_count": int_value(
+            latest.get("round_replay_manifest_drift_count", 0)
+        ),
+        "artifact_health_history_latest_failed_run_ids": string_payload(
+            latest.get("failed_run_ids", [])
+        ),
+        "artifact_health_history_review_command_label": (
+            "review_artifact_health_history"
+        ),
+        "artifact_health_history_review_command": command,
+        "artifact_health_history_review_command_sha256": sha256_text(command),
+    }
+
+
+def compact_artifact_health_history_status(
+    *,
+    record_count: int,
+    read_error_count: int,
+    drift_count: int,
+) -> str:
+    """Return a compact artifact-health history status label."""
+    if read_error_count > 0:
+        return "read_errors"
+    if drift_count > 0:
+        return "replay_manifest_drift_observed"
+    if record_count > 0:
+        return "available"
+    return "empty"
 
 
 def load_manifest_operator_home(
@@ -2088,6 +2262,20 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         f"`{operator_home.get('next_command_is_hint_only', False)}`",
         "- Operator home Codex preflight next step: "
         f"{operator_home.get('codex_preflight_next_step', '') or 'none'}",
+        "- Operator home artifact-health history: "
+        f"`{operator_home.get('artifact_health_history_status', 'empty')}`",
+        "- Operator home artifact-health history records: "
+        f"`{operator_home.get('artifact_health_history_record_count', 0)}`",
+        "- Operator home artifact-health failed observations: "
+        f"`{operator_home.get('artifact_health_history_failed_run_observation_count', 0)}`",
+        "- Operator home artifact-health replay drift observations: "
+        f"`{operator_home.get('artifact_health_history_round_replay_manifest_drift_observation_count', 0)}`",
+        "- Operator home artifact-health latest replay drift: "
+        f"`{operator_home.get('artifact_health_history_latest_round_replay_manifest_drift_count', 0)}`",
+        "- Operator home artifact-health review command: "
+        f"`{operator_home.get('artifact_health_history_review_command', '') or 'unavailable'}`",
+        "- Operator home artifact-health review command SHA-256: "
+        f"`{operator_home.get('artifact_health_history_review_command_sha256', '') or 'unavailable'}`",
         "- Operator next-command selector: "
         f"`{operator_next_command.get('status', 'unavailable')}` "
         f"({operator_next_command.get('reason', 'unknown')})",
@@ -2305,6 +2493,16 @@ def render_experiment_list_markdown(payload: list[dict[str, object]]) -> str:
                 f"`{markdown_cell(operator_home.get('command_sha256', '') or 'unavailable')}`",
                 "- Home first blocker: "
                 f"`{markdown_cell(operator_home.get('next_command_first_blocker', '') or 'none')}`",
+                "- Home artifact-health history: "
+                f"`{markdown_cell(operator_home.get('artifact_health_history_status', 'empty'))}`",
+                "- Home artifact-health replay drift observations: "
+                f"`{operator_home.get('artifact_health_history_round_replay_manifest_drift_observation_count', 0)}`",
+                "- Home artifact-health latest replay drift: "
+                f"`{operator_home.get('artifact_health_history_latest_round_replay_manifest_drift_count', 0)}`",
+                "- Home artifact-health review command: "
+                f"`{markdown_cell(operator_home.get('artifact_health_history_review_command', '') or 'unavailable')}`",
+                "- Home artifact-health review command SHA-256: "
+                f"`{markdown_cell(operator_home.get('artifact_health_history_review_command_sha256', '') or 'unavailable')}`",
                 "- Selector available: "
                 f"`{operator_next_command.get('available', False)}` "
                 f"({markdown_cell(operator_next_command.get('reason', 'unknown'))})",
@@ -2950,6 +3148,16 @@ def render_experiment_show_markdown(payload: dict[str, object]) -> str:
             f"`{operator_home.get('command_is_hint_only', False)}`",
             "- Home first blocker: "
             f"`{markdown_cell(operator_home.get('next_command_first_blocker', '') or 'none')}`",
+            "- Artifact-health history: "
+            f"`{markdown_cell(operator_home.get('artifact_health_history_status', 'empty'))}`",
+            "- Artifact-health replay drift observations: "
+            f"`{operator_home.get('artifact_health_history_round_replay_manifest_drift_observation_count', 0)}`",
+            "- Artifact-health latest replay drift: "
+            f"`{operator_home.get('artifact_health_history_latest_round_replay_manifest_drift_count', 0)}`",
+            "- Artifact-health review command: "
+            f"`{markdown_cell(operator_home.get('artifact_health_history_review_command', '') or 'unavailable')}`",
+            "- Artifact-health review command SHA-256: "
+            f"`{markdown_cell(operator_home.get('artifact_health_history_review_command_sha256', '') or 'unavailable')}`",
             "- Selector available: "
             f"`{operator_next_command.get('available', False)}` "
             f"({markdown_cell(operator_next_command.get('reason', 'unknown'))})",

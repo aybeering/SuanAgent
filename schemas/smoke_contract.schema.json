@@ -88,7 +88,9 @@
         "doc_path_count",
         "required_doc_command_count",
         "required_ci_command_count",
-        "missing_count"
+        "missing_count",
+        "order_error_count",
+        "issue_count"
       ],
       "properties": {
         "doc_path_count": {
@@ -101,6 +103,12 @@
           "type": "integer"
         },
         "missing_count": {
+          "type": "integer"
+        },
+        "order_error_count": {
+          "type": "integer"
+        },
+        "issue_count": {
           "type": "integer"
         }
       }
@@ -140,7 +148,10 @@
         "path",
         "exists",
         "present_commands",
-        "missing_commands"
+        "missing_commands",
+        "order_enforced",
+        "ordered",
+        "order_errors"
       ],
       "properties": {
         "path": {
@@ -157,6 +168,18 @@
           }
         },
         "missing_commands": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "order_enforced": {
+          "type": "boolean"
+        },
+        "ordered": {
+          "type": "boolean"
+        },
+        "order_errors": {
           "type": "array",
           "items": {
             "type": "string"

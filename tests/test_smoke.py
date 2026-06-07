@@ -34,6 +34,11 @@ def test_required_smoke_commands_are_documented_and_ci_covered() -> None:
     assert payload["source"]["ok"] is True  # type: ignore[index]
     assert payload["source"]["commands"] == payload["required_doc_commands"]  # type: ignore[index]
     assert payload["summary"]["missing_count"] == 0  # type: ignore[index]
+    assert payload["summary"]["order_error_count"] == 0  # type: ignore[index]
+    assert payload["summary"]["issue_count"] == 0  # type: ignore[index]
+    assert all(row["order_enforced"] for row in payload["docs"])  # type: ignore[index]
+    assert all(row["ordered"] for row in payload["docs"])  # type: ignore[index]
+    assert payload["ci"]["order_enforced"] is False  # type: ignore[index]
     assert payload["policy"]["inspection_only"] is True  # type: ignore[index]
     assert payload["policy"]["does_not_run_backtests"] is True  # type: ignore[index]
 

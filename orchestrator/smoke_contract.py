@@ -37,6 +37,7 @@ def validate_smoke_contract(*, repo_root: Path = Path(".")) -> dict[str, object]
             path=repo_root / relative_path,
             relative_path=relative_path,
             required_commands=required_doc_commands,
+            enforce_order=True,
         )
         for relative_path in DEFAULT_DOC_PATHS
     ]
@@ -47,11 +48,14 @@ def validate_smoke_contract(*, repo_root: Path = Path(".")) -> dict[str, object]
     )
     missing_count = sum(len(row["missing_commands"]) for row in docs)
     missing_count += len(ci["missing_commands"])
+    order_error_count = sum(len(row["order_errors"]) for row in docs)
+    order_error_count += len(ci["order_errors"])
     if not source["ok"]:
         missing_count += 1
+    issue_count = missing_count + order_error_count
     return {
         "schema_version": "smoke_contract_v1",
-        "ok": missing_count == 0,
+        "ok": issue_count == 0,
         "repo_root": str(repo_root),
         "source": source,
         "required_doc_commands": list(required_doc_commands),
@@ -63,6 +67,8 @@ def validate_smoke_contract(*, repo_root: Path = Path(".")) -> dict[str, object]
             "required_doc_command_count": len(required_doc_commands),
             "required_ci_command_count": len(required_ci_commands),
             "missing_count": missing_count,
+            "order_error_count": order_error_count,
+            "issue_count": issue_count,
         },
         "policy": {
             "inspection_only": True,
@@ -147,6 +153,7 @@ def _path_command_report(
     path: Path,
     relative_path: Path,
     required_commands: tuple[str, ...],
+    enforce_order: bool = False,
 ) -> dict[str, object]:
     """Return command coverage for one text file."""
     if not path.exists():
@@ -155,16 +162,58 @@ def _path_command_report(
             "exists": False,
             "present_commands": [],
             "missing_commands": list(required_commands),
+            "order_enforced": enforce_order,
+            "ordered": not enforce_order,
+            "order_errors": [],
         }
     text = path.read_text(encoding="utf-8")
     present_commands = [command for command in required_commands if command in text]
     missing_commands = [command for command in required_commands if command not in text]
+    order_errors = (
+        _command_order_errors(text=text, required_commands=required_commands)
+        if enforce_order
+        else []
+    )
     return {
         "path": str(relative_path),
         "exists": True,
         "present_commands": present_commands,
         "missing_commands": missing_commands,
+        "order_enforced": enforce_order,
+        "ordered": not missing_commands and not order_errors,
+        "order_errors": order_errors,
     }
+
+
+def _command_order_errors(
+    *,
+    text: str,
+    required_commands: tuple[str, ...],
+) -> list[str]:
+    """Return command-order drift errors for commands present in text."""
+    positions = [
+        (command, position)
+        for command in required_commands
+        if (position := _command_position(text=text, command=command)) >= 0
+    ]
+    errors = []
+    for (left, left_position), (right, right_position) in zip(
+        positions,
+        positions[1:],
+    ):
+        if right_position < left_position:
+            errors.append(f"command_order_mismatch:{left}->{right}")
+    return errors
+
+
+def _command_position(*, text: str, command: str) -> int:
+    """Return the preferred text position for a documented command."""
+    offset = 0
+    for line in text.splitlines(keepends=True):
+        if line.strip() == command:
+            return offset
+        offset += len(line)
+    return text.find(command)
 
 
 def main() -> None:

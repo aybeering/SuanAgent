@@ -1301,8 +1301,15 @@ def test_run_artifact_health_reports_recent_runs(tmp_path: Path) -> None:
     assert payload["totals"]["run_count"] == 2
     assert payload["totals"]["ok_count"] == 2
     assert payload["totals"]["failed_count"] == 0
+    assert payload["totals"]["round_replay_round_count"] == 1
+    assert payload["totals"]["round_replay_missing_count"] == 0
+    assert payload["totals"]["round_replay_failure_count"] == 0
+    assert payload["totals"]["round_replay_issue_count"] == 0
     assert rows["health-single"]["kind"] == "single_run"
+    assert rows["health-single"]["round_replay"]["round_count"] == 0
     assert rows["health-iteration"]["kind"] == "iteration_loop"
+    assert rows["health-iteration"]["round_replay"]["round_count"] == 1
+    assert rows["health-iteration"]["round_replay"]["ok_count"] == 1
     assert written["schema_version"] == RUN_ARTIFACT_HEALTH_SCHEMA_VERSION
     assert validate_run_artifact_health_file(
         payload_path=output_path,
@@ -1312,6 +1319,7 @@ def test_run_artifact_health_reports_recent_runs(tmp_path: Path) -> None:
     assert cli_payload["ok"] is True
     assert "# Run Artifact Health" in markdown
     assert "Runs: `2`" in markdown
+    assert "Round replay rounds: `1`" in markdown
     assert "health-single" in cli_markdown_result.stdout
     assert "health-iteration" in cli_markdown_result.stdout
     assert "does not execute agents" in cli_markdown_result.stdout
@@ -1447,6 +1455,51 @@ def test_run_artifact_health_strict_reports_invalid_runs(tmp_path: Path) -> None
     assert "error-02" in noisy_markdown
     assert "error-03" not in noisy_markdown
     assert "... +4 more" in noisy_markdown
+
+
+def test_run_artifact_health_requires_saved_round_replay(tmp_path: Path) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_iteration_loop(
+        run_id="health-missing-replay",
+        max_rounds=1,
+        repo_root=repo,
+    )
+    replay_path = repo / "experiments/health-missing-replay/round_001/round_replay.json"
+    replay_path.unlink()
+
+    payload = build_run_artifact_health(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        run_ids=["health-missing-replay"],
+    )
+    strict_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.run_artifact_health",
+            "--experiments-dir",
+            str(repo / "experiments"),
+            "--repo-root",
+            str(repo),
+            "--run-id",
+            "health-missing-replay",
+            "--strict",
+        ],
+        cwd=repo,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert payload["schema_version"] == RUN_ARTIFACT_HEALTH_SCHEMA_VERSION
+    assert_matches_schema_payload(payload, "run_artifact_health")
+    assert payload["ok"] is False
+    assert payload["totals"]["round_replay_round_count"] == 1
+    assert payload["totals"]["round_replay_missing_count"] == 1
+    assert payload["totals"]["round_replay_issue_count"] == 1
+    assert payload["runs"][0]["round_replay"]["missing_round_count"] == 1
+    assert any("round_replay missing" in error for error in payload["runs"][0]["errors"])
+    assert strict_result.returncode == 1
 
 
 def test_run_artifact_health_history_summarizes_failures(tmp_path: Path) -> None:
@@ -14198,19 +14251,19 @@ def test_agent_slot_health_reports_default_and_replayed_slots(
     assert health["schema_version"] == AGENT_SLOT_HEALTH_SCHEMA_VERSION
     expected_slot_count = len(list(run_dir.glob("round_*"))) * 3
     assert health["totals"]["slot_count"] == expected_slot_count
-    assert health["totals"]["healthy_count"] == 3
-    assert health["totals"]["needs_replay_count"] == expected_slot_count - 3
+    assert health["totals"]["healthy_count"] == expected_slot_count
+    assert health["totals"]["needs_replay_count"] == 0
     assert health["totals"]["blocked_count"] == 0
     assert health["slots"][0]["health_status"] == "healthy"
     assert health["slots"][0]["plan_matches_manifest"] is True
     assert health["slots"][0]["replay_present"] is True
-    assert any(slot["health_status"] == "needs_replay" for slot in health["slots"])
+    assert all(slot["replay_present"] for slot in health["slots"])
     assert health["policy"]["does_not_execute_agents"] is True
     assert dynamic_health["from_artifact"] is True
     assert cli_result.returncode == 0, cli_result.stderr
     cli_payload = json.loads(cli_result.stdout)
     assert cli_payload["from_artifact"] is True
-    assert cli_payload["totals"]["healthy_count"] == 3
+    assert cli_payload["totals"]["healthy_count"] == expected_slot_count
     assert markdown_cli_result.returncode == 0, markdown_cli_result.stderr
     assert "# Agent Slot Health" in markdown_cli_result.stdout
     assert "| Round | Attempt | Profile | Adapter | Runner | Status | Issues |" in (
@@ -14496,6 +14549,7 @@ def test_agent_slot_readiness_gate_blocks_missing_round_replay(
         config=config,
     )
     run_dir = repo / "experiments/slot-readiness-no-replay"
+    (run_dir / "round_001/round_replay.json").unlink()
 
     readiness = build_agent_slot_readiness_gate(run_dir=run_dir, repo_root=repo)
     cli_result = subprocess.run(

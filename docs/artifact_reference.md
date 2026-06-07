@@ -1204,8 +1204,9 @@ Replay artifacts:
   must be 64-lowercase-hex strings, and its enablement-gate and
   candidate-config artifact SHA-256 fields are schema-constrained to
   empty-or-64-lowercase-hex strings.
-- `run_artifact_health.json` batch-validates saved experiment run artifacts
-  and reports per-run artifact health without rerunning simulations.
+- `run_artifact_health.json` batch-validates saved experiment run artifacts,
+  summarizes saved `round_replay.json` status, and reports per-run artifact
+  health without rerunning simulations.
   `--created-at-from` scopes indexed runs to a current contract era without
   deleting older experiment directories. The direct `--markdown` mode and
   `python -m orchestrator.experiments validate --markdown` render the same

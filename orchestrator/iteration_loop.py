@@ -119,6 +119,7 @@ from orchestrator.proposal import (
     enforce_proposal_contract,
 )
 from orchestrator.research_brief import write_research_brief
+from orchestrator.round_replay import replay_round
 from orchestrator.run_diagnosis import write_run_diagnosis
 from orchestrator.run_artifact_health import (
     DEFAULT_HISTORY_FILENAME,
@@ -562,6 +563,19 @@ def run_iteration_loop(
                 if round_summary["accepted"]:
                     manifest["status"] = "accepted"
                     manifest["accepted_round"] = round_id
+                    rollback_strategy(repo_root, strategy_path)
+                    clear_strategy_import(repo_root, strategy_module)
+                    replay_round(
+                        round_dir=round_dir,
+                        repo_root=repo_root,
+                        strategy_module=strategy_module,
+                        run_probe=False,
+                    )
+                    apply_patch(
+                        repo_root,
+                        (round_dir / "patch.diff").read_text(encoding="utf-8"),
+                    )
+                    clear_strategy_import(repo_root, strategy_module)
                     manifest["final_strategy_commit"] = commit_strategy(
                         repo_root,
                         run_id=active_run_id,
@@ -584,6 +598,12 @@ def run_iteration_loop(
 
                 rollback_strategy(repo_root, strategy_path)
                 clear_strategy_import(repo_root, strategy_module)
+                replay_round(
+                    round_dir=round_dir,
+                    repo_root=repo_root,
+                    strategy_module=strategy_module,
+                    run_probe=False,
+                )
 
                 if (
                     active_stop_on_repeated_proposal

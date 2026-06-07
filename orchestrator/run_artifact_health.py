@@ -136,16 +136,19 @@ def health_row(report: dict[str, object]) -> dict[str, Any]:
     errors = string_list(report.get("errors", []))
     warnings = string_list(report.get("warnings", []))
     checked_files = string_list(report.get("checked_files", []))
+    replay = round_replay_health(run_dir=Path(str(report.get("run_dir", ""))))
+    replay_errors = round_replay_errors(replay)
     return {
         "run_id": str(report.get("run_id", "")),
         "run_dir": str(report.get("run_dir", "")),
         "kind": str(report.get("kind", "unknown")),
-        "ok": bool(report.get("ok", False)),
-        "error_count": len(errors),
+        "ok": bool(report.get("ok", False)) and not replay_errors,
+        "error_count": len(errors) + len(replay_errors),
         "warning_count": len(warnings),
         "checked_file_count": len(checked_files),
         "rounds_checked": int(report.get("rounds_checked", 0) or 0),
-        "errors": errors,
+        "round_replay": replay,
+        "errors": errors + replay_errors,
         "warnings": warnings,
     }
 
@@ -160,7 +163,107 @@ def health_totals(rows: list[dict[str, Any]]) -> dict[str, int]:
         "warning_count": sum(int(row["warning_count"]) for row in rows),
         "checked_file_count": sum(int(row["checked_file_count"]) for row in rows),
         "rounds_checked": sum(int(row["rounds_checked"]) for row in rows),
+        "round_replay_round_count": sum(
+            int(round_replay_totals(row).get("round_count", 0)) for row in rows
+        ),
+        "round_replay_missing_count": sum(
+            int(round_replay_totals(row).get("missing_round_count", 0))
+            for row in rows
+        ),
+        "round_replay_failure_count": sum(
+            int(round_replay_totals(row).get("failure_count", 0)) for row in rows
+        ),
+        "round_replay_issue_count": sum(
+            int(round_replay_totals(row).get("issue_count", 0)) for row in rows
+        ),
     }
+
+
+def round_replay_totals(row: dict[str, Any]) -> dict[str, Any]:
+    """Return the round replay summary object from a health row."""
+    replay = row.get("round_replay", {})
+    return replay if isinstance(replay, dict) else {}
+
+
+def round_replay_health(*, run_dir: Path) -> dict[str, Any]:
+    """Return compact saved round-replay status for one run directory."""
+    round_dirs = [
+        path
+        for path in sorted(run_dir.glob("round_*"))
+        if path.is_dir()
+    ] if run_dir.exists() else []
+    rounds = [round_replay_row(round_dir=round_dir) for round_dir in round_dirs]
+    replayed_count = sum(1 for row in rounds if bool(row["exists"]))
+    ok_count = sum(1 for row in rounds if bool(row["ok"]))
+    missing_count = len(rounds) - replayed_count
+    failure_count = replayed_count - ok_count
+    return {
+        "round_count": len(rounds),
+        "replayed_round_count": replayed_count,
+        "missing_round_count": missing_count,
+        "ok_count": ok_count,
+        "failure_count": failure_count,
+        "issue_count": missing_count + failure_count,
+        "rounds": rounds,
+    }
+
+
+def round_replay_row(*, round_dir: Path) -> dict[str, Any]:
+    """Return one saved round-replay row without rerunning replay."""
+    replay_path = round_dir / "round_replay.json"
+    if not replay_path.exists():
+        return {
+            "round_id": round_dir.name,
+            "exists": False,
+            "ok": False,
+            "failure_code": "missing_round_replay",
+            "path": str(replay_path),
+        }
+    try:
+        payload = json.loads(replay_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {
+            "round_id": round_dir.name,
+            "exists": True,
+            "ok": False,
+            "failure_code": "invalid_round_replay_json",
+            "path": str(replay_path),
+        }
+    if not isinstance(payload, dict):
+        return {
+            "round_id": round_dir.name,
+            "exists": True,
+            "ok": False,
+            "failure_code": "invalid_round_replay_payload",
+            "path": str(replay_path),
+        }
+    return {
+        "round_id": str(payload.get("round_id", round_dir.name)),
+        "exists": True,
+        "ok": bool(payload.get("ok", False)),
+        "failure_code": str(payload.get("failure_code", "")),
+        "path": str(replay_path),
+    }
+
+
+def round_replay_errors(replay: dict[str, Any]) -> list[str]:
+    """Return stable error messages from a round replay health summary."""
+    errors: list[str] = []
+    rounds = replay.get("rounds", [])
+    if not isinstance(rounds, list):
+        return ["round_replay summary invalid"]
+    for row in rounds:
+        if not isinstance(row, dict):
+            errors.append("round_replay row invalid")
+            continue
+        if not bool(row.get("exists", False)):
+            errors.append(f"round_replay missing: {row.get('path', '')}")
+        elif not bool(row.get("ok", False)):
+            errors.append(
+                "round_replay failed: "
+                f"{row.get('path', '')}: {row.get('failure_code', '')}"
+            )
+    return errors
 
 
 def string_list(value: object) -> list[str]:
@@ -214,6 +317,9 @@ def render_run_artifact_health_markdown(payload: dict[str, Any]) -> str:
         f"- Warnings: `{totals.get('warning_count', 0)}`",
         f"- Checked files: `{totals.get('checked_file_count', 0)}`",
         f"- Rounds checked: `{totals.get('rounds_checked', 0)}`",
+        f"- Round replay rounds: `{totals.get('round_replay_round_count', 0)}`",
+        f"- Round replay missing: `{totals.get('round_replay_missing_count', 0)}`",
+        f"- Round replay failures: `{totals.get('round_replay_failure_count', 0)}`",
         "",
         "## Runs",
         "",
@@ -231,6 +337,14 @@ def render_run_artifact_health_markdown(payload: dict[str, Any]) -> str:
             f"`{row.get('warning_count', 0)}`, checked files "
             f"`{row.get('checked_file_count', 0)}`"
         )
+        replay = row.get("round_replay", {})
+        if isinstance(replay, dict) and int(replay.get("round_count", 0) or 0) > 0:
+            lines.append(
+                "  - round replay: "
+                f"rounds `{replay.get('round_count', 0)}`, "
+                f"missing `{replay.get('missing_round_count', 0)}`, "
+                f"failures `{replay.get('failure_count', 0)}`"
+            )
         errors = string_list(row.get("errors", []))
         warnings = string_list(row.get("warnings", []))
         if errors:

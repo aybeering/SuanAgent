@@ -89,7 +89,11 @@
         "error_count",
         "warning_count",
         "checked_file_count",
-        "rounds_checked"
+        "rounds_checked",
+        "round_replay_round_count",
+        "round_replay_missing_count",
+        "round_replay_failure_count",
+        "round_replay_issue_count"
       ],
       "properties": {
         "run_count": {
@@ -112,6 +116,18 @@
         },
         "rounds_checked": {
           "type": "integer"
+        },
+        "round_replay_round_count": {
+          "type": "integer"
+        },
+        "round_replay_missing_count": {
+          "type": "integer"
+        },
+        "round_replay_failure_count": {
+          "type": "integer"
+        },
+        "round_replay_issue_count": {
+          "type": "integer"
         }
       }
     },
@@ -128,6 +144,7 @@
           "warning_count",
           "checked_file_count",
           "rounds_checked",
+          "round_replay",
           "errors",
           "warnings"
         ],
@@ -155,6 +172,68 @@
           },
           "rounds_checked": {
             "type": "integer"
+          },
+          "round_replay": {
+            "type": "object",
+            "required": [
+              "round_count",
+              "replayed_round_count",
+              "missing_round_count",
+              "ok_count",
+              "failure_count",
+              "issue_count",
+              "rounds"
+            ],
+            "properties": {
+              "round_count": {
+                "type": "integer"
+              },
+              "replayed_round_count": {
+                "type": "integer"
+              },
+              "missing_round_count": {
+                "type": "integer"
+              },
+              "ok_count": {
+                "type": "integer"
+              },
+              "failure_count": {
+                "type": "integer"
+              },
+              "issue_count": {
+                "type": "integer"
+              },
+              "rounds": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "round_id",
+                    "exists",
+                    "ok",
+                    "failure_code",
+                    "path"
+                  ],
+                  "properties": {
+                    "round_id": {
+                      "type": "string"
+                    },
+                    "exists": {
+                      "type": "boolean"
+                    },
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "failure_code": {
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "errors": {
             "type": "array",

@@ -3973,6 +3973,19 @@ def resolve_report_path(value: object, repo_root: Path) -> str:
     return str(path.resolve())
 
 
+def resolve_run_artifact_path(value: object, *, repo_root: Path, run_dir: Path) -> str:
+    """Return an absolute comparable path for run-local artifact references."""
+    raw = str(value or "")
+    if not raw:
+        return ""
+    path = Path(raw)
+    if path.is_absolute():
+        return str(path.resolve())
+    if path.parts and path.parts[0] == "experiments":
+        return str((repo_root / path).resolve())
+    return str((run_dir / path).resolve())
+
+
 def normalize_report_paths(value: object, repo_root: Path) -> object:
     """Normalize nested report path fields for stable consistency checks."""
     if isinstance(value, dict):
@@ -4845,6 +4858,14 @@ def validate_operator_run_review_dashboard(
     gates_by_name = {str(row.get("gate_name", "")): row for row in gates}
     run_dir = Path(str(payload.get("run_dir", "")))
     expected_quality_source_path = str(run_dir / "candidate_leaderboard.json")
+    expected_gate_artifacts = {
+        "artifact_health": "run_closeout.json",
+        "scope_health": "experiment_scope_health.json",
+        "config_lineage": "config_lineage.json",
+        "candidate_quality_trace": "candidate_quality_trace.json",
+        "champion_review": "candidate_challenger_report.json",
+        "promotion_review": "champion_promotion_approval.json",
+    }
 
     expected_gate_order = [
         "artifact_health",
@@ -4857,8 +4878,24 @@ def validate_operator_run_review_dashboard(
     if [str(row.get("gate_name", "")) for row in gates] != expected_gate_order:
         errors.append("operator_run_review dashboard gate order mismatch")
     for row in gates:
-        if not str(row.get("artifact_path", "")):
+        artifact_path = str(row.get("artifact_path", ""))
+        gate_name = str(row.get("gate_name", ""))
+        if not artifact_path:
             errors.append("operator_run_review dashboard gate artifact missing")
+        elif gate_name in expected_gate_artifacts:
+            expected_artifact_path = expected_gate_artifacts[gate_name]
+            if resolve_run_artifact_path(
+                artifact_path,
+                repo_root=repo_root,
+                run_dir=run_dir,
+            ) != resolve_run_artifact_path(
+                expected_artifact_path,
+                repo_root=repo_root,
+                run_dir=run_dir,
+            ):
+                errors.append(
+                    "operator_run_review dashboard gate artifact path mismatch"
+                )
         if not str(row.get("details", "")):
             errors.append("operator_run_review dashboard gate details missing")
 

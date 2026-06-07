@@ -28304,6 +28304,26 @@ def test_operator_run_review_rejects_quality_source_path_drift() -> None:
     assert "operator_run_review dashboard quality source path mismatch" in errors
 
 
+def test_operator_run_review_rejects_gate_artifact_path_drift() -> None:
+    payload = _minimal_operator_run_review_payload()
+    dashboard = payload["dashboard"]
+    assert isinstance(dashboard, dict)
+    gates = dashboard["gates"]
+    assert isinstance(gates, list)
+    scope_gate = gates[1]
+    assert isinstance(scope_gate, dict)
+    scope_gate["artifact_path"] = (
+        "experiments/other-run/experiment_scope_health.json"
+    )
+
+    errors = validate_operator_run_review_payload(
+        payload,
+        repo_root=Path(__file__).resolve().parents[1],
+    )
+
+    assert "operator_run_review dashboard gate artifact path mismatch" in errors
+
+
 def test_compare_experiments_recommends_accepted_metric_winner(
     tmp_path: Path,
 ) -> None:

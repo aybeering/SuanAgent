@@ -17282,6 +17282,42 @@ def test_artifact_validator_reports_manifest_codex_preflight_drift(
     )
 
 
+def test_artifact_validator_reports_manifest_codex_preflight_missing_status_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "artifact-manifest-codex-preflight-missing-status-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    run_dir = repo / "experiments" / run_id
+    (run_dir / "codex_cli_execution_preflight.json").unlink()
+
+    report = validate_run_artifacts(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert report["ok"] is False
+    assert any(
+        str(error).endswith("codex_cli_execution_preflight.json")
+        and str(error).startswith("missing required artifact:")
+        for error in report["errors"]
+    )
+    assert (
+        "manifest.codex_cli_execution_preflight status mismatch"
+        in report["errors"]
+    )
+    assert "manifest.codex_cli_execution_preflight ok mismatch" in report["errors"]
+    assert (
+        "manifest.codex_cli_execution_preflight profile_count mismatch"
+        in report["errors"]
+    )
+
+
 def test_artifact_validator_reports_summary_codex_preflight_drift(
     tmp_path: Path,
 ) -> None:

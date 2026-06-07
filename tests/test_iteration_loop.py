@@ -1543,6 +1543,52 @@ def test_run_artifact_health_surfaces_round_replay_manifest_drift(
     assert "manifest drift `1`" in markdown
 
 
+def test_run_artifact_health_history_summarizes_round_replay_manifest_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    history_path = repo / "experiments/run_artifact_health_history.jsonl"
+    run_id = "history-round-replay-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    replay_path = repo / f"experiments/{run_id}/round_001/round_replay.json"
+    replay_payload = json.loads(replay_path.read_text(encoding="utf-8"))
+    replay_payload["tamper_marker"] = "history-visible-digest-drift"
+    replay_path.write_text(
+        json.dumps(replay_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    health = build_run_artifact_health(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        run_ids=[run_id],
+    )
+    append_run_artifact_health_history(
+        payload=health,
+        history_path=history_path,
+        recorded_at="2026-01-01T00:00:00Z",
+    )
+
+    summary = build_run_artifact_health_history(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        history_path=history_path,
+        limit=5,
+    )
+    markdown = render_run_artifact_health_history_markdown(summary)
+
+    assert summary["schema_version"] == RUN_ARTIFACT_HEALTH_HISTORY_SCHEMA_VERSION
+    assert_matches_schema_payload(summary, "run_artifact_health_history")
+    assert summary["totals"]["round_replay_manifest_drift_observation_count"] == 1
+    assert summary["recent_records"][-1]["round_replay_manifest_drift_count"] == 1
+    assert summary["run_failures"][0]["run_id"] == run_id
+    assert "Round replay manifest drift observations: `1`" in markdown
+    assert "replay drift `1`" in markdown
+
+
 def test_run_artifact_health_history_summarizes_failures(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     history_path = repo / "experiments/run_artifact_health_history.jsonl"

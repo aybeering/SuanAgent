@@ -1219,7 +1219,8 @@ Replay artifacts:
 - `run_artifact_health_history.jsonl` appends compact health snapshots when
   explicitly requested or when the iteration loop completes, and
   `run_artifact_health_history_v1` summaries show repeated failing runs and
-  artifact filenames. Automatic iteration records use the run's startup
+  artifact filenames, plus round-replay manifest-drift observations. Automatic
+  iteration records use the run's startup
   timestamp as the scope boundary. The same `--created-at-from` scope can
   exclude legacy failed runs from the summary without rewriting history.
   `python -m orchestrator.run_artifact_health --history-summary --markdown` and

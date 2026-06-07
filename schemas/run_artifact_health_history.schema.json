@@ -70,6 +70,7 @@
         "records_with_failures",
         "failed_run_observation_count",
         "artifact_failure_count",
+        "round_replay_manifest_drift_observation_count",
         "read_error_count"
       ],
       "properties": {
@@ -83,6 +84,9 @@
           "type": "integer"
         },
         "artifact_failure_count": {
+          "type": "integer"
+        },
+        "round_replay_manifest_drift_observation_count": {
           "type": "integer"
         },
         "read_error_count": {
@@ -158,6 +162,7 @@
           "run_count",
           "failed_count",
           "error_count",
+          "round_replay_manifest_drift_count",
           "selected_run_ids",
           "failed_run_ids"
         ],
@@ -175,6 +180,9 @@
             "type": "integer"
           },
           "error_count": {
+            "type": "integer"
+          },
+          "round_replay_manifest_drift_count": {
             "type": "integer"
           },
           "selected_run_ids": {

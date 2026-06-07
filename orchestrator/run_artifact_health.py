@@ -436,6 +436,10 @@ def render_run_artifact_health_history_markdown(payload: dict[str, Any]) -> str:
             f"`{totals.get('failed_run_observation_count', 0)}`"
         ),
         f"- Artifact failures: `{totals.get('artifact_failure_count', 0)}`",
+        (
+            "- Round replay manifest drift observations: "
+            f"`{totals.get('round_replay_manifest_drift_observation_count', 0)}`"
+        ),
         f"- Read errors: `{totals.get('read_error_count', 0)}`",
         "",
         "## Top Failing Runs",
@@ -474,7 +478,8 @@ def render_run_artifact_health_history_markdown(payload: dict[str, Any]) -> str:
         lines.append(
             f"- `{row.get('recorded_at', '')}`: ok `{row.get('ok', False)}`, "
             f"runs `{row.get('run_count', 0)}`, failed "
-            f"`{row.get('failed_count', 0)}`, failed ids "
+            f"`{row.get('failed_count', 0)}`, replay drift "
+            f"`{row.get('round_replay_manifest_drift_count', 0)}`, failed ids "
             + compact_markdown_list(string_list(row.get("failed_run_ids", [])))
         )
 
@@ -656,6 +661,16 @@ def build_run_artifact_health_history(
             "artifact_failure_count": sum(
                 int(row["failure_count"]) for row in artifact_counts.values()
             ),
+            "round_replay_manifest_drift_observation_count": sum(
+                round_replay_manifest_drift_count(
+                    [
+                        error
+                        for failed_run in scoped_failed_runs
+                        for error in string_list(failed_run.get("errors", []))
+                    ]
+                )
+                for scoped_failed_runs in scoped_failed_runs_by_record
+            ),
             "read_error_count": len(read_errors),
         },
         "run_failures": sorted_rows(run_counts.values(), key_name="run_id"),
@@ -795,6 +810,13 @@ def history_record_summary(
         ),
         "selected_run_ids": selected_run_ids,
         "failed_run_ids": [str(row.get("run_id", "")) for row in failed_runs],
+        "round_replay_manifest_drift_count": round_replay_manifest_drift_count(
+            [
+                error
+                for failed_run in failed_runs
+                for error in string_list(failed_run.get("errors", []))
+            ]
+        ),
     }
 
 

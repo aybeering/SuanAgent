@@ -565,12 +565,18 @@ def run_iteration_loop(
                     manifest["accepted_round"] = round_id
                     rollback_strategy(repo_root, strategy_path)
                     clear_strategy_import(repo_root, strategy_module)
-                    replay_round(
+                    replay_report = replay_round(
                         round_dir=round_dir,
                         repo_root=repo_root,
                         strategy_module=strategy_module,
                         run_probe=False,
                     )
+                    attach_round_replay_summary(round_summary, replay_report)
+                    manifest["run_outcome_summary"] = build_run_outcome_summary(
+                        manifest=manifest,
+                    )
+                    write_json(run_dir / "manifest.json", manifest)
+                    write_iteration_summary(run_dir=run_dir, manifest=manifest)
                     apply_patch(
                         repo_root,
                         (round_dir / "patch.diff").read_text(encoding="utf-8"),
@@ -598,12 +604,18 @@ def run_iteration_loop(
 
                 rollback_strategy(repo_root, strategy_path)
                 clear_strategy_import(repo_root, strategy_module)
-                replay_round(
+                replay_report = replay_round(
                     round_dir=round_dir,
                     repo_root=repo_root,
                     strategy_module=strategy_module,
                     run_probe=False,
                 )
+                attach_round_replay_summary(round_summary, replay_report)
+                manifest["run_outcome_summary"] = build_run_outcome_summary(
+                    manifest=manifest,
+                )
+                write_json(run_dir / "manifest.json", manifest)
+                write_iteration_summary(run_dir=run_dir, manifest=manifest)
 
                 if (
                     active_stop_on_repeated_proposal
@@ -1950,6 +1962,26 @@ def run_round(
         "validation_ev_after": metrics_after["ev"],
         "holdout_ev_before": holdout_metrics_before["ev"],
         "holdout_ev_after": holdout_metrics_after["ev"],
+    }
+
+
+def attach_round_replay_summary(
+    round_summary: dict[str, object],
+    replay_report: dict[str, object],
+) -> None:
+    """Attach compact saved replay evidence to a round manifest row."""
+    round_id = str(round_summary.get("round_id", ""))
+    round_summary["round_replay"] = {
+        "path": f"{round_id}/round_replay.json",
+        "markdown_path": f"{round_id}/round_replay.md",
+        "ok": bool(replay_report.get("ok", False)),
+        "run_probe": bool(replay_report.get("run_probe", False)),
+        "replayed_attempt_count": int(
+            replay_report.get("replayed_attempt_count", 0) or 0
+        ),
+        "failure_stage": str(replay_report.get("failure_stage", "none")),
+        "failure_code": str(replay_report.get("failure_code", "none")),
+        "failure_message": str(replay_report.get("failure_message", "")),
     }
 
 

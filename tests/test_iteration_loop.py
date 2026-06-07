@@ -9004,6 +9004,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         "overfit_validation.md",
         "agent_role_readiness.json",
         "agent_role_readiness.md",
+        "round_replay.json",
+        "round_replay.md",
     ):
         assert (round_dir / filename).exists()
     assert (run_dir / "candidate_leaderboard.json").exists()
@@ -9253,6 +9255,14 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     }
     assert "## Run Outcome Summary" in summary_markdown
     assert "- Category: `policy_reject`" in summary_markdown
+    round_replay_summary = manifest["rounds"][0]["round_replay"]  # type: ignore[index]
+    assert round_replay_summary["path"] == "round_001/round_replay.json"  # type: ignore[index]
+    assert round_replay_summary["markdown_path"] == "round_001/round_replay.md"  # type: ignore[index]
+    assert round_replay_summary["ok"] is True  # type: ignore[index]
+    assert round_replay_summary["replayed_attempt_count"] == 3  # type: ignore[index]
+    assert round_replay_summary["failure_code"] == "none"  # type: ignore[index]
+    assert "| Round | Accepted | Proposal | Intake | Replay |" in summary_markdown
+    assert "ok (3)" in summary_markdown
     assert manifest["candidate_quality_trace"]["path"] == "candidate_quality_trace.json"
     assert manifest["candidate_quality_trace"]["markdown_path"] == (
         "candidate_quality_trace.md"

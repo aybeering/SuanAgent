@@ -585,9 +585,9 @@ def write_iteration_summary(
     else:
         lines.extend(
             [
-                "| Round | Accepted | Proposal | Intake | Train EV | Validation EV | "
+                "| Round | Accepted | Proposal | Intake | Replay | Train EV | Validation EV | "
                 "Holdout EV | Trades | Reasons |",
-                "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- |",
+                "| --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- |",
             ]
         )
         for round_payload in rounds:
@@ -659,6 +659,7 @@ def round_table_row(run_dir: Path, round_payload: dict[str, object]) -> str:
         f"| `{accepted}` "
         f"| {escape_cell(agent_label(agent_name, proposal_summary))} "
         f"| {escape_cell(agent_intake_label(round_payload))} "
+        f"| {escape_cell(round_replay_label(round_payload))} "
         f"| {delta_cell(round_payload, 'train_ev_before', 'train_ev_after')} "
         f"| {delta_cell(round_payload, 'validation_ev_before', 'validation_ev_after')} "
         f"| {delta_cell(round_payload, 'holdout_ev_before', 'holdout_ev_after')} "
@@ -666,6 +667,17 @@ def round_table_row(run_dir: Path, round_payload: dict[str, object]) -> str:
         f"{round_payload.get('after_trade_count', 0)} "
         f"| {escape_cell(reason_text or 'none')} |"
     )
+
+
+def round_replay_label(round_payload: dict[str, object]) -> str:
+    """Return compact saved round-replay status for a round table row."""
+    replay = round_payload.get("round_replay", {})
+    if not isinstance(replay, dict):
+        return "missing"
+    if bool(replay.get("ok", False)):
+        return f"ok ({display_value(replay.get('replayed_attempt_count'))})"
+    code = str(replay.get("failure_code", "unknown"))
+    return f"failed: {code}"
 
 
 def agent_intake_label(round_payload: dict[str, object]) -> str:

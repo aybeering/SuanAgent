@@ -14445,6 +14445,13 @@ def test_external_agent_sandbox_drill_reports_codex_dry_run_boundary(
     assert slot["subprocess_executed"] is False
     assert slot["command"]["source"] == "proposal"
     assert slot["command"]["argv"][0] == "codex"
+    assert slot["command"]["argv_sha256"] == hashlib.sha256(
+        json.dumps(
+            slot["command"]["argv"],
+            ensure_ascii=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
     assert slot["requirements"]["workspace_manifest_present"] is True
     assert slot["requirements"]["execution_audit_required"] is False
     assert dynamic_drill["from_artifact"] is True
@@ -14456,7 +14463,11 @@ def test_external_agent_sandbox_drill_reports_codex_dry_run_boundary(
         run_dir / "external_agent_sandbox_drill.json",
         "external_agent_sandbox_drill",
     )
-    assert (run_dir / "external_agent_sandbox_drill.md").exists()
+    drill_markdown = (run_dir / "external_agent_sandbox_drill.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Command SHA-256" in drill_markdown
+    assert slot["command"]["argv_sha256"] in drill_markdown
     assert validation_report["ok"] is True
 
 
@@ -14487,6 +14498,13 @@ def test_external_agent_sandbox_drill_reports_file_protocol_execution(
     slot = drill["slots"][0]
     assert slot["adapter_name"] == "file_protocol"
     assert slot["command"]["source"] == "agent_execution"
+    assert slot["command"]["argv_sha256"] == hashlib.sha256(
+        json.dumps(
+            slot["command"]["argv"],
+            ensure_ascii=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
     assert slot["subprocess_executed"] is True
     assert slot["execution_audit"]["status"] == "completed"
     assert slot["execution_audit"]["mutation_guard_passed"] is True
@@ -14519,6 +14537,29 @@ def test_external_agent_sandbox_drill_reports_current_evidence_drift(
         )
         == ()
     )
+
+    digest_drift = dict(drill)
+    digest_slots = list(digest_drift["slots"])
+    digest_slots[0] = dict(digest_slots[0])
+    digest_slots[0]["command"] = dict(digest_slots[0]["command"])
+    digest_slots[0]["command"]["argv_sha256"] = "0" * 64
+    digest_drift["slots"] = digest_slots
+    drill_path.write_text(
+        json.dumps(digest_drift, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    digest_validation_report = validate_run_artifacts(
+        run_id="sandbox-current-evidence-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert (
+        "external_agent_sandbox_drill.json command argv_sha256 mismatch"
+        in digest_validation_report["errors"]
+    )
+    drill = write_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
 
     execution_path = Path(drill["slots"][0]["execution_audit"]["path"])
     execution_payload = json.loads(execution_path.read_text(encoding="utf-8"))

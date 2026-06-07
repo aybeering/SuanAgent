@@ -53,7 +53,7 @@ Implemented or allowed V0.5 components:
 39. Agent inspection output that summarizes round replay status for each saved round.
 40. A deterministic `agent_slot_health.json` report that summarizes planned slot readiness, audits, and replay status.
 41. A deterministic `agent_slot_readiness_gate.json` report that blocks future external agent slots until input, output, workspace, audit, and replay artifacts are present.
-42. A deterministic `external_agent_sandbox_drill.json` report that audits external slot command, workspace, input, output, subprocess, and mutation-guard evidence without executing agents.
+42. A deterministic `external_agent_sandbox_drill.json` report that audits external slot command, command SHA-256 binding, workspace, input, output, subprocess, and mutation-guard evidence without executing agents.
 43. A unified `agent_execution.json` contract for guarded Codex CLI attempts, including disabled, completed, failed, timed-out, and mutation-guard outcomes.
 44. A deterministic `agent_output_quarantine.json` report that quarantines selected agent output before git apply and releases only validated strategy patches, with schema-validated consistency checks that bind release status, selected attempt id, patch hash, validation status, and source artifact hashes.
 45. A deterministic `agent_golden_replay.json` report that freezes one saved

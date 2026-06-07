@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from collections import Counter
 from pathlib import Path
@@ -247,6 +248,7 @@ def sandbox_slot_row(
             "source": command_source,
             "argv": command,
             "argc": len(command),
+            "argv_sha256": sha256_json_list(command),
         },
         "workspace": {
             "expected_workspace_path": str(workspace.get("expected_workspace_path", "")),
@@ -397,6 +399,14 @@ def string_list(value: object) -> list[str]:
     return []
 
 
+def sha256_json_list(values: list[str]) -> str:
+    """Return a stable SHA-256 digest for a JSON string list."""
+    if not values:
+        return ""
+    encoded = json.dumps(values, ensure_ascii=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
 def first_existing_path(repo_root: Path, values: list[str]) -> Path | None:
     """Return the first existing path from path text values."""
     for value in values:
@@ -459,8 +469,8 @@ def external_agent_sandbox_drill_markdown(payload: dict[str, Any]) -> str:
         f"- External slots: `{payload.get('totals', {}).get('external_slot_count', 0)}`",
         f"- Blocked: `{payload.get('totals', {}).get('blocked_count', 0)}`",
         "",
-        "| Round | Attempt | Profile | Adapter | Runner | Status | Command | Issues |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Round | Attempt | Profile | Adapter | Runner | Status | Command | Command SHA-256 | Issues |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for slot in object_rows(payload.get("slots", [])):
         command = object_value(slot.get("command", {}))
@@ -476,6 +486,7 @@ def external_agent_sandbox_drill_markdown(payload: dict[str, Any]) -> str:
                     str(slot.get("runner_name", "")),
                     str(slot.get("sandbox_status", "")),
                     str(command.get("source", "")),
+                    str(command.get("argv_sha256", "")) or "none",
                     ", ".join(str(item) for item in issues)
                     if isinstance(issues, list)
                     else "",

@@ -9963,6 +9963,33 @@ def validate_optional_external_agent_sandbox_drill(
         for slot in slots
         if isinstance(slot, dict) and slot.get("sandbox_status") == "blocked"
     )
+    for slot in slots:
+        if not isinstance(slot, dict):
+            continue
+        command = slot.get("command", {})
+        if not isinstance(command, dict):
+            add_error(report, "external_agent_sandbox_drill.json command invalid")
+            continue
+        argv = command.get("argv", [])
+        if not isinstance(argv, list):
+            add_error(report, "external_agent_sandbox_drill.json command argv invalid")
+            continue
+        expected_sha256 = (
+            hashlib.sha256(
+                json.dumps(
+                    [str(item) for item in argv],
+                    ensure_ascii=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ).hexdigest()
+            if argv
+            else ""
+        )
+        if command.get("argv_sha256") != expected_sha256:
+            add_error(
+                report,
+                "external_agent_sandbox_drill.json command argv_sha256 mismatch",
+            )
     if isinstance(totals, dict) and totals.get("blocked_count") != blocked_count:
         add_error(report, "external_agent_sandbox_drill.json blocked_count mismatch")
     policy = payload.get("policy", {})

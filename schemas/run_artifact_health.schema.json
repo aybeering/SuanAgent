@@ -93,6 +93,7 @@
         "round_replay_round_count",
         "round_replay_missing_count",
         "round_replay_failure_count",
+        "round_replay_manifest_drift_count",
         "round_replay_issue_count"
       ],
       "properties": {
@@ -124,6 +125,9 @@
           "type": "integer"
         },
         "round_replay_failure_count": {
+          "type": "integer"
+        },
+        "round_replay_manifest_drift_count": {
           "type": "integer"
         },
         "round_replay_issue_count": {
@@ -181,6 +185,7 @@
               "missing_round_count",
               "ok_count",
               "failure_count",
+              "manifest_drift_count",
               "issue_count",
               "rounds"
             ],
@@ -198,6 +203,9 @@
                 "type": "integer"
               },
               "failure_count": {
+                "type": "integer"
+              },
+              "manifest_drift_count": {
                 "type": "integer"
               },
               "issue_count": {

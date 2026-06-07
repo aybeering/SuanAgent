@@ -1209,7 +1209,8 @@ Replay artifacts:
   empty-or-64-lowercase-hex strings.
 - `run_artifact_health.json` batch-validates saved experiment run artifacts,
   summarizes saved `round_replay.json` status, and reports per-run artifact
-  health without rerunning simulations.
+  health without rerunning simulations. Its round-replay totals include
+  manifest-drift counts for replay summary and digest mismatches.
   `--created-at-from` scopes indexed runs to a current contract era without
   deleting older experiment directories. The direct `--markdown` mode and
   `python -m orchestrator.experiments validate --markdown` render the same

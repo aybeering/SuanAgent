@@ -1503,6 +1503,46 @@ def test_run_artifact_health_requires_saved_round_replay(tmp_path: Path) -> None
     assert strict_result.returncode == 1
 
 
+def test_run_artifact_health_surfaces_round_replay_manifest_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    run_id = "health-round-replay-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    replay_path = repo / f"experiments/{run_id}/round_001/round_replay.json"
+    replay_payload = json.loads(replay_path.read_text(encoding="utf-8"))
+    replay_payload["tamper_marker"] = "health-visible-digest-drift"
+    replay_path.write_text(
+        json.dumps(replay_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    payload = build_run_artifact_health(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        run_ids=[run_id],
+    )
+    markdown = render_run_artifact_health_markdown(payload)
+
+    assert payload["schema_version"] == RUN_ARTIFACT_HEALTH_SCHEMA_VERSION
+    assert_matches_schema_payload(payload, "run_artifact_health")
+    assert payload["ok"] is False
+    assert payload["totals"]["round_replay_manifest_drift_count"] == 1
+    assert payload["totals"]["round_replay_issue_count"] == 1
+    assert payload["runs"][0]["round_replay"]["manifest_drift_count"] == 1
+    assert payload["runs"][0]["round_replay"]["failure_count"] == 0
+    assert any(
+        "manifest.rounds round_001 round_replay summary mismatch" in error
+        for error in payload["runs"][0]["errors"]
+    )
+    assert "Round replay manifest drift: `1`" in markdown
+    assert "manifest drift `1`" in markdown
+
+
 def test_run_artifact_health_history_summarizes_failures(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     history_path = repo / "experiments/run_artifact_health_history.jsonl"

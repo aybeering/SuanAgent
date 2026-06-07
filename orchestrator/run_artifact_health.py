@@ -136,7 +136,10 @@ def health_row(report: dict[str, object]) -> dict[str, Any]:
     errors = string_list(report.get("errors", []))
     warnings = string_list(report.get("warnings", []))
     checked_files = string_list(report.get("checked_files", []))
-    replay = round_replay_health(run_dir=Path(str(report.get("run_dir", ""))))
+    replay = round_replay_health(
+        run_dir=Path(str(report.get("run_dir", ""))),
+        validation_errors=errors,
+    )
     replay_errors = round_replay_errors(replay)
     return {
         "run_id": str(report.get("run_id", "")),
@@ -173,6 +176,10 @@ def health_totals(rows: list[dict[str, Any]]) -> dict[str, int]:
         "round_replay_failure_count": sum(
             int(round_replay_totals(row).get("failure_count", 0)) for row in rows
         ),
+        "round_replay_manifest_drift_count": sum(
+            int(round_replay_totals(row).get("manifest_drift_count", 0))
+            for row in rows
+        ),
         "round_replay_issue_count": sum(
             int(round_replay_totals(row).get("issue_count", 0)) for row in rows
         ),
@@ -185,7 +192,11 @@ def round_replay_totals(row: dict[str, Any]) -> dict[str, Any]:
     return replay if isinstance(replay, dict) else {}
 
 
-def round_replay_health(*, run_dir: Path) -> dict[str, Any]:
+def round_replay_health(
+    *,
+    run_dir: Path,
+    validation_errors: list[str] | None = None,
+) -> dict[str, Any]:
     """Return compact saved round-replay status for one run directory."""
     round_dirs = [
         path
@@ -197,15 +208,27 @@ def round_replay_health(*, run_dir: Path) -> dict[str, Any]:
     ok_count = sum(1 for row in rounds if bool(row["ok"]))
     missing_count = len(rounds) - replayed_count
     failure_count = replayed_count - ok_count
+    manifest_drift_count = round_replay_manifest_drift_count(validation_errors or [])
     return {
         "round_count": len(rounds),
         "replayed_round_count": replayed_count,
         "missing_round_count": missing_count,
         "ok_count": ok_count,
         "failure_count": failure_count,
-        "issue_count": missing_count + failure_count,
+        "manifest_drift_count": manifest_drift_count,
+        "issue_count": missing_count + failure_count + manifest_drift_count,
         "rounds": rounds,
     }
+
+
+def round_replay_manifest_drift_count(errors: list[str]) -> int:
+    """Return validator errors caused by manifest round-replay summary drift."""
+    return sum(
+        1
+        for error in errors
+        if "manifest.rounds " in error
+        and " round_replay summary mismatch" in error
+    )
 
 
 def round_replay_row(*, round_dir: Path) -> dict[str, Any]:
@@ -320,6 +343,8 @@ def render_run_artifact_health_markdown(payload: dict[str, Any]) -> str:
         f"- Round replay rounds: `{totals.get('round_replay_round_count', 0)}`",
         f"- Round replay missing: `{totals.get('round_replay_missing_count', 0)}`",
         f"- Round replay failures: `{totals.get('round_replay_failure_count', 0)}`",
+        "- Round replay manifest drift: "
+        f"`{totals.get('round_replay_manifest_drift_count', 0)}`",
         "",
         "## Runs",
         "",
@@ -343,7 +368,8 @@ def render_run_artifact_health_markdown(payload: dict[str, Any]) -> str:
                 "  - round replay: "
                 f"rounds `{replay.get('round_count', 0)}`, "
                 f"missing `{replay.get('missing_round_count', 0)}`, "
-                f"failures `{replay.get('failure_count', 0)}`"
+                f"failures `{replay.get('failure_count', 0)}`, "
+                f"manifest drift `{replay.get('manifest_drift_count', 0)}`"
             )
         errors = string_list(row.get("errors", []))
         warnings = string_list(row.get("warnings", []))

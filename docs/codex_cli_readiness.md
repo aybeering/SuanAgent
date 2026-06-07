@@ -154,7 +154,10 @@ The iteration manifest and `summary.md` surface the startup preflight status,
 ok state, blocker count, total profile count, real-execution profile count,
 operator-unlock-ready count, and canary-exempt count. Artifact validation binds
 those compact operator-facing fields back to the saved startup preflight
-summary.
+summary. The compact status is conservative: `operator_unlock_ready` requires
+every real-execution profile to be operator-unlock ready; otherwise an
+unblocked but not-ready real-execution summary is shown as
+`operator_unlock_incomplete`.
 
 The iteration loop allows an existing run directory only for this narrow
 canonical operator-request startup case. Ordinary pre-existing run directories

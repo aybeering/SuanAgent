@@ -163,8 +163,14 @@ def codex_cli_execution_preflight_status(
     if blocking_errors:
         return "blocked"
     summary = object_value(payload.get("summary", {}))
-    if int(summary.get("real_codex_execute_profile_count", 0) or 0) == 0:
+    real_execute_count = int(
+        summary.get("real_codex_execute_profile_count", 0) or 0
+    )
+    if real_execute_count == 0:
         return "no_real_execution_profiles"
+    ready_count = int(summary.get("operator_unlock_ready_count", 0) or 0)
+    if ready_count != real_execute_count:
+        return "operator_unlock_incomplete"
     return "operator_unlock_ready"
 
 

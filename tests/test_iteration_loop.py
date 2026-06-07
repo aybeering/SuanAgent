@@ -22393,6 +22393,18 @@ def test_codex_cli_execution_preflight_manifest_row_statuses() -> None:
             },
         }
     )
+    incomplete_unlock = codex_cli_execution_preflight_manifest_row(
+        {
+            "ok": True,
+            "blocking_errors": [],
+            "summary": {
+                "profile_count": 1,
+                "real_codex_execute_profile_count": 1,
+                "operator_unlock_ready_count": 0,
+                "canary_exempt_count": 0,
+            },
+        }
+    )
     operator_ready = codex_cli_execution_preflight_manifest_row(
         {
             "ok": True,
@@ -22412,6 +22424,9 @@ def test_codex_cli_execution_preflight_manifest_row_statuses() -> None:
     assert blocked["blocking_error_count"] == 1
     assert no_real_profiles["status"] == "no_real_execution_profiles"
     assert no_real_profiles["canary_exempt_count"] == 1
+    assert incomplete_unlock["status"] == "operator_unlock_incomplete"
+    assert incomplete_unlock["real_codex_execute_profile_count"] == 1
+    assert incomplete_unlock["operator_unlock_ready_count"] == 0
     assert operator_ready["status"] == "operator_unlock_ready"
     assert operator_ready["operator_unlock_ready_count"] == 1
 

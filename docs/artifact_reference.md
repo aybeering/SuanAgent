@@ -801,6 +801,9 @@ artifact validation binds those fields back to the saved
 to fall back to `missing` if that required startup artifact is absent. The
 iteration writer and artifact validator use the same compact-row helper so the
 operator-facing manifest view cannot drift from the validator expectation.
+That helper only reports `operator_unlock_ready` when every real-execution
+profile is operator-unlock ready; a real-execution profile with no blocker and
+no matching ready count is surfaced as `operator_unlock_incomplete`.
 `operator_cockpit.json` and `operator_cockpit.md` collect the run closeout,
 config lineage, operator action dashboard, Codex CLI execution preflight,
 standalone operator unlock checklist, Codex CLI unlock runbook, Codex CLI execution readiness diff,

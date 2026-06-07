@@ -27,6 +27,9 @@ jobs:
       - name: Run tests
         run: python -m pytest
 
+      - name: Check smoke command contract
+        run: python -m orchestrator.smoke_contract
+
       - name: Check artifact contract coverage
         run: python -m orchestrator.artifact_validator_coverage --strict
 

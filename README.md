@@ -42,6 +42,7 @@ pytest
 python -m orchestrator.run_loop
 python -m orchestrator.iteration_loop
 python -m orchestrator.preflight --config config/default.json
+python -m orchestrator.smoke_contract
 ```
 
 Useful mode switches:

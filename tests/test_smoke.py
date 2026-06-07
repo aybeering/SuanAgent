@@ -8,6 +8,7 @@ from backtester.metrics import METRIC_KEYS
 from backtester.simulate import DEFAULT_DATA_PATH, run_backtest
 from orchestrator.policy_gate import apply_holdout_gate, evaluate_policy
 from orchestrator.run_loop import run_pipeline
+from orchestrator.smoke_contract import validate_smoke_contract
 from reports.generate_report import generate_report
 
 
@@ -22,29 +23,12 @@ def test_project_metadata_matches_current_scope() -> None:
 
 
 def test_required_smoke_commands_are_documented_and_ci_covered() -> None:
-    required_docs_commands = (
-        "pytest",
-        "python -m orchestrator.run_loop",
-        "python -m orchestrator.iteration_loop",
-        "python -m orchestrator.preflight --config config/default.json",
-    )
-    required_ci_commands = (
-        "python -m pytest",
-        "python -m orchestrator.run_loop",
-        "python -m orchestrator.iteration_loop --run-id ci-default",
-        "python -m orchestrator.preflight --config config/default.json",
-    )
-    readme = Path("README.md").read_text(encoding="utf-8")
-    artifact_reference = Path("docs/artifact_reference.md").read_text(
-        encoding="utf-8"
-    )
-    ci_workflow = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
+    payload = validate_smoke_contract(repo_root=Path("."))
 
-    for command in required_docs_commands:
-        assert command in readme
-        assert command in artifact_reference
-    for command in required_ci_commands:
-        assert command in ci_workflow
+    assert payload["ok"] is True
+    assert payload["summary"]["missing_count"] == 0  # type: ignore[index]
+    assert payload["policy"]["inspection_only"] is True  # type: ignore[index]
+    assert payload["policy"]["does_not_run_backtests"] is True  # type: ignore[index]
 
 
 def test_backtester_can_run_on_sample_data() -> None:

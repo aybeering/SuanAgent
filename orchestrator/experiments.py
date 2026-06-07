@@ -6301,10 +6301,11 @@ def codex_cli_execution_readiness_diff_report(
 
 def agent_slot_health_report(
     *,
-    run_id: str,
+    run_id: str | None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return agent slot health, loading a saved report when present."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     path = run_dir / "agent_slot_health.json"
     if path.exists():
@@ -6320,10 +6321,11 @@ def agent_slot_health_report(
 
 def agent_slot_readiness_report(
     *,
-    run_id: str,
+    run_id: str | None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return agent slot readiness, loading a saved report when present."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     path = run_dir / "agent_slot_readiness_gate.json"
     if path.exists():
@@ -6342,10 +6344,11 @@ def agent_slot_readiness_report(
 
 def external_agent_sandbox_report(
     *,
-    run_id: str,
+    run_id: str | None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return external agent sandbox drill details for one run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     path = run_dir / "external_agent_sandbox_drill.json"
     if path.exists():
@@ -7491,7 +7494,12 @@ def main() -> None:
         "slots",
         help="Show agent slot health across one iteration run.",
     )
-    slots_parser.add_argument("run_id")
+    slots_parser.add_argument("run_id", nargs="?")
+    slots_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     slots_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -7502,7 +7510,12 @@ def main() -> None:
         "readiness",
         help="Show the external-agent slot readiness gate for one iteration run.",
     )
-    readiness_parser.add_argument("run_id")
+    readiness_parser.add_argument("run_id", nargs="?")
+    readiness_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     readiness_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -7513,7 +7526,12 @@ def main() -> None:
         "sandbox",
         help="Show external-agent sandbox drill details for one iteration run.",
     )
-    sandbox_parser.add_argument("run_id")
+    sandbox_parser.add_argument("run_id", nargs="?")
+    sandbox_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     sandbox_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -8025,7 +8043,7 @@ def main() -> None:
     elif args.command == "slots":
         payload = agent_slot_health_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(agent_slot_health_markdown(payload), end="")
@@ -8033,7 +8051,7 @@ def main() -> None:
     elif args.command == "readiness":
         payload = agent_slot_readiness_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(agent_slot_readiness_gate_markdown(payload), end="")
@@ -8041,7 +8059,7 @@ def main() -> None:
     elif args.command == "sandbox":
         payload = external_agent_sandbox_report(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(external_agent_sandbox_drill_markdown(payload), end="")

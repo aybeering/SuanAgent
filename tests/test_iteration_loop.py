@@ -14157,6 +14157,37 @@ def test_agent_slot_health_reports_default_and_replayed_slots(
         text=True,
         check=False,
     )
+    latest_cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "slots",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    latest_markdown_cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "slots",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     validation_report = validate_run_artifacts(
         run_id="slot-health-default",
         experiments_dir=repo / "experiments",
@@ -14184,6 +14215,15 @@ def test_agent_slot_health_reports_default_and_replayed_slots(
     assert "| Round | Attempt | Profile | Adapter | Runner | Status | Issues |" in (
         markdown_cli_result.stdout
     )
+    assert latest_cli_result.returncode == 0, latest_cli_result.stderr
+    latest_cli_payload = json.loads(latest_cli_result.stdout)
+    assert latest_cli_payload["run_id"] == "slot-health-default"
+    assert latest_cli_payload["from_artifact"] is True
+    assert latest_markdown_cli_result.returncode == 0, (
+        latest_markdown_cli_result.stderr
+    )
+    assert "# Agent Slot Health" in latest_markdown_cli_result.stdout
+    assert "slot-health-default" in latest_markdown_cli_result.stdout
     assert_matches_schema(run_dir / "agent_slot_health.json", "agent_slot_health")
     assert (run_dir / "agent_slot_health.md").exists()
     assert validation_report["ok"] is True
@@ -14316,6 +14356,37 @@ def test_agent_slot_readiness_gate_passes_replayed_file_protocol_slot(
         text=True,
         check=False,
     )
+    latest_cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "readiness",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    latest_markdown_cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "readiness",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     validation_report = validate_run_artifacts(
         run_id="slot-readiness-file-protocol",
         experiments_dir=repo / "experiments",
@@ -14344,6 +14415,15 @@ def test_agent_slot_readiness_gate_passes_replayed_file_protocol_slot(
     assert "| Round | Attempt | Profile | Adapter | Runner | Status | Blocking issues |" in (
         markdown_cli_result.stdout
     )
+    assert latest_cli_result.returncode == 0, latest_cli_result.stderr
+    latest_cli_payload = json.loads(latest_cli_result.stdout)
+    assert latest_cli_payload["run_id"] == "slot-readiness-file-protocol"
+    assert latest_cli_payload["from_artifact"] is True
+    assert latest_markdown_cli_result.returncode == 0, (
+        latest_markdown_cli_result.stderr
+    )
+    assert "# Agent Slot Readiness Gate" in latest_markdown_cli_result.stdout
+    assert "slot-readiness-file-protocol" in latest_markdown_cli_result.stdout
     assert_matches_schema(
         run_dir / "agent_slot_readiness_gate.json",
         "agent_slot_readiness_gate",
@@ -14485,6 +14565,37 @@ def test_external_agent_sandbox_drill_reports_codex_dry_run_boundary(
         text=True,
         check=False,
     )
+    latest_cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "sandbox",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    latest_markdown_cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "sandbox",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     validation_report = validate_run_artifacts(
         run_id="sandbox-codex-dry-run",
         experiments_dir=repo / "experiments",
@@ -14551,6 +14662,15 @@ def test_external_agent_sandbox_drill_reports_codex_dry_run_boundary(
     assert markdown_cli_result.returncode == 0, markdown_cli_result.stderr
     assert "# External Agent Sandbox Drill" in markdown_cli_result.stdout
     assert "Source plans SHA-256" in markdown_cli_result.stdout
+    assert latest_cli_result.returncode == 0, latest_cli_result.stderr
+    latest_cli_payload = json.loads(latest_cli_result.stdout)
+    assert latest_cli_payload["run_id"] == "sandbox-codex-dry-run"
+    assert latest_cli_payload["from_artifact"] is True
+    assert latest_markdown_cli_result.returncode == 0, (
+        latest_markdown_cli_result.stderr
+    )
+    assert "# External Agent Sandbox Drill" in latest_markdown_cli_result.stdout
+    assert "sandbox-codex-dry-run" in latest_markdown_cli_result.stdout
     assert_matches_schema(
         run_dir / "external_agent_sandbox_drill.json",
         "external_agent_sandbox_drill",

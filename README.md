@@ -68,6 +68,9 @@ python -m orchestrator.experiments config-runbook <run_id> --markdown
 python -m orchestrator.experiments unlock-checklist <run_id> --markdown
 python -m orchestrator.experiments unlock-runbook <run_id> --markdown
 python -m orchestrator.experiments execution-readiness-diff <run_id> --markdown
+python -m orchestrator.experiments slots --latest --markdown
+python -m orchestrator.experiments readiness --latest --markdown
+python -m orchestrator.experiments sandbox --latest --markdown
 python -m orchestrator.experiments cockpit <run_id> --markdown
 python -m orchestrator.experiments home <run_id> --markdown
 python -m orchestrator.experiments home --latest --markdown

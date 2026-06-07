@@ -24,6 +24,9 @@ from orchestrator.codex_cli_intake_readiness import (
     build_codex_cli_intake_readiness,
     validate_codex_cli_intake_readiness,
 )
+from orchestrator.codex_cli_execution_preflight import (
+    codex_cli_execution_preflight_status,
+)
 from orchestrator.operator_action_plan import sha256_text
 from orchestrator.schema_validation import validate_json_file, validate_json_payload
 
@@ -1330,14 +1333,10 @@ def codex_preflight_status(
     blockers: list[str],
 ) -> str:
     """Return a compact Codex CLI startup preflight status."""
-    if not preflight:
-        return "missing"
-    if blockers:
-        return "blocked"
-    summary = object_field(preflight, "summary")
-    if int(summary.get("real_codex_execute_profile_count", 0) or 0) == 0:
-        return "no_real_execution_profiles"
-    return "operator_unlock_ready"
+    return codex_cli_execution_preflight_status(
+        payload=preflight,
+        blocking_errors=blockers,
+    )
 
 
 def codex_preflight_next_step(
@@ -1353,6 +1352,10 @@ def codex_preflight_next_step(
     summary = object_field(preflight, "summary")
     if int(summary.get("real_codex_execute_profile_count", 0) or 0) == 0:
         return "keep real Codex execution disabled unless explicitly reviewed"
+    ready_count = int(summary.get("operator_unlock_ready_count", 0) or 0)
+    real_count = int(summary.get("real_codex_execute_profile_count", 0) or 0)
+    if ready_count != real_count:
+        return "complete operator unlock evidence before real execution review"
     return "review operator unlock evidence before any real Codex execution"
 
 

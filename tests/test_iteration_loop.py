@@ -390,6 +390,8 @@ from orchestrator.operator_cockpit import (
     OPERATOR_COCKPIT_SCHEMA_VERSION,
     build_codex_unlock_checklist,
     build_operator_cockpit,
+    codex_preflight_next_step,
+    codex_preflight_status,
     render_operator_cockpit_markdown,
     validate_operator_cockpit_file,
     validate_operator_cockpit_payload,
@@ -22429,6 +22431,27 @@ def test_codex_cli_execution_preflight_manifest_row_statuses() -> None:
     assert incomplete_unlock["operator_unlock_ready_count"] == 0
     assert operator_ready["status"] == "operator_unlock_ready"
     assert operator_ready["operator_unlock_ready_count"] == 1
+
+
+def test_operator_cockpit_codex_preflight_incomplete_status() -> None:
+    preflight = {
+        "ok": True,
+        "blocking_errors": [],
+        "summary": {
+            "profile_count": 1,
+            "real_codex_execute_profile_count": 1,
+            "operator_unlock_ready_count": 0,
+            "canary_exempt_count": 0,
+        },
+    }
+
+    assert (
+        codex_preflight_status(preflight=preflight, blockers=[])
+        == "operator_unlock_incomplete"
+    )
+    assert codex_preflight_next_step(preflight=preflight, blockers=[]) == (
+        "complete operator unlock evidence before real execution review"
+    )
 
 
 def test_codex_cli_execution_preflight_blocks_operator_run_identity_drift(

@@ -3640,11 +3640,12 @@ def candidate_quality_trace(
 
 def modifier_profile_recommendation(
     *,
-    run_id: str,
+    run_id: str | None,
     experiments_dir: Path = Path("experiments"),
     config_path: Path = Path("config/default.json"),
 ) -> dict[str, object]:
     """Return modifier profile recommendation for one iteration run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     path = run_dir / "modifier_profile_recommendation.json"
     repo_root = experiments_dir.parent
@@ -7495,7 +7496,12 @@ def main() -> None:
         "profile-recommendation",
         help="Show the read-only next modifier profile recommendation.",
     )
-    profile_recommendation_parser.add_argument("run_id")
+    profile_recommendation_parser.add_argument("run_id", nargs="?")
+    profile_recommendation_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     profile_recommendation_parser.add_argument(
         "--config",
         type=Path,
@@ -8052,7 +8058,7 @@ def main() -> None:
     elif args.command == "profile-recommendation":
         payload = modifier_profile_recommendation(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
             config_path=args.config,
         )
         if args.markdown:

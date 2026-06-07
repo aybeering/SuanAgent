@@ -30886,6 +30886,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    profile_recommendation_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "profile-recommendation",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    profile_recommendation_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "profile-recommendation",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     hygiene_result = subprocess.run(
         [
             sys.executable,
@@ -32625,6 +32656,27 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "# Modifier Profile Recommendation" in (
         profile_recommendation_markdown_result.stdout
     )
+    assert profile_recommendation_latest_result.returncode == 0, (
+        profile_recommendation_latest_result.stderr
+    )
+    profile_recommendation_latest_payload = json.loads(
+        profile_recommendation_latest_result.stdout
+    )
+    assert profile_recommendation_latest_payload["run_id"] == "cli-candidates"
+    assert profile_recommendation_latest_payload["schema_version"] == (
+        MODIFIER_PROFILE_RECOMMENDATION_SCHEMA_VERSION
+    )
+    assert_matches_schema_payload(
+        profile_recommendation_latest_payload,
+        "modifier_profile_recommendation",
+    )
+    assert profile_recommendation_latest_markdown_result.returncode == 0, (
+        profile_recommendation_latest_markdown_result.stderr
+    )
+    assert "# Modifier Profile Recommendation" in (
+        profile_recommendation_latest_markdown_result.stdout
+    )
+    assert "cli-candidates" in profile_recommendation_latest_markdown_result.stdout
     assert hygiene_result.returncode == 0, hygiene_result.stderr
     hygiene_payload = json.loads(hygiene_result.stdout)
     assert hygiene_payload["schema_version"] == MEMORY_HYGIENE_SCHEMA_VERSION

@@ -71,6 +71,7 @@ python -m orchestrator.experiments execution-readiness-diff <run_id> --markdown
 python -m orchestrator.experiments candidates --latest --limit 5 --markdown
 python -m orchestrator.experiments agents --latest --markdown
 python -m orchestrator.experiments quality-trace --latest --markdown
+python -m orchestrator.experiments profile-recommendation --latest --markdown
 python -m orchestrator.experiments slots --latest --markdown
 python -m orchestrator.experiments readiness --latest --markdown
 python -m orchestrator.experiments sandbox --latest --markdown

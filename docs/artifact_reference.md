@@ -62,6 +62,8 @@ python -m orchestrator.experiments agents --latest --markdown
 python -m orchestrator.experiments quality-trace <run_id>
 python -m orchestrator.experiments quality-trace <run_id> --markdown
 python -m orchestrator.experiments quality-trace --latest --markdown
+python -m orchestrator.experiments profile-recommendation <run_id> --markdown
+python -m orchestrator.experiments profile-recommendation --latest --markdown
 python -m orchestrator.experiments slots <run_id>
 python -m orchestrator.experiments slots <run_id> --markdown
 python -m orchestrator.experiments slots --latest --markdown
@@ -454,7 +456,9 @@ report for terminal inspection. The command is inspection-only: it does not
 promote champions, route agents, execute agents, run backtests, apply patches,
 or change acceptance.
 `python -m orchestrator.experiments profile-recommendation <run_id>` returns
-the saved or recomputed `modifier_profile_recommendation.json`. The payload
+the saved or recomputed `modifier_profile_recommendation.json`; use
+`profile-recommendation --latest` to resolve the latest indexed iteration run.
+The payload
 reads `candidate_quality_trace.json`, `research_brief.json`, and the active
 config, then maps suggested directions to available deterministic modifier
 profiles for operator review. `profile-recommendation --markdown` renders the

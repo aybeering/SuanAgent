@@ -14456,6 +14456,15 @@ def test_external_agent_sandbox_drill_reports_codex_dry_run_boundary(
         Path(slot["workspace"]["manifest_path"]).read_bytes()
     ).hexdigest()
     assert slot["execution_audit"]["artifact_sha256"] == ""
+    assert slot["io_paths"]["round_agent_input_sha256"] == hashlib.sha256(
+        Path(slot["io_paths"]["round_agent_input"]).read_bytes()
+    ).hexdigest()
+    assert slot["io_paths"]["attempt_agent_input_sha256"] == hashlib.sha256(
+        Path(slot["io_paths"]["attempt_agent_input"]).read_bytes()
+    ).hexdigest()
+    assert slot["io_paths"]["input_bundle_sha256"] == sha256_tree_for_test(
+        Path(slot["io_paths"]["input_bundle"])
+    )
     assert slot["requirements"]["workspace_manifest_present"] is True
     assert slot["requirements"]["execution_audit_required"] is False
     assert dynamic_drill["from_artifact"] is True
@@ -14473,8 +14482,10 @@ def test_external_agent_sandbox_drill_reports_codex_dry_run_boundary(
     assert "Command SHA-256" in drill_markdown
     assert "Workspace SHA-256" in drill_markdown
     assert "Execution SHA-256" in drill_markdown
+    assert "Input Bundle SHA-256" in drill_markdown
     assert slot["command"]["argv_sha256"] in drill_markdown
     assert slot["workspace"]["manifest_sha256"] in drill_markdown
+    assert slot["io_paths"]["input_bundle_sha256"] in drill_markdown
     assert validation_report["ok"] is True
 
 
@@ -14518,6 +14529,15 @@ def test_external_agent_sandbox_drill_reports_file_protocol_execution(
     assert slot["execution_audit"]["artifact_sha256"] == hashlib.sha256(
         Path(slot["execution_audit"]["path"]).read_bytes()
     ).hexdigest()
+    assert slot["io_paths"]["round_agent_input_sha256"] == hashlib.sha256(
+        Path(slot["io_paths"]["round_agent_input"]).read_bytes()
+    ).hexdigest()
+    assert slot["io_paths"]["attempt_agent_input_sha256"] == hashlib.sha256(
+        Path(slot["io_paths"]["attempt_agent_input"]).read_bytes()
+    ).hexdigest()
+    assert slot["io_paths"]["input_bundle_sha256"] == sha256_tree_for_test(
+        Path(slot["io_paths"]["input_bundle"])
+    )
     assert slot["subprocess_executed"] is True
     assert slot["execution_audit"]["status"] == "completed"
     assert slot["execution_audit"]["mutation_guard_passed"] is True
@@ -14617,6 +14637,34 @@ def test_external_agent_sandbox_drill_reports_current_evidence_drift(
     assert (
         "external_agent_sandbox_drill.json execution_audit artifact_sha256 mismatch"
         in execution_digest_validation_report["errors"]
+    )
+    drill = write_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
+
+    input_digest_drift = dict(drill)
+    input_slots = list(input_digest_drift["slots"])
+    input_slots[0] = dict(input_slots[0])
+    input_slots[0]["io_paths"] = dict(input_slots[0]["io_paths"])
+    input_slots[0]["io_paths"]["round_agent_input_sha256"] = "0" * 64
+    input_slots[0]["io_paths"]["input_bundle_sha256"] = "0" * 64
+    input_digest_drift["slots"] = input_slots
+    drill_path.write_text(
+        json.dumps(input_digest_drift, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    input_digest_validation_report = validate_run_artifacts(
+        run_id="sandbox-current-evidence-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert (
+        "external_agent_sandbox_drill.json io_paths round_agent_input_sha256 mismatch"
+        in input_digest_validation_report["errors"]
+    )
+    assert (
+        "external_agent_sandbox_drill.json io_paths input_bundle_sha256 mismatch"
+        in input_digest_validation_report["errors"]
     )
     drill = write_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
 
@@ -33518,6 +33566,16 @@ def canonical_execution_candidate_fixture(
 def stable_json_digest(payload: object) -> str:
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def sha256_tree_for_test(path: Path) -> str:
+    digest = hashlib.sha256()
+    for child in sorted(item for item in path.rglob("*") if item.is_file()):
+        digest.update(child.relative_to(path).as_posix().encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(child.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def build_test_replacement_proposal(

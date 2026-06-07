@@ -244,7 +244,45 @@
             }
           },
           "io_paths": {
-            "type": "object"
+            "type": "object",
+            "required": [
+              "round_agent_input",
+              "round_agent_input_sha256",
+              "attempt_agent_input",
+              "attempt_agent_input_sha256",
+              "input_bundle",
+              "input_bundle_sha256",
+              "round_output_files"
+            ],
+            "properties": {
+              "round_agent_input": {
+                "type": "string"
+              },
+              "round_agent_input_sha256": {
+                "type": "string",
+                "pattern": "^$|^[0-9a-f]{64}$"
+              },
+              "attempt_agent_input": {
+                "type": "string"
+              },
+              "attempt_agent_input_sha256": {
+                "type": "string",
+                "pattern": "^$|^[0-9a-f]{64}$"
+              },
+              "input_bundle": {
+                "type": "string"
+              },
+              "input_bundle_sha256": {
+                "type": "string",
+                "pattern": "^$|^[0-9a-f]{64}$"
+              },
+              "round_output_files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }

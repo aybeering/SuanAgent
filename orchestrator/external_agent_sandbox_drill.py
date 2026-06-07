@@ -274,13 +274,22 @@ def sandbox_slot_row(
                 repo_root,
                 str(input_contract.get("round_agent_input", "")),
             ),
+            "round_agent_input_sha256": sha256_file(
+                existing_path(repo_root, str(input_contract.get("round_agent_input", "")))
+            ),
             "attempt_agent_input": resolve_text(
                 repo_root,
                 str(input_contract.get("attempt_agent_input", "")),
             ),
+            "attempt_agent_input_sha256": sha256_file(
+                existing_path(repo_root, str(input_contract.get("attempt_agent_input", "")))
+            ),
             "input_bundle": resolve_text(
                 repo_root,
                 str(input_contract.get("input_bundle_dir", "")),
+            ),
+            "input_bundle_sha256": sha256_tree(
+                existing_path(repo_root, str(input_contract.get("input_bundle_dir", "")))
             ),
             "round_output_files": [
                 resolve_text(repo_root, str(path))
@@ -416,6 +425,20 @@ def sha256_file(path: Path | None) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def sha256_tree(path: Path | None) -> str:
+    """Return a stable SHA-256 digest for a directory tree."""
+    if path is None or not path.exists() or not path.is_dir():
+        return ""
+    digest = hashlib.sha256()
+    for child in sorted(item for item in path.rglob("*") if item.is_file()):
+        relative = child.relative_to(path).as_posix()
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(child.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
 def first_existing_path(repo_root: Path, values: list[str]) -> Path | None:
     """Return the first existing path from path text values."""
     for value in values:
@@ -478,13 +501,14 @@ def external_agent_sandbox_drill_markdown(payload: dict[str, Any]) -> str:
         f"- External slots: `{payload.get('totals', {}).get('external_slot_count', 0)}`",
         f"- Blocked: `{payload.get('totals', {}).get('blocked_count', 0)}`",
         "",
-        "| Round | Attempt | Profile | Adapter | Runner | Status | Command | Command SHA-256 | Workspace SHA-256 | Execution SHA-256 | Issues |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Round | Attempt | Profile | Adapter | Runner | Status | Command | Command SHA-256 | Workspace SHA-256 | Execution SHA-256 | Input Bundle SHA-256 | Issues |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for slot in object_rows(payload.get("slots", [])):
         command = object_value(slot.get("command", {}))
         workspace = object_value(slot.get("workspace", {}))
         execution_audit = object_value(slot.get("execution_audit", {}))
+        io_paths = object_value(slot.get("io_paths", {}))
         issues = slot.get("blocking_issues", [])
         lines.append(
             "| "
@@ -500,6 +524,7 @@ def external_agent_sandbox_drill_markdown(payload: dict[str, Any]) -> str:
                     str(command.get("argv_sha256", "")) or "none",
                     str(workspace.get("manifest_sha256", "")) or "none",
                     str(execution_audit.get("artifact_sha256", "")) or "none",
+                    str(io_paths.get("input_bundle_sha256", "")) or "none",
                     ", ".join(str(item) for item in issues)
                     if isinstance(issues, list)
                     else "",

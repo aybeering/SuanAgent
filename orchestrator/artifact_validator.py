@@ -10034,6 +10034,71 @@ def validate_optional_external_agent_sandbox_drill(
                 report,
                 "external_agent_sandbox_drill.json execution_audit artifact_sha256 mismatch",
             )
+        io_paths = slot.get("io_paths", {})
+        if not isinstance(io_paths, dict):
+            add_error(report, "external_agent_sandbox_drill.json io_paths invalid")
+            continue
+        for path_key, digest_key, label in (
+            (
+                "round_agent_input",
+                "round_agent_input_sha256",
+                "round_agent_input",
+            ),
+            (
+                "attempt_agent_input",
+                "attempt_agent_input_sha256",
+                "attempt_agent_input",
+            ),
+        ):
+            input_path = str(io_paths.get(path_key, ""))
+            resolved_input_path = (
+                Path(input_path)
+                if Path(input_path).is_absolute()
+                else repo_root / input_path
+            )
+            expected_input_sha256 = (
+                hashlib.sha256(resolved_input_path.read_bytes()).hexdigest()
+                if input_path
+                and resolved_input_path.exists()
+                and resolved_input_path.is_file()
+                else ""
+            )
+            if io_paths.get(digest_key) != expected_input_sha256:
+                add_error(
+                    report,
+                    f"external_agent_sandbox_drill.json io_paths {label}_sha256 mismatch",
+                )
+        input_bundle_path = str(io_paths.get("input_bundle", ""))
+        resolved_input_bundle_path = (
+            Path(input_bundle_path)
+            if Path(input_bundle_path).is_absolute()
+            else repo_root / input_bundle_path
+        )
+        if (
+            input_bundle_path
+            and resolved_input_bundle_path.exists()
+            and resolved_input_bundle_path.is_dir()
+        ):
+            digest = hashlib.sha256()
+            for child in sorted(
+                item for item in resolved_input_bundle_path.rglob("*") if item.is_file()
+            ):
+                digest.update(
+                    child.relative_to(resolved_input_bundle_path)
+                    .as_posix()
+                    .encode("utf-8")
+                )
+                digest.update(b"\0")
+                digest.update(child.read_bytes())
+                digest.update(b"\0")
+            expected_bundle_sha256 = digest.hexdigest()
+        else:
+            expected_bundle_sha256 = ""
+        if io_paths.get("input_bundle_sha256") != expected_bundle_sha256:
+            add_error(
+                report,
+                "external_agent_sandbox_drill.json io_paths input_bundle_sha256 mismatch",
+            )
     if isinstance(totals, dict) and totals.get("blocked_count") != blocked_count:
         add_error(report, "external_agent_sandbox_drill.json blocked_count mismatch")
     policy = payload.get("policy", {})

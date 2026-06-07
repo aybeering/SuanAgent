@@ -14455,6 +14455,7 @@ def test_external_agent_sandbox_drill_reports_codex_dry_run_boundary(
     assert slot["workspace"]["manifest_sha256"] == hashlib.sha256(
         Path(slot["workspace"]["manifest_path"]).read_bytes()
     ).hexdigest()
+    assert slot["execution_audit"]["artifact_sha256"] == ""
     assert slot["requirements"]["workspace_manifest_present"] is True
     assert slot["requirements"]["execution_audit_required"] is False
     assert dynamic_drill["from_artifact"] is True
@@ -14471,6 +14472,7 @@ def test_external_agent_sandbox_drill_reports_codex_dry_run_boundary(
     )
     assert "Command SHA-256" in drill_markdown
     assert "Workspace SHA-256" in drill_markdown
+    assert "Execution SHA-256" in drill_markdown
     assert slot["command"]["argv_sha256"] in drill_markdown
     assert slot["workspace"]["manifest_sha256"] in drill_markdown
     assert validation_report["ok"] is True
@@ -14512,6 +14514,9 @@ def test_external_agent_sandbox_drill_reports_file_protocol_execution(
     ).hexdigest()
     assert slot["workspace"]["manifest_sha256"] == hashlib.sha256(
         Path(slot["workspace"]["manifest_path"]).read_bytes()
+    ).hexdigest()
+    assert slot["execution_audit"]["artifact_sha256"] == hashlib.sha256(
+        Path(slot["execution_audit"]["path"]).read_bytes()
     ).hexdigest()
     assert slot["subprocess_executed"] is True
     assert slot["execution_audit"]["status"] == "completed"
@@ -14589,6 +14594,29 @@ def test_external_agent_sandbox_drill_reports_current_evidence_drift(
     assert (
         "external_agent_sandbox_drill.json workspace manifest_sha256 mismatch"
         in workspace_digest_validation_report["errors"]
+    )
+    drill = write_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
+
+    execution_digest_drift = dict(drill)
+    execution_slots = list(execution_digest_drift["slots"])
+    execution_slots[0] = dict(execution_slots[0])
+    execution_slots[0]["execution_audit"] = dict(execution_slots[0]["execution_audit"])
+    execution_slots[0]["execution_audit"]["artifact_sha256"] = "0" * 64
+    execution_digest_drift["slots"] = execution_slots
+    drill_path.write_text(
+        json.dumps(execution_digest_drift, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    execution_digest_validation_report = validate_run_artifacts(
+        run_id="sandbox-current-evidence-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert (
+        "external_agent_sandbox_drill.json execution_audit artifact_sha256 mismatch"
+        in execution_digest_validation_report["errors"]
     )
     drill = write_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
 

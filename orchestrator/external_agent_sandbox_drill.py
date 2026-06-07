@@ -264,6 +264,7 @@ def sandbox_slot_row(
         },
         "execution_audit": {
             "path": str(execution_path) if execution_path else "",
+            "artifact_sha256": sha256_file(execution_path),
             "status": execution_status,
             "returncode": execution.get("returncode", None),
             "mutation_guard_passed": requirements["mutation_guard_passed"],
@@ -477,12 +478,13 @@ def external_agent_sandbox_drill_markdown(payload: dict[str, Any]) -> str:
         f"- External slots: `{payload.get('totals', {}).get('external_slot_count', 0)}`",
         f"- Blocked: `{payload.get('totals', {}).get('blocked_count', 0)}`",
         "",
-        "| Round | Attempt | Profile | Adapter | Runner | Status | Command | Command SHA-256 | Workspace SHA-256 | Issues |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Round | Attempt | Profile | Adapter | Runner | Status | Command | Command SHA-256 | Workspace SHA-256 | Execution SHA-256 | Issues |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for slot in object_rows(payload.get("slots", [])):
         command = object_value(slot.get("command", {}))
         workspace = object_value(slot.get("workspace", {}))
+        execution_audit = object_value(slot.get("execution_audit", {}))
         issues = slot.get("blocking_issues", [])
         lines.append(
             "| "
@@ -497,6 +499,7 @@ def external_agent_sandbox_drill_markdown(payload: dict[str, Any]) -> str:
                     str(command.get("source", "")),
                     str(command.get("argv_sha256", "")) or "none",
                     str(workspace.get("manifest_sha256", "")) or "none",
+                    str(execution_audit.get("artifact_sha256", "")) or "none",
                     ", ".join(str(item) for item in issues)
                     if isinstance(issues, list)
                     else "",

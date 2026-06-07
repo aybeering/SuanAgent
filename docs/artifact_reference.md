@@ -1132,10 +1132,11 @@ Replay artifacts:
 - `external_agent_sandbox_drill.json` audits external-slot command, workspace,
   input, subprocess, and mutation-guard evidence without executing agents. Each
   declared command carries an argv SHA-256 binding, and each workspace manifest
-  carries a file SHA-256 binding, so operator review can compare the exact
-  external command and isolation policy without invoking it. Saved
-  sandbox-drill reports are strict snapshots and fail validation when current
-  run-local boundary evidence no longer matches the saved drill.
+  and execution-audit artifact carries a file SHA-256 binding, so operator
+  review can compare the exact external command, isolation policy, and saved
+  execution evidence without invoking it. Saved sandbox-drill reports are
+  strict snapshots and fail validation when current run-local boundary evidence
+  no longer matches the saved drill.
 - `codex_cli_contract_fixture.json` freezes guarded Codex CLI stdin/stdout
   expectations without executing Codex. Its prompt, audit-stdin, fixture-stdout,
   and fixture-patch SHA-256 fields are schema-constrained to

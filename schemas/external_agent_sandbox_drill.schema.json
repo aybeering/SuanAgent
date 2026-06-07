@@ -218,7 +218,30 @@
             }
           },
           "execution_audit": {
-            "type": "object"
+            "type": "object",
+            "required": [
+              "path",
+              "artifact_sha256",
+              "status",
+              "returncode",
+              "mutation_guard_passed"
+            ],
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "artifact_sha256": {
+                "type": "string",
+                "pattern": "^$|^[0-9a-f]{64}$"
+              },
+              "status": {
+                "type": "string"
+              },
+              "returncode": {},
+              "mutation_guard_passed": {
+                "type": "boolean"
+              }
+            }
           },
           "io_paths": {
             "type": "object"

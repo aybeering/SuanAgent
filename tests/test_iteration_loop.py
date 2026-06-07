@@ -28004,6 +28004,8 @@ def test_operator_run_review_schema_rejects_missing_dashboard() -> None:
             "accepted_round": None,
             "stop_reason": "max_rounds reached",
             "config_lineage_status": "partial",
+            "research_watchlist_status": "clean",
+            "research_watchlist_alert_count": 0,
             "research_primary_focus": "close_champion_ev_gap",
         },
         "policy": {
@@ -28054,6 +28056,8 @@ def _minimal_operator_run_review_payload() -> dict[str, object]:
             "accepted_round": None,
             "stop_reason": "max_rounds reached",
             "config_lineage_status": "partial",
+            "research_watchlist_status": "clean",
+            "research_watchlist_alert_count": 0,
             "research_primary_focus": "close_champion_ev_gap",
         },
         "dashboard": {
@@ -28093,7 +28097,7 @@ def _minimal_operator_run_review_payload() -> dict[str, object]:
                 "source_path": "experiments/run/candidate_leaderboard.json",
             },
             "watchlist": {
-                "status": "ok",
+                "status": "clean",
                 "alert_count": 0,
             },
             "gates": [
@@ -28188,6 +28192,8 @@ def test_operator_run_review_payload_validation_reports_summary_drift() -> None:
     summary["accepted_round"] = "round_001"
     summary["stop_reason"] = "accepted"
     summary["config_lineage_status"] = "complete"
+    summary["research_watchlist_status"] = "attention"
+    summary["research_watchlist_alert_count"] = 1
     gates[0]["ok"] = False
     gates[0]["status"] = "failed"
     gates[1]["gate_name"] = "wrong_gate"
@@ -28217,6 +28223,11 @@ def test_operator_run_review_payload_validation_reports_summary_drift() -> None:
     assert "operator_run_review summary accepted_round mismatch" in errors
     assert "operator_run_review summary stop_reason mismatch" in errors
     assert "operator_run_review summary config_lineage_status mismatch" in errors
+    assert "operator_run_review summary research_watchlist_status mismatch" in errors
+    assert (
+        "operator_run_review summary research_watchlist_alert_count mismatch"
+        in errors
+    )
     assert "operator_run_review dashboard gate order mismatch" in errors
     assert "operator_run_review dashboard gate artifact missing" in errors
     assert "operator_run_review dashboard artifact gate ok mismatch" in errors

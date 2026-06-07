@@ -4618,6 +4618,12 @@ def operator_run_review(
             "config_lineage_status": str(
                 summary.get("config_lineage_status", "unknown")
             ),
+            "research_watchlist_status": str(
+                summary.get("research_watchlist_status", "unknown")
+            ),
+            "research_watchlist_alert_count": int(
+                summary.get("research_watchlist_alert_count", 0) or 0
+            ),
             "research_primary_focus": str(
                 summary.get("research_primary_focus", "unknown")
             ),
@@ -4783,6 +4789,16 @@ def validate_operator_run_review_consistency(
             "config_lineage_status",
             summary.get("config_lineage_status", ""),
             config_review.get("lineage_status", ""),
+        ),
+        (
+            "research_watchlist_status",
+            summary.get("research_watchlist_status", ""),
+            dict_payload(dashboard.get("watchlist", {})).get("status", ""),
+        ),
+        (
+            "research_watchlist_alert_count",
+            summary.get("research_watchlist_alert_count", 0),
+            dict_payload(dashboard.get("watchlist", {})).get("alert_count", 0),
         ),
     )
     for key, left, right in summary_pairs:

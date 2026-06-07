@@ -76,6 +76,8 @@
         "accepted_round",
         "stop_reason",
         "config_lineage_status",
+        "research_watchlist_status",
+        "research_watchlist_alert_count",
         "research_primary_focus"
       ],
       "properties": {
@@ -97,6 +99,20 @@
         },
         "config_lineage_status": {
           "type": "string"
+        },
+        "research_watchlist_status": {
+          "type": "string",
+          "enum": [
+            "clean",
+            "informational",
+            "attention",
+            "critical",
+            "unknown"
+          ]
+        },
+        "research_watchlist_alert_count": {
+          "type": "integer",
+          "minimum": 0
         },
         "research_primary_focus": {
           "type": "string"
@@ -303,10 +319,18 @@
       ],
       "properties": {
         "status": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "clean",
+            "informational",
+            "attention",
+            "critical",
+            "unknown"
+          ]
         },
         "alert_count": {
-          "type": "integer"
+          "type": "integer",
+          "minimum": 0
         }
       }
     },

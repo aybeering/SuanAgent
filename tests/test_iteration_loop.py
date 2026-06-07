@@ -26844,8 +26844,24 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     )
     assert iteration["operator_next_command"]["command_is_hint_only"] is True  # type: ignore[index]
     assert iteration["manifest"]["completed_rounds"] == 1  # type: ignore[index]
+    list_markdown = render_experiment_list_markdown(records)
     single_markdown = render_experiment_show_markdown(single)
     iteration_markdown = render_experiment_show_markdown(iteration)
+    iteration_home_source_views_sha256 = iteration["operator_home"][  # type: ignore[index]
+        "source_views_sha256"
+    ]
+    iteration_selector_source_views_sha256 = iteration["operator_next_command"][  # type: ignore[index]
+        "source_home_source_views_sha256"
+    ]
+    assert "Home source views SHA-256:" in list_markdown
+    assert "Selector source home source views SHA-256:" in list_markdown
+    assert f"Home source views SHA-256: `{iteration_home_source_views_sha256}`" in (
+        list_markdown
+    )
+    assert (
+        "Selector source home source views SHA-256: "
+        f"`{iteration_selector_source_views_sha256}`"
+    ) in list_markdown
     assert "# Experiment" in single_markdown
     assert "- Run id: `single-show`" in single_markdown
     assert "Home available: `False` (not_iteration_run)" in single_markdown
@@ -26860,6 +26876,10 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
         "iteration-show --markdown`"
     ) in iteration_markdown
     assert "Home command SHA-256:" in iteration_markdown
+    assert (
+        f"Home source views SHA-256: `{iteration_home_source_views_sha256}`"
+        in iteration_markdown
+    )
     assert "Can invoke selected command: `False`" in iteration_markdown
     assert (
         "Home first blocker: "
@@ -26878,6 +26898,10 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
         "iteration-show --markdown`"
     ) in iteration_markdown
     assert "Selector command SHA-256:" in iteration_markdown
+    assert (
+        "Selector source home source views SHA-256: "
+        f"`{iteration_selector_source_views_sha256}`"
+    ) in iteration_markdown
     assert "Selected command SHA-256:" in iteration_markdown
     assert "Selected boundary: `operator_approval_receipt`" in iteration_markdown
     assert "Writes artifact: `operator_action_approval.json`" in iteration_markdown
@@ -27178,8 +27202,16 @@ def test_experiment_summary_and_leaderboard_helpers(tmp_path: Path) -> None:
         in summary_markdown
     )
     assert "Operator home command SHA-256:" in summary_markdown
+    assert (
+        "Operator home source views SHA-256: "
+        f"`{summary['dashboard']['operator_home_entry']['source_views_sha256']}`"
+    ) in summary_markdown
     assert "Operator home next command SHA-256:" in summary_markdown
     assert "Operator next-command selector command SHA-256:" in summary_markdown
+    assert (
+        "Operator next-command source-home source views SHA-256: "
+        f"`{summary['dashboard']['operator_next_command_entry']['source_home_source_views_sha256']}`"
+    ) in summary_markdown
     assert "Operator next-command selected command SHA-256:" in summary_markdown
     assert "Operator home terminal-only: `True`" in summary_markdown
     assert "Operator home creates artifact: `False`" in summary_markdown

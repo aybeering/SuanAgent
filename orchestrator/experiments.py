@@ -4895,8 +4895,14 @@ def validate_operator_run_review_dashboard(
 
     if int_value(status_summary.get("selected_candidate_count", -1)) < 0:
         errors.append("operator_run_review dashboard selected count negative")
+    if int_value(status_summary.get("selected_candidate_count", -1)) != int_value(
+        quality_review.get("selected_count", -2)
+    ):
+        errors.append("operator_run_review dashboard selected count mismatch")
     if int_value(quality_review.get("candidate_count", -1)) < 0:
         errors.append("operator_run_review dashboard quality candidate count negative")
+    if int_value(quality_review.get("selected_count", -1)) < 0:
+        errors.append("operator_run_review dashboard quality selected count negative")
     if int_value(quality_review.get("selectable_count", -1)) < 0:
         errors.append("operator_run_review dashboard quality selectable count negative")
     if int_value(watchlist.get("alert_count", -1)) < 0:

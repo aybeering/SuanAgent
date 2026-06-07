@@ -28209,6 +28209,7 @@ def test_operator_run_review_payload_validation_reports_summary_drift() -> None:
     gates[5]["artifact_path"] = ""
     quality_review["candidate_count"] = -1
     quality_review["selectable_count"] = -1
+    quality_review["selected_count"] = -2
     status_summary["selected_candidate_count"] = -1
     status_summary["accepted"] = True
     status_summary["run_status"] = "stopped_max_rounds"
@@ -28245,9 +28246,11 @@ def test_operator_run_review_payload_validation_reports_summary_drift() -> None:
     assert "operator_run_review dashboard champion gate status mismatch" in errors
     assert "operator_run_review dashboard promotion gate status mismatch" in errors
     assert "operator_run_review dashboard selected count negative" in errors
+    assert "operator_run_review dashboard selected count mismatch" in errors
     assert (
         "operator_run_review dashboard quality candidate count negative" in errors
     )
+    assert "operator_run_review dashboard quality selected count negative" in errors
     assert (
         "operator_run_review dashboard quality selectable count negative" in errors
     )

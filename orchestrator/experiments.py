@@ -4655,6 +4655,11 @@ def operator_run_review(
             repo_root=experiments_dir.parent,
             run_dir=run_dir,
         ),
+        "watchlist_source": operator_run_review_watchlist_source(
+            dashboard=dashboard,
+            repo_root=experiments_dir.parent,
+            run_dir=run_dir,
+        ),
         "gate_artifacts": operator_run_review_gate_artifacts(
             dashboard=dashboard,
             repo_root=experiments_dir.parent,
@@ -4701,6 +4706,32 @@ def operator_run_review_candidate_quality_source(
     }
 
 
+def operator_run_review_watchlist_source(
+    *,
+    dashboard: dict[str, object],
+    repo_root: Path,
+    run_dir: Path,
+) -> dict[str, object]:
+    """Return the current source record for the research watchlist summary."""
+    expected_source_path = str(run_dir / "research_brief.json")
+    resolved_path = Path(resolve_report_path(expected_source_path, repo_root))
+    watchlist_summary = dict_payload(dashboard.get("watchlist", {}))
+    if resolved_path.exists():
+        research_brief = dict_payload(load_json(resolved_path))
+        watchlist_summary = dict_payload(
+            research_brief.get("watchlist_summary", watchlist_summary)
+        )
+    return {
+        "source_path": expected_source_path,
+        "expected_source_path": expected_source_path,
+        "watchlist_status": str(watchlist_summary.get("status", "unknown")),
+        "watchlist_alert_count": int(
+            watchlist_summary.get("alert_count", 0) or 0
+        ),
+        "file": refresh_file_record(resolved_path, repo_root=repo_root),
+    }
+
+
 def operator_run_review_gate_artifacts(
     *,
     dashboard: dict[str, object],
@@ -4741,6 +4772,9 @@ def render_operator_run_review_markdown(payload: dict[str, object]) -> str:
     quality_source = dict_payload(payload.get("candidate_quality_source", {}))
     quality_source_file = dict_payload(quality_source.get("file", {}))
     quality_source_sha = str(quality_source_file.get("sha256", ""))
+    watchlist_source = dict_payload(payload.get("watchlist_source", {}))
+    watchlist_source_file = dict_payload(watchlist_source.get("file", {}))
+    watchlist_source_sha = str(watchlist_source_file.get("sha256", ""))
     watchlist = dict_payload(dashboard.get("watchlist", {}))
     lines = [
         "# Operator Run Review",
@@ -4778,6 +4812,8 @@ def render_operator_run_review_markdown(payload: dict[str, object]) -> str:
         "",
         f"- Status: `{markdown_cell(watchlist.get('status', 'unknown'))}`",
         f"- Alerts: `{watchlist.get('alert_count', 0)}`",
+        f"- Source: `{markdown_cell(watchlist_source.get('source_path', ''))}`",
+        f"- Source SHA-256: `{markdown_cell(watchlist_source_sha[:12])}`",
         "",
         "## Gates",
         "",
@@ -4922,6 +4958,13 @@ def validate_operator_run_review_consistency(
         )
     )
     errors.extend(
+        validate_operator_run_review_watchlist_source(
+            payload=payload,
+            repo_root=repo_root,
+            run_dir=run_dir,
+        )
+    )
+    errors.extend(
         validate_operator_run_review_gate_artifacts(
             payload=payload,
             repo_root=repo_root,
@@ -4955,6 +4998,51 @@ def validate_operator_run_review_candidate_quality_source(
         errors.append("operator_run_review candidate quality expected source mismatch")
     if dict_payload(source.get("file", {})) != dict_payload(expected.get("file", {})):
         errors.append("operator_run_review candidate quality file record mismatch")
+    return tuple(errors)
+
+
+def validate_operator_run_review_watchlist_source(
+    *,
+    payload: dict[str, object],
+    repo_root: Path,
+    run_dir: Path,
+) -> tuple[str, ...]:
+    """Validate the watchlist source file record and copied summary are current."""
+    errors: list[str] = []
+    dashboard = dict_payload(payload.get("dashboard", {}))
+    dashboard_watchlist = dict_payload(dashboard.get("watchlist", {}))
+    source = dict_payload(payload.get("watchlist_source", {}))
+    expected = operator_run_review_watchlist_source(
+        dashboard=dashboard,
+        repo_root=repo_root,
+        run_dir=run_dir,
+    )
+    if resolve_report_path(source.get("source_path"), repo_root) != (
+        resolve_report_path(expected.get("source_path"), repo_root)
+    ):
+        errors.append("operator_run_review watchlist source path mismatch")
+    if resolve_report_path(source.get("expected_source_path"), repo_root) != (
+        resolve_report_path(expected.get("expected_source_path"), repo_root)
+    ):
+        errors.append("operator_run_review watchlist expected source mismatch")
+    if str(source.get("watchlist_status", "")) != str(
+        expected.get("watchlist_status", "")
+    ):
+        errors.append("operator_run_review watchlist source status mismatch")
+    if int_value(source.get("watchlist_alert_count", -1)) != int_value(
+        expected.get("watchlist_alert_count", -1)
+    ):
+        errors.append("operator_run_review watchlist source alert count mismatch")
+    if str(source.get("watchlist_status", "")) != str(
+        dashboard_watchlist.get("status", "")
+    ):
+        errors.append("operator_run_review watchlist status mismatch")
+    if int_value(source.get("watchlist_alert_count", -1)) != int_value(
+        dashboard_watchlist.get("alert_count", -1)
+    ):
+        errors.append("operator_run_review watchlist alert count mismatch")
+    if dict_payload(source.get("file", {})) != dict_payload(expected.get("file", {})):
+        errors.append("operator_run_review watchlist file record mismatch")
     return tuple(errors)
 
 

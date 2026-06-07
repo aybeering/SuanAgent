@@ -15,6 +15,7 @@
     "summary",
     "dashboard",
     "candidate_quality_source",
+    "watchlist_source",
     "gate_artifacts",
     "policy"
   ],
@@ -61,6 +62,9 @@
     },
     "candidate_quality_source": {
       "$ref": "#/$defs/candidate_quality_source"
+    },
+    "watchlist_source": {
+      "$ref": "#/$defs/watchlist_source"
     },
     "gate_artifacts": {
       "type": "array",
@@ -415,6 +419,42 @@
         },
         "expected_source_path": {
           "type": "string"
+        },
+        "file": {
+          "$ref": "#/$defs/file_record"
+        }
+      },
+      "additionalProperties": false
+    },
+    "watchlist_source": {
+      "type": "object",
+      "required": [
+        "source_path",
+        "expected_source_path",
+        "watchlist_status",
+        "watchlist_alert_count",
+        "file"
+      ],
+      "properties": {
+        "source_path": {
+          "type": "string"
+        },
+        "expected_source_path": {
+          "type": "string"
+        },
+        "watchlist_status": {
+          "type": "string",
+          "enum": [
+            "clean",
+            "informational",
+            "attention",
+            "critical",
+            "unknown"
+          ]
+        },
+        "watchlist_alert_count": {
+          "type": "integer",
+          "minimum": 0
         },
         "file": {
           "$ref": "#/$defs/file_record"

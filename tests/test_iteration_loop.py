@@ -28082,6 +28082,29 @@ def _minimal_operator_run_review_candidate_quality_source() -> dict[str, object]
     }
 
 
+def _minimal_operator_run_review_watchlist_source() -> dict[str, object]:
+    repo_root = Path(__file__).resolve().parents[1]
+    source_path = repo_root / "experiments/run/research_brief.json"
+    data = (
+        source_path.read_bytes()
+        if source_path.exists() and source_path.is_file()
+        else b""
+    )
+    return {
+        "source_path": "experiments/run/research_brief.json",
+        "expected_source_path": str(source_path),
+        "watchlist_status": "clean",
+        "watchlist_alert_count": 0,
+        "file": {
+            "path": str(source_path),
+            "relative_path": "experiments/run/research_brief.json",
+            "exists": source_path.exists(),
+            "bytes": len(data),
+            "sha256": hashlib.sha256(data).hexdigest() if data else "",
+        },
+    }
+
+
 def _minimal_operator_run_review_payload() -> dict[str, object]:
     policy = {
         "inspection_only": True,
@@ -28211,6 +28234,7 @@ def _minimal_operator_run_review_payload() -> dict[str, object]:
         "candidate_quality_source": (
             _minimal_operator_run_review_candidate_quality_source()
         ),
+        "watchlist_source": _minimal_operator_run_review_watchlist_source(),
         "gate_artifacts": _minimal_operator_run_review_gate_artifacts(),
         "policy": dict(policy),
     }
@@ -28375,6 +28399,40 @@ def test_operator_run_review_rejects_quality_source_file_record_drift() -> None:
     )
 
     assert "operator_run_review candidate quality file record mismatch" in errors
+
+
+def test_operator_run_review_rejects_watchlist_source_summary_drift() -> None:
+    payload = _minimal_operator_run_review_payload()
+    source = payload["watchlist_source"]
+    assert isinstance(source, dict)
+    source["watchlist_status"] = "attention"
+    source["watchlist_alert_count"] = 1
+
+    errors = validate_operator_run_review_payload(
+        payload,
+        repo_root=Path(__file__).resolve().parents[1],
+    )
+
+    assert "operator_run_review watchlist status mismatch" in errors
+    assert "operator_run_review watchlist alert count mismatch" in errors
+    assert "operator_run_review watchlist source status mismatch" in errors
+    assert "operator_run_review watchlist source alert count mismatch" in errors
+
+
+def test_operator_run_review_rejects_watchlist_source_file_record_drift() -> None:
+    payload = _minimal_operator_run_review_payload()
+    source = payload["watchlist_source"]
+    assert isinstance(source, dict)
+    file_record_payload = source["file"]
+    assert isinstance(file_record_payload, dict)
+    file_record_payload["sha256"] = "0" * 64
+
+    errors = validate_operator_run_review_payload(
+        payload,
+        repo_root=Path(__file__).resolve().parents[1],
+    )
+
+    assert "operator_run_review watchlist file record mismatch" in errors
 
 
 def test_operator_run_review_rejects_gate_artifact_path_drift() -> None:

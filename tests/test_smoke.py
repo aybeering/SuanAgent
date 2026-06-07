@@ -8,7 +8,10 @@ from backtester.metrics import METRIC_KEYS
 from backtester.simulate import DEFAULT_DATA_PATH, run_backtest
 from orchestrator.policy_gate import apply_holdout_gate, evaluate_policy
 from orchestrator.run_loop import run_pipeline
-from orchestrator.smoke_contract import validate_smoke_contract
+from orchestrator.smoke_contract import (
+    validate_smoke_contract,
+    validate_smoke_contract_payload,
+)
 from reports.generate_report import generate_report
 
 
@@ -25,6 +28,7 @@ def test_project_metadata_matches_current_scope() -> None:
 def test_required_smoke_commands_are_documented_and_ci_covered() -> None:
     payload = validate_smoke_contract(repo_root=Path("."))
 
+    assert validate_smoke_contract_payload(payload, repo_root=Path(".")) == ()
     assert payload["ok"] is True
     assert payload["summary"]["missing_count"] == 0  # type: ignore[index]
     assert payload["policy"]["inspection_only"] is True  # type: ignore[index]

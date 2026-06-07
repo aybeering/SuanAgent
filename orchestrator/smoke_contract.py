@@ -6,6 +6,8 @@ import argparse
 import json
 from pathlib import Path
 
+from orchestrator.schema_validation import load_schema, validate_json_payload
+
 
 REQUIRED_DOC_COMMANDS = (
     "pytest",
@@ -26,6 +28,7 @@ DEFAULT_DOC_PATHS = (
     Path("docs/artifact_reference.md"),
 )
 DEFAULT_CI_PATH = Path(".github/workflows/ci.yml")
+SMOKE_CONTRACT_SCHEMA_PATH = Path("schemas/smoke_contract.schema.json")
 
 
 def validate_smoke_contract(*, repo_root: Path = Path(".")) -> dict[str, object]:
@@ -70,6 +73,21 @@ def validate_smoke_contract(*, repo_root: Path = Path(".")) -> dict[str, object]
     }
 
 
+def validate_smoke_contract_payload(
+    payload: dict[str, object],
+    *,
+    repo_root: Path = Path("."),
+) -> tuple[str, ...]:
+    """Validate a smoke-contract payload against its local schema."""
+    schema_path = repo_root.resolve() / SMOKE_CONTRACT_SCHEMA_PATH
+    schema = load_schema(schema_path)
+    return validate_json_payload(
+        payload=payload,
+        schema=schema,
+        schema_dir=schema_path.parent,
+    )
+
+
 def _path_command_report(
     *,
     path: Path,
@@ -99,6 +117,13 @@ def main() -> None:
     """CLI entrypoint for `python -m orchestrator.smoke_contract`."""
     args = parse_args()
     payload = validate_smoke_contract(repo_root=args.repo_root)
+    schema_errors = validate_smoke_contract_payload(payload, repo_root=args.repo_root)
+    if schema_errors:
+        payload = {
+            **payload,
+            "ok": False,
+            "schema_errors": list(schema_errors),
+        }
     print(json.dumps(payload, indent=2, sort_keys=True))
     if not payload["ok"]:
         raise SystemExit(1)

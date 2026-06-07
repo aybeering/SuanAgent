@@ -169,6 +169,7 @@ INSPECTION_COMMANDS = {
         "python -m orchestrator.run_artifact_health --history-summary",
         "python -m orchestrator.experiments health-history",
     ),
+    "smoke_contract": ("python -m orchestrator.smoke_contract",),
     "memory_diagnostics": (
         "python -m orchestrator.memory_diagnostics",
         "python -m orchestrator.experiments memory-diagnostics",
@@ -364,6 +365,7 @@ def build_artifact_validator_coverage(*, repo_root: Path = Path(".")) -> dict[st
             read_text(repo_root / "orchestrator/experiment_scope_health.py"),
             read_text(repo_root / "orchestrator/run_closeout.py"),
             read_text(repo_root / "orchestrator/experiments.py"),
+            read_text(repo_root / "orchestrator/smoke_contract.py"),
         )
     )
     docs_text = read_paths(paths=DOC_PATHS, repo_root=repo_root)

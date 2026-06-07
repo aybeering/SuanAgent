@@ -252,7 +252,8 @@
               "attempt_agent_input_sha256",
               "input_bundle",
               "input_bundle_sha256",
-              "round_output_files"
+              "round_output_files",
+              "round_output_file_records"
             ],
             "properties": {
               "round_agent_input": {
@@ -280,6 +281,29 @@
                 "type": "array",
                 "items": {
                   "type": "string"
+                }
+              },
+              "round_output_file_records": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "path",
+                    "exists",
+                    "sha256"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "exists": {
+                      "type": "boolean"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^$|^[0-9a-f]{64}$"
+                    }
+                  }
                 }
               }
             }

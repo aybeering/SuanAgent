@@ -1130,12 +1130,13 @@ Replay artifacts:
   Saved readiness-gate reports are also strict snapshots and fail validation
   when the current run-local evidence no longer matches the saved gate.
 - `external_agent_sandbox_drill.json` audits external-slot command, workspace,
-  input, subprocess, and mutation-guard evidence without executing agents. Each
-  declared command carries an argv SHA-256 binding, and each workspace manifest
-  and execution-audit artifact carries a file SHA-256 binding. The round and
-  attempt agent inputs plus the input bundle carry SHA-256 bindings as well, so
-  operator review can compare the exact external command, isolation policy,
-  saved execution evidence, and delivered input context without invoking it.
+  input, output, subprocess, and mutation-guard evidence without executing
+  agents. Each declared command carries an argv SHA-256 binding, and each
+  workspace manifest and execution-audit artifact carries a file SHA-256
+  binding. The round and attempt agent inputs, input bundle, and declared round
+  output files carry SHA-256 bindings as well, so operator review can compare
+  the exact external command, isolation policy, saved execution evidence,
+  delivered input context, and produced output artifacts without invoking it.
   Saved sandbox-drill reports are strict snapshots and fail validation when
   current run-local boundary evidence no longer matches the saved drill.
 - `codex_cli_contract_fixture.json` freezes guarded Codex CLI stdin/stdout

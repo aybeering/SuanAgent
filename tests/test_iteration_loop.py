@@ -14465,6 +14465,13 @@ def test_external_agent_sandbox_drill_reports_codex_dry_run_boundary(
     assert slot["io_paths"]["input_bundle_sha256"] == sha256_tree_for_test(
         Path(slot["io_paths"]["input_bundle"])
     )
+    output_files = slot["io_paths"]["round_output_files"]
+    output_records = slot["io_paths"]["round_output_file_records"]
+    assert len(output_records) == len(output_files)
+    for output_file, output_record in zip(output_files, output_records):
+        assert output_record["path"] == output_file
+        assert output_record["exists"] is False
+        assert output_record["sha256"] == ""
     assert slot["requirements"]["workspace_manifest_present"] is True
     assert slot["requirements"]["execution_audit_required"] is False
     assert dynamic_drill["from_artifact"] is True
@@ -14538,6 +14545,16 @@ def test_external_agent_sandbox_drill_reports_file_protocol_execution(
     assert slot["io_paths"]["input_bundle_sha256"] == sha256_tree_for_test(
         Path(slot["io_paths"]["input_bundle"])
     )
+    output_files = slot["io_paths"]["round_output_files"]
+    output_records = slot["io_paths"]["round_output_file_records"]
+    assert len(output_records) == len(output_files)
+    assert output_records
+    first_output_record = output_records[0]
+    assert first_output_record["path"] == output_files[0]
+    assert first_output_record["exists"] is True
+    assert first_output_record["sha256"] == hashlib.sha256(
+        Path(first_output_record["path"]).read_bytes()
+    ).hexdigest()
     assert slot["subprocess_executed"] is True
     assert slot["execution_audit"]["status"] == "completed"
     assert slot["execution_audit"]["mutation_guard_passed"] is True
@@ -14665,6 +14682,32 @@ def test_external_agent_sandbox_drill_reports_current_evidence_drift(
     assert (
         "external_agent_sandbox_drill.json io_paths input_bundle_sha256 mismatch"
         in input_digest_validation_report["errors"]
+    )
+    drill = write_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
+
+    output_digest_drift = dict(drill)
+    output_slots = list(output_digest_drift["slots"])
+    output_slots[0] = dict(output_slots[0])
+    output_slots[0]["io_paths"] = dict(output_slots[0]["io_paths"])
+    output_records = list(output_slots[0]["io_paths"]["round_output_file_records"])
+    output_records[0] = dict(output_records[0])
+    output_records[0]["sha256"] = "0" * 64
+    output_slots[0]["io_paths"]["round_output_file_records"] = output_records
+    output_digest_drift["slots"] = output_slots
+    drill_path.write_text(
+        json.dumps(output_digest_drift, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    output_digest_validation_report = validate_run_artifacts(
+        run_id="sandbox-current-evidence-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert (
+        "external_agent_sandbox_drill.json io_paths output sha256 mismatch"
+        in output_digest_validation_report["errors"]
     )
     drill = write_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
 

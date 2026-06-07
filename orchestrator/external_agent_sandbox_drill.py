@@ -295,6 +295,10 @@ def sandbox_slot_row(
                 resolve_text(repo_root, str(path))
                 for path in string_list(output_contract.get("round_output_files", []))
             ],
+            "round_output_file_records": [
+                file_record(existing_path(repo_root, str(path)), repo_root, str(path))
+                for path in string_list(output_contract.get("round_output_files", []))
+            ],
         },
     }
 
@@ -437,6 +441,18 @@ def sha256_tree(path: Path | None) -> str:
         digest.update(child.read_bytes())
         digest.update(b"\0")
     return digest.hexdigest()
+
+
+def file_record(path: Path | None, repo_root: Path, original: str) -> dict[str, Any]:
+    """Return a deterministic file record for an optional path."""
+    resolved = path
+    if resolved is None and original:
+        resolved = resolve_path(Path(original), repo_root)
+    return {
+        "path": str(resolved) if resolved else "",
+        "exists": bool(resolved and resolved.exists() and resolved.is_file()),
+        "sha256": sha256_file(resolved),
+    }
 
 
 def first_existing_path(repo_root: Path, values: list[str]) -> Path | None:

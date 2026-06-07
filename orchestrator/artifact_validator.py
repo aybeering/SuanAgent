@@ -10099,6 +10099,58 @@ def validate_optional_external_agent_sandbox_drill(
                 report,
                 "external_agent_sandbox_drill.json io_paths input_bundle_sha256 mismatch",
             )
+        output_files = io_paths.get("round_output_files", [])
+        output_records = io_paths.get("round_output_file_records", [])
+        if not isinstance(output_files, list) or not isinstance(output_records, list):
+            add_error(
+                report,
+                "external_agent_sandbox_drill.json io_paths round_output_files invalid",
+            )
+            continue
+        if len(output_records) != len(output_files):
+            add_error(
+                report,
+                "external_agent_sandbox_drill.json io_paths round_output_file_records count mismatch",
+            )
+            continue
+        for output_path_value, output_record in zip(output_files, output_records):
+            if not isinstance(output_record, dict):
+                add_error(
+                    report,
+                    "external_agent_sandbox_drill.json io_paths output record invalid",
+                )
+                continue
+            output_path = str(output_path_value)
+            resolved_output_path = (
+                Path(output_path)
+                if Path(output_path).is_absolute()
+                else repo_root / output_path
+            )
+            output_exists = bool(
+                output_path
+                and resolved_output_path.exists()
+                and resolved_output_path.is_file()
+            )
+            expected_output_sha256 = (
+                hashlib.sha256(resolved_output_path.read_bytes()).hexdigest()
+                if output_exists
+                else ""
+            )
+            if str(output_record.get("path", "")) != str(resolved_output_path):
+                add_error(
+                    report,
+                    "external_agent_sandbox_drill.json io_paths output path mismatch",
+                )
+            if bool(output_record.get("exists", False)) != output_exists:
+                add_error(
+                    report,
+                    "external_agent_sandbox_drill.json io_paths output exists mismatch",
+                )
+            if output_record.get("sha256") != expected_output_sha256:
+                add_error(
+                    report,
+                    "external_agent_sandbox_drill.json io_paths output sha256 mismatch",
+                )
     if isinstance(totals, dict) and totals.get("blocked_count") != blocked_count:
         add_error(report, "external_agent_sandbox_drill.json blocked_count mismatch")
     policy = payload.get("policy", {})

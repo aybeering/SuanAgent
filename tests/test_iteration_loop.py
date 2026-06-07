@@ -17244,6 +17244,9 @@ def test_artifact_validator_reports_summary_operator_home_drift(
         max_rounds=1,
         repo_root=repo,
     )
+    manifest_path = repo / "experiments/artifact-summary-home-drift/manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    source_views_sha256 = manifest["operator_home"]["source_views_sha256"]
     summary_path = repo / "experiments/artifact-summary-home-drift/summary.md"
     summary_text = summary_path.read_text(encoding="utf-8")
     summary_text = summary_text.replace(
@@ -17260,6 +17263,10 @@ def test_artifact_validator_reports_summary_operator_home_drift(
         "`keep real Codex execution disabled unless explicitly reviewed`",
         "- Codex preflight next step: `wrong step`",
     )
+    summary_text = summary_text.replace(
+        f"- Source views SHA-256: `{source_views_sha256}`",
+        "- Source views SHA-256: `bad-source-views`",
+    )
     summary_path.write_text(summary_text, encoding="utf-8")
 
     report = validate_run_artifacts(
@@ -17275,6 +17282,7 @@ def test_artifact_validator_reports_summary_operator_home_drift(
         "summary.md operator_home codex_preflight_next_step mismatch"
         in report["errors"]
     )
+    assert "summary.md operator_home source_views_sha256 mismatch" in report["errors"]
 
 
 def test_artifact_validator_reports_summary_operator_cockpit_drift(
@@ -18088,6 +18096,9 @@ def test_manifest_operator_next_command_keeps_closeout_snapshot_after_codex_read
     static_drift_manifest["operator_home"]["next_command_is_hint_only"] = False
     static_drift_manifest["operator_home"]["next_command_sha256"] = "0" * 64
     static_drift_manifest["operator_home"]["command_sha256"] = "0" * 64
+    static_drift_manifest["operator_home"]["source_views_sha256"] = (
+        "not-a-valid-digest"
+    )
     static_report: dict[str, object] = {"errors": []}
 
     validate_manifest_operator_next_command(
@@ -18109,6 +18120,10 @@ def test_manifest_operator_next_command_keeps_closeout_snapshot_after_codex_read
         in static_report["errors"]
     )
     assert "manifest.operator_home command_sha256 mismatch" in static_report["errors"]
+    assert (
+        "manifest.operator_home source_views_sha256 mismatch"
+        in static_report["errors"]
+    )
     assert "manifest.operator_home next_command mismatch" not in static_report["errors"]
     assert (
         "manifest.operator_home codex_intake_readiness_status mismatch"

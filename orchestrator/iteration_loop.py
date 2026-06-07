@@ -1307,6 +1307,9 @@ def operator_home_manifest_row(
             if pending
             else str(codex_home.get("intake_readiness_status", "unknown"))
         ),
+        "source_views_sha256": (
+            "" if pending else str(payload.get("source_views_sha256", ""))
+        ),
         "command_label": "review_operator_home",
         "command": command,
         "markdown_command": command,

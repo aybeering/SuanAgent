@@ -721,13 +721,14 @@ Completed iteration runs also record an `operator_home` manifest row and
 current home status, action step, next-command label/status/blocked state,
 next-command command text, boundary, blocker count, operator hint, write
 target, explicit-invocation flag, approval flags, guarded-executor flag,
-hint-only flag, selected-command SHA-256, home-command SHA-256, Codex
-preflight next step, unlock-runbook status, and intake readiness status. These fields are
-navigation hints only; they do not create an `operator_home.json` artifact or
-grant execution authority.
+hint-only flag, selected-command SHA-256, home-command SHA-256, source-view set
+SHA-256, Codex preflight next step, unlock-runbook status, and intake readiness
+status. These fields are navigation hints only; they do not create an
+`operator_home.json` artifact or grant execution authority.
 The artifact validator checks that the saved `summary.md` operator-home section
-continues to mirror the `manifest.operator_home` row, so operator-facing
-markdown cannot silently drift from the machine-readable navigation record.
+continues to mirror the `manifest.operator_home` row, including the source-view
+set digest, so operator-facing markdown cannot silently drift from the
+machine-readable navigation record.
 The saved `summary.md` also includes an `Operator Next Command` selector section
 derived from the same manifest row. The validator binds its
 `operator_home.next_command` source marker, selected command, status, blocker
@@ -736,18 +737,18 @@ to `manifest.operator_home`, so the landing page and the narrow next-command
 selector cannot drift apart. Those safety flags include whether the hint is
 terminal-only, requires explicit operator invocation, requires approval,
 records operator approval, or uses the guarded executor.
-Before later operator action approval, execution, audit, or Codex readiness
-artifacts advance the source evidence, the validator also rebuilds the
-terminal-only next-command selector from current run evidence and checks the
-compact `manifest.operator_home` next-command row against it, including command
-text and digest, status, blocker state, boundary, write target,
-digest-backed review priority, Codex preflight next step, readiness statuses,
-Codex review and unlock-runbook command digests, source-home command and digest,
-and hint-only safety flags. After
-those later artifacts exist, the manifest row remains a closeout-time snapshot;
-the validator still checks its static read-only and hint-only safety fields and
-saved command digest bindings while terminal-only views derive the current next
-step from the newer evidence.
+Before later operator action approval, execution, audit, Codex readiness, or
+source-view dependency files advance the source evidence, the validator also
+rebuilds the terminal-only next-command selector from current run evidence and
+checks the compact `manifest.operator_home` next-command row against it,
+including command text and digest, status, blocker state, boundary, write
+target, digest-backed review priority, Codex preflight next step, readiness
+statuses, Codex review and unlock-runbook command digests, source-home command
+and digest, source-home source-view set digest, and hint-only safety flags.
+After those later artifacts or source-view files advance, the manifest row
+remains a closeout-time snapshot; the validator still checks its static
+read-only and hint-only safety fields and saved command digest bindings while
+terminal-only views derive the current next step from the newer evidence.
 When no run id is supplied, `home` resolves the latest indexed iteration-loop
 run with a saved `manifest.json`; `--latest` makes the same selection explicit.
 `python -m orchestrator.experiments next-command <run_id>`, `python -m

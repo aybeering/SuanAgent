@@ -1841,6 +1841,11 @@ def validate_iteration_summary_operator_home(
             f"`{markdown_display_value(operator_home.get('codex_intake_readiness_status'))}`",
         ),
         (
+            "source_views_sha256",
+            "- Source views SHA-256: "
+            f"`{markdown_display_value(operator_home.get('source_views_sha256'))}`",
+        ),
+        (
             "command_label",
             "- Command: "
             f"`{markdown_display_value(operator_home.get('command_label'))}`",
@@ -2025,6 +2030,7 @@ def validate_manifest_operator_next_command(
         ("command", source_home.get("command", "")),
         ("markdown_command", source_home.get("command", "")),
         ("command_sha256", source_home.get("command_sha256", "")),
+        ("source_views_sha256", source_home.get("home_source_views_sha256", "")),
         ("command_boundary", source_home.get("boundary_type", "")),
     )
     for field_name, expected_value in expected_text_fields:
@@ -2108,11 +2114,17 @@ def validate_manifest_operator_home_static_fields(
     command_sha = str(operator_home.get("command_sha256", ""))
     if command_sha != sha256_text(command):
         add_error(report, "manifest.operator_home command_sha256 mismatch")
+    source_views_sha = str(operator_home.get("source_views_sha256", ""))
+    if source_views_sha and (
+        len(source_views_sha) != 64
+        or any(char not in "0123456789abcdef" for char in source_views_sha)
+    ):
+        add_error(report, "manifest.operator_home source_views_sha256 mismatch")
 
 
 def operator_home_sources_have_advanced(run_dir: Path) -> bool:
     """Return whether post-closeout evidence can change operator home views."""
-    return any(
+    if any(
         (run_dir / artifact_name).exists()
         for artifact_name in (
             "operator_action_approval.json",
@@ -2131,6 +2143,32 @@ def operator_home_sources_have_advanced(run_dir: Path) -> bool:
             "codex_cli_readiness_pipeline.json",
             "codex_cli_operator_unlock_request.json",
         )
+    ):
+        return True
+
+    manifest_path = run_dir / "manifest.json"
+    if not manifest_path.exists():
+        return False
+    manifest_mtime_ns = manifest_path.stat().st_mtime_ns
+    experiments_dir = run_dir.parent
+    source_view_paths = (
+        run_dir / "operator_cockpit.json",
+        run_dir / "operator_action_dashboard.json",
+        run_dir / "operator_action_plan.json",
+        run_dir / "run_closeout.json",
+        experiments_dir / "run_artifact_health_history.jsonl",
+        run_dir / "operator_unlock_checklist.json",
+        run_dir / "codex_cli_unlock_runbook.json",
+        run_dir / "codex_cli_execution_readiness_diff.json",
+        run_dir / "champion_promotion_approval.json",
+        run_dir / "champion_promotion_receipt.json",
+        experiments_dir / "champion_lineage.json",
+        experiments_dir / "champion.json",
+        experiments_dir / "champion_history.jsonl",
+    )
+    return any(
+        source_path.exists() and source_path.stat().st_mtime_ns > manifest_mtime_ns
+        for source_path in source_view_paths
     )
 
 

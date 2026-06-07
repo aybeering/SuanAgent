@@ -493,6 +493,10 @@ def write_iteration_summary(
             f"`{display_value(operator_home.get('codex_intake_readiness_status'))}`"
         )
         lines.append(
+            "- Source views SHA-256: "
+            f"`{display_value(operator_home.get('source_views_sha256'))}`"
+        )
+        lines.append(
             "- Command: "
             f"`{display_value(operator_home.get('command_label'))}`"
         )

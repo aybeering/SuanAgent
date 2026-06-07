@@ -9,58 +9,59 @@ from pathlib import Path
 from orchestrator.schema_validation import load_schema, validate_json_payload
 
 
-REQUIRED_DOC_COMMANDS = (
-    "pytest",
-    "python -m orchestrator.run_loop",
-    "python -m orchestrator.iteration_loop",
-    "python -m orchestrator.preflight --config config/default.json",
-)
-
-REQUIRED_CI_COMMANDS = (
-    "python -m pytest",
-    "python -m orchestrator.run_loop",
-    "python -m orchestrator.iteration_loop --run-id ci-default",
-    "python -m orchestrator.preflight --config config/default.json",
-)
-
+TASK_PATH = Path("TASK.md")
 DEFAULT_DOC_PATHS = (
     Path("README.md"),
     Path("docs/artifact_reference.md"),
 )
 DEFAULT_CI_PATH = Path(".github/workflows/ci.yml")
 SMOKE_CONTRACT_SCHEMA_PATH = Path("schemas/smoke_contract.schema.json")
+CI_COMMAND_OVERRIDES = {
+    "pytest": "python -m pytest",
+    "python -m orchestrator.iteration_loop": (
+        "python -m orchestrator.iteration_loop --run-id ci-default"
+    ),
+}
 
 
 def validate_smoke_contract(*, repo_root: Path = Path(".")) -> dict[str, object]:
     """Return a read-only report for required smoke command coverage."""
     repo_root = repo_root.resolve()
+    source = required_smoke_commands_from_task(repo_root=repo_root)
+    required_doc_commands = tuple(source["commands"])
+    required_ci_commands = tuple(
+        CI_COMMAND_OVERRIDES.get(command, command) for command in required_doc_commands
+    )
     docs = [
         _path_command_report(
             path=repo_root / relative_path,
             relative_path=relative_path,
-            required_commands=REQUIRED_DOC_COMMANDS,
+            required_commands=required_doc_commands,
         )
         for relative_path in DEFAULT_DOC_PATHS
     ]
     ci = _path_command_report(
         path=repo_root / DEFAULT_CI_PATH,
         relative_path=DEFAULT_CI_PATH,
-        required_commands=REQUIRED_CI_COMMANDS,
+        required_commands=required_ci_commands,
     )
     missing_count = sum(len(row["missing_commands"]) for row in docs)
     missing_count += len(ci["missing_commands"])
+    if not source["ok"]:
+        missing_count += 1
     return {
         "schema_version": "smoke_contract_v1",
         "ok": missing_count == 0,
         "repo_root": str(repo_root),
-        "required_doc_commands": list(REQUIRED_DOC_COMMANDS),
-        "required_ci_commands": list(REQUIRED_CI_COMMANDS),
+        "source": source,
+        "required_doc_commands": list(required_doc_commands),
+        "required_ci_commands": list(required_ci_commands),
         "docs": docs,
         "ci": ci,
         "summary": {
             "doc_path_count": len(docs),
-            "required_doc_command_count": len(REQUIRED_DOC_COMMANDS),
-            "required_ci_command_count": len(REQUIRED_CI_COMMANDS),
+            "required_doc_command_count": len(required_doc_commands),
+            "required_ci_command_count": len(required_ci_commands),
             "missing_count": missing_count,
         },
         "policy": {
@@ -70,6 +71,59 @@ def validate_smoke_contract(*, repo_root: Path = Path(".")) -> dict[str, object]
             "does_not_create_experiments": True,
             "does_not_change_acceptance": True,
         },
+    }
+
+
+def required_smoke_commands_from_task(
+    *,
+    repo_root: Path = Path("."),
+) -> dict[str, object]:
+    """Read the required smoke commands from TASK.md."""
+    task_path = repo_root.resolve() / TASK_PATH
+    if not task_path.exists():
+        return {
+            "path": str(TASK_PATH),
+            "ok": False,
+            "commands": [],
+            "errors": ["task_file_missing"],
+        }
+    text = task_path.read_text(encoding="utf-8")
+    marker = "## Required smoke checks"
+    marker_index = text.find(marker)
+    if marker_index < 0:
+        return {
+            "path": str(TASK_PATH),
+            "ok": False,
+            "commands": [],
+            "errors": ["required_smoke_section_missing"],
+        }
+    block_start = text.find("```", marker_index)
+    if block_start < 0:
+        return {
+            "path": str(TASK_PATH),
+            "ok": False,
+            "commands": [],
+            "errors": ["required_smoke_code_block_missing"],
+        }
+    first_line_end = text.find("\n", block_start)
+    block_end = text.find("```", first_line_end)
+    if first_line_end < 0 or block_end < 0:
+        return {
+            "path": str(TASK_PATH),
+            "ok": False,
+            "commands": [],
+            "errors": ["required_smoke_code_block_unclosed"],
+        }
+    commands = [
+        line.strip()
+        for line in text[first_line_end:block_end].splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+    return {
+        "path": str(TASK_PATH),
+        "ok": bool(commands),
+        "commands": commands,
+        "errors": [] if commands else ["required_smoke_commands_empty"],
     }
 
 

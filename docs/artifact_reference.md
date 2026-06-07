@@ -15,7 +15,8 @@ python -m orchestrator.smoke_contract
 
 `smoke_contract` is a read-only drift check for the documented and CI-covered
 smoke commands. It does not run pytest, backtests, agents, or iteration loops.
-Its machine-readable contract is `schemas/smoke_contract.schema.json`.
+It derives the required command list from `TASK.md`; its machine-readable
+contract is `schemas/smoke_contract.schema.json`.
 
 Useful mode switches:
 

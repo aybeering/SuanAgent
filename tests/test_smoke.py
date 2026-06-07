@@ -30,6 +30,9 @@ def test_required_smoke_commands_are_documented_and_ci_covered() -> None:
 
     assert validate_smoke_contract_payload(payload, repo_root=Path(".")) == ()
     assert payload["ok"] is True
+    assert payload["source"]["path"] == "TASK.md"  # type: ignore[index]
+    assert payload["source"]["ok"] is True  # type: ignore[index]
+    assert payload["source"]["commands"] == payload["required_doc_commands"]  # type: ignore[index]
     assert payload["summary"]["missing_count"] == 0  # type: ignore[index]
     assert payload["policy"]["inspection_only"] is True  # type: ignore[index]
     assert payload["policy"]["does_not_run_backtests"] is True  # type: ignore[index]

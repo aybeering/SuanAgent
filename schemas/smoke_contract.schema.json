@@ -6,6 +6,7 @@
     "schema_version",
     "ok",
     "repo_root",
+    "source",
     "required_doc_commands",
     "required_ci_commands",
     "docs",
@@ -26,6 +27,37 @@
     "repo_root": {
       "type": "string",
       "minLength": 1
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "path",
+        "ok",
+        "commands",
+        "errors"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     },
     "required_doc_commands": {
       "type": "array",

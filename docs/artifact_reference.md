@@ -460,9 +460,14 @@ operator-home run/command/boundary binding, compact artifact-health history
 status and review-command digest binding, operator-next-command selector,
 source-home, and selected-command binding, champion-gap status and delta
 invariants, watchlist alert counts, severity counts, status, alert codes, and
-read-only policy flags. Artifact-health history read errors surface as
-critical watchlist alerts, while replay manifest-drift observations surface as
-warning alerts that point back to the read-only health-history review command.
+per-alert read-only review-command SHA-256 bindings, and read-only policy
+flags. Artifact-health history read errors surface as critical watchlist
+alerts, while replay manifest-drift observations surface as warning alerts
+that point back to the read-only health-history review command. Repeated
+proposal, proposal-memory rejection, artifact-health failure, and champion-gap
+alerts also carry terminal-only review commands so the dashboard is actionable
+without executing agents, running backtests, applying patches, promoting
+champions, or changing acceptance.
 `python -m orchestrator.experiments summary --markdown` renders the same
 summary payload, including the latest-run operator-home entry,
 operator-next-command entry, and watchlist, as a compact terminal-friendly

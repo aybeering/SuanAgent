@@ -7,6 +7,7 @@ import stat
 import subprocess
 import sys
 import difflib
+from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 
@@ -426,6 +427,7 @@ from orchestrator.experiments import (
     config_operator_runbook_report,
     config_change_candidate_report,
     compare_experiments,
+    dashboard_watchlist,
     experiment_leaderboard,
     latest_iteration_run_id,
     list_experiments,
@@ -27244,6 +27246,69 @@ def test_experiment_summary_dashboard_schema_rejects_missing_watchlist() -> None
     assert "$: missing required property watchlist" in errors
 
 
+def test_experiment_watchlist_alerts_bind_review_commands() -> None:
+    watchlist = dashboard_watchlist(
+        recent_runs=[
+            {
+                "run_id": "bad-artifacts",
+                "artifact_ok": False,
+                "summary": "artifact health failed",
+            }
+        ],
+        latest_run={
+            "run_id": "repeat-run",
+            "status": "stopped_repeated_proposal",
+        },
+        latest_accepted=None,
+        champion_gap={
+            "active": True,
+            "comparison_run_id": "best-run",
+            "champion_run_id": "champion-run",
+            "gap_to_champion": -0.5,
+        },
+        failure_codes=Counter({"patch_memory_rejected": 2}),
+        operator_home={
+            "run_id": "repeat-run",
+            "artifact_health_history_read_error_count": 1,
+            "artifact_health_history_round_replay_manifest_drift_observation_count": 1,
+            "artifact_health_history_latest_round_replay_manifest_drift_count": 1,
+            "artifact_health_history_latest_failed_run_ids": ["repeat-run"],
+        },
+    )
+    alerts = {str(alert["code"]): alert for alert in watchlist["alerts"]}
+
+    assert watchlist["status"] == "critical"
+    assert alerts["latest_run_repeated_proposal"]["review_command_label"] == (
+        "review_run_diagnosis"
+    )
+    assert alerts["latest_run_repeated_proposal"]["review_command"] == (
+        "python -m orchestrator.experiments diagnose repeat-run --markdown"
+    )
+    assert alerts["recent_patch_memory_rejections"]["review_command_label"] == (
+        "review_proposal_outcome_memory"
+    )
+    assert alerts["recent_patch_memory_rejections"]["review_command"] == (
+        "python -m orchestrator.experiments memory --markdown"
+    )
+    assert alerts["recent_artifact_health_failed"]["review_command"] == (
+        "python -m orchestrator.experiments validate bad-artifacts --markdown"
+    )
+    assert alerts["artifact_health_history_read_errors"]["review_command"] == (
+        "python -m orchestrator.experiments health-history --markdown"
+    )
+    assert alerts["artifact_health_history_replay_manifest_drift"][
+        "review_command"
+    ] == "python -m orchestrator.experiments health-history --markdown"
+    assert alerts["best_run_trails_champion"]["review_command"] == (
+        "python -m orchestrator.experiments champion --markdown"
+    )
+    for alert in alerts.values():
+        command = str(alert["review_command"])
+        assert alert["review_command_sha256"] == sha256_text(command)
+        assert alert["review_command_boundary"] == "read_only_inspection"
+        assert alert["review_command_is_hint_only"] is True
+
+
 def _minimal_experiment_summary_dashboard_payload() -> dict[str, object]:
     return {
         "schema_version": "experiment_summary_dashboard_v1",
@@ -27444,6 +27509,15 @@ def _minimal_experiment_summary_dashboard_payload() -> dict[str, object]:
                         "an accepted run."
                     ),
                     "run_id": "",
+                    "review_command_label": "review_experiment_leaderboard",
+                    "review_command": (
+                        "python -m orchestrator.experiments leaderboard --markdown"
+                    ),
+                    "review_command_sha256": sha256_text(
+                        "python -m orchestrator.experiments leaderboard --markdown"
+                    ),
+                    "review_command_boundary": "read_only_inspection",
+                    "review_command_is_hint_only": True,
                 },
             ],
             "policy": {
@@ -27546,6 +27620,10 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     assert isinstance(alerts, list)
     assert isinstance(alerts[0], dict)
     alerts[0]["code"] = ""
+    alerts[0]["review_command_label"] = ""
+    alerts[0]["review_command_sha256"] = "bad-watch-review"
+    alerts[0]["review_command_boundary"] = "mutation"
+    alerts[0]["review_command_is_hint_only"] = False
     watchlist_policy = watchlist["policy"]
     assert isinstance(watchlist_policy, dict)
     policy["does_not_run_backtests"] = False
@@ -27635,6 +27713,22 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     assert "experiment_summary_dashboard watchlist severity_counts mismatch" in errors
     assert "experiment_summary_dashboard watchlist status mismatch" in errors
     assert "experiment_summary_dashboard watchlist alert code missing" in errors
+    assert (
+        "experiment_summary_dashboard watchlist review command label missing"
+        in errors
+    )
+    assert (
+        "experiment_summary_dashboard watchlist review command sha256 mismatch"
+        in errors
+    )
+    assert (
+        "experiment_summary_dashboard watchlist review command boundary mismatch"
+        in errors
+    )
+    assert (
+        "experiment_summary_dashboard watchlist review command hint mismatch"
+        in errors
+    )
     assert "experiment_summary_dashboard policy false: does_not_run_backtests" in errors
     assert (
         "experiment_summary_dashboard policy false: does_not_promote_champion"

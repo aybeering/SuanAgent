@@ -697,7 +697,12 @@
         "code",
         "title",
         "detail",
-        "run_id"
+        "run_id",
+        "review_command_label",
+        "review_command",
+        "review_command_sha256",
+        "review_command_boundary",
+        "review_command_is_hint_only"
       ],
       "properties": {
         "severity": {
@@ -719,6 +724,25 @@
         },
         "run_id": {
           "type": "string"
+        },
+        "review_command_label": {
+          "type": "string"
+        },
+        "review_command": {
+          "type": "string"
+        },
+        "review_command_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "review_command_boundary": {
+          "type": "string",
+          "enum": [
+            "read_only_inspection"
+          ]
+        },
+        "review_command_is_hint_only": {
+          "type": "boolean"
         }
       }
     },

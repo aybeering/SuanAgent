@@ -553,6 +553,29 @@ def validate_experiment_summary_dashboard_consistency(
             errors.append("experiment_summary_dashboard watchlist severity invalid")
         if not str(alert.get("code", "")):
             errors.append("experiment_summary_dashboard watchlist alert code missing")
+        review_command = str(alert.get("review_command", ""))
+        if not str(alert.get("review_command_label", "")):
+            errors.append(
+                "experiment_summary_dashboard watchlist review command label missing"
+            )
+        if not review_command:
+            errors.append(
+                "experiment_summary_dashboard watchlist review command missing"
+            )
+        if str(alert.get("review_command_sha256", "")) != sha256_text(
+            review_command
+        ):
+            errors.append(
+                "experiment_summary_dashboard watchlist review command sha256 mismatch"
+            )
+        if str(alert.get("review_command_boundary", "")) != "read_only_inspection":
+            errors.append(
+                "experiment_summary_dashboard watchlist review command boundary mismatch"
+            )
+        if bool(alert.get("review_command_is_hint_only", False)) is not True:
+            errors.append(
+                "experiment_summary_dashboard watchlist review command hint mismatch"
+            )
     policy = dict_payload(payload.get("policy", {}))
     watchlist_policy = dict_payload(watchlist.get("policy", {}))
     for key, value in policy.items():
@@ -2170,6 +2193,8 @@ def dashboard_watchlist(
                 code="no_runs_indexed",
                 title="No experiment runs indexed",
                 detail="Run a single or iteration loop to populate experiment history.",
+                review_command_label="review_experiment_list",
+                review_command="python -m orchestrator.experiments list --markdown",
             )
         )
     elif str(latest_run.get("status", "")) == "stopped_repeated_proposal":
@@ -2180,6 +2205,11 @@ def dashboard_watchlist(
                 title="Latest run stopped on a repeated proposal",
                 detail="The active modifier is repeating a previously failed patch.",
                 run_id=str(latest_run.get("run_id", "")),
+                review_command_label="review_run_diagnosis",
+                review_command=(
+                    "python -m orchestrator.experiments diagnose "
+                    f"{latest_run.get('run_id', '')} --markdown"
+                ),
             )
         )
     if latest_accepted is None and latest_run is not None:
@@ -2189,6 +2219,10 @@ def dashboard_watchlist(
                 code="no_accepted_run_indexed",
                 title="No accepted run indexed yet",
                 detail="The current experiment history has not recorded an accepted run.",
+                review_command_label="review_experiment_leaderboard",
+                review_command=(
+                    "python -m orchestrator.experiments leaderboard --markdown"
+                ),
             )
         )
     repeated_failures = int(failure_codes.get("patch_memory_rejected", 0))
@@ -2199,6 +2233,8 @@ def dashboard_watchlist(
                 code="recent_patch_memory_rejections",
                 title="Recent runs hit proposal memory rejection",
                 detail=f"{repeated_failures} recent run(s) rejected a repeated patch.",
+                review_command_label="review_proposal_outcome_memory",
+                review_command="python -m orchestrator.experiments memory --markdown",
             )
         )
     artifact_failed = [
@@ -2212,6 +2248,11 @@ def dashboard_watchlist(
                 title="Recent run has invalid artifacts",
                 detail=str(row.get("summary", "")),
                 run_id=str(row.get("run_id", "")),
+                review_command_label="review_run_artifact_health",
+                review_command=(
+                    "python -m orchestrator.experiments validate "
+                    f"{row.get('run_id', '')} --markdown"
+                ),
             )
         )
     history_read_errors = int_value(
@@ -2229,6 +2270,10 @@ def dashboard_watchlist(
                     "were observed; review the health-history terminal view."
                 ),
                 run_id=str(operator_home.get("run_id", "")),
+                review_command_label="review_artifact_health_history",
+                review_command=(
+                    "python -m orchestrator.experiments health-history --markdown"
+                ),
             )
         )
     drift_count = int_value(
@@ -2261,6 +2306,10 @@ def dashboard_watchlist(
                     f"{failed_text}."
                 ),
                 run_id=str(operator_home.get("run_id", "")),
+                review_command_label="review_artifact_health_history",
+                review_command=(
+                    "python -m orchestrator.experiments health-history --markdown"
+                ),
             )
         )
     gap = optional_float_value(champion_gap.get("gap_to_champion"))
@@ -2276,6 +2325,8 @@ def dashboard_watchlist(
                     f"by {abs(gap):.6f} validation EV delta."
                 ),
                 run_id=str(champion_gap.get("comparison_run_id", "")),
+                review_command_label="review_champion_status",
+                review_command="python -m orchestrator.experiments champion --markdown",
             )
         )
     return {
@@ -2301,6 +2352,8 @@ def watch_alert(
     title: str,
     detail: str,
     run_id: str = "",
+    review_command_label: str = "",
+    review_command: str = "",
 ) -> dict[str, object]:
     """Return one stable watchlist alert row."""
     return {
@@ -2309,6 +2362,11 @@ def watch_alert(
         "title": title,
         "detail": detail,
         "run_id": run_id,
+        "review_command_label": review_command_label,
+        "review_command": review_command,
+        "review_command_sha256": sha256_text(review_command),
+        "review_command_boundary": "read_only_inspection",
+        "review_command_is_hint_only": True,
     }
 
 
@@ -2486,8 +2544,8 @@ def render_experiment_summary_markdown(payload: dict[str, object]) -> str:
         "",
         "## Watchlist",
         "",
-        "| Severity | Code | Run | Detail |",
-        "| --- | --- | --- | --- |",
+        "| Severity | Code | Run | Review | Detail |",
+        "| --- | --- | --- | --- | --- |",
     ]
     lines.extend(watchlist_markdown_rows(watchlist))
     lines.extend(
@@ -3489,7 +3547,7 @@ def watchlist_markdown_rows(watchlist: dict[str, object]) -> list[str]:
     """Return markdown rows for dashboard watchlist alerts."""
     alerts = list_payload(watchlist.get("alerts", []))
     if not alerts:
-        return ["| clean | none |  | No watchlist alerts. |"]
+        return ["| clean | none |  |  | No watchlist alerts. |"]
     rows: list[str] = []
     for alert in alerts:
         rows.append(
@@ -3497,6 +3555,7 @@ def watchlist_markdown_rows(watchlist: dict[str, object]) -> list[str]:
             f"`{markdown_cell(alert.get('severity', ''))}` | "
             f"`{markdown_cell(alert.get('code', ''))}` | "
             f"`{markdown_cell(alert.get('run_id', ''))}` | "
+            f"`{markdown_cell(alert.get('review_command_label', ''))}` | "
             f"{markdown_cell(alert.get('detail', ''))} |"
         )
     return rows

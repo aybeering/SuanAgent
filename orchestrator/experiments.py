@@ -232,6 +232,18 @@ def latest_iteration_run_id(
     raise FileNotFoundError("No indexed iteration-loop run found.")
 
 
+def resolve_iteration_run_id(
+    *,
+    run_id: str | None,
+    latest: bool = False,
+    experiments_dir: Path = Path("experiments"),
+) -> str:
+    """Resolve an explicit or latest indexed iteration-loop run id."""
+    if latest or not run_id:
+        return latest_iteration_run_id(experiments_dir=experiments_dir)
+    return run_id
+
+
 def show_experiment(
     *,
     run_id: str | None,
@@ -7917,6 +7929,15 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
+    def cli_iteration_run_id() -> str:
+        """Resolve the run id selected by the current CLI command."""
+        return resolve_iteration_run_id(
+            run_id=getattr(args, "run_id", None),
+            latest=bool(getattr(args, "latest", False)),
+            experiments_dir=args.experiments_dir,
+        )
+
     if args.command == "list":
         payload = list_experiments(
             experiments_dir=args.experiments_dir,
@@ -7928,7 +7949,7 @@ def main() -> None:
     elif args.command == "show":
         payload = show_experiment(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_experiment_show_markdown(payload), end="")
@@ -7936,7 +7957,7 @@ def main() -> None:
     elif args.command == "review":
         payload = operator_run_review(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_operator_run_review_markdown(payload), end="")
@@ -7944,7 +7965,7 @@ def main() -> None:
     elif args.command == "cockpit":
         payload = operator_cockpit_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_operator_cockpit_markdown(payload), end="")
@@ -7952,7 +7973,7 @@ def main() -> None:
     elif args.command == "home":
         payload = operator_home_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_operator_home_markdown(payload), end="")
@@ -7960,7 +7981,7 @@ def main() -> None:
     elif args.command == "next-command":
         payload = operator_next_command_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_operator_next_command_markdown(payload), end="")
@@ -7968,7 +7989,7 @@ def main() -> None:
     elif args.command == "refresh-operator-views":
         payload = refresh_operator_views(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
             config_path=args.config,
         )
         if args.markdown:
@@ -7977,7 +7998,7 @@ def main() -> None:
     elif args.command == "unlock-checklist":
         payload = operator_unlock_checklist_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_operator_unlock_checklist_markdown(payload), end="")
@@ -7985,7 +8006,7 @@ def main() -> None:
     elif args.command == "unlock-runbook":
         payload = codex_cli_unlock_runbook_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_codex_cli_unlock_runbook_markdown(payload), end="")
@@ -7993,7 +8014,7 @@ def main() -> None:
     elif args.command == "execution-readiness-diff":
         payload = codex_cli_execution_readiness_diff_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
             config_path=args.config,
         )
         if args.markdown:
@@ -8002,7 +8023,7 @@ def main() -> None:
     elif args.command == "action-plan":
         payload = operator_action_plan_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_operator_action_plan_markdown(payload), end="")
@@ -8010,7 +8031,7 @@ def main() -> None:
     elif args.command == "action-approval":
         payload = operator_action_approval_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
             action_id=args.action_id,
             command_label=args.command_label,
         )
@@ -8020,7 +8041,7 @@ def main() -> None:
     elif args.command == "action-execution":
         payload = operator_action_execution_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_operator_action_execution_markdown(payload), end="")
@@ -8028,7 +8049,7 @@ def main() -> None:
     elif args.command == "action-audit":
         payload = operator_action_audit_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_operator_action_audit_markdown(payload), end="")
@@ -8036,7 +8057,7 @@ def main() -> None:
     elif args.command == "action-dashboard":
         payload = operator_action_dashboard_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_operator_action_dashboard_markdown(payload), end="")
@@ -8044,7 +8065,7 @@ def main() -> None:
     elif args.command == "action-guide":
         payload = operator_action_guide_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_operator_action_guide_markdown(payload), end="")
@@ -8068,7 +8089,7 @@ def main() -> None:
     elif args.command == "candidates":
         payload = candidate_leaderboard(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
             limit=args.limit,
         )
         if args.markdown:
@@ -8077,7 +8098,7 @@ def main() -> None:
     elif args.command == "agents":
         payload = agent_result_stats(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_agent_result_stats_markdown(payload), end="")
@@ -8085,15 +8106,13 @@ def main() -> None:
     elif args.command == "quality-trace":
         payload = candidate_quality_trace(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_candidate_quality_trace_markdown(payload), end="")
             return
     elif args.command == "challenger":
-        run_id = (None if args.latest else args.run_id) or latest_iteration_run_id(
-            experiments_dir=args.experiments_dir
-        )
+        run_id = cli_iteration_run_id()
         _, _, payload = write_candidate_challenger_report(
             run_dir=args.experiments_dir / run_id,
             experiments_dir=args.experiments_dir,
@@ -8108,9 +8127,7 @@ def main() -> None:
             write_champion_promotion_dry_run,
         )
 
-        run_id = (None if args.latest else args.run_id) or latest_iteration_run_id(
-            experiments_dir=args.experiments_dir
-        )
+        run_id = cli_iteration_run_id()
         _, _, payload = write_champion_promotion_dry_run(
             run_dir=args.experiments_dir / run_id,
             experiments_dir=args.experiments_dir,
@@ -8139,7 +8156,7 @@ def main() -> None:
     elif args.command == "profile-recommendation":
         payload = modifier_profile_recommendation(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
             config_path=args.config,
         )
         if args.markdown:
@@ -8148,7 +8165,7 @@ def main() -> None:
     elif args.command == "slots":
         payload = agent_slot_health_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(agent_slot_health_markdown(payload), end="")
@@ -8156,7 +8173,7 @@ def main() -> None:
     elif args.command == "readiness":
         payload = agent_slot_readiness_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(agent_slot_readiness_gate_markdown(payload), end="")
@@ -8164,7 +8181,7 @@ def main() -> None:
     elif args.command == "sandbox":
         payload = external_agent_sandbox_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(external_agent_sandbox_drill_markdown(payload), end="")
@@ -8261,9 +8278,7 @@ def main() -> None:
                 raise SystemExit(1)
             return
     elif args.command == "diagnose":
-        run_id = (None if args.latest else args.run_id) or latest_iteration_run_id(
-            experiments_dir=args.experiments_dir
-        )
+        run_id = cli_iteration_run_id()
         payload = diagnose_run(
             experiments_dir=args.experiments_dir,
             run_id=run_id,
@@ -8331,7 +8346,7 @@ def main() -> None:
     elif args.command == "memory-hygiene":
         payload = memory_hygiene_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_memory_hygiene_markdown(payload), end="")
@@ -8339,7 +8354,7 @@ def main() -> None:
     elif args.command == "memory-scope-recommendation":
         payload = memory_scope_recommendation_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_memory_scope_recommendation_markdown(payload), end="")
@@ -8347,7 +8362,7 @@ def main() -> None:
     elif args.command == "config-change-candidate":
         payload = config_change_candidate_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_config_change_candidate_markdown(payload), end="")
@@ -8355,7 +8370,7 @@ def main() -> None:
     elif args.command == "operator-config-review":
         payload = operator_config_review_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_operator_config_review_markdown(payload), end="")
@@ -8363,7 +8378,7 @@ def main() -> None:
     elif args.command == "config-application-dry-run":
         payload = config_application_dry_run_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
             config_path=args.config,
         )
         if args.markdown:
@@ -8372,7 +8387,7 @@ def main() -> None:
     elif args.command == "config-runbook":
         payload = config_operator_runbook_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
         )
         if args.markdown:
             print(render_config_operator_runbook_markdown(payload), end="")
@@ -8380,7 +8395,7 @@ def main() -> None:
     elif args.command == "config-application-rollback-preview":
         payload = config_application_rollback_preview_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
             receipt_path=args.receipt_path,
             config_path=args.config,
         )
@@ -8394,7 +8409,7 @@ def main() -> None:
     elif args.command == "config-lineage":
         payload = config_lineage_report(
             experiments_dir=args.experiments_dir,
-            run_id=None if args.latest else args.run_id,
+            run_id=cli_iteration_run_id(),
             config_path=args.config,
         )
         if args.markdown:

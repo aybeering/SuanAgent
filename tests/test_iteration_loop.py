@@ -461,6 +461,7 @@ from orchestrator.experiments import (
     render_operator_view_refresh_markdown,
     render_operator_run_review_markdown,
     render_proposal_memory_markdown,
+    resolve_iteration_run_id,
     show_experiment,
     show_champion,
     summarize_experiments,
@@ -26016,6 +26017,30 @@ def test_experiment_list_and_show_helpers(tmp_path: Path) -> None:
     assert "operator_next_command" not in index_text
     assert latest_iteration_run_id(experiments_dir=repo / "experiments") == (
         "iteration-show"
+    )
+    assert (
+        resolve_iteration_run_id(
+            run_id="explicit-run",
+            latest=False,
+            experiments_dir=repo / "experiments",
+        )
+        == "explicit-run"
+    )
+    assert (
+        resolve_iteration_run_id(
+            run_id="single-show",
+            latest=True,
+            experiments_dir=repo / "experiments",
+        )
+        == "iteration-show"
+    )
+    assert (
+        resolve_iteration_run_id(
+            run_id=None,
+            latest=False,
+            experiments_dir=repo / "experiments",
+        )
+        == "iteration-show"
     )
     assert single["kind"] == "single_run"
     assert single["summary_path"].endswith("experiments/single-show/summary.md")

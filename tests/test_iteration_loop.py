@@ -10198,6 +10198,9 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert manifest["codex_cli_execution_preflight"]["markdown_path"] == (
         "codex_cli_execution_preflight.md"
     )
+    assert manifest["codex_cli_execution_preflight"]["status"] == (
+        "no_real_execution_profiles"
+    )
     assert manifest["codex_cli_execution_preflight"]["ok"] is True
     assert manifest["codex_cli_execution_preflight"]["blocking_error_count"] == 0
     assert manifest["codex_cli_execution_preflight"]["profile_count"] == (
@@ -10213,6 +10216,7 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
         codex_preflight["summary"]["canary_exempt_count"]
     )
     assert "## Codex CLI Execution Preflight" in summary_markdown
+    assert "- Status: `no_real_execution_profiles`" in summary_markdown
     assert "- Real execute profiles: `0`" in summary_markdown
     assert "- Operator unlock ready: `0`" in summary_markdown
     assert agent_activation["schema_version"] == (
@@ -17254,6 +17258,7 @@ def test_artifact_validator_reports_manifest_codex_preflight_drift(
     )
     manifest_path = repo / "experiments" / run_id / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["codex_cli_execution_preflight"]["status"] = "blocked"
     manifest["codex_cli_execution_preflight"]["profile_count"] = 99
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
@@ -17267,6 +17272,10 @@ def test_artifact_validator_reports_manifest_codex_preflight_drift(
     )
 
     assert report["ok"] is False
+    assert (
+        "manifest.codex_cli_execution_preflight status mismatch"
+        in report["errors"]
+    )
     assert (
         "manifest.codex_cli_execution_preflight profile_count mismatch"
         in report["errors"]
@@ -17289,6 +17298,10 @@ def test_artifact_validator_reports_summary_codex_preflight_drift(
     summary_path = run_dir / "summary.md"
     summary_text = summary_path.read_text(encoding="utf-8")
     summary_text = summary_text.replace(
+        f"- Status: `{preflight_row['status']}`",
+        "- Status: `blocked`",
+    )
+    summary_text = summary_text.replace(
         f"- Profile count: `{preflight_row['profile_count']}`",
         "- Profile count: `99`",
     )
@@ -17301,6 +17314,10 @@ def test_artifact_validator_reports_summary_codex_preflight_drift(
     )
 
     assert report["ok"] is False
+    assert (
+        "summary.md codex_cli_execution_preflight status mismatch"
+        in report["errors"]
+    )
     assert (
         "summary.md codex_cli_execution_preflight profile_count mismatch"
         in report["errors"]

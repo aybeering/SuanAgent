@@ -187,8 +187,8 @@ Implemented or allowed V0.5 components:
     best-validation-delta, round-table, proposal-quality, and
     candidate-leaderboard sections back to their corresponding manifest records
     and round artifacts.
-    Manifest and summary Codex CLI execution preflight counts are also bound
-    back to the saved startup preflight summary.
+    Manifest and summary Codex CLI execution preflight status and counts are
+    also bound back to the saved startup preflight summary.
     Experiment summary dashboards and operator cockpit summaries surface the
     same outcome category, primary stage, and primary code as read-only
     navigation so recent run history and per-run review show why the loop

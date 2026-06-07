@@ -794,9 +794,9 @@ execution-readiness-diff --latest` expose the same read-only diff without
 recording approval, executing Codex, creating workspaces, applying patches, or
 changing acceptance.
 `manifest.json` and `summary.md` also expose compact Codex CLI execution
-preflight counts for total profiles, real-execution profiles, operator-unlock
-ready profiles, canary-exempt profiles, and startup blockers; artifact
-validation binds those fields back to the saved
+preflight status and counts for total profiles, real-execution profiles,
+operator-unlock ready profiles, canary-exempt profiles, and startup blockers;
+artifact validation binds those fields back to the saved
 `codex_cli_execution_preflight.json` summary.
 `operator_cockpit.json` and `operator_cockpit.md` collect the run closeout,
 config lineage, operator action dashboard, Codex CLI execution preflight,

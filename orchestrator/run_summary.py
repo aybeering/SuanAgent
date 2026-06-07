@@ -133,6 +133,7 @@ def write_iteration_summary(
     codex_preflight = manifest.get("codex_cli_execution_preflight")
     if isinstance(codex_preflight, dict):
         lines.extend(["", "## Codex CLI Execution Preflight", ""])
+        lines.append(f"- Status: `{display_value(codex_preflight.get('status'))}`")
         lines.append(f"- OK: `{display_value(codex_preflight.get('ok'))}`")
         lines.append(
             "- Blocking errors: "

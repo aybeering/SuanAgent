@@ -716,6 +716,10 @@ def validate_manifest_codex_cli_execution_preflight(
     expected = {
         "path": "codex_cli_execution_preflight.json",
         "markdown_path": "codex_cli_execution_preflight.md",
+        "status": expected_codex_cli_execution_preflight_status(
+            preflight=preflight,
+            blockers=[str(error) for error in blockers],
+        ),
         "ok": bool(preflight.get("ok", False)),
         "blocking_error_count": len(blockers),
         "profile_count": int(summary.get("profile_count", 0) or 0),
@@ -733,6 +737,22 @@ def validate_manifest_codex_cli_execution_preflight(
                 report,
                 f"manifest.codex_cli_execution_preflight {key} mismatch",
             )
+
+
+def expected_codex_cli_execution_preflight_status(
+    *,
+    preflight: dict[str, object],
+    blockers: list[str],
+) -> str:
+    """Return expected compact status for Codex startup preflight evidence."""
+    if not preflight:
+        return "missing"
+    if blockers:
+        return "blocked"
+    summary = dict_value(preflight.get("summary", {}))
+    if int(summary.get("real_codex_execute_profile_count", 0) or 0) == 0:
+        return "no_real_execution_profiles"
+    return "operator_unlock_ready"
 
 
 def validate_iteration_summary_header(
@@ -917,6 +937,7 @@ def validate_iteration_summary_codex_cli_execution_preflight(
         add_error(report, "summary.md codex_cli_execution_preflight section missing")
         return
     expected_lines: tuple[tuple[str, str], ...] = (
+        ("status", f"- Status: `{markdown_display_value(preflight.get('status'))}`"),
         ("ok", f"- OK: `{markdown_display_value(preflight.get('ok'))}`"),
         (
             "blocking_error_count",

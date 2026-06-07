@@ -14141,6 +14141,22 @@ def test_agent_slot_health_reports_default_and_replayed_slots(
         text=True,
         check=False,
     )
+    markdown_cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "slots",
+            "slot-health-default",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     validation_report = validate_run_artifacts(
         run_id="slot-health-default",
         experiments_dir=repo / "experiments",
@@ -14163,6 +14179,11 @@ def test_agent_slot_health_reports_default_and_replayed_slots(
     cli_payload = json.loads(cli_result.stdout)
     assert cli_payload["from_artifact"] is True
     assert cli_payload["totals"]["healthy_count"] == 3
+    assert markdown_cli_result.returncode == 0, markdown_cli_result.stderr
+    assert "# Agent Slot Health" in markdown_cli_result.stdout
+    assert "| Round | Attempt | Profile | Adapter | Runner | Status | Issues |" in (
+        markdown_cli_result.stdout
+    )
     assert_matches_schema(run_dir / "agent_slot_health.json", "agent_slot_health")
     assert (run_dir / "agent_slot_health.md").exists()
     assert validation_report["ok"] is True
@@ -14279,6 +14300,22 @@ def test_agent_slot_readiness_gate_passes_replayed_file_protocol_slot(
         text=True,
         check=False,
     )
+    markdown_cli_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "readiness",
+            "slot-readiness-file-protocol",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     validation_report = validate_run_artifacts(
         run_id="slot-readiness-file-protocol",
         experiments_dir=repo / "experiments",
@@ -14302,6 +14339,11 @@ def test_agent_slot_readiness_gate_passes_replayed_file_protocol_slot(
     cli_payload = json.loads(cli_result.stdout)
     assert cli_payload["from_artifact"] is True
     assert cli_payload["ok"] is True
+    assert markdown_cli_result.returncode == 0, markdown_cli_result.stderr
+    assert "# Agent Slot Readiness Gate" in markdown_cli_result.stdout
+    assert "| Round | Attempt | Profile | Adapter | Runner | Status | Blocking issues |" in (
+        markdown_cli_result.stdout
+    )
     assert_matches_schema(
         run_dir / "agent_slot_readiness_gate.json",
         "agent_slot_readiness_gate",

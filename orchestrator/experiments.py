@@ -10,8 +10,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from orchestrator.agent_result_stats import build_agent_result_stats
-from orchestrator.agent_slot_readiness_gate import build_agent_slot_readiness_gate
-from orchestrator.agent_slot_health import build_agent_slot_health
+from orchestrator.agent_slot_readiness_gate import (
+    agent_slot_readiness_gate_markdown,
+    build_agent_slot_readiness_gate,
+)
+from orchestrator.agent_slot_health import (
+    agent_slot_health_markdown,
+    build_agent_slot_health,
+)
 from orchestrator.artifact_validator_coverage import (
     build_artifact_validator_coverage,
     coverage_markdown,
@@ -7486,12 +7492,22 @@ def main() -> None:
         help="Show agent slot health across one iteration run.",
     )
     slots_parser.add_argument("run_id")
+    slots_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render agent slot health as markdown.",
+    )
 
     readiness_parser = subparsers.add_parser(
         "readiness",
         help="Show the external-agent slot readiness gate for one iteration run.",
     )
     readiness_parser.add_argument("run_id")
+    readiness_parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Render agent slot readiness as markdown.",
+    )
 
     sandbox_parser = subparsers.add_parser(
         "sandbox",
@@ -8011,11 +8027,17 @@ def main() -> None:
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )
+        if args.markdown:
+            print(agent_slot_health_markdown(payload), end="")
+            return
     elif args.command == "readiness":
         payload = agent_slot_readiness_report(
             experiments_dir=args.experiments_dir,
             run_id=args.run_id,
         )
+        if args.markdown:
+            print(agent_slot_readiness_gate_markdown(payload), end="")
+            return
     elif args.command == "sandbox":
         payload = external_agent_sandbox_report(
             experiments_dir=args.experiments_dir,

@@ -934,7 +934,8 @@ config lineage, action, Codex readiness, challenger, promotion, scope-health,
 and run-outcome state; the digest mirrors that priority plus the recommended
 command boundary and command SHA-256 binding, action execution-readiness status,
 outcome, blocker, config, action,
-candidate-quality, Codex, and promotion status as a compact read-only header.
+candidate-quality, Codex, promotion status, and Codex execution-readiness diff
+ready/matched/drift/missing counts as a compact read-only header.
 Artifact validation checks cockpit command hints through the shared operator
 command-hint validator for known labels, expected write targets, the required
 `review_cockpit` first command, command SHA-256 bindings, boundary

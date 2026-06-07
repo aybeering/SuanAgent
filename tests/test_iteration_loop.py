@@ -6166,6 +6166,21 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     )
     assert cockpit["summary"]["codex_readiness_diff_status"] == "missing_evidence"
     assert cockpit["summary"]["codex_readiness_diff_ready"] is False
+    assert cockpit["operator_digest"]["codex_readiness_diff_status"] == (
+        cockpit["summary"]["codex_readiness_diff_status"]
+    )
+    assert cockpit["operator_digest"]["codex_readiness_diff_ready"] == (
+        cockpit["summary"]["codex_readiness_diff_ready"]
+    )
+    assert cockpit["operator_digest"]["codex_readiness_diff_matched_count"] == (
+        cockpit["summary"]["codex_readiness_diff_matched_count"]
+    )
+    assert cockpit["operator_digest"]["codex_readiness_diff_drift_count"] == (
+        cockpit["summary"]["codex_readiness_diff_drift_count"]
+    )
+    assert cockpit["operator_digest"]["codex_readiness_diff_missing_count"] == (
+        cockpit["summary"]["codex_readiness_diff_missing_count"]
+    )
     assert cockpit["summary"]["codex_intake_readiness_status"] == "not_available"
     assert cockpit["summary"]["codex_intake_ready"] is False
     assert cockpit["summary"]["codex_intake_blocker_count"] == 0
@@ -6397,6 +6412,7 @@ def test_operator_cockpit_aggregates_operator_views_without_authority(
     tampered_cockpit_summary["primary_focus"] = "inspect_blockers"
     tampered_cockpit_summary["summary"]["action_failure_reason_count"] = 0
     tampered_cockpit_summary["summary"]["action_first_failure_stage"] = "none"
+    tampered_cockpit_summary["summary"]["codex_readiness_diff_missing_count"] = 0
     tampered_cockpit_summary["codex_unlock_checklist"]["item_count"] = 1
     tampered_cockpit_summary["review_priority"]["target_panel_status"] = "stale"
     tampered_cockpit_summary["review_priority"]["recommended_command"] = (
@@ -10669,8 +10685,29 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert cockpit["summary"]["codex_readiness_diff_status"] == (
         execution_diff["status"]
     )
+    assert cockpit["summary"]["codex_readiness_diff_ready"] == (
+        execution_diff["ready"]
+    )
+    assert cockpit["summary"]["codex_readiness_diff_matched_count"] == (
+        execution_diff["summary"]["matched_count"]
+    )
+    assert cockpit["summary"]["codex_readiness_diff_drift_count"] == (
+        execution_diff["summary"]["drift_count"]
+    )
     assert cockpit["summary"]["codex_readiness_diff_missing_count"] == (
         execution_diff["summary"]["missing_comparison_count"]
+    )
+    assert cockpit["operator_digest"]["codex_readiness_diff_ready"] == (
+        cockpit["summary"]["codex_readiness_diff_ready"]
+    )
+    assert cockpit["operator_digest"]["codex_readiness_diff_matched_count"] == (
+        cockpit["summary"]["codex_readiness_diff_matched_count"]
+    )
+    assert cockpit["operator_digest"]["codex_readiness_diff_drift_count"] == (
+        cockpit["summary"]["codex_readiness_diff_drift_count"]
+    )
+    assert cockpit["operator_digest"]["codex_readiness_diff_missing_count"] == (
+        cockpit["summary"]["codex_readiness_diff_missing_count"]
     )
     assert cockpit["codex_unlock_checklist"]["status"] == "not_requested"
     assert cockpit["codex_unlock_checklist"]["item_count"] == 0
@@ -10687,6 +10724,8 @@ def test_iteration_loop_rejects_and_rolls_back_by_default(tmp_path: Path) -> Non
     assert cockpit["policy"]["does_not_execute_commands"] is True
     assert cockpit["policy"]["does_not_change_acceptance"] is True
     assert "# Operator Cockpit" in cockpit_markdown
+    assert "Codex CLI readiness diff counts:" in cockpit_markdown
+    assert "Codex readiness diff counts:" in cockpit_markdown
     assert "## Operator Unlock Checklist" in summary_markdown
     assert "Codex unlock" in summary_markdown
     assert "Blocking navigation items" in summary_markdown

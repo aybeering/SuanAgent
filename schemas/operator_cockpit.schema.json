@@ -715,6 +715,10 @@
         "codex_preflight_status",
         "codex_unlock_runbook_status",
         "codex_readiness_diff_status",
+        "codex_readiness_diff_ready",
+        "codex_readiness_diff_matched_count",
+        "codex_readiness_diff_drift_count",
+        "codex_readiness_diff_missing_count",
         "codex_intake_readiness_status",
         "codex_intake_ready",
         "promotion_status",
@@ -805,6 +809,18 @@
         },
         "codex_readiness_diff_status": {
           "type": "string"
+        },
+        "codex_readiness_diff_ready": {
+          "type": "boolean"
+        },
+        "codex_readiness_diff_matched_count": {
+          "type": "integer"
+        },
+        "codex_readiness_diff_drift_count": {
+          "type": "integer"
+        },
+        "codex_readiness_diff_missing_count": {
+          "type": "integer"
         },
         "codex_intake_readiness_status": {
           "type": "string"

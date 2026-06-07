@@ -618,6 +618,18 @@ def cockpit_operator_digest(
         "codex_readiness_diff_status": str(
             summary.get("codex_readiness_diff_status", "")
         ),
+        "codex_readiness_diff_ready": bool(
+            summary.get("codex_readiness_diff_ready", False)
+        ),
+        "codex_readiness_diff_matched_count": int(
+            summary.get("codex_readiness_diff_matched_count", 0) or 0
+        ),
+        "codex_readiness_diff_drift_count": int(
+            summary.get("codex_readiness_diff_drift_count", 0) or 0
+        ),
+        "codex_readiness_diff_missing_count": int(
+            summary.get("codex_readiness_diff_missing_count", 0) or 0
+        ),
         "codex_intake_readiness_status": str(
             summary.get("codex_intake_readiness_status", "")
         ),
@@ -1415,6 +1427,12 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         f"- Codex CLI preflight: `{summary.get('codex_preflight_status', '')}`",
         f"- Codex CLI unlock runbook: `{summary.get('codex_unlock_runbook_status', '')}`",
         f"- Codex CLI readiness diff: `{summary.get('codex_readiness_diff_status', '')}`",
+        "- Codex CLI readiness diff ready: "
+        f"`{summary.get('codex_readiness_diff_ready', False)}`",
+        "- Codex CLI readiness diff counts: "
+        f"matched `{summary.get('codex_readiness_diff_matched_count', 0)}`, "
+        f"drift `{summary.get('codex_readiness_diff_drift_count', 0)}`, "
+        f"missing `{summary.get('codex_readiness_diff_missing_count', 0)}`",
         f"- Codex CLI intake binding: `{summary.get('codex_intake_readiness_status', '')}`",
         f"- Codex CLI intake ready: `{summary.get('codex_intake_ready', False)}`",
         f"- Promotion: `{summary.get('promotion_status', '')}`",
@@ -1432,6 +1450,12 @@ def render_operator_cockpit_markdown(payload: dict[str, object]) -> str:
         f"(`{digest.get('target_panel_status', '')}`)",
         f"- Blockers: `{digest.get('blocker_count', 0)}`",
         f"- First blocker: `{digest.get('first_blocker', '')}`",
+        "- Codex readiness diff ready: "
+        f"`{digest.get('codex_readiness_diff_ready', False)}`",
+        "- Codex readiness diff counts: "
+        f"matched `{digest.get('codex_readiness_diff_matched_count', 0)}`, "
+        f"drift `{digest.get('codex_readiness_diff_drift_count', 0)}`, "
+        f"missing `{digest.get('codex_readiness_diff_missing_count', 0)}`",
         f"- Next step: {digest.get('next_step', '')}",
         f"- Next command: `{digest.get('recommended_command_label', '')}`",
         f"- Command boundary: "

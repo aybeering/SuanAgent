@@ -756,17 +756,19 @@ terminal-only `operator_next_command_v1` narrow view validated by
 operator home payload and returns only the selected command, status, blocker
 count, boundary, write target, a structured navigation summary with the first
 blocker and explicit-invocation readiness, safety flags, source-home command,
-Codex readiness summary fields including the preflight next step, authority
-flags, command SHA-256 bindings, and
+source-home payload snapshot SHA-256, Codex readiness summary fields including
+the preflight next step, authority flags, command SHA-256 bindings, and
 read-only policy. Its markdown view also displays the selector source marker,
-navigation summary, selected-command digest, source-home command digest, and
+navigation summary, selected-command digest, source-home command digest,
+source-home payload snapshot digest, and
 source-home terminal-only, artifact-free, hint-only boundary. It creates no artifact and
 remains a hint; it does not record approval, execute commands, write config,
 promote champions, run agents, run backtests, apply patches, route agents, or
 change acceptance.
 The selector consistency validator reports field-specific drift for the
-selected command, source-home binding, safety flags, authority flags, and
-read-only policy before falling back to the full derived-payload comparison.
+selected command, source-home command binding, source-home payload snapshot
+binding, safety flags, authority flags, and read-only policy before falling
+back to the full derived-payload comparison.
 The same selector command is also surfaced as a derived hint in
 `experiments list`, `experiments show`, and the `experiment_summary_dashboard`
 payload, so an operator can discover the narrow next-step view from recent run

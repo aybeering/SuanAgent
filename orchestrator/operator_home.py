@@ -236,6 +236,7 @@ def build_operator_next_command(
         "python -m orchestrator.experiments "
         f"home {home.get('run_id', run_dir.name)} --markdown"
     )
+    home_snapshot_sha256 = sha256_payload(home)
     return {
         "schema_version": OPERATOR_NEXT_COMMAND_SCHEMA_VERSION,
         "run_id": str(home.get("run_id", run_dir.name)),
@@ -297,6 +298,7 @@ def build_operator_next_command(
             "command_label": "review_operator_home",
             "command": home_command,
             "command_sha256": sha256_text(home_command),
+            "home_snapshot_sha256": home_snapshot_sha256,
             "boundary_type": "read_only_inspection",
         },
         "authority": {
@@ -1225,6 +1227,7 @@ def render_operator_next_command_markdown(payload: dict[str, object]) -> str:
         "",
         f"- Home command: `{source_home.get('command', '')}`",
         f"- Home command SHA-256: `{source_home.get('command_sha256', '')}`",
+        f"- Home snapshot SHA-256: `{source_home.get('home_snapshot_sha256', '')}`",
         f"- Source boundary: `{source_home.get('boundary_type', '')}`",
         f"- Source terminal-only: `{source_home.get('terminal_only', False)}`",
         f"- Source creates artifact: `{source_home.get('artifact_created', True)}`",
@@ -1351,6 +1354,8 @@ def validate_operator_next_command_consistency(
     source_command = str(source_home.get("command", ""))
     if str(source_home.get("command_sha256", "")) != sha256_text(source_command):
         errors.append("operator_next_command source command sha256 mismatch")
+    if str(source_home.get("home_snapshot_sha256", "")) != sha256_payload(home):
+        errors.append("operator_next_command source home snapshot sha256 mismatch")
     expected = build_operator_next_command(
         run_dir=run_dir,
         experiments_dir=experiments_dir,
@@ -1407,6 +1412,7 @@ def validate_operator_next_command_consistency(
         "command_label",
         "command",
         "command_sha256",
+        "home_snapshot_sha256",
         "boundary_type",
     ):
         if source_home.get(field_name) != expected_source.get(field_name):
@@ -1723,6 +1729,12 @@ def list_of_dicts(value: object) -> list[dict[str, Any]]:
 def sha256_text(value: str) -> str:
     """Return a stable SHA-256 digest for text command bindings."""
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def sha256_payload(value: object) -> str:
+    """Return a stable SHA-256 digest for JSON-compatible payloads."""
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"))
+    return sha256_text(encoded)
 
 
 def main() -> None:

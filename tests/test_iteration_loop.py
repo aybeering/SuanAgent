@@ -385,6 +385,7 @@ from orchestrator.operator_home import (
     build_operator_next_command,
     render_operator_home_markdown,
     render_operator_next_command_markdown,
+    sha256_payload,
     validate_operator_home_payload,
     validate_operator_next_command_payload,
 )
@@ -4968,6 +4969,9 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending_next_command["source_home"]["command_sha256"] == sha256_text(
         pending_next_command["source_home"]["command"]
     )
+    assert pending_next_command["source_home"]["home_snapshot_sha256"] == (
+        sha256_payload(pending_home)
+    )
     assert pending_next_command["authority"]["selector_can_execute_commands"] is False
     assert pending_next_command["policy"]["does_not_create_artifacts"] is True
     assert pending_next_command["policy"]["does_not_execute_commands"] is True
@@ -4975,6 +4979,7 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert "## Command" in pending_next_command_markdown
     assert "Command SHA-256:" in pending_next_command_markdown
     assert "Home command SHA-256:" in pending_next_command_markdown
+    assert "Home snapshot SHA-256:" in pending_next_command_markdown
     assert "## Safety" in pending_next_command_markdown
     assert_matches_schema_payload(pending_next_command, "operator_next_command")
     assert validate_operator_next_command_payload(
@@ -5006,6 +5011,21 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert "operator_next_command source command sha256 mismatch" in (
         validate_operator_next_command_payload(
             tampered_source_next_command,
+            run_dir=run_dir,
+            experiments_dir=repo / "experiments",
+            repo_root=repo,
+        )
+    )
+    tampered_source_snapshot_next_command = {
+        **pending_next_command,
+        "source_home": {
+            **pending_next_command["source_home"],
+            "home_snapshot_sha256": "0" * 64,
+        },
+    }
+    assert "operator_next_command source home snapshot sha256 mismatch" in (
+        validate_operator_next_command_payload(
+            tampered_source_snapshot_next_command,
             run_dir=run_dir,
             experiments_dir=repo / "experiments",
             repo_root=repo,
@@ -33633,6 +33653,13 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert operator_home_payload["authority"]["home_can_execute_commands"] is False
     assert_matches_schema_payload(operator_home_payload, "operator_home")
     assert operator_home_result_current_errors == ()
+    operator_next_command = operator_next_command_report(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+    )
+    operator_next_command_markdown = render_operator_next_command_markdown(
+        operator_next_command
+    )
     assert operator_next_command["schema_version"] == (
         OPERATOR_NEXT_COMMAND_SCHEMA_VERSION
     )
@@ -33640,33 +33667,35 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert operator_next_command["run_id"] == "cli-candidates"
     assert operator_next_command["selection_source"] == "operator_home.next_command"
     assert operator_next_command["label"] == (
-        operator_home["action_home"]["next_command_label"]
+        operator_home_payload["action_home"]["next_command_label"]
     )
-    assert operator_next_command["command"] == operator_home["next_command"]["command"]
+    assert operator_next_command["command"] == (
+        operator_home_payload["next_command"]["command"]
+    )
     assert operator_next_command["command_sha256"] == sha256_text(
         operator_next_command["command"]
     )
     assert operator_next_command["status"] == (
-        operator_home["action_home"]["next_command_status"]
+        operator_home_payload["action_home"]["next_command_status"]
     )
     assert operator_next_command["blocked"] == (
-        operator_home["action_home"]["next_command_blocked"]
+        operator_home_payload["action_home"]["next_command_blocked"]
     )
     assert operator_next_command["blocker_count"] == (
-        operator_home["action_home"]["next_command_blocker_count"]
+        operator_home_payload["action_home"]["next_command_blocker_count"]
     )
     assert operator_next_command["operator_hint"] == (
-        operator_home["action_home"]["next_command_operator_hint"]
+        operator_home_payload["action_home"]["next_command_operator_hint"]
     )
     assert operator_next_command["navigation"]["can_invoke_selected_command"] == (
-        not operator_home["action_home"]["next_command_blocked"]
+        not operator_home_payload["action_home"]["next_command_blocked"]
     )
     assert operator_next_command["navigation"]["summary"]
     assert operator_next_command["navigation"]["codex_next_step"] == (
-        operator_home["codex_home"]["next_step"]
+        operator_home_payload["codex_home"]["next_step"]
     )
     assert operator_next_command["boundary_type"] == (
-        operator_home["action_home"]["next_command_boundary"]
+        operator_home_payload["action_home"]["next_command_boundary"]
     )
     assert operator_next_command["safety"]["command_is_hint_only"] is True
     assert operator_next_command["source_home"]["artifact_created"] is False
@@ -33726,6 +33755,95 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert "# Operator Home" in operator_home_latest_markdown_result.stdout
     assert "cli-candidates" in operator_home_latest_markdown_result.stdout
+    operator_next_command_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "next-command",
+            "cli-candidates",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    operator_next_command_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "next-command",
+            "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    operator_next_command_module_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.operator_home",
+            "experiments/cli-candidates",
+            "--next-command",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    operator_next_command_module_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.operator_home",
+            "experiments/cli-candidates",
+            "--next-command",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    operator_next_command_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "next-command",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    operator_next_command_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "next-command",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     assert operator_next_command_result.returncode == 0, (
         operator_next_command_result.stderr
     )

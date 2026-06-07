@@ -69,6 +69,9 @@ python -m orchestrator.experiments quality-trace <run_id> --markdown
 python -m orchestrator.experiments quality-trace --latest --markdown
 python -m orchestrator.experiments profile-recommendation <run_id> --markdown
 python -m orchestrator.experiments profile-recommendation --latest --markdown
+python -m orchestrator.experiments challenger <run_id> --markdown
+python -m orchestrator.experiments challenger --latest --markdown
+python -m orchestrator.experiments promotion-dry-run --latest --markdown
 python -m orchestrator.experiments slots <run_id>
 python -m orchestrator.experiments slots <run_id> --markdown
 python -m orchestrator.experiments slots --latest --markdown
@@ -463,10 +466,11 @@ is read-only: it does not write config, promote champions, execute agents, run
 backtests, route candidates, apply patches, or change acceptance.
 `python -m orchestrator.experiments challenger <run_id>` writes or refreshes
 `candidate_challenger_report.json` and `candidate_challenger_report.md` for the
-selected run, then prints the same payload. `challenger --markdown` renders the
-report for terminal inspection. The command is inspection-only: it does not
-promote champions, route agents, execute agents, run backtests, apply patches,
-or change acceptance.
+selected run, then prints the same payload. `challenger --latest` resolves the
+newest indexed iteration-loop run. `challenger --markdown` renders the report
+for terminal inspection. The command is inspection-only: it does not promote
+champions, route agents, execute agents, run backtests, apply patches, or change
+acceptance.
 `python -m orchestrator.experiments profile-recommendation <run_id>` returns
 the saved or recomputed `modifier_profile_recommendation.json`; use
 `profile-recommendation --latest` to resolve the latest indexed iteration run.
@@ -1545,7 +1549,8 @@ Replay artifacts:
   cannot promote champions, route agents, run backtests, apply patches, or
   change acceptance. The direct module `--markdown` mode and
   `python -m orchestrator.experiments challenger <run_id> --markdown` render
-  the report as terminal markdown.
+  the report as terminal markdown; `challenger --latest` resolves the newest
+  indexed iteration-loop run.
 - `champion_promotion_dry_run.json` and `champion_promotion_dry_run.md`
   preview whether the completed run would satisfy the deterministic champion
   promotion comparison against the current champion. The writer and artifact
@@ -1555,7 +1560,8 @@ Replay artifacts:
   agents, run backtests, apply patches, route agents, or change acceptance.
   The direct module `--markdown` mode and
   `python -m orchestrator.experiments promotion-dry-run <run_id> --markdown`
-  render the same preview as terminal markdown. Actual guarded promotion uses
+  render the same preview as terminal markdown; `promotion-dry-run --latest`
+  resolves the newest indexed iteration-loop run. Actual guarded promotion uses
   the explicit `experiments promote-approved` command.
 - `champion_promotion_approval.json` and `champion_promotion_approval.md`
   record operator review intent, required confirmation phrase hashes, reviewed

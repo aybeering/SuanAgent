@@ -7479,7 +7479,12 @@ def main() -> None:
         "challenger",
         help="Write and show the candidate-vs-champion challenger report.",
     )
-    challenger_parser.add_argument("run_id")
+    challenger_parser.add_argument("run_id", nargs="?")
+    challenger_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     challenger_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -7490,7 +7495,12 @@ def main() -> None:
         "promotion-dry-run",
         help="Write and show the read-only champion promotion dry-run.",
     )
-    promotion_dry_run_parser.add_argument("run_id")
+    promotion_dry_run_parser.add_argument("run_id", nargs="?")
+    promotion_dry_run_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     promotion_dry_run_parser.add_argument("--min-ev-delta", type=float, default=0.0)
     promotion_dry_run_parser.add_argument(
         "--markdown",
@@ -8081,8 +8091,11 @@ def main() -> None:
             print(render_candidate_quality_trace_markdown(payload), end="")
             return
     elif args.command == "challenger":
+        run_id = (None if args.latest else args.run_id) or latest_iteration_run_id(
+            experiments_dir=args.experiments_dir
+        )
         _, _, payload = write_candidate_challenger_report(
-            run_dir=args.experiments_dir / args.run_id,
+            run_dir=args.experiments_dir / run_id,
             experiments_dir=args.experiments_dir,
             repo_root=args.experiments_dir.parent,
         )
@@ -8095,8 +8108,11 @@ def main() -> None:
             write_champion_promotion_dry_run,
         )
 
+        run_id = (None if args.latest else args.run_id) or latest_iteration_run_id(
+            experiments_dir=args.experiments_dir
+        )
         _, _, payload = write_champion_promotion_dry_run(
-            run_dir=args.experiments_dir / args.run_id,
+            run_dir=args.experiments_dir / run_id,
             experiments_dir=args.experiments_dir,
             repo_root=args.experiments_dir.parent,
             min_ev_delta=args.min_ev_delta,

@@ -83,6 +83,8 @@ python -m orchestrator.experiments candidates --latest --limit 5 --markdown
 python -m orchestrator.experiments agents --latest --markdown
 python -m orchestrator.experiments quality-trace --latest --markdown
 python -m orchestrator.experiments profile-recommendation --latest --markdown
+python -m orchestrator.experiments challenger --latest --markdown
+python -m orchestrator.experiments promotion-dry-run --latest --markdown
 python -m orchestrator.experiments slots --latest --markdown
 python -m orchestrator.experiments readiness --latest --markdown
 python -m orchestrator.experiments sandbox --latest --markdown

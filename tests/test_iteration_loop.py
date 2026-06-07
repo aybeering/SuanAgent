@@ -31639,6 +31639,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    challenger_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "challenger",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    challenger_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "challenger",
+            "--latest",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     promotion_result = subprocess.run(
         [
             sys.executable,
@@ -31688,6 +31719,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "experiments",
             "promotion-dry-run",
             "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    promotion_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "promotion-dry-run",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    promotion_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "promotion-dry-run",
+            "--latest",
             "--markdown",
         ],
         cwd=repo,
@@ -33435,6 +33497,25 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     )
     assert "cli-candidates" in challenger_experiments_markdown_result.stdout
     assert "promote champions" in challenger_experiments_markdown_result.stdout
+    assert challenger_latest_result.returncode == 0, challenger_latest_result.stderr
+    challenger_latest_payload = json.loads(challenger_latest_result.stdout)
+    assert challenger_latest_payload["run_id"] == "cli-candidates"
+    assert challenger_latest_payload["schema_version"] == (
+        CANDIDATE_CHALLENGER_SCHEMA_VERSION
+    )
+    assert challenger_latest_payload["status"] == challenger_payload["status"]
+    assert challenger_latest_payload["policy"]["does_not_promote_champion"] is True
+    assert_matches_schema_payload(
+        challenger_latest_payload,
+        "candidate_challenger_report",
+    )
+    assert challenger_latest_markdown_result.returncode == 0, (
+        challenger_latest_markdown_result.stderr
+    )
+    assert "# Candidate Challenger Report" in (
+        challenger_latest_markdown_result.stdout
+    )
+    assert "cli-candidates" in challenger_latest_markdown_result.stdout
     assert validate_candidate_challenger_report_payload(
         challenger_payload,
         run_dir=repo / "experiments/cli-candidates",
@@ -33489,6 +33570,26 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "explicit deterministic promote command" in (
         promotion_experiments_markdown_result.stdout
     )
+    assert promotion_latest_result.returncode == 0, promotion_latest_result.stderr
+    promotion_latest_payload = json.loads(promotion_latest_result.stdout)
+    assert promotion_latest_payload["run_id"] == "cli-candidates"
+    assert promotion_latest_payload["schema_version"] == (
+        CHAMPION_PROMOTION_DRY_RUN_SCHEMA_VERSION
+    )
+    assert promotion_latest_payload["status"] == promotion_payload["status"]
+    assert promotion_latest_payload["dry_run_decision"]["would_promote"] is False
+    assert promotion_latest_payload["policy"][
+        "requires_explicit_promote_command"
+    ] is True
+    assert_matches_schema_payload(
+        promotion_latest_payload,
+        "champion_promotion_dry_run",
+    )
+    assert promotion_latest_markdown_result.returncode == 0, (
+        promotion_latest_markdown_result.stderr
+    )
+    assert "# Champion Promotion Dry Run" in promotion_latest_markdown_result.stdout
+    assert "cli-candidates" in promotion_latest_markdown_result.stdout
     assert validate_champion_promotion_dry_run_file(
         payload_path=repo / "experiments/cli-candidates/champion_promotion_dry_run.json",
         repo_root=repo,

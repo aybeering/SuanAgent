@@ -142,6 +142,7 @@
       "type": "object",
       "required": [
         "preflight_status",
+        "preflight_next_step",
         "unlock_runbook_status",
         "unlock_runbook_ready",
         "unlock_runbook_blocked_step_count",
@@ -163,6 +164,7 @@
       ],
       "properties": {
         "preflight_status": {"type": "string"},
+        "preflight_next_step": {"type": "string"},
         "unlock_runbook_status": {"type": "string"},
         "unlock_runbook_ready": {"type": "boolean"},
         "unlock_runbook_blocked_step_count": {"type": "integer"},

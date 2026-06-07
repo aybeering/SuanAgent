@@ -4994,6 +4994,9 @@ def operator_view_refresh_home_summary(
         "action_step": str(action_home.get("active_step_id", "")),
         "action_guide_status": str(action_home.get("guide_status", "")),
         "codex_preflight_status": str(codex_home.get("preflight_status", "")),
+        "codex_preflight_next_step": str(
+            codex_home.get("preflight_next_step", "")
+        ),
         "codex_unlock_runbook_status": str(
             codex_home.get("unlock_runbook_status", "")
         ),

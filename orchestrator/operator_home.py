@@ -754,10 +754,25 @@ def guided_path_step_by_id(
     return {}
 
 
+def panel_by_id(
+    panels: list[dict[str, Any]],
+    panel_id: str,
+) -> dict[str, Any]:
+    """Return one cockpit panel by id."""
+    for panel_row in panels:
+        if str(panel_row.get("panel_id", "")) == panel_id:
+            return panel_row
+    return {}
+
+
 def codex_home_summary(cockpit: dict[str, Any]) -> dict[str, object]:
     """Return the Codex CLI readiness summary shown on the home page."""
     summary = object_field(cockpit, "summary")
     intake = object_field(cockpit, "codex_intake_readiness")
+    unlock_panel = panel_by_id(
+        list_of_dicts(cockpit.get("panels", [])),
+        "codex_cli_unlock",
+    )
     command = command_for_label(
         list_of_dicts(cockpit.get("recommended_commands", [])),
         "review_codex_cli_readiness_diff",
@@ -770,6 +785,7 @@ def codex_home_summary(cockpit: dict[str, Any]) -> dict[str, object]:
     runbook_command_text = str(runbook_command.get("command", ""))
     return {
         "preflight_status": str(summary.get("codex_preflight_status", "")),
+        "preflight_next_step": str(unlock_panel.get("next_step", "")),
         "unlock_runbook_status": str(
             summary.get("codex_unlock_runbook_status", "")
         ),
@@ -920,6 +936,7 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
         "## Codex CLI",
         "",
         f"- Preflight: `{codex_home.get('preflight_status', '')}`",
+        f"- Preflight next step: {codex_home.get('preflight_next_step', '')}",
         f"- Unlock runbook: `{codex_home.get('unlock_runbook_status', '')}`",
         f"- Unlock runbook ready: `{codex_home.get('unlock_runbook_ready', False)}`",
         f"- Unlock runbook blocked steps: `{codex_home.get('unlock_runbook_blocked_step_count', 0)}`",
@@ -1370,6 +1387,8 @@ def validate_operator_home_consistency(
         if action_home.get(field_name) != expected_action_home.get(field_name):
             errors.append(f"operator_home action_home {field_name} mismatch")
     for field_name in (
+        "preflight_status",
+        "preflight_next_step",
         "unlock_runbook_status",
         "unlock_runbook_ready",
         "readiness_diff_status",

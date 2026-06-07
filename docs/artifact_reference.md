@@ -591,7 +591,7 @@ orchestrator.operator_home experiments/<run_id>` expose a terminal-only
 The home view derives from the current cockpit and action guide, then combines
 run outcome, primary focus, guided action path, next command, next-command
 safety flags, cockpit review priority, compact Codex CLI
-preflight/unlock-runbook/readiness/intake-binding status, compact
+preflight status and next step, unlock-runbook/readiness/intake-binding status, compact
 command-center rows, blockers, and source view records into one operator
 landing page. The safety flags surface whether the next command is hint-only,
 requires explicit operator invocation, needs prior approval, records an
@@ -811,7 +811,7 @@ config lineage, operator action dashboard, Codex CLI execution preflight,
 standalone operator unlock checklist, Codex CLI unlock runbook, Codex CLI execution readiness diff,
 candidate challenger report, champion-promotion dry-run, promotion approval,
 and scope-health status into a single read-only operator page. The Codex CLI
-panels expose startup preflight status, real-execution profile counts,
+panels expose startup preflight status and next step, real-execution profile counts,
 operator-unlock readiness counts, preflight blockers, grouped checklist status,
 ordered runbook status, readiness diff missing/drift counts, and the shared Codex intake-binding
 status, but they do not unlock or execute

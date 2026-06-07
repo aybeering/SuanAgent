@@ -6780,6 +6780,7 @@ def _minimal_operator_view_refresh_payload() -> dict[str, object]:
             "action_step": "dashboard_review",
             "action_guide_status": "path_closed",
             "codex_preflight_status": "no_real_execution_profiles",
+            "codex_preflight_next_step": "",
             "codex_unlock_runbook_status": "needs_artifacts",
             "codex_unlock_runbook_ready": False,
             "codex_unlock_runbook_blocked_step_count": 0,
@@ -30987,6 +30988,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert operator_home["guided_path"]["completed_step_count"] == 4
     assert operator_home["codex_home"]["preflight_status"] == (
         cockpit["summary"]["codex_preflight_status"]
+    )
+    codex_unlock_panel = next(
+        row for row in cockpit["panels"] if row["panel_id"] == "codex_cli_unlock"
+    )
+    assert operator_home["codex_home"]["preflight_next_step"] == (
+        codex_unlock_panel["next_step"]
     )
     assert operator_home["codex_home"]["unlock_runbook_status"] == (
         cockpit["summary"]["codex_unlock_runbook_status"]

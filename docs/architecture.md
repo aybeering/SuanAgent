@@ -258,9 +258,10 @@ The unlock checklist, unlock runbook, readiness diff, cockpit, and home share a
 `codex_intake_readiness` summary. It makes selected-attempt intake-binding
 state visible to operators without becoming an unlock approval, command
 executor, patch gate, or acceptance authority.
-The terminal-only operator home view copies the cockpit's Codex preflight,
-unlock-runbook, readiness-diff, intake-binding status, and champion-promotion
-follow-up state into a compact first-screen summary and points back to the
+The terminal-only operator home view copies the cockpit's Codex preflight
+status, preflight next step, unlock-runbook, readiness-diff, intake-binding
+status, and champion-promotion follow-up state into a compact first-screen
+summary and points back to the
 saved unlock checklist, unlock runbook, readiness diff, promotion approval,
 promotion receipt, lineage refresh, and champion-status command hints. After a
 successful promotion receipt, the home view recommends lineage refresh only

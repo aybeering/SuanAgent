@@ -4987,6 +4987,9 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert pending_next_command["source_home"]["home_snapshot_sha256"] == (
         sha256_payload(pending_home)
     )
+    assert pending_next_command["source_home"]["home_source_views_sha256"] == (
+        pending_home["source_views_sha256"]
+    )
     assert pending_next_command["authority"]["selector_can_execute_commands"] is False
     assert pending_next_command["policy"]["does_not_create_artifacts"] is True
     assert pending_next_command["policy"]["does_not_execute_commands"] is True
@@ -4995,6 +4998,7 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert "Command SHA-256:" in pending_next_command_markdown
     assert "Home command SHA-256:" in pending_next_command_markdown
     assert "Home snapshot SHA-256:" in pending_next_command_markdown
+    assert "Home source views SHA-256:" in pending_next_command_markdown
     assert "## Safety" in pending_next_command_markdown
     assert_matches_schema_payload(pending_next_command, "operator_next_command")
     assert validate_operator_next_command_payload(
@@ -5041,6 +5045,22 @@ def test_operator_action_dashboard_summarizes_next_operator_step(
     assert "operator_next_command source home snapshot sha256 mismatch" in (
         validate_operator_next_command_payload(
             tampered_source_snapshot_next_command,
+            run_dir=run_dir,
+            experiments_dir=repo / "experiments",
+            repo_root=repo,
+        )
+    )
+    tampered_source_views_next_command = {
+        **pending_next_command,
+        "source_home": {
+            **pending_next_command["source_home"],
+            "home_source_views_sha256": "0" * 64,
+        },
+    }
+    assert (
+        "operator_next_command source home source_views_sha256 mismatch"
+        in validate_operator_next_command_payload(
+            tampered_source_views_next_command,
             run_dir=run_dir,
             experiments_dir=repo / "experiments",
             repo_root=repo,
@@ -33682,6 +33702,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     operator_next_command_markdown = render_operator_next_command_markdown(
         operator_next_command
     )
+    latest_home_for_next_command = build_operator_home(
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
     assert operator_next_command["schema_version"] == (
         OPERATOR_NEXT_COMMAND_SCHEMA_VERSION
     )
@@ -33726,6 +33751,9 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert operator_next_command["source_home"]["command_sha256"] == sha256_text(
         operator_next_command["source_home"]["command"]
     )
+    assert operator_next_command["source_home"]["home_source_views_sha256"] == (
+        latest_home_for_next_command["source_views_sha256"]
+    )
     assert operator_next_command["policy"]["does_not_create_artifacts"] is True
     assert operator_next_command["policy"]["does_not_execute_commands"] is True
     assert (
@@ -33745,6 +33773,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "Can invoke selected command:" in operator_next_command_markdown
     assert "Command SHA-256:" in operator_next_command_markdown
     assert "Home command SHA-256:" in operator_next_command_markdown
+    assert "Home source views SHA-256:" in operator_next_command_markdown
     assert "Selection source: `operator_home.next_command`" in (
         operator_next_command_markdown
     )
@@ -33870,6 +33899,11 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         operator_next_command_result.stderr
     )
     operator_next_command_payload = json.loads(operator_next_command_result.stdout)
+    current_home_for_cli_next_command = build_operator_home(
+        run_dir=repo / "experiments/cli-candidates",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
     assert operator_next_command_payload["schema_version"] == (
         OPERATOR_NEXT_COMMAND_SCHEMA_VERSION
     )
@@ -33903,6 +33937,9 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         operator_home_payload["action_home"]["next_command_boundary"]
     )
     assert operator_next_command_payload["safety"]["command_is_hint_only"] is True
+    assert operator_next_command_payload["source_home"][
+        "home_source_views_sha256"
+    ] == current_home_for_cli_next_command["source_views_sha256"]
     assert operator_next_command_payload["policy"]["does_not_execute_commands"] is True
     assert_matches_schema_payload(
         operator_next_command_payload,
@@ -33924,6 +33961,9 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "Can invoke selected command:" in operator_next_command_markdown_result.stdout
     assert "Command SHA-256:" in operator_next_command_markdown_result.stdout
     assert "Home command SHA-256:" in operator_next_command_markdown_result.stdout
+    assert "Home source views SHA-256:" in (
+        operator_next_command_markdown_result.stdout
+    )
     assert "Selection source: `operator_home.next_command`" in (
         operator_next_command_markdown_result.stdout
     )

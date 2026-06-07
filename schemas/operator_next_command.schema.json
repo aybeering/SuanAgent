@@ -125,6 +125,7 @@
         "command",
         "command_sha256",
         "home_snapshot_sha256",
+        "home_source_views_sha256",
         "boundary_type"
       ],
       "properties": {
@@ -139,6 +140,10 @@
           "pattern": "^[0-9a-f]{64}$"
         },
         "home_snapshot_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "home_source_views_sha256": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
         },

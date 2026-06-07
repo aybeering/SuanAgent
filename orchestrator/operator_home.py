@@ -301,6 +301,7 @@ def build_operator_next_command(
             "command": home_command,
             "command_sha256": sha256_text(home_command),
             "home_snapshot_sha256": home_snapshot_sha256,
+            "home_source_views_sha256": str(home.get("source_views_sha256", "")),
             "boundary_type": "read_only_inspection",
         },
         "authority": {
@@ -1238,6 +1239,8 @@ def render_operator_next_command_markdown(payload: dict[str, object]) -> str:
         f"- Home command: `{source_home.get('command', '')}`",
         f"- Home command SHA-256: `{source_home.get('command_sha256', '')}`",
         f"- Home snapshot SHA-256: `{source_home.get('home_snapshot_sha256', '')}`",
+        "- Home source views SHA-256: "
+        f"`{source_home.get('home_source_views_sha256', '')}`",
         f"- Source boundary: `{source_home.get('boundary_type', '')}`",
         f"- Source terminal-only: `{source_home.get('terminal_only', False)}`",
         f"- Source creates artifact: `{source_home.get('artifact_created', True)}`",
@@ -1366,6 +1369,12 @@ def validate_operator_next_command_consistency(
         errors.append("operator_next_command source command sha256 mismatch")
     if str(source_home.get("home_snapshot_sha256", "")) != sha256_payload(home):
         errors.append("operator_next_command source home snapshot sha256 mismatch")
+    if str(source_home.get("home_source_views_sha256", "")) != str(
+        home.get("source_views_sha256", "")
+    ):
+        errors.append(
+            "operator_next_command source home source_views_sha256 mismatch"
+        )
     expected = build_operator_next_command(
         run_dir=run_dir,
         experiments_dir=experiments_dir,
@@ -1423,6 +1432,7 @@ def validate_operator_next_command_consistency(
         "command",
         "command_sha256",
         "home_snapshot_sha256",
+        "home_source_views_sha256",
         "boundary_type",
     ):
         if source_home.get(field_name) != expected_source.get(field_name):

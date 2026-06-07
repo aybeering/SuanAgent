@@ -29822,6 +29822,41 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         text=True,
         check=False,
     )
+    latest_candidates_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "candidates",
+            "--latest",
+            "--limit",
+            "1",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    latest_candidates_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "candidates",
+            "--latest",
+            "--limit",
+            "1",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     review_result = subprocess.run(
         [
             sys.executable,
@@ -29893,6 +29928,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "experiments",
             "agents",
             "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    agents_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "agents",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    agents_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "agents",
+            "--latest",
             "--markdown",
         ],
         cwd=repo,
@@ -30751,6 +30817,37 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
             "experiments",
             "quality-trace",
             "cli-candidates",
+            "--markdown",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    trace_latest_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "quality-trace",
+            "--latest",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    trace_latest_markdown_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "orchestrator.experiments",
+            "--experiments-dir",
+            "experiments",
+            "quality-trace",
+            "--latest",
             "--markdown",
         ],
         cwd=repo,
@@ -31649,6 +31746,16 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "# Candidate Leaderboard" in markdown_result.stdout
     assert "cli-candidates" in markdown_result.stdout
     assert "Routes candidates: `False`" in markdown_result.stdout
+    assert latest_candidates_result.returncode == 0, latest_candidates_result.stderr
+    latest_candidates_payload = json.loads(latest_candidates_result.stdout)
+    assert len(latest_candidates_payload) == 1
+    assert latest_candidates_payload[0]["run_id"] == "cli-candidates"
+    assert_matches_schema_payload(latest_candidates_payload, "candidate_leaderboard")
+    assert latest_candidates_markdown_result.returncode == 0, (
+        latest_candidates_markdown_result.stderr
+    )
+    assert "# Candidate Leaderboard" in latest_candidates_markdown_result.stdout
+    assert "cli-candidates" in latest_candidates_markdown_result.stdout
     assert review_result.returncode == 0, review_result.stderr
     review_payload = json.loads(review_result.stdout)
     assert review_payload["schema_version"] == "operator_run_review_v1"
@@ -31672,6 +31779,16 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "cli-candidates" in agents_markdown_result.stdout
     assert "## Round Replays" in agents_markdown_result.stdout
     assert "Routes candidates: `False`" in agents_markdown_result.stdout
+    assert agents_latest_result.returncode == 0, agents_latest_result.stderr
+    agents_latest_payload = json.loads(agents_latest_result.stdout)
+    assert agents_latest_payload["run_id"] == "cli-candidates"
+    assert agents_latest_payload["schema_version"] == "agent_result_stats_v1"
+    assert_matches_schema_payload(agents_latest_payload, "agent_result_stats")
+    assert agents_latest_markdown_result.returncode == 0, (
+        agents_latest_markdown_result.stderr
+    )
+    assert "# Agent Result Stats" in agents_latest_markdown_result.stdout
+    assert "cli-candidates" in agents_latest_markdown_result.stdout
     assert validate_operator_action_plan_payload(
         action_plan_payload,
         run_dir=repo / "experiments/cli-candidates",
@@ -32473,6 +32590,17 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert "Run: `cli-candidates`" in trace_markdown_result.stdout
     assert "## Rounds" in trace_markdown_result.stdout
     assert "cannot change routing or acceptance" in trace_markdown_result.stdout
+    assert trace_latest_result.returncode == 0, trace_latest_result.stderr
+    trace_latest_payload = json.loads(trace_latest_result.stdout)
+    assert trace_latest_payload["schema_version"] == "candidate_quality_trace_v1"
+    assert trace_latest_payload["from_artifact"] is True
+    assert trace_latest_payload["run_id"] == "cli-candidates"
+    assert_matches_schema_payload(trace_latest_payload, "candidate_quality_trace")
+    assert trace_latest_markdown_result.returncode == 0, (
+        trace_latest_markdown_result.stderr
+    )
+    assert "# Candidate Quality Trace" in trace_latest_markdown_result.stdout
+    assert "Run: `cli-candidates`" in trace_latest_markdown_result.stdout
     assert profile_recommendation_result.returncode == 0, (
         profile_recommendation_result.stderr
     )

@@ -3246,11 +3246,12 @@ def validate_experiment_leaderboard_consistency(
 
 def candidate_leaderboard(
     *,
-    run_id: str,
+    run_id: str | None,
     experiments_dir: Path = Path("experiments"),
     limit: int = 20,
 ) -> list[dict[str, object]]:
     """Return ranked candidate attempts for an iteration run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     path = run_dir / "candidate_leaderboard.json"
     if not path.exists():
@@ -3384,10 +3385,11 @@ def candidate_leaderboard_validation_sort_key(
 
 def agent_result_stats(
     *,
-    run_id: str,
+    run_id: str | None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return agent/direction/patch-family aggregate stats for one run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     path = run_dir / "agent_result_stats.json"
     if path.exists():
@@ -3594,10 +3596,11 @@ def validate_proposal_memory_consistency(
 
 def candidate_quality_trace(
     *,
-    run_id: str,
+    run_id: str | None,
     experiments_dir: Path = Path("experiments"),
 ) -> dict[str, object]:
     """Return candidate quality trace for one iteration run."""
+    run_id = run_id or latest_iteration_run_id(experiments_dir=experiments_dir)
     run_dir = experiments_dir / run_id
     path = run_dir / "candidate_quality_trace.json"
     if path.exists():
@@ -7406,8 +7409,13 @@ def main() -> None:
         "candidates",
         help="Show candidate leaderboard for one iteration run.",
     )
-    candidates_parser.add_argument("run_id")
+    candidates_parser.add_argument("run_id", nargs="?")
     candidates_parser.add_argument("--limit", type=int, default=20)
+    candidates_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     candidates_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -7418,7 +7426,12 @@ def main() -> None:
         "agents",
         help="Show aggregate agent, direction, and patch-family result stats.",
     )
-    agents_parser.add_argument("run_id")
+    agents_parser.add_argument("run_id", nargs="?")
+    agents_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     agents_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -7429,7 +7442,12 @@ def main() -> None:
         "quality-trace",
         help="Show candidate quality trace for one iteration run.",
     )
-    quality_trace_parser.add_argument("run_id")
+    quality_trace_parser.add_argument("run_id", nargs="?")
+    quality_trace_parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Resolve the latest indexed iteration-loop run.",
+    )
     quality_trace_parser.add_argument(
         "--markdown",
         action="store_true",
@@ -7969,7 +7987,7 @@ def main() -> None:
     elif args.command == "candidates":
         payload = candidate_leaderboard(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
             limit=args.limit,
         )
         if args.markdown:
@@ -7978,7 +7996,7 @@ def main() -> None:
     elif args.command == "agents":
         payload = agent_result_stats(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(render_agent_result_stats_markdown(payload), end="")
@@ -7986,7 +8004,7 @@ def main() -> None:
     elif args.command == "quality-trace":
         payload = candidate_quality_trace(
             experiments_dir=args.experiments_dir,
-            run_id=args.run_id,
+            run_id=None if args.latest else args.run_id,
         )
         if args.markdown:
             print(render_candidate_quality_trace_markdown(payload), end="")

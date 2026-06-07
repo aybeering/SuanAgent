@@ -55,10 +55,13 @@ python -m orchestrator.experiments diagnose <run_id>
 python -m orchestrator.experiments diagnose <run_id> --markdown
 python -m orchestrator.experiments candidates <run_id> --limit 5
 python -m orchestrator.experiments candidates <run_id> --limit 5 --markdown
+python -m orchestrator.experiments candidates --latest --limit 5 --markdown
 python -m orchestrator.experiments agents <run_id>
 python -m orchestrator.experiments agents <run_id> --markdown
+python -m orchestrator.experiments agents --latest --markdown
 python -m orchestrator.experiments quality-trace <run_id>
 python -m orchestrator.experiments quality-trace <run_id> --markdown
+python -m orchestrator.experiments quality-trace --latest --markdown
 python -m orchestrator.experiments slots <run_id>
 python -m orchestrator.experiments slots <run_id> --markdown
 python -m orchestrator.experiments slots --latest --markdown

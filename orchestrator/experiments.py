@@ -179,6 +179,14 @@ EXPERIMENT_SUMMARY_DASHBOARD_SCHEMA_PATH = Path(
     "schemas/experiment_summary_dashboard.schema.json"
 )
 OPERATOR_RUN_REVIEW_SCHEMA_PATH = Path("schemas/operator_run_review.schema.json")
+OPERATOR_RUN_REVIEW_GATE_ARTIFACTS = {
+    "artifact_health": "run_closeout.json",
+    "scope_health": "experiment_scope_health.json",
+    "config_lineage": "config_lineage.json",
+    "candidate_quality_trace": "candidate_quality_trace.json",
+    "champion_review": "candidate_challenger_report.json",
+    "promotion_review": "champion_promotion_approval.json",
+}
 WATCHLIST_REVIEW_COMMANDS_WITHOUT_RUN_ID = frozenset(
     {"list", "leaderboard", "memory", "health-history", "champion"}
 )
@@ -4642,6 +4650,11 @@ def operator_run_review(
             ),
         },
         "dashboard": dashboard,
+        "gate_artifacts": operator_run_review_gate_artifacts(
+            dashboard=dashboard,
+            repo_root=experiments_dir.parent,
+            run_dir=run_dir,
+        ),
         "policy": {
             "inspection_only": True,
             "reads_saved_artifacts_only": True,
@@ -4663,6 +4676,36 @@ def operator_run_review(
             "operator run review failed schema validation: " + "; ".join(errors)
         )
     return payload
+
+
+def operator_run_review_gate_artifacts(
+    *,
+    dashboard: dict[str, object],
+    repo_root: Path,
+    run_dir: Path,
+) -> list[dict[str, object]]:
+    """Return current file records for operator dashboard gate artifacts."""
+    rows: list[dict[str, object]] = []
+    for gate in list_payload(dashboard.get("gates", [])):
+        gate_name = str(gate.get("gate_name", ""))
+        artifact_path = str(gate.get("artifact_path", ""))
+        expected_path = OPERATOR_RUN_REVIEW_GATE_ARTIFACTS.get(gate_name, "")
+        resolved_path = Path(
+            resolve_run_artifact_path(
+                expected_path or artifact_path,
+                repo_root=repo_root,
+                run_dir=run_dir,
+            )
+        )
+        rows.append(
+            {
+                "gate_name": gate_name,
+                "artifact_path": artifact_path,
+                "expected_artifact_path": expected_path,
+                "file": refresh_file_record(resolved_path, repo_root=repo_root),
+            }
+        )
+    return rows
 
 
 def render_operator_run_review_markdown(payload: dict[str, object]) -> str:
@@ -4711,16 +4754,22 @@ def render_operator_run_review_markdown(payload: dict[str, object]) -> str:
         "",
         "## Gates",
         "",
-        "| Gate | OK | Status | Artifact |",
-        "| --- | --- | --- | --- |",
+        "| Gate | OK | Status | Artifact | SHA-256 |",
+        "| --- | --- | --- | --- | --- |",
     ]
+    artifact_rows = list_payload(payload.get("gate_artifacts", []))
+    artifact_by_gate = {str(row.get("gate_name", "")): row for row in artifact_rows}
     for row in list_payload(dashboard.get("gates", [])):
+        artifact = dict_payload(artifact_by_gate.get(str(row.get("gate_name", "")), {}))
+        file_record = dict_payload(artifact.get("file", {}))
+        sha = str(file_record.get("sha256", ""))
         lines.append(
             "| "
             f"{markdown_cell(row.get('gate_name', ''))} | "
             f"{row.get('ok', False)} | "
             f"{markdown_cell(row.get('status', ''))} | "
-            f"`{markdown_cell(row.get('artifact_path', ''))}` |"
+            f"`{markdown_cell(row.get('artifact_path', ''))}` | "
+            f"`{markdown_cell(sha[:12])}` |"
         )
     lines.extend(["", "## Action Items", ""])
     raw_action_items = dashboard.get("operator_action_items", [])
@@ -4838,6 +4887,45 @@ def validate_operator_run_review_consistency(
     errors.extend(
         validate_operator_run_review_dashboard(payload=payload, repo_root=repo_root)
     )
+    errors.extend(
+        validate_operator_run_review_gate_artifacts(
+            payload=payload,
+            repo_root=repo_root,
+            run_dir=run_dir,
+        )
+    )
+    return tuple(errors)
+
+
+def validate_operator_run_review_gate_artifacts(
+    *,
+    payload: dict[str, object],
+    repo_root: Path,
+    run_dir: Path,
+) -> tuple[str, ...]:
+    """Validate gate artifact file records against current run artifacts."""
+    errors: list[str] = []
+    dashboard = dict_payload(payload.get("dashboard", {}))
+    gates = list_payload(dashboard.get("gates", []))
+    rows = list_payload(payload.get("gate_artifacts", []))
+    expected_rows = operator_run_review_gate_artifacts(
+        dashboard=dashboard,
+        repo_root=repo_root,
+        run_dir=run_dir,
+    )
+    if len(rows) != len(gates):
+        errors.append("operator_run_review gate artifact count mismatch")
+    for row, gate, expected in zip(rows, gates, expected_rows, strict=False):
+        if str(row.get("gate_name", "")) != str(gate.get("gate_name", "")):
+            errors.append("operator_run_review gate artifact gate mismatch")
+        if str(row.get("artifact_path", "")) != str(gate.get("artifact_path", "")):
+            errors.append("operator_run_review gate artifact path mismatch")
+        if str(row.get("expected_artifact_path", "")) != str(
+            expected.get("expected_artifact_path", "")
+        ):
+            errors.append("operator_run_review gate artifact expected path mismatch")
+        if dict_payload(row.get("file", {})) != dict_payload(expected.get("file", {})):
+            errors.append("operator_run_review gate artifact file record mismatch")
     return tuple(errors)
 
 
@@ -4858,14 +4946,6 @@ def validate_operator_run_review_dashboard(
     gates_by_name = {str(row.get("gate_name", "")): row for row in gates}
     run_dir = Path(str(payload.get("run_dir", "")))
     expected_quality_source_path = str(run_dir / "candidate_leaderboard.json")
-    expected_gate_artifacts = {
-        "artifact_health": "run_closeout.json",
-        "scope_health": "experiment_scope_health.json",
-        "config_lineage": "config_lineage.json",
-        "candidate_quality_trace": "candidate_quality_trace.json",
-        "champion_review": "candidate_challenger_report.json",
-        "promotion_review": "champion_promotion_approval.json",
-    }
 
     expected_gate_order = [
         "artifact_health",
@@ -4882,8 +4962,8 @@ def validate_operator_run_review_dashboard(
         gate_name = str(row.get("gate_name", ""))
         if not artifact_path:
             errors.append("operator_run_review dashboard gate artifact missing")
-        elif gate_name in expected_gate_artifacts:
-            expected_artifact_path = expected_gate_artifacts[gate_name]
+        elif gate_name in OPERATOR_RUN_REVIEW_GATE_ARTIFACTS:
+            expected_artifact_path = OPERATOR_RUN_REVIEW_GATE_ARTIFACTS[gate_name]
             if resolve_run_artifact_path(
                 artifact_path,
                 repo_root=repo_root,

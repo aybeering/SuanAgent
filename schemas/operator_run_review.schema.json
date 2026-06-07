@@ -14,6 +14,7 @@
     "closeout_ok",
     "summary",
     "dashboard",
+    "gate_artifacts",
     "policy"
   ],
   "properties": {
@@ -56,6 +57,12 @@
     },
     "dashboard": {
       "$ref": "#/$defs/operator_dashboard"
+    },
+    "gate_artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/gate_artifact"
+      }
     },
     "policy": {
       "$ref": "#/$defs/review_policy"
@@ -366,6 +373,60 @@
           "type": "string"
         }
       }
+    },
+    "gate_artifact": {
+      "type": "object",
+      "required": [
+        "gate_name",
+        "artifact_path",
+        "expected_artifact_path",
+        "file"
+      ],
+      "properties": {
+        "gate_name": {
+          "type": "string"
+        },
+        "artifact_path": {
+          "type": "string"
+        },
+        "expected_artifact_path": {
+          "type": "string"
+        },
+        "file": {
+          "$ref": "#/$defs/file_record"
+        }
+      },
+      "additionalProperties": false
+    },
+    "file_record": {
+      "type": "object",
+      "required": [
+        "path",
+        "relative_path",
+        "exists",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "relative_path": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^$|^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false
     },
     "dashboard_authority": {
       "type": "object",

@@ -28029,6 +28029,38 @@ def test_operator_run_review_schema_rejects_missing_dashboard() -> None:
     assert "$: missing required property dashboard" in errors
 
 
+def _minimal_operator_run_review_gate_artifacts() -> list[dict[str, object]]:
+    repo_root = Path(__file__).resolve().parents[1]
+    run_dir = repo_root / "experiments/run"
+    rows = [
+        ("artifact_health", "run_closeout.json"),
+        ("scope_health", "experiment_scope_health.json"),
+        ("config_lineage", "config_lineage.json"),
+        ("candidate_quality_trace", "candidate_quality_trace.json"),
+        ("champion_review", "candidate_challenger_report.json"),
+        ("promotion_review", "champion_promotion_approval.json"),
+    ]
+    artifacts = []
+    for gate_name, artifact_path in rows:
+        path = run_dir / artifact_path
+        data = path.read_bytes() if path.exists() and path.is_file() else b""
+        artifacts.append(
+            {
+                "gate_name": gate_name,
+                "artifact_path": artifact_path,
+                "expected_artifact_path": artifact_path,
+                "file": {
+                    "path": str(path),
+                    "relative_path": f"experiments/run/{artifact_path}",
+                    "exists": path.exists(),
+                    "bytes": len(data),
+                    "sha256": hashlib.sha256(data).hexdigest() if data else "",
+                },
+            }
+        )
+    return artifacts
+
+
 def _minimal_operator_run_review_payload() -> dict[str, object]:
     policy = {
         "inspection_only": True,
@@ -28155,6 +28187,7 @@ def _minimal_operator_run_review_payload() -> dict[str, object]:
             },
             "policy": dict(policy),
         },
+        "gate_artifacts": _minimal_operator_run_review_gate_artifacts(),
         "policy": dict(policy),
     }
 
@@ -28322,6 +28355,24 @@ def test_operator_run_review_rejects_gate_artifact_path_drift() -> None:
     )
 
     assert "operator_run_review dashboard gate artifact path mismatch" in errors
+
+
+def test_operator_run_review_rejects_gate_artifact_file_record_drift() -> None:
+    payload = _minimal_operator_run_review_payload()
+    gate_artifacts = payload["gate_artifacts"]
+    assert isinstance(gate_artifacts, list)
+    scope_artifact = gate_artifacts[1]
+    assert isinstance(scope_artifact, dict)
+    file_record_payload = scope_artifact["file"]
+    assert isinstance(file_record_payload, dict)
+    file_record_payload["sha256"] = "0" * 64
+
+    errors = validate_operator_run_review_payload(
+        payload,
+        repo_root=Path(__file__).resolve().parents[1],
+    )
+
+    assert "operator_run_review gate artifact file record mismatch" in errors
 
 
 def test_compare_experiments_recommends_accepted_metric_winner(
@@ -32797,7 +32848,12 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
         config_path=repo / "config/default.json",
     ) == ()
     assert review["schema_version"] == "operator_run_review_v1"
-    assert validate_operator_run_review_payload(review, repo_root=repo) == ()
+    current_review = operator_run_review(
+        run_id="cli-candidates",
+        experiments_dir=repo / "experiments",
+    )
+    assert validate_operator_run_review_payload(current_review, repo_root=repo) == ()
+    assert current_review["gate_artifacts"][0]["file"]["sha256"]
     assert review["from_artifact"] is True
     assert review["dashboard"]["schema_version"] == "operator_dashboard_v1"
     assert review["dashboard"]["config_review"]["lineage_status"] == "partial"
@@ -33081,7 +33137,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     assert review_result.returncode == 0, review_result.stderr
     review_payload = json.loads(review_result.stdout)
     assert review_payload["schema_version"] == "operator_run_review_v1"
-    assert validate_operator_run_review_payload(review_payload, repo_root=repo) == ()
+    assert_matches_schema_payload(review_payload, "operator_run_review")
     assert review_payload["from_artifact"] is True
     assert review_payload["dashboard"]["schema_version"] == "operator_dashboard_v1"
     assert review_payload["dashboard"]["config_review"]["lineage_status"] == "partial"
@@ -33094,10 +33150,7 @@ def test_experiments_candidate_leaderboard_helpers_and_cli_work(
     review_latest_payload = json.loads(review_latest_result.stdout)
     assert review_latest_payload["run_id"] == "cli-candidates"
     assert review_latest_payload["schema_version"] == "operator_run_review_v1"
-    assert validate_operator_run_review_payload(
-        review_latest_payload,
-        repo_root=repo,
-    ) == ()
+    assert_matches_schema_payload(review_latest_payload, "operator_run_review")
     assert review_latest_payload["from_artifact"] is True
     assert review_latest_markdown_result.returncode == 0, (
         review_latest_markdown_result.stderr

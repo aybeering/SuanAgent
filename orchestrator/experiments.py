@@ -706,7 +706,7 @@ def validate_experiment_operator_next_command_entry(
         blocked=blocked,
         first_blocker=str(operator_home.get("next_command_first_blocker", "")),
         operator_hint=str(operator_next_command.get("operator_hint", "")),
-        codex_next_step=str(operator_home.get("codex_next_step", "")),
+        codex_next_step=str(operator_home.get("codex_preflight_next_step", "")),
     )
     expected_command = (
         f"python -m orchestrator.experiments next-command {run_id} --markdown"
@@ -817,6 +817,13 @@ def validate_experiment_operator_next_command_entry(
                         "experiment_summary_dashboard operator_next_command "
                         f"{error_suffix} mismatch"
                     )
+            if str(operator_next_command.get("codex_preflight_next_step", "")) != str(
+                operator_home.get("codex_preflight_next_step", "")
+            ):
+                errors.append(
+                    "experiment_summary_dashboard operator_next_command "
+                    "codex preflight next step mismatch"
+                )
         else:
             if available or command:
                 errors.append(
@@ -939,7 +946,7 @@ def validate_experiment_operator_navigation_pair(
         blocked=bool(operator_next_command.get("blocked", False)),
         first_blocker=str(operator_home.get("next_command_first_blocker", "")),
         operator_hint=str(operator_next_command.get("operator_hint", "")),
-        codex_next_step=str(operator_home.get("codex_next_step", "")),
+        codex_next_step=str(operator_home.get("codex_preflight_next_step", "")),
     )
     expected_home_command = (
         f"python -m orchestrator.experiments home {run_id} --markdown"
@@ -1044,6 +1051,12 @@ def validate_experiment_operator_navigation_pair(
             field_name
         ):
             errors.append(f"experiment operator navigation {field_name} mismatch")
+    if str(operator_next_command.get("codex_preflight_next_step", "")) != str(
+        operator_home.get("codex_preflight_next_step", "")
+    ):
+        errors.append(
+            "experiment operator navigation codex_preflight_next_step mismatch"
+        )
     if selected_status != str(operator_home.get("next_command_status", "")):
         errors.append("experiment operator navigation selected status mismatch")
     if selected_command != str(operator_home.get("next_command", "")):
@@ -1276,6 +1289,7 @@ def experiment_list_operator_home_hint(
         "next_command_blocker_count": 0,
         "next_command_first_blocker": "",
         "next_command_operator_hint": "",
+        "codex_preflight_next_step": "",
         "next_command_boundary": "",
         "next_command_writes_artifact": "",
         "next_command_requires_explicit_operator_invocation": False,
@@ -1334,6 +1348,9 @@ def experiment_list_operator_home_hint(
         "next_command_operator_hint": str(
             manifest_home.get("next_command_operator_hint", "")
         ),
+        "codex_preflight_next_step": str(
+            manifest_home.get("codex_preflight_next_step", "")
+        ),
         "next_command_boundary": str(manifest_home.get("next_command_boundary", "")),
         "next_command_writes_artifact": str(
             manifest_home.get("next_command_writes_artifact", "")
@@ -1381,6 +1398,7 @@ def experiment_operator_next_command_hint(
         "first_blocker": "",
         "next_step": "Open the operator home and inspect the guided path.",
         "codex_next_step": "",
+        "codex_preflight_next_step": "",
         "command_label": "",
         "command": "",
         "command_sha256": "",
@@ -1418,13 +1436,16 @@ def experiment_operator_next_command_hint(
     )
     selected_command = str(operator_home.get("next_command", ""))
     blocked = bool(operator_home.get("next_command_blocked", False))
+    codex_preflight_next_step = str(
+        operator_home.get("codex_preflight_next_step", "")
+    )
     navigation = experiment_operator_next_command_navigation(
         selected_status=selected_status,
         selected_command=selected_command,
         blocked=blocked,
         first_blocker=str(operator_home.get("next_command_first_blocker", "")),
         operator_hint=str(operator_home.get("next_command_operator_hint", "")),
-        codex_next_step=str(operator_home.get("codex_next_step", "")),
+        codex_next_step=codex_preflight_next_step,
     )
     return {
         **base,
@@ -1437,6 +1458,7 @@ def experiment_operator_next_command_hint(
         ),
         "operator_hint": str(operator_home.get("next_command_operator_hint", "")),
         **navigation,
+        "codex_preflight_next_step": codex_preflight_next_step,
         "command_label": "review_operator_next_command",
         "command": selector_command,
         "command_sha256": sha256_text(selector_command),
@@ -2295,6 +2317,8 @@ def render_experiment_list_markdown(payload: list[dict[str, object]]) -> str:
                 f"{markdown_cell(operator_next_command.get('next_step', '') or 'none')}",
                 "- Codex next step: "
                 f"{markdown_cell(operator_next_command.get('codex_next_step', '') or 'none')}",
+                "- Codex preflight next step: "
+                f"{markdown_cell(operator_next_command.get('codex_preflight_next_step', '') or 'none')}",
                 "- Operator hint: "
                 f"{markdown_cell(operator_next_command.get('operator_hint', '') or 'none')}",
                 "- Writes artifact: "
@@ -2934,6 +2958,8 @@ def render_experiment_show_markdown(payload: dict[str, object]) -> str:
             f"{markdown_cell(operator_next_command.get('next_step', '') or 'none')}",
             "- Codex next step: "
             f"{markdown_cell(operator_next_command.get('codex_next_step', '') or 'none')}",
+            "- Codex preflight next step: "
+            f"{markdown_cell(operator_next_command.get('codex_preflight_next_step', '') or 'none')}",
             "- Operator hint: "
             f"{markdown_cell(operator_next_command.get('operator_hint', '') or 'none')}",
             "- Writes artifact: "

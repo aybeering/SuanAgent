@@ -26279,7 +26279,12 @@ def _minimal_experiment_summary_dashboard_payload() -> dict[str, object]:
             ),
             "first_blocker": "operator_action:approval_missing",
             "next_step": "Review blocker: operator_action:approval_missing",
-            "codex_next_step": "",
+            "codex_next_step": (
+                "keep real Codex execution disabled unless explicitly reviewed"
+            ),
+            "codex_preflight_next_step": (
+                "keep real Codex execution disabled unless explicitly reviewed"
+            ),
             "command_label": "review_operator_next_command",
             "command": (
                 "python -m orchestrator.experiments next-command "
@@ -26430,6 +26435,8 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
     operator_next_command["can_invoke_selected_command"] = False
     operator_next_command["navigation_summary"] = "ready"
     operator_next_command["next_step"] = "run unsafe command"
+    operator_next_command["codex_next_step"] = "wrong codex step"
+    operator_next_command["codex_preflight_next_step"] = "wrong codex step"
     watchlist["alert_count"] = 2
     watchlist["severity_counts"] = {"critical": 1, "warning": 0, "info": 0}
     watchlist["status"] = "critical"
@@ -26510,6 +26517,14 @@ def test_experiment_summary_dashboard_validation_reports_counter_drift() -> None
         "experiment_summary_dashboard operator_next_command next step mismatch"
         in errors
     )
+    assert (
+        "experiment_summary_dashboard operator_next_command codex next step mismatch"
+        in errors
+    )
+    assert (
+        "experiment_summary_dashboard operator_next_command "
+        "codex preflight next step mismatch"
+    ) in errors
     assert "experiment_summary_dashboard operator_next_command terminal mismatch" in errors
     assert "experiment_summary_dashboard operator_next_command artifact mismatch" in errors
     assert "experiment_summary_dashboard operator_next_command hint mismatch" in errors
@@ -26629,6 +26644,26 @@ def test_experiment_operator_navigation_pair_rejects_misleading_commands() -> No
     assert (
         "experiment operator navigation selected command digest mismatch"
         in digest_errors
+    )
+
+    preflight_next_command = dict(
+        payload["operator_next_command_entry"]  # type: ignore[arg-type]
+    )
+    preflight_next_command["codex_next_step"] = "wrong codex step"
+    preflight_next_command["codex_preflight_next_step"] = "wrong codex step"
+
+    preflight_errors = validate_experiment_operator_navigation_pair(
+        operator_home=operator_home,
+        operator_next_command=preflight_next_command,
+        run_id="run-001",
+        run_kind="iteration_loop",
+    )
+
+    assert "experiment operator navigation codex_next_step mismatch" in (
+        preflight_errors
+    )
+    assert "experiment operator navigation codex_preflight_next_step mismatch" in (
+        preflight_errors
     )
 
     operator_next_command["selected_command"] = ""
@@ -28249,6 +28284,13 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
         "operator_approval_receipt"
     )
     assert list_payload[1]["operator_next_command"]["blocked"] is True
+    assert list_payload[1]["operator_home"]["codex_preflight_next_step"]
+    assert list_payload[1]["operator_next_command"]["codex_preflight_next_step"] == (
+        list_payload[1]["operator_home"]["codex_preflight_next_step"]
+    )
+    assert list_payload[1]["operator_next_command"]["codex_next_step"] == (
+        list_payload[1]["operator_home"]["codex_preflight_next_step"]
+    )
     assert "# Experiments" in list_markdown_result.stdout
     assert "`cli-list-show`" in list_markdown_result.stdout
     assert "`cli-list-iteration`" in list_markdown_result.stdout
@@ -28263,6 +28305,7 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
     assert "Show command SHA-256:" in list_markdown_result.stdout
     assert "Selector command SHA-256:" in list_markdown_result.stdout
     assert "Selected command SHA-256:" in list_markdown_result.stdout
+    assert "Codex preflight next step:" in list_markdown_result.stdout
     assert "Changes acceptance: `False`" in list_markdown_result.stdout
     list_markdown = render_experiment_list_markdown(list_payload)
     assert "# Experiments" in list_markdown
@@ -28281,6 +28324,7 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
     assert "Selector command SHA-256:" in list_markdown
     assert "Selected command SHA-256:" in list_markdown
     assert "Selected boundary: `operator_approval_receipt`" in list_markdown
+    assert "Codex preflight next step:" in list_markdown
     assert "Creates artifacts: `False`" in list_markdown
     assert "Changes acceptance: `False`" in list_markdown
     show_payload = json.loads(show_result.stdout)
@@ -28357,6 +28401,13 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
         "blocked_by_home_blockers"
     )
     assert show_iteration_payload["operator_next_command"]["blocked"] is True
+    assert show_iteration_payload["operator_home"]["codex_preflight_next_step"]
+    assert show_iteration_payload["operator_next_command"][
+        "codex_preflight_next_step"
+    ] == show_iteration_payload["operator_home"]["codex_preflight_next_step"]
+    assert show_iteration_payload["operator_next_command"]["codex_next_step"] == (
+        show_iteration_payload["operator_home"]["codex_preflight_next_step"]
+    )
     assert "# Experiment" in show_iteration_markdown_result.stdout
     assert "- Run id: `cli-list-iteration`" in show_iteration_markdown_result.stdout
     assert "## Operator Navigation" in show_iteration_markdown_result.stdout
@@ -28371,6 +28422,7 @@ def test_experiments_cli_list_and_show_work(tmp_path: Path) -> None:
     ) in show_iteration_markdown_result.stdout
     assert "Selector command SHA-256:" in show_iteration_markdown_result.stdout
     assert "Selected command SHA-256:" in show_iteration_markdown_result.stdout
+    assert "Codex preflight next step:" in show_iteration_markdown_result.stdout
     assert "Writes artifact: `operator_action_approval.json`" in (
         show_iteration_markdown_result.stdout
     )

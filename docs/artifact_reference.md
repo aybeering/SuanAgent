@@ -184,7 +184,10 @@ For iteration-loop rows, the compact home and next-command hints prefer the
 current terminal-only operator-home evidence and fall back to the saved
 manifest summary only when the current view cannot be built. This keeps later
 artifact-health history observations, including read errors and replay
-manifest drift, visible from the index without mutating run artifacts.
+manifest drift, visible from the index without mutating run artifacts. The
+compact navigation validator also checks the home source-view digest shape and
+the selector source-home source-view digest binding before returning list or
+show payloads.
 
 `python -m orchestrator.experiments show <run_id>` includes the same derived
 `operator_home` and `operator_next_command` hints in the compact run payload.

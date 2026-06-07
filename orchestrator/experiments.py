@@ -1119,6 +1119,7 @@ def validate_experiment_operator_navigation_pair(
     home_command = str(operator_home.get("command", ""))
     home_command_sha256 = str(operator_home.get("command_sha256", ""))
     home_next_command_sha256 = str(operator_home.get("next_command_sha256", ""))
+    home_source_views_sha256 = str(operator_home.get("source_views_sha256", ""))
     selector_command = str(operator_next_command.get("command", ""))
     selector_command_sha256 = str(operator_next_command.get("command_sha256", ""))
     source_home_command = str(operator_next_command.get("source_home_command", ""))
@@ -1160,6 +1161,7 @@ def validate_experiment_operator_navigation_pair(
             errors.append("experiment operator navigation non-iteration command")
         if (
             home_command_sha256
+            or home_source_views_sha256
             or selector_command_sha256
             or selected_command_sha256
             or source_home_command_sha256
@@ -1175,6 +1177,7 @@ def validate_experiment_operator_navigation_pair(
             errors.append("experiment operator navigation unavailable command")
         if (
             home_command_sha256
+            or home_source_views_sha256
             or selector_command_sha256
             or selected_command_sha256
             or source_home_command_sha256
@@ -1203,6 +1206,8 @@ def validate_experiment_operator_navigation_pair(
         errors.append("experiment operator navigation home command mismatch")
     if home_command_sha256 != sha256_text(home_command):
         errors.append("experiment operator navigation home command_sha256 mismatch")
+    if not is_sha256_hex(home_source_views_sha256):
+        errors.append("experiment operator navigation home source views sha256 mismatch")
     if str(operator_home.get("command_boundary", "")) != "read_only_inspection":
         errors.append("experiment operator navigation home boundary mismatch")
     if bool(operator_home.get("terminal_only", False)) is not True:

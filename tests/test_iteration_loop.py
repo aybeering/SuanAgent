@@ -27957,6 +27957,7 @@ def test_experiment_operator_navigation_pair_rejects_misleading_commands() -> No
     )
     digest_home["command_sha256"] = "bad-home"
     digest_home["next_command_sha256"] = "bad-selected"
+    digest_home["source_views_sha256"] = "bad-source-views"
     digest_next_command["command_sha256"] = "bad-selector"
     digest_next_command["source_home_command"] = "python -m orchestrator.run_loop"
     digest_next_command["source_home_command_sha256"] = "bad-source-home"
@@ -27971,6 +27972,10 @@ def test_experiment_operator_navigation_pair_rejects_misleading_commands() -> No
 
     assert (
         "experiment operator navigation home command_sha256 mismatch"
+        in digest_errors
+    )
+    assert (
+        "experiment operator navigation home source views sha256 mismatch"
         in digest_errors
     )
     assert (
@@ -28092,6 +28097,7 @@ def test_experiment_operator_navigation_pair_rejects_misleading_commands() -> No
         "available": False,
         "reason": "operator_home_missing",
         "next_command_status": "unavailable",
+        "source_views_sha256": "1" * 64,
     }
     misleading_next_command = {
         "available": False,
@@ -28109,6 +28115,7 @@ def test_experiment_operator_navigation_pair_rejects_misleading_commands() -> No
     )
 
     assert "experiment operator navigation unavailable command" in unavailable_errors
+    assert "experiment operator navigation unavailable digest" in unavailable_errors
     assert "experiment operator navigation unavailable status" in unavailable_errors
 
 

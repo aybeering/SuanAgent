@@ -32,13 +32,34 @@
     "source_artifacts": {
       "type": "object",
       "required": [
-        "rounds"
+        "rounds",
+        "round_records",
+        "executor_reports",
+        "executor_report_records"
       ],
       "properties": {
         "rounds": {
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "round_records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/file_record"
+          }
+        },
+        "executor_reports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "executor_report_records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/file_record"
           }
         }
       }
@@ -286,24 +307,7 @@
               "round_output_file_records": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "required": [
-                    "path",
-                    "exists",
-                    "sha256"
-                  ],
-                  "properties": {
-                    "path": {
-                      "type": "string"
-                    },
-                    "exists": {
-                      "type": "boolean"
-                    },
-                    "sha256": {
-                      "type": "string",
-                      "pattern": "^$|^[0-9a-f]{64}$"
-                    }
-                  }
+                  "$ref": "#/$defs/file_record"
                 }
               }
             }
@@ -339,6 +343,28 @@
         },
         "deterministic_code_keeps_acceptance_authority": {
           "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "file_record": {
+      "type": "object",
+      "required": [
+        "path",
+        "exists",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^$|^[0-9a-f]{64}$"
         }
       }
     }

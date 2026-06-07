@@ -9952,6 +9952,45 @@ def validate_optional_external_agent_sandbox_drill(
             report,
             f"external_agent_sandbox_drill.json run_id does not match report: {path}",
         )
+    source_artifacts = payload.get("source_artifacts", {})
+    if not isinstance(source_artifacts, dict):
+        add_error(report, "external_agent_sandbox_drill.json source_artifacts invalid")
+    else:
+        for paths_key, records_key, label in (
+            ("rounds", "round_records", "round"),
+            (
+                "executor_reports",
+                "executor_report_records",
+                "executor_report",
+            ),
+        ):
+            source_paths = source_artifacts.get(paths_key, [])
+            source_records = source_artifacts.get(records_key, [])
+            if not isinstance(source_paths, list) or not isinstance(
+                source_records,
+                list,
+            ):
+                add_error(
+                    report,
+                    f"external_agent_sandbox_drill.json source_artifacts {label} invalid",
+                )
+                continue
+            if len(source_paths) != len(source_records):
+                add_error(
+                    report,
+                    f"external_agent_sandbox_drill.json source_artifacts {label} count mismatch",
+                )
+                continue
+            for source_path_value, source_record in zip(source_paths, source_records):
+                validate_external_sandbox_file_record(
+                    report=report,
+                    repo_root=repo_root,
+                    path_value=source_path_value,
+                    record=source_record,
+                    error_prefix=(
+                        f"external_agent_sandbox_drill.json source_artifacts {label}"
+                    ),
+                )
     slots = payload.get("slots", [])
     if not isinstance(slots, list):
         add_error(report, "external_agent_sandbox_drill.json slots is invalid")
@@ -10180,6 +10219,38 @@ def validate_optional_external_agent_sandbox_drill(
         external_agent_sandbox_drill_markdown(payload)
     ):
         add_error(report, "external_agent_sandbox_drill.md mismatch")
+
+
+def validate_external_sandbox_file_record(
+    *,
+    report: dict[str, object],
+    repo_root: Path,
+    path_value: object,
+    record: object,
+    error_prefix: str,
+) -> None:
+    """Validate a sandbox drill file record against the current filesystem."""
+    if not isinstance(record, dict):
+        add_error(report, f"{error_prefix} record invalid")
+        return
+    source_path = str(path_value)
+    resolved_source_path = (
+        Path(source_path) if Path(source_path).is_absolute() else repo_root / source_path
+    )
+    source_exists = bool(
+        source_path and resolved_source_path.exists() and resolved_source_path.is_file()
+    )
+    expected_sha256 = (
+        hashlib.sha256(resolved_source_path.read_bytes()).hexdigest()
+        if source_exists
+        else ""
+    )
+    if str(record.get("path", "")) != str(resolved_source_path):
+        add_error(report, f"{error_prefix} path mismatch")
+    if bool(record.get("exists", False)) != source_exists:
+        add_error(report, f"{error_prefix} exists mismatch")
+    if record.get("sha256") != expected_sha256:
+        add_error(report, f"{error_prefix} sha256 mismatch")
 
 
 def validate_optional_codex_cli_replay_gate(

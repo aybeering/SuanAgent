@@ -14438,6 +14438,17 @@ def test_external_agent_sandbox_drill_reports_codex_dry_run_boundary(
     assert drill["totals"]["external_slot_count"] == 1
     assert drill["totals"]["dry_run_only_count"] == 1
     assert drill["totals"]["subprocess_executed_count"] == 0
+    source_artifacts = drill["source_artifacts"]
+    assert len(source_artifacts["round_records"]) == len(source_artifacts["rounds"])
+    assert len(source_artifacts["executor_report_records"]) == len(
+        source_artifacts["executor_reports"]
+    )
+    first_round_record = source_artifacts["round_records"][0]
+    assert first_round_record["path"] == source_artifacts["rounds"][0]
+    assert first_round_record["exists"] is True
+    assert first_round_record["sha256"] == hashlib.sha256(
+        Path(first_round_record["path"]).read_bytes()
+    ).hexdigest()
     slot = drill["slots"][0]
     assert slot["adapter_name"] == "codex_cli_dry_run"
     assert slot["sandbox_status"] == "ready"
@@ -14521,6 +14532,13 @@ def test_external_agent_sandbox_drill_reports_file_protocol_execution(
     assert drill["totals"]["external_slot_count"] == 1
     assert drill["totals"]["dry_run_only_count"] == 0
     assert drill["totals"]["subprocess_executed_count"] == 1
+    source_artifacts = drill["source_artifacts"]
+    executor_report_record = source_artifacts["executor_report_records"][0]
+    assert executor_report_record["path"] == source_artifacts["executor_reports"][0]
+    assert executor_report_record["exists"] is True
+    assert executor_report_record["sha256"] == hashlib.sha256(
+        Path(executor_report_record["path"]).read_bytes()
+    ).hexdigest()
     slot = drill["slots"][0]
     assert slot["adapter_name"] == "file_protocol"
     assert slot["command"]["source"] == "agent_execution"
@@ -14614,6 +14632,30 @@ def test_external_agent_sandbox_drill_reports_current_evidence_drift(
     assert (
         "external_agent_sandbox_drill.json command argv_sha256 mismatch"
         in digest_validation_report["errors"]
+    )
+    drill = write_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
+
+    source_digest_drift = dict(drill)
+    source_artifacts = dict(source_digest_drift["source_artifacts"])
+    source_records = list(source_artifacts["round_records"])
+    source_records[0] = dict(source_records[0])
+    source_records[0]["sha256"] = "0" * 64
+    source_artifacts["round_records"] = source_records
+    source_digest_drift["source_artifacts"] = source_artifacts
+    drill_path.write_text(
+        json.dumps(source_digest_drift, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    source_digest_validation_report = validate_run_artifacts(
+        run_id="sandbox-current-evidence-drift",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+    )
+
+    assert (
+        "external_agent_sandbox_drill.json source_artifacts round sha256 mismatch"
+        in source_digest_validation_report["errors"]
     )
     drill = write_external_agent_sandbox_drill(run_dir=run_dir, repo_root=repo)
 

@@ -25,8 +25,9 @@ def build_external_agent_sandbox_drill(
     """Return a deterministic dry-run report for external agent slots."""
     repo_root = repo_root.resolve()
     run_dir = resolve_path(run_dir, repo_root)
+    run_round_dirs = round_dirs(run_dir)
     slots: list[dict[str, Any]] = []
-    for round_dir in round_dirs(run_dir):
+    for round_dir in run_round_dirs:
         slots.extend(
             round_sandbox_rows(
                 round_dir=round_dir,
@@ -39,11 +40,7 @@ def build_external_agent_sandbox_drill(
         "run_id": run_dir.name,
         "run_dir": str(run_dir),
         "ok": status_counts.get("blocked", 0) == 0,
-        "source_artifacts": {
-            "rounds": [
-                str(path / "agent_execution_plan.json") for path in round_dirs(run_dir)
-            ],
-        },
+        "source_artifacts": source_artifacts(run_round_dirs, repo_root),
         "totals": {
             "slot_count": len(slots),
             "external_slot_count": sum(1 for slot in slots if slot["external_slot"]),
@@ -63,6 +60,24 @@ def build_external_agent_sandbox_drill(
             "does_not_change_acceptance": True,
             "deterministic_code_keeps_acceptance_authority": True,
         },
+    }
+
+
+def source_artifacts(round_paths: list[Path], repo_root: Path) -> dict[str, Any]:
+    """Return source artifacts used to build the sandbox drill."""
+    round_plan_paths = [path / "agent_execution_plan.json" for path in round_paths]
+    executor_report_paths = [path / "agent_executor_report.json" for path in round_paths]
+    return {
+        "rounds": [str(path) for path in round_plan_paths],
+        "round_records": [
+            file_record(existing_path(repo_root, str(path)), repo_root, str(path))
+            for path in round_plan_paths
+        ],
+        "executor_reports": [str(path) for path in executor_report_paths],
+        "executor_report_records": [
+            file_record(existing_path(repo_root, str(path)), repo_root, str(path))
+            for path in executor_report_paths
+        ],
     }
 
 

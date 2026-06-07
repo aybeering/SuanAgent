@@ -1648,6 +1648,37 @@ def test_operator_home_summarizes_artifact_health_history_replay_drift(
     assert home["artifact_health_history"]["status"] == (
         "replay_manifest_drift_observed"
     )
+    assert home["primary_focus"] == "artifact_health_history_replay_manifest_drift"
+    assert home["headline"] == "Review replay manifest drift before continuing."
+    assert home["next_command"]["label"] == "review_artifact_health_history"
+    assert home["next_command"]["source"] == "artifact_health_history"
+    assert home["next_command"]["command"] == home["artifact_health_history"][
+        "review_command"
+    ]
+    assert home["next_command"]["command_is_hint_only"] is True
+    assert home["action_home"]["next_command_label"] == (
+        "review_artifact_health_history"
+    )
+    assert home["action_home"]["next_command_status"] == "ready_for_operator"
+    assert home["action_home"]["next_command_blocked"] is False
+    assert home["action_home"]["next_command_boundary"] == "read_only_inspection"
+    assert home["action_home"]["next_command_writes_artifact"] == ""
+    assert home["action_home"]["next_command_is_hint_only"] is True
+    assert home["action_home"][
+        "next_command_requires_explicit_operator_invocation"
+    ] is True
+    assert home["action_home"]["next_command_requires_operator_approval"] is False
+    assert home["action_home"]["next_command_records_operator_approval"] is False
+    assert home["action_home"]["next_command_uses_guarded_executor"] is False
+    assert home["action_home"]["next_command_operator_hint"] == (
+        "Review replay manifest drift before continuing."
+    )
+    assert home["command_center"][0]["source"] == "action_next"
+    assert any(
+        row["source"] == "selected_next"
+        and row["label"] == "review_artifact_health_history"
+        for row in home["command_center"]
+    )
     assert home["artifact_health_history"][
         "round_replay_manifest_drift_observation_count"
     ] == 1
@@ -1656,6 +1687,10 @@ def test_operator_home_summarizes_artifact_health_history_replay_drift(
     ] == 1
     assert home["artifact_health_history"]["latest_failed_run_ids"] == [run_id]
     assert home["source_views"]["run_artifact_health_history"]["exists"] is True
+    assert "Primary focus: `artifact_health_history_replay_manifest_drift`" in (
+        markdown
+    )
+    assert "Next command: `review_artifact_health_history`" in markdown
     assert "## Artifact Health History" in markdown
     assert "Round replay manifest drift observations: `1`" in markdown
     assert "Latest replay drift: `1`" in markdown

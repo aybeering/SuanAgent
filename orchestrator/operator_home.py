@@ -60,10 +60,15 @@ def build_operator_home(
     priority = object_field(cockpit, "review_priority")
     guided_path = object_field(guide, "guided_path")
     guide_next_command = object_field(guide, "next_command")
+    artifact_health_history = artifact_health_history_home_summary(
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
     next_command = select_home_next_command(
         guide=guide,
         guide_next_command=guide_next_command,
         cockpit=cockpit,
+        artifact_health_history=artifact_health_history,
         run_dir=run_dir,
         experiments_dir=experiments_dir,
         repo_root=repo_root,
@@ -76,10 +81,6 @@ def build_operator_home(
         blockers=blockers,
     )
     codex_home = codex_home_summary(cockpit)
-    artifact_health_history = artifact_health_history_home_summary(
-        experiments_dir=experiments_dir,
-        repo_root=repo_root,
-    )
     status = home_status(cockpit=cockpit, guide=guide, blockers=blockers)
     next_command_first_blocker = blockers[0] if blockers else ""
     review_priority_command = str(priority.get("recommended_command", ""))
@@ -94,8 +95,12 @@ def build_operator_home(
             cockpit=cockpit,
             guide=guide,
             digest=digest,
+            artifact_health_history=artifact_health_history,
         ),
-        "primary_focus": str(cockpit.get("primary_focus", "")),
+        "primary_focus": home_primary_focus(
+            cockpit=cockpit,
+            artifact_health_history=artifact_health_history,
+        ),
         "run_summary": {
             "run_status": str(summary.get("run_status", "")),
             "outcome_category": str(summary.get("run_outcome_category", "")),
@@ -398,8 +403,14 @@ def home_headline(
     cockpit: dict[str, Any],
     guide: dict[str, Any],
     digest: dict[str, Any],
+    artifact_health_history: dict[str, Any],
 ) -> str:
     """Return the first-screen home headline."""
+    artifact_status = str(artifact_health_history.get("status", ""))
+    if artifact_status == "read_errors":
+        return "Review artifact-health history read errors before continuing."
+    if artifact_status == "replay_manifest_drift_observed":
+        return "Review replay manifest drift before continuing."
     if status == "blocked":
         return "Inspect blockers before continuing."
     if status == "needs_operator_review":
@@ -416,6 +427,20 @@ def home_headline(
             object_field(guide, "guidance").get("headline", cockpit.get("status", "")),
         )
     )
+
+
+def home_primary_focus(
+    *,
+    cockpit: dict[str, Any],
+    artifact_health_history: dict[str, Any],
+) -> str:
+    """Return the operator home's primary focus label."""
+    artifact_status = str(artifact_health_history.get("status", ""))
+    if artifact_status == "read_errors":
+        return "artifact_health_history_read_errors"
+    if artifact_status == "replay_manifest_drift_observed":
+        return "artifact_health_history_replay_manifest_drift"
+    return str(cockpit.get("primary_focus", ""))
 
 
 def command_center_rows(
@@ -452,12 +477,16 @@ def select_home_next_command(
     guide: dict[str, Any],
     guide_next_command: dict[str, Any],
     cockpit: dict[str, Any],
+    artifact_health_history: dict[str, Any],
     run_dir: Path,
     experiments_dir: Path,
     repo_root: Path,
 ) -> dict[str, object]:
     """Return the command hint that should be surfaced as the home next step."""
     guide_command = command_with_source(guide_next_command, "action_next")
+    artifact_command = artifact_health_history_command(artifact_health_history)
+    if artifact_command:
+        return artifact_command
     priority = object_field(cockpit, "review_priority")
     if guide.get("status") == "path_closed":
         followup = promotion_followup_command(
@@ -470,6 +499,35 @@ def select_home_next_command(
         if followup:
             return followup
     return guide_command
+
+
+def artifact_health_history_command(
+    artifact_health_history: dict[str, Any],
+) -> dict[str, object]:
+    """Return the read-only artifact-health history review command when needed."""
+    status = str(artifact_health_history.get("status", ""))
+    if status not in {"read_errors", "replay_manifest_drift_observed"}:
+        return {}
+    command = str(artifact_health_history.get("review_command", ""))
+    if not command:
+        return {}
+    if status == "read_errors":
+        reason = "Review artifact-health history read errors before continuing."
+    else:
+        reason = "Review replay manifest drift before continuing."
+    return {
+        "label": "review_artifact_health_history",
+        "command": command,
+        "reason": reason,
+        "writes_artifact": "",
+        "boundary": read_only_inspection_boundary(),
+        "source": "artifact_health_history",
+        "command_is_hint_only": True,
+        "requires_explicit_operator_invocation": True,
+        "requires_operator_approval": False,
+        "records_operator_approval": False,
+        "uses_guarded_executor": False,
+    }
 
 
 def promotion_followup_command(
@@ -709,6 +767,18 @@ def next_command_state(
             "blocked": True,
             "blocker_count": len(blockers),
             "operator_hint": "No next command is available; inspect the guided path.",
+        }
+    if str(next_command.get("source", "")) == "artifact_health_history":
+        return {
+            "status": "ready_for_operator",
+            "blocked": False,
+            "blocker_count": 0,
+            "operator_hint": str(
+                next_command.get(
+                    "reason",
+                    "Review artifact-health history before invoking other commands.",
+                )
+            ),
         }
     if blockers:
         return {

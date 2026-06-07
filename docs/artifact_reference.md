@@ -655,6 +655,12 @@ It also folds in the read-only artifact-health history summary, including
 record counts, repeated failure observations, round-replay manifest-drift
 observations, the latest replay-drift count, and the bounded review command
 for `run_artifact_health --history-summary --markdown`.
+When that history reports read errors or round-replay manifest drift, the
+terminal-only home view promotes the issue into the headline, primary focus,
+and selected next-command hint so operators review artifact health before
+normal follow-up commands. The promoted command remains a read-only,
+hint-only inspection command; it does not write artifacts, record approval,
+execute agents, run backtests, apply patches, or change acceptance.
 The command center always includes the selected next command when it differs
 from the action-guide command, so dynamic promotion follow-ups remain visible
 next to the regular cockpit and guide command rows. Each command-center row

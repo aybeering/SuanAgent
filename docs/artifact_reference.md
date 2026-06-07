@@ -461,10 +461,11 @@ printed, with deterministic consistency checks for recent failure/outcome
 counts, top recent code/category fields, latest accepted/rejected status
 summaries, latest-run to recent-tail binding, accepted-row flags,
 operator-home run/command/boundary binding, compact artifact-health history
-status and review-command digest binding, operator-next-command selector,
-source-home, and selected-command binding, champion-gap status and delta
-invariants, watchlist alert counts, severity counts, status, alert codes, and
-per-alert read-only review-command SHA-256 bindings, allowlisted
+status and review-command digest binding, schema-enforced empty-or-64-lowercase
+hex source-view digest fields, operator-next-command selector, source-home, and
+selected-command binding, champion-gap status and delta invariants, watchlist
+alert counts, severity counts, status, alert codes, and per-alert read-only
+review-command SHA-256 bindings, allowlisted
 `orchestrator.experiments ... --markdown` review-command shapes, and read-only
 policy flags. Artifact-health history read errors surface as critical watchlist
 alerts, while replay manifest-drift observations surface as warning alerts

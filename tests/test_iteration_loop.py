@@ -27333,6 +27333,32 @@ def test_experiment_summary_dashboard_schema_rejects_missing_watchlist() -> None
     assert "$: missing required property watchlist" in errors
 
 
+def test_experiment_summary_dashboard_schema_rejects_bad_source_digests() -> None:
+    payload = _minimal_experiment_summary_dashboard_payload()
+    operator_home = payload["operator_home_entry"]
+    operator_next_command = payload["operator_next_command_entry"]
+    assert isinstance(operator_home, dict)
+    assert isinstance(operator_next_command, dict)
+    operator_home["source_views_sha256"] = "bad-source-views"
+    operator_next_command["source_home_source_views_sha256"] = "bad-source-views"
+
+    errors = validate_experiment_summary_dashboard_payload(
+        payload,
+        repo_root=Path(__file__).resolve().parents[1],
+    )
+
+    assert any(
+        "operator_home_entry.source_views_sha256" in error
+        and "pattern" in error
+        for error in errors
+    )
+    assert any(
+        "operator_next_command_entry.source_home_source_views_sha256" in error
+        and "pattern" in error
+        for error in errors
+    )
+
+
 def test_experiment_watchlist_alerts_bind_review_commands() -> None:
     watchlist = dashboard_watchlist(
         recent_runs=[

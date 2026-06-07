@@ -331,7 +331,8 @@
           "type": "string"
         },
         "source_views_sha256": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^$|^[0-9a-f]{64}$"
         },
         "next_command_label": {
           "type": "string"
@@ -596,7 +597,8 @@
           "type": "string"
         },
         "source_home_source_views_sha256": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^$|^[0-9a-f]{64}$"
         },
         "selection_source": {
           "type": "string"

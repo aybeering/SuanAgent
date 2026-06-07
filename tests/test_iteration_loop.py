@@ -1589,6 +1589,66 @@ def test_run_artifact_health_history_summarizes_round_replay_manifest_drift(
     assert "replay drift `1`" in markdown
 
 
+def test_operator_home_summarizes_artifact_health_history_replay_drift(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repo_fixture(tmp_path)
+    history_path = repo / "experiments/run_artifact_health_history.jsonl"
+    run_id = "home-round-replay-drift"
+    run_iteration_loop(
+        run_id=run_id,
+        max_rounds=1,
+        repo_root=repo,
+    )
+    replay_path = repo / f"experiments/{run_id}/round_001/round_replay.json"
+    replay_payload = json.loads(replay_path.read_text(encoding="utf-8"))
+    replay_payload["tamper_marker"] = "home-visible-digest-drift"
+    replay_path.write_text(
+        json.dumps(replay_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    health = build_run_artifact_health(
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        run_ids=[run_id],
+    )
+    append_run_artifact_health_history(
+        payload=health,
+        history_path=history_path,
+        recorded_at="2026-01-01T00:00:00Z",
+    )
+
+    home = operator_home_report(
+        run_id=run_id,
+        experiments_dir=repo / "experiments",
+    )
+    markdown = render_operator_home_markdown(home)
+
+    assert home["schema_version"] == OPERATOR_HOME_SCHEMA_VERSION
+    assert_matches_schema_payload(home, "operator_home")
+    assert validate_operator_home_payload(
+        home,
+        run_dir=repo / f"experiments/{run_id}",
+        experiments_dir=repo / "experiments",
+        repo_root=repo,
+        require_current_evidence=True,
+    ) == ()
+    assert home["artifact_health_history"]["status"] == (
+        "replay_manifest_drift_observed"
+    )
+    assert home["artifact_health_history"][
+        "round_replay_manifest_drift_observation_count"
+    ] == 1
+    assert home["artifact_health_history"][
+        "latest_round_replay_manifest_drift_count"
+    ] == 1
+    assert home["artifact_health_history"]["latest_failed_run_ids"] == [run_id]
+    assert home["source_views"]["run_artifact_health_history"]["exists"] is True
+    assert "## Artifact Health History" in markdown
+    assert "Round replay manifest drift observations: `1`" in markdown
+    assert "Latest replay drift: `1`" in markdown
+
+
 def test_run_artifact_health_history_summarizes_failures(tmp_path: Path) -> None:
     repo = copy_repo_fixture(tmp_path)
     history_path = repo / "experiments/run_artifact_health_history.jsonl"

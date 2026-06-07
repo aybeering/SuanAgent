@@ -22,6 +22,10 @@ from orchestrator.operator_cockpit import (
     build_operator_cockpit,
     validate_operator_cockpit_payload,
 )
+from orchestrator.run_artifact_health import (
+    DEFAULT_HISTORY_FILENAME,
+    build_run_artifact_health_history,
+)
 from orchestrator.schema_validation import load_schema, validate_json_payload
 
 
@@ -72,6 +76,10 @@ def build_operator_home(
         blockers=blockers,
     )
     codex_home = codex_home_summary(cockpit)
+    artifact_health_history = artifact_health_history_home_summary(
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+    )
     status = home_status(cockpit=cockpit, guide=guide, blockers=blockers)
     next_command_first_blocker = blockers[0] if blockers else ""
     review_priority_command = str(priority.get("recommended_command", ""))
@@ -147,6 +155,7 @@ def build_operator_home(
             ),
         },
         "codex_home": codex_home,
+        "artifact_health_history": artifact_health_history,
         "guided_path": guided_path,
         "next_command": next_command,
         "review_priority": {
@@ -824,6 +833,73 @@ def codex_home_summary(cockpit: dict[str, Any]) -> dict[str, object]:
     }
 
 
+def artifact_health_history_home_summary(
+    *,
+    experiments_dir: Path,
+    repo_root: Path,
+) -> dict[str, object]:
+    """Return the artifact-health history summary shown on the home page."""
+    history_path = experiments_dir / DEFAULT_HISTORY_FILENAME
+    history = build_run_artifact_health_history(
+        experiments_dir=experiments_dir,
+        repo_root=repo_root,
+        history_path=history_path,
+        limit=1,
+    )
+    totals = object_field(history, "totals")
+    recent_records = list_of_dicts(history.get("recent_records", []))
+    latest = recent_records[-1] if recent_records else {}
+    command = "python -m orchestrator.run_artifact_health --history-summary --markdown"
+    record_count = int(totals.get("record_count", 0) or 0)
+    read_error_count = int(totals.get("read_error_count", 0) or 0)
+    return {
+        "status": artifact_health_history_status(
+            record_count=record_count,
+            read_error_count=read_error_count,
+            drift_count=int(
+                totals.get("round_replay_manifest_drift_observation_count", 0) or 0
+            ),
+        ),
+        "ok": bool(history.get("ok", False)) and read_error_count == 0,
+        "history_path": str(history_path),
+        "record_count": record_count,
+        "records_with_failures": int(totals.get("records_with_failures", 0) or 0),
+        "failed_run_observation_count": int(
+            totals.get("failed_run_observation_count", 0) or 0
+        ),
+        "artifact_failure_count": int(totals.get("artifact_failure_count", 0) or 0),
+        "round_replay_manifest_drift_observation_count": int(
+            totals.get("round_replay_manifest_drift_observation_count", 0) or 0
+        ),
+        "read_error_count": read_error_count,
+        "latest_recorded_at": str(latest.get("recorded_at", "")),
+        "latest_failed_count": int(latest.get("failed_count", 0) or 0),
+        "latest_round_replay_manifest_drift_count": int(
+            latest.get("round_replay_manifest_drift_count", 0) or 0
+        ),
+        "latest_failed_run_ids": string_list(latest.get("failed_run_ids", [])),
+        "review_command_label": "review_artifact_health_history",
+        "review_command": command,
+        "review_command_sha256": sha256_text(command),
+    }
+
+
+def artifact_health_history_status(
+    *,
+    record_count: int,
+    read_error_count: int,
+    drift_count: int,
+) -> str:
+    """Return a compact artifact-health history status for operator home."""
+    if read_error_count > 0:
+        return "read_errors"
+    if drift_count > 0:
+        return "replay_manifest_drift_observed"
+    if record_count > 0:
+        return "available"
+    return "empty"
+
+
 def command_for_label(
     commands: list[dict[str, Any]],
     label: str,
@@ -866,6 +942,10 @@ def source_views(
             run_dir / "operator_action_plan.json", repo_root
         ),
         "run_closeout": file_record(run_dir / "run_closeout.json", repo_root),
+        "run_artifact_health_history": file_record(
+            experiments_dir / DEFAULT_HISTORY_FILENAME,
+            repo_root,
+        ),
         "operator_unlock_checklist": file_record(
             run_dir / "operator_unlock_checklist.json", repo_root
         ),
@@ -898,6 +978,7 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
     run_summary = object_field(payload, "run_summary")
     action_home = object_field(payload, "action_home")
     codex_home = object_field(payload, "codex_home")
+    artifact_history = object_field(payload, "artifact_health_history")
     review_priority = object_field(payload, "review_priority")
     lines = [
         "# Operator Home",
@@ -933,6 +1014,9 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
         f"- Review priority command SHA-256: `{review_priority.get('command_sha256', '')}`",
         f"- Codex intake: `{codex_home.get('intake_readiness_status', '')}`",
         f"- Codex intake ready: `{codex_home.get('intake_ready', False)}`",
+        f"- Artifact-health history: `{artifact_history.get('status', '')}`",
+        "- Artifact-health replay drift observations: "
+        f"`{artifact_history.get('round_replay_manifest_drift_observation_count', 0)}`",
         "",
         "## Codex CLI",
         "",
@@ -952,6 +1036,25 @@ def render_operator_home_markdown(payload: dict[str, object]) -> str:
         f"- Runbook command SHA-256: `{codex_home.get('runbook_command_sha256', '')}`",
         f"- Review command: `{codex_home.get('review_command_label', '')}`",
         f"- Review command SHA-256: `{codex_home.get('review_command_sha256', '')}`",
+        "",
+        "## Artifact Health History",
+        "",
+        f"- Status: `{artifact_history.get('status', '')}`",
+        f"- OK: `{artifact_history.get('ok', False)}`",
+        f"- History path: `{artifact_history.get('history_path', '')}`",
+        f"- Records: `{artifact_history.get('record_count', 0)}`",
+        f"- Records with failures: `{artifact_history.get('records_with_failures', 0)}`",
+        "- Failed run observations: "
+        f"`{artifact_history.get('failed_run_observation_count', 0)}`",
+        f"- Artifact failures: `{artifact_history.get('artifact_failure_count', 0)}`",
+        "- Round replay manifest drift observations: "
+        f"`{artifact_history.get('round_replay_manifest_drift_observation_count', 0)}`",
+        f"- Latest record: `{artifact_history.get('latest_recorded_at', '')}`",
+        "- Latest replay drift: "
+        f"`{artifact_history.get('latest_round_replay_manifest_drift_count', 0)}`",
+        f"- Review command: `{artifact_history.get('review_command_label', '')}`",
+        "- Review command SHA-256: "
+        f"`{artifact_history.get('review_command_sha256', '')}`",
         "",
         "## Guided Path",
         "",
@@ -1335,6 +1438,7 @@ def validate_operator_home_consistency(
     )
     expected_action_home = object_field(expected, "action_home")
     expected_codex_home = object_field(expected, "codex_home")
+    expected_artifact_history = object_field(expected, "artifact_health_history")
     expected_command_center = command_center_by_marker(
         list_of_dicts(expected.get("command_center", []))
     )
@@ -1354,6 +1458,7 @@ def validate_operator_home_consistency(
         list_of_dicts(payload.get("command_center", []))
     )
     source_views_payload = object_field(payload, "source_views")
+    artifact_history = object_field(payload, "artifact_health_history")
     authority = object_field(payload, "authority")
     policy = object_field(payload, "policy")
     for field_name in (
@@ -1409,6 +1514,34 @@ def validate_operator_home_consistency(
     ):
         if codex_home.get(field_name) != expected_codex_home.get(field_name):
             errors.append(f"operator_home codex_home {field_name} mismatch")
+    for field_name in (
+        "status",
+        "ok",
+        "history_path",
+        "record_count",
+        "records_with_failures",
+        "failed_run_observation_count",
+        "artifact_failure_count",
+        "round_replay_manifest_drift_observation_count",
+        "read_error_count",
+        "latest_recorded_at",
+        "latest_failed_count",
+        "latest_round_replay_manifest_drift_count",
+        "latest_failed_run_ids",
+        "review_command_label",
+        "review_command",
+        "review_command_sha256",
+    ):
+        if artifact_history.get(field_name) != expected_artifact_history.get(field_name):
+            errors.append(
+                f"operator_home artifact_health_history {field_name} mismatch"
+            )
+    if str(artifact_history.get("review_command_sha256", "")) != sha256_text(
+        str(artifact_history.get("review_command", ""))
+    ):
+        errors.append(
+            "operator_home artifact_health_history review_command_sha256 mismatch"
+        )
     for field_name in ("review_command", "runbook_command"):
         digest_field = f"{field_name}_sha256"
         if str(codex_home.get(digest_field, "")) != sha256_text(

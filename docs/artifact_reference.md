@@ -642,6 +642,10 @@ when invoked through the dedicated command. The home action summary also
 reports whether the next command is currently blocked by home-level blockers,
 how many blockers apply, the first blocker identity, and the operator hint to
 review before invoking it.
+It also folds in the read-only artifact-health history summary, including
+record counts, repeated failure observations, round-replay manifest-drift
+observations, the latest replay-drift count, and the bounded review command
+for `run_artifact_health --history-summary --markdown`.
 The command center always includes the selected next command when it differs
 from the action-guide command, so dynamic promotion follow-ups remain visible
 next to the regular cockpit and guide command rows. Each command-center row
@@ -666,10 +670,11 @@ the refresh hint and surfaces the read-only champion status view instead. These
 commands are still only hints: approval, promotion, lineage refresh, and status
 inspection remain explicit dedicated commands.
 Its source records include the saved unlock checklist, unlock runbook,
-readiness diff, promotion approval, promotion receipt, global champion lineage,
-champion registry, and champion history so the first screen can point directly
-at the evidence behind Codex readiness and promotion follow-up decisions
-without becoming an unlock or promotion authority. It does not create run
+readiness diff, artifact-health history, promotion approval, promotion receipt,
+global champion lineage, champion registry, and champion history so the first
+screen can point directly at the evidence behind Codex readiness, artifact
+health, and promotion follow-up decisions without becoming an unlock,
+validation, or promotion authority. It does not create run
 artifacts, record approval, execute commands, write config, promote champions,
 run agents, run backtests, apply patches, route agents, or change acceptance.
 Completed iteration runs also record an `operator_home` manifest row and

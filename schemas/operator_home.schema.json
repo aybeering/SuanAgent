@@ -13,6 +13,7 @@
     "run_summary",
     "action_home",
     "codex_home",
+    "artifact_health_history",
     "guided_path",
     "next_command",
     "review_priority",
@@ -46,6 +47,7 @@
     "run_summary": {"$ref": "#/$defs/run_summary"},
     "action_home": {"$ref": "#/$defs/action_home"},
     "codex_home": {"$ref": "#/$defs/codex_home"},
+    "artifact_health_history": {"$ref": "#/$defs/artifact_health_history"},
     "guided_path": {"type": "object"},
     "next_command": {"type": "object"},
     "review_priority": {"$ref": "#/$defs/review_priority"},
@@ -213,6 +215,59 @@
         }
       }
     },
+    "artifact_health_history": {
+      "type": "object",
+      "required": [
+        "status",
+        "ok",
+        "history_path",
+        "record_count",
+        "records_with_failures",
+        "failed_run_observation_count",
+        "artifact_failure_count",
+        "round_replay_manifest_drift_observation_count",
+        "read_error_count",
+        "latest_recorded_at",
+        "latest_failed_count",
+        "latest_round_replay_manifest_drift_count",
+        "latest_failed_run_ids",
+        "review_command_label",
+        "review_command",
+        "review_command_sha256"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "available",
+            "empty",
+            "read_errors",
+            "replay_manifest_drift_observed"
+          ]
+        },
+        "ok": {"type": "boolean"},
+        "history_path": {"type": "string"},
+        "record_count": {"type": "integer"},
+        "records_with_failures": {"type": "integer"},
+        "failed_run_observation_count": {"type": "integer"},
+        "artifact_failure_count": {"type": "integer"},
+        "round_replay_manifest_drift_observation_count": {"type": "integer"},
+        "read_error_count": {"type": "integer"},
+        "latest_recorded_at": {"type": "string"},
+        "latest_failed_count": {"type": "integer"},
+        "latest_round_replay_manifest_drift_count": {"type": "integer"},
+        "latest_failed_run_ids": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "review_command_label": {"type": "string"},
+        "review_command": {"type": "string"},
+        "review_command_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
     "command_row": {
       "type": "object",
       "required": [
@@ -244,6 +299,7 @@
         "operator_action_dashboard",
         "operator_action_plan",
         "run_closeout",
+        "run_artifact_health_history",
         "operator_unlock_checklist",
         "codex_cli_unlock_runbook",
         "codex_cli_execution_readiness_diff",
@@ -258,6 +314,7 @@
         "operator_action_dashboard": {"$ref": "#/$defs/file_record"},
         "operator_action_plan": {"$ref": "#/$defs/file_record"},
         "run_closeout": {"$ref": "#/$defs/file_record"},
+        "run_artifact_health_history": {"$ref": "#/$defs/file_record"},
         "operator_unlock_checklist": {"$ref": "#/$defs/file_record"},
         "codex_cli_unlock_runbook": {"$ref": "#/$defs/file_record"},
         "codex_cli_execution_readiness_diff": {"$ref": "#/$defs/file_record"},

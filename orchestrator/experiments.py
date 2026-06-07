@@ -4753,6 +4753,20 @@ def validate_operator_run_review_consistency(
     status_summary = dict_payload(dashboard.get("status_summary", {}))
     summary = dict_payload(payload.get("summary", {}))
     config_review = dict_payload(dashboard.get("config_review", {}))
+    run_id = str(payload.get("run_id", ""))
+    run_dir = Path(str(payload.get("run_dir", "")))
+    expected_closeout_path = str(run_dir / "run_closeout.json")
+    expected_closeout_markdown_path = str(run_dir / "run_closeout.md")
+
+    if run_id and run_dir.name != run_id:
+        errors.append("operator_run_review run_dir run_id mismatch")
+    if str(payload.get("closeout_path", "")) != expected_closeout_path:
+        errors.append("operator_run_review closeout path mismatch")
+    if (
+        str(payload.get("closeout_markdown_path", ""))
+        != expected_closeout_markdown_path
+    ):
+        errors.append("operator_run_review closeout markdown path mismatch")
 
     def scalar_equal(left: object, right: object) -> bool:
         if left is None or right is None:

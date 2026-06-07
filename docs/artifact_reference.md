@@ -491,10 +491,11 @@ dashboard for terminal inspection. The terminal review payload is validated in
 memory against `schemas/operator_run_review.schema.json` before it
 is printed, with deterministic consistency checks that the copied top-level
 run status, closeout status, completed rounds, accepted round, stop reason, and
-config-lineage summary still match the embedded dashboard. It also checks the
-dashboard's fixed gate order, gate-to-summary bindings, read-only authority,
-policy flags, selected-candidate count, and research-watchlist status and alert
-count bindings. The command
+config-lineage summary still match the embedded dashboard, and that the run
+directory plus closeout JSON/markdown paths all bind to the same run id. It
+also checks the dashboard's fixed gate order, gate-to-summary bindings,
+read-only authority, policy flags, selected-candidate count, and
+research-watchlist status and alert count bindings. The command
 is read-only: it does not write config, promote champions, execute agents, run
 backtests, route candidates, apply patches, or change acceptance.
 `python -m orchestrator.experiments challenger <run_id>` writes or refreshes

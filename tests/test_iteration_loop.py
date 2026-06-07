@@ -28187,6 +28187,9 @@ def test_operator_run_review_payload_validation_reports_summary_drift() -> None:
     assert isinstance(gates, list)
     assert isinstance(dashboard_policy, dict)
     assert isinstance(authority, dict)
+    payload["run_dir"] = "experiments/other-run"
+    payload["closeout_path"] = "experiments/run/other_closeout.json"
+    payload["closeout_markdown_path"] = "experiments/run/other_closeout.md"
     payload["run_status"] = "accepted"
     summary["completed_rounds"] = 2
     summary["accepted_round"] = "round_001"
@@ -28223,6 +28226,9 @@ def test_operator_run_review_payload_validation_reports_summary_drift() -> None:
     assert "operator_run_review summary accepted_round mismatch" in errors
     assert "operator_run_review summary stop_reason mismatch" in errors
     assert "operator_run_review summary config_lineage_status mismatch" in errors
+    assert "operator_run_review run_dir run_id mismatch" in errors
+    assert "operator_run_review closeout path mismatch" in errors
+    assert "operator_run_review closeout markdown path mismatch" in errors
     assert "operator_run_review summary research_watchlist_status mismatch" in errors
     assert (
         "operator_run_review summary research_watchlist_alert_count mismatch"

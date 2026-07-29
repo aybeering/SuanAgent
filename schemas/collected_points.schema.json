@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Collected Points",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "points"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "collected_points_v1"
+      ]
+    },
+    "points": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "market_id",
+          "side",
+          "action",
+          "price",
+          "kind"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "minLength": 1
+          },
+          "market_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "side": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "buy",
+              "sell",
+              "enter",
+              "exit"
+            ]
+          },
+          "price": {
+            "type": "number"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "signal",
+              "fill"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "stake": {
+            "type": "number"
+          },
+          "quantity": {
+            "type": "number"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

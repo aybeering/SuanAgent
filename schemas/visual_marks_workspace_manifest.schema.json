@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Visual Marks Workspace Manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "workspace_kind",
+    "run_id",
+    "workspace_id",
+    "source_repo_root",
+    "workspace_path",
+    "include_dirs",
+    "include_files",
+    "input_digests",
+    "html_digests",
+    "initial_snapshot",
+    "mutation_policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "visual_marks_workspace_manifest_v1"
+      ]
+    },
+    "workspace_kind": {
+      "type": "string",
+      "enum": [
+        "visual_marks_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workspace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_repo_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workspace_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "include_dirs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "include_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "input_digests": {
+      "type": "object",
+      "required": [
+        "run_request_json"
+      ],
+      "properties": {
+        "run_request_json": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "html_digests": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "initial_snapshot": {
+      "type": "object",
+      "required": [
+        "file_count",
+        "sha256"
+      ],
+      "properties": {
+        "file_count": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "mutation_policy": {
+      "type": "object",
+      "required": [
+        "allowed_paths",
+        "reject_unlisted_changes",
+        "readonly_prefixes"
+      ],
+      "properties": {
+        "allowed_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reject_unlisted_changes": {
+          "type": "boolean"
+        },
+        "readonly_prefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

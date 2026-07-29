@@ -23,6 +23,8 @@ mapped commands; its machine-readable contract is
 Useful mode switches:
 
 ```bash
+python -m orchestrator.strategy_marks_run --split validation --run-id marks-demo
+python -m orchestrator.visual_marks_run --run-id visual-stub-demo --html page_a.html --html page_b.html
 python -m orchestrator.iteration_loop --config config/codex_dry_run.json --run-id dry-run-demo
 python -m orchestrator.iteration_loop --config config/adaptive_stub.json --run-id adaptive-demo
 python -m orchestrator.iteration_loop --config config/codex_cli_guarded.json --run-id guarded-demo --max-rounds 1
@@ -259,6 +261,64 @@ experiments/<run_id>/
   trades_before.csv
   trades_after.csv
 ```
+
+## Strategy Marks Workspace Artifacts
+
+The dead-strategy marks command creates an isolated workspace and writes:
+
+```text
+workspaces/<run_id>/strategy_marks/<workspace_id>/
+  workspace_manifest.json
+  input/run_request.json
+  input/market.csv
+  strategies/
+  backtester/
+  output/mark_points.json
+  output/mark_points.csv
+  output/marks_view.html
+  output/run_receipt.json
+```
+
+Schemas:
+
+- `schemas/strategy_marks_run_request.schema.json`
+- `schemas/strategy_marks_workspace_manifest.schema.json`
+- `schemas/strategy_mark_points.schema.json`
+- `schemas/strategy_marks_run_receipt.schema.json`
+
+`mark_points.json` is authoritative. `marks_view.html` is a local price-chart
+overlay for humans and agents; it does not decide acceptance.
+
+## Visual Marks Workspace Artifacts
+
+The stub visual-marks command creates an isolated workspace and writes:
+
+```text
+workspaces/<run_id>/visual_marks/<workspace_id>/
+  workspace_manifest.json
+  input/run_request.json
+  input/pages/*.html
+  tools/write_mark_points.py
+  tools/README.md
+  agent/stub_visual_agent.py
+  output/collected_points.json
+  output/mark_points.json
+  output/mark_points.csv
+  output/agent_trace.json
+  output/run_receipt.json
+```
+
+Schemas:
+
+- `schemas/visual_marks_run_request.schema.json`
+- `schemas/visual_marks_workspace_manifest.schema.json`
+- `schemas/collected_points.schema.json`
+- `schemas/visual_mark_points.schema.json`
+- `schemas/visual_agent_trace.schema.json`
+- `schemas/visual_marks_run_receipt.schema.json`
+
+The stub path accepts HTML and calls the marking script successfully with
+`mark_count=0`. It does not decide acceptance.
 
 ## Multi-Round Run Artifacts
 

@@ -119,6 +119,49 @@ Workspace manifests record the copied project surface, initial snapshot digest,
 profile, adapter, attempt id, and allowed mutation paths. Hidden mutation checks
 reject side effects outside the configured strategy file boundary.
 
+### Strategy Marks Workspace
+
+The dead-strategy marks endpoint uses a narrower isolated workspace:
+
+```text
+workspaces/<run_id>/strategy_marks/<workspace_id>/
+  input/
+  strategies/
+  backtester/
+  output/
+  workspace_manifest.json
+```
+
+This workspace kind (`strategy_marks_v1`) packs a market CSV and run request
+under `input/`, copies only `strategies/` and `backtester/`, and allows writes
+only to the fixed `output/` artifact paths. Input digests are bound in the
+manifest; changing `input/`, `strategies/`, or `backtester/` after packing is a
+workspace violation. The runner exports signal/fill mark points and a local
+`marks_view.html` page. It does not apply git patches or participate in
+iteration acceptance.
+
+### Visual Marks Workspace
+
+The stub visual-agent marks endpoint uses a parallel isolated workspace:
+
+```text
+workspaces/<run_id>/visual_marks/<workspace_id>/
+  input/run_request.json
+  input/pages/*.html
+  tools/write_mark_points.py
+  agent/stub_visual_agent.py
+  output/
+  workspace_manifest.json
+```
+
+This workspace kind (`visual_marks_v1`) packs n HTML pages under `input/pages/`,
+ships a built-in agent-friendly marking script under `tools/`, and allows writes
+only to fixed `output/` artifact paths. The hardcoded stub agent accepts HTML,
+emits empty collected points (`vision_mode=stub_empty`), calls
+`tools/write_mark_points.py`, and records `agent_trace.json`. The current stub
+succeeds with `mark_count=0`. It does not run a real vision model, apply git
+patches, or participate in iteration acceptance.
+
 ## Outcome Memory
 
 Iteration runs append compact proposal outcomes to `experiments/memory.jsonl`.

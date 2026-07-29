@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Visual Marks Run Receipt",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "workspace_id",
+    "status",
+    "workspace_path",
+    "html_accepted",
+    "script_exit_code",
+    "input_digest_ok",
+    "mutation_errors",
+    "artifact_sha256",
+    "mark_count"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "visual_marks_run_receipt_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workspace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "rejected"
+      ]
+    },
+    "workspace_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "html_accepted": {
+      "type": "boolean"
+    },
+    "script_exit_code": {
+      "type": "integer"
+    },
+    "input_digest_ok": {
+      "type": "boolean"
+    },
+    "mutation_errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "artifact_sha256": {
+      "type": "object",
+      "required": [
+        "mark_points_json",
+        "mark_points_csv",
+        "collected_points_json",
+        "agent_trace_json"
+      ],
+      "properties": {
+        "mark_points_json": {
+          "type": "string"
+        },
+        "mark_points_csv": {
+          "type": "string"
+        },
+        "collected_points_json": {
+          "type": "string"
+        },
+        "agent_trace_json": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "mark_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failure_reason": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

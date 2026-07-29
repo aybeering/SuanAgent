@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Visual Mark Points",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "workspace_id",
+    "source",
+    "html_digests",
+    "mark_count",
+    "marks"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "visual_mark_points_v1"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workspace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "visual_agent_stub"
+      ]
+    },
+    "html_digests": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "mark_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "marks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "mark_id",
+          "timestamp",
+          "market_id",
+          "side",
+          "action",
+          "price",
+          "kind",
+          "stake",
+          "quantity",
+          "reason",
+          "source"
+        ],
+        "properties": {
+          "mark_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "timestamp": {
+            "type": "string",
+            "minLength": 1
+          },
+          "market_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "side": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "buy",
+              "sell",
+              "enter",
+              "exit"
+            ]
+          },
+          "price": {
+            "type": "number"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "signal",
+              "fill"
+            ]
+          },
+          "stake": {
+            "type": "number"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "visual_agent_stub"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

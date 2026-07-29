@@ -48,6 +48,8 @@ python -m orchestrator.smoke_contract
 Useful mode switches:
 
 ```bash
+python -m orchestrator.strategy_marks_run --split validation --run-id marks-demo
+python -m orchestrator.visual_marks_run --run-id visual-stub-demo --html page_a.html --html page_b.html
 python -m orchestrator.iteration_loop --config config/codex_dry_run.json --run-id dry-run-demo
 python -m orchestrator.iteration_loop --config config/adaptive_stub.json --run-id adaptive-demo
 python -m orchestrator.iteration_loop --config config/codex_cli_guarded.json --run-id guarded-demo --max-rounds 1

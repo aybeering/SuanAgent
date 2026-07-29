@@ -57,6 +57,63 @@ Strategy code must not:
 The deterministic policy gate, not the strategy or agent, decides whether a
 patch is accepted.
 
+## Strategy Marks Export (Non-Patch)
+
+The dead-strategy marks workspace is a separate I/O surface from patch
+proposals. It runs the current strategy against a packed market CSV and writes:
+
+```text
+output/mark_points.json
+output/mark_points.csv
+output/marks_view.html
+output/run_receipt.json
+```
+
+`mark_points.json` is the authoritative machine contract
+(`strategy_mark_points_v1`). Each mark is either a `signal` from
+`generate_orders` or a `fill` from the deterministic simulator. This export
+does not replace `StrategyProposal`, does not `git apply`, and does not decide
+iteration acceptance.
+
+Create and run it with:
+
+```bash
+python -m orchestrator.strategy_marks_run --split validation --run-id marks-demo
+```
+
+## Visual Marks Export (Stub, Non-Patch)
+
+The visual-marks workspace is a separate I/O surface from both patch proposals
+and the dead-strategy marks endpoint. It packs n HTML pages, runs a hardcoded
+stub visual agent, and writes:
+
+```text
+output/collected_points.json
+output/mark_points.json
+output/mark_points.csv
+output/agent_trace.json
+output/run_receipt.json
+```
+
+Agents must call the built-in marking script instead of inventing writers:
+
+```bash
+python tools/write_mark_points.py \
+  --run-request input/run_request.json \
+  --points output/collected_points.json \
+  --output-dir output
+```
+
+`mark_points.json` uses `visual_mark_points_v1` with `source=visual_agent_stub`.
+The current stub accepts HTML and invokes the script successfully, but emits no
+signals (`mark_count=0`). This path does not decide iteration acceptance.
+
+Create and run it with:
+
+```bash
+python -m orchestrator.visual_marks_run --run-id visual-stub-demo --html page_a.html --html page_b.html
+```
+
 ## Agent Adapter Boundary
 
 Strategy modifier adapters must return a `StrategyProposal`.

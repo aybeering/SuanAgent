@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Codex Agent Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "runtime_root",
+    "workspace_root",
+    "defaults",
+    "agents"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["codex_agent_registry_v1"]
+    },
+    "runtime_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workspace_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "codex_executable",
+        "model",
+        "sandbox",
+        "persist_memory",
+        "network_access",
+        "timeout_seconds"
+      ],
+      "properties": {
+        "codex_executable": {"type": "string", "minLength": 1},
+        "model": {"type": "string", "minLength": 1},
+        "sandbox": {
+          "type": "string",
+          "enum": ["read-only", "workspace-write", "danger-full-access"]
+        },
+        "persist_memory": {"type": "boolean"},
+        "network_access": {"type": "boolean"},
+        "timeout_seconds": {"type": "integer", "minimum": 1}
+      }
+    },
+    "agents": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "description",
+          "workspace_sources",
+          "write_paths",
+          "handoff_export_paths",
+          "skills",
+          "tools",
+          "handoff_to",
+          "can_receive_from",
+          "instructions"
+        ],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "description": {"type": "string", "minLength": 1},
+          "workspace_sources": {"type": "array", "items": {"type": "string"}},
+          "write_paths": {"type": "array", "items": {"type": "string"}},
+          "handoff_export_paths": {"type": "array", "items": {"type": "string"}},
+          "skills": {"type": "array", "items": {"type": "string"}},
+          "tools": {"type": "array", "items": {"type": "string"}},
+          "handoff_to": {"type": "array", "items": {"type": "string"}},
+          "can_receive_from": {"type": "array", "items": {"type": "string"}},
+          "instructions": {"type": "string"},
+          "sandbox": {
+            "type": "string",
+            "enum": ["read-only", "workspace-write", "danger-full-access"]
+          },
+          "model": {"type": "string"},
+          "persist_memory": {"type": "boolean"},
+          "network_access": {"type": "boolean"}
+        }
+      }
+    }
+  }
+}

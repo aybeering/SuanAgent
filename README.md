@@ -34,6 +34,9 @@ iteration-loop checks, plus guarded adapter and artifact validation paths.
 | HTML chart rendering | Static `chart.html` and `trade_timeline.html` artifacts are generated from round outputs. | No external assets, scripts, or network data are used. |
 | Visual agent | An isolated `visual_marks` stub workspace accepts HTML, writes an agent trace, and produces mark-point artifacts. | The stub emits no visual trade signals and is not part of acceptance or routing. |
 | Overfit-validation agent | A deterministic `overfit_validation.json/md` artifact compares train, validation, and holdout changes. | It is advisory only and cannot veto; the actual holdout decision belongs to the deterministic policy gate. |
+| Isolated Codex CLI agents | `config/codex_agents.json` registers private workspaces, private `CODEX_HOME` directories, concrete read/write paths, skills/tools declarations, and directed handoff edges. | Provisioning and handoff are standalone control-plane utilities; the default registry does not execute Codex or connect agents to the acceptance loop. |
+| Codex CLI / Lark CLI integration | `config/cli_integrations.json` registers both executables, and `orchestrator.cli_connectivity` checks `--version` and `--help` locally. | No login, account authorization, model request, Lark API request, or network probe is performed. |
+| Docker development | `Dockerfile` and `docker-compose.yml` provide the Python runtime, CLI binaries, container-owned home/state, and Docker-managed output volumes. | The host only mounts source code; no host Python, `HOME`, `CODEX_HOME`, credentials, or CLI profile is used. |
 | Acceptance and exit | Validation policy, holdout risk checks, rollback, commit, and stop conditions are implemented. | Natural-language or agent output cannot override the gates. |
 | Data sending | No data-sending service or real-time feedback channel exists. | Current data flow is local files and experiment artifacts only. |
 
@@ -46,6 +49,12 @@ iteration-loop checks, plus guarded adapter and artifact validation paths.
 - `docs/artifact_reference.md` indexes commands, generated artifacts, replay
   tools, and validators.
 - `docs/codex_cli_readiness.md` explains the guarded Codex CLI evidence chain.
+- `docs/codex_agent_isolation.md` explains the private Codex CLI registry,
+  workspaces, and directed handoff flow.
+- `docs/cli_connectivity.md` explains the unauthenticated Codex CLI and Lark
+  CLI integration checks.
+- `docs/docker_development.md` explains the container boundary and development
+  commands.
 - `docs/contract_roadmap.md` tracks the detailed V0.5 contract roadmap.
 - `docs/strategy_interface.md` documents what strategy code may change.
 - `schemas/` contains the machine-readable JSON contracts.
@@ -58,6 +67,17 @@ python -m orchestrator.run_loop
 python -m orchestrator.iteration_loop
 python -m orchestrator.preflight --config config/default.json
 python -m orchestrator.smoke_contract
+python -m orchestrator.codex_agent_runtime --repo-root . --registry config/codex_agents.json validate
+python -m orchestrator.cli_connectivity --config config/cli_integrations.json
+```
+
+Docker development commands are documented in `docs/docker_development.md`.
+The short path is:
+
+```bash
+docker compose build
+docker compose up -d dev
+docker compose exec dev python -m pytest
 ```
 
 Useful mode switches:

@@ -1,0 +1,18 @@
+{
+  "schema_version": "cli_integrations_v1",
+  "connectivity_test": {
+    "timeout_seconds": 10,
+    "authentication_probe": "not_run",
+    "network_probe": "not_run"
+  },
+  "integrations": {
+    "codex_cli": {
+      "executable": "codex",
+      "purpose": "运行隔离的 Codex CLI agent"
+    },
+    "lark_cli": {
+      "executable": "lark-cli",
+      "purpose": "未来访问飞书/Lark 资源的命令行入口"
+    }
+  }
+}

@@ -366,6 +366,12 @@ def build_artifact_validator_coverage(*, repo_root: Path = Path(".")) -> dict[st
             read_text(repo_root / "orchestrator/run_closeout.py"),
             read_text(repo_root / "orchestrator/experiments.py"),
             read_text(repo_root / "orchestrator/smoke_contract.py"),
+            read_text(repo_root / "orchestrator/codex_agent_runtime.py"),
+            read_text(repo_root / "orchestrator/cli_connectivity.py"),
+            read_text(repo_root / "orchestrator/strategy_marks_run.py"),
+            read_text(repo_root / "orchestrator/strategy_marks_workspace.py"),
+            read_text(repo_root / "orchestrator/visual_marks_run.py"),
+            read_text(repo_root / "orchestrator/visual_marks_workspace.py"),
         )
     )
     docs_text = read_paths(paths=DOC_PATHS, repo_root=repo_root)

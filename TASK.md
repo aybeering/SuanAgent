@@ -3,7 +3,9 @@
 Build only V0.5 of the self-iterating strategy improvement system.
 
 The implementation should stay deterministic, auditable, and small. V0.5 is a
-control-flow prototype, not the full multi-agent system.
+control-flow prototype, not the full multi-agent system. The repository also
+contains a standalone Codex CLI isolation control plane; it does not change
+the V0.5 acceptance loop.
 
 ## Current target
 
@@ -38,7 +40,7 @@ roadmap.
 
 ## Out of scope
 
-- Real Codex CLI strategy execution.
+- Real Codex CLI strategy execution inside the V0.5 iteration loop.
 - Full multi-agent architecture.
 - Concurrent or distributed agent execution.
 - Visual agents with routing authority.

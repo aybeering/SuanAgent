@@ -1,0 +1,75 @@
+{
+  "schema_version": "codex_agent_registry_v1",
+  "runtime_root": "experiments/codex_agents",
+  "workspace_root": "workspaces/codex_agents",
+  "defaults": {
+    "codex_executable": "codex",
+    "model": "default",
+    "sandbox": "workspace-write",
+    "persist_memory": false,
+    "network_access": false,
+    "timeout_seconds": 120
+  },
+  "agents": [
+    {
+      "id": "analysis_agent",
+      "description": "读取固定数据和策略代码，产出可交接的分析结论；不能修改策略代码。",
+      "workspace_sources": [
+        "strategies",
+        "backtester",
+        "data",
+        "docs/strategy_interface.md"
+      ],
+      "write_paths": ["output"],
+      "handoff_export_paths": ["output"],
+      "skills": [],
+      "tools": ["shell"],
+      "handoff_to": ["strategy_bot"],
+      "can_receive_from": [],
+      "instructions": "把分析结果写入 output/，需要让策略 bot 看到的内容只能通过显式 handoff 发送。",
+      "sandbox": "workspace-write",
+      "persist_memory": false,
+      "network_access": false
+    },
+    {
+      "id": "strategy_bot",
+      "description": "只在自己的工作区内开发策略候选修改，并将候选结果交给验证 agent。",
+      "workspace_sources": [
+        "strategies",
+        "backtester",
+        "data",
+        "docs/strategy_interface.md"
+      ],
+      "write_paths": ["strategies/current_strategy.py", "output"],
+      "handoff_export_paths": ["output"],
+      "skills": [],
+      "tools": ["shell"],
+      "handoff_to": ["verification_agent"],
+      "can_receive_from": ["analysis_agent", "verification_agent"],
+      "instructions": "只允许改 strategies/current_strategy.py；分析 agent 的结论必须从 inbox/ 读取，不能搜索其他 agent 的目录。",
+      "sandbox": "workspace-write",
+      "persist_memory": false,
+      "network_access": false
+    },
+    {
+      "id": "verification_agent",
+      "description": "复核策略 bot 交接的候选结果和回测证据；不能修改策略代码，也不能决定主循环是否接受。",
+      "workspace_sources": [
+        "strategies",
+        "backtester",
+        "data",
+        "docs/strategy_interface.md"
+      ],
+      "write_paths": ["output"],
+      "handoff_export_paths": ["output"],
+      "skills": [],
+      "tools": ["shell"],
+      "handoff_to": ["strategy_bot"],
+      "can_receive_from": ["strategy_bot"],
+      "instructions": "只把复核结果写入 output/；最终接受或拒绝仍由确定性 policy gate 决定。",
+      "sandbox": "workspace-write",
+      "persist_memory": false,
+      "network_access": false
+    }
+  ]
+}

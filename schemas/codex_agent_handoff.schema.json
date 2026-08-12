@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent Codex Agent Handoff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "handoff_id",
+    "run_id",
+    "from_agent",
+    "to_agent",
+    "created_at",
+    "task",
+    "message",
+    "artifacts",
+    "recipient_permissions"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["codex_agent_handoff_v1"]
+    },
+    "handoff_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "from_agent": {"type": "string", "minLength": 1},
+    "to_agent": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "minLength": 1},
+    "task": {"type": "string", "minLength": 1},
+    "message": {"type": "string", "minLength": 1},
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "recipient_permissions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["read_only_inbox", "can_write_paths", "can_send_to"],
+      "properties": {
+        "read_only_inbox": {"type": "boolean"},
+        "can_write_paths": {"type": "array", "items": {"type": "string"}},
+        "can_send_to": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

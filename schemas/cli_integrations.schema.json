@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SuanAgent CLI Integrations",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "connectivity_test", "integrations"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["cli_integrations_v1"]
+    },
+    "connectivity_test": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeout_seconds", "authentication_probe", "network_probe"],
+      "properties": {
+        "timeout_seconds": {"type": "integer", "minimum": 1},
+        "authentication_probe": {
+          "type": "string",
+          "enum": ["not_run"]
+        },
+        "network_probe": {
+          "type": "string",
+          "enum": ["not_run"]
+        }
+      }
+    },
+    "integrations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codex_cli", "lark_cli"],
+      "properties": {
+        "codex_cli": {"$ref": "#/$defs/integration"},
+        "lark_cli": {"$ref": "#/$defs/integration"}
+      }
+    }
+  },
+  "$defs": {
+    "integration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["executable", "purpose"],
+      "properties": {
+        "executable": {"type": "string", "minLength": 1},
+        "purpose": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

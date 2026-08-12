@@ -79,7 +79,9 @@ views, and operator next-command views.
 
 Still out of scope:
 
-1. Real Codex CLI strategy execution.
+1. Real Codex CLI strategy execution inside the V0.5 iteration loop. The
+   standalone `orchestrator.codex_agent_runtime` control plane may build and,
+   only with an explicit `--execute`, run a registered private Codex process.
 2. Full multi-agent architecture.
 3. Concurrent or distributed agent execution.
 4. Visual agents with routing authority.
@@ -99,6 +101,8 @@ lists:
 - `docs/artifact_reference.md` indexes generated artifacts, commands, replay
   tools, and validators.
 - `docs/codex_cli_readiness.md` explains guarded Codex CLI readiness evidence.
+- `docs/codex_agent_isolation.md` explains private Codex CLI workspaces,
+  per-agent Codex state, permissions, and explicit handoffs.
 - `docs/contract_roadmap.md` tracks the detailed V0.5 contract roadmap.
 - `docs/strategy_interface.md` documents the strategy modification boundary.
 - `schemas/` contains machine-readable JSON contracts.

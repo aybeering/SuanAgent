@@ -22,6 +22,21 @@ GitHub Actions runs the deterministic smoke suite on every push and pull
 request. The workflow covers the required pytest, preflight, single-run, and
 iteration-loop checks, plus guarded adapter and artifact validation paths.
 
+## Module status for the depicted loop
+
+| Module | Current implementation | Boundary |
+| --- | --- | --- |
+| Strategy bot | Deterministic strategy code generates YES orders and the local backtester simulates them. | No live market, exchange, wallet, or order execution. |
+| Strategy-modification agent | The active strategy-modifier slot is implemented through deterministic stubs and guarded adapters. | The default modifier is `fixed_patch_stub`; real Codex execution is disabled by default. |
+| Analysis agent | A read-only `analysis_notes.json/md` producer exists. | It only summarizes fixed metrics, is marked `implemented=false`, and cannot route or accept a patch. |
+| Next-round simulation | The iteration loop reruns train, validation, and holdout simulations after a candidate patch. | The loop stops on acceptance, repeated proposal, no improvement, deterministic failure, or the round limit. |
+| Backtest output | Each round writes metrics JSON, trades CSV, and Markdown reports. | Inputs are fixed local CSV datasets. |
+| HTML chart rendering | Static `chart.html` and `trade_timeline.html` artifacts are generated from round outputs. | No external assets, scripts, or network data are used. |
+| Visual agent | An isolated `visual_marks` stub workspace accepts HTML, writes an agent trace, and produces mark-point artifacts. | The stub emits no visual trade signals and is not part of acceptance or routing. |
+| Overfit-validation agent | A deterministic `overfit_validation.json/md` artifact compares train, validation, and holdout changes. | It is advisory only and cannot veto; the actual holdout decision belongs to the deterministic policy gate. |
+| Acceptance and exit | Validation policy, holdout risk checks, rollback, commit, and stop conditions are implemented. | Natural-language or agent output cannot override the gates. |
+| Data sending | No data-sending service or real-time feedback channel exists. | Current data flow is local files and experiment artifacts only. |
+
 ## Documentation
 
 - `TASK.md` defines the current V0.5 target and smoke checks.

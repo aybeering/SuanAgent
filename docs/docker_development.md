@@ -10,7 +10,7 @@ The image contains:
 
 - Python 3.11 and the repository's test/runtime files;
 - pytest for development checks;
-- the Codex CLI and `lark-cli`, pinned by Docker build arguments;
+- the Codex CLI, `lark-cli`, and GitHub CLI (`gh`);
 - a container-owned `HOME`, `CODEX_HOME`, `/tmp`, experiment volume, and
   workspace volume.
 
@@ -25,9 +25,9 @@ docker compose build
 docker compose up -d dev
 ```
 
-Compose marks the service healthy only after the container-local Codex CLI and
-Lark CLI `--version`/`--help` probes pass. This healthcheck still performs no
-authentication or business API request.
+Compose marks the service healthy only after the container-local Codex CLI,
+Lark CLI, and GitHub CLI `--version`/`--help` probes pass. This healthcheck
+still performs no authentication or business API request.
 
 Run repository commands through the container:
 
@@ -37,6 +37,7 @@ docker compose exec dev python -m orchestrator.preflight --config config/default
 docker compose exec dev python -m orchestrator.smoke_contract
 docker compose exec dev python -m orchestrator.cli_connectivity \
   --config config/cli_integrations.json --strict
+docker compose exec dev gh auth status
 ```
 
 The source tree is mounted at `/workspace`; generated experiments and agent
@@ -46,15 +47,15 @@ project path.
 
 ## Codex and Lark authorization boundary
 
-The image contains the two CLI executables, but it contains no account
-authorization. Do not mount the host's `~/.codex`, Lark profile directory, or
-any credential file into the container. Authorization is a later explicit
-step, and should use a deliberately scoped container volume or environment
-secret rather than a source-tree file.
+The image contains the three CLI executables, but it contains no account
+authorization. Do not mount the host's `~/.codex`, Lark profile directory,
+GitHub CLI profile, or any credential file into the container. Authorization is
+a later explicit step, and should use a deliberately scoped container volume
+or environment secret rather than a source-tree file.
 
 The default image command runs only unauthenticated local CLI probes. It does
-not call `codex exec`, `lark-cli auth`, `lark-cli doctor`, `whoami`, or a
-business API.
+not call `codex exec`, `lark-cli auth`, `lark-cli doctor`, `gh auth`, `gh api`,
+`whoami`, or a business API.
 
 ## Stop and inspect
 

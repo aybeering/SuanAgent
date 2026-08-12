@@ -22,6 +22,22 @@ GitHub Actions runs the deterministic smoke suite on every push and pull
 request. The workflow covers the required pytest, preflight, single-run, and
 iteration-loop checks, plus guarded adapter and artifact validation paths.
 
+## Three CLI foundations
+
+This repository is built around three CLI foundations with separate
+responsibilities:
+
+| CLI foundation | Responsibility in this project | Current boundary |
+| --- | --- | --- |
+| Codex CLI | Constructs the project and performs concrete implementation work. | The executable is installed in Docker and isolated-agent execution is available through guarded runtime commands; real strategy-loop execution remains disabled by default. |
+| GitHub CLI (`gh`) | Manages repository development: branches, Issues, Pull Requests, reviews, and collaboration. | The executable is installed and locally probed in Docker. GitHub reads and writes require separate authorization and are not performed by the healthcheck. |
+| Lark CLI | Retains documents and experience, and provides a future place for agent communication and task handoff. | The executable is installed and locally probed; no Lark account authorization or business API request is performed. |
+
+The three CLIs are registered in `config/cli_integrations.json`. Their
+installation and local checks are independent from account authorization, so a
+missing or expired host login cannot make the container healthcheck claim that
+an authenticated workflow is available.
+
 ## Module status for the depicted loop
 
 | Module | Current implementation | Boundary |
@@ -35,7 +51,7 @@ iteration-loop checks, plus guarded adapter and artifact validation paths.
 | Visual agent | An isolated `visual_marks` stub workspace accepts HTML, writes an agent trace, and produces mark-point artifacts. | The stub emits no visual trade signals and is not part of acceptance or routing. |
 | Overfit-validation agent | A deterministic `overfit_validation.json/md` artifact compares train, validation, and holdout changes. | It is advisory only and cannot veto; the actual holdout decision belongs to the deterministic policy gate. |
 | Isolated Codex CLI agents | `config/codex_agents.json` registers private workspaces, private `CODEX_HOME` directories, concrete read/write paths, skills/tools declarations, and directed handoff edges. | Provisioning and handoff are standalone control-plane utilities; the default registry does not execute Codex or connect agents to the acceptance loop. |
-| Codex CLI / Lark CLI integration | `config/cli_integrations.json` registers both executables, and `orchestrator.cli_connectivity` checks `--version` and `--help` locally. | No login, account authorization, model request, Lark API request, or network probe is performed. |
+| Codex CLI / GitHub CLI / Lark CLI integration | `config/cli_integrations.json` registers all three executables, and `orchestrator.cli_connectivity` checks `--version` and `--help` locally. | No login, account authorization, model request, GitHub write, Lark API request, or network probe is performed by the healthcheck. |
 | Docker development | `Dockerfile` and `docker-compose.yml` provide the Python runtime, CLI binaries, container-owned home/state, and Docker-managed output volumes. | The host only mounts source code; no host Python, `HOME`, `CODEX_HOME`, credentials, or CLI profile is used. |
 | Acceptance and exit | Validation policy, holdout risk checks, rollback, commit, and stop conditions are implemented. | Natural-language or agent output cannot override the gates. |
 | Data sending | No data-sending service or real-time feedback channel exists. | Current data flow is local files and experiment artifacts only. |
@@ -51,8 +67,8 @@ iteration-loop checks, plus guarded adapter and artifact validation paths.
 - `docs/codex_cli_readiness.md` explains the guarded Codex CLI evidence chain.
 - `docs/codex_agent_isolation.md` explains the private Codex CLI registry,
   workspaces, and directed handoff flow.
-- `docs/cli_connectivity.md` explains the unauthenticated Codex CLI and Lark
-  CLI integration checks.
+- `docs/cli_connectivity.md` explains the unauthenticated Codex CLI, GitHub CLI,
+  and Lark CLI integration checks.
 - `docs/docker_development.md` explains the container boundary and development
   commands.
 - `docs/contract_roadmap.md` tracks the detailed V0.5 contract roadmap.

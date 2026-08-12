@@ -20,6 +20,17 @@ def test_repository_cli_integration_config_is_schema_valid() -> None:
     ) == ()
 
 
+def test_repository_registers_github_cli() -> None:
+    payload = json.loads(
+        (REPO_ROOT / "config/cli_integrations.json").read_text(encoding="utf-8")
+    )
+
+    assert payload["integrations"]["github_cli"] == {
+        "executable": "gh",
+        "purpose": "管理 GitHub 仓库、分支、Issue、Pull Request 和协作流程",
+    }
+
+
 def test_probe_checks_only_local_version_and_help(tmp_path: Path) -> None:
     config_path = tmp_path / "repo/config/cli_integrations.json"
     config_path.parent.mkdir(parents=True)
@@ -41,6 +52,10 @@ def test_probe_checks_only_local_version_and_help(tmp_path: Path) -> None:
                         "executable": sys.executable,
                         "purpose": "test lark",
                     },
+                    "github_cli": {
+                        "executable": sys.executable,
+                        "purpose": "test github",
+                    },
                 },
             }
         ),
@@ -56,7 +71,7 @@ def test_probe_checks_only_local_version_and_help(tmp_path: Path) -> None:
 
     assert report["scope"]["authentication_probe"] is False
     assert report["scope"]["network_probe"] is False
-    assert report["summary"]["available_local_count"] == 2
+    assert report["summary"]["available_local_count"] == 3
     for item in report["results"]:
         assert item["status"] == "available_local_only"
         assert item["authentication"] == {"attempted": False, "status": "not_run"}

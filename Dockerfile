@@ -2,6 +2,7 @@ FROM python:3.11-slim-bookworm
 
 ARG CODEX_CLI_VERSION=0.147.0-alpha.6.5
 ARG LARK_CLI_VERSION=1.0.85
+ARG GITHUB_CLI_VERSION=2.23.0+dfsg1-1
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -17,7 +18,7 @@ WORKDIR /workspace
 # developer's host installation. Versions are build arguments so an operator
 # can deliberately upgrade them instead of silently inheriting host binaries.
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y ca-certificates curl git nodejs npm \
+    && apt-get install --no-install-recommends -y ca-certificates curl "gh=${GITHUB_CLI_VERSION}" git nodejs npm \
     && rm -rf /var/lib/apt/lists/* \
     && npm install --global --no-update-notifier \
         "@openai/codex@${CODEX_CLI_VERSION}" \

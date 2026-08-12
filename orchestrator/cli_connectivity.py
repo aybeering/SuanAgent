@@ -1,4 +1,4 @@
-"""Unauthenticated local connectivity checks for Codex CLI and lark-cli.
+"""Unauthenticated local availability checks for project CLI integrations.
 
 The checks intentionally run only ``<cli> --version`` and ``<cli> --help``.
 They prove that a configured executable can start locally; they do not prove
@@ -145,7 +145,7 @@ def _first_line(value: str) -> str:
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Check local Codex CLI and lark-cli availability without auth.")
+    parser = argparse.ArgumentParser(description="Check local Codex, Lark, and GitHub CLI availability without auth.")
     parser.add_argument("--config", type=Path, default=Path("config/cli_integrations.json"))
     parser.add_argument("--strict", action="store_true", help="exit 1 if either CLI is unavailable or probe fails")
     return parser

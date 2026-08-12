@@ -13,6 +13,10 @@
     "lark_cli": {
       "executable": "lark-cli",
       "purpose": "未来访问飞书/Lark 资源的命令行入口"
+    },
+    "github_cli": {
+      "executable": "gh",
+      "purpose": "管理 GitHub 仓库、分支、Issue、Pull Request 和协作流程"
     }
   }
 }

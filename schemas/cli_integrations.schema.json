@@ -28,10 +28,11 @@
     "integrations": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["codex_cli", "lark_cli"],
+      "required": ["codex_cli", "lark_cli", "github_cli"],
       "properties": {
         "codex_cli": {"$ref": "#/$defs/integration"},
-        "lark_cli": {"$ref": "#/$defs/integration"}
+        "lark_cli": {"$ref": "#/$defs/integration"},
+        "github_cli": {"$ref": "#/$defs/integration"}
       }
     }
   },
